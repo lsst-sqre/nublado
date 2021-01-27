@@ -1,23 +1,22 @@
 #!/bin/sh
 source ${LOADSTACK} && \
-      conda install -y -c conda-forge mamba
+    conda install -y -c conda-forge mamba
 source ${LOADSTACK} && \
-      mamba install -y -c conda-forge geoviews \
+    mamba install -y -c conda-forge \
       'jupyterlab=2' \
       jupyterhub \
       jupyter-server-proxy \
       jupyter-packaging \
+      geoviews \
       cookiecutter \
       nbval \
       pyshp \
       pypandoc \
       astroquery \
-      ipywidgets \
       ipyevents \
       ipywidgets \
       ipyevents \
       bokeh \
-      pyarrow \
       cloudpickle \
       ipympl \
       fastparquet \
@@ -34,7 +33,6 @@ source ${LOADSTACK} && \
       "holoviews[recommended]" \
       datashader \
       python-snappy \
-      cython \
       graphviz \
       'mysqlclient!=2.0.2' \
       hvplot \
@@ -58,7 +56,6 @@ source ${LOADSTACK} && \
       freetype-py \
       nodejs \
       terminado \
-      pytables \
       "jedi<0.18.0"
 source ${LOADSTACK} && \
       pip install --upgrade \
@@ -71,10 +68,7 @@ source ${LOADSTACK} && \
        jupyter_firefly_extensions \
        nbconvert[webpdf] \
        nclib \
-       git+https://github.com/ericmandel/pyjs9 \
-       freetype-py \
-       nodejs \
-       "terminado>=0.9.0"
+       git+https://github.com/ericmandel/pyjs9
 # Add stack kernel
 source ${LOADSTACK} && \
       python3 -m ipykernel install --name 'LSST'
