@@ -1,12 +1,8 @@
 #!/bin/sh
 set -e
 source ${LOADSTACK}
-mkdir -p /tmp/env
-cd /tmp/env
-conda env export > environment.yml
-sed -i.bak -e 's/^name: \(.*\)$/name: rsp-\1/' environment.yml
-conda env create
-conda deactivate
+rspname="rsp-${LSST_CONDA_ENV_NAME}"
+conda create --name ${rspname} --clone ${LSST_CONDA_ENV_NAME}
 source ${LOADRSPSTACK}
 conda install -y -c conda-forge mamba
 mamba install -y -c conda-forge \
