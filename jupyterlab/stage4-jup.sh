@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 mkdir -p ${jl}
-source ${LOADSTACK}
+source ${LOADRSPSTACK}
 for s in $SVXT; do \
     jupyter serverextension enable ${s} --py --sys-prefix ; \
 done

@@ -15,6 +15,7 @@ cd /tmp && \
 #  TECO
 # We're not doing the "Make" alias--too likely to confuse
 cd ${srcdir}/thirdparty && \
+      source ${LOADSTACK}
       git clone https://github.com/blakemcbride/TECOC.git && \
       cd TECOC/src && \
       make -f makefile.linux && \
@@ -26,9 +27,9 @@ cd ${srcdir}/thirdparty && \
           ln -s tecoc ${i} ; \
       done
 # Install minimal LaTeX from TexLive
-cd /tmp/tex && \
+      cd /tmp/tex && \
       FN="install-tl-unx.tar.gz" && \
-      wget http://mirror.ctan.org/systems/texlive/tlnet/${FN} && \
+      curl -L http://mirror.ctan.org/systems/texlive/tlnet/${FN} -o ${FN} && \
       tar xvpfz ${FN} && \
       ./install-tl-*/install-tl --repository \
       http://ctan.math.illinois.edu/systems/texlive/tlnet \

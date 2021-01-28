@@ -258,5 +258,5 @@ if [ -n "${DEBUG}" ]; then
     exit 0 # Not reached
 fi
 # Start Lab
-source ${LOADSTACK}
+source ${LOADRSPSTACK}
 exec ${cmd}

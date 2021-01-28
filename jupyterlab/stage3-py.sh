@@ -1,8 +1,12 @@
 #!/bin/sh
+set -e
 source ${LOADSTACK} && \
-    conda install -y -c conda-forge mamba
-source ${LOADSTACK} && \
-    mamba install -y -c conda-forge \
+    conda create --name "rsp-${LSST_CONDA_ENV_NAME}" \
+	  --clone ${LSST_CONDA_ENV_NAME} && \
+    conda deactivate
+source ${LOADRSPSTACK}
+conda install -y -c conda-forge mamba
+mamba install -y -c conda-forge \
       'jupyterlab=2' \
       jupyterhub \
       jupyter-server-proxy \
@@ -54,11 +58,11 @@ source ${LOADSTACK} && \
       python-socketio \
       pywwt \
       freetype-py \
-      nodejs \
       terminado \
+      nodejs \
+      yarn \
       "jedi<0.18.0"
-source ${LOADSTACK} && \
-      pip install --upgrade \
+pip install --upgrade \
        lsst-efd-client \
        wfdispatcher \
        firefly-client \
@@ -70,9 +74,7 @@ source ${LOADSTACK} && \
        nclib \
        git+https://github.com/ericmandel/pyjs9
 # Add stack kernel
-source ${LOADSTACK} && \
-      python3 -m ipykernel install --name 'LSST'
+python3 -m ipykernel install --name 'LSST'
 # Remove "system" kernel
-ename="lsst-scipipe-0.1.5"
-stacktop="/opt/lsst/software/stack/conda/current"
-rm -rf ${stacktop}/envs/${ename}/share/jupyter/kernels/python3
+stacktop="/opt/lsst/software/stack/conda/current" #?
+rm -rf ${stacktop}/envs/${LSST_CONDA_ENV_NAME}/share/jupyter/kernels/python3

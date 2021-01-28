@@ -14,6 +14,9 @@ RUN  mkdir -p /tmp/tex
 COPY texlive.profile /tmp/tex
 COPY stage2-os.sh ${BLD}
 RUN  ${BLD}/stage2-os.sh
+ENV  LOADRSPSTACK=/opt/lsst/software/rspstack/loadrspstack.bash
+RUN  mkdir -p /opt/lsst/software/rspstack
+COPY loadrspstack.bash ${LOADRSPSTACK}
 COPY stage3-py.sh ${BLD}
 RUN  ${BLD}/stage3-py.sh
 ENV  NODE_OPTIONS="--max-old-space-size=7168 --max-http-header-size=16384"
@@ -52,7 +55,6 @@ RUN  ${BLD}/stage4-jup.sh
 COPY local01-nbstripjq.sh local02-hub.sh local03-showrspnotice.sh  \
      local04-pythonrc.sh local05-path.sh local06-term.sh \
      local07-namespaceenv.sh \
-     local08-scl.sh \
      /etc/profile.d/
 COPY lsst_kernel.json \
        /usr/local/share/jupyter/kernels/lsst/kernel.json
