@@ -18,3 +18,15 @@ class Index(BaseModel):
     """
 
     metadata: SafirMetadata = Field(..., title="Package metadata")
+
+
+class UserData(BaseModel):
+    pass
+
+
+class LabSpecification(BaseModel):
+    pass
+
+
+class Event(BaseModel):
+    pass
