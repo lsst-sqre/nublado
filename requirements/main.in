@@ -12,3 +12,6 @@ uvicorn[standard]
 
 # Other dependencies.
 safir>=3.3.0
+
+# jupyterlab-controller-specific deps
+sse-starlette
