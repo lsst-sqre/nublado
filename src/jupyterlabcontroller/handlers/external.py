@@ -1,14 +1,23 @@
-"""Handlers for the app's external root, ``/jupyterlab-controller/``."""
+"""Handlers for the app's external root, ``/nublado/``."""
+
+from typing import List
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import RedirectResponse
 from safir.dependencies.logger import logger_dependency
 from safir.metadata import get_metadata
 from structlog.stdlib import BoundLogger
-from typing import List
 
 from ..config import config
-from ..models import Index, UserData, LabSpecification, Event
+from ..models import (
+    ErrorModel,
+    Event,
+    Image,
+    Index,
+    LabSpecification,
+    Prepull,
+    UserData,
+)
 
 __all__ = ["get_index", "external_router"]
 
@@ -51,14 +60,21 @@ async def get_index(
     )
     return Index(metadata=metadata)
 
+
+# Lab API
+
+
 @external_router.get(
     "/spawner/v1/labs",
     response_model=List[str],
-    summary="List all users with running labs"
+    summary="List all users with running labs",
 )
-async def get_lab_users() -> List[str]:
+async def get_lab_users(
+    logger: BoundLogger = Depends(logger_dependency),
+) -> List[str]:
     """requires admin:notebook"""
     return []
+
 
 @external_router.get(
     "/spawner/v1/labs/{username}",
@@ -68,9 +84,11 @@ async def get_lab_users() -> List[str]:
 )
 async def get_userdata(
     username: str,
+    logger: BoundLogger = Depends(logger_dependency),
 ) -> UserData:
     """Requires admin:jupyterlab"""
     return UserData()
+
 
 @external_router.post(
     "/spawner/v1/labs/{username}/create",
@@ -81,10 +99,13 @@ async def get_userdata(
 )
 async def post_new_lab(
     username: str,
-    ) -> Redirect:
+    logger: BoundLogger = Depends(logger_dependency),
+) -> RedirectResponse:
     """POST body is a LabSpecification.  Requires exec:notebook and valid
     user token."""
+    _ = LabSpecification()
     return "http://localhost"
+
 
 @external_router.get(
     "/spawner/v1/labs/{username}/events",
@@ -92,9 +113,11 @@ async def post_new_lab(
 )
 async def get_user_events(
     username: str,
+    logger: BoundLogger = Depends(logger_dependency),
 ) -> List[Event]:
     """Requires exec:notebook and valid user token"""
     return []
+
 
 @external_router.delete(
     "/spawner/v1/labs/{username}",
@@ -102,23 +125,51 @@ async def get_user_events(
     status_code=202,
 )
 async def delete_user_lab(
-    username:str,
+    username: str,
+    logger: BoundLogger = Depends(logger_dependency),
 ) -> None:
     """Requires admin:notebook"""
     return
+
 
 @external_router.get(
     "/spawner/v1/lab-form/{username}",
 )
 async def get_user_lab_form(
-    username:str,
-    ) -> str:
+    username: str,
+    logger: BoundLogger = Depends(logger_dependency),
+) -> str:
     """Requires exec:notebook and valid token."""
     return ""
+
 
 @external_router.get(
     "/spawner/v1/user-status",
     responses={404: {"description": "Lab not found", "model": ErrorModel}},
 )
-async def get_user_status() -> UserData:
+async def get_user_status(
+    logger: BoundLogger = Depends(logger_dependency),
+) -> UserData:
+    """Requires exec:notebook and valid token."""
     return UserData()
+
+
+# Prepuller API
+
+
+@external_router.get(
+    "/spawner/v1/images",
+)
+async def get_images(
+    logger: BoundLogger = Depends(logger_dependency),
+) -> List[Image]:
+    return []
+
+
+@external_router.get(
+    "/spawner/v1/prepulls",
+)
+async def get_prepulls(
+    logger: BoundLogger = Depends(logger_dependency),
+) -> List[Prepull]:
+    return []
