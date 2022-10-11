@@ -2,64 +2,25 @@
 
 from typing import List
 
-from fastapi import APIRouter, Depends
-from fastapi.responses import RedirectResponse
+from fastapi import Depends, RedirectResponse
 from safir.dependencies.logger import logger_dependency
-from safir.metadata import get_metadata
 from structlog.stdlib import BoundLogger
 
-from ..config import config
-from ..models import (
-    ErrorModel,
-    Event,
-    Image,
-    Index,
-    LabSpecification,
-    Prepull,
-    UserData,
-)
+from ...models.errormodel import ErrorModel
+from ...models.event import Event
+from ...models.labspecification import LabSpecification
+from ...models.userdata import UserData
+from .router import external_router
 
-__all__ = ["get_index", "external_router"]
-
-external_router = APIRouter()
-"""FastAPI router for all external handlers."""
-
-
-@external_router.get(
-    "/",
-    description=(
-        "Document the top-level API here. By default it only returns metadata"
-        " about the application."
-    ),
-    response_model=Index,
-    response_model_exclude_none=True,
-    summary="Application metadata",
-)
-async def get_index(
-    logger: BoundLogger = Depends(logger_dependency),
-) -> Index:
-    """GET ``/nublado/`` (the app's external root).
-
-    Customize this handler to return whatever the top-level resource of your
-    application should return. For example, consider listing key API URLs.
-    When doing so, also change or customize the response model in
-    `jupyterlabcontroller.models.Index`.
-
-    By convention, the root of the external API includes a field called
-    ``metadata`` that provides the same Safir-generated metadata as the
-    internal root endpoint.
-    """
-    # There is no need to log simple requests since uvicorn will do this
-    # automatically, but this is included as an example of how to use the
-    # logger for more complex logging.
-    logger.info("Request for application metadata")
-
-    metadata = get_metadata(
-        package_name="jupyterlab-controller",
-        application_name=config.name,
-    )
-    return Index(metadata=metadata)
-
+__all__ = [
+    "get_lab_users",
+    "get_userdata",
+    "post_new_lab",
+    "get_user_events",
+    "delete_user_lab",
+    "get_user_lab_form",
+    "get_user_status",
+]
 
 # Lab Controller API: https://sqr-066.lsst.io/#lab-controller-rest-api
 
@@ -155,28 +116,3 @@ async def get_user_status(
 ) -> UserData:
     """Requires exec:notebook and valid token."""
     return UserData()
-
-
-# Prepuller API: https://sqr-066.lsst.io/#rest-api
-
-
-@external_router.get(
-    "/spawner/v1/images",
-    summary="Get known images and their names",
-)
-async def get_images(
-    logger: BoundLogger = Depends(logger_dependency),
-) -> List[Image]:
-    """Requires admin:notebook"""
-    return []
-
-
-@external_router.get(
-    "/spawner/v1/prepulls",
-    summary="Get status of prepull configurations",
-)
-async def get_prepulls(
-    logger: BoundLogger = Depends(logger_dependency),
-) -> List[Prepull]:
-    """Requires admin:notebook"""
-    return []

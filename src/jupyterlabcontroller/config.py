@@ -13,7 +13,7 @@ class Configuration:
     """Configuration for jupyterlabcontroller."""
 
     name: str = os.getenv("SAFIR_NAME", "jupyterlab-controller")
-    """The application's name, which doubles as the root HTTP endpoint path.
+    """The application's name (not the root HTTP endpoint path).
 
     Set with the ``SAFIR_NAME`` environment variable.
     """
