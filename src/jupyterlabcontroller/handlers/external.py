@@ -61,7 +61,7 @@ async def get_index(
     return Index(metadata=metadata)
 
 
-# Lab API
+# Lab Controller API: https://sqr-066.lsst.io/#lab-controller-rest-api
 
 
 @external_router.get(
@@ -121,6 +121,7 @@ async def get_user_events(
 
 @external_router.delete(
     "/spawner/v1/labs/{username}",
+    summary="Delete user lab",
     responses={404: {"description": "Lab not found", "model": ErrorModel}},
     status_code=202,
 )
@@ -134,6 +135,7 @@ async def delete_user_lab(
 
 @external_router.get(
     "/spawner/v1/lab-form/{username}",
+    summary="Get lab form for user",
 )
 async def get_user_lab_form(
     username: str,
@@ -146,6 +148,7 @@ async def get_user_lab_form(
 @external_router.get(
     "/spawner/v1/user-status",
     responses={404: {"description": "Lab not found", "model": ErrorModel}},
+    summary="Get status for user",
 )
 async def get_user_status(
     logger: BoundLogger = Depends(logger_dependency),
@@ -154,22 +157,26 @@ async def get_user_status(
     return UserData()
 
 
-# Prepuller API
+# Prepuller API: https://sqr-066.lsst.io/#rest-api
 
 
 @external_router.get(
     "/spawner/v1/images",
+    summary="Get known images and their names",
 )
 async def get_images(
     logger: BoundLogger = Depends(logger_dependency),
 ) -> List[Image]:
+    """Requires admin:notebook"""
     return []
 
 
 @external_router.get(
     "/spawner/v1/prepulls",
+    summary="Get status of prepull configurations",
 )
 async def get_prepulls(
     logger: BoundLogger = Depends(logger_dependency),
 ) -> List[Prepull]:
+    """Requires admin:notebook"""
     return []
