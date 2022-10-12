@@ -2,7 +2,7 @@
 
 from typing import List
 
-from fastapi import Depends, RedirectResponse
+from fastapi import Depends, RedirectResponse, Request
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
@@ -59,12 +59,33 @@ async def get_userdata(
 )
 async def post_new_lab(
     username: str,
+    request: Request,
+    lab: LabSpecification,
     logger: BoundLogger = Depends(logger_dependency),
 ) -> RedirectResponse:
     """POST body is a LabSpecification.  Requires exec:notebook and valid
     user token."""
-    _ = LabSpecification()
-    return "http://localhost"
+    token = request.headers.get("X-Auth-Request-Token")
+    namespace = await _create_user_namespace(username)
+    await _create_user_lab_objects(namespace, username, lab, token)
+    await _create_user_lab_pod(namespace, username, lab)
+    return f"/nublado/spawner/v1/labs/{username}"
+
+
+async def _create_user_namespace(username: str) -> str:
+    return ""
+
+
+async def _create_user_lab_objects(
+    namespace: str, username: str, lab: LabSpecification, token: str
+) -> None:
+    return
+
+
+async def _create_user_lab_pod(
+    namespace: str, username: str, lab: LabSpecification
+) -> None:
+    return
 
 
 @external_router.get(
