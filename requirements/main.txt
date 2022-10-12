@@ -96,7 +96,9 @@ aiohttp==3.8.3 \
 aioredis==1.3.1 \
     --hash=sha256:15f8af30b044c771aee6787e5ec24694c048184c7b9e54c3b60c750a4b93273a \
     --hash=sha256:b61808d7e97b7cd5a92ed574937a079c9387fdadd22bfbfa7ad2fd319ecc26e3
-    # via aioredlock
+    # via
+    #   -r requirements/main.in
+    #   aioredlock
 aioredlock==0.7.3 \
     --hash=sha256:7432fe17cf2ce55292409f4e80d26af5ccbf1a09aa4566e30bcfc5dabd4b3e1f \
     --hash=sha256:903727b26eb571c926018a8ae2b754c6c11861996410e3c4f1309872d2545440
