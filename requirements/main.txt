@@ -320,7 +320,7 @@ idna==3.4 \
 kubernetes-asyncio==24.2.2 \
     --hash=sha256:0a8ad5f31bcb2a7b3235b754fe9c83055e66970c68326b42dbee289632bd9f0c \
     --hash=sha256:4df5f5d7d1fa2b7e9f772d661b46378f9e4158e62f3c730c165b315d8e3b51ea
-    # via -r requirements/main.in
+    # via safir
 multidict==6.0.2 \
     --hash=sha256:0327292e745a880459ef71be14e709aaea2f783f3537588fb4ed09b6c01bca60 \
     --hash=sha256:041b81a5f6b38244b34dc18c7b6aba91f9cdaf854d9a39e5ff0b58e2b5773b9c \
@@ -480,7 +480,7 @@ rfc3986[idna2008]==1.5.0 \
     --hash=sha256:270aaf10d87d0d4e095063c65bf3ddbc6ee3d0b226328ce21e036f946e421835 \
     --hash=sha256:a86d6e1f5b1dc238b218b012df0aa79409667bb209e58da56d0b94704e712a97
     # via httpx
-safir==3.3.0 \
+safir[kubernetes]==3.3.0 \
     --hash=sha256:0f17d32d7f18f771a42ec2f638093c3d4b1599332d5f53c82cd8e6419c7d5146 \
     --hash=sha256:142402e90e6ec581d4a7a9e7b8e34ad5efb3de8507460c47d42b451b3b369dc7
     # via -r requirements/main.in

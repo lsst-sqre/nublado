@@ -11,6 +11,7 @@ from importlib.metadata import metadata, version
 
 from fastapi import FastAPI
 from safir.dependencies.http_client import http_client_dependency
+from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 
@@ -46,6 +47,7 @@ app.include_router(external_router, prefix=f"/{config.name}")
 @app.on_event("startup")
 async def startup_event() -> None:
     app.add_middleware(XForwardedMiddleware)
+    await initialize_kubernetes()
 
 
 @app.on_event("shutdown")
