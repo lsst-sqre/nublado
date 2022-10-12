@@ -1,7 +1,11 @@
-"""Models for jupyterlab-controller."""
+"""Event model for jupyterlab-controller."""
 
-from pydantic import BaseModel
+from sse_starlette import ServerSentEvent
 
 
-class Event(BaseModel):
+# It's just a repackaged ServerSentEvent
+class Event(ServerSentEvent):
     pass
+
+
+# Need validation on its type

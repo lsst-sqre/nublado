@@ -1,13 +1,10 @@
 """Handlers for the app's external root, ``/nublado/``."""
 
-from typing import List
-
 from fastapi import Depends
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ...models.image import Image
-from ...models.prepull import Prepull
+from ...models.prepull import PrepulledImageDisplayList, PrepullerStatus
 from .router import external_router
 
 __all__ = ["get_images", "get_prepulls"]
@@ -21,9 +18,9 @@ __all__ = ["get_images", "get_prepulls"]
 )
 async def get_images(
     logger: BoundLogger = Depends(logger_dependency),
-) -> List[Image]:
+) -> PrepulledImageDisplayList:
     """Requires admin:notebook"""
-    return []
+    return PrepulledImageDisplayList()
 
 
 @external_router.get(
@@ -32,6 +29,6 @@ async def get_images(
 )
 async def get_prepulls(
     logger: BoundLogger = Depends(logger_dependency),
-) -> List[Prepull]:
+) -> PrepullerStatus:
     """Requires admin:notebook"""
-    return []
+    return PrepullerStatus()

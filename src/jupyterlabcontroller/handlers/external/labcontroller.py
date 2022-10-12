@@ -8,8 +8,7 @@ from structlog.stdlib import BoundLogger
 
 from ...models.errormodel import ErrorModel
 from ...models.event import Event
-from ...models.labspecification import LabSpecification
-from ...models.userdata import UserData
+from ...models.userdata import LabSpecification, UserData
 from .router import external_router
 
 __all__ = [
