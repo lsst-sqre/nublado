@@ -3,9 +3,9 @@
 from sse_starlette import ServerSentEvent
 
 
-# It's just a repackaged ServerSentEvent
+# It's just a repackaged ServerSentEvent with a "sent" field glued on
 class Event(ServerSentEvent):
-    pass
+    sent: bool = False
 
 
 # Need validation on its type

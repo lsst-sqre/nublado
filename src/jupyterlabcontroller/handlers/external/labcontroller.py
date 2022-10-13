@@ -1,27 +1,30 @@
 """Handlers for the app's external root, ``/nublado/``."""
 
-from typing import List
+import asyncio
+from typing import List, Set
 
 from fastapi import Depends, RedirectResponse, Request
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
 from ...models.errormodel import ErrorModel
-from ...models.event import Event
 from ...models.userdata import LabSpecification, UserData
+from .events import user_events
 from .router import external_router
 
 __all__ = [
     "get_lab_users",
     "get_userdata",
     "post_new_lab",
-    "get_user_events",
     "delete_user_lab",
     "get_user_lab_form",
     "get_user_status",
 ]
 
 # Lab Controller API: https://sqr-066.lsst.io/#lab-controller-rest-api
+
+creation_tasks: Set[asyncio.Task] = set()
+deletion_tasks: Set[asyncio.Task] = set()
 
 
 @external_router.get(
@@ -66,10 +69,26 @@ async def post_new_lab(
     """POST body is a LabSpecification.  Requires exec:notebook and valid
     user token."""
     token = request.headers.get("X-Auth-Request-Token")
+    task = asyncio.create_task(_schedule_lab_creation(username, lab, token))
+    creation_tasks.add(task)
+    task.add_done_callback(creation_tasks.discard)
+    return f"/nublado/spawner/v1/labs/{username}"
+
+
+async def _schedule_lab_creation(
+    username: str,
+    lab: LabSpecification,
+    token: str,
+    logger: BoundLogger = Depends(logger_dependency),
+) -> None:
+    # Clear Events for user:
+    user_events[username] = []
     namespace = await _create_user_namespace(username)
     await _create_user_lab_objects(namespace, username, lab, token)
     await _create_user_lab_pod(namespace, username, lab)
-    return f"/nublado/spawner/v1/labs/{username}"
+    # user creation was successful; drop events.
+    del user_events[username]
+    return
 
 
 async def _create_user_namespace(username: str) -> str:
@@ -88,18 +107,6 @@ async def _create_user_lab_pod(
     return
 
 
-@external_router.get(
-    "/spawner/v1/labs/{username}/events",
-    summary="Get Lab event stream for a user's current operation",
-)
-async def get_user_events(
-    username: str,
-    logger: BoundLogger = Depends(logger_dependency),
-) -> List[Event]:
-    """Requires exec:notebook and valid user token"""
-    return []
-
-
 @external_router.delete(
     "/spawner/v1/labs/{username}",
     summary="Delete user lab",
@@ -111,7 +118,32 @@ async def delete_user_lab(
     logger: BoundLogger = Depends(logger_dependency),
 ) -> None:
     """Requires admin:notebook"""
+    task = asyncio.create_task(_schedule_lab_deletion(username))
+    deletion_tasks.add(task)
+    task.add_done_callback(deletion_tasks.discard)
     return
+
+
+async def _schedule_lab_deletion(username: str) -> None:
+    user_events[username] = []
+    await _delete_user_lab_pod(username)
+    await _delete_user_lab_objects(username)
+    await _delete_user_lab_namespace(username)
+    # user creation was successful; drop events.
+    del user_events[username]
+    return
+
+
+async def _delete_user_lab_pod(username: str) -> None:
+    pass
+
+
+async def _delete_user_lab_objects(username: str) -> None:
+    pass
+
+
+async def _delete_user_lab_namespace(username: str) -> None:
+    pass
 
 
 @external_router.get(
