@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import AsyncGenerator
 from typing import Dict, List
 
 from fastapi import Depends
@@ -19,19 +20,21 @@ user_events: Dict[str, List[Event]] = {}
 async def get_user_events(
     username: str,
     logger: BoundLogger = Depends(logger_dependency),
-) -> List[Event]:
+) -> EventSourceResponse:
     """Requires exec:notebook and valid user token"""
 
-    async def user_event_publisher(username: str) -> None:  # need typing
+    async def user_event_publisher(
+        username: str,
+    ) -> AsyncGenerator[ServerSentEvent, None]:
         try:
             while True:
                 evs = user_events.get(username, [])
                 if evs:
                     for ev in evs:
-                        if ev["sent"]:
+                        if ev.sent:
                             continue
                         sse = _make_sse(ev)
-                        ev["sent"] = True
+                        ev.sent = True
                         yield sse
                 await asyncio.sleep(1.0)
         except asyncio.CancelledError as e:

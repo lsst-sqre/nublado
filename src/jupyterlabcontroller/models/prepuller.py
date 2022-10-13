@@ -29,7 +29,7 @@ class NodeImage(Image):
 
 
 class PrepulledImageDisplayList:
-    List[Union[Dict[str, Image], Dict[str[List[Image]]]]]
+    List[Union[Dict[str, Image], Dict[str, List[Image]]]]
 
 
 class DockerDefinition:

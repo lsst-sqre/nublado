@@ -3,7 +3,8 @@
 import asyncio
 from typing import List, Set
 
-from fastapi import Depends, RedirectResponse, Request
+from fastapi import Depends, Request
+from fastapi.responses import RedirectResponse
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
@@ -65,7 +66,7 @@ async def post_new_lab(
     request: Request,
     lab: LabSpecification,
     logger: BoundLogger = Depends(logger_dependency),
-) -> RedirectResponse:
+) -> str:
     """POST body is a LabSpecification.  Requires exec:notebook and valid
     user token."""
     token = request.headers.get("X-Auth-Request-Token")
