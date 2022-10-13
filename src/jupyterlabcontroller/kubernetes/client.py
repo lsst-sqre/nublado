@@ -2,6 +2,7 @@
 """
 
 import asyncio
+from asyncio import AbstractEventLoop
 from typing import Any, Dict, Set, Tuple
 
 import kubernetes_asyncio.client  # type:ignore
@@ -10,11 +11,16 @@ from kubernetes_asyncio.client import api_client
 # we assume that app initialization has happened and therefore k8s
 # configuration has been loaded.
 
-_client_cache = Dict[Tuple[Any], api_client]
+_client_cache: Dict[
+    Tuple[
+        AbstractEventLoop, Any, Tuple[Any, ...], Tuple[Tuple[str, Any], ...]
+    ],
+    api_client,
+] = {}
 client_tasks: Set[asyncio.Task] = set()
 
 
-def shared_client(ClientType, *args, **kwargs):
+def shared_client(ClientType, *args, **kwargs) -> api_client:
     """Return a shared kubernetes client instance
     based on the provided arguments.
 

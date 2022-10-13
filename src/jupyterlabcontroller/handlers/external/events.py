@@ -1,16 +1,13 @@
 import asyncio
 from collections.abc import AsyncGenerator
-from typing import Dict, List
 
 from fastapi import Depends
 from safir.dependencies.logger import logger_dependency
 from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 from structlog.stdlib import BoundLogger
 
-from ...models.event import Event
+from ...runtime.events import user_events
 from .router import external_router
-
-user_events: Dict[str, List[Event]] = {}
 
 
 @external_router.get(
@@ -33,7 +30,7 @@ async def get_user_events(
                     for ev in evs:
                         if ev.sent:
                             continue
-                        sse = _make_sse(ev)
+                        sse = ev.toSSE()
                         ev.sent = True
                         yield sse
                 await asyncio.sleep(1.0)
@@ -43,8 +40,3 @@ async def get_user_events(
             raise e
 
     return EventSourceResponse(user_event_publisher(username))
-
-
-def _make_sse(ev: Event) -> ServerSentEvent:
-    # Effectively, we're just stripping "sent" from the event.
-    return ServerSentEvent(data=ev.data, event=ev.event)

@@ -7,5 +7,8 @@ from sse_starlette import ServerSentEvent
 class Event(ServerSentEvent):
     sent: bool = False
 
+    def toSSE(self):
+        return ServerSentEvent(data=self.data, event=self.event)
+
 
 # Need validation on its type

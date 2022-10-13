@@ -4,16 +4,18 @@ import asyncio
 import json
 import time
 from functools import partial
-from typing import Any, Bool, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from fastapi import Depends
-from kubernetes_asyncio import watch
+from kubernetes_asyncio import watch  # type:ignore
 from pydantic import BaseModel
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
-from urllib3.exceptions import ReadTimeoutError
+from urllib3.exceptions import ReadTimeoutError  # type:ignore
 
 from .client import shared_client
+
+__all__ = ["Watcher", "EventWatcher", "PodWatcher"]
 
 
 class Watcher(BaseModel):
@@ -26,7 +28,7 @@ class Watcher(BaseModel):
     restart_seconds: int = 30
     logger: BoundLogger = Depends(logger_dependency)
     resources: Dict[str, Any]
-    _stopping: Bool = False
+    _stopping: bool = False
     _watch_task: Optional[asyncio.Task] = None
     _api: Optional[shared_client] = None
     _first_load_future: asyncio.Future = asyncio.Future()
@@ -69,7 +71,7 @@ class Watcher(BaseModel):
         }
         if not self._first_load_future.done():
             # signal that we've loaded our initial data at least once
-            self.first_load_future.set_result(None)
+            self._first_load_future.set_result(None)
         # return the resource version so we can hook up a watch
         return initial_resources["metadata"]["resourceVersion"]
 
@@ -84,7 +86,9 @@ class Watcher(BaseModel):
             w = watch.Watch()
             try:
                 resource_version = await self._list_and_update()
-                watch_args = {"resource_version": resource_version}
+                watch_args: Dict[str, Union[str, int]] = {
+                    "resource_version": resource_version
+                }
                 if self.request_timeout:
                     # set network receive timeout
                     watch_args["_request_timeout"] = self.request_timeout
@@ -96,7 +100,7 @@ class Watcher(BaseModel):
                 # less work. See
                 # https://github.com/jupyterhub/kubespawner/pull/424.
                 method = partial(
-                    getattr(self.api, self.list_method_name),
+                    getattr(self._api, self.list_method_name),
                     _preload_content=False,
                 )
                 async with w.stream(method, **watch_args) as stream:
@@ -140,8 +144,6 @@ class Watcher(BaseModel):
                     self.logger.exception(
                         "Watching resources never recovered, giving up"
                     )
-                    if self.on_failure:
-                        self.on_failure()
                     return
                 self.logger.exception(
                     f"Error when watching resources, retrying in {cur_delay}s"
@@ -166,27 +168,27 @@ class Watcher(BaseModel):
         try:
             await self._list_and_update()
         except Exception as e:
-            self.log.exception(f"Initial list of {self.kind} failed")
-            if not self.first_load_future.done():
+            self.logger.exception(f"Initial list of {self.kind} failed")
+            if not self._first_load_future.done():
                 # anyone awaiting our first load event should fail
-                self.first_load_future.set_exception(e)
+                self._first_load_future.set_exception(e)
             raise
         self._watch_task = asyncio.create_task(self._watch_and_update())
 
-    async def stop(self):
+    async def stop(self) -> None:
         """
         Cleanly shut down the watch task.
         """
         self._stopping = True
         if self._watch_task and not self._watch_task.done():
             # cancel the task, wait for it to complete
-            self.watch_task.cancel()
+            self._watch_task.cancel()
             try:
                 timeout = 5
-                await asyncio.wait_for(self.watch_task, timeout)
+                await asyncio.wait_for(self._watch_task, timeout)
             except asyncio.TimeoutError:
                 # Raising the TimeoutError will cancel the task.
-                self.log.warning(
+                self.logger.warning(
                     f"Watch task did not finish in {timeout}s; cancelled"
                 )
         self._watch_task = None
@@ -196,7 +198,7 @@ class EventWatcher(Watcher):
     kind = "events"
 
     @property
-    def events(self):
+    def events(self) -> Any:
         return sorted(
             self.resources.values(),
             key=lambda event: event["lastTimestamp"] or event["eventTime"],
@@ -207,5 +209,5 @@ class PodWatcher(Watcher):
     kind = "pods"
 
     @property
-    def pods(self):
+    def pods(self) -> Any:
         return self.resources

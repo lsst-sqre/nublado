@@ -8,6 +8,7 @@ from fastapi.responses import RedirectResponse
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
+from ...kubernetes.create_lab import create_lab_environment
 from ...models.errormodel import ErrorModel
 from ...models.userdata import LabSpecification, UserData
 from .events import user_events
@@ -70,42 +71,10 @@ async def post_new_lab(
     """POST body is a LabSpecification.  Requires exec:notebook and valid
     user token."""
     token = request.headers.get("X-Auth-Request-Token")
-    task = asyncio.create_task(_schedule_lab_creation(username, lab, token))
+    task = asyncio.create_task(create_lab_environment(username, lab, token))
     creation_tasks.add(task)
     task.add_done_callback(creation_tasks.discard)
     return f"/nublado/spawner/v1/labs/{username}"
-
-
-async def _schedule_lab_creation(
-    username: str,
-    lab: LabSpecification,
-    token: str,
-    logger: BoundLogger = Depends(logger_dependency),
-) -> None:
-    # Clear Events for user:
-    user_events[username] = []
-    namespace = await _create_user_namespace(username)
-    await _create_user_lab_objects(namespace, username, lab, token)
-    await _create_user_lab_pod(namespace, username, lab)
-    # user creation was successful; drop events.
-    del user_events[username]
-    return
-
-
-async def _create_user_namespace(username: str) -> str:
-    return ""
-
-
-async def _create_user_lab_objects(
-    namespace: str, username: str, lab: LabSpecification, token: str
-) -> None:
-    return
-
-
-async def _create_user_lab_pod(
-    namespace: str, username: str, lab: LabSpecification
-) -> None:
-    return
 
 
 @external_router.delete(
