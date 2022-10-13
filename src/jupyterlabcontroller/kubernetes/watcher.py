@@ -7,11 +7,11 @@ from functools import partial
 from typing import Any, Dict, Optional, Union
 
 from fastapi import Depends
-from kubernetes_asyncio import watch  # type:ignore
+from kubernetes_asyncio import watch
 from pydantic import BaseModel
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
-from urllib3.exceptions import ReadTimeoutError  # type:ignore
+from urllib3.exceptions import ReadTimeoutError
 
 from .client import shared_client
 
@@ -33,7 +33,7 @@ class Watcher(BaseModel):
     _api: Optional[shared_client] = None
     _first_load_future: asyncio.Future = asyncio.Future()
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         if not self.list_method_name:
             singular = {

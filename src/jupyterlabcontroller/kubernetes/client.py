@@ -5,7 +5,7 @@ import asyncio
 from asyncio import AbstractEventLoop
 from typing import Any, Dict, Set, Tuple
 
-import kubernetes_asyncio.client  # type:ignore
+import kubernetes_asyncio.client
 from kubernetes_asyncio.client import api_client
 
 # we assume that app initialization has happened and therefore k8s
@@ -20,7 +20,7 @@ _client_cache: Dict[
 client_tasks: Set[asyncio.Task] = set()
 
 
-def shared_client(ClientType, *args, **kwargs) -> api_client:
+def shared_client(ClientType: str, *args: Any, **kwargs: Any) -> api_client:
     """Return a shared kubernetes client instance
     based on the provided arguments.
 
@@ -39,7 +39,7 @@ def shared_client(ClientType, *args, **kwargs) -> api_client:
         _client_cache[cache_key] = client
 
         # create a task that will close the client when it is cancelled
-        async def _close_client_task():
+        async def _close_client_task() -> None:
             try:
                 async with client.api_client:
                     while True:

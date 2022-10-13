@@ -8,14 +8,14 @@ from pydantic import BaseModel
 __all__ = ["UserData", "LabSpecification"]
 
 
-class UserOptions:
+class UserOptions(BaseModel):
     debug: bool = False
     image: str
     reset_user_env: bool = False
     size: str
 
 
-class UserEnv:
+class UserEnv(BaseModel):
     Dict[str, str]
 
 

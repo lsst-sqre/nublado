@@ -7,7 +7,7 @@ from sse_starlette import ServerSentEvent
 class Event(ServerSentEvent):
     sent: bool = False
 
-    def toSSE(self):
+    def toSSE(self) -> ServerSentEvent:
         return ServerSentEvent(data=self.data, event=self.event)
 
 
