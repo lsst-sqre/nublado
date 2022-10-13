@@ -36,14 +36,6 @@ class Configuration:
     Set with the ``SAFIR_LOG_LEVEL`` environment variable.
     """
 
-    external_instance_url: str = os.getenv(
-        "EXTERNAL_INSTANCE_URL", "http://localhost"
-    )
-    """This RSP's top-level landing page URL.
-
-    Set with the ``EXTERNAL_INSTANCE_URL`` environment variable.
-    """
-
 
 config = Configuration()
 """Configuration for jupyterlab-controller."""
