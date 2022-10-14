@@ -12,6 +12,7 @@ from structlog.stdlib import BoundLogger
 from ...kubernetes.check_lab import check_lab_environment
 from ...kubernetes.create_lab import create_lab_environment
 from ...models.userdata import LabSpecification, UserData
+from ...runtime.labs import get_active_users, labs
 from .events import user_events
 from .router import external_router
 
@@ -39,7 +40,7 @@ async def get_lab_users(
     logger: BoundLogger = Depends(logger_dependency),
 ) -> List[str]:
     """requires admin:notebook"""
-    return []
+    return get_active_users()
 
 
 @external_router.get(
@@ -53,7 +54,7 @@ async def get_userdata(
     logger: BoundLogger = Depends(logger_dependency),
 ) -> UserData:
     """Requires admin:jupyterlab"""
-    return UserData()
+    return labs[username]
 
 
 @external_router.post(
