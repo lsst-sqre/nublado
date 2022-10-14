@@ -8,12 +8,11 @@ from typing import Any, Dict, Optional, Union
 
 from fastapi import Depends
 from kubernetes_asyncio import watch
+from kubernetes_asyncio.client import api_client
 from pydantic import BaseModel
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 from urllib3.exceptions import ReadTimeoutError
-
-from .client import shared_client
 
 __all__ = ["Watcher", "EventWatcher", "PodWatcher"]
 
@@ -30,7 +29,7 @@ class Watcher(BaseModel):
     resources: Dict[str, Any]
     _stopping: bool = False
     _watch_task: Optional[asyncio.Task] = None
-    _api: Optional[shared_client] = None
+    _api: Optional[api_client] = None
     _first_load_future: asyncio.Future = asyncio.Future()
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

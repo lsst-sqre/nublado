@@ -1,18 +1,17 @@
 import asyncio
 
-from client import shared_client
-from escape import escape
 from fastapi import Depends
 from kubernetes_asyncio.client import api_client
-from kubernetes_asyncio.client.models import V1Namespace, V1ObjectMeta
+from kubernetes_asyncio.client.models import V1Namespace
 from kubernetes_asyncio.client.rest import ApiException
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from .models.userdata import LabSpecification
-from .runtime.events import user_events
-from .runtime.namespace import get_namespace_prefix
-from .runtime.std import std_annotations, std_labels
+from ..models.userdata import LabSpecification
+from ..runtime.events import user_events
+from ..runtime.namespace import get_user_namespace
+from .client import shared_client
+from .std_metadata import get_std_metadata
 
 __all__ = ["create_lab_environment"]
 
@@ -40,15 +39,13 @@ async def _create_user_namespace(
     username: str,
     logger: BoundLogger = Depends(logger_dependency),
 ) -> str:
-    ns_name = f"{get_namespace_prefix()}-{escape(username)}"
-    ns_md = V1ObjectMeta(
-        name=ns_name, labels=std_labels(), annotations=std_annotations()
-    )
+    ns_name = get_user_namespace(username)
     try:
         await asyncio.wait_for(
             api.create_namespace(
-                V1Namespace(metadata=ns_md), 10  # replace with better timeout
-            )
+                V1Namespace(metadata=get_std_metadata(name=ns_name))
+            ),
+            10,  # replace with better timeout
         )
     except ApiException as e:
         if e.status == 409:

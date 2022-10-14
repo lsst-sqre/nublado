@@ -6,10 +6,11 @@ from typing import List, Set
 from fastapi import Depends, Request
 from fastapi.responses import RedirectResponse
 from safir.dependencies.logger import logger_dependency
+from safir.models import ErrorModel
 from structlog.stdlib import BoundLogger
 
+from ...kubernetes.check_lab import check_lab_environment
 from ...kubernetes.create_lab import create_lab_environment
-from ...models.errormodel import ErrorModel
 from ...models.userdata import LabSpecification, UserData
 from .events import user_events
 from .router import external_router
@@ -72,6 +73,9 @@ async def post_new_lab(
     user token."""
     token = request.headers.get("X-Auth-Request-Token")
     task = asyncio.create_task(create_lab_environment(username, lab, token))
+    proceed = await check_lab_environment(username)
+    if proceed:
+        pass
     creation_tasks.add(task)
     task.add_done_callback(creation_tasks.discard)
     return f"/nublado/spawner/v1/labs/{username}"

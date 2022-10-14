@@ -1,3 +1,4 @@
+from copy import copy
 from typing import Dict
 
 __all__ = ["std_annotations", "std_labels"]
@@ -11,8 +12,8 @@ _std_labels = {"argocd.argoproj.io/instance": "nublado-users"}
 
 
 def std_annotations() -> Dict[str, str]:
-    return {}.update(_std_annotations)
+    return copy(_std_annotations)
 
 
 def std_labels() -> Dict[str, str]:
-    return {}.update(_std_labels)
+    return copy(_std_labels)

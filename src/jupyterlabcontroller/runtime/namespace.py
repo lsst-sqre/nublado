@@ -1,11 +1,14 @@
 import os
 
+from escape import escape
+
+
+def get_user_namespace(username: str) -> str:
+    return f"{escape(username)}-{get_namespace_prefix()}"
+
 
 def get_namespace_prefix() -> str:
-    """To identify namespaces: the user namespace will be the namespace
-    prefix, then a dash, then the (escaped) username.
-
-    If USER_NAMESPACE_PREFIX is set in the environment, that will be used as
+    """If USER_NAMESPACE_PREFIX is set in the environment, that will be used as
     the namespace prefix.  If it is not, the namespace will be read from the
     container.  If that file does not exist, "userlabs" will be used.
     """
