@@ -10,8 +10,9 @@ from safir.models import ErrorModel
 from structlog.stdlib import BoundLogger
 
 from ...kubernetes.create_lab import create_lab_environment
-from ...models.userdata import LabSpecification, UserData
+from ...models.userdata import LabSpecification, UserData, UserInfo
 from ...runtime.labs import check_for_user, get_active_users, labs
+from ...runtime.token import get_user_from_token
 from .events import user_events
 from .router import external_router
 
@@ -59,7 +60,7 @@ async def get_userdata(username: str) -> UserData:
     summary="Create user lab",
 )
 async def post_new_lab(
-    username: str,
+    user: UserInfo,
     request: Request,
     lab: LabSpecification,
     logger: BoundLogger = Depends(logger_dependency),
@@ -67,9 +68,11 @@ async def post_new_lab(
     """POST body is a LabSpecification.  Requires exec:notebook and valid
     user token."""
     token = request.headers.get("X-Auth-Request-Token")
-    task = asyncio.create_task(create_lab_environment(username, lab, token))
+    user = await get_user_from_token(token)
+    task = asyncio.create_task(create_lab_environment(user, lab, token))
+    username = user.username
     logger.debug(f"Received creation request for {username}")
-    lab_exists = await check_for_user(username)
+    lab_exists = check_for_user(username)
     if lab_exists:
         raise RuntimeError(f"lab already exists for {username}")
     creation_tasks.add(task)

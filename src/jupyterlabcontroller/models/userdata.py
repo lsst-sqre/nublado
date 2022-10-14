@@ -5,9 +5,9 @@ from typing import Dict, List
 
 from pydantic import BaseModel, validator
 
-from ..runtime.consts import pod_states, user_statuses
+from ..runtime.consts import lab_statuses, pod_states
 
-__all__ = ["UserData", "LabSpecification"]
+__all__ = ["UserData", "UserInfo", "LabSpecification"]
 
 
 class UserOptions(BaseModel):
@@ -36,28 +36,30 @@ class UserQuota(BaseModel):
     requests: UserQuotaQuantum
 
 
-class UserData(BaseModel):
+class UserInfo(BaseModel):
     username: str
-    status: str
-    pod: str
-    options: UserOptions
-    env: UserEnv
+    name: str
     uid: int
     gid: int
     groups: List[UserGroup]
-    quotas: UserQuota
-
-    @validator("status")
-    def legal_user_status(cls, v):
-        if v not in user_statuses:
-            raise ValueError(f"must be one of {user_statuses}")
-
-    @validator("pod")
-    def legal_pod_state(cls, v):
-        if v not in pod_states:
-            raise ValueError(f"must be one of {pod_states}")
 
 
 class LabSpecification(BaseModel):
     options: UserOptions
     env: UserEnv
+
+
+class UserData(UserInfo, LabSpecification):
+    status: str
+    pod: str
+    quotas: UserQuota
+
+    @validator("status")
+    def legal_user_status(cls, v: str) -> None:
+        if v not in lab_statuses:
+            raise ValueError(f"must be one of {lab_statuses}")
+
+    @validator("pod")
+    def legal_pod_state(cls, v: str) -> None:
+        if v not in pod_states:
+            raise ValueError(f"must be one of {pod_states}")

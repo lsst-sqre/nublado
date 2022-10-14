@@ -14,6 +14,6 @@ class Event(BaseModel, ServerSentEvent):
         return ServerSentEvent(data=self.data, event=self.event)
 
     @validator("event")
-    def legal_event_type(cls, v):
+    def legal_event_type(cls, v: str) -> None:
         if v not in event_types:
             raise ValueError(f"must be one of {event_types}")

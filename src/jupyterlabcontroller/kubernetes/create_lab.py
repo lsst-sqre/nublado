@@ -7,7 +7,7 @@ from kubernetes_asyncio.client.rest import ApiException
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ..models.userdata import LabSpecification
+from ..models.userdata import LabSpecification, UserInfo
 from ..runtime.events import user_events
 from ..runtime.namespace import get_user_namespace
 from .client import shared_client
@@ -17,7 +17,7 @@ __all__ = ["create_lab_environment"]
 
 
 async def create_lab_environment(
-    username: str,
+    user: UserInfo,
     lab: LabSpecification,
     token: str,
     logger: BoundLogger = Depends(logger_dependency),
@@ -25,6 +25,7 @@ async def create_lab_environment(
     # Get API
     api = shared_client("CoreV1Api")
     # Clear Events for user:
+    username = user.username
     user_events[username] = []
     namespace = await _create_user_namespace(api, username)
     await _create_user_lab_objects(api, namespace, username, lab, token)
