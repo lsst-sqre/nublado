@@ -9,10 +9,9 @@ from safir.dependencies.logger import logger_dependency
 from safir.models import ErrorModel
 from structlog.stdlib import BoundLogger
 
-from ...kubernetes.check_lab import check_lab_environment
 from ...kubernetes.create_lab import create_lab_environment
 from ...models.userdata import LabSpecification, UserData
-from ...runtime.labs import get_active_users, labs
+from ...runtime.labs import check_for_user, get_active_users, labs
 from .events import user_events
 from .router import external_router
 
@@ -36,9 +35,7 @@ deletion_tasks: Set[asyncio.Task] = set()
     response_model=List[str],
     summary="List all users with running labs",
 )
-async def get_lab_users(
-    logger: BoundLogger = Depends(logger_dependency),
-) -> List[str]:
+async def get_lab_users() -> List[str]:
     """requires admin:notebook"""
     return get_active_users()
 
@@ -49,10 +46,7 @@ async def get_lab_users(
     responses={404: {"description": "Lab not found", "model": ErrorModel}},
     summary="Status of user",
 )
-async def get_userdata(
-    username: str,
-    logger: BoundLogger = Depends(logger_dependency),
-) -> UserData:
+async def get_userdata(username: str) -> UserData:
     """Requires admin:jupyterlab"""
     return labs[username]
 
@@ -74,9 +68,10 @@ async def post_new_lab(
     user token."""
     token = request.headers.get("X-Auth-Request-Token")
     task = asyncio.create_task(create_lab_environment(username, lab, token))
-    proceed = await check_lab_environment(username)
-    if proceed:
-        pass
+    logger.debug(f"Received creation request for {username}")
+    lab_exists = await check_for_user(username)
+    if lab_exists:
+        raise RuntimeError(f"lab already exists for {username}")
     creation_tasks.add(task)
     task.add_done_callback(creation_tasks.discard)
     return f"/nublado/spawner/v1/labs/{username}"
@@ -139,7 +134,10 @@ async def get_user_lab_form(
     summary="Get status for user",
 )
 async def get_user_status(
+    request: Request,
     logger: BoundLogger = Depends(logger_dependency),
 ) -> UserData:
     """Requires exec:notebook and valid token."""
+    token = request.headers.get("X-Auth-Request-Token")
+    _ = token
     return UserData()
