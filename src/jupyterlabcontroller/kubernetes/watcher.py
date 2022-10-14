@@ -14,6 +14,8 @@ from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 from urllib3.exceptions import ReadTimeoutError
 
+from ..config import config
+
 __all__ = ["Watcher", "EventWatcher", "PodWatcher"]
 
 
@@ -22,7 +24,7 @@ class Watcher(BaseModel):
     namespace: str
     list_method_name: str = ""
     api_group_name: str = "CoreV1Api"
-    request_timeout: int = 60
+    request_timeout: int = config.k8s_request_timeout
     timeout_seconds: int = 10
     restart_seconds: int = 30
     logger: BoundLogger = Depends(logger_dependency)

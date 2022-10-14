@@ -36,6 +36,12 @@ class Configuration:
     Set with the ``SAFIR_LOG_LEVEL`` environment variable.
     """
 
+    k8s_request_timeout: int = int(os.getenv("K8S_REQUEST_TIMEOUT", "60"))
+    """Timeout in seconds for Kubernetes API requests.
+
+    Set with the ``K8s_REQUEST_TIMEOUT`` environment variable.
+    """
+
 
 config = Configuration()
 """Configuration for jupyterlab-controller."""

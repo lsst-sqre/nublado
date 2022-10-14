@@ -1,7 +1,7 @@
 """Handlers for the app's external root, ``/nublado/``."""
 
 import asyncio
-from typing import List, Set
+from typing import List
 
 from fastapi import Depends, Request
 from fastapi.responses import RedirectResponse
@@ -10,8 +10,10 @@ from safir.models import ErrorModel
 from structlog.stdlib import BoundLogger
 
 from ...kubernetes.create_lab import create_lab_environment
+from ...kubernetes.delete_lab import delete_lab_environment
 from ...models.userdata import LabSpecification, UserData, UserInfo
 from ...runtime.labs import check_for_user, get_active_users, labs
+from ...runtime.tasks import manage_task
 from ...runtime.token import get_user_from_token
 from .events import user_events
 from .router import external_router
@@ -26,9 +28,6 @@ __all__ = [
 ]
 
 # Lab Controller API: https://sqr-066.lsst.io/#lab-controller-rest-api
-
-creation_tasks: Set[asyncio.Task] = set()
-deletion_tasks: Set[asyncio.Task] = set()
 
 
 @external_router.get(
@@ -60,23 +59,22 @@ async def get_userdata(username: str) -> UserData:
     summary="Create user lab",
 )
 async def post_new_lab(
-    user: UserInfo,
     request: Request,
     lab: LabSpecification,
+    user: UserInfo,
     logger: BoundLogger = Depends(logger_dependency),
 ) -> str:
     """POST body is a LabSpecification.  Requires exec:notebook and valid
     user token."""
     token = request.headers.get("X-Auth-Request-Token")
     user = await get_user_from_token(token)
-    task = asyncio.create_task(create_lab_environment(user, lab, token))
     username = user.username
-    logger.debug(f"Received creation request for {username}")
     lab_exists = check_for_user(username)
     if lab_exists:
         raise RuntimeError(f"lab already exists for {username}")
-    creation_tasks.add(task)
-    task.add_done_callback(creation_tasks.discard)
+    logger.debug(f"Received creation request for {username}")
+    task = asyncio.create_task(create_lab_environment(user, lab, token))
+    manage_task(task)
     return f"/nublado/spawner/v1/labs/{username}"
 
 
@@ -91,32 +89,15 @@ async def delete_user_lab(
     logger: BoundLogger = Depends(logger_dependency),
 ) -> None:
     """Requires admin:notebook"""
-    task = asyncio.create_task(_schedule_lab_deletion(username))
-    deletion_tasks.add(task)
-    task.add_done_callback(deletion_tasks.discard)
+    task = asyncio.create_task(delete_lab_environment(username))
+    manage_task(task)
     return
 
 
 async def _schedule_lab_deletion(username: str) -> None:
     user_events[username] = []
-    await _delete_user_lab_pod(username)
-    await _delete_user_lab_objects(username)
-    await _delete_user_lab_namespace(username)
-    # user creation was successful; drop events.
     del user_events[username]
     return
-
-
-async def _delete_user_lab_pod(username: str) -> None:
-    pass
-
-
-async def _delete_user_lab_objects(username: str) -> None:
-    pass
-
-
-async def _delete_user_lab_namespace(username: str) -> None:
-    pass
 
 
 @external_router.get(
@@ -142,5 +123,5 @@ async def get_user_status(
 ) -> UserData:
     """Requires exec:notebook and valid token."""
     token = request.headers.get("X-Auth-Request-Token")
-    _ = token
-    return UserData()
+    user = await get_user_from_token(token)
+    return labs[user.username]
