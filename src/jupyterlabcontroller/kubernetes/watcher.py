@@ -15,6 +15,7 @@ from structlog.stdlib import BoundLogger
 from urllib3.exceptions import ReadTimeoutError
 
 from ..config import config
+from ..dependencies.k8s_corev1_api import corev1_api_dependency
 
 __all__ = ["Watcher", "EventWatcher", "PodWatcher"]
 
@@ -23,15 +24,15 @@ class Watcher(BaseModel):
     kind: str
     namespace: str
     list_method_name: str = ""
-    api_group_name: str = "CoreV1Api"
+    api_group_name: str = "CoreV1_Api"
     request_timeout: int = config.k8s_request_timeout
     timeout_seconds: int = 10
     restart_seconds: int = 30
     logger: BoundLogger = Depends(logger_dependency)
+    api: api_client = Depends(corev1_api_dependency)
     resources: Dict[str, Any]
     _stopping: bool = False
     _watch_task: Optional[asyncio.Task] = None
-    _api: Optional[api_client] = None
     _first_load_future: asyncio.Future = asyncio.Future()
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -63,7 +64,7 @@ class Watcher(BaseModel):
             _request_timeout=self.request_timeout,
             _preload_content=False,
         )
-        list_method = getattr(self._api, self.list_method_name)
+        list_method = getattr(self.api, self.list_method_name)
         initial_resources_raw = await list_method(**kwargs)
         initial_resources = json.loads(await initial_resources_raw.read())
         self.resources = {
@@ -101,7 +102,7 @@ class Watcher(BaseModel):
                 # less work. See
                 # https://github.com/jupyterhub/kubespawner/pull/424.
                 method = partial(
-                    getattr(self._api, self.list_method_name),
+                    getattr(self.api, self.list_method_name),
                     _preload_content=False,
                 )
                 async with w.stream(method, **watch_args) as stream:

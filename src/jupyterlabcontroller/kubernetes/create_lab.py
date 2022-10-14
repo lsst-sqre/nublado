@@ -9,12 +9,12 @@ from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
 from ..config import config
+from ..dependencies.k8s_corev1_api import corev1_api_dependency
 from ..models.userdata import LabSpecification, UserData, UserInfo
 from ..runtime.events import user_events
 from ..runtime.labs import labs
 from ..runtime.namespace import get_user_namespace
 from ..runtime.quota import quota_from_size
-from .client import shared_client
 from .delete_lab import delete_namespace
 from .std_metadata import get_std_metadata
 
@@ -26,9 +26,8 @@ async def create_lab_environment(
     lab: LabSpecification,
     token: str,
     logger: BoundLogger = Depends(logger_dependency),
+    api: api_client = Depends(corev1_api_dependency),
 ) -> None:
-    # Get API
-    api = shared_client("CoreV1Api")
     # Clear Events for user:
     username = user.username
     user_events[username] = []
