@@ -6,6 +6,7 @@ from typing import Dict, List
 from pydantic import BaseModel, validator
 
 from ..runtime.consts import lab_statuses, pod_states
+from .event import Event
 
 __all__ = ["UserData", "UserInfo", "LabSpecification"]
 
@@ -53,6 +54,7 @@ class UserData(UserInfo, LabSpecification):
     status: str
     pod: str
     quotas: UserQuota
+    events: List[Event] = []
 
     @validator("status")
     def legal_user_status(cls, v: str) -> None:

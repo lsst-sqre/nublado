@@ -15,7 +15,6 @@ from ...models.userdata import LabSpecification, UserData, UserInfo
 from ...runtime.labs import check_for_user, get_active_users, labs
 from ...runtime.tasks import manage_task
 from ...runtime.token import get_user_from_token
-from .events import user_events
 from .router import external_router
 
 __all__ = [
@@ -23,7 +22,6 @@ __all__ = [
     "get_userdata",
     "post_new_lab",
     "delete_user_lab",
-    "get_user_lab_form",
     "get_user_status",
 ]
 
@@ -36,7 +34,7 @@ __all__ = [
     summary="List all users with running labs",
 )
 async def get_lab_users() -> List[str]:
-    """requires admin:notebook"""
+    """requires admin:jupyterlab"""
     return get_active_users()
 
 
@@ -88,28 +86,10 @@ async def delete_user_lab(
     username: str,
     logger: BoundLogger = Depends(logger_dependency),
 ) -> None:
-    """Requires admin:notebook"""
+    """Requires admin:jupyterlab"""
     task = asyncio.create_task(delete_lab_environment(username))
     manage_task(task)
     return
-
-
-async def _schedule_lab_deletion(username: str) -> None:
-    user_events[username] = []
-    del user_events[username]
-    return
-
-
-@external_router.get(
-    "/spawner/v1/lab-form/{username}",
-    summary="Get lab form for user",
-)
-async def get_user_lab_form(
-    username: str,
-    logger: BoundLogger = Depends(logger_dependency),
-) -> str:
-    """Requires exec:notebook and valid token."""
-    return ""
 
 
 @external_router.get(

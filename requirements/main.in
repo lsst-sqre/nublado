@@ -17,3 +17,4 @@ safir[kubernetes]>=3.3.0
 sse-starlette
 aioredis
 aioredlock
+jinja2

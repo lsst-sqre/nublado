@@ -11,7 +11,6 @@ from structlog.stdlib import BoundLogger
 from ..config import config
 from ..dependencies.k8s_corev1_api import corev1_api_dependency
 from ..models.userdata import LabSpecification, UserData, UserInfo
-from ..runtime.events import user_events
 from ..runtime.labs import labs
 from ..runtime.namespace import get_user_namespace
 from ..runtime.quota import quota_from_size
@@ -28,9 +27,7 @@ async def create_lab_environment(
     logger: BoundLogger = Depends(logger_dependency),
     api: api_client = Depends(corev1_api_dependency),
 ) -> None:
-    # Clear Events for user:
     username = user.username
-    user_events[username] = []
     labs[username] = UserData(
         username=username,
         status="starting",
@@ -41,13 +38,19 @@ async def create_lab_environment(
         gid=user.gid,
         groups=copy(user.groups),
         quotas=quota_from_size(lab.options.size),
+        events=[],
     )
-    namespace = await _create_user_namespace(api, username)
-    await _create_user_lab_objects(api, namespace, user, lab, token)
-    await _create_user_lab_pod(api, namespace, user, lab)
+    try:
+        namespace = await _create_user_namespace(api, username)
+        await _create_user_lab_objects(api, namespace, user, lab, token)
+        await _create_user_lab_pod(api, namespace, user, lab)
+    except Exception as e:
+        labs[username].status = "failed"
+        logger.error(f"User lab creation for {username} failed: {e}")
+        raise
     # user creation was successful; drop events.
     labs[username].pod = "present"
-    del user_events[username]
+    labs[username].events = []
     return
 
 
