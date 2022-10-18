@@ -18,3 +18,4 @@ sse-starlette
 aioredis
 aioredlock
 jinja2
+PyYAML

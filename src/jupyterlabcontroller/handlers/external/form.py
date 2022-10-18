@@ -29,7 +29,7 @@ async def get_user_lab_form(
     username = user.username
     logger.info(f"Creating options form for '{username}'")
     with open(form_template) as f:
-        template_str = f.read().decode("utf-8")
+        template_str = f.read()
     options_template = Template(template_str)
     cached_images, all_images = _get_images()
     return options_template.render(

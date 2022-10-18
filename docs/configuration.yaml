@@ -64,7 +64,6 @@ controller:
       CULL_KERNEL_CONNECTED: "True"
       CULL_KERNEL_INTERVAL: "300"
       DAF_BUTLER_REPOSITORY_INDEX: "s3://butler-us-central1-repo-locations/data-repos.yaml"
-      EXTERNAL_INSTANCE_URL: "{{ Values.config.base_url }}"
       FIREFLY_ROUTE: /portal/app
       HUB_ROUTE: /nb/hub
       # JS9_ROUTE: /js9  # No longer used?
@@ -103,7 +102,10 @@ controller:
       # MEM_LIMIT      # in bytes
       # RESET_USER_ENV
       # Additionally, some environment variables will be set from the
-      # secrets below.  These will be paths to injected credential files.
+      # secrets below.  These will be paths to injected credential
+      # files.
+      # EXTERNAL_INSTANCE_URL is a special case: it's
+      # constant-per-instance, but you can't template values files
     form:
       # -- Lab form restrictions.  It's a list of objects where each
       # object has three fields, 'type', 'value', and 'groups'.  'type'
@@ -235,3 +237,15 @@ controller:
     - name: postgres-credentials.txt
       mountPath: /opt/lsst/software/jupyterlab/butler-secret/postgres-credentials.txt
       env: PGPASSFILE
+  prepuller:
+    # -- List of configs from sqr-066
+    configs:
+    - registry: registry.hub.docker.com
+      docker:
+        repository: lsstsqre/sciplat-lab
+      recommendedTag: recommended
+      numReleases: 1
+      numWeeklies: 2
+      numDailies: 3
+    # -- Poll interval in seconds to check nodes for new images
+    pollInterval: 60

@@ -1,12 +1,16 @@
-"""Models for preuller."""
+"""Models for prepuller."""
 
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, root_validator, validator
+
+
+def _gar_registry_error() -> None:
+    assert False, "GAR repositories must be '<location>-docker.pkg-dev'"
 
 
 class Image(BaseModel):
-    url: str
+    path: str
     tag: str
     name: str
     hash: Optional[str]
@@ -40,25 +44,55 @@ class GARDefinition(BaseModel):
     repository: str
     image: str
     projectId: str
-    location: str
+    location: Optional[str]
 
 
-class ImageUrlAndName(BaseModel):
-    url: str
+class ImagePathAndName(BaseModel):
+    path: str
     name: str
 
 
 class Config(BaseModel):
-    registry: str
-    docker: Optional[DockerDefinition]
-    gar: Optional[GARDefinition]
+    registry: str = ""
+    docker: Optional[DockerDefinition] = None
+    gar: Optional[GARDefinition] = None
     recommended: str = "recommended"
     numReleases: int = 1
     numWeeklies: int = 2
     numDailies: int = 3
     cycle: Optional[int]
-    pin: Optional[List[ImageUrlAndName]]
+    pin: Optional[List[ImagePathAndName]]
     aliasTags: Optional[List[str]]
+
+    @root_validator
+    def registry_defined(
+        cls, values: Dict[str, Any], pre: bool = True
+    ) -> Dict[str, Any]:
+        gar, docker = values.get("gar"), values.get("docker")
+        if (gar is not None and docker is None) or (
+            gar is None and docker is not None
+        ):
+            assert False, "Exactly one of 'docker' or 'gar' must be defined"
+        return values
+
+    @validator("registry")
+    def validate_registry(cls, v: str) -> str:
+        # only here to ensure that registry is validated for the GAR
+        # validator
+        return v
+
+    @validator("gar")
+    def registry_path(
+        cls, v: GARDefinition, values: Dict[str, str]
+    ) -> GARDefinition:
+        reg = values["registry"]
+        gsuf = "-docker.pkg.dev"
+        if v.location is None:
+            assert values["registry"].endswith(gsuf)
+            v.location = reg[: (1 + len(reg) - len(gsuf))]
+        else:
+            assert v.location == f"{reg}-docker.pkg.dev"
+        return v
 
 
 class PrepullerContents(BaseModel):
