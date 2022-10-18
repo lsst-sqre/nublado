@@ -13,7 +13,7 @@ class Image(BaseModel):
     path: str
     tag: str
     name: str
-    hash: Optional[str]
+    digest: Optional[str]
     prepulled: Optional[bool]
 
 
@@ -53,7 +53,7 @@ class ImagePathAndName(BaseModel):
 
 
 class Config(BaseModel):
-    registry: str = ""
+    registry: str = "registry.hub.docker.com"
     docker: Optional[DockerDefinition] = None
     gar: Optional[GARDefinition] = None
     recommended: str = "recommended"
@@ -82,7 +82,7 @@ class Config(BaseModel):
         return v
 
     @validator("gar")
-    def registry_path(
+    def gar_registry_host(
         cls, v: GARDefinition, values: Dict[str, str]
     ) -> GARDefinition:
         reg = values["registry"]
@@ -93,6 +93,28 @@ class Config(BaseModel):
         else:
             assert v.location == f"{reg}-docker.pkg.dev"
         return v
+
+    @property
+    def untagged_path(self):
+        # Return the canonical path to the image (without the tag)
+        p = self.registry
+        gar = self.gar
+        if gar is not None:
+            p += f"/{gar.projectId}/{gar.repository}/{gar.image}"
+        else:
+            p += f"/{self.docker.repository}"
+        return p
+
+    @property
+    def tagged_path(self) -> str:
+        return f"{self.untagged_path()}:{self.tag}"
+
+    @property
+    def digest_path(self) -> str:
+        p = self.untagged_path()
+        if self.digest is not None:
+            p += "@{self.digest}"
+        return p
 
 
 class PrepullerContents(BaseModel):
