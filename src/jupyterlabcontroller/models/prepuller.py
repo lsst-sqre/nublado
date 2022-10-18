@@ -5,10 +5,6 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, root_validator, validator
 
 
-def _gar_registry_error() -> None:
-    assert False, "GAR repositories must be '<location>-docker.pkg-dev'"
-
-
 class Image(BaseModel):
     path: str
     tag: str
@@ -26,6 +22,9 @@ class Node(BaseModel):
 
 class NodeImage(Image):
     nodes: List[Node] = []
+
+
+class NodeImageWithMissing(NodeImage):
     missing: List[Node] = []
 
 
@@ -119,7 +118,7 @@ class Config(BaseModel):
 
 class PrepullerContents(BaseModel):
     prepulled: List[NodeImage] = []
-    pending: List[NodeImage] = []
+    pending: List[NodeImageWithMissing] = []
 
 
 class PrepullerStatus(BaseModel):
