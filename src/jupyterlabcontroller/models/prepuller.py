@@ -1,4 +1,4 @@
-"""Models for jupyterlab-controller."""
+"""Models for preuller."""
 
 from typing import Dict, List, Optional, Union
 
@@ -28,27 +28,27 @@ class NodeImage(Image):
 # We will need some fancy validation rules for the compound types.
 
 
-class PrepulledImageDisplayList:
+class PrepulledImageDisplayList(BaseModel):
     List[Union[Dict[str, Image], Dict[str, List[Image]]]]
 
 
-class DockerDefinition:
+class DockerDefinition(BaseModel):
     repository: str
 
 
-class GARDefinition:
+class GARDefinition(BaseModel):
     repository: str
     image: str
     projectId: str
     location: str
 
 
-class ImageUrlAndName:
+class ImageUrlAndName(BaseModel):
     url: str
     name: str
 
 
-class Config:
+class Config(BaseModel):
     registry: str
     docker: Optional[DockerDefinition]
     gar: Optional[GARDefinition]
@@ -61,12 +61,12 @@ class Config:
     aliasTags: Optional[List[str]]
 
 
-class PrepullerContents:
+class PrepullerContents(BaseModel):
     prepulled: List[NodeImage] = []
     pending: List[NodeImage] = []
 
 
-class PrepullerStatus:
+class PrepullerStatus(BaseModel):
     config: Config
     images: PrepullerContents
     nodes: List[Node]
