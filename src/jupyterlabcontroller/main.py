@@ -18,6 +18,7 @@ from safir.middleware.x_forwarded import XForwardedMiddleware
 from .config import config
 from .handlers.external.router import external_router
 from .handlers.internal import internal_router
+from .runtime.docker import load_docker_credentials
 
 __all__ = ["app", "config"]
 
@@ -48,6 +49,7 @@ app.include_router(external_router, prefix=f"/{config.name}")
 async def startup_event() -> None:
     app.add_middleware(XForwardedMiddleware)
     await initialize_kubernetes()
+    load_docker_credentials()
 
 
 @app.on_event("shutdown")

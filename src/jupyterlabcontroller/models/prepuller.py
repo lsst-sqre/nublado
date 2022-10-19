@@ -94,25 +94,16 @@ class Config(BaseModel):
         return v
 
     @property
-    def untagged_path(self):
-        # Return the canonical path to the image (without the tag)
+    def path(self) -> str:
+        # Return the canonical path to the set of tagged images
         p = self.registry
         gar = self.gar
         if gar is not None:
             p += f"/{gar.projectId}/{gar.repository}/{gar.image}"
         else:
-            p += f"/{self.docker.repository}"
-        return p
-
-    @property
-    def tagged_path(self) -> str:
-        return f"{self.untagged_path()}:{self.tag}"
-
-    @property
-    def digest_path(self) -> str:
-        p = self.untagged_path()
-        if self.digest is not None:
-            p += "@{self.digest}"
+            docker = self.docker
+            if docker is not None:
+                p += f"/{docker.repository}"
         return p
 
 
