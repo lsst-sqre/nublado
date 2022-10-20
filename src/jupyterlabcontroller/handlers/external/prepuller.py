@@ -4,6 +4,7 @@ from fastapi import Depends
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
+from ...kubernetes.prepuller import get_current_image_and_node_state
 from ...models.prepuller import PrepulledImageDisplayList, PrepullerStatus
 from .router import external_router
 
@@ -20,6 +21,7 @@ async def get_images(
     logger: BoundLogger = Depends(logger_dependency),
 ) -> PrepulledImageDisplayList:
     """Requires admin:notebook"""
+    current_state, nodes = await get_current_image_and_node_state()
     return PrepulledImageDisplayList()
 
 

@@ -19,3 +19,4 @@ aioredis
 aioredlock
 jinja2
 PyYAML
+semver

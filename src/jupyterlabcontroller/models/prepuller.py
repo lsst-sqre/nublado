@@ -4,12 +4,15 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, root_validator, validator
 
+TagToNameMap = Dict[str, str]
+
 
 class Image(BaseModel):
     path: str
-    tag: str
+    tags: TagToNameMap
     name: str
-    digest: Optional[str]
+    digest: str
+    size: Optional[int]
     prepulled: Optional[bool]
 
 
@@ -116,3 +119,10 @@ class PrepullerStatus(BaseModel):
     config: Config
     images: PrepullerContents
     nodes: List[Node]
+
+
+class NodePool(BaseModel):
+    nodes: List[Node]
+
+    def eligible_nodes(self) -> List[str]:
+        return [x.name for x in self.nodes if x.eligible]
