@@ -1,5 +1,4 @@
-from collections import defaultdict
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from fastapi import Depends, Request
 from jinja2 import Template
@@ -7,6 +6,7 @@ from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
 from ...models.imageinfo import ImageInfo
+from ...runtime.config import form_config, lab_config
 from ...runtime.token import get_user_from_token
 from .router import external_router
 
@@ -16,15 +16,22 @@ __all__ = ["get_user_lab_form"]
 DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 
 
-def default_form_template() -> str:
-    return "options_form.template"
-
-
-group_to_form_map: Dict[str, str] = defaultdict(default_form_template)
-
-
 def form_for_group(group: str) -> str:
-    return f"../../static/{group_to_form_map[group]}"
+    forms_dict = form_config["forms"]
+    return forms_dict.get(group, forms_dict["default"])
+
+
+def _get_images() -> Tuple[List[ImageInfo], List[ImageInfo]]:
+    # TODO: ask the prepuller for its cache, and use that.
+    return ([], [])
+
+
+def _extract_sizes(cfg: Dict[str, Any]) -> List[str]:
+    sz: Dict[str, Any] = cfg["sizes"]
+    return [
+        f"{x.title()} ({sz[x]['cpu']} CPU, {sz[x]['memory']} memory."
+        for x in sz
+    ]
 
 
 @external_router.get(
@@ -44,19 +51,14 @@ async def get_user_lab_form(
     for grp in user.groups:
         form = form_for_group(grp.name)
         if form != dfl_form:
-            # Take the first non-default form we find
+            # Use first non-default form we encounter
             break
-    with open(form) as f:
-        template_str = f.read()
-    options_template = Template(template_str)
+    options_template = Template(form)
     cached_images, all_images = _get_images()
+    sizes = _extract_sizes(lab_config)
     return options_template.render(
         dropdown_sentinel=DROPDOWN_SENTINEL_VALUE,
         cached_images=cached_images,
         all_images=all_images,
-        sizes=[],
+        sizes=sizes,
     )
-
-
-def _get_images() -> Tuple[List[ImageInfo], List[ImageInfo]]:
-    return ([], [])

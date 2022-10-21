@@ -1,6 +1,6 @@
 import asyncio
 from copy import copy
-from typing import Any, Dict, List
+from typing import List
 
 from fastapi import Depends
 from kubernetes_asyncio.client import api_client
@@ -12,14 +12,14 @@ from structlog.stdlib import BoundLogger
 from ..config import config
 from ..dependencies.k8s_corev1_api import corev1_api_dependency
 from ..models.userdata import LabSpecification, UserData, UserInfo
-from ..runtime.config import controller_config
+from ..runtime.config import lab_config
 from ..runtime.labs import labs
 from ..runtime.namespace import get_user_namespace
 from ..runtime.quota import quota_from_size
 from .delete_lab import delete_namespace
 from .std_metadata import get_std_metadata
 
-lab_config: Dict[str, Any] = controller_config["lab"]
+_ = lab_config  # TODO it will get used in resource creation
 
 
 async def create_lab_environment(

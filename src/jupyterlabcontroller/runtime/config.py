@@ -10,3 +10,7 @@ controller_config: Dict[str, Any] = {}
 
 with open(_filename) as f:
     controller_config = yaml.safe_load(f)
+
+lab_config = controller_config["lab"]
+prepuller_config = controller_config["prepuller"]
+form_config = controller_config["form"]

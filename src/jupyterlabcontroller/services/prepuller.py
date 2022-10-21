@@ -11,7 +11,7 @@ from structlog.stdlib import BoundLogger
 from ..kubernetes.prepuller import NodeContainers, get_image_data_from_k8s
 from ..models.prepuller import Config, Image, Node
 from ..models.tag import Tag, TagList
-from ..runtime.config import controller_config
+from ..runtime.config import prepuller_config
 
 # Internal classes that extend pre-existing glasses in ways we can use.
 
@@ -107,9 +107,7 @@ def _update_node_cache(
 
 
 def _load_prepuller_config() -> Config:
-    prepuller_config_obj: Dict[str, Any] = controller_config["prepuller"][
-        "config"
-    ]
+    prepuller_config_obj: Dict[str, Any] = prepuller_config["config"]
     return Config(**prepuller_config_obj)
 
 
