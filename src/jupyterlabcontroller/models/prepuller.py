@@ -15,11 +15,25 @@ class Image(BaseModel):
     size: Optional[int]
     prepulled: Optional[bool]
 
+    @property
+    def references(self) -> List[str]:
+        r: List[str] = [f"{self.path}@{self.digest}"]
+        for tag in self.tags:
+            r.append(f"{self.path}:{tag}")
+        return r
+
+    def use_best_name(self) -> None:
+        # TODO: from the tag hash map, pick the "best" name.  What does that
+        # mean?  Dunno yet, so I'm picking the first one.
+        for t in self.tags:
+            self.name = self.tags[t]
+            break
+
 
 class Node(BaseModel):
     name: str
     eligible: bool = True
-    comment: Optional[str]
+    comment: str = ""
     cached: List[Image] = []
 
 

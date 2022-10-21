@@ -238,9 +238,9 @@ controller:
       mountPath: /opt/lsst/software/jupyterlab/butler-secret/postgres-credentials.txt
       env: PGPASSFILE
   prepuller:
-    # -- List of configs from sqr-066
-    configs:
-    - registry: registry.hub.docker.com
+    # -- config from sqr-066
+    config:
+      registry: registry.hub.docker.com
       docker:
         repository: lsstsqre/sciplat-lab
       recommendedTag: recommended
