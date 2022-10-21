@@ -108,7 +108,7 @@ def _update_node_cache(
 
 def _load_prepuller_config() -> Config:
     prepuller_config_obj: Dict[str, Any] = prepuller_config["config"]
-    return Config(**prepuller_config_obj)
+    return Config.parse_obj(prepuller_config_obj)
 
 
 def _construct_current_image_state(
@@ -211,7 +211,7 @@ def _make_exttags_from_ctr(ctr: V1ContainerImage, node: str) -> List[ExtTag]:
             basic_tag = Tag.from_tag(
                 tag=tag, image_ref=c, digest=digest, alias_tags=config_aliases
             )
-            tagobj = ExtTag(*basic_tag)
+            tagobj = ExtTag.parse_obj(basic_tag)
             tagobj.node = node
             r.append(tagobj)
     return r
