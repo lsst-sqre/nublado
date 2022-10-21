@@ -4,7 +4,12 @@ import yaml
 
 _filename = "/etc/nublado/config.yaml"
 
-__all__ = ["controller_config"]
+__all__ = [
+    "controller_config",
+    "lab_config",
+    "prepuller_config",
+    "form_config",
+]
 
 controller_config: Dict[str, Any] = {}
 
