@@ -1,5 +1,6 @@
 import asyncio
 from copy import copy
+from typing import Any, Dict, List
 
 from fastapi import Depends
 from kubernetes_asyncio.client import api_client
@@ -11,13 +12,14 @@ from structlog.stdlib import BoundLogger
 from ..config import config
 from ..dependencies.k8s_corev1_api import corev1_api_dependency
 from ..models.userdata import LabSpecification, UserData, UserInfo
+from ..runtime.config import controller_config
 from ..runtime.labs import labs
 from ..runtime.namespace import get_user_namespace
 from ..runtime.quota import quota_from_size
 from .delete_lab import delete_namespace
 from .std_metadata import get_std_metadata
 
-__all__ = ["create_lab_environment"]
+lab_config: Dict[str, Any] = controller_config["lab"]
 
 
 async def create_lab_environment(
@@ -41,9 +43,9 @@ async def create_lab_environment(
         events=[],
     )
     try:
-        namespace = await _create_user_namespace(api, username)
-        await _create_user_lab_objects(api, namespace, user, lab, token)
-        await _create_user_lab_pod(api, namespace, user, lab)
+        namespace = await create_user_namespace(api, username)
+        await create_user_lab_objects(api, namespace, user, lab, token)
+        await create_user_lab_pod(api, namespace, user, lab, token)
     except Exception as e:
         labs[username].status = "failed"
         logger.error(f"User lab creation for {username} failed: {e}")
@@ -54,7 +56,7 @@ async def create_lab_environment(
     return
 
 
-async def _create_user_namespace(
+async def create_user_namespace(
     api: api_client,
     username: str,
     logger: BoundLogger = Depends(logger_dependency),
@@ -79,14 +81,84 @@ async def _create_user_namespace(
             # also clean up all its contents.
             await delete_namespace(ns_name)
             # And just try again, and return *that* one's return code.
-            return await (_create_user_namespace(api, username, logger))
+            return await (create_user_namespace(api, username, logger))
         else:
             logger.exception(f"Failed to create namespace {ns_name}: {e}")
             raise
     return ns_name
 
 
-async def _create_user_lab_objects(
+async def create_user_lab_objects(
+    api: api_client,
+    namespace: str,
+    user: UserInfo,
+    lab: LabSpecification,
+    token: str,
+) -> None:
+    # Initially this will create all the resources in parallel.  If it turns
+    # out we need to sequence that, we can pull some of these tasks out of
+    # the scatter/gather and just await them.
+    user_resource_tasks: List[asyncio.Task] = []
+    user_resource_tasks.append(
+        asyncio.create_task(
+            create_secrets(
+                api=api_client,
+                namespace=namespace,
+                user=user,
+                lab=lab,
+                token=token,
+            )
+        )
+    )
+    user_resource_tasks.append(
+        asyncio.create_task(
+            create_nss(
+                api=api_client,
+                namespace=namespace,
+                user=user,
+                lab=lab,
+                token=token,
+            )
+        )
+    )
+    user_resource_tasks.append(
+        asyncio.create_task(
+            create_env(
+                api=api_client,
+                namespace=namespace,
+                user=user,
+                lab=lab,
+                token=token,
+            )
+        )
+    )
+    user_resource_tasks.append(
+        asyncio.create_task(
+            create_network_policy(
+                api=api_client,
+                namespace=namespace,
+                user=user,
+                lab=lab,
+                token=token,
+            )
+        )
+    )
+    user_resource_tasks.append(
+        asyncio.create_task(
+            create_quota(
+                api=api_client,
+                namespace=namespace,
+                user=user,
+                lab=lab,
+                token=token,
+            )
+        )
+    )
+    await asyncio.gather(*user_resource_tasks)
+    return
+
+
+async def create_secrets(
     api: api_client,
     namespace: str,
     user: UserInfo,
@@ -96,7 +168,51 @@ async def _create_user_lab_objects(
     return
 
 
-async def _create_user_lab_pod(
-    api: api_client, namespace: str, user: UserInfo, lab: LabSpecification
+async def create_nss(
+    api: api_client,
+    namespace: str,
+    user: UserInfo,
+    lab: LabSpecification,
+    token: str,
+) -> None:
+    return
+
+
+async def create_env(
+    api: api_client,
+    namespace: str,
+    user: UserInfo,
+    lab: LabSpecification,
+    token: str,
+) -> None:
+    return
+
+
+async def create_network_policy(
+    api: api_client,
+    namespace: str,
+    user: UserInfo,
+    lab: LabSpecification,
+    token: str,
+) -> None:
+    return
+
+
+async def create_quota(
+    api: api_client,
+    namespace: str,
+    user: UserInfo,
+    lab: LabSpecification,
+    token: str,
+) -> None:
+    return
+
+
+async def create_user_lab_pod(
+    api: api_client,
+    namespace: str,
+    user: UserInfo,
+    lab: LabSpecification,
+    token: str,
 ) -> None:
     return
