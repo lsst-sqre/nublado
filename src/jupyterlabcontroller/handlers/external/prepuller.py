@@ -4,7 +4,10 @@ from fastapi import Depends
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ...models.prepuller import PrepulledImageDisplayList, PrepullerStatus
+from ...models.v1.external.prepuller import (
+    PrepulledImageDisplayList,
+    PrepullerStatus,
+)
 from ...services.prepuller import get_current_image_and_node_state
 from .router import external_router
 

@@ -6,10 +6,10 @@ from kubernetes_asyncio.client.rest import ApiException
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ..config import config
-from ..dependencies.k8s_corev1_api import corev1_api_dependency
-from ..runtime.labs import labs
-from ..runtime.namespace import get_user_namespace
+from ...config import config
+from ...dependencies.k8s_corev1_api import corev1_api_dependency
+from ...runtime.labs import labs
+from ...runtime.namespace import get_user_namespace
 
 __all__ = ["delete_lab_environment", "delete_namespace"]
 

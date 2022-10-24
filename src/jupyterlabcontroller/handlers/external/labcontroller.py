@@ -9,12 +9,12 @@ from safir.dependencies.logger import logger_dependency
 from safir.models import ErrorModel
 from structlog.stdlib import BoundLogger
 
-from ...kubernetes.create_lab import create_lab_environment
-from ...kubernetes.delete_lab import delete_lab_environment
-from ...models.userdata import LabSpecification, UserData, UserInfo
+from ...models.v1.external.userdata import LabSpecification, UserData, UserInfo
 from ...runtime.labs import check_for_user, get_active_users, labs
 from ...runtime.tasks import manage_task
 from ...runtime.token import get_user_from_token
+from ...storage.kubernetes.create_lab import create_lab_environment
+from ...storage.kubernetes.delete_lab import delete_lab_environment
 from .router import external_router
 
 __all__ = [

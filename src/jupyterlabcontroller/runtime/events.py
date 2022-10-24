@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from ..models.event import Event
+from ..models.v1.domain.event import Event
 
 __all__ = ["user_events"]
 

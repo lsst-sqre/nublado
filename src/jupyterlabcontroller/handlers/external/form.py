@@ -5,7 +5,7 @@ from jinja2 import Template
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ...models.imageinfo import ImageInfo
+from ...models.v1.external.imageinfo import ImageInfo
 from ...runtime.config import form_config, lab_config
 from ...runtime.token import get_user_from_token
 from .router import external_router

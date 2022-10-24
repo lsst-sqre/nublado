@@ -2,7 +2,7 @@ import base64
 import json
 from typing import Dict
 
-from ..models.docker import DockerCredentials
+from ..models.v1.domain.docker import DockerCredentials
 
 docker_credentials: Dict[str, DockerCredentials] = {}
 

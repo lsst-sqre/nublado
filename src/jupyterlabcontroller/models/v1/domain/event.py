@@ -3,7 +3,7 @@
 from pydantic import BaseModel, validator
 from sse_starlette import ServerSentEvent
 
-from ..runtime.consts import event_types
+from ...runtime.consts import event_types
 
 
 # It's just a repackaged ServerSentEvent with a "sent" field glued on

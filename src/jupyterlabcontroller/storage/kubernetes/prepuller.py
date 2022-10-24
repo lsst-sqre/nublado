@@ -9,7 +9,7 @@ from kubernetes_asyncio.client.models import V1ContainerImage
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ..dependencies.k8s_corev1_api import corev1_api_dependency
+from ...dependencies.k8s_corev1_api import corev1_api_dependency
 
 NodeContainers = Dict[str, List[V1ContainerImage]]
 

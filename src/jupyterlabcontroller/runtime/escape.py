@@ -1,3 +1,4 @@
+# This is taken from jupyterhub/kubespawner
 import string
 
 import escapism

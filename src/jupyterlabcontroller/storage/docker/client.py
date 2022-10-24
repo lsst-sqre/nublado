@@ -7,11 +7,11 @@ from typing import Dict, List, Optional, Tuple
 
 from fastapi import Depends
 from httpx import AsyncClient, BasicAuth, Response
-from models.docker import DockerCredentials, DockerRegistryError
 from safir.dependencies.http_client import http_client_dependency
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
+from ...models.v1.domain.docker import DockerCredentials, DockerRegistryError
 from ..runtime.docker import docker_credentials
 
 
@@ -142,9 +142,11 @@ class DockerClient:
                     self.auth.username, password=self.auth.password
                 )
 
-            self.logger.info(
-                f"Obtaining bearer token for {self.auth.username}"
-            )
+            if self.auth is not None and self.auth.username is not None:
+                # We will blow up after the get anyway.
+                self.logger.info(
+                    f"Obtaining bearer token for {self.auth.username}"
+                )
             r = await self.client.get(url, auth=auth, params=parts)
             if r.status_code == 200:
                 body = await r.json()

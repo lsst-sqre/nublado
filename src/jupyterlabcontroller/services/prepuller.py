@@ -9,8 +9,8 @@ from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
 from ..kubernetes.prepuller import NodeContainers, get_image_data_from_k8s
-from ..models.prepuller import Config, Image, Node
-from ..models.tag import Tag, TagList
+from ..models.v1.domain.tag import Tag, TagList
+from ..models.v1.external.prepuller import Config, Image, Node
 from ..runtime.config import prepuller_config
 
 # Internal classes that extend pre-existing glasses in ways we can use.

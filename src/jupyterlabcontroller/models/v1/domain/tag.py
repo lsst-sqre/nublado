@@ -12,7 +12,7 @@ from safir.dependencies.logger import logger_dependency
 from semver import VersionInfo
 from structlog.stdlib import BoundLogger
 
-from .prepuller import Image
+from ..external.prepuller import Image
 
 
 class TagType(Enum):

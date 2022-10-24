@@ -1,6 +1,6 @@
 import os
 
-from escape import escape
+from .escape import escape
 
 
 def get_user_namespace(username: str) -> str:

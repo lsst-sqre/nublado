@@ -1,6 +1,6 @@
 from kubernetes_asyncio.client import api_client
 
-from ..kubernetes.client import shared_client
+from ..storage.kubernetes.client import shared_client
 
 
 class CoreV1APIDependency:

@@ -1,4 +1,4 @@
-from ..models.userdata import UserQuota, UserQuotaQuantum
+from ..models.v1.external.userdata import UserQuota, UserQuotaQuantum
 
 
 def quota_from_size(size: str) -> UserQuota:

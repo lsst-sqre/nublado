@@ -9,13 +9,13 @@ from kubernetes_asyncio.client.rest import ApiException
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ..config import config
-from ..dependencies.k8s_corev1_api import corev1_api_dependency
-from ..models.userdata import LabSpecification, UserData, UserInfo
-from ..runtime.config import lab_config
-from ..runtime.labs import labs
-from ..runtime.namespace import get_user_namespace
-from ..runtime.quota import quota_from_size
+from ...config import config
+from ...dependencies.k8s_corev1_api import corev1_api_dependency
+from ...models.v1.external.userdata import LabSpecification, UserData, UserInfo
+from ...runtime.config import lab_config
+from ...runtime.labs import labs
+from ...runtime.namespace import get_user_namespace
+from ...runtime.quota import quota_from_size
 from .delete_lab import delete_namespace
 from .std_metadata import get_std_metadata
 
