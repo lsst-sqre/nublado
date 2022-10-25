@@ -1,10 +1,8 @@
 import os
 
-from .escape import escape
-
 
 def get_user_namespace(username: str) -> str:
-    return f"{escape(username)}-{get_namespace_prefix()}"
+    return f"{username}-{get_namespace_prefix()}"
 
 
 def get_namespace_prefix() -> str:

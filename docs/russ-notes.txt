@@ -8,24 +8,24 @@ be a benefit for this). The prepuller would probably be a separate
 storage object since it's conceptually entirely separate from lab
 creation.
 
-Client management seems overly complicated (I don't
-understand why there's a cache with cancellation handling and
-whatnot). I think you can just create a client and manage it in a
-FastAPI dependency.
+#Client management seems overly complicated (I don't
+#understand why there's a cache with cancellation handling and
+#whatnot). I think you can just create a client and manage it in a
+#FastAPI dependency.
 
-You probably want aiojobs to manage the background
-lab creation and deletion
-jobs. https://aiojobs.readthedocs.io/en/stable/
+#You probably want aiojobs to manage the background
+#lab creation and deletion
+#jobs. https://aiojobs.readthedocs.io/en/stable/
 
 The watcher seems much
 more complicated than I would have expected (and I'm also not sure why
 it's a Pydantic model). I was expecting something more like
 https://github.com/lsst-sqre/gafaelfawr/blob/55610b7833030831c308702ae5695c0321783f30/src/gafaelfawr/storage/kubernetes.py#L470
 
-I would not manage CoreV1Api as a dependency; instead, just manage
-ApiClient as a dependency and create the API-specific objects on demand
-(all the state is in the ApiClient object and that's the only thing you
-need to share).
+#I would not manage CoreV1Api as a dependency; instead, just manage
+#ApiClient as a dependency and create the API-specific objects on demand
+#(all the state is in the ApiClient object and that's the only thing you
+#need to share).
 
 #Putting the routes in separate files means managing the
 #global router variable, which is fine, but I'm not sure it's worth
@@ -35,17 +35,15 @@ need to share).
 #don't think that distinction is important enough to warrant a directory
 #level.
 
-[MOSTLY DONE]
-
-get_user_from_token should be a dependency so that the user is
-just an additional function argument.  I'm not sure I understand the
-runtime directory. It would match our other services a bit better if the
-config stuff was in a top-level config module, the enums should be
-actual enums and usually are grouped with the models, the Docker
-credentials should probably be a dependency, I'm hoping we don't need to
-escape the names of users, and there seem to be a mix of global state
-(which should be managed by objects via dependencies since eventually it
-will be in Redis) and various utility functions.
+#get_user_from_token should be a dependency so that the user is
+#just an additional function argument.  I'm not sure I understand the
+#runtime directory. It would match our other services a bit better if the
+#config stuff was in a top-level config module, the enums should be
+#actual enums and usually are grouped with the models, the Docker
+#credentials should probably be a dependency, I'm hoping we don't need to
+#escape the names of users, and there seem to be a mix of global state
+#(which should be managed by objects via dependencies since eventually it
+#will be in Redis) and various utility functions.
 
 I didn't look at the
 prepuller stuff yet, since I know that's still in progress, just the lab
@@ -63,37 +61,40 @@ well move everything into the file.)
 
 ...
 
-So, what I'm getting at there is that I think you probably want a
-factory pattern, which is what Gafaelfawr uses as well. Basically, at
-some level of complexity you want a piece of code that's responsible for
-creating and managing the objects that everything else uses, and it's
-easier to put all of that in one place. Gafaelfawr does that: you create
-a long-lived factory object that holds all the in-memory data stores and
-whatnot and builds service objects for you when you need them with
-dependency injection. That lets you manage state a bit more cleanly than
-using a bunch of global variables. (The global variables are going to
-bite you when you start trying to write tests, because they will persist
-from one test to the next.)
+#So, what I'm getting at there is that I think you probably want a
+#factory pattern, which is what Gafaelfawr uses as well. Basically, at
+#some level of complexity you want a piece of code that's responsible for
+#creating and managing the objects that everything else uses, and it's
+#easier to put all of that in one place. Gafaelfawr does that: you create
+#a long-lived factory object that holds all the in-memory data stores and
+#whatnot and builds service objects for you when you need them with
+#dependency injection. That lets you manage state a bit more cleanly than
+#using a bunch of global variables. (The global variables are going to
+#bite you when you start trying to write tests, because they will persist
+#from one test to the next.)
+
+[Going to try this as FastAPI dependencies and see how that goes.  I may
+adopt the factory later]
 
 ...
 
-It doesn't hurt to also manage CoreV1Api as a dependency if you want,
-but you do want to have a dependency managing ApiClient because that's
-where the connection cache is, so if you do have a CoreV1Api dependency
-you'll want it to use the ApiClient dependency under the hood to get its
-ApiClient.
+#It doesn't hurt to also manage CoreV1Api as a dependency if you want,
+#but you do want to have a dependency managing ApiClient because that's
+#where the connection cache is, so if you do have a CoreV1Api dependency
+#you'll want it to use the ApiClient dependency under the hood to get its
+#ApiClient.
 
-Otherwise if you need any other API later you lose the connection cache.
+#Otherwise if you need any other API later you lose the connection cache.
 
-Oh, when I say that the docker credentials should probably be a
-dependency, I didn't mean the Docker client for each artifact
-repository, I meant
-https://github.com/lsst-sqre/jupyterlab-controller/blob/tickets/DM-36570/src/jupyterlabcontroller/runtime/docker.py
+#Oh, when I say that the docker credentials should probably be a
+#dependency, I didn't mean the Docker client for each artifact
+#repository, I meant
+#https://github.com/lsst-sqre/jupyterlab-controller/blob/tickets/DM-36570/src/j#upyterlabcontroller/runtime/docker.py
 
-That's the sort of thing that you generally want to model as a
-dependency in FastAPI so that it loads the credentials when needed and
-caches them and injects them as a function argument so you don't have to
-keep calling this function in various places.
+#That's the sort of thing that you generally want to model as a
+#dependency in FastAPI so that it loads the credentials when needed and
+#caches them and injects them as a function argument so you don't have to
+#keep calling this function in various places.
 
-And the data is then kept in the dependency object rather than a global
-variable, which is a bit cleaner.
+#And the data is then kept in the dependency object rather than a global
+#variable, which is a bit cleaner.

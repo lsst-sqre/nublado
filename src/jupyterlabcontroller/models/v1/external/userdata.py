@@ -1,7 +1,7 @@
 """Models for jupyterlab-controller."""
 
-
-from typing import Dict, List
+from collections import deque
+from typing import Deque, Dict, List
 
 from pydantic import BaseModel, validator
 
@@ -54,7 +54,7 @@ class UserData(UserInfo, LabSpecification):
     status: str
     pod: str
     quotas: UserQuota
-    events: List[Event] = []
+    events: Deque[Event] = deque()
 
     @validator("status")
     def legal_user_status(cls, v: str) -> None:

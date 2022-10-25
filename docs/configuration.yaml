@@ -1,4 +1,18 @@
 controller:
+  # -- safir settings; generically set through environment variables,
+  # but we'd rather do it this way and just control all config through
+  # the ConfigMap
+  safir:
+    # -- The application's name (not the root HTTP endpoint path)
+    name: jupyterlab-controller
+    # -- Application run profile: "development" or "production"
+    profile: development
+    # -- Root name of the application's logger.
+    logger_name: jupyterlabcontroller
+  # -- Kubernetes API settings
+  kubernetes:
+    # -- timeout in seconds for kubernetes API requests.
+    request_timeout: 60
   # -- Settings for the JupyterLab controller
   lab:
     # These are the maximum CPU/memory allocations for each size

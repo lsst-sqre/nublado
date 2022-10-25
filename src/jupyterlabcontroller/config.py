@@ -1,11 +1,24 @@
 """Configuration definition."""
 
+# This cannot be a dependency, because it is used by Uvicorn to set up
+# logging before we have an app (which would own the dependency)
+
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import Any, Dict
 
-__all__ = ["Configuration", "config"]
+import yaml
+
+__all__ = [
+    "Configuration",
+    "config",
+    "controller_config",
+    "lab_config",
+    "prepuller_config",
+    "form_config",
+]
 
 
 @dataclass
@@ -45,3 +58,19 @@ class Configuration:
 
 config = Configuration()
 """Configuration for jupyterlab-controller."""
+
+#
+# We need to unify these two things.
+#
+
+
+_filename = "/etc/nublado/config.yaml"
+
+controller_config: Dict[str, Any] = {}
+
+with open(_filename) as f:
+    controller_config = yaml.safe_load(f)
+
+lab_config = controller_config["lab"]
+prepuller_config = controller_config["prepuller"]
+form_config = controller_config["form"]

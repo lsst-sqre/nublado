@@ -15,6 +15,7 @@ safir[kubernetes]>=3.3.0
 
 # jupyterlab-controller-specific deps
 sse-starlette
+aiojobs
 aioredis
 aioredlock
 jinja2

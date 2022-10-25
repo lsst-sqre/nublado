@@ -17,9 +17,9 @@ from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 
 from .config import config
-from .runtime.docker import load_docker_credentials
+from .dependencies.k8s import k8s_api_dependency
 
-__all__ = ["app", "config"]
+__all__ = ["app"]
 
 
 configure_logging(
@@ -48,9 +48,9 @@ app.include_router(external_router, prefix=f"/{config.name}")
 async def startup_event() -> None:
     app.add_middleware(XForwardedMiddleware)
     await initialize_kubernetes()
-    load_docker_credentials()
 
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
+    await k8s_api_dependency.aclose()
     await http_client_dependency.aclose()

@@ -1,33 +1,37 @@
 import asyncio
+from collections import deque
 from copy import copy
-from typing import List
+from typing import Dict
 
+from aiojobs import Scheduler
 from fastapi import Depends
-from kubernetes_asyncio.client import api_client
+from kubernetes_asyncio.client import ApiClient, CoreV1Api
 from kubernetes_asyncio.client.models import V1Namespace
 from kubernetes_asyncio.client.rest import ApiException
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ...config import config
-from ...dependencies.k8s_corev1_api import corev1_api_dependency
-from ...models.v1.external.userdata import LabSpecification, UserData, UserInfo
-from ...runtime.config import lab_config
-from ...runtime.labs import labs
-from ...runtime.namespace import get_user_namespace
-from ...runtime.quota import quota_from_size
+from ....config import config
+from ....dependencies.k8s import k8s_api_dependency, k8s_corev1api_dependency
+from ....dependencies.labs import lab_dependency
+from ....dependencies.namespace import namespace_dependency
+from ....dependencies.token import token_dependency
+from ....models.v1.external.userdata import (
+    LabSpecification,
+    UserData,
+    UserInfo,
+)
+from ....services.quota import quota_from_size
 from .delete_lab import delete_namespace
 from .std_metadata import get_std_metadata
-
-_ = lab_config  # TODO it will get used in resource creation
 
 
 async def create_lab_environment(
     user: UserInfo,
     lab: LabSpecification,
-    token: str,
+    token: str = Depends(token_dependency),
     logger: BoundLogger = Depends(logger_dependency),
-    api: api_client = Depends(corev1_api_dependency),
+    labs: Dict[str, UserData] = Depends(lab_dependency),
 ) -> None:
     username = user.username
     labs[username] = UserData(
@@ -40,28 +44,27 @@ async def create_lab_environment(
         gid=user.gid,
         groups=copy(user.groups),
         quotas=quota_from_size(lab.options.size),
-        events=[],
     )
     try:
-        namespace = await create_user_namespace(api, username)
-        await create_user_lab_objects(api, namespace, user, lab, token)
-        await create_user_lab_pod(api, namespace, user, lab, token)
+        await create_user_namespace(user)
+        await create_user_lab_objects(user, lab)
+        await create_user_lab_pod(user, lab)
     except Exception as e:
         labs[username].status = "failed"
         logger.error(f"User lab creation for {username} failed: {e}")
         raise
     # user creation was successful; drop events.
     labs[username].pod = "present"
-    labs[username].events = []
+    labs[username].events = deque()
     return
 
 
 async def create_user_namespace(
-    api: api_client,
-    username: str,
+    user: UserInfo,
+    api: ApiClient = Depends(k8s_corev1api_dependency),
+    ns_name: str = Depends(namespace_dependency),
     logger: BoundLogger = Depends(logger_dependency),
 ) -> str:
-    ns_name = get_user_namespace(username)
     try:
         await asyncio.wait_for(
             api.create_namespace(
@@ -81,7 +84,7 @@ async def create_user_namespace(
             # also clean up all its contents.
             await delete_namespace(ns_name)
             # And just try again, and return *that* one's return code.
-            return await (create_user_namespace(api, username, logger))
+            return await (create_user_namespace(user))
         else:
             logger.exception(f"Failed to create namespace {ns_name}: {e}")
             raise
@@ -89,130 +92,105 @@ async def create_user_namespace(
 
 
 async def create_user_lab_objects(
-    api: api_client,
-    namespace: str,
     user: UserInfo,
     lab: LabSpecification,
-    token: str,
+    token: str = Depends(token_dependency),
+    namespace: str = Depends(namespace_dependency),
+    api: ApiClient = Depends(k8s_corev1api_dependency),
 ) -> None:
     # Initially this will create all the resources in parallel.  If it turns
     # out we need to sequence that, we can pull some of these tasks out of
     # the scatter/gather and just await them.
-    user_resource_tasks: List[asyncio.Task] = []
-    user_resource_tasks.append(
-        asyncio.create_task(
-            create_secrets(
-                api=api_client,
-                namespace=namespace,
-                user=user,
-                lab=lab,
-                token=token,
-            )
+    scheduler: Scheduler = Scheduler(close_timeout=config.k8s_request_timeout)
+    scheduler.schedule(
+        create_secrets(
+            user=user,
+            lab=lab,
         )
     )
-    user_resource_tasks.append(
-        asyncio.create_task(
-            create_nss(
-                api=api_client,
-                namespace=namespace,
-                user=user,
-                lab=lab,
-                token=token,
-            )
+    scheduler.schedule(
+        create_nss(
+            user=user,
+            lab=lab,
         )
     )
-    user_resource_tasks.append(
-        asyncio.create_task(
-            create_env(
-                api=api_client,
-                namespace=namespace,
-                user=user,
-                lab=lab,
-                token=token,
-            )
+    scheduler.schedule(
+        create_env(
+            user=user,
+            lab=lab,
         )
     )
-    user_resource_tasks.append(
-        asyncio.create_task(
-            create_network_policy(
-                api=api_client,
-                namespace=namespace,
-                user=user,
-                lab=lab,
-                token=token,
-            )
+    scheduler.schedule(
+        create_network_policy(
+            user=user,
+            lab=lab,
         )
     )
-    user_resource_tasks.append(
-        asyncio.create_task(
-            create_quota(
-                api=api_client,
-                namespace=namespace,
-                user=user,
-                lab=lab,
-                token=token,
-            )
+    scheduler.schedule(
+        create_quota(
+            user=user,
+            lab=lab,
         )
     )
-    await asyncio.gather(*user_resource_tasks)
+    await scheduler.close()
     return
 
 
 async def create_secrets(
-    api: api_client,
-    namespace: str,
     user: UserInfo,
     lab: LabSpecification,
-    token: str,
+    namespace: str = Depends(namespace_dependency),
+    api: ApiClient = Depends(k8s_corev1api_dependency),
+    token: str = Depends(token_dependency),
 ) -> None:
     return
 
 
 async def create_nss(
-    api: api_client,
-    namespace: str,
     user: UserInfo,
     lab: LabSpecification,
-    token: str,
+    namespace: str = Depends(namespace_dependency),
+    api: CoreV1Api = Depends(k8s_corev1api_dependency),
+    token: str = Depends(token_dependency),
 ) -> None:
     return
 
 
 async def create_env(
-    api: api_client,
-    namespace: str,
     user: UserInfo,
     lab: LabSpecification,
-    token: str,
+    namespace: str = Depends(namespace_dependency),
+    api: CoreV1Api = Depends(k8s_corev1api_dependency),
+    token: str = Depends(token_dependency),
 ) -> None:
     return
 
 
 async def create_network_policy(
-    api: api_client,
-    namespace: str,
     user: UserInfo,
     lab: LabSpecification,
-    token: str,
+    api: ApiClient = Depends(k8s_api_dependency),
+    namespace: str = Depends(namespace_dependency),
+    token: str = Depends(token_dependency),
 ) -> None:
     return
 
 
 async def create_quota(
-    api: api_client,
-    namespace: str,
     user: UserInfo,
     lab: LabSpecification,
-    token: str,
+    api: ApiClient = Depends(k8s_api_dependency),
+    namespace: str = Depends(namespace_dependency),
+    token: str = Depends(token_dependency),
 ) -> None:
     return
 
 
 async def create_user_lab_pod(
-    api: api_client,
-    namespace: str,
     user: UserInfo,
     lab: LabSpecification,
-    token: str,
+    api: ApiClient = Depends(k8s_api_dependency),
+    namespace: str = Depends(namespace_dependency),
+    token: str = Depends(token_dependency),
 ) -> None:
     return
