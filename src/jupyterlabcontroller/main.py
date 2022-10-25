@@ -10,14 +10,13 @@ called.
 from importlib.metadata import metadata, version
 
 from fastapi import FastAPI
+from handlers import external_router, internal_router
 from safir.dependencies.http_client import http_client_dependency
 from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 
 from .config import config
-from .handlers.external.router import external_router
-from .handlers.internal import internal_router
 from .runtime.docker import load_docker_credentials
 
 __all__ = ["app", "config"]
