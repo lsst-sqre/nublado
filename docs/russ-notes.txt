@@ -27,13 +27,15 @@ ApiClient as a dependency and create the API-specific objects on demand
 (all the state is in the ApiClient object and that's the only thing you
 need to share).
 
-Putting the routes in separate files means managing the
-global router variable, which is fine, but I'm not sure it's worth
-it. The routes should all be very short functions of about four or five
-lines apart from the annotations for FastAPI. I tend to put them all in
-one file. Failing that, though, I'd not keep the external directory; I
-don't think that distinction is important enough to warrant a directory
-level.
+#Putting the routes in separate files means managing the
+#global router variable, which is fine, but I'm not sure it's worth
+#it. The routes should all be very short functions of about four or five
+#lines apart from the annotations for FastAPI. I tend to put them all in
+#one file. Failing that, though, I'd not keep the external directory; I
+#don't think that distinction is important enough to warrant a directory
+#level.
+
+[MOSTLY DONE]
 
 get_user_from_token should be a dependency so that the user is
 just an additional function argument.  I'm not sure I understand the
