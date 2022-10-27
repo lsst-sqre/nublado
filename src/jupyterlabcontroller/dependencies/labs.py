@@ -1,11 +1,9 @@
-from typing import Dict
-
-from ..models.v1.external.userdata import UserData
+from ..models.v1.external.userdata import UserMap
 
 
 class LabDependency:
-    def __call__(self) -> Dict[str, UserData]:
-        labs: Dict[str, UserData] = {}
+    def __call__(self) -> UserMap:
+        labs: UserMap = {}
         return labs
 
 

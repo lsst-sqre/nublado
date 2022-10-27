@@ -12,19 +12,25 @@ from structlog.stdlib import BoundLogger
 
 from ..config import config  # Safir config
 from ..dependencies.jobs import scheduler_dependency
+from ..dependencies.lab import lab_dependency
 from ..dependencies.token import token_dependency, user_dependency
 from ..models.index import Index
 from ..models.v1.external.prepuller import (
     PrepulledImageDisplayList,
     PrepullerStatus,
 )
-from ..models.v1.external.userdata import LabSpecification, UserData, UserInfo
-from ..runtime.labs import check_for_user, get_active_users, labs
+from ..models.v1.external.userdata import (
+    LabSpecification,
+    UserData,
+    UserInfo,
+    UserMap,
+)
 from ..services.events import user_event_publisher
 from ..services.form import generate_user_lab_form
-from ..services.prepuller import get_current_image_and_node_state
+from ..services.labs import check_for_user, get_active_users
 from ..storage.kubernetes.create_lab import create_lab_environment
 from ..storage.kubernetes.delete_lab import delete_lab_environment
+from ..storage.prepuller.prepuller import get_current_image_and_node_state
 
 # FastAPI routers
 external_router = APIRouter()
@@ -86,7 +92,10 @@ async def get_lab_users() -> List[str]:
     responses={404: {"description": "Lab not found", "model": ErrorModel}},
     summary="Status of user",
 )
-async def get_userdata(username: str) -> UserData:
+async def get_userdata(
+    username: str,
+    labs: UserMap = Depends(lab_dependency),
+) -> UserData:
     """Requires admin:jupyterlab"""
     return labs[username]
 
@@ -143,6 +152,7 @@ async def delete_user_lab(
 async def get_user_status(
     user: UserInfo = Depends(user_dependency),
     logger: BoundLogger = Depends(logger_dependency),
+    labs: UserMap = Depends(lab_dependency),
 ) -> UserData:
     """Requires exec:notebook and valid token."""
     return labs[user.username]

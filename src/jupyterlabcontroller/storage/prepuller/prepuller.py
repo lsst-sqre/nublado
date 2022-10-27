@@ -1,58 +1,51 @@
 """Prepull images to nodes.  This requires node inspection and a DaemonSet.
 """
 from copy import copy
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 from fastapi import Depends
+from kubernetes_asyncio.client import CoreV1Api
 from kubernetes_asyncio.client.models import V1ContainerImage
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ..kubernetes.prepuller import NodeContainers, get_image_data_from_k8s
-from ..models.v1.domain.tag import Tag, TagList
-from ..models.v1.external.prepuller import Config, Image, Node
-from ..runtime.config import prepuller_config
-
-# Internal classes that extend pre-existing glasses in ways we can use.
-
-
-class NodeTagImage(Image):
-    nodes: List[str] = []
-    known_alias_tags: List[str] = []
-    tagobjs: List[Tag]
-
-    def get_tag_objs(self) -> TagList:
-        return TagList(all_tags=self.tagobjs)
-
-    def to_image(self) -> Image:
-        return Image(
-            path=self.path,
-            tags=self.tags,
-            name=self.name,
-            digest=self.digest,
-            size=self.size,
-            prepulled=self.prepulled,
-        )
+from ..dependencies.config import configuration_dependency
+from ..dependencies.k8s import k8s_corev1api_dependency
+from ..models.v1.domain.config import Config
+from ..models.v1.domain.prepuller import (
+    DigestToNodeTagImages,
+    ExtTag,
+    NodeContainers,
+    NodeTagImage,
+)
+from ..models.v1.domain.tag import Tag
+from ..models.v1.external.prepuller import Image, Node
 
 
-DigestToNodeTagImages = Dict[str, NodeTagImage]
-
-
-class ExtTag(Tag):
-    config_aliases: Optional[List[str]] = None
-    node: Optional[str] = None
-    size: Optional[int] = None
+async def get_image_data_from_k8s(
+    logger: BoundLogger = Depends(logger_dependency),
+    api: CoreV1Api = Depends(k8s_corev1api_dependency),
+) -> NodeContainers:
+    logger.debug("Listing nodes and their image contents.")
+    resp = await api.list_node()
+    all_images_by_node: NodeContainers = {}
+    for n in resp.items:
+        nn = n.metadata.name
+        all_images_by_node[nn] = []
+        for ci in n.status.images:
+            all_images_by_node[nn].append(copy(ci))
+    logger.debug(f"All images on nodes: {all_images_by_node}")
+    return all_images_by_node
 
 
 async def get_current_image_and_node_state(
     logger: BoundLogger = Depends(logger_dependency),
 ) -> Tuple[List[Image], List[Node]]:
     all_images_by_node = await get_image_data_from_k8s()
-    config = _load_prepuller_config()
     logger.debug("Constructing initial node pool")
-    initial_nodes = _make_nodes_from_image_data(all_images_by_node, config)
+    initial_nodes = _make_nodes_from_image_data(all_images_by_node)
     logger.debug("Constructing image state.")
-    image_list = _construct_current_image_state(all_images_by_node, config)
+    image_list = _construct_current_image_state(all_images_by_node)
     logger.debug("Calculating image prepull status")
     prepulled_images = _update_prepulled_images(initial_nodes, image_list)
     logger.debug("Calculating node cache state")
@@ -62,8 +55,10 @@ async def get_current_image_and_node_state(
 
 
 def _make_nodes_from_image_data(
-    imgdata: NodeContainers, cfg: Config
+    imgdata: NodeContainers,
+    config: Config = Depends(configuration_dependency),
 ) -> List[Node]:
+    cfg = config.prepuller.config
     r: List[Node] = [Node(name=n) for n in imgdata.keys()]
     _ = cfg  # TODO determine eligibility/comment based on config
     return r
@@ -106,14 +101,8 @@ def _update_node_cache(
     return r
 
 
-def _load_prepuller_config() -> Config:
-    prepuller_config_obj: Dict[str, Any] = prepuller_config["config"]
-    return Config.parse_obj(prepuller_config_obj)
-
-
 def _construct_current_image_state(
     all_images_by_node: NodeContainers,
-    config: Config,
     logger: BoundLogger = Depends(logger_dependency),
 ) -> List[NodeTagImage]:
     """Return annotated images representing the state of valid images
@@ -122,7 +111,7 @@ def _construct_current_image_state(
 
     # Filter images by config
 
-    filtered_images = _filter_images_by_config(all_images_by_node, config)
+    filtered_images = _filter_images_by_config(all_images_by_node)
 
     # Convert to extended Tags.  We will still have duplicates.
     exttags: List[ExtTag] = _get_exttags_from_images(filtered_images)
@@ -262,7 +251,10 @@ def image_from_container(ctr: V1ContainerImage, node: str) -> NodeTagImage:
     return r
 
 
-def _extract_image_name(c: Config) -> str:
+def _extract_image_name(
+    config: Config = Depends(configuration_dependency),
+) -> str:
+    c = config.prepuller.config
     if c.gar is not None:
         return c.gar.image
     if c.docker is not None:
@@ -286,11 +278,11 @@ def _extract_path_from_image_ref(tname: str) -> str:
 
 
 def _filter_images_by_config(
-    images: NodeContainers, cfg: Config
+    images: NodeContainers,
 ) -> NodeContainers:
     r: NodeContainers = {}
 
-    name = _extract_image_name(cfg)
+    name = _extract_image_name()
     for node in images:
         for c in images[node]:
             path = _extract_path_from_v1_container(c)

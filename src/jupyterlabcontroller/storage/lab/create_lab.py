@@ -15,7 +15,7 @@ from ....config import config
 from ....dependencies.k8s import k8s_api_dependency, k8s_corev1api_dependency
 from ....dependencies.labs import lab_dependency
 from ....dependencies.namespace import namespace_dependency
-from ....dependencies.token import token_dependency
+from ....dependencies.token import token_dependency, user_dependency
 from ....models.v1.external.userdata import (
     LabSpecification,
     UserData,
@@ -27,8 +27,8 @@ from .std_metadata import get_std_metadata
 
 
 async def create_lab_environment(
-    user: UserInfo,
     lab: LabSpecification,
+    user: UserInfo = Depends(user_dependency),
     token: str = Depends(token_dependency),
     logger: BoundLogger = Depends(logger_dependency),
     labs: Dict[str, UserData] = Depends(lab_dependency),
@@ -46,9 +46,9 @@ async def create_lab_environment(
         quotas=quota_from_size(lab.options.size),
     )
     try:
-        await create_user_namespace(user)
-        await create_user_lab_objects(user, lab)
-        await create_user_lab_pod(user, lab)
+        await create_user_namespace()
+        await create_user_lab_objects(lab)
+        await create_user_lab_pod(lab)
     except Exception as e:
         labs[username].status = "failed"
         logger.error(f"User lab creation for {username} failed: {e}")
@@ -60,7 +60,7 @@ async def create_lab_environment(
 
 
 async def create_user_namespace(
-    user: UserInfo,
+    user: UserInfo = Depends(user_dependency),
     api: ApiClient = Depends(k8s_corev1api_dependency),
     ns_name: str = Depends(namespace_dependency),
     logger: BoundLogger = Depends(logger_dependency),
@@ -70,7 +70,7 @@ async def create_user_namespace(
             api.create_namespace(
                 V1Namespace(metadata=get_std_metadata(name=ns_name))
             ),
-            config.k8s_request_timeout,
+            config.k8s.request_timeout,
         )
     except ApiException as e:
         if e.status == 409:
@@ -82,9 +82,9 @@ async def create_user_namespace(
             # The spec actually calls for us to delete the lab and then the
             # namespace, but let's just remove the namespace, which should
             # also clean up all its contents.
-            await delete_namespace(ns_name)
+            await delete_namespace()
             # And just try again, and return *that* one's return code.
-            return await (create_user_namespace(user))
+            return await create_user_namespace()
         else:
             logger.exception(f"Failed to create namespace {ns_name}: {e}")
             raise
@@ -92,43 +92,38 @@ async def create_user_namespace(
 
 
 async def create_user_lab_objects(
-    user: UserInfo,
     lab: LabSpecification,
+    user: UserInfo = Depends(user_dependency),
     token: str = Depends(token_dependency),
     namespace: str = Depends(namespace_dependency),
     api: ApiClient = Depends(k8s_corev1api_dependency),
 ) -> None:
     # Initially this will create all the resources in parallel.  If it turns
-    # out we need to sequence that, we can pull some of these tasks out of
-    # the scatter/gather and just await them.
-    scheduler: Scheduler = Scheduler(close_timeout=config.k8s_request_timeout)
+    # out we need to sequence that, we do this more manually with explicit
+    # awaits.
+    scheduler: Scheduler = Scheduler(close_timeout=config.k8s.request_timeout)
     scheduler.schedule(
         create_secrets(
-            user=user,
             lab=lab,
         )
     )
     scheduler.schedule(
         create_nss(
-            user=user,
             lab=lab,
         )
     )
     scheduler.schedule(
         create_env(
-            user=user,
             lab=lab,
         )
     )
     scheduler.schedule(
         create_network_policy(
-            user=user,
             lab=lab,
         )
     )
     scheduler.schedule(
         create_quota(
-            user=user,
             lab=lab,
         )
     )
@@ -137,8 +132,8 @@ async def create_user_lab_objects(
 
 
 async def create_secrets(
-    user: UserInfo,
     lab: LabSpecification,
+    user: UserInfo = Depends(user_dependency),
     namespace: str = Depends(namespace_dependency),
     api: ApiClient = Depends(k8s_corev1api_dependency),
     token: str = Depends(token_dependency),
@@ -147,8 +142,8 @@ async def create_secrets(
 
 
 async def create_nss(
-    user: UserInfo,
     lab: LabSpecification,
+    user: UserInfo = Depends(user_dependency),
     namespace: str = Depends(namespace_dependency),
     api: CoreV1Api = Depends(k8s_corev1api_dependency),
     token: str = Depends(token_dependency),
@@ -157,8 +152,8 @@ async def create_nss(
 
 
 async def create_env(
-    user: UserInfo,
     lab: LabSpecification,
+    user: UserInfo = Depends(user_dependency),
     namespace: str = Depends(namespace_dependency),
     api: CoreV1Api = Depends(k8s_corev1api_dependency),
     token: str = Depends(token_dependency),
@@ -167,8 +162,8 @@ async def create_env(
 
 
 async def create_network_policy(
-    user: UserInfo,
     lab: LabSpecification,
+    user: UserInfo = Depends(user_dependency),
     api: ApiClient = Depends(k8s_api_dependency),
     namespace: str = Depends(namespace_dependency),
     token: str = Depends(token_dependency),
@@ -177,8 +172,8 @@ async def create_network_policy(
 
 
 async def create_quota(
-    user: UserInfo,
     lab: LabSpecification,
+    user: UserInfo = Depends(user_dependency),
     api: ApiClient = Depends(k8s_api_dependency),
     namespace: str = Depends(namespace_dependency),
     token: str = Depends(token_dependency),
@@ -187,8 +182,8 @@ async def create_quota(
 
 
 async def create_user_lab_pod(
-    user: UserInfo,
     lab: LabSpecification,
+    user: UserInfo = Depends(user_dependency),
     api: ApiClient = Depends(k8s_api_dependency),
     namespace: str = Depends(namespace_dependency),
     token: str = Depends(token_dependency),

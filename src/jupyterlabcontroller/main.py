@@ -8,18 +8,32 @@ called.
 """
 
 from importlib.metadata import metadata, version
+from typing import Any, Dict
 
+import yaml
 from fastapi import FastAPI
 from handlers import external_router, internal_router
+from models.v1.domain.config import SafirConfig
 from safir.dependencies.http_client import http_client_dependency
 from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 
-from .config import config
 from .dependencies.k8s import k8s_api_dependency
 
 __all__ = ["app"]
+
+
+# We cannot use the configuration dependency, because we do not have an
+# app yet.  So instead we're just going to get the Safir config out of the
+# config file and use that.
+
+_filename = "/etc/nublado/config.yaml"
+
+config_obj: Dict[str, Any] = {}
+with open(_filename) as f:
+    config_obj = yaml.safe_load(f)
+    config = SafirConfig.parse_obj(config_obj["safir"])
 
 
 configure_logging(

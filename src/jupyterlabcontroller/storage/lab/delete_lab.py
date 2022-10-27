@@ -1,29 +1,29 @@
 import asyncio
+from collections import deque
 
 from fastapi import Depends
-from kubernetes_asyncio.client import api_client
+from kubernetes_asyncio.client import CoreV1Api
 from kubernetes_asyncio.client.rest import ApiException
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
+from ....dependencies.namespace import namespace_dependency
 from ...config import config
-from ...dependencies.k8s_corev1_api import corev1_api_dependency
-from ...runtime.labs import labs
-from ...runtime.namespace import get_user_namespace
-
-__all__ = ["delete_lab_environment", "delete_namespace"]
+from ...dependencies.k8s import k8s_corev1api_dependency
+from ...dependencies.labs import lab_dependency
+from ...models.v1.external.userdata import UserMap
 
 
 async def delete_lab_environment(
     username: str,
     logger: BoundLogger = Depends(logger_dependency),
+    labs: UserMap = Depends(lab_dependency),
 ) -> None:
     # Clear Events for user:
-    labs[username].events = []
+    labs[username].events = deque()
     labs[username].status = "terminating"
-    ns = get_user_namespace(username)
     try:
-        await delete_namespace(ns)
+        await delete_namespace()
     except Exception as e:
         logger.error(f"Could not delete lab environment: {e}")
         labs[username].status = "failed"
@@ -32,7 +32,8 @@ async def delete_lab_environment(
 
 
 async def delete_namespace(
-    namespace: str, api: api_client = Depends(corev1_api_dependency)
+    namespace: str = Depends(namespace_dependency),
+    api: CoreV1Api = Depends(k8s_corev1api_dependency),
 ) -> None:
     """Delete the namespace with name ``namespace``.  If it doesn't exist,
     that's OK.

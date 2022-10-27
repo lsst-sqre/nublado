@@ -6,12 +6,14 @@ from safir.dependencies.logger import logger_dependency
 from sse_starlette.sse import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
-from ..runtime.events import user_events
+from ..dependencies.event import event_dependency
+from ..models.v1.domain.events import EventMap
 
 
 async def user_event_publisher(
     username: str,
     logger: BoundLogger = Depends(logger_dependency),
+    user_events: EventMap = Depends(event_dependency),
 ) -> AsyncGenerator[ServerSentEvent, None]:
     try:
         while True:

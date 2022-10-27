@@ -1,11 +1,9 @@
-from typing import Deque, Dict
-
-from ..models.v1.domain.event import Event
+from ..models.v1.domain.event import EventMap
 
 
 class EventDependency:
-    def __call__(self) -> Dict[str, Deque[Event]]:
-        user_events: Dict[str, Deque[Event]] = {}
+    def __call__(self) -> EventMap:
+        user_events: EventMap = {}
         return user_events
 
 

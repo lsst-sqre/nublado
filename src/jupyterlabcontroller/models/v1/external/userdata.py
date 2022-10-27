@@ -1,14 +1,12 @@
 """Models for jupyterlab-controller."""
 
 from collections import deque
-from typing import Deque, Dict, List
+from typing import Deque, Dict, List, TypeAlias
 
 from pydantic import BaseModel, validator
 
-from ..runtime.consts import lab_statuses, pod_states
+from ..consts import LabStatuses, PodStates
 from .event import Event
-
-__all__ = ["UserData", "UserInfo", "LabSpecification"]
 
 
 class UserOptions(BaseModel):
@@ -18,8 +16,7 @@ class UserOptions(BaseModel):
     size: str
 
 
-class UserEnv(BaseModel):
-    Dict[str, str]
+UserEnv: TypeAlias = Dict[str, str]
 
 
 class UserGroup(BaseModel):
@@ -58,10 +55,15 @@ class UserData(UserInfo, LabSpecification):
 
     @validator("status")
     def legal_user_status(cls, v: str) -> None:
+        lab_statuses = [x.name for x in LabStatuses]
         if v not in lab_statuses:
             raise ValueError(f"must be one of {lab_statuses}")
 
     @validator("pod")
     def legal_pod_state(cls, v: str) -> None:
+        pod_states = [x.name for x in PodStates]
         if v not in pod_states:
             raise ValueError(f"must be one of {pod_states}")
+
+
+UserMap: TypeAlias = Dict[str, UserData]
