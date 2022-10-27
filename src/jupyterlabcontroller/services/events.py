@@ -6,8 +6,8 @@ from safir.dependencies.logger import logger_dependency
 from sse_starlette.sse import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
-from ..dependencies.event import event_dependency
-from ..models.v1.domain.events import EventMap
+from ..dependencies.events import event_dependency
+from ..models.v1.external.event import EventMap
 
 
 async def user_event_publisher(

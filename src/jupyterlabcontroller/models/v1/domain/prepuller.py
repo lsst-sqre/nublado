@@ -6,8 +6,8 @@ from typing import Dict, List, Optional, TypeAlias
 
 from kubernetes_asyncio.client.models import V1ContainerImage
 
-from ..models.v1.domain.tag import Tag, TagList
-from ..models.v1.external.prepuller import Image
+from ..external.prepuller import Image
+from .tag import Tag, TagList
 
 NodeContainers: TypeAlias = Dict[str, List[V1ContainerImage]]
 

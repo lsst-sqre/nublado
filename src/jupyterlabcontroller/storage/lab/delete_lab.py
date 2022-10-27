@@ -7,10 +7,11 @@ from kubernetes_asyncio.client.rest import ApiException
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ....dependencies.namespace import namespace_dependency
-from ...config import config
+from ...dependencies.config import configuration_dependency
 from ...dependencies.k8s import k8s_corev1api_dependency
 from ...dependencies.labs import lab_dependency
+from ...dependencies.namespace import namespace_dependency
+from ...models.v1.domain.config import Config
 from ...models.v1.external.userdata import UserMap
 
 
@@ -34,6 +35,7 @@ async def delete_lab_environment(
 async def delete_namespace(
     namespace: str = Depends(namespace_dependency),
     api: CoreV1Api = Depends(k8s_corev1api_dependency),
+    config: Config = Depends(configuration_dependency),
 ) -> None:
     """Delete the namespace with name ``namespace``.  If it doesn't exist,
     that's OK.

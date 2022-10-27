@@ -49,7 +49,7 @@ _srdsizes = (
 )
 
 
-class LabSizeDefinition:
+class LabSizeDefinition(BaseModel):
     cpu: float
     memory: Union[int, str]
 

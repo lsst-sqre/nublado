@@ -9,17 +9,17 @@ from kubernetes_asyncio.client.models import V1ContainerImage
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ..dependencies.config import configuration_dependency
-from ..dependencies.k8s import k8s_corev1api_dependency
-from ..models.v1.domain.config import Config
-from ..models.v1.domain.prepuller import (
+from ...dependencies.config import configuration_dependency
+from ...dependencies.k8s import k8s_corev1api_dependency
+from ...models.v1.domain.config import Config
+from ...models.v1.domain.prepuller import (
     DigestToNodeTagImages,
     ExtTag,
     NodeContainers,
     NodeTagImage,
 )
-from ..models.v1.domain.tag import Tag
-from ..models.v1.external.prepuller import Image, Node
+from ...models.v1.domain.tag import Tag
+from ...models.v1.external.prepuller import Image, Node
 
 
 async def get_image_data_from_k8s(

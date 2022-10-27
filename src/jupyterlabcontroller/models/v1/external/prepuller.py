@@ -1,4 +1,5 @@
 """Models for prepuller."""
+from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Union
 
@@ -81,9 +82,7 @@ class Config(BaseModel):
     aliasTags: Optional[List[str]]
 
     @root_validator
-    def registry_defined(
-        cls, values: Dict[str, Any], pre: bool = True
-    ) -> Dict[str, Any]:
+    def registry_defined(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         gar, docker = values.get("gar"), values.get("docker")
         if (gar is not None and docker is None) or (
             gar is None and docker is not None

@@ -2,7 +2,8 @@
 from typing import Any, Dict
 
 import yaml
-from models.v1.domain.config import Config
+
+from ..models.v1.domain.config import Config
 
 
 class ConfigurationDependency:

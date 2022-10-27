@@ -12,14 +12,14 @@ from typing import Any, Dict
 
 import yaml
 from fastapi import FastAPI
-from handlers import external_router, internal_router
-from models.v1.domain.config import SafirConfig
 from safir.dependencies.http_client import http_client_dependency
 from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 
 from .dependencies.k8s import k8s_api_dependency
+from .handlers import external_router, internal_router
+from .models.v1.domain.config import SafirConfig
 
 __all__ = ["app"]
 

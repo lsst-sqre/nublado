@@ -5,27 +5,29 @@ from jinja2 import Template
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ...dependencies.config import config_dependency
-from ...models.v1.domain.config import Config, FormData
-from ...models.v1.external.imageinfo import ImageInfo
-from ...models.v1.external.userdata import UserInfo
+from ..dependencies.config import configuration_dependency
+from ..models.v1.domain.config import Config, FormData
+from ..models.v1.external.prepuller import Image
+from ..models.v1.external.userdata import UserInfo
 
 DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 
 
 def form_for_group(
-    group: str, config: Config = Depends(config_dependency)
+    group: str, config: Config = Depends(configuration_dependency)
 ) -> str:
     forms: FormData = config.form.forms
     return forms.get(group, forms.default)
 
 
-def _get_images() -> Tuple[List[ImageInfo], List[ImageInfo]]:
+def _get_images() -> Tuple[List[UserInfo], List[Image]]:
     # TODO: ask the prepuller for its cache, and use that.
     return ([], [])
 
 
-def _extract_sizes(config: Config = Depends(config_dependency)) -> List[str]:
+def _extract_sizes(
+    config: Config = Depends(configuration_dependency),
+) -> List[str]:
     sz = config.lab.sizes
     return [
         f"{x.title()} ({(sz[x]).cpu} CPU, {(sz[x]).memory} memory." for x in sz

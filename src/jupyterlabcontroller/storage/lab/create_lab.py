@@ -11,17 +11,14 @@ from kubernetes_asyncio.client.rest import ApiException
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ....config import config
-from ....dependencies.k8s import k8s_api_dependency, k8s_corev1api_dependency
-from ....dependencies.labs import lab_dependency
-from ....dependencies.namespace import namespace_dependency
-from ....dependencies.token import token_dependency, user_dependency
-from ....models.v1.external.userdata import (
-    LabSpecification,
-    UserData,
-    UserInfo,
-)
-from ....services.quota import quota_from_size
+from ...dependencies.config import configuration_dependency
+from ...dependencies.k8s import k8s_api_dependency, k8s_corev1api_dependency
+from ...dependencies.labs import lab_dependency
+from ...dependencies.namespace import namespace_dependency
+from ...dependencies.token import token_dependency, user_dependency
+from ...models.v1.domain.config import Config
+from ...models.v1.external.userdata import LabSpecification, UserData, UserInfo
+from ...services.quota import quota_from_size
 from .delete_lab import delete_namespace
 from .std_metadata import get_std_metadata
 
@@ -64,6 +61,7 @@ async def create_user_namespace(
     api: ApiClient = Depends(k8s_corev1api_dependency),
     ns_name: str = Depends(namespace_dependency),
     logger: BoundLogger = Depends(logger_dependency),
+    config: Config = Depends(configuration_dependency),
 ) -> str:
     try:
         await asyncio.wait_for(
@@ -97,32 +95,33 @@ async def create_user_lab_objects(
     token: str = Depends(token_dependency),
     namespace: str = Depends(namespace_dependency),
     api: ApiClient = Depends(k8s_corev1api_dependency),
+    config: Config = Depends(configuration_dependency),
 ) -> None:
     # Initially this will create all the resources in parallel.  If it turns
     # out we need to sequence that, we do this more manually with explicit
     # awaits.
     scheduler: Scheduler = Scheduler(close_timeout=config.k8s.request_timeout)
-    scheduler.schedule(
+    await scheduler.spawn(
         create_secrets(
             lab=lab,
         )
     )
-    scheduler.schedule(
+    await scheduler.spawn(
         create_nss(
             lab=lab,
         )
     )
-    scheduler.schedule(
+    await scheduler.spawn(
         create_env(
             lab=lab,
         )
     )
-    scheduler.schedule(
+    await scheduler.spawn(
         create_network_policy(
             lab=lab,
         )
     )
-    scheduler.schedule(
+    await scheduler.spawn(
         create_quota(
             lab=lab,
         )

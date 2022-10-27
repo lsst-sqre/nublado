@@ -5,7 +5,7 @@ from typing import Deque, Dict, List, TypeAlias
 
 from pydantic import BaseModel, validator
 
-from ..consts import LabStatuses, PodStates
+from ..consts import lab_statuses, pod_states
 from .event import Event
 
 
@@ -55,13 +55,11 @@ class UserData(UserInfo, LabSpecification):
 
     @validator("status")
     def legal_user_status(cls, v: str) -> None:
-        lab_statuses = [x.name for x in LabStatuses]
         if v not in lab_statuses:
             raise ValueError(f"must be one of {lab_statuses}")
 
     @validator("pod")
     def legal_pod_state(cls, v: str) -> None:
-        pod_states = [x.name for x in PodStates]
         if v not in pod_states:
             raise ValueError(f"must be one of {pod_states}")
 

@@ -10,27 +10,28 @@ from safir.models import ErrorModel
 from sse_starlette.sse import EventSourceResponse
 from structlog.stdlib import BoundLogger
 
-from ..config import config  # Safir config
-from ..dependencies.jobs import scheduler_dependency
-from ..dependencies.lab import lab_dependency
-from ..dependencies.token import token_dependency, user_dependency
-from ..models.index import Index
-from ..models.v1.external.prepuller import (
+from .dependencies.config import configuration_dependency
+from .dependencies.jobs import scheduler_dependency
+from .dependencies.labs import lab_dependency
+from .dependencies.token import token_dependency, user_dependency
+from .models.index import Index
+from .models.v1.domain.config import Config
+from .models.v1.external.prepuller import (
     PrepulledImageDisplayList,
     PrepullerStatus,
 )
-from ..models.v1.external.userdata import (
+from .models.v1.external.userdata import (
     LabSpecification,
     UserData,
     UserInfo,
     UserMap,
 )
-from ..services.events import user_event_publisher
-from ..services.form import generate_user_lab_form
-from ..services.labs import check_for_user, get_active_users
-from ..storage.kubernetes.create_lab import create_lab_environment
-from ..storage.kubernetes.delete_lab import delete_lab_environment
-from ..storage.prepuller.prepuller import get_current_image_and_node_state
+from .services.events import user_event_publisher
+from .services.form import generate_user_lab_form
+from .services.labs import check_for_user, get_active_users
+from .storage.lab.create_lab import create_lab_environment
+from .storage.lab.delete_lab import delete_lab_environment
+from .storage.prepuller.prepuller import get_current_image_and_node_state
 
 # FastAPI routers
 external_router = APIRouter()
@@ -207,6 +208,7 @@ async def get_prepulls(
 )
 async def get_index(
     logger: BoundLogger = Depends(logger_dependency),
+    config: Config = Depends(configuration_dependency),
 ) -> Index:
     """GET ``/nublado/`` (the app's external root).
 
@@ -226,7 +228,7 @@ async def get_index(
 
     metadata = get_metadata(
         package_name="jupyterlab-controller",
-        application_name=config.name,
+        application_name=config.safir.name,
     )
     return Index(metadata=metadata)
 
@@ -258,12 +260,14 @@ or other information that should not be visible outside the Kubernetes cluster.
     response_model_exclude_none=True,
     summary="Application metadata",
 )
-async def get_internal_index() -> Metadata:
+async def get_internal_index(
+    config: Config = Depends(configuration_dependency),
+) -> Metadata:
     """GET ``/`` (the app's internal root).
 
     By convention, this endpoint returns only the application's metadata.
     """
     return get_metadata(
         package_name="jupyterlab-controller",
-        application_name=config.name,
+        application_name=config.safir.name,
     )

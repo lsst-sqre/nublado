@@ -1,4 +1,4 @@
-from ..models.v1.domain.event import EventMap
+from ..models.v1.external.event import EventMap
 
 
 class EventDependency:

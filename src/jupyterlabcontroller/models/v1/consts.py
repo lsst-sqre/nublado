@@ -2,6 +2,7 @@
 """
 
 from enum import Enum
+from typing import Tuple
 
 
 class LabStatuses(Enum):
@@ -11,9 +12,15 @@ class LabStatuses(Enum):
     FAILED = "failed"
 
 
+lab_statuses: Tuple[str] = tuple(x.value for x in LabStatuses)
+
+
 class PodStates(Enum):
     PRESENT = "present"
     MISSING = "missing"
+
+
+pod_states: Tuple[str] = tuple(x.value for x in PodStates)
 
 
 class EventTypes(Enum):
@@ -22,3 +29,6 @@ class EventTypes(Enum):
     FAILED = "failed"
     INFO = "info"
     PROGRESS = "progress"
+
+
+event_types: Tuple[str] = tuple(x.value for x in EventTypes)
