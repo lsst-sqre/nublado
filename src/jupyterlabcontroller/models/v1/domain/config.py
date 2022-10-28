@@ -12,9 +12,10 @@ from ..external.userdata import UserEnv
 
 
 class SafirConfig(BaseModel):
-    name: str
-    profile: str
-    logger_name: str
+    name: str = "jupyterlab-controller"
+    profile: str = "development"
+    logger_name: str = "jupyterlabcontroller"
+    log_level: str = "DEBUG"
 
     @validator("profile")
     def validate_profile(cls, v: str) -> str:
@@ -28,7 +29,7 @@ class SafirConfig(BaseModel):
 
 
 class K8sConfig(BaseModel):
-    request_timeout: int
+    request_timeout: int = 60
 
 
 #
@@ -50,8 +51,8 @@ _srdsizes = (
 
 
 class LabSizeDefinition(BaseModel):
-    cpu: float
-    memory: Union[int, str]
+    cpu: float = 0.5
+    memory: Union[int, str] = "1536MiB"
 
 
 LabSizeDefinitions: TypeAlias = Dict[str, LabSizeDefinition]
@@ -141,13 +142,13 @@ LabFiles: TypeAlias = List[LabFile]
 
 class LabConfig(BaseModel):
     sizes: LabSizeDefinitions
-    initcontainers: LabInitContainers
-    quota: Optional[LabQuota] = None
-    volumes: LabVolumes
-    volume_mounts: LabVolumeMounts
-    env: UserEnv
     form: LabForm
-    files: LabFiles
+    env: UserEnv = {}
+    files: LabFiles = []
+    volumes: LabVolumes = []
+    volume_mounts: LabVolumeMounts = []
+    initcontainers: LabInitContainers = []
+    quota: Optional[LabQuota] = None
 
     @validator("sizes")
     def validate_lab_sizes(
@@ -174,11 +175,9 @@ class PrepullerConfig(BaseModel):
 
 FormData: TypeAlias = Dict[str, str]
 
-Forms: TypeAlias = Dict[str, FormData]
 
-
-class FormConfig(BaseModel):
-    forms: Forms
+class FormsConfig(BaseModel):
+    forms: FormData
 
     @validator("forms")
     def validate_form(cls, v: FormData) -> FormData:
@@ -196,4 +195,4 @@ class Config(BaseModel):
     kubernetes: K8sConfig
     lab: LabConfig
     prepuller: PrepullerConfig
-    form: FormConfig
+    form: FormsConfig

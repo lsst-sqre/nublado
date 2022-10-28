@@ -68,7 +68,7 @@ async def create_user_namespace(
             api.create_namespace(
                 V1Namespace(metadata=get_std_metadata(name=ns_name))
             ),
-            config.k8s.request_timeout,
+            config.kubernetes.request_timeout,
         )
     except ApiException as e:
         if e.status == 409:
@@ -100,7 +100,9 @@ async def create_user_lab_objects(
     # Initially this will create all the resources in parallel.  If it turns
     # out we need to sequence that, we do this more manually with explicit
     # awaits.
-    scheduler: Scheduler = Scheduler(close_timeout=config.k8s.request_timeout)
+    scheduler: Scheduler = Scheduler(
+        close_timeout=config.kubernetes.request_timeout
+    )
     await scheduler.spawn(
         create_secrets(
             lab=lab,

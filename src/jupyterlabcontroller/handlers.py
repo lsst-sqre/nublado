@@ -2,7 +2,7 @@
 from typing import List
 
 from aiojobs import Scheduler
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from fastapi.responses import RedirectResponse
 from safir.dependencies.logger import logger_dependency
 from safir.metadata import Metadata, get_metadata
@@ -13,7 +13,7 @@ from structlog.stdlib import BoundLogger
 from .dependencies.config import configuration_dependency
 from .dependencies.jobs import scheduler_dependency
 from .dependencies.labs import lab_dependency
-from .dependencies.token import token_dependency, user_dependency
+from .dependencies.token import user_dependency
 from .models.index import Index
 from .models.v1.domain.config import Config
 from .models.v1.external.prepuller import (
@@ -109,23 +109,19 @@ async def get_userdata(
     summary="Create user lab",
 )
 async def post_new_lab(
-    request: Request,
     lab: LabSpecification,
-    token: str = Depends(token_dependency),
     user: UserInfo = Depends(user_dependency),
     scheduler: Scheduler = Depends(scheduler_dependency),
     logger: BoundLogger = Depends(logger_dependency),
 ) -> str:
     """POST body is a LabSpecification.  Requires exec:notebook and valid
     user token."""
-    # We actually need the token itself, not just the user it points to,
-    # because we pass the token down to the spawned lab.
     username = user.username
     lab_exists = check_for_user(username)
     if lab_exists:
         raise RuntimeError(f"lab already exists for {username}")
     logger.debug(f"Received creation request for {username}")
-    await scheduler.spawn(create_lab_environment(user, lab, token))
+    await scheduler.spawn(create_lab_environment(lab))
     return f"/nublado/spawner/v1/labs/{username}"
 
 

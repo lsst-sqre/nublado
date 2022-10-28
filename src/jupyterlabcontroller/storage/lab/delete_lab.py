@@ -45,7 +45,7 @@ async def delete_namespace(
     """
     try:
         await asyncio.wait_for(
-            api.delete_namespace(namespace), config.k8s_request_timeout
+            api.delete_namespace(namespace), config.kubernetes.request_timeout
         )
     except ApiException as e:
         if e.status != 404:

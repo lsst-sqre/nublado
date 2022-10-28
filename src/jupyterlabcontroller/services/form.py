@@ -17,7 +17,7 @@ def form_for_group(
     group: str, config: Config = Depends(configuration_dependency)
 ) -> str:
     forms: FormData = config.form.forms
-    return forms.get(group, forms.default)
+    return forms.get(group, forms["default"])
 
 
 def _get_images() -> Tuple[List[UserInfo], List[Image]]:

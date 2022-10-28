@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import AsyncGenerator
+from typing import Optional
 
 from fastapi import Depends
 from safir.dependencies.logger import logger_dependency
@@ -7,7 +8,7 @@ from sse_starlette.sse import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
 from ..dependencies.events import event_dependency
-from ..models.v1.external.event import EventMap
+from ..models.v1.external.event import EventMap, EventQueue
 
 
 async def user_event_publisher(
@@ -17,7 +18,7 @@ async def user_event_publisher(
 ) -> AsyncGenerator[ServerSentEvent, None]:
     try:
         while True:
-            evs = user_events.get(username, [])
+            evs: Optional[EventQueue] = user_events.get(username)
             if evs:
                 for ev in evs:
                     if ev.sent:
