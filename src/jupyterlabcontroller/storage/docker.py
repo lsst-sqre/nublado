@@ -3,13 +3,9 @@ import base64
 import json
 from typing import List, Optional
 
-from fastapi import Depends
 from httpx import AsyncClient, Response
-from safir.dependencies.http_client import http_client_dependency
-from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ..dependencies.config import configuration_dependency
 from ..models.v1.consts import DOCKER_SECRETS_PATH
 from ..models.v1.domain.config import Config
 from ..models.v1.domain.docker import DockerCredentials as DC
@@ -26,9 +22,9 @@ class DockerClient:
 
     def __init__(
         self,
-        logger: BoundLogger = Depends(logger_dependency),
-        config: Config = Depends(configuration_dependency),
-        http_client: AsyncClient = Depends(http_client_dependency),
+        logger: BoundLogger,
+        config: Config,
+        http_client: AsyncClient,
         secrets_path: str = DOCKER_SECRETS_PATH,
     ) -> None:
         """Create a new Docker Client.

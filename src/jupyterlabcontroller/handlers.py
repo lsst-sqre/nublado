@@ -8,14 +8,19 @@ from safir.dependencies.logger import logger_dependency
 from safir.metadata import Metadata, get_metadata
 from safir.models import ErrorModel
 from sse_starlette.sse import EventSourceResponse
+from storage.prepuller import PrepullerClient
 from structlog.stdlib import BoundLogger
 
 from .dependencies.config import configuration_dependency
-from .dependencies.jobs import scheduler_dependency
-from .dependencies.labs import lab_dependency
+from .dependencies.event import event_manager_dependency
+from .dependencies.form import form_manager_dependency
+from .dependencies.lab import lab_client_dependency, user_labs_dependency
+from .dependencies.prepuller import prepuller_client_dependency
+from .dependencies.scheduler import scheduler_dependency
 from .dependencies.token import user_dependency
 from .models.index import Index
 from .models.v1.domain.config import Config
+from .models.v1.domain.lab import LabMap
 from .models.v1.external.prepuller import (
     PrepulledImageDisplayList,
     PrepullerStatus,
@@ -26,12 +31,9 @@ from .models.v1.external.userdata import (
     UserInfo,
     UserMap,
 )
-from .services.events import user_event_publisher
-from .services.form import generate_user_lab_form
 from .services.labs import check_for_user, get_active_users
-from .storage.lab.create_lab import create_lab_environment
-from .storage.lab.delete_lab import delete_lab_environment
-from .storage.prepuller.prepuller import get_current_image_and_node_state
+from .storage.events import EventManager
+from .storage.lab import LabClient
 
 # FastAPI routers
 external_router = APIRouter()
@@ -49,9 +51,10 @@ internal_router = APIRouter()
 )
 async def get_user_events(
     username: str,
+    event_manager: EventManager = Depends(event_manager_dependency),
 ) -> EventSourceResponse:
     """Requires exec:notebook and valid user token"""
-    return EventSourceResponse(user_event_publisher(username))
+    return event_manager_dependency.user_event_publisher(username)
 
 
 #
@@ -62,11 +65,10 @@ async def get_user_events(
     summary="Get lab form for user",
 )
 async def get_user_lab_form(
-    user: UserInfo = Depends(user_dependency),
-    logger: BoundLogger = Depends(logger_dependency),
+    form_manager=Depends(form_manager_dependency),
 ) -> str:
     """Requires exec:notebook and valid token."""
-    return generate_user_lab_form(user)
+    return form_manager.generate_user_lab_form()
 
 
 #
@@ -82,9 +84,11 @@ async def get_user_lab_form(
     response_model=List[str],
     summary="List all users with running labs",
 )
-async def get_lab_users() -> List[str]:
+async def get_lab_users(
+    labs: UserMap = Depends(user_labs_dependency),
+) -> List[str]:
     """requires admin:jupyterlab"""
-    return get_active_users()
+    return get_active_users(labs)
 
 
 @external_router.get(
@@ -95,7 +99,7 @@ async def get_lab_users() -> List[str]:
 )
 async def get_userdata(
     username: str,
-    labs: UserMap = Depends(lab_dependency),
+    labs: UserMap = Depends(user_labs_dependency),
 ) -> UserData:
     """Requires admin:jupyterlab"""
     return labs[username]
@@ -111,6 +115,7 @@ async def get_userdata(
 async def post_new_lab(
     lab: LabSpecification,
     user: UserInfo = Depends(user_dependency),
+    client: LabClient = Depends(lab_client_dependency),
     scheduler: Scheduler = Depends(scheduler_dependency),
     logger: BoundLogger = Depends(logger_dependency),
 ) -> str:
@@ -121,7 +126,7 @@ async def post_new_lab(
     if lab_exists:
         raise RuntimeError(f"lab already exists for {username}")
     logger.debug(f"Received creation request for {username}")
-    await scheduler.spawn(create_lab_environment(lab))
+    await scheduler.spawn(client.create_lab_environment(lab))
     return f"/nublado/spawner/v1/labs/{username}"
 
 
@@ -133,11 +138,11 @@ async def post_new_lab(
 )
 async def delete_user_lab(
     username: str,
-    logger: BoundLogger = Depends(logger_dependency),
+    client: LabClient = Depends(lab_client_dependency),
     scheduler: Scheduler = Depends(scheduler_dependency),
 ) -> None:
     """Requires admin:jupyterlab"""
-    await scheduler.spawn(delete_lab_environment(username))
+    await scheduler.spawn(client.delete_lab_environment(username))
     return
 
 
@@ -148,8 +153,7 @@ async def delete_user_lab(
 )
 async def get_user_status(
     user: UserInfo = Depends(user_dependency),
-    logger: BoundLogger = Depends(logger_dependency),
-    labs: UserMap = Depends(lab_dependency),
+    labs: LabMap = Depends(user_labs_dependency),
 ) -> UserData:
     """Requires exec:notebook and valid token."""
     return labs[user.username]
@@ -167,10 +171,13 @@ async def get_user_status(
     summary="Get known images and their names",
 )
 async def get_images(
-    logger: BoundLogger = Depends(logger_dependency),
+    prepuller_client: PrepullerClient = Depends(prepuller_client_dependency),
 ) -> PrepulledImageDisplayList:
     """Requires admin:notebook"""
-    current_state, nodes = await get_current_image_and_node_state()
+    (
+        current_state,
+        nodes,
+    ) = await prepuller_client.get_current_image_and_node_state()
     return PrepulledImageDisplayList()
 
 

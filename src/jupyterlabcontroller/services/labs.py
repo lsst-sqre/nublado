@@ -1,21 +1,14 @@
-from typing import Dict, List
+from typing import List
 
-from fastapi import Depends
-
-from ..dependencies.labs import lab_dependency
-from ..models.v1.external.userdata import UserData
+from ..models.v1.domains.labs import LabMap
 
 
-def check_for_user(
-    username: str, labs: Dict[str, UserData] = Depends(lab_dependency)
-) -> bool:
+def check_for_user(username: str, labs: LabMap) -> bool:
     """True if there's a lab for the user, otherwise false."""
     return username in labs
 
 
-def get_active_users(
-    labs: Dict[str, UserData] = Depends(lab_dependency)
-) -> List[str]:
+def get_active_users(labs: LabMap) -> List[str]:
     """Returns a list of users with labs in 'running' state."""
     r: List[str] = []
     for u in labs:
