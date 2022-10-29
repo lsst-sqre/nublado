@@ -2,18 +2,40 @@
 
 from __future__ import annotations
 
+from os.path import dirname
 from typing import AsyncIterator
 
+import pytest
 import pytest_asyncio
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
 
 from jupyterlabcontroller import main
+from jupyterlabcontroller.models.v1.domain.config import Config
+from jupyterlabcontroller.storage.docker import DockerClient
+
+from .settings import config_config, docker_client
+
+_here = dirname(__file__)
+
+STDCONFDIR = f"{_here}/configs/standard"
+
+
+@pytest.fixture
+def config() -> Config:
+    return config_config(config_path=STDCONFDIR)
+
+
+@pytest.fixture
+def d_client() -> DockerClient:
+    return docker_client(config_path=STDCONFDIR)
 
 
 @pytest_asyncio.fixture
-async def app() -> AsyncIterator[FastAPI]:
+async def app(
+    config: Config, d_client: DockerClient
+) -> AsyncIterator[FastAPI]:
     """Return a configured test application.
 
     Wraps the application in a lifespan manager so that startup and shutdown

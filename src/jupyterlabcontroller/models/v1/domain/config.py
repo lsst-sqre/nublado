@@ -1,7 +1,13 @@
-import re
-from typing import Dict, List, Optional, TypeAlias, Union
+from __future__ import annotations
 
+import re
+from typing import Any, Dict, List, Optional, TypeAlias, Union
+
+import yaml
+from fastapi import Depends
 from pydantic import BaseModel, validator
+from safir.dependencies.logger import logger_dependency
+from structlog.stdlib import BoundLogger
 
 from ..external.prepuller import Config as ExternalPrepullerConfig
 from ..external.userdata import UserEnv
@@ -12,10 +18,10 @@ from ..external.userdata import UserEnv
 
 
 class SafirConfig(BaseModel):
-    name: str = "jupyterlab-controller"
-    profile: str = "development"
-    logger_name: str = "jupyterlabcontroller"
-    log_level: str = "DEBUG"
+    name: str
+    profile: str
+    logger_name: str
+    log_level: str
 
     @validator("profile")
     def validate_profile(cls, v: str) -> str:
@@ -196,3 +202,19 @@ class Config(BaseModel):
     lab: LabConfig
     prepuller: PrepullerConfig
     form: FormsConfig
+    path: Optional[str] = None
+
+    @classmethod
+    def from_file(
+        cls,
+        filename: str,
+        logger: BoundLogger = Depends(logger_dependency),
+    ) -> Config:
+        config_obj: Dict[Any, Any] = yaml.safe_load(filename)
+        with open(filename) as f:
+            config_obj = yaml.safe_load(f)
+            # In general the YAML might have configuration for other
+            # objects than the controller in it.
+            r = Config.parse_obj(config_obj["controller"])
+            r.path = filename
+            return r

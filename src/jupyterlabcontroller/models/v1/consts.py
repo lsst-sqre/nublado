@@ -32,3 +32,6 @@ class EventTypes(Enum):
 
 
 event_types: Tuple[str, ...] = tuple(str(x.value) for x in EventTypes)
+
+CONFIGURATION_PATH: str = "/etc/nublado/config.yaml"
+DOCKER_SECRETS_PATH: str = "/etc/secrets/.dockerconfigjson"

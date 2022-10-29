@@ -6,13 +6,15 @@ from safir.dependencies.http_client import http_client_dependency
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
+from ..models.v1.consts import DOCKER_SECRETS_PATH
 from ..models.v1.domain.config import Config
 from ..storage.docker import DockerClient
 from .config import configuration_dependency
 
 
-class DockerCredentialsDependency:
-    docker_client: Optional[DockerClient] = None
+class DockerClientDependency:
+    _client: Optional[DockerClient] = None
+    _secrets_path: str = DOCKER_SECRETS_PATH
 
     async def __call__(
         self,
@@ -20,9 +22,20 @@ class DockerCredentialsDependency:
         http_client: AsyncClient = Depends(http_client_dependency),
         config: Config = Depends(configuration_dependency),
     ) -> DockerClient:
-        if self.docker_client is None:
-            self.docker_client = DockerClient()
-        return self.docker_client
+
+        return self.client()
+
+    def client(self) -> DockerClient:
+        if self._client is None:
+            self._client = DockerClient(secrets_path=self._secrets_path)
+        return self._client
+
+    def get_secrets_path(self) -> str:
+        return self._secrets_path
+
+    def set_secrets_path(self, filename: str) -> None:
+        self._secrets_path = filename
+        self._client = DockerClient(secrets_path=self._secrets_path)
 
 
-docker_credentials_dependency = DockerCredentialsDependency()
+docker_client_dependency = DockerClientDependency()

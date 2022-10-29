@@ -83,12 +83,10 @@ class Config(BaseModel):
 
     @root_validator
     def registry_defined(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        gar, docker = values.get("gar"), values.get("docker")
-        if (gar is not None and docker is None) or (
-            gar is None and docker is not None
-        ):
-            assert False, "Exactly one of 'docker' or 'gar' must be defined"
-        return values
+        for x in values.keys():
+            if x == "gar" or x == "docker":
+                return values
+        assert False, "Exactly one of 'docker' or 'gar' must be defined"
 
     @validator("registry")
     def validate_registry(cls, v: str) -> str:

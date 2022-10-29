@@ -10,6 +10,7 @@ from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
 from ..dependencies.config import configuration_dependency
+from ..models.v1.consts import DOCKER_SECRETS_PATH
 from ..models.v1.domain.config import Config
 from ..models.v1.domain.docker import DockerCredentials as DC
 from ..models.v1.domain.docker import DockerRegistryError
@@ -18,6 +19,7 @@ from ..models.v1.domain.docker import DockerRegistryError
 class DockerClient:
     """Simple client for querying Docker registry."""
 
+    secrets_path: Optional[str] = None
     credentials: Optional[DC] = None
     host: Optional[str] = None
     repository: Optional[str] = None
@@ -27,6 +29,7 @@ class DockerClient:
         logger: BoundLogger = Depends(logger_dependency),
         config: Config = Depends(configuration_dependency),
         http_client: AsyncClient = Depends(http_client_dependency),
+        secrets_path: str = DOCKER_SECRETS_PATH,
     ) -> None:
         """Create a new Docker Client.
 
@@ -36,6 +39,7 @@ class DockerClient:
         prepuller_config = config.prepuller.config
         self.host = prepuller_config.registry
         self.repository = prepuller_config.path
+        self.secrets_path = secrets_path
         if self.host is None:
             raise DockerRegistryError(
                 "Could not determine registry from config"
@@ -169,10 +173,12 @@ class DockerClient:
         a username and password for authenticating.
         """
 
-        dcfg = "/etc/secrets/.dockerconfigjson"
+        if self.secrets_path is None:
+            self.logger.warning("Cannot determine secrets location")
+            return
         try:
-            with open(dcfg) as f:
-                self.logger.debug(f"Parsing {dcfg}")
+            with open(self.secrets_path) as f:
+                self.logger.debug(f"Parsing {self.secrets_path}")
                 credstore = json.loads(f.read())
                 if self.host is None:
                     # This can't happen but mypy doesn't know that
@@ -197,7 +203,9 @@ class DockerClient:
                     self.logger.debug(f"Added authentication for '{host}'")
         except FileNotFoundError:
             # It's possible we're only using unauthenticated registries.
-            self.logger.warning(f"no Docker config found at {dcfg}")
+            self.logger.warning(
+                f"no Docker config found at {self.secrets_path}"
+            )
         if self.credentials is None:
             self.logger.warning(
                 f"No Docker credentials loaded for {self.host}"

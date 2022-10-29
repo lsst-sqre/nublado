@@ -1,19 +1,26 @@
 """Configuration dependency."""
-from typing import Any, Dict
+from typing import Optional
 
-import yaml
-
+from ..models.v1.consts import CONFIGURATION_PATH
 from ..models.v1.domain.config import Config
 
 
 class ConfigurationDependency:
-    async def __call__(self) -> Config:
-        _filename = "/etc/nublado/config.yaml"
+    _configuration_path: str = CONFIGURATION_PATH
+    _config: Optional[Config] = None
 
-        config_obj: Dict[str, Any] = {}
-        with open(_filename) as f:
-            config_obj = yaml.safe_load(f)
-            return Config.parse_obj(config_obj)
+    async def __call__(self) -> Config:
+        return self.config()
+
+    def config(self) -> Config:
+        if self._config is None:
+            self._config = Config.from_file(self._configuration_path)
+        return self._config
+
+    def set_configuration_path(self, path: str) -> None:
+        """Change the settings path and reload."""
+        self._configuration_path = path
+        self._config = Config.from_file(self._configuration_path)
 
 
 configuration_dependency = ConfigurationDependency()
