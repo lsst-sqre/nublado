@@ -1,6 +1,6 @@
 from typing import List
 
-from ..models.v1.domains.labs import LabMap
+from ..models.v1.domain.labs import LabMap
 
 
 def check_for_user(username: str, labs: LabMap) -> bool:

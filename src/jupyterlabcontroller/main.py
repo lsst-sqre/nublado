@@ -20,6 +20,7 @@ from safir.middleware.x_forwarded import XForwardedMiddleware
 from .dependencies.config import configuration_dependency
 from .dependencies.docker import docker_client_dependency
 from .dependencies.k8s import k8s_api_dependency
+from .dependencies.scheduler import scheduler_dependency
 from .handlers import external_router, internal_router
 
 __all__ = ["app"]
@@ -69,3 +70,4 @@ async def startup_event() -> None:
 async def shutdown_event() -> None:
     await k8s_api_dependency.aclose()
     await http_client_dependency.aclose()
+    await scheduler_dependency.close()

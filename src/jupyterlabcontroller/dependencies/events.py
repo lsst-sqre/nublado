@@ -27,6 +27,7 @@ class EventManagerDependency:
     ) -> EventManager:
         if self._manager is None:
             self.manager(logger=logger, events=events)
+        assert self._manager is not None  # because mypy is dumb
         return self._manager
 
     def manager(self, logger: BoundLogger, events: EventMap) -> None:

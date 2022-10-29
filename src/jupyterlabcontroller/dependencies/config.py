@@ -9,18 +9,24 @@ class ConfigurationDependency:
     _configuration_path: str = CONFIGURATION_PATH
     _config: Optional[Config] = None
 
-    async def __call__(self) -> Config:
+    async def __call__(
+        self,
+    ) -> Config:
         return self.config()
 
     def config(self) -> Config:
         if self._config is None:
-            self._config = Config.from_file(self._configuration_path)
+            self._config = Config.from_file(
+                self._configuration_path,
+            )
         return self._config
 
     def set_configuration_path(self, path: str) -> None:
         """Change the settings path and reload."""
         self._configuration_path = path
-        self._config = Config.from_file(self._configuration_path)
+        self._config = Config.from_file(
+            self._configuration_path,
+        )
 
 
 configuration_dependency = ConfigurationDependency()

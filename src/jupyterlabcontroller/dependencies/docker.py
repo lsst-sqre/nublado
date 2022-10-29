@@ -14,7 +14,10 @@ from .config import configuration_dependency
 
 class DockerClientDependency:
     _client: Optional[DockerClient] = None
+    _logger: Optional[BoundLogger] = None
     _secrets_path: str = DOCKER_SECRETS_PATH
+    _http_client: Optional[AsyncClient] = None
+    _config: Optional[Config] = None
 
     async def __call__(
         self,
@@ -22,12 +25,21 @@ class DockerClientDependency:
         http_client: AsyncClient = Depends(http_client_dependency),
         config: Config = Depends(configuration_dependency),
     ) -> DockerClient:
-
+        self._http_client = http_client
+        self._config = config
         return self.client()
 
     def client(self) -> DockerClient:
         if self._client is None:
-            self._client = DockerClient(secrets_path=self._secrets_path)
+            assert self._logger is not None  # Oh, mypy
+            assert self._http_client is not None
+            assert self._config is not None
+            self._client = DockerClient(
+                logger=self._logger,
+                http_client=self._http_client,
+                config=self._config,
+                secrets_path=self._secrets_path,
+            )
         return self._client
 
     def get_secrets_path(self) -> str:
@@ -35,7 +47,15 @@ class DockerClientDependency:
 
     def set_secrets_path(self, filename: str) -> None:
         self._secrets_path = filename
-        self._client = DockerClient(secrets_path=self._secrets_path)
+        assert self._logger is not None  # Oh, mypy
+        assert self._http_client is not None
+        assert self._config is not None
+        self._client = DockerClient(
+            logger=self._logger,
+            http_client=self._http_client,
+            config=self._config,
+            secrets_path=self._secrets_path,
+        )
 
 
 docker_client_dependency = DockerClientDependency()

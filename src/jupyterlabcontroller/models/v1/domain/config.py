@@ -4,10 +4,7 @@ import re
 from typing import Any, Dict, List, Optional, TypeAlias, Union
 
 import yaml
-from fastapi import Depends
 from pydantic import BaseModel, validator
-from safir.dependencies.logger import logger_dependency
-from structlog.stdlib import BoundLogger
 
 from ..external.prepuller import Config as ExternalPrepullerConfig
 from ..external.userdata import UserEnv
@@ -208,7 +205,6 @@ class Config(BaseModel):
     def from_file(
         cls,
         filename: str,
-        logger: BoundLogger = Depends(logger_dependency),
     ) -> Config:
         config_obj: Dict[Any, Any] = yaml.safe_load(filename)
         with open(filename) as f:

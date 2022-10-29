@@ -8,7 +8,6 @@ from kubernetes_asyncio.client.models import V1Namespace, V1ObjectMeta
 from kubernetes_asyncio.client.rest import ApiException
 from structlog.stdlib import BoundLogger
 
-from ...services.labels import std_annotations, std_labels
 from ..models.v1.domain.config import Config
 from ..models.v1.external.userdata import (
     LabSpecification,
@@ -16,6 +15,7 @@ from ..models.v1.external.userdata import (
     UserInfo,
     UserMap,
 )
+from ..services.labels import std_annotations, std_labels
 from ..services.quota import quota_from_size
 
 
@@ -35,8 +35,9 @@ class LabClient:
         self.logger = logger
         self.labs = labs
         self.k8s_api = k8s_api
-        self.api = self.CoreV1Api(self.k8s_api)
+        self.api = self.k8s_api("CoreV1Api")
         self.namespace = namespace
+        self.config = config
 
     async def create_lab_environment(
         self,
@@ -67,7 +68,7 @@ class LabClient:
         self.labs[username].events = deque()
         return
 
-    async def create_user_namespace(self) -> str:
+    async def create_user_namespace(self) -> None:
 
         try:
             await asyncio.wait_for(

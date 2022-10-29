@@ -15,6 +15,7 @@ from ..models.v1.domain.prepuller import (
     NodeTagImage,
 )
 from ..models.v1.domain.tag import Tag
+from ..models.v1.external.prepuller import Config as PrepullerConfig
 from ..models.v1.external.prepuller import Image, Node
 from .docker import DockerClient
 
@@ -29,7 +30,7 @@ class PrepullerClient:
     ) -> None:
         self.logger: BoundLogger = logger
         self.api: CoreV1Api = api
-        self.config: Config = config.prepuller.config
+        self.config: PrepullerConfig = config.prepuller.config
         self.docker_client = docker_client
 
     async def get_image_data_from_k8s(self) -> NodeContainers:
@@ -49,13 +50,9 @@ class PrepullerClient:
     ) -> Tuple[List[Image], List[Node]]:
         all_images_by_node = await self.get_image_data_from_k8s()
         self.logger.debug("Constructing initial node pool")
-        initial_nodes = await self._make_nodes_from_image_data(
-            all_images_by_node
-        )
+        initial_nodes = self._make_nodes_from_image_data(all_images_by_node)
         self.logger.debug("Constructing image state.")
-        image_list = await self._construct_current_image_state(
-            all_images_by_node
-        )
+        image_list = self._construct_current_image_state(all_images_by_node)
         self.logger.debug("Calculating image prepull status")
         prepulled_images = self._update_prepulled_images(
             initial_nodes, image_list
@@ -276,7 +273,7 @@ class PrepullerClient:
     def _extract_path_from_v1_container(self, c: V1ContainerImage) -> str:
         return self._extract_path_from_image_ref(c.names[0])
 
-    def _extract_path_from_image_ref(tname: str) -> str:
+    def _extract_path_from_image_ref(self, tname: str) -> str:
         # Remove the specifier from either a digest or a tagged image
         if "@sha256:" in tname:
             # Everything before the '@'

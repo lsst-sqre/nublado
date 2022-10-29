@@ -10,7 +10,7 @@ from ..storage.docker import DockerClient
 from ..storage.prepuller import PrepullerClient
 from .config import configuration_dependency
 from .docker import docker_client_dependency
-from .kubernetes import k8s_api_client_dependency
+from .k8s import k8s_api_dependency
 
 
 class PrepullerClientDependency:
@@ -19,7 +19,7 @@ class PrepullerClientDependency:
     async def __call__(
         self,
         logger: BoundLogger = Depends(logger_dependency),
-        api: BoundLogger = Depends(k8s_api_client_dependency),
+        api: BoundLogger = Depends(k8s_api_dependency),
         config: Config = Depends(configuration_dependency),
         docker_client: DockerClient = Depends(docker_client_dependency),
     ) -> PrepullerClient:
@@ -30,6 +30,7 @@ class PrepullerClientDependency:
                 config=config,
                 docker_client=docker_client,
             )
+        assert self._prepuller_client is not None  # Oh, mypy
         return self._prepuller_client
 
     def prepuller_client(
@@ -39,7 +40,7 @@ class PrepullerClientDependency:
         config: Config,
         docker_client: DockerClient,
     ) -> None:
-        self.prepuller_client = PrepullerClient(
+        self._prepuller_client = PrepullerClient(
             logger=logger, api=api, config=config, docker_client=docker_client
         )
 
