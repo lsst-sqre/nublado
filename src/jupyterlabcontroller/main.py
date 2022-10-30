@@ -29,11 +29,9 @@ __all__ = ["app"]
 # This is a gross hack for testing.  I hope I can do better.
 #
 
+# We have to do it before we initialize the app, so we can load the
+# app config.
 c_path: Optional[str] = os.getenv("JUPYTERLAB_CONTROLLER_CONFIGURATION_PATH")
-d_path: Optional[str] = os.getenv("JUPYTERLAB_CONTROLLER_DOCKER_SECRETS_PATH")
-
-if d_path:
-    docker_client_dependency.set_secrets_path(d_path)
 if c_path:
     configuration_dependency.set_configuration_path(c_path)
 config = configuration_dependency.config()
@@ -53,6 +51,7 @@ app = FastAPI(
     docs_url=f"/{config.safir.name}/docs",
     redoc_url=f"/{config.safir.name}/redoc",
 )
+
 """The main FastAPI application for jupyterlab-controller."""
 
 # Attach the routers.
@@ -64,6 +63,13 @@ app.include_router(external_router, prefix=f"/{config.safir.name}")
 async def startup_event() -> None:
     app.add_middleware(XForwardedMiddleware)
     await initialize_kubernetes()
+    # Gross hack for testing, type 2, but at least this time we have the
+    # rest of our dependencies initialized.
+    d_path: Optional[str] = os.getenv(
+        "JUPYTERLAB_CONTROLLER_DOCKER_SECRETS_PATH"
+    )
+    if d_path:
+        docker_client_dependency.set_secrets_path(d_path)
 
 
 @app.on_event("shutdown")

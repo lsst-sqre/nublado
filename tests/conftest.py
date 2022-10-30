@@ -13,9 +13,8 @@ from httpx import AsyncClient
 
 from jupyterlabcontroller import main
 from jupyterlabcontroller.models.v1.domain.config import Config
-from jupyterlabcontroller.storage.docker import DockerClient
 
-from .settings import config_config, docker_client
+from .settings import config_config
 
 _here = dirname(__file__)
 
@@ -27,14 +26,9 @@ def config() -> Config:
     return config_config(config_path=STDCONFDIR)
 
 
-@pytest.fixture
-def d_client() -> DockerClient:
-    return docker_client(config_path=STDCONFDIR)
-
-
 @pytest_asyncio.fixture
 async def app(
-    config: Config, d_client: DockerClient
+    config: Config,
 ) -> AsyncIterator[FastAPI]:
     """Return a configured test application.
 

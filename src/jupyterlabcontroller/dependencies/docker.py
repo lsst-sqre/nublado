@@ -27,17 +27,21 @@ class DockerClientDependency:
     ) -> DockerClient:
         self._http_client = http_client
         self._config = config
-        return self.client()
+        return self.client(
+            logger=logger, http_client=http_client, config=config
+        )
 
-    def client(self) -> DockerClient:
+    def client(
+        self, logger: BoundLogger, http_client: AsyncClient, config: Config
+    ) -> DockerClient:
         if self._client is None:
-            assert self._logger is not None  # Oh, mypy
             assert self._http_client is not None
+            assert self._logger is not None
             assert self._config is not None
             self._client = DockerClient(
-                logger=self._logger,
-                http_client=self._http_client,
-                config=self._config,
+                logger=logger,
+                http_client=http_client,
+                config=config,
                 secrets_path=self._secrets_path,
             )
         return self._client
@@ -47,8 +51,8 @@ class DockerClientDependency:
 
     def set_secrets_path(self, filename: str) -> None:
         self._secrets_path = filename
-        assert self._logger is not None  # Oh, mypy
         assert self._http_client is not None
+        assert self._logger is not None
         assert self._config is not None
         self._client = DockerClient(
             logger=self._logger,
