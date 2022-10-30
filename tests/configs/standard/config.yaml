@@ -1,0 +1,346 @@
+controller:
+  # -- safir settings; generically set through environment variables,
+  # but we'd rather do it this way and just control all config through
+  # the ConfigMap
+  safir:
+    # -- The application's name (not the root HTTP endpoint path)
+    name: jupyterlab-controller
+    # -- Application run profile: "development" or "production"
+    profile: development
+    # -- Root name of the application's logger.
+    logger_name: jupyterlabcontroller
+    #
+    log_level: DEBUG
+  # -- Kubernetes API settings
+  kubernetes:
+    # -- timeout in seconds for kubernetes API requests.
+    request_timeout: 60
+  # -- Settings for the JupyterLab controller
+  lab:
+    # These are the maximum CPU/memory allocations for each size
+    # category.
+    # The size names and ordering are taken from:
+    # https://www.d20srd.org/srd/combat/movementPositionAndDistance.htm#bigandLittleCreaturesInCombat
+    # Typically, we support small, medium, and large, but can range up
+    # and down in instance-specific configuration.
+    sizes:
+      small:
+        cpu: 1.0
+        memory: 3Gi
+      medium:
+        cpu: 2.0
+        memory: 6Gi
+      large:
+        cpu: 4.0
+        memory: 12Gi
+    # -- List of specifications for containers to run to commission a new user.
+    initcontainers: []
+    # Each member of the list should set a container `name`, `image`, and
+    # `securityContext` and may contain `volumeMounts`.
+    # - name: farthing
+    #   image: lsstsqre/farthing
+    #   securityContext:
+    #     runAsUser: 1000
+    #     runAsNonRootUser: true
+    #     allowPrivilegeEscalation: false
+    # -- Maximum CPU/memory resources for user namespace
+    quota:
+      cpu: 81
+      memory: 243Gi
+    # -- Volumes defined to user lab pods
+    volumes:
+    - name: home
+      nfs:
+        path: /share1/home
+        server: 10.13.105.122
+    - name: project
+      nfs:
+        path: /share1/project
+        server: 10.13.105.122
+    - name: scratch
+      nfs:
+        path: /share1/scratch
+        server: 10.13.105.122
+    # -- Volume Mounts corresponding to user lab pod Volumes
+    volume_mounts:
+    - name: home
+      mountPath: /home
+    - name: project
+      mountPath: /project
+    - name: scratch
+      mountPath: /scratch
+    # -- Environment variables for user lab pods, common to all lab pods
+    # in this RSP instance.
+    env:
+      API_ROUTE: /api
+      # AUTO_REPO_BRANCH: "prod"  # No longer needed
+      AUTO_REPO_SPECS: "https://github.com/lsst-sqre/system-test@prod,https://github.com/rubin-dp0/tutorial-notebooks@prod"
+      # AUTO_REPO_URLS: "https://github.com/lsst-sqre/system-test,https://github.com/rubin-dp0/tutorial-notebooks"  # No longer needed
+      CULL_KERNEL_IDLE_TIMEOUT: "432000"  # These might be set from group?
+      CULL_KERNEL_CONNECTED: "True"
+      CULL_KERNEL_INTERVAL: "300"
+      DAF_BUTLER_REPOSITORY_INDEX: "s3://butler-us-central1-repo-locations/data-repos.yaml"
+      FIREFLY_ROUTE: /portal/app
+      HUB_ROUTE: /nb/hub
+      # JS9_ROUTE: /js9  # No longer used?
+      JUPYTERHUB_ADMIN_ACCESS: "1"  # Do we need this?!?
+      JUPYTERHUB_API_URL: http://hub.nublado2:8081/nb/hub/api
+      JUPYTERHUB_BASE_URL: /nb/
+      JUPYTERHUB_DEFAULT_URL: /lab
+      JUPYTERHUB_OAUTH_CLIENT_ALLOWED_SCOPES: '[]' # needed?
+      NO_ACTIVITY_TIMEOUT: "432000"  # Also from group?
+      NO_SUDO: "TRUE"
+      S3_ENDPOINT_URL: "https://storage.googleapis.com"
+      SODA_ROUTE: /api/image/soda
+      TAP_ROUTE: /api/tap
+      # WORKFLOW_ROUTE: /wf  # No longer used
+      # Note that other environment variables will be injected by the
+      # Lab controller (to match KubeSpawner's behavior).  These
+      # must be calculated from other Lab-spawn-time values, and
+      # include:
+      # ACCESS_TOKEN
+      # CPU_LIMIT
+      # DEBUG
+      # EXTERNAL_GID
+      # EXTERNAL_GROUPS
+      # JPY_API_TOKEN
+      # JUPYTERHUB_ACTIVITY_URL
+      # JUPYTERHUB_CLIENT_ID
+      # JUPYTERHUB_OAUTH_ACCESS_SCOPES
+      # JUPYTERHUB_OAUTH_CALLBACK_URL
+      # JUPYTERHUB_OAUTH_SCOPES  # Alias for JUPYTERHUB_OAUTH_ACCESS_SCOPES
+      # JUPYTERHUB_SERVICE_PREFIX
+      # JUPYTERHUB_SERVICE_URL
+      # JUPYTERHUB_USER
+      # JUPYTER_IMAGE
+      # JUPYTER_IMAGE_SPEC  # Alias for JUPYTER_IMAGE
+      # MEM_GUARANTEE  # in bytes
+      # MEM_LIMIT      # in bytes
+      # RESET_USER_ENV
+      # Additionally, some environment variables will be set from the
+      # secrets below.  These will be paths to injected credential
+      # files.
+      # EXTERNAL_INSTANCE_URL is a special case: it's
+      # constant-per-instance, but you can't template values files
+    form:
+      # -- Lab form restrictions.  It's a list of objects where each
+      # object has three fields, 'type', 'value', and 'groups'.  'type'
+      # must be one of "size", "image", or "tag".  'value' is a regular
+      # expression matching a string that is an allowed value for 'type'.
+      # 'groups', if specified, is a list of group names allowed to use
+      # a resource where 'type' matches 'value'.  An empty list is
+      # unrestricted.
+      restrictions: []
+      # - type: "size"
+      #   value: "large"
+      #   groups:
+      #   - "admins"
+      #   - "power_users"
+      # - type: "image"
+      #   value: "docker.io/lsstsqre/admin-*"
+      #   groups: [ "admins" ]
+      # - type "tag"
+      #   value: ".*_exp_.*"
+      #  groups:
+      #  - "experimental_users"
+    # -- Files to be mounted as ConfigMaps inside the user lab pod.
+    # Some of these will require modification.  Those are noted with
+    # modify: true, and the file name will be the unique key directing
+    # how the Lab controller is to modify it.
+    files:
+    - name: passwd
+      mountPath: /etc/passwd
+      modify: true
+      contents: |
+        root:x:0:0:root:/root:/bin/bash
+        bin:x:1:1:bin:/bin:/sbin/nologin
+        daemon:x:2:2:daemon:/sbin:/sbin/nologin
+        adm:x:3:4:adm:/var/adm:/sbin/nologin
+        lp:x:4:7:lp:/var/spool/lpd:/sbin/nologin
+        sync:x:5:0:sync:/sbin:/bin/sync
+        shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+        halt:x:7:0:halt:/sbin:/sbin/halt
+        mail:x:8:12:mail:/var/spool/mail:/sbin/nologin
+        operator:x:11:0:operator:/root:/sbin/nologin
+        games:x:12:100:games:/usr/games:/sbin/nologin
+        ftp:x:14:50:FTP User:/var/ftp:/sbin/nologin
+        tss:x:59:59:Account used by the trousers package to sandbox the tcsd daemon:/dev/null:/sbin/nologin
+        dbus:x:81:81:System message bus:/:/sbin/nologin
+        nobody:x:99:99:Nobody:/:/sbin/nologin
+        systemd-network:x:192:192:systemd Network Management:/:/sbin/nologin
+        lsst_lcl:x:1000:1000::/home/lsst_lcl:/bin/bash
+    - name: group
+      mountPath: /etc/group
+      modify: true
+      contents: |
+        root:x:0:
+        bin:x:1:
+        daemon:x:2:
+        sys:x:3:
+        adm:x:4:
+        tty:x:5:
+        disk:x:6:
+        lp:x:7:
+        mem:x:8:
+        kmem:x:9:
+        wheel:x:10:
+        cdrom:x:11:
+        mail:x:12:
+        man:x:15:
+        dialout:x:18:
+        floppy:x:19:
+        games:x:20:
+        utmp:x:22:
+        tape:x:33:
+        utempter:x:35:
+        video:x:39:
+        ftp:x:50:
+        lock:x:54:
+        tss:x:59:
+        audio:x:63:
+        dbus:x:81:
+        screen:x:84:
+        nobody:x:99:
+        users:x:100:
+        systemd-journal:x:190:
+        systemd-network:x:192:
+        cgred:x:997:
+        ssh_keys:x:998:
+        input:x:999:
+    - name: dask-config
+      mountPath: /opt/lsst/software/jupyterlab/lsst_dask.yml
+      contents: |
+        # No longer used, but preserves compatibility with runlab.sh
+        dask_worker.yml: |
+          enabled: false
+    - name: idds-config
+      mountPath: /opt/lsst/software/jupyterlab/panda
+      modify: false
+      contents: |
+        # Licensed under the Apache License, Version 2.0 (the "License");
+        # You may not use this file except in compliance with the License.
+        # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+        #
+        # Authors:
+        # - Wen Guan, <wen.guan@cern.ch>, 2020
+        [common]
+        # if logdir is configured, idds will write to idds.log in this directory.
+        # else idds will go to stdout/stderr.
+        # With supervisord, it's good to write to stdout/stderr, then supervisord can manage and rotate logs.
+        # logdir = /var/log/idds
+        loglevel = INFO
+        [rest]
+        host = https://iddsserver.cern.ch:443/idds
+        #url_prefix = /idds
+        #cacher_dir = /tmp
+        cacher_dir = /data/idds
+    # -- Secrets for injection into user lab pods.  The name is again
+    # the unique key that allows the Lab Controller to create the
+    # contents.  Since these are stored as secrets, they will be created
+    # from whole cloth, rather than modified from a base template.
+    # If 'env' is specified, the mountPath will be stored in that environment
+    # variable.
+    secrets:
+    - name: aws-credentials.ini
+      mountPath: /opt/lsst/software/jupyterlab/butler-secret/aws-credentials.ini
+      env: AWS_SHARED_CREDENTIALS_FILE
+
+    - name: butler-gcs-idf-creds.json
+      mountPath: /opt/lsst/software/jupyterlab/butler-secret/butler-gcs-idf-creds.json
+      env: GOOGLE_APPLICATION_CREDENTIALS
+    - name: butler-hmac-idf-creds.json
+      mountPath: /opt/lsst/software/jupyterlab/butler-secret/butler-hmac-idf-creds.json
+    - name: postgres-credentials.txt
+      mountPath: /opt/lsst/software/jupyterlab/butler-secret/postgres-credentials.txt
+      env: PGPASSFILE
+  prepuller:
+    # -- config from sqr-066
+    config:
+      registry: registry.hub.docker.com
+      docker:
+        repository: lsstsqre/sciplat-lab
+      recommendedTag: recommended
+      numReleases: 1
+      numWeeklies: 2
+      numDailies: 3
+    # -- Poll interval in seconds to check nodes for new images
+    pollInterval: 60
+  form:
+    # -- options form template text keyed by group name.
+    # "default" is always present.
+    forms:
+      default: |
+        <script>
+        function selectDropdown() {
+            document.getElementById('{{ dropdown_sentinel }}').checked = true;
+        }
+        </script>
+        <style>
+            td {
+                border: 1px solid black;
+                padding: 2%;
+                vertical-align: top;
+            }
+            .radio label,
+            .checkbox label {
+                padding-left: 0px;
+            }
+        </style>
+        <table width="100%">
+        <tr>
+          <th>Image</th>
+          <th>Options</th>
+        </tr>
+        <tr>
+        <td width="50%">
+          <div class="radio radio-inline">
+        {% for i in cached_images %}
+            <input type="radio" name="image_list"
+             id="image{{ loop.index }}" value="{{ i.packed_string }}"
+             {% if loop.first %} checked {% endif %}
+            >
+            <label for="image{{ loop.index }}">{{ i.display_name }}</label><br />
+        {% endfor %}
+            <input type="radio" name="image_list"
+                id="{{ dropdown_sentinel }}"
+                value="{{ dropdown_sentinel }}"
+                {% if not cached_images %} checked {% endif %}
+            >
+            <label for="{{ dropdown_sentinel }}">
+              Select uncached image (slower start):
+            </label><br />
+            <select name="image_dropdown" onclick="selectDropdown()">
+            {% for i in all_images %}
+                <option value="{{ i.packed_string }}">{{ i.display_name }}</option>
+            {% endfor %}
+            </select>
+          </div>
+        </td>
+        <td width="50%">
+          <div class="radio radio-inline">
+        {% for s in sizes %}
+            <input type="radio" name="size"
+             id="{{ s.name }}" value="{{ s.name }}"
+             {% if loop.first %} checked {% endif %}
+            >
+            <label for="{{ s.name }}">
+              {{ s.name }} ({{ s.cpu }} CPU, {{ s.ram }} RAM)
+            </label><br />
+        {% endfor %}
+          </div>
+          <br />
+          <br />
+          <div class="checkbox checkbox-inline">
+            <input type="checkbox" id="enable_debug"
+             name="enable_debug" value="true">
+            <label for="enable_debug">Enable debug logs</label><br />
+
+            <input type="checkbox" id="reset_user_env"
+             name="reset_user_env" value="true">
+            <label for="reset_user_env">
+              Reset user environment: relocate .cache, .jupyter, and .local
+            </label><br />
+          </div>
+        </td>
+        </tr>
+        </table>
