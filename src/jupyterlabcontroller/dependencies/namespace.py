@@ -1,7 +1,7 @@
 from fastapi import Depends
 
 from ..models.v1.external.userdata import UserInfo
-from ..services.namespace import get_user_namespace
+from ..utils import get_user_namespace
 from .token import user_dependency
 
 

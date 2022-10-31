@@ -15,8 +15,7 @@ from ..models.v1.external.userdata import (
     UserInfo,
     UserMap,
 )
-from ..services.labels import std_annotations, std_labels
-from ..services.quota import quota_from_size
+from ..utils import quota_from_size, std_annotations, std_labels
 
 
 class LabClient:

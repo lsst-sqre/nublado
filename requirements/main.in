@@ -21,3 +21,4 @@ aioredlock
 jinja2
 PyYAML
 semver
+bitmath

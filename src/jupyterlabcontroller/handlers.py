@@ -29,11 +29,11 @@ from .models.v1.external.userdata import (
     UserInfo,
     UserMap,
 )
-from .services.labs import check_for_user, get_active_users
 from .storage.events import EventManager
 from .storage.form import FormManager
 from .storage.lab import LabClient
 from .storage.prepuller import PrepullerClient
+from .utils import check_for_user, get_active_users
 
 # from sse_starlette.sse import EventSourceResponse
 
