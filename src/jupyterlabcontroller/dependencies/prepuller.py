@@ -30,7 +30,10 @@ class PrepullerClientDependency:
                 config=config,
                 docker_client=docker_client,
             )
-        assert self._prepuller_client is not None  # Oh, mypy
+        return self.get_prepuller_client()
+
+    def get_prepuller_client(self) -> PrepullerClient:
+        assert self._prepuller_client is not None
         return self._prepuller_client
 
     def prepuller_client(

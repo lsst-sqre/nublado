@@ -41,6 +41,7 @@ class LabClient:
     async def create_lab_environment(
         self,
         lab: LabSpecification,
+        config: Config,
     ) -> None:
         username = self.user.username
         self.labs[username] = UserData(
@@ -52,7 +53,7 @@ class LabClient:
             uid=self.user.uid,
             gid=self.user.gid,
             groups=copy(self.user.groups),
-            quotas=quota_from_size(lab.options.size),
+            quotas=quota_from_size(lab.options.size, config),
         )
         try:
             await self.create_user_namespace()
@@ -209,7 +210,3 @@ class LabClient:
         return V1ObjectMeta(
             name=name, labels=std_labels(), annotations=std_annotations()
         )
-
-
-class Watcher:
-    pass  # use Russ's

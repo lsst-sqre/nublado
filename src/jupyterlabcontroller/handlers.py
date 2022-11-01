@@ -123,6 +123,7 @@ async def post_new_lab(
     client: LabClient = Depends(lab_client_dependency),
     scheduler: Scheduler = Depends(scheduler_dependency),
     logger: BoundLogger = Depends(logger_dependency),
+    config: Config = Depends(configuration_dependency),
 ) -> str:
     """POST body is a LabSpecification.  Requires exec:notebook and valid
     user token."""
@@ -131,7 +132,7 @@ async def post_new_lab(
     if lab_exists:
         raise RuntimeError(f"lab already exists for {username}")
     logger.debug(f"Received creation request for {username}")
-    await scheduler.spawn(client.create_lab_environment(lab))
+    await scheduler.spawn(client.create_lab_environment(lab, config))
     return f"/nublado/spawner/v1/labs/{username}"
 
 

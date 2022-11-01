@@ -26,14 +26,21 @@ from .handlers import external_router, internal_router
 __all__ = ["app"]
 
 #
-# This is a gross hack for testing.  I hope I can do better.
+# We need to be able to override the config location for testing and running
+# locally, and if we do, we have to set it in an environment variable, because
+# we need it to point to the config we would need to initialize the
+# app.
 #
-
-# We have to do it before we initialize the app, so we can load the
-# app config.
-c_path: Optional[str] = os.getenv("JUPYTERLAB_CONTROLLER_CONFIGURATION_PATH")
-if c_path:
-    configuration_dependency.set_configuration_path(c_path)
+# If this path is set, we will assume that it contains the path to a directory
+# that contains both 'config.yaml' and 'docker_config.json'.
+#
+modified_cfg_dir: Optional[str] = os.getenv(
+    "JUPYTERLAB_CONTROLLER_CONFIGURATION_DIR"
+)
+if modified_cfg_dir:
+    configuration_dependency.set_configuration_path(
+        f"{modified_cfg_dir}/config.yaml"
+    )
 config = configuration_dependency.config()
 
 configure_logging(
@@ -65,11 +72,13 @@ async def startup_event() -> None:
     await initialize_kubernetes()
     # Gross hack for testing, type 2, but at least this time we have the
     # rest of our dependencies initialized.
-    d_path: Optional[str] = os.getenv(
-        "JUPYTERLAB_CONTROLLER_DOCKER_SECRETS_PATH"
-    )
-    if d_path:
-        docker_client_dependency.set_secrets_path(d_path)
+    #
+    # We assume that if we have changed the configuration path, then
+    # the pull-secrets file is in the same directory.
+    if modified_cfg_dir:
+        docker_client_dependency.set_secrets_path(
+            f"{modified_cfg_dir}/docker_config.json"
+        )
 
 
 @app.on_event("shutdown")

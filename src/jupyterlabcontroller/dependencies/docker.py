@@ -51,6 +51,10 @@ class DockerClientDependency:
 
     def set_secrets_path(self, filename: str) -> None:
         self._secrets_path = filename
+        if self._client is None:
+            return  # We will initialize it when we need it, and the path
+            # will be set correctly.
+        # Otherwise, we have a client already and we need to change it.
         assert self._http_client is not None
         assert self._logger is not None
         assert self._config is not None
