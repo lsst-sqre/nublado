@@ -1,6 +1,6 @@
 import os
 from copy import copy
-from typing import Dict, List, Union
+from typing import Dict, Union
 
 import bitmath
 
@@ -9,8 +9,12 @@ from .models.v1.domain.config import (
     LabSizeDefinition,
     LabSizeDefinitions,
 )
-from .models.v1.domain.labs import LabMap
-from .models.v1.external.userdata import UserQuota, UserQuotaQuantum
+from .models.v1.domain.lab import UserMap
+from .models.v1.external.lab import (
+    RunningLabUsers,
+    UserQuota,
+    UserQuotaQuantum,
+)
 
 LIMIT_TO_REQUEST_RATIO: float = 4.0  # Seems to work well so far.
 
@@ -32,14 +36,9 @@ def std_labels() -> Dict[str, str]:
     return copy(_std_labels)
 
 
-def check_for_user(username: str, labs: LabMap) -> bool:
-    """True if there's a lab for the user, otherwise false."""
-    return username in labs
-
-
-def get_active_users(labs: LabMap) -> List[str]:
+def get_active_users(labs: UserMap) -> RunningLabUsers:
     """Returns a list of users with labs in 'running' state."""
-    r: List[str] = []
+    r: RunningLabUsers = []
     for u in labs:
         if labs[u].status == "running":
             r.append(u)

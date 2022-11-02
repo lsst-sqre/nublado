@@ -11,6 +11,7 @@ import os
 from importlib.metadata import metadata, version
 from typing import Optional
 
+from aiojobs import Scheduler
 from fastapi import FastAPI
 from safir.dependencies.http_client import http_client_dependency
 from safir.kubernetes import initialize_kubernetes
@@ -18,10 +19,9 @@ from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 
 from .dependencies.config import configuration_dependency
-from .dependencies.docker import docker_client_dependency
-from .dependencies.k8s import k8s_api_dependency
-from .dependencies.scheduler import scheduler_dependency
+from .dependencies.nublado import nublado_dependency
 from .handlers import external_router, internal_router
+from .services.prepuller import PrepullExecutor
 
 __all__ = ["app"]
 
@@ -65,24 +65,27 @@ app = FastAPI(
 app.include_router(internal_router)
 app.include_router(external_router, prefix=f"/{config.safir.name}")
 
+# Create container for prepuller task
+prepull_scheduler: Optional[Scheduler] = None
+prepull_executor: Optional[PrepullExecutor] = None
+
 
 @app.on_event("startup")
 async def startup_event() -> None:
     app.add_middleware(XForwardedMiddleware)
     await initialize_kubernetes()
-    # Gross hack for testing, type 2, but at least this time we have the
-    # rest of our dependencies initialized.
-    #
-    # We assume that if we have changed the configuration path, then
-    # the pull-secrets file is in the same directory.
-    if modified_cfg_dir:
-        docker_client_dependency.set_secrets_path(
-            f"{modified_cfg_dir}/docker_config.json"
-        )
+    prepull_scheduler = Scheduler(
+        close_timeout=config.kubernetes.request_timeout
+    )
+    prepull_executor = PrepullExecutor(config=config)
+    await prepull_scheduler.spawn(prepull_executor.run())
 
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
-    await k8s_api_dependency.aclose()
+    if prepull_executor is not None:
+        await prepull_executor.stop()
+    if prepull_scheduler is not None:
+        await prepull_scheduler.close()
+    await nublado_dependency.aclose()
     await http_client_dependency.aclose()
-    await scheduler_dependency.close()

@@ -1,0 +1,106 @@
+{
+  "user_info": [
+    {
+      "username": "rachel",
+      "name": "Rachel (?)",
+      "uid": 1101,
+      "gid": 1101,
+      "groups": [
+        {"name": "rachel", "id": 1101},
+        {"name": "lunatics", "id": 2028},
+        {"name": "mechanics", "id": 2001},
+        {"name": "storytellers", "id": 2021}
+      ]
+    },
+    {
+      "username": "wrench",
+      "name": "Wrench",
+      "uid": 1102,
+      "gid": 1102,
+      "groups": [
+        {"name": "wrench", "id": 1102},
+        {"name": "jovians", "id": 2010},
+        {"name": "mechanics", "id": 2001}
+      ]
+    },
+    {
+      "username": "violet",
+      "name": "Violet",
+      "uid": 1103,
+      "gid": 1103,
+      "groups": [
+        {"name": "violet", "id": 1103},
+        {"name": "saturnians", "id": 2011},
+        {"name": "pirates", "id": 2002}
+      ]
+    },
+    {
+      "username": "ribbon",
+      "name": "Ribbon",
+      "uid": 1104,
+      "gid": 1104,
+      "groups": [
+        {"name": "ribbon", "id": 1104},
+        {"name": "ferrymen", "id": 2023},
+        {"name": "ninjas", "id": 2003}
+      ]
+    }
+  ],
+  "quotas": [
+    {
+      "limits": {
+        "cpu": 4.0,
+        "memory": "12Gi"
+      },
+      "requests": {
+	"cpu": 1.0,
+	"memory": "3Gi"
+      }
+    }
+  ],
+  "env": [
+    {
+      "HOME": "/home/ceres",
+      "SHELL": "/bin/bash"
+    }
+  ],
+  "user_options": [
+    {
+      "image": "lighthouse.ceres/library/sketchbook:latest_daily",
+      "size": "small"
+    }
+  ],
+  "lab_specification": [],
+  "node_contents": {
+    "node1": [
+      {
+        "names": [
+          "lighthouse.ceres/library/sketchbook:latest_daily",
+          "lighthouse.ceres/library/sketchbook:d_2077_10_23",
+          "lighthouse.ceres/library/sketchbook@sha256:1234"
+        ],
+        "sizeBytes": 69105
+      },
+      {
+        "names": [
+          "lighthouse.ceres/library/sketchbook:latest_weekly",
+          "lighthouse.ceres/library/sketchbook:w_2077_43",
+          "lighthouse.ceres/library/sketchbook:recommended",
+          "lighthouse.ceres/library/sketchbook@sha256:5678"
+        ],
+        "sizeBytes": 65537
+      }
+    ],
+    "node2": [
+      {
+        "names": [
+          "lighthouse.ceres/library/sketchbook:latest_weekly",
+          "lighthouse.ceres/library/sketchbook:w_2077_43",
+          "lighthouse.ceres/library/sketchbook:recommended",
+          "lighthouse.ceres/library/sketchbook@sha256:5678"
+        ],
+        "sizeBytes": 65537
+      }
+    ]
+  }
+}

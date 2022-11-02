@@ -1,18 +1,20 @@
 """Docker v2 registry client, based on cachemachine's client."""
 import base64
 import json
+from os.path import dirname
 from typing import List, Optional
 
 from httpx import AsyncClient, Response
 from structlog.stdlib import BoundLogger
 
-from ..models.v1.consts import DOCKER_SECRETS_PATH
+from ..models.v1.consts import CONFIGURATION_PATH, DOCKER_SECRETS_PATH
 from ..models.v1.domain.config import Config
 from ..models.v1.domain.docker import DockerCredentials as DC
 from ..models.v1.domain.docker import DockerRegistryError
+from ..models.v1.external.prepuller_config import PrepullerConfig
 
 
-class DockerClient:
+class DockerStorageClient:
     """Simple client for querying Docker registry."""
 
     secrets_path: Optional[str] = None
@@ -25,16 +27,21 @@ class DockerClient:
         logger: BoundLogger,
         config: Config,
         http_client: AsyncClient,
-        secrets_path: str = DOCKER_SECRETS_PATH,
     ) -> None:
         """Create a new Docker Client.
 
         Parameters
         ----------
         """
-        prepuller_config = config.prepuller.config
+        prepuller_config: PrepullerConfig = config.prepuller.config
         self.host = prepuller_config.registry
         self.repository = prepuller_config.path
+        secrets_path: str = DOCKER_SECRETS_PATH
+        if config.path != CONFIGURATION_PATH:
+            # We are loading the config from non-container-provided place,
+            # so therefore the secrets will reside in the same directory
+            # as docker_config.json (by convention).
+            secrets_path = f"{dirname(str(config.path))}/docker_config.json"
         self.secrets_path = secrets_path
         if self.host is None:
             raise DockerRegistryError(

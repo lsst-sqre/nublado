@@ -1,16 +1,13 @@
 """Classes to hold all the semantic data and metadata we can extract from a
-tag in the format specified by https://sqr-059.lsst.io.  Mostly taken from
-cachemachine's implementation."""
-import re
-from collections import defaultdict
-from enum import Enum, auto
-from typing import Dict, List, Match, Optional, Set, Tuple, Union
+tag in the format specified by https://sqr-059.lsst.io.  Mostly simplified
+from cachemachine's implementation."""
 
-from fastapi import Depends
-from pydantic import BaseModel
-from safir.dependencies.logger import logger_dependency
+import re
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import Dict, List, Match, Optional, Tuple
+
 from semver import VersionInfo
-from structlog.stdlib import BoundLogger
 
 from ..external.prepuller import Image
 
@@ -20,11 +17,12 @@ class TagType(Enum):
     images, and an Exception for attempted comparison between
     incomparable types.
 
+    These are listed in order of priority to make sorting images easier.
     """
 
-    DAILY = auto()
-    WEEKLY = auto()
     RELEASE = auto()
+    WEEKLY = auto()
+    DAILY = auto()
     RELEASE_CANDIDATE = auto()
     EXPERIMENTAL = auto()
     ALIAS = auto()
@@ -122,101 +120,20 @@ TAGTYPE_REGEXPS: List[Tuple[TagType, re.Pattern]] = [
     ),
 ]
 
-# Two convenience type aliases
-# ForwardDigestCache maps an image tag to an image digest
-ForwardDigestCache = Dict[str, str]
 
-# InvertedDigestCache maps an image digest to a set of image tags
-InvertedDigestCache = Dict[str, Set[str]]
-
-
-class DigestCache(BaseModel):
-    """The primary method of construction
-    is the from_cache classmethod.  The DigestCache holds both forward
-    and inverted dicts mapping a common cache to known image
-    tags.
-    """
-
-    tag_to_digest: ForwardDigestCache
-    """Maps a Docker image tag to a digest.
-    """
-
-    digest_to_tags: InvertedDigestCache
-    """Maps a digest to a set of Docker tags.
-    """
-
-    @classmethod
-    def from_cache(
-        cls,
-        common_cache: List[Image],
-        logger: BoundLogger = Depends(logger_dependency),
-    ) -> "DigestCache":
-        fwd_digestcache: ForwardDigestCache = {}
-        inverted_digestcache: InvertedDigestCache = defaultdict(set)
-        for entry in common_cache:
-            img_digest = entry.digest
-            alltags = list(entry.tags.values())
-            # The tags in the common_cache object do not include the tag
-            # contained in its image_path; that is in some sense the
-            # primary key, so extract it...
-            tag = cls._tag_from_ref(entry.path)
-            # ...and put it first in the list.
-            alltags.insert(0, tag)
-            if img_digest and alltags:
-                for tag in alltags:
-                    inverted_digestcache[img_digest].add(tag)
-                    if tag in fwd_digestcache:
-                        # It's not clear whether the first or last should
-                        # win if we have different values for the digest
-                        # for a given tag, so we pick one (first) but squawk
-                        # about it.  Hopefully this is rare.
-                        if fwd_digestcache[tag] != img_digest:
-                            logger.error(
-                                f"Tag {tag} has digest {fwd_digestcache[tag]}"
-                                + f" ... not updating with digest {img_digest}"
-                            )
-                    else:
-                        fwd_digestcache[tag] = img_digest
-        return cls(
-            tag_to_digest=fwd_digestcache, digest_to_tags=inverted_digestcache
-        )
-
-    @staticmethod
-    def _tag_from_ref(ref: str) -> str:
-        """Extract the tag from a full Docker reference string.
-
-        https://github.com/distribution/distribution/blob/main/reference/reference.go  # noqa: E501
-
-        The two main formats of references we have to handle are:
-
-        - ``<name>:<tag>``
-        - ``<name>:<tag>@<digest-algo>:<digest>``
-
-        Disambiguate by knowing that the tag cannot contain ``@``.
-
-        Any image reference that does not have a tag implicitly has the tag
-        "latest", which we keep in DOCKER_DEFAULT_TAG.
-        """
-        match = re.compile(r"[^:]+:([^@]+)(?:\Z|@.*)").match(ref)
-        if match:
-            return match.group(1)
-        # Nope, didn't match a tag, so therefore implicitly the default tag.
-        return DOCKER_DEFAULT_TAG
-
-
-class PartialTag(BaseModel):
+@dataclass
+class PartialTag:
     """The primary method of construction of a PartialTag is the
     parse_tag classmethod.  The PartialTag holds the data that comes
     from the tag, but not the associated data such as image_digest or
-    image_ref.  It does construct the display name, but does not know
-    about alias tags."""
+    image_ref.  It does construct the provisional display name, but does not
+    know about alias tags."""
 
     tag: str
-    """This is the tag on a given image.  Because of cachemachine's design,
-    we can safely assume that in any given cachemachine instance, there is
-    one and only one host/repository/name tuple for all our tags.  If we
-    need access to multiple image names, repositories, or hosts, they will
-    be in different cachemachine instances.
+    """This is the tag on a given image.  We assume there is one and
+    only one Docker path for all our tags.  If we need access to
+    multiple image names, repositories, or hosts, we will need a
+    different strategy.
 
     example: w_2021_22
     """
@@ -263,7 +180,7 @@ class PartialTag(BaseModel):
             if not match:
                 continue
             display_name, semver, cycle = PartialTag.extract_metadata(
-                match, tag, tagtype
+                match=match, tag=tag, tagtype=tagtype
             )
             return cls(
                 tag=tag,
@@ -296,7 +213,6 @@ class PartialTag(BaseModel):
         match: Match,
         tag: str,
         tagtype: TagType,
-        logger: BoundLogger = Depends(logger_dependency),
     ) -> Tuple[str, Optional[VersionInfo], Optional[int]]:
         """Return a display name, semantic version (optional), and cycle
         (optional) from match, tag, and type."""
@@ -381,8 +297,8 @@ class PartialTag(BaseModel):
                     prerelease=pre,
                     build=build,
                 )
-            except TypeError as exc:
-                logger.warning(f"Could not make semver from tag {tag}: {exc}")
+            except TypeError:
+                pass
             name = f"{typename} {restname}"  # Glue together display name.
             if cycle:
                 name += f" (SAL Cycle {cycle}, Build {cbuild})"
@@ -472,6 +388,7 @@ class PartialTag(BaseModel):
         return not self.__lt__(other)
 
 
+@dataclass
 class Tag(PartialTag):
     """The primary method of Tag construction
     is the from_tag classmethod.  The Tag holds all the metadata
@@ -505,7 +422,6 @@ class Tag(PartialTag):
         override_name: str = "",
         digest: Optional[str] = None,
         override_cycle: Optional[int] = None,
-        logger: BoundLogger = Depends(logger_dependency),
     ) -> "Tag":
         """Create a Tag object from a tag and a list of alias tags.
         Allow overriding name rather than generating one, and allow an
@@ -514,21 +430,16 @@ class Tag(PartialTag):
         image_type = partial_tag.image_type
         display_name = partial_tag.display_name
         cycle = partial_tag.cycle
-        # Here's where we glue in the alias knowledge
-        if tag in alias_tags:
-            logger.debug(f"Tag '{tag}' is an alias tag.")
+        # Here's where we glue in the alias knowledge.  Note that we just
+        # special-case "latest" and "latest_<anything>"
+        if tag in alias_tags or tag == "latest" or tag.startswith("latest_"):
             image_type = TagType.ALIAS
             display_name = PartialTag.prettify_tag(tag)
         # And here we override the name if appropriate.
         if override_name:
-            logger.debug(
-                f"Overriding display name '{display_name}'"
-                + f"with '{override_name}'"
-            )
             display_name = override_name
         # Override cycle if appropriate
         if override_cycle:
-            logger.debug(f"Overriding cycle '{cycle}' with '{override_cycle}'")
             cycle = override_cycle
         return cls(
             tag=tag,
@@ -552,22 +463,41 @@ class Tag(PartialTag):
         return True
 
 
-class TagList(BaseModel):
+@dataclass
+class TagList:
     """This is a class to hold tag objects and return sorted lists of them
-    for construction of the image menu.  It also allows compactification
-    of its input list, which may contain null objects--this is in order to
-    support image consolidation based on digest, if we decide to do that.
+    for construction of the image menu.
     """
 
-    all_tags: Union[List[Tag], List[Optional[Tag]]]
+    all_tags: List[Tag] = field(default_factory=list)
 
-    def sorted_images(
-        self, img_type: TagType, count: Optional[int] = None
-    ) -> List[Image]:
+    def sort_all_tags(self) -> None:
+        """This sorts the ``all_tags`` field according to the ordering of
+        the TagType enum."""
+        new_tags: Dict[TagType, List[Tag]] = {}
+        for tag_type in TagType:  # Initialize the dict, relying on the fact
+            # that dicts are insertion-ordered in Python 3.6+ (we require
+            # 3.10)
+            new_tags[tag_type] = []
+        for tag in self.all_tags:
+            new_tags[tag.image_type].append(tag)
+        # Now sort the tags within each type in reverse lexical order.  This
+        # will sort them with most recent first, because of the tag type
+        # definitions.
+        for tag_type in TagType:
+            new_tags[tag.image_type].sort(reverse=True)
+        # And flatten it out into a homogeneous list.
+        flat_tags: List[Tag] = []
+        for k in new_tags:
+            if new_tags[k] is not None:
+                flat_tags.extend(new_tags[k])
+        self.all_tags = flat_tags
+
+    def sorted_images(self, img_type: TagType, count: int = 0) -> List[Image]:
         """This returns a sorted list of images for a given type, highest
-        version (and thus most recent) at the top.  The optional count
+        version (and thus most recent) at the top.  The count
         parameter specifies how many images should be in the list; leaving it
-        None will return the entire list.
+        at its default of 0 will return the entire list.
         """
         imgs = sorted(
             [

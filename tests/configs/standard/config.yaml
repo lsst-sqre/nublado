@@ -143,6 +143,10 @@ controller:
       #   value: ".*_exp_.*"
       #  groups:
       #  - "experimental_users"
+    # -- secrets to be injected into the user lab pod.
+    secrets: []
+    #  secretRef: credentials
+    #  secretKey: butler-credentials
     # -- Files to be mounted as ConfigMaps inside the user lab pod.
     # Some of these will require modification.  Those are noted with
     # modify: true, and the file name will be the unique key directing
@@ -234,37 +238,39 @@ controller:
         #url_prefix = /idds
         #cacher_dir = /tmp
         cacher_dir = /data/idds
-    # -- Secrets for injection into user lab pods.  The name is again
-    # the unique key that allows the Lab Controller to create the
-    # contents.  Since these are stored as secrets, they will be created
-    # from whole cloth, rather than modified from a base template.
-    # If 'env' is specified, the mountPath will be stored in that environment
-    # variable.
-    secrets:
-    - name: aws-credentials.ini
-      mountPath: /opt/lsst/software/jupyterlab/butler-secret/aws-credentials.ini
-      env: AWS_SHARED_CREDENTIALS_FILE
+    # # -- Secrets for injection into user lab pods.  The name is again
+    # # the unique key that allows the Lab Controller to create the
+    # # contents.  Since these are stored as secrets, they will be created
+    # # from whole cloth, rather than modified from a base template.
+    # # If 'env' is specified, the mountPath will be stored in that environment
+    # # variable.
+    # secrets:
+    # - name: aws-credentials.ini
+    #   mountPath: /opt/lsst/software/jupyterlab/butler-secret/aws-credentials.ini
+    #   env: AWS_SHARED_CREDENTIALS_FILE
 
-    - name: butler-gcs-idf-creds.json
-      mountPath: /opt/lsst/software/jupyterlab/butler-secret/butler-gcs-idf-creds.json
-      env: GOOGLE_APPLICATION_CREDENTIALS
-    - name: butler-hmac-idf-creds.json
-      mountPath: /opt/lsst/software/jupyterlab/butler-secret/butler-hmac-idf-creds.json
-    - name: postgres-credentials.txt
-      mountPath: /opt/lsst/software/jupyterlab/butler-secret/postgres-credentials.txt
-      env: PGPASSFILE
+    # - name: butler-gcs-idf-creds.json
+    #   mountPath: /opt/lsst/software/jupyterlab/butler-secret/butler-gcs-idf-creds.json
+    #   env: GOOGLE_APPLICATION_CREDENTIALS
+    # - name: butler-hmac-idf-creds.json
+    #   mountPath: /opt/lsst/software/jupyterlab/butler-secret/butler-hmac-idf-creds.json
+    # - name: postgres-credentials.txt
+    #   mountPath: /opt/lsst/software/jupyterlab/butler-secret/postgres-credentials.txt
+    #   env: PGPASSFILE
   prepuller:
     # -- config from sqr-066
     config:
-      registry: registry.hub.docker.com
+      registry: lighthouse.ceres
       docker:
-        repository: lsstsqre/sciplat-lab
+        repository: library/sketchbook
       recommendedTag: recommended
       numReleases: 1
       numWeeklies: 2
       numDailies: 3
-    # -- Poll interval in seconds to check nodes for new images
+    # -- How frequently to look to see if we have new images to prepull (s)
     pollInterval: 60
+    # -- Maximum time to wait to start a prepuller image (s)
+    pullTimeout: 600
   form:
     # -- options form template text keyed by group name.
     # "default" is always present.
@@ -296,10 +302,10 @@ controller:
           <div class="radio radio-inline">
         {% for i in cached_images %}
             <input type="radio" name="image_list"
-             id="image{{ loop.index }}" value="{{ i.packed_string }}"
+             id="image{{ loop.index }}" value="{{ i.path }}"
              {% if loop.first %} checked {% endif %}
             >
-            <label for="image{{ loop.index }}">{{ i.display_name }}</label><br />
+            <label for="image{{ loop.index }}">{{ i.name }}</label><br />
         {% endfor %}
             <input type="radio" name="image_list"
                 id="{{ dropdown_sentinel }}"
@@ -311,7 +317,7 @@ controller:
             </label><br />
             <select name="image_dropdown" onclick="selectDropdown()">
             {% for i in all_images %}
-                <option value="{{ i.packed_string }}">{{ i.display_name }}</option>
+                <option value="{{ i.path }}">{{ i.name }}</option>
             {% endfor %}
             </select>
           </div>
@@ -324,7 +330,7 @@ controller:
              {% if loop.first %} checked {% endif %}
             >
             <label for="{{ s.name }}">
-              {{ s.name }} ({{ s.cpu }} CPU, {{ s.ram }} RAM)
+              {{ s.name }} ({{ s.cpu }} CPU, {{ s.memory }} RAM)
             </label><br />
         {% endfor %}
           </div>
@@ -332,11 +338,11 @@ controller:
           <br />
           <div class="checkbox checkbox-inline">
             <input type="checkbox" id="enable_debug"
-             name="enable_debug" value="true">
+             name="enable_debug" value="false">
             <label for="enable_debug">Enable debug logs</label><br />
 
             <input type="checkbox" id="reset_user_env"
-             name="reset_user_env" value="true">
+             name="reset_user_env" value="false">
             <label for="reset_user_env">
               Reset user environment: relocate .cache, .jupyter, and .local
             </label><br />

@@ -4,38 +4,48 @@ from __future__ import annotations
 
 from os.path import dirname
 from typing import AsyncIterator
-from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
+from safir.kubernetes import initialize_kubernetes
 
 from jupyterlabcontroller import main
 from jupyterlabcontroller.models.v1.domain.config import Config
-from jupyterlabcontroller.storage.prepuller import PrepullerClient
-
-from .settings import (
-    TestDependencyFactory,
-    TestObjectFactory,
-    config_config,
-    test_object_factory,
+from jupyterlabcontroller.models.v1.domain.context import (
+    ContextContainer,
+    RequestContext,
 )
+from jupyterlabcontroller.utils import get_user_namespace
+
+from .mocks import MockDockerStorageClient, MockK8sStorageClient
+from .settings import TestObjectFactory, test_object_factory
 
 _here = dirname(__file__)
 
-STDCONFDIR = f"{_here}/configs/standard"
+TEST_CONFIG = f"{_here}/configs/standard/config.yaml"
 
 
 @pytest.fixture
 def obj_factory() -> TestObjectFactory:
+    filename = f"{dirname(TEST_CONFIG)}/test_objects.json"
+    test_object_factory.initialize_from_file(filename)
     return test_object_factory
 
 
 @pytest.fixture
 def config() -> Config:
-    return config_config(config_path=STDCONFDIR)
+    """Change the test application configuration to point at a file that
+    replaces the YAML that would usually be mounted into the container at
+    ``/etc/nublado/config.yaml``.  For testing and standalone purposes, if
+    the filename is not the standard location, we expect the Docker
+    credentials (if any) to be in ``docker_config.json`` in the same directory
+    as ``config.yaml``, and we expect objects used in testing to be in
+    ``test_objects.json`` in that directory.
+    """
+    return Config.from_file(filename=TEST_CONFIG)
 
 
 @pytest_asyncio.fixture
@@ -58,23 +68,45 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
         yield client
 
 
-@pytest_asyncio.fixture
-async def dep_factory(
-    config: Config, client: AsyncClient
-) -> TestDependencyFactory:
-    """Return a ``TestDependencyFactory`` configured to supply dependencies."""
-    return TestDependencyFactory.initialize(config=config, httpx_client=client)
-
-
-@pytest_asyncio.fixture
-async def prepuller_dep(
-    app: FastAPI,
+@pytest.fixture
+def k8s_storage_client(
     obj_factory: TestObjectFactory,
-    dep_factory: TestDependencyFactory,
-) -> PrepullerClient:
-    """Return a ``PrepullerClient`` configured to mock the K8s call."""
-    pc = dep_factory.prepuller_client
-    patch.object(
-        pc, "get_image_data_from_k8s", return_value=obj_factory.nodecontents
+) -> MockK8sStorageClient:
+    return MockK8sStorageClient(test_obj=obj_factory)
+
+
+@pytest.fixture
+def docker_storage_client(
+    obj_factory: TestObjectFactory,
+) -> MockDockerStorageClient:
+    return MockDockerStorageClient(test_obj=obj_factory)
+
+
+@pytest_asyncio.fixture
+async def context_container(
+    config: Config,
+    client: AsyncClient,
+    obj_factory: TestObjectFactory,
+    k8s_storage_client: MockK8sStorageClient,
+    docker_storage_client: MockDockerStorageClient,
+) -> ContextContainer:
+    """Return a ``ContextContainer`` configured to supply dependencies."""
+    # Force K8s configuration to load
+    await initialize_kubernetes()
+    cc = ContextContainer.initialize(config=config, http_client=client)
+    # Patch container with storage mocks
+    cc.k8s_client = k8s_storage_client
+    cc.docker_client = docker_storage_client
+    return cc
+
+
+@pytest_asyncio.fixture
+async def request_context(
+    context_container: ContextContainer, obj_factory: TestObjectFactory
+) -> RequestContext:
+    """Return a ``RequestContext`` as if we had a Request from the handler."""
+    return RequestContext(
+        token="token-of-affection",
+        user=obj_factory.userinfos[0],
+        namespace=get_user_namespace(obj_factory.userinfos[0].username),
     )
-    return pc

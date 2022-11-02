@@ -25,7 +25,7 @@ class ConfigurationDependency:
         """Change the settings path and reload."""
         self._configuration_path = path
         self._config = Config.from_file(
-            self._configuration_path,
+            filename=self._configuration_path,
         )
 
 

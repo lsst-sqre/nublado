@@ -1,20 +1,61 @@
 """Models for prepuller."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, TypeAlias, Union
 
-from pydantic import BaseModel, root_validator, validator
+from pydantic import BaseModel, Field
+
+from .prepuller_config import PrepullerConfig
 
 TagToNameMap = Dict[str, str]
 
 
-class Image(BaseModel):
-    path: str
-    tags: TagToNameMap
-    name: str
-    digest: str
-    size: Optional[int]
-    prepulled: Optional[bool]
+class PartialImage(BaseModel):
+    path: str = Field(
+        ...,
+        title="path",
+        example="lighthouse.ceres/library/sketchbook:latest_daily",
+        description=(
+            "Full Docker registry path (cf."
+            " https://docs.docker.com/registry/introduction/ )"
+            " for lab image."
+        ),
+    )
+    name: str = Field(
+        ...,
+        title="name",
+        example="Latest Daily (Daily 2077_10_23)",
+        description=("Human-readable version of image tag"),
+    )
+    digest: str = Field(
+        ...,
+        title="digest",
+        example=(
+            "sha256:e693782192ecef4f7846ad2b21"
+            "b1574682e700747f94c5a256b5731331a2eec2"
+        ),
+        description="(presumably-unique) digest of image contents",
+    )
+
+
+class Image(PartialImage):
+    tags: TagToNameMap = Field(
+        ...,
+        title="tags",
+        description="Map between tag and its display name",
+    )
+    size: int = Field(
+        -1,
+        title="size",
+        example=8675309,
+        description="Size in bytes of image.  -1 if image size is unknown.",
+    )
+    prepulled: bool = Field(
+        False,
+        title="prepulled",
+        example=False,
+        description="Whether image is prepulled to all eligible nodes.",
+    )
 
     @property
     def references(self) -> List[str]:
@@ -23,117 +64,111 @@ class Image(BaseModel):
             r.append(f"{self.path}:{tag}")
         return r
 
-    def use_best_name(self) -> None:
-        # TODO: from the tag hash map, pick the "best" name.  What does that
-        # mean?  Dunno yet, so I'm picking the first one.
-        for t in self.tags:
-            self.name = self.tags[t]
-            break
 
+"""GET /nublado/spawner/v1/images"""
+# sqr-066 is not very clear about this--its use of "list" is strange.  Let's
+# assume the resulting output is correct, in which case it will be a
+# dict of DisplayImages, with one key representing the best tag for each
+# image, and a final key, "all", representing a list of all available images.
 
-class Node(BaseModel):
-    name: str
-    eligible: bool = True
-    comment: str = ""
-    cached: List[Image] = []
+DisplayImage: TypeAlias = Dict[str, Image]
+DisplayImages: TypeAlias = Dict[str, Union[Image, DisplayImage]]
 
-
-class NodeImage(Image):
-    nodes: List[Node] = []
-
-
-class NodeImageWithMissing(NodeImage):
-    missing: List[Node] = []
+"""GET /nublado/spawner/v1/prepulls"""
 
 
 # We will need some fancy validation rules for the compound types.
 
+# "config" section
 
-class PrepulledImageDisplayList(BaseModel):
-    List[Union[Dict[str, Image], Dict[str, List[Image]]]]
-
-
-class DockerDefinition(BaseModel):
-    repository: str
+# This lives in PrepullerConfig
 
 
-class GARDefinition(BaseModel):
-    repository: str
-    image: str
-    projectId: str
-    location: Optional[str]
+# "images" section
+
+ImageList: TypeAlias = List[Image]
 
 
-class ImagePathAndName(BaseModel):
-    path: str
-    name: str
+class Node(BaseModel):
+    name: str = Field(
+        ...,
+        title="name",
+        example="gke-science-platform-d-core-pool-78ee-03baf5c9-7w75",
+        description="Name of node",
+    )
+    eligible: bool = Field(
+        True,
+        title="eligible",
+        example=True,
+        description="Whether node is eligible for prepulling",
+    )
+    comment: str = Field(
+        "",
+        title="comment",
+        example="Cordoned because of disk problems.",
+        description=(
+            "Empty if node is eligible, but a human-readable"
+            " reason for ineligibility if it is not."
+        ),
+    )
+    cached: NodeList = Field(
+        [], title="cached", description="List of images cached on this node"
+    )
 
 
-class Config(BaseModel):
-    registry: str = "registry.hub.docker.com"
-    docker: Optional[DockerDefinition] = None
-    gar: Optional[GARDefinition] = None
-    recommended: str = "recommended"
-    numReleases: int = 1
-    numWeeklies: int = 2
-    numDailies: int = 3
-    cycle: Optional[int]
-    pin: Optional[List[ImagePathAndName]]
-    aliasTags: Optional[List[str]]
+NodeList: TypeAlias = List[Node]
 
-    @root_validator
-    def registry_defined(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        for x in values.keys():
-            if x == "gar" or x == "docker":
-                return values
-        assert False, "Exactly one of 'docker' or 'gar' must be defined"
 
-    @validator("registry")
-    def validate_registry(cls, v: str) -> str:
-        # only here to ensure that registry is validated for the GAR
-        # validator
-        return v
+class NodeImage(PartialImage):
+    nodes: NodeList = Field(
+        [],
+        title="nodes",
+        description=(
+            "List of nodes that should have a complete set of images "
+            "prepulled."
+        ),
+    )
 
-    @validator("gar")
-    def gar_registry_host(
-        cls, v: GARDefinition, values: Dict[str, str]
-    ) -> GARDefinition:
-        reg = values["registry"]
-        gsuf = "-docker.pkg.dev"
-        if v.location is None:
-            assert values["registry"].endswith(gsuf)
-            v.location = reg[: (1 + len(reg) - len(gsuf))]
-        else:
-            assert v.location == f"{reg}-docker.pkg.dev"
-        return v
 
-    @property
-    def path(self) -> str:
-        # Return the canonical path to the set of tagged images
-        p = self.registry
-        gar = self.gar
-        if gar is not None:
-            p += f"/{gar.projectId}/{gar.repository}/{gar.image}"
-        else:
-            docker = self.docker
-            if docker is not None:
-                p += f"/{docker.repository}"
-        return p
+class NodeImageWithMissing(NodeImage):
+    missing: NodeList = Field(
+        [],
+        title="missing",
+        description=(
+            "List of nodes that should have a set of images prepulled"
+            " but that have not yet completed."
+        ),
+    )
+
+
+PrepulledImages: TypeAlias = List[NodeImage]
+PendingImages: TypeAlias = List[NodeImageWithMissing]
 
 
 class PrepullerContents(BaseModel):
-    prepulled: List[NodeImage] = []
-    pending: List[NodeImageWithMissing] = []
+    prepulled: PrepulledImages = Field(
+        [],
+        title="prepulled",
+        description=(
+            "List of nodes that have all desired images completely"
+            " prepulled"
+        ),
+    )
+    pending: PendingImages = Field(
+        [],
+        title="pending",
+        description=(
+            "List of nodes that do not yet have all desired images"
+            " prepulled"
+        ),
+    )
+
+
+# "nodes" section
+# It's just a NodeList
 
 
 class PrepullerStatus(BaseModel):
-    config: Config
+    config: PrepullerConfig
     images: PrepullerContents
-    nodes: List[Node]
-
-
-class NodePool(BaseModel):
-    nodes: List[Node]
-
-    def eligible_nodes(self) -> List[str]:
-        return [x.name for x in self.nodes if x.eligible]
+    nodes: NodeList

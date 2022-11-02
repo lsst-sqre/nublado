@@ -4,7 +4,6 @@ from typing import Dict, List
 
 from jupyterlabcontroller.models.v1.domain.config import Config
 from jupyterlabcontroller.utils import (
-    check_for_user,
     get_active_users,
     get_namespace_prefix,
     get_user_namespace,
@@ -52,14 +51,7 @@ def test_get_user_namespace() -> None:
     assert n == "userlabs-ribbon"
 
 
-def test_check_for_user(obj_factory: TestObjectFactory) -> None:
-    user_labs = obj_factory.labmap
-    assert check_for_user("rachel", user_labs)
-    assert not check_for_user("wilma", user_labs)
-
-
 def test_get_active_users(obj_factory: TestObjectFactory) -> None:
-    user_labs = obj_factory.labmap
-    users: List[str] = get_active_users(user_labs)
+    users: List[str] = get_active_users(obj_factory.usermap)
     assert len(users) == 1
     assert users[0] == "wrench"

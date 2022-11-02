@@ -1,35 +1,26 @@
 """Event model for jupyterlab-controller."""
 
-from typing import Any, Deque, Dict, Optional, TypeAlias
+from typing import Deque, Dict, TypeAlias
 
 from pydantic import BaseModel, validator
 from sse_starlette import ServerSentEvent
 
 from ..consts import event_types
 
+"""GET /nublado/spawner/v1/labs/username/events"""
 
-# It's just a repackaged ServerSentEvent with a "sent" field glued on
-class Event(BaseModel, ServerSentEvent):
-    data: Optional[Any] = None
-    event: Optional[str] = None
-    id: Optional[int] = None
-    retry: Optional[int] = None
-    comment: Optional[str] = None
-    sep: Optional[str] = None
+
+class Event(BaseModel):
+    data: str
+    event: str
     sent: bool = False
 
     def toSSE(self) -> ServerSentEvent:
-        return ServerSentEvent(
-            data=self.data,
-            event=self.event,
-            id=self.id,
-            retry=self.retry,
-            comment=self.comment,
-            sep=self.sep,
-        )
+        """The ServerSentEvent is the thing actually emitted to the client."""
+        return ServerSentEvent(data=self.data, event=self.event)
 
     @validator("event")
-    def legal_event_type(cls, v: Optional[str]) -> Optional[str]:
+    def legal_event_type(cls, v: str) -> str:
         if v not in event_types:
             raise ValueError(f"must be one of {event_types}")
         return v

@@ -6,8 +6,8 @@ from typing import Any, Dict, List, Optional, TypeAlias, Union
 import yaml
 from pydantic import BaseModel, validator
 
-from ..external.prepuller import Config as ExternalPrepullerConfig
-from ..external.userdata import UserEnv
+from ..external.lab import UserEnv
+from ..external.prepuller_config import PrepullerConfig
 
 #
 # Safir
@@ -128,6 +128,14 @@ class LabForm(BaseModel):
     restrictions: LabFormRestrictionList
 
 
+class LabSecret(BaseModel):
+    secretRef: str
+    secretKey: str
+
+
+LabSecrets: TypeAlias = List[LabSecret]
+
+
 class LabFile(BaseModel):
     name: str
     mountPath: str
@@ -147,6 +155,7 @@ class LabConfig(BaseModel):
     sizes: LabSizeDefinitions
     form: LabForm
     env: UserEnv = {}
+    secrets: LabSecrets = []
     files: LabFiles = []
     volumes: LabVolumes = []
     volume_mounts: LabVolumeMounts = []
@@ -163,12 +172,14 @@ class LabConfig(BaseModel):
 
 
 #
-# Prepuller is the external prepuller Config model
+# Prepuller
 #
 
 
-class PrepullerConfig(BaseModel):
-    config: ExternalPrepullerConfig
+class PrepullerOuterConfig(BaseModel):
+    config: PrepullerConfig
+    pollInterval: int
+    pullTimeout: int
 
 
 #
@@ -191,13 +202,11 @@ class FormsConfig(BaseModel):
 #
 # Config
 #
-
-
 class Config(BaseModel):
     safir: SafirConfig
     kubernetes: K8sConfig
     lab: LabConfig
-    prepuller: PrepullerConfig
+    prepuller: PrepullerOuterConfig
     form: FormsConfig
     path: Optional[str] = None
 
@@ -206,9 +215,8 @@ class Config(BaseModel):
         cls,
         filename: str,
     ) -> Config:
-        config_obj: Dict[Any, Any] = yaml.safe_load(filename)
         with open(filename) as f:
-            config_obj = yaml.safe_load(f)
+            config_obj: Dict[Any, Any] = yaml.safe_load(f)
             # In general the YAML might have configuration for other
             # objects than the controller in it.
             r = Config.parse_obj(config_obj["controller"])
