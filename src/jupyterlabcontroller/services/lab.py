@@ -4,12 +4,20 @@ from dataclasses import dataclass
 from typing import Dict, List
 
 from aiojobs import Scheduler
+from structlog.stdlib import BoundLogger
 
-from ..models.v1.domain.config import LabSecrets
+from ..models.v1.domain.config import LabFile, LabFiles, LabSecrets
 from ..models.v1.domain.context import ContextContainer, RequestContext
-from ..models.v1.external.lab import LabSpecification, UserQuota
-from ..storage.k8s import NetworkPolicySpec, NSCreationError, PodSpec, Secret
-from ..utils import get_namespace_prefix
+from ..models.v1.external.lab import LabSpecification, UserData, UserQuota
+from ..storage.k8s import (
+    Container,
+    NetworkPolicySpec,
+    NSCreationError,
+    PodSecurityContext,
+    PodSpec,
+    Secret,
+)
+from ..utils import get_namespace_prefix, quota_from_size
 
 
 @dataclass
@@ -18,22 +26,37 @@ class LabManager:
     nublado: ContextContainer
     context: RequestContext
 
+    @property
+    def user(self) -> str:
+        return self.context.user.username
+
+    @property
+    def quota(self) -> UserQuota:
+        return quota_from_size(
+            size=self.lab.options.size, config=self.nublado.config
+        )
+
+    @property
+    def logger(self) -> BoundLogger:
+        return self.nublado.logger
+
     async def check_for_user(self) -> bool:
         """True if there's a lab for the user, otherwise false."""
-        return self.context.user.username in self.nublado.user_map
+        return self.user in self.nublado.user_map
 
     async def create_lab(self) -> None:
         """Schedules creation of user lab objects/resources."""
-        username = self.context.user.username
-        if self.check_for_user():
+        username = self.user
+        if await self.check_for_user():
             estr: str = f"lab already exists for {username}"
             self.nublado.logger.error(f"create_lab failed: {estr}")
             raise RuntimeError(estr)
         #
         # Clear user event queue
         #
-        self.nublado.user_map[username].events = deque()
-        self.nublado.user_map[username].status = "starting"
+        self.nublado.user_map[username] = UserData.new_from_user_lab_quota(
+            user=self.context.user, labspec=self.lab, quota=self.quota
+        )
 
         #
         # This process has three stages: first is the creation or recreation
@@ -95,7 +118,7 @@ class LabManager:
     async def create_secrets(self) -> None:
         data: Dict[str, str] = await self.merge_controller_secrets()
         await self.nublado.k8s_client.create_secret(
-            name=f"nb-{self.context.user.username}",
+            name=f"nb-{self.user}",
             namespace=self.context.namespace,
             data=data,
         )
@@ -138,23 +161,35 @@ class LabManager:
         )
         return base64_data
 
+    async def _get_file(self, name: str) -> LabFile:
+        # This feels like the config data structure should be a dict
+        # in the first place.
+        files: LabFiles = self.nublado.config.lab.files
+        for file in files:
+            if file.name == name:
+                return file
+        return LabFile()
+
     async def create_nss(self) -> None:
-        # FIXME
+        pwfile: LabFile = await self._get_file("passwd")
+        gpfile: LabFile = await self._get_file("group")
+        # FIXME: Now edit those two...
         data: Dict[str, str] = {
-            "/etc/passwd": "",
-            "/etc/group": "",
+            pwfile.mountPath: pwfile.contents,
+            gpfile.mountPath: gpfile.contents,
         }
         await self.nublado.k8s_client.create_configmap(
-            name=f"nb-{self.context.user.username}-nss",
+            name=f"nb-{self.user}-nss",
             namespace=self.context.namespace,
             data=data,
         )
 
     async def create_env(self) -> None:
-        # FIXME
         data: Dict[str, str] = {}
+        data.update(self.nublado.config.lab.env)
+        # FIXME more env injection needed
         await self.nublado.k8s_client.create_configmap(
-            name=f"nb-{self.context.user.username}-env",
+            name=f"nb-{self.user}-env",
             namespace=self.context.namespace,
             data=data,
         )
@@ -163,28 +198,44 @@ class LabManager:
         # FIXME
         policy = NetworkPolicySpec()
         await self.nublado.k8s_client.create_network_policy(
-            name=f"nb-{self.context.user.username}-env",
+            name=f"nb-{self.user}-env",
             namespace=self.context.namespace,
             spec=policy,
         )
 
     async def create_quota(self) -> None:
-        # FIXME
-        quota = UserQuota()
         await self.nublado.k8s_client.create_quota(
-            name=f"nb-{self.context.user.username}",
+            name=f"nb-{self.user}",
             namespace=self.context.namespace,
-            quota=quota,
+            quota=self.quota,
         )
 
     async def create_user_pod(self) -> None:
-        # FIXME
-        pod = PodSpec()
+        pod = await self.create_pod_spec()
         await self.nublado.k8s_client.create_pod(
-            name=f"nb-{self.context.user.username}",
+            name=f"nb-{self.user}",
             namespace=self.context.namespace,
             pod=pod,
         )
+
+    async def create_pod_spec(self) -> PodSpec:
+        # FIXME: needs a bunch more stuff
+        pod = PodSpec(
+            containers=[
+                Container(
+                    name="notebook",
+                    args=["/opt/lsst/software/jupyterlab/runlab.sh"],
+                    image=self.lab.options.image,
+                    security_context=PodSecurityContext(
+                        run_as_non_root=True,
+                        run_as_user=self.context.user.uid,
+                    ),
+                    working_dir=f"/home/{self.user}",
+                )
+            ],
+        )
+        self.logger.debug("New pod spec: {pod}")
+        return pod
 
     async def delete_lab_environment(
         self,

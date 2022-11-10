@@ -97,6 +97,8 @@ async def context_container(
     # Patch container with storage mocks
     cc.k8s_client = k8s_storage_client
     cc.docker_client = docker_storage_client
+    # Let's pretend we have some running servers already
+    cc.user_map = obj_factory.usermap
     return cc
 
 

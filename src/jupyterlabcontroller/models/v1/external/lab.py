@@ -178,7 +178,7 @@ class UserData(UserInfo, LabSpecification):
             "User pod state.  Must be one of `present` or `missing`."
         ),
     )
-    quotas: UserQuota
+    quota: UserQuota
     events: Deque[Event] = Field(
         deque(),
         title="events",
@@ -215,31 +215,44 @@ class UserData(UserInfo, LabSpecification):
                 env=copy(self.env),
             ),
             UserQuota(
-                limits=copy(self.quotas.limits),
-                requests=copy(self.quotas.requests),
+                limits=copy(self.quota.limits),
+                requests=copy(self.quota.requests),
             ),
+        )
+
+    @classmethod
+    def new_from_user_lab_quota(
+        cls,
+        user: UserInfo,
+        labspec: LabSpecification,
+        quota: UserQuota,
+    ) -> "UserData":
+        return cls(
+            username=user.username,
+            name=user.name,
+            uid=user.uid,
+            gid=user.gid,
+            groups=user.groups,
+            options=labspec.options,
+            env=labspec.env,
+            events=deque(),
+            status="starting",
+            pod="missing",
+            quota=quota,
         )
 
     @classmethod
     def from_components(
         cls,
-        status: str,
-        pod: str,
         user: UserInfo,
         labspec: LabSpecification,
-        quotas: UserQuota,
-    ) -> UserData:
-        return cls(
-            status=copy(status),
-            pod=copy(pod),
-            username=user.username,
-            name=user.name,
-            uid=user.uid,
-            gid=user.gid,
-            groups=copy(user.groups),
-            options=copy(labspec.options),
-            env=copy(labspec.env),
-            quotas=UserQuota(
-                limits=copy(quotas.limits), requests=copy(quotas.requests)
-            ),
+        quota: UserQuota,
+        status: str,
+        pod: str,
+    ) -> "UserData":
+        ud = UserData.new_from_user_lab_quota(
+            user=user, labspec=labspec, quota=quota
         )
+        ud.status = status
+        ud.pod = pod
+        return ud

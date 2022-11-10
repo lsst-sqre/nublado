@@ -98,7 +98,7 @@ class TestObjectFactory:
                     pod=pod_states[(idx) % len(pod_states)],
                     user=v,
                     labspec=labspecs[idx % len(labspecs)],
-                    quotas=quotas[idx % len(quotas)],
+                    quota=quotas[idx % len(quotas)],
                 )
             )
         return userdatas
