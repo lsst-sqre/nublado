@@ -19,7 +19,6 @@ from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 
 from .dependencies.config import configuration_dependency
-from .dependencies.nublado import nublado_dependency
 from .handlers import external_router, internal_router
 from .services.prepuller import PrepullExecutor
 
@@ -38,10 +37,8 @@ modified_cfg_dir: Optional[str] = os.getenv(
     "JUPYTERLAB_CONTROLLER_CONFIGURATION_DIR"
 )
 if modified_cfg_dir:
-    configuration_dependency.set_configuration_path(
-        f"{modified_cfg_dir}/config.yaml"
-    )
-config = configuration_dependency.config()
+    configuration_dependency.set_filename(f"{modified_cfg_dir}/config.yaml")
+config = configuration_dependency.config
 
 configure_logging(
     profile=config.safir.profile,
@@ -87,5 +84,4 @@ async def shutdown_event() -> None:
         await prepull_executor.stop()
     if prepull_scheduler is not None:
         await prepull_scheduler.close()
-    await nublado_dependency.aclose()
     await http_client_dependency.aclose()

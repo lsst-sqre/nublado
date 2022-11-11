@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import copy
 from os.path import dirname
 from typing import AsyncIterator
 
@@ -14,14 +15,12 @@ from safir.kubernetes import initialize_kubernetes
 
 from jupyterlabcontroller import main
 from jupyterlabcontroller.models.v1.domain.config import Config
-from jupyterlabcontroller.models.v1.domain.context import (
-    ContextContainer,
-    RequestContext,
-)
+from jupyterlabcontroller.models.v1.domain.context import Context
 from jupyterlabcontroller.utils import get_user_namespace
 
-from .mocks import MockDockerStorageClient, MockK8sStorageClient
 from .settings import TestObjectFactory, test_object_factory
+from .support.mockdocker import MockDockerStorageClient
+from .support.mockk8s import MockK8sStorageClient
 
 _here = dirname(__file__)
 
@@ -49,9 +48,7 @@ def config() -> Config:
 
 
 @pytest_asyncio.fixture
-async def app(
-    config: Config,
-) -> AsyncIterator[FastAPI]:
+async def app() -> AsyncIterator[FastAPI]:
     """Return a configured test application.
 
     Wraps the application in a lifespan manager so that startup and shutdown
@@ -68,14 +65,14 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
         yield client
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def k8s_storage_client(
     obj_factory: TestObjectFactory,
 ) -> MockK8sStorageClient:
     return MockK8sStorageClient(test_obj=obj_factory)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def docker_storage_client(
     obj_factory: TestObjectFactory,
 ) -> MockDockerStorageClient:
@@ -83,17 +80,17 @@ def docker_storage_client(
 
 
 @pytest_asyncio.fixture
-async def context_container(
+async def context(
     config: Config,
     client: AsyncClient,
     obj_factory: TestObjectFactory,
     k8s_storage_client: MockK8sStorageClient,
     docker_storage_client: MockDockerStorageClient,
-) -> ContextContainer:
-    """Return a ``ContextContainer`` configured to supply dependencies."""
+) -> Context:
+    """Return a ``Context`` configured to supply dependencies."""
     # Force K8s configuration to load
     await initialize_kubernetes()
-    cc = ContextContainer.initialize(config=config, http_client=client)
+    cc = Context.initialize(config=config, http_client=client)
     # Patch container with storage mocks
     cc.k8s_client = k8s_storage_client
     cc.docker_client = docker_storage_client
@@ -103,12 +100,26 @@ async def context_container(
 
 
 @pytest_asyncio.fixture
-async def request_context(
-    context_container: ContextContainer, obj_factory: TestObjectFactory
-) -> RequestContext:
-    """Return a ``RequestContext`` as if we had a Request from the handler."""
-    return RequestContext(
-        token="token-of-affection",
-        user=obj_factory.userinfos[0],
-        namespace=get_user_namespace(obj_factory.userinfos[0].username),
-    )
+async def user_context(
+    context: Context, obj_factory: TestObjectFactory
+) -> Context:
+    """Return Context with user data."""
+    cp = copy(context)
+    cp.token = "token-of-affection"
+    cp.token_scopes = ["exec:notebook"]
+    cp.user = obj_factory.userinfos[0]
+    cp.namespace = get_user_namespace(obj_factory.userinfos[0].username)
+    return cp
+
+
+@pytest_asyncio.fixture
+async def admin_context(
+    context: Context, obj_factory: TestObjectFactory
+) -> Context:
+    """Return Context with user data."""
+    cp = copy(context)
+    cp.token = "token-of-authority"
+    cp.token_scopes = ["admin:jupyterlab"]
+    cp.user = obj_factory.userinfos[1]
+    cp.namespace = get_user_namespace(obj_factory.userinfos[1].username)
+    return cp

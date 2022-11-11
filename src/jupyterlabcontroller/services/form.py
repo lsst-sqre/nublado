@@ -3,7 +3,7 @@ from typing import List
 
 from jinja2 import Template
 
-from ..models.v1.domain.context import ContextContainer, RequestContext
+from ..models.v1.domain.context import Context
 from ..models.v1.domain.form import FormSize
 from .prepuller import PrepullerManager
 
@@ -12,16 +12,15 @@ DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 
 @dataclass
 class FormManager:
-    nublado: ContextContainer
-    context: RequestContext
+    context: Context
 
     def form_for_group(self, group: str) -> str:
-        return self.nublado.config.form.forms.get(
-            group, self.nublado.config.form.forms["default"]
+        return self.context.config.form.forms.get(
+            group, self.context.config.form.forms["default"]
         )
 
     def _extract_sizes(self) -> List[FormSize]:
-        sz = self.nublado.config.lab.sizes
+        sz = self.context.config.lab.sizes
         return [
             FormSize(
                 name=x.title(),
@@ -32,8 +31,11 @@ class FormManager:
         ]
 
     async def generate_user_lab_form(self) -> str:
+        assert (
+            self.context.user is not None
+        ), "Cannot create user form without user"
         username = self.context.user.username
-        self.nublado.logger.info(f"Creating options form for '{username}'")
+        self.context.logger.info(f"Creating options form for '{username}'")
         dfl_form = self.form_for_group("")
         for grp in self.context.user.groups:
             form = self.form_for_group(grp.name)
@@ -42,15 +44,15 @@ class FormManager:
                 break
         options_template = Template(form)
 
-        pm = PrepullerManager(nublado=self.nublado, context=self.context)
+        pm = PrepullerManager(context=self.context)
         displayimages = await pm.get_menu_images()
         cached_images = [displayimages[x] for x in displayimages if x != "all"]
         assert type(displayimages["all"]) is dict
         all_images = [displayimages["all"][x] for x in displayimages["all"]]
         sizes = self._extract_sizes()
-        self.nublado.logger.debug(f"cached images: {cached_images}")
-        self.nublado.logger.debug(f"all images: {all_images}")
-        self.nublado.logger.debug(f"sizes: {sizes}")
+        self.context.logger.debug(f"cached images: {cached_images}")
+        self.context.logger.debug(f"all images: {all_images}")
+        self.context.logger.debug(f"sizes: {sizes}")
         return options_template.render(
             dropdown_sentinel=DROPDOWN_SENTINEL_VALUE,
             cached_images=cached_images,

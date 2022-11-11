@@ -10,7 +10,7 @@ from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
 from ..models.v1.domain.config import Config
-from ..models.v1.domain.context import ContextContainer, RequestContext
+from ..models.v1.domain.context import Context
 from ..models.v1.domain.prepuller import (
     ContainerImage,
     DigestToNodeTagImages,
@@ -46,16 +46,14 @@ from ..utils import get_namespace_prefix
 class PrepullerManager:
     def __init__(
         self,
-        nublado: ContextContainer,
-        context: RequestContext,
+        context: Context,
     ) -> None:
-        self.nublado = nublado
         self.context = context
 
-        self.logger: BoundLogger = self.nublado.logger
-        self.k8s_client: K8sStorageClient = self.nublado.k8s_client
-        self.config: PrepullerConfig = self.nublado.config.prepuller.config
-        self.docker_client: DockerStorageClient = self.nublado.docker_client
+        self.logger: BoundLogger = self.context.logger
+        self.k8s_client: K8sStorageClient = self.context.k8s_client
+        self.config: PrepullerConfig = self.context.config.prepuller.config
+        self.docker_client: DockerStorageClient = self.context.docker_client
 
     async def get_prepulls(self) -> PrepullerStatus:
         node_images, nodes = await self.get_current_image_and_node_state()
@@ -523,32 +521,27 @@ class PrepullExecutor(PrepullerManager):
     def __init__(
         self,
         config: Optional[Config] = None,
-        nublado: Optional[ContextContainer] = None,
-        context: Optional[RequestContext] = None,
+        context: Optional[Context] = None,
     ) -> None:
-        if nublado is None or context is None:
+        if context is None:
             assert config is not None, "Config must be specified"
-            nublado = ContextContainer.initialize(config=config)
-            context = RequestContext(
-                token="token-of-affection",
-                namespace=get_namespace_prefix(),
-                user=UserInfo(
-                    username="prepuller",
-                    name="Prepuller User",
-                    uid=1000,
-                    gid=1000,
-                    groups=[
-                        UserGroup(
-                            name="prepuller",
-                            id=1000,
-                        )
-                    ],
-                ),
+            context = Context.initialize(config=config)
+            context.token = "token-of-affection"
+            context.namespace = get_namespace_prefix()
+            context.user = UserInfo(
+                username="prepuller",
+                name="Prepuller User",
+                uid=1000,
+                gid=1000,
+                groups=[
+                    UserGroup(
+                        name="prepuller",
+                        id=1000,
+                    )
+                ],
             )
-        assert (
-            nublado is not None and context is not None
-        ), "Nublado context and request context must be specified"
-        super().__init__(nublado=nublado, context=context)
+        assert context is not None, "Request context must be specified"
+        super().__init__(context=context)
 
     async def run(self) -> None:
         """
@@ -567,7 +560,7 @@ class PrepullExecutor(PrepullerManager):
         await self.shutdown()
 
     async def idle(self) -> None:
-        await asyncio.sleep(self.nublado.config.prepuller.pollInterval)
+        await asyncio.sleep(self.context.config.prepuller.pollInterval)
 
     async def startup(self) -> None:
         pass
@@ -582,7 +575,7 @@ class PrepullExecutor(PrepullerManager):
         """Close any prepull schedulers."""
         if self.schedulers:
             scheduler = Scheduler(
-                close_timeout=self.nublado.config.kubernetes.request_timeout
+                close_timeout=self.context.config.kubernetes.request_timeout
             )
             for image in self.schedulers:
                 self.logger.warning(f"Terminating scheduler for {image}")
@@ -595,6 +588,7 @@ class PrepullExecutor(PrepullerManager):
         self, image: str, node: str
     ) -> PodSpec:
         shortname = image.split("/")[-1]
+        assert self.context.user is not None, "User needed for pod creation"
         return PodSpec(
             containers=[
                 Container(
@@ -628,7 +622,7 @@ class PrepullExecutor(PrepullerManager):
                         required_pulls[img.path] = []
                     required_pulls[img.path].append(i.name)
         self.logger.debug(f"Required pulls by node: {required_pulls}")
-        timeout = self.nublado.config.prepuller.pullTimeout
+        timeout = self.context.config.prepuller.pullTimeout
         # Parallelize across nodes but not across images
         for image in required_pulls:
             if image in self.schedulers:
@@ -642,7 +636,7 @@ class PrepullExecutor(PrepullerManager):
             tag = image.split(":")[1]
             for node in required_pulls[image]:
                 await scheduler.spawn(
-                    self.nublado.k8s_client.create_pod(
+                    self.context.k8s_client.create_pod(
                         name=f"prepull-{tag}",
                         namespace=get_namespace_prefix(),
                         pod=await self.create_prepuller_pod_spec(

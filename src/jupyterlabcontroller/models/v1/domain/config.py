@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, TypeAlias, Union
 import yaml
 from pydantic import BaseModel, validator
 
+from ..consts import lab_sizes
 from ..external.lab import UserEnv
 from ..external.prepuller_config import PrepullerConfig
 
@@ -38,19 +39,6 @@ class K8sConfig(BaseModel):
 #
 # Lab
 #
-
-# https://www.d20srd.org/srd/combat/movementPositionAndDistance.htm#bigandLittleCreaturesInCombat
-_srdsizes = (
-    "fine",
-    "diminutive",
-    "tiny",
-    "small",
-    "medium",
-    "large",
-    "huge",
-    "gargantuan",
-    "colossal",
-)
 
 
 class LabSizeDefinition(BaseModel):
@@ -167,7 +155,7 @@ class LabConfig(BaseModel):
         cls, v: Dict[str, LabSizeDefinition]
     ) -> Dict[str, LabSizeDefinition]:
         for sz_name in v.keys():
-            assert sz_name in _srdsizes
+            assert sz_name in lab_sizes
         return v
 
 

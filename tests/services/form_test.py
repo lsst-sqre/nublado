@@ -1,19 +1,12 @@
 import pytest
 
-from jupyterlabcontroller.models.v1.domain.context import (
-    ContextContainer,
-    RequestContext,
-)
+from jupyterlabcontroller.models.v1.domain.context import Context
 from jupyterlabcontroller.services.form import FormManager
 
 
 @pytest.mark.asyncio
-async def test_generate_user_lab_form(
-    request_context: RequestContext, context_container: ContextContainer
-) -> None:
-    fm: FormManager = FormManager(
-        nublado=context_container, context=request_context
-    )
+async def test_generate_user_lab_form(user_context: Context) -> None:
+    fm: FormManager = FormManager(context=user_context)
     r = await fm.generate_user_lab_form()
     assert (
         r.find(

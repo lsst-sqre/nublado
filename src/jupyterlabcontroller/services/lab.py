@@ -7,7 +7,7 @@ from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
 from ..models.v1.domain.config import LabFile, LabFiles, LabSecrets
-from ..models.v1.domain.context import ContextContainer, RequestContext
+from ..models.v1.domain.context import Context
 from ..models.v1.external.lab import LabSpecification, UserData, UserQuota
 from ..storage.k8s import (
     Container,
@@ -23,38 +23,40 @@ from ..utils import get_namespace_prefix, quota_from_size
 @dataclass
 class LabManager:
     lab: LabSpecification
-    nublado: ContextContainer
-    context: RequestContext
+    context: Context
 
     @property
     def user(self) -> str:
+        if self.context.user is None:
+            return ""
         return self.context.user.username
 
     @property
     def quota(self) -> UserQuota:
         return quota_from_size(
-            size=self.lab.options.size, config=self.nublado.config
+            size=self.lab.options.size, config=self.context.config
         )
 
     @property
     def logger(self) -> BoundLogger:
-        return self.nublado.logger
+        return self.context.logger
 
     async def check_for_user(self) -> bool:
         """True if there's a lab for the user, otherwise false."""
-        return self.user in self.nublado.user_map
+        return self.user in self.context.user_map
 
     async def create_lab(self) -> None:
         """Schedules creation of user lab objects/resources."""
+        assert self.context.user is not None, "User needed for lab creation"
         username = self.user
         if await self.check_for_user():
             estr: str = f"lab already exists for {username}"
-            self.nublado.logger.error(f"create_lab failed: {estr}")
+            self.context.logger.error(f"create_lab failed: {estr}")
             raise RuntimeError(estr)
         #
         # Clear user event queue
         #
-        self.nublado.user_map[username] = UserData.new_from_user_lab_quota(
+        self.context.user_map[username] = UserData.new_from_user_lab_quota(
             user=self.context.user, labspec=self.lab, quota=self.quota
         )
 
@@ -73,10 +75,10 @@ class LabManager:
         ns_max_retries: int = 5
         ns_name = self.context.namespace
         try:
-            await self.nublado.k8s_client.create_namespace(ns_name)
+            await self.context.k8s_client.create_namespace(ns_name)
         except NSCreationError as e:
             if e.status == 409:
-                self.nublado.logger.info(f"Namespace {ns_name} already exists")
+                self.context.logger.info(f"Namespace {ns_name} already exists")
                 # ... but we know that we don't have a lab for the user,
                 # because we got this far.  So there's a stranded namespace,
                 # and we should delete it and recreate it.
@@ -84,7 +86,7 @@ class LabManager:
                 # The spec actually calls for us to delete the lab and then the
                 # namespace, but let's just remove the namespace, which should
                 # also clean up all its contents.
-                await self.nublado.k8s_client.delete_namespace(ns_name)
+                await self.context.k8s_client.delete_namespace(ns_name)
                 ns_retries += 1
                 # Give up after a while.
                 if ns_retries > ns_max_retries:
@@ -95,7 +97,7 @@ class LabManager:
                 # Just try again, and return *that* one's return value.
                 return await self.create_user_namespace()
             else:
-                self.nublado.logger.exception(
+                self.context.logger.exception(
                     f"Failed to create namespace {ns_name}: {e}"
                 )
                 raise
@@ -105,7 +107,7 @@ class LabManager:
         # turns out we need to sequence that, we do this more manually with
         # explicit awaits.
         scheduler: Scheduler = Scheduler(
-            close_timeout=self.nublado.config.kubernetes.request_timeout
+            close_timeout=self.context.config.kubernetes.request_timeout
         )
         await scheduler.spawn(self.create_secrets())
         await scheduler.spawn(self.create_nss())
@@ -117,7 +119,7 @@ class LabManager:
 
     async def create_secrets(self) -> None:
         data: Dict[str, str] = await self.merge_controller_secrets()
-        await self.nublado.k8s_client.create_secret(
+        await self.context.k8s_client.create_secret(
             name=f"nb-{self.user}",
             namespace=self.context.namespace,
             data=data,
@@ -126,7 +128,7 @@ class LabManager:
     async def merge_controller_secrets(self) -> Dict[str, str]:
         """Merge the user token with whatever secrets we're injecting
         from the lab controller environment."""
-        secret_list: LabSecrets = self.nublado.config.lab.secrets
+        secret_list: LabSecrets = self.context.config.lab.secrets
         secret_names: List[str] = []
         secret_keys: List[str] = []
         for sec in secret_list:
@@ -145,7 +147,7 @@ class LabManager:
         base64_data: Dict[str, str] = {}
         namespace: str = get_namespace_prefix()
         for name in secret_names:
-            secret: Secret = await self.nublado.k8s_client.read_secret(
+            secret: Secret = await self.context.k8s_client.read_secret(
                 name=name, namespace=namespace
             )
             # Retrieve matching keys
@@ -164,7 +166,7 @@ class LabManager:
     async def _get_file(self, name: str) -> LabFile:
         # This feels like the config data structure should be a dict
         # in the first place.
-        files: LabFiles = self.nublado.config.lab.files
+        files: LabFiles = self.context.config.lab.files
         for file in files:
             if file.name == name:
                 return file
@@ -178,7 +180,7 @@ class LabManager:
             pwfile.mountPath: pwfile.contents,
             gpfile.mountPath: gpfile.contents,
         }
-        await self.nublado.k8s_client.create_configmap(
+        await self.context.k8s_client.create_configmap(
             name=f"nb-{self.user}-nss",
             namespace=self.context.namespace,
             data=data,
@@ -186,9 +188,9 @@ class LabManager:
 
     async def create_env(self) -> None:
         data: Dict[str, str] = {}
-        data.update(self.nublado.config.lab.env)
+        data.update(self.context.config.lab.env)
         # FIXME more env injection needed
-        await self.nublado.k8s_client.create_configmap(
+        await self.context.k8s_client.create_configmap(
             name=f"nb-{self.user}-env",
             namespace=self.context.namespace,
             data=data,
@@ -197,14 +199,14 @@ class LabManager:
     async def create_network_policy(self) -> None:
         # FIXME
         policy = NetworkPolicySpec()
-        await self.nublado.k8s_client.create_network_policy(
+        await self.context.k8s_client.create_network_policy(
             name=f"nb-{self.user}-env",
             namespace=self.context.namespace,
             spec=policy,
         )
 
     async def create_quota(self) -> None:
-        await self.nublado.k8s_client.create_quota(
+        await self.context.k8s_client.create_quota(
             name=f"nb-{self.user}",
             namespace=self.context.namespace,
             quota=self.quota,
@@ -212,7 +214,7 @@ class LabManager:
 
     async def create_user_pod(self) -> None:
         pod = await self.create_pod_spec()
-        await self.nublado.k8s_client.create_pod(
+        await self.context.k8s_client.create_pod(
             name=f"nb-{self.user}",
             namespace=self.context.namespace,
             pod=pod,
@@ -220,6 +222,9 @@ class LabManager:
 
     async def create_pod_spec(self) -> PodSpec:
         # FIXME: needs a bunch more stuff
+        assert (
+            self.context.user is not None
+        ), "User required to create pod spec"
         pod = PodSpec(
             containers=[
                 Container(
@@ -244,12 +249,12 @@ class LabManager:
         # We ignore the request context, because the Hub can shut things
         # down without a user request.
         # Clear Events for user:
-        self.nublado.user_map[username].events = deque()
-        self.nublado.user_map[username].status = "terminating"
+        self.context.user_map[username].events = deque()
+        self.context.user_map[username].status = "terminating"
         try:
-            await self.nublado.k8s_client.delete_namespace(username)
+            await self.context.k8s_client.delete_namespace(username)
         except Exception as e:
-            self.nublado.logger.error(f"Could not delete lab environment: {e}")
-            self.nublado.user_map[username].status = "failed"
+            self.context.logger.error(f"Could not delete lab environment: {e}")
+            self.context.user_map[username].status = "failed"
             raise
-        del self.nublado.user_map[username]
+        del self.context.user_map[username]

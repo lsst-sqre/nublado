@@ -10,14 +10,11 @@ from sse_starlette.sse import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
 from .dependencies.config import configuration_dependency
-from .dependencies.nublado import (
-    ContextContainer,
-    RequestContext,
-    nublado_dependency,
-    request_context_dependency,
-)
+from .dependencies.context import context_dependency
+from .dependencies.token import admin_token_dependency, user_token_dependency
 from .models.index import Index
 from .models.v1.domain.config import Config
+from .models.v1.domain.context import Context
 from .models.v1.external.lab import LabSpecification, RunningLabUsers, UserData
 from .models.v1.external.prepuller import DisplayImages, PrepullerStatus
 from .services.events import EventManager
@@ -44,80 +41,97 @@ internal_router = APIRouter()
 @external_router.get(
     "/spawner/v1/labs",
     response_model=RunningLabUsers,
+    responses={
+        403: {"description": "Forbidden", "model": ErrorModel},
+    },
     summary="List all users with running labs",
 )
 async def get_lab_users(
-    nublado: ContextContainer = Depends(nublado_dependency),
+    context: Context = Depends(context_dependency),
+    admin_token: str = Depends(admin_token_dependency),
 ) -> RunningLabUsers:
-    """requires admin:jupyterlab"""
-    return get_active_users(nublado.user_map)
+    """Returns a list of all users with running labs."""
+    return get_active_users(context.user_map)
 
 
 @external_router.get(
     "/spawner/v1/labs/{username}",
     response_model=UserData,
-    responses={404: {"description": "Lab not found", "model": ErrorModel}},
+    responses={
+        404: {"description": "Lab not found", "model": ErrorModel},
+        403: {"description": "Forbidden", "model": ErrorModel},
+    },
     summary="Status of user",
 )
 async def get_userdata(
     username: str,
-    nublado: ContextContainer = Depends(nublado_dependency),
-    context: RequestContext = Depends(request_context_dependency),
+    context: Context = Depends(context_dependency),
+    admin_token: str = Depends(admin_token_dependency),
 ) -> UserData:
-    """Requires admin:jupyterlab"""
-    return nublado.user_map[username]
+    """Returns status of the lab pod for the given user."""
+    return context.user_map[username]
 
 
 @external_router.post(
     "/spawner/v1/labs/{username}/create",
-    responses={409: {"description": "Lab exists", "model": ErrorModel}},
+    responses={
+        409: {"description": "Lab exists", "model": ErrorModel},
+        403: {"description": "Forbidden", "model": ErrorModel},
+    },
     response_class=RedirectResponse,
     status_code=303,
     summary="Create user lab",
 )
 async def post_new_lab(
     lab: LabSpecification,
-    nublado: ContextContainer = Depends(nublado_dependency),
-    context: RequestContext = Depends(request_context_dependency),
+    context: Context = Depends(context_dependency),
+    user_token: str = Depends(user_token_dependency),
 ) -> str:
-    """POST body is a LabSpecification.  Requires exec:notebook and valid
-    user token."""
-    lab_manager = LabManager(lab=lab, nublado=nublado, context=context)
-    username = context.user.username
-    nublado.logger.debug(f"Received creation request for {username}")
+    """Create a new Lab pod for a given user"""
+    lab_manager = LabManager(lab=lab, context=context)
+    username = lab_manager.user
+    assert username != "", "Cannot create lab without user"
+    context.logger.debug(f"Received creation request for {username}")
     await lab_manager.create_lab()
-    return f"/nublado/spawner/v1/labs/{username}"
+    return f"/context/spawner/v1/labs/{username}"
 
 
 @external_router.delete(
     "/spawner/v1/labs/{username}",
     summary="Delete user lab",
-    responses={404: {"description": "Lab not found", "model": ErrorModel}},
+    responses={
+        404: {"description": "Lab not found", "model": ErrorModel},
+        403: {"description": "Forbidden", "model": ErrorModel},
+    },
     status_code=202,
 )
 async def delete_user_lab(
     username: str,
-    lab: LabSpecification,
-    nublado: ContextContainer = Depends(nublado_dependency),
-    context: RequestContext = Depends(request_context_dependency),
+    context: Context = Depends(context_dependency),
+    admin_token: str = Depends(admin_token_dependency),
 ) -> None:
-    """Requires admin:jupyterlab"""
-    lab_manager = LabManager(lab=lab, nublado=nublado, context=context)
+    """Stop a running pod."""
+    lab_manager = LabManager(lab=LabSpecification(), context=context)
     await lab_manager.delete_lab_environment(username)
     return
 
 
 @external_router.get(
     "/spawner/v1/user-status",
-    responses={404: {"description": "Lab not found", "model": ErrorModel}},
+    responses={
+        404: {"description": "Lab not found", "model": ErrorModel},
+        403: {"description": "Forbidden", "model": ErrorModel},
+    },
     summary="Get status for user",
+    response_model=UserData,
 )
 async def get_user_status(
-    nublado: ContextContainer = Depends(nublado_dependency),
-    context: RequestContext = Depends(request_context_dependency),
+    context: Context = Depends(context_dependency),
+    admin_token: str = Depends(admin_token_dependency),
 ) -> UserData:
-    """Requires exec:notebook and valid token."""
-    return nublado.user_map[context.user.username]
+    """Get the pod status for the authenticating user."""
+    assert context.user is not None, "Cannot get user status without user"
+    return context.user_map[context.user.username]
 
 
 #
@@ -128,14 +142,19 @@ async def get_user_status(
 @external_router.get(
     "/spawner/v1/labs/{username}/events",
     summary="Get Lab event stream for a user's current operation",
+    responses={
+        403: {"description": "Forbidden", "model": ErrorModel},
+    },
+    # FIXME: Not at all sure how to do response model/class for this
 )
 async def get_user_events(
     username: str,
-    nublado: ContextContainer = Depends(nublado_dependency),
+    context: Context = Depends(context_dependency),
+    user_token: str = Depends(user_token_dependency),
 ) -> AsyncGenerator[ServerSentEvent, None]:
-    """Requires exec:notebook and valid user token"""
+    """Returns the events for the lab of the given user"""
     event_manager = EventManager(
-        logger=nublado.logger, events=nublado.event_map
+        logger=context.logger, events=context.event_map
     )
     # should return EventSourceResponse:
     return event_manager.user_event_publisher(username)
@@ -147,14 +166,18 @@ async def get_user_events(
 @external_router.get(
     "/spawner/v1/lab-form/{username}",
     summary="Get lab form for user",
+    responses={
+        403: {"description": "Forbidden", "model": ErrorModel},
+    },
+    # FIXME: is there a response_class for 'str' ?
 )
 async def get_user_lab_form(
     username: str,
-    nublado: ContextContainer = Depends(nublado_dependency),
-    context: RequestContext = Depends(request_context_dependency),
+    context: Context = Depends(context_dependency),
+    user_token: str = Depends(user_token_dependency),
 ) -> str:
-    """Requires exec:notebook and valid token."""
-    form_manager = FormManager(nublado=nublado, context=context)
+    """Get the lab creation form for a particular user."""
+    form_manager = FormManager(context=context)
     return await form_manager.generate_user_lab_form()
 
 
@@ -168,26 +191,34 @@ async def get_user_lab_form(
 @external_router.get(
     "/spawner/v1/images",
     summary="Get known images and their names",
+    responses={
+        403: {"description": "Forbidden", "model": ErrorModel},
+    },
+    response_model=DisplayImages,
 )
 async def get_images(
-    nublado: ContextContainer = Depends(nublado_dependency),
-    context: RequestContext = Depends(request_context_dependency),
+    context: Context = Depends(context_dependency),
+    admin_token: str = Depends(admin_token_dependency),
 ) -> DisplayImages:
-    """Requires admin:notebook"""
-    prepuller_manager = PrepullerManager(nublado=nublado, context=context)
+    """Returns known images and their names."""
+    prepuller_manager = PrepullerManager(context=context)
     return await prepuller_manager.get_menu_images()
 
 
 @external_router.get(
     "/spawner/v1/prepulls",
     summary="Get status of prepull configurations",
+    responses={
+        403: {"description": "Forbidden", "model": ErrorModel},
+    },
+    response_model=PrepullerStatus,
 )
 async def get_prepulls(
-    nublado: ContextContainer = Depends(nublado_dependency),
-    context: RequestContext = Depends(request_context_dependency),
+    context: Context = Depends(context_dependency),
+    admin_token: str = Depends(admin_token_dependency),
 ) -> PrepullerStatus:
-    """Requires admin:notebook"""
-    prepuller_manager = PrepullerManager(nublado=nublado, context=context)
+    """Returns the list of known images and their names."""
+    prepuller_manager = PrepullerManager(context=context)
     return await prepuller_manager.get_prepulls()
 
 

@@ -1,13 +1,15 @@
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 import structlog
+from fastapi import Request
 from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
 from safir.logging import configure_logging
 from structlog.stdlib import BoundLogger
 
 from ....storage.docker import DockerStorageClient
+from ....storage.gafaelfawr import GafaelfawrStorageClient
 from ....storage.k8s import K8sStorageClient
 from ..external.lab import UserInfo
 from .config import Config
@@ -16,14 +18,7 @@ from .lab import UserMap
 
 
 @dataclass
-class RequestContext:
-    token: str
-    user: UserInfo
-    namespace: str
-
-
-@dataclass
-class ContextContainer:
+class Context:
     config: Config
     http_client: AsyncClient
     logger: BoundLogger
@@ -31,6 +26,10 @@ class ContextContainer:
     k8s_client: K8sStorageClient
     user_map: UserMap
     event_map: EventMap
+    namespace: str = ""
+    token: str = ""
+    token_scopes: List[str] = field(default_factory=list)
+    user: Optional[UserInfo] = None
 
     @classmethod
     def initialize(
@@ -38,7 +37,7 @@ class ContextContainer:
         config: Config,
         logger: Optional[BoundLogger] = None,
         http_client: Optional[AsyncClient] = None,
-    ) -> "ContextContainer":
+    ) -> "Context":
         if logger is None:
             # Logger
             configure_logging(
@@ -68,6 +67,7 @@ class ContextContainer:
 
         # User-to-event-queue map
         event_map: EventMap = {}
+
         return cls(
             config=config,
             http_client=http_client,
@@ -78,6 +78,12 @@ class ContextContainer:
             event_map=event_map,
         )
 
-    async def aclose(self) -> None:
-        await self.k8s_client.aclose()
-        await self.http_client.aclose()
+    async def patch_with_request(self, request: Request) -> None:
+        # Getting user and token from request are async so we can't
+        # do it at object creation time.
+        gafaelfawr_client = GafaelfawrStorageClient(
+            request=request, http_client=self.http_client
+        )
+        self.token = gafaelfawr_client.token
+        self.user = await gafaelfawr_client.get_user()
+        self.token_scopes = await gafaelfawr_client.get_scopes()

@@ -6,26 +6,29 @@ from ..models.v1.domain.config import Config
 
 
 class ConfigurationDependency:
-    _configuration_path: str = CONFIGURATION_PATH
-    _config: Optional[Config] = None
+    def __init__(self, filename: str = CONFIGURATION_PATH) -> None:
+        self._filename: str = filename
+        self._config: Optional[Config] = None
+        #  Defer initialization until first use.
 
     async def __call__(
         self,
     ) -> Config:
-        return self.config()
+        return self.config
 
+    @property
     def config(self) -> Config:
         if self._config is None:
             self._config = Config.from_file(
-                self._configuration_path,
+                self._filename,
             )
         return self._config
 
-    def set_configuration_path(self, path: str) -> None:
+    def set_filename(self, path: str) -> None:
         """Change the settings path and reload."""
-        self._configuration_path = path
+        self._filename = path
         self._config = Config.from_file(
-            filename=self._configuration_path,
+            filename=self._filename,
         )
 
 

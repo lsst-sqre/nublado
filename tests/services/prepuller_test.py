@@ -3,10 +3,7 @@ import asyncio
 import pytest
 from aiojobs import Scheduler
 
-from jupyterlabcontroller.models.v1.domain.context import (
-    ContextContainer,
-    RequestContext,
-)
+from jupyterlabcontroller.models.v1.domain.context import Context
 from jupyterlabcontroller.models.v1.external.prepuller import Image
 from jupyterlabcontroller.services.prepuller import (
     PrepullerManager,
@@ -15,12 +12,8 @@ from jupyterlabcontroller.services.prepuller import (
 
 
 @pytest.mark.asyncio
-async def test_get_menu_images(
-    request_context: RequestContext, context_container: ContextContainer
-) -> None:
-    pm: PrepullerManager = PrepullerManager(
-        nublado=context_container, context=request_context
-    )
+async def test_get_menu_images(user_context: Context) -> None:
+    pm: PrepullerManager = PrepullerManager(context=user_context)
     r = await pm.get_menu_images()
     assert "recommended" in r
     assert type(r["recommended"]) is Image
@@ -28,12 +21,8 @@ async def test_get_menu_images(
 
 
 @pytest.mark.asyncio
-async def test_get_prepulls(
-    request_context: RequestContext, context_container: ContextContainer
-) -> None:
-    pm: PrepullerManager = PrepullerManager(
-        nublado=context_container, context=request_context
-    )
+async def test_get_prepulls(user_context: Context) -> None:
+    pm: PrepullerManager = PrepullerManager(context=user_context)
     r = await pm.get_prepulls()
     assert r.config.docker is not None
     assert r.config.docker.repository == "library/sketchbook"
@@ -45,14 +34,10 @@ async def test_get_prepulls(
 
 
 @pytest.mark.asyncio
-async def test_run_prepuller(
-    request_context: RequestContext, context_container: ContextContainer
-) -> None:
-    prepull_executor: PrepullExecutor = PrepullExecutor(
-        nublado=context_container, context=request_context
-    )
+async def test_run_prepuller(user_context: Context) -> None:
+    prepull_executor: PrepullExecutor = PrepullExecutor(context=user_context)
     scheduler: Scheduler = Scheduler(
-        close_timeout=context_container.config.kubernetes.request_timeout
+        close_timeout=user_context.config.kubernetes.request_timeout
     )
     await scheduler.spawn(prepull_executor.run())
     await asyncio.sleep(0.1)

@@ -1,9 +1,6 @@
 import pytest
 
-from jupyterlabcontroller.models.v1.domain.context import (
-    ContextContainer,
-    RequestContext,
-)
+from jupyterlabcontroller.models.v1.domain.context import Context
 from jupyterlabcontroller.services.lab import LabManager
 
 from ..settings import TestObjectFactory
@@ -12,16 +9,16 @@ from ..settings import TestObjectFactory
 @pytest.mark.asyncio
 async def test_lab_manager(
     obj_factory: TestObjectFactory,
-    request_context: RequestContext,
-    context_container: ContextContainer,
+    user_context: Context,
 ) -> None:
     lab = obj_factory.labspecs[0]
     lm = LabManager(
-        lab=lab, nublado=context_container, context=request_context
+        lab=lab,
+        context=user_context,
     )
     present = await lm.check_for_user()
     assert present is True  # It should already be in the user map
-    await lm.delete_lab_environment(username=lm.context.user.username)
+    await lm.delete_lab_environment(username=lm.user)
     present = await lm.check_for_user()
     assert present is False  # And now it should not be
     await lm.create_lab()
