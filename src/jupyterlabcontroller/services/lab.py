@@ -6,7 +6,7 @@ from typing import Dict, List
 from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
-from ..config import LabFile, LabFiles, LabSecrets
+from ..config import LabFile, LabSecret
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..models.context import Context
 from ..models.v1.lab import LabSpecification, UserData, UserQuota
@@ -129,13 +129,13 @@ class LabManager:
     async def merge_controller_secrets(self) -> Dict[str, str]:
         """Merge the user token with whatever secrets we're injecting
         from the lab controller environment."""
-        secret_list: LabSecrets = self.context.config.lab.secrets
+        secret_list: List[LabSecret] = self.context.config.lab.secrets
         secret_names: List[str] = []
         secret_keys: List[str] = []
         for sec in secret_list:
-            secret_names.append(sec.secretRef)
-            if sec.secretKey in secret_keys:
-                raise RuntimeError("Duplicate secret key {sec.secretKey}")
+            secret_names.append(sec.secret_name)
+            if sec.secret_key in secret_keys:
+                raise RuntimeError("Duplicate secret key {sec.secret_key}")
             secret_keys.append(sec.secretKey)
         # In theory, we should parallelize the secret reads.  But in practice
         # it makes life a lot more complex, and we will have at most two:
@@ -167,7 +167,7 @@ class LabManager:
     async def _get_file(self, name: str) -> LabFile:
         # This feels like the config data structure should be a dict
         # in the first place.
-        files: LabFiles = self.context.config.lab.files
+        files: List[LabFile] = self.context.config.lab.files
         for file in files:
             if file.name == name:
                 return file

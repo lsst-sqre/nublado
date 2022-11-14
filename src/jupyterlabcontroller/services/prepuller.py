@@ -142,9 +142,9 @@ class PrepullerManager:
                 menu_images[img.tag] = img
         running_count: Dict[TagType, int] = {}
         tag_count = {
-            TagType.RELEASE: self.config.numReleases,
-            TagType.WEEKLY: self.config.numWeeklies,
-            TagType.DAILY: self.config.numDailies,
+            TagType.RELEASE: self.config.num_releases,
+            TagType.WEEKLY: self.config.num_weeklies,
+            TagType.DAILY: self.config.num_dailies,
         }
         for tag_type in TagType:
             if tag_count.get(tag_type) is None:
@@ -384,8 +384,8 @@ class PrepullerManager:
                 if "@sha256:" in c:
                     continue
                 tag = c.split(":")[-1]
-                assert self.config.aliasTags is not None
-                config_aliases: List[str] = self.config.aliasTags
+                assert self.config.alias_tags is not None
+                config_aliases: List[str] = self.config.alias_tags
                 partial = PartialTag.parse_tag(tag=tag)
                 if partial.display_name == tag:
                     partial.display_name = PartialTag.prettify_tag(tag=tag)

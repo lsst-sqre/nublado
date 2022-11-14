@@ -34,9 +34,9 @@ class GARDefinition(BaseModel):
         example="sketchbook",
         description="Google Artifact Registry image name",
     )
-    projectId: str = Field(
+    project_id: str = Field(
         ...,
-        title="projectId",
+        title="project_id",
         example="ceres-lighthouse-6ab4",
         description=(
             "GCP Project ID for project containing the Artifact Registry"
@@ -91,21 +91,21 @@ class PrepullerConfig(BaseModel):
         example="recommended",
         description="Image tag to use as `recommended` image",
     )
-    numReleases: int = Field(
+    num_releases: int = Field(
         1,
-        title="numReleases",
+        title="num_releases",
         example=1,
         description="Number of Release images to prepull and display in menu.",
     )
-    numWeeklies: int = Field(
+    num_weeklies: int = Field(
         2,
-        title="numWeeklies",
+        title="num_weeklies",
         example=2,
         description="Number of Weekly images to prepull and display in menu.",
     )
-    numDailies: int = Field(
+    num_dailies: int = Field(
         3,
-        title="numDailies",
+        title="num_dailies",
         example=3,
         description="Number of Daily images to prepull and display in menu.",
     )
@@ -127,9 +127,9 @@ class PrepullerConfig(BaseModel):
             "even if they would not normally be prepulled."
         ),
     )
-    aliasTags: List[str] = Field(
+    alias_tags: List[str] = Field(
         [],
-        title="aliasTags",
+        title="alias_tags",
         example=["recommended_cycle0027"],
         description="Additional alias tags for this instance.",
     )

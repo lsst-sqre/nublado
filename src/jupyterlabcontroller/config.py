@@ -39,56 +39,25 @@ class LabSizeDefinition(BaseModel):
 LabSizeDefinitions: TypeAlias = Dict[str, LabSizeDefinition]
 
 
-class LabSecurityContext(BaseModel):
-    runAsUser: int = 1000
-    runAsNonRootUser: bool = True
-    allowPrivilegeEscalation: bool = False
-
-
 class LabInitContainer(BaseModel):
     name: str
     image: str
-    securityContext: LabSecurityContext
+    privileged: bool
 
-
-LabInitContainers: TypeAlias = List[LabInitContainer]
 
 # The quota is just the sum of many sizes, effectively
 LabQuota = LabSizeDefinition
 
 
-class LabNFSDefinition(BaseModel):
-    path: str
-    server: str
-
-
 class LabVolume(BaseModel):
-    name: str
-    nfs: LabNFSDefinition
-
-
-LabVolumes: TypeAlias = List[LabVolume]
-
-
-class LabVolumeMount(BaseModel):
-    name: str
-    mountPath: str
-
-    @validator("mountPath")
-    def validate_lab_mount_path(cls, v: str) -> str:
-        assert v.startswith("/")
-        return v
-
-
-LabVolumeMounts: TypeAlias = List[LabVolumeMount]
+    container_path: str
+    server: str
+    server_path: str
 
 
 class LabSecret(BaseModel):
-    secretRef: str
-    secretKey: str
-
-
-LabSecrets: TypeAlias = List[LabSecret]
+    secret_name: str
+    secret_key: str
 
 
 class LabFile(BaseModel):
@@ -103,17 +72,13 @@ class LabFile(BaseModel):
         return v
 
 
-LabFiles: TypeAlias = List[LabFile]
-
-
 class LabConfig(BaseModel):
     sizes: LabSizeDefinitions
     env: UserEnv = {}
-    secrets: LabSecrets = []
-    files: LabFiles = []
-    volumes: LabVolumes = []
-    volume_mounts: LabVolumeMounts = []
-    initcontainers: LabInitContainers = []
+    secrets: List[LabSecret] = []
+    files: List[LabFile] = []
+    volumes: List[LabVolume] = []
+    initcontainers: List[LabInitContainer] = []
     quota: Optional[LabQuota] = None
 
     @validator("sizes")
@@ -149,6 +114,6 @@ class Config(BaseModel):
             config_obj: Dict[Any, Any] = yaml.safe_load(f)
             # In general the YAML might have configuration for other
             # objects than the controller in it.
-            r = Config.parse_obj(config_obj["controller"])
+            r = Config.parse_obj(config_obj)
             r.path = filename
             return r
