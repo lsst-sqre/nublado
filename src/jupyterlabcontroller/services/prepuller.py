@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
-from ..models.v1.domain.config import Config
+from ..config import Config
 from ..models.v1.domain.context import Context
 from ..models.v1.domain.prepuller import (
     ContainerImage,

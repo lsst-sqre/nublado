@@ -2,7 +2,7 @@
 
 from typing import Dict, List
 
-from jupyterlabcontroller.models.v1.domain.config import Config
+from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.utils import (
     get_active_users,
     get_namespace_prefix,

@@ -6,7 +6,7 @@ from typing import Dict, List
 from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
-from ..models.v1.domain.config import LabFile, LabFiles, LabSecrets
+from ..config import LabFile, LabFiles, LabSecrets
 from ..models.v1.domain.context import Context
 from ..models.v1.external.lab import LabSpecification, UserData, UserQuota
 from ..storage.k8s import (

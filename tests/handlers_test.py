@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from httpx import AsyncClient
 
-from jupyterlabcontroller.models.v1.domain.config import Config
+from jupyterlabcontroller.config import Config
 
 """Tests for the jupyterlabcontroller.handlers external routes."""
 

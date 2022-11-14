@@ -4,11 +4,7 @@ from typing import Dict, Union
 
 import bitmath
 
-from .models.v1.domain.config import (
-    Config,
-    LabSizeDefinition,
-    LabSizeDefinitions,
-)
+from .config import Config, LabSizeDefinition, LabSizeDefinitions
 from .models.v1.domain.lab import UserMap
 from .models.v1.external.lab import (
     RunningLabUsers,

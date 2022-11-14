@@ -1,8 +1,8 @@
 """Configuration dependency."""
 from typing import Optional
 
+from ..config import Config
 from ..models.v1.consts import CONFIGURATION_PATH
-from ..models.v1.domain.config import Config
 
 
 class ConfigurationDependency:

@@ -7,8 +7,8 @@ from typing import List, Optional
 from httpx import AsyncClient, Response
 from structlog.stdlib import BoundLogger
 
+from ..config import Config
 from ..models.v1.consts import CONFIGURATION_PATH, DOCKER_SECRETS_PATH
-from ..models.v1.domain.config import Config
 from ..models.v1.domain.docker import DockerCredentials as DC
 from ..models.v1.domain.docker import DockerRegistryError
 from ..models.v1.external.prepuller_config import PrepullerConfig

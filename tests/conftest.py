@@ -14,7 +14,7 @@ from httpx import AsyncClient
 from safir.kubernetes import initialize_kubernetes
 
 from jupyterlabcontroller import main
-from jupyterlabcontroller.models.v1.domain.config import Config
+from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.models.v1.domain.context import Context
 from jupyterlabcontroller.utils import get_user_namespace
 

@@ -9,11 +9,11 @@ from safir.models import ErrorModel
 from sse_starlette.sse import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
+from .config import Config
 from .dependencies.config import configuration_dependency
 from .dependencies.context import context_dependency
 from .dependencies.token import admin_token_dependency, user_token_dependency
 from .models.index import Index
-from .models.v1.domain.config import Config
 from .models.v1.domain.context import Context
 from .models.v1.external.lab import LabSpecification, RunningLabUsers, UserData
 from .models.v1.external.prepuller import DisplayImages, PrepullerStatus

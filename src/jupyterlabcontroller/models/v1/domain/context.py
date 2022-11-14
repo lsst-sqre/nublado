@@ -8,11 +8,11 @@ from kubernetes_asyncio.client import ApiClient
 from safir.logging import configure_logging
 from structlog.stdlib import BoundLogger
 
+from ....config import Config
 from ....storage.docker import DockerStorageClient
 from ....storage.gafaelfawr import GafaelfawrStorageClient
 from ....storage.k8s import K8sStorageClient
 from ..external.lab import UserInfo
-from .config import Config
 from .event import EventMap
 from .lab import UserMap
 
