@@ -15,7 +15,7 @@ from safir.kubernetes import initialize_kubernetes
 
 from jupyterlabcontroller import main
 from jupyterlabcontroller.config import Config
-from jupyterlabcontroller.models.v1.domain.context import Context
+from jupyterlabcontroller.models.context import Context
 from jupyterlabcontroller.utils import get_user_namespace
 
 from .settings import TestObjectFactory, test_object_factory

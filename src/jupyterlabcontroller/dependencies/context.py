@@ -12,7 +12,7 @@ from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
-from ..models.v1.domain.context import Context
+from ..models.context import Context
 from .config import configuration_dependency
 
 

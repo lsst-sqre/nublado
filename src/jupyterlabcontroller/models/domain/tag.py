@@ -9,7 +9,7 @@ from typing import Dict, List, Match, Optional, Tuple
 
 from semver import VersionInfo
 
-from ..external.prepuller import Image
+from ..v1.prepuller import Image
 
 
 class TagType(Enum):

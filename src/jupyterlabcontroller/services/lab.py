@@ -7,8 +7,8 @@ from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
 from ..config import LabFile, LabFiles, LabSecrets
-from ..models.v1.domain.context import Context
-from ..models.v1.external.lab import LabSpecification, UserData, UserQuota
+from ..models.context import Context
+from ..models.v1.lab import LabSpecification, UserData, UserQuota
 from ..storage.k8s import (
     Container,
     NetworkPolicySpec,

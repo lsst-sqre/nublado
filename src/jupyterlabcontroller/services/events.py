@@ -5,7 +5,7 @@ from typing import Optional
 from sse_starlette.sse import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
-from ..models.v1.external.event import EventMap, EventQueue
+from ..models.v1.event import EventMap, EventQueue
 
 
 class EventManager:

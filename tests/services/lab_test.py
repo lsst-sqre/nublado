@@ -1,6 +1,6 @@
 import pytest
 
-from jupyterlabcontroller.models.v1.domain.context import Context
+from jupyterlabcontroller.models.context import Context
 from jupyterlabcontroller.services.lab import LabManager
 
 from ..settings import TestObjectFactory

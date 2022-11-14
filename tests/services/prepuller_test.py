@@ -3,8 +3,8 @@ import asyncio
 import pytest
 from aiojobs import Scheduler
 
-from jupyterlabcontroller.models.v1.domain.context import Context
-from jupyterlabcontroller.models.v1.external.prepuller import Image
+from jupyterlabcontroller.models.context import Context
+from jupyterlabcontroller.models.v1.prepuller import Image
 from jupyterlabcontroller.services.prepuller import (
     PrepullerManager,
     PrepullExecutor,

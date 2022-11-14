@@ -5,7 +5,7 @@ from typing import Deque, Dict, TypeAlias
 from pydantic import BaseModel, validator
 from sse_starlette import ServerSentEvent
 
-from ..consts import event_types
+from ..enums import event_types
 
 """GET /nublado/spawner/v1/labs/username/events"""
 

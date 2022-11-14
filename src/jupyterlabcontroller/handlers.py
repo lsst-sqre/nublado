@@ -13,10 +13,10 @@ from .config import Config
 from .dependencies.config import configuration_dependency
 from .dependencies.context import context_dependency
 from .dependencies.token import admin_token_dependency, user_token_dependency
+from .models.context import Context
 from .models.index import Index
-from .models.v1.domain.context import Context
-from .models.v1.external.lab import LabSpecification, RunningLabUsers, UserData
-from .models.v1.external.prepuller import DisplayImages, PrepullerStatus
+from .models.v1.lab import LabSpecification, RunningLabUsers, UserData
+from .models.v1.prepuller import DisplayImages, PrepullerStatus
 from .services.events import EventManager
 from .services.form import FormManager
 from .services.lab import LabManager

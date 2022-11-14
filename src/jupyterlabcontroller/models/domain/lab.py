@@ -2,6 +2,6 @@
 
 from typing import Dict, TypeAlias
 
-from ..external.lab import UserData
+from ..v1.lab import UserData
 
 UserMap: TypeAlias = Dict[str, UserData]

@@ -3,8 +3,8 @@ from typing import List
 
 from jinja2 import Template
 
-from ..models.v1.domain.context import Context
-from ..models.v1.domain.form import FormSize
+from ..models.context import Context
+from ..models.domain.form import FormSize
 from .prepuller import PrepullerManager
 
 DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"

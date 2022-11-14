@@ -7,7 +7,7 @@ from typing import Deque, List, Tuple, TypeAlias
 
 from pydantic import BaseModel, Field, validator
 
-from ..consts import lab_statuses, pod_states
+from ..enums import lab_statuses, pod_states
 from .event import Event
 from .lab_userenv import UserEnv
 

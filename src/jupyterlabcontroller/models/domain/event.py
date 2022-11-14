@@ -2,6 +2,6 @@
 
 from typing import Dict, TypeAlias
 
-from ..external.event import EventQueue
+from ..v1.event import EventQueue
 
 EventMap: TypeAlias = Dict[str, EventQueue]

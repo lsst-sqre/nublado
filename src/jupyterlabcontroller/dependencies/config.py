@@ -2,7 +2,7 @@
 from typing import Optional
 
 from ..config import Config
-from ..models.v1.consts import CONFIGURATION_PATH
+from ..constants import CONFIGURATION_PATH
 
 
 class ConfigurationDependency:

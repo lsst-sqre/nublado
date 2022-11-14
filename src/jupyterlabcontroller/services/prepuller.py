@@ -10,17 +10,17 @@ from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
-from ..models.v1.domain.context import Context
-from ..models.v1.domain.prepuller import (
+from ..models.context import Context
+from ..models.domain.prepuller import (
     ContainerImage,
     DigestToNodeTagImages,
     ExtTag,
     NodeContainers,
     NodeTagImage,
 )
-from ..models.v1.domain.tag import PartialTag, Tag, TagList, TagType
-from ..models.v1.external.lab import UserGroup, UserInfo
-from ..models.v1.external.prepuller import (
+from ..models.domain.tag import PartialTag, Tag, TagList, TagType
+from ..models.v1.lab import UserGroup, UserInfo
+from ..models.v1.prepuller import (
     DisplayImages,
     Image,
     Node,

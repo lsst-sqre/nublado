@@ -6,9 +6,9 @@ from typing import Any, Dict, List, Optional, TypeAlias, Union
 import yaml
 from pydantic import BaseModel, validator
 
-from .models.v1.consts import lab_sizes
-from .models.v1.external.lab import UserEnv
-from .models.v1.external.prepuller_config import PrepullerConfig
+from .models.enums import lab_sizes
+from .models.v1.lab import UserEnv
+from .models.v1.prepuller_config import PrepullerConfig
 
 #
 # Safir

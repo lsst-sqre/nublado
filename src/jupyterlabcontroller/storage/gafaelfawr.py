@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import Request
 from httpx import AsyncClient
 
-from ..models.v1.external.lab import UserInfo
+from ..models.v1.lab import UserInfo
 
 
 class GafaelfawrStorageClient:

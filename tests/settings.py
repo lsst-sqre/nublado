@@ -6,10 +6,10 @@ import json
 from copy import copy
 from typing import Any, Dict, List
 
-from jupyterlabcontroller.models.v1.consts import lab_statuses, pod_states
-from jupyterlabcontroller.models.v1.domain.lab import UserMap
-from jupyterlabcontroller.models.v1.domain.prepuller import NodeContainers
-from jupyterlabcontroller.models.v1.external.lab import (
+from jupyterlabcontroller.models.domain.lab import UserMap
+from jupyterlabcontroller.models.domain.prepuller import NodeContainers
+from jupyterlabcontroller.models.enums import lab_statuses, pod_states
+from jupyterlabcontroller.models.v1.lab import (
     LabSpecification,
     UserData,
     UserInfo,

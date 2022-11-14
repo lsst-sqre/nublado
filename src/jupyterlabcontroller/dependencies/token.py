@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, Request
 
-from ..models.v1.consts import ADMIN_SCOPE, USER_SCOPE
-from ..models.v1.domain.context import Context
+from ..constants import ADMIN_SCOPE, USER_SCOPE
+from ..models.context import Context
 from .context import context_dependency
 
 

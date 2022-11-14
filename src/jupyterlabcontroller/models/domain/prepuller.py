@@ -5,8 +5,8 @@ but which are handy for internal bookkeeping
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, TypeAlias
 
-from ....storage.k8s import ContainerImage
-from ..external.prepuller import Image, NodeList
+from ...storage.k8s import ContainerImage
+from ..v1.prepuller import Image, NodeList
 from .tag import Tag, TagList, TagType
 
 NodeContainers: TypeAlias = Dict[str, List[ContainerImage]]

@@ -5,12 +5,8 @@ from typing import Dict, Union
 import bitmath
 
 from .config import Config, LabSizeDefinition, LabSizeDefinitions
-from .models.v1.domain.lab import UserMap
-from .models.v1.external.lab import (
-    RunningLabUsers,
-    UserQuota,
-    UserQuotaQuantum,
-)
+from .models.domain.lab import UserMap
+from .models.v1.lab import RunningLabUsers, UserQuota, UserQuotaQuantum
 
 LIMIT_TO_REQUEST_RATIO: float = 4.0  # Seems to work well so far.
 
