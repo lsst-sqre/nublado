@@ -136,7 +136,7 @@ class LabManager:
             secret_names.append(sec.secret_name)
             if sec.secret_key in secret_keys:
                 raise RuntimeError("Duplicate secret key {sec.secret_key}")
-            secret_keys.append(sec.secretKey)
+            secret_keys.append(sec.secret_key)
         # In theory, we should parallelize the secret reads.  But in practice
         # it makes life a lot more complex, and we will have at most two:
         # the controller secret and a pull secret.

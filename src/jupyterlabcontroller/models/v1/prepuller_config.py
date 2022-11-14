@@ -165,7 +165,7 @@ class PrepullerConfig(BaseModel):
         p = self.registry
         gar = self.gar
         if gar is not None:
-            p += f"/{gar.projectId}/{gar.repository}/{gar.image}"
+            p += f"/{gar.project_id}/{gar.repository}/{gar.image}"
         else:
             docker = self.docker
             if docker is not None:

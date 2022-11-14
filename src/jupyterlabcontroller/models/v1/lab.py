@@ -3,13 +3,12 @@ from __future__ import annotations
 
 from collections import deque
 from copy import copy
-from typing import Deque, List, Tuple, TypeAlias
+from typing import Deque, Dict, List, Tuple, TypeAlias
 
 from pydantic import BaseModel, Field, validator
 
 from ..enums import lab_statuses, pod_states
 from .event import Event
-from .lab_userenv import UserEnv
 
 """GET /nublado/spawner/v1/labs"""
 RunningLabUsers: TypeAlias = List[str]
@@ -59,7 +58,7 @@ class UserOptions(BaseModel):
 
 class LabSpecification(BaseModel):
     options: UserOptions
-    env: UserEnv
+    env: Dict[str, str]
 
 
 """GET /nublado/spawner/v1/labs/<username>"""

@@ -6,7 +6,6 @@ import yaml
 from pydantic import BaseModel, validator
 
 from .models.enums import lab_sizes
-from .models.v1.lab import UserEnv
 from .models.v1.prepuller_config import PrepullerConfig
 
 #
@@ -74,7 +73,7 @@ class LabFile(BaseModel):
 
 class LabConfig(BaseModel):
     sizes: LabSizeDefinitions
-    env: UserEnv = {}
+    env: Dict[str, str] = {}
     secrets: List[LabSecret] = []
     files: List[LabFile] = []
     volumes: List[LabVolume] = []
