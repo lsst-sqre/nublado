@@ -33,7 +33,7 @@ class DockerStorageClient:
         Parameters
         ----------
         """
-        prepuller_config: PrepullerConfig = config.prepuller.config
+        prepuller_config: PrepullerConfig = config.prepuller
         self.host = prepuller_config.registry
         self.repository = prepuller_config.path
         secrets_path: str = DOCKER_SECRETS_PATH

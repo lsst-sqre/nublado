@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import Any, Dict, List, Optional, TypeAlias, Union
 
 import yaml
@@ -25,15 +24,6 @@ class SafirConfig(BaseModel):
     def validate_profile(cls, v: str) -> str:
         assert v in ("production", "development")
         return v
-
-
-#
-# K8s
-#
-
-
-class K8sConfig(BaseModel):
-    request_timeout: int = 60
 
 
 #
@@ -93,29 +83,6 @@ class LabVolumeMount(BaseModel):
 LabVolumeMounts: TypeAlias = List[LabVolumeMount]
 
 
-class LabFormRestriction(BaseModel):
-    type: str
-    value: str
-    groups: Optional[List[str]] = None
-
-    @validator("type")
-    def validate_form_type(cls, v: str) -> str:
-        assert v in ("size", "image", "tag")
-        return v
-
-    @validator("value")
-    def validate_form_value(cls, v: str) -> str:
-        _ = re.compile(v)  # Will throw an exception if it's not a valid RE
-        return v
-
-
-LabFormRestrictionList: TypeAlias = List[LabFormRestriction]
-
-
-class LabForm(BaseModel):
-    restrictions: LabFormRestrictionList
-
-
 class LabSecret(BaseModel):
     secretRef: str
     secretKey: str
@@ -141,7 +108,6 @@ LabFiles: TypeAlias = List[LabFile]
 
 class LabConfig(BaseModel):
     sizes: LabSizeDefinitions
-    form: LabForm
     env: UserEnv = {}
     secrets: LabSecrets = []
     files: LabFiles = []
@@ -163,39 +129,15 @@ class LabConfig(BaseModel):
 # Prepuller
 #
 
-
-class PrepullerOuterConfig(BaseModel):
-    config: PrepullerConfig
-    pollInterval: int
-    pullTimeout: int
-
-
-#
-# Form
-#
-
-
-FormData: TypeAlias = Dict[str, str]
-
-
-class FormsConfig(BaseModel):
-    forms: FormData
-
-    @validator("forms")
-    def validate_form(cls, v: FormData) -> FormData:
-        assert "default" in v.keys()
-        return v
-
+# See models.v1.prepuller_config
 
 #
 # Config
 #
 class Config(BaseModel):
     safir: SafirConfig
-    kubernetes: K8sConfig
     lab: LabConfig
-    prepuller: PrepullerOuterConfig
-    form: FormsConfig
+    prepuller: PrepullerConfig
     path: Optional[str] = None
 
     @classmethod

@@ -7,6 +7,7 @@ from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
 from ..config import LabFile, LabFiles, LabSecrets
+from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..models.context import Context
 from ..models.v1.lab import LabSpecification, UserData, UserQuota
 from ..storage.k8s import (
@@ -107,7 +108,7 @@ class LabManager:
         # turns out we need to sequence that, we do this more manually with
         # explicit awaits.
         scheduler: Scheduler = Scheduler(
-            close_timeout=self.context.config.kubernetes.request_timeout
+            close_timeout=KUBERNETES_REQUEST_TIMEOUT
         )
         await scheduler.spawn(self.create_secrets())
         await scheduler.spawn(self.create_nss())

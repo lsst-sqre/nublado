@@ -3,6 +3,7 @@ from typing import List
 
 from jinja2 import Template
 
+from ..constants import SPAWNER_FORM_TEMPLATE
 from ..models.context import Context
 from ..models.domain.form import FormSize
 from .prepuller import PrepullerManager
@@ -13,11 +14,6 @@ DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 @dataclass
 class FormManager:
     context: Context
-
-    def form_for_group(self, group: str) -> str:
-        return self.context.config.form.forms.get(
-            group, self.context.config.form.forms["default"]
-        )
 
     def _extract_sizes(self) -> List[FormSize]:
         sz = self.context.config.lab.sizes
@@ -36,13 +32,7 @@ class FormManager:
         ), "Cannot create user form without user"
         username = self.context.user.username
         self.context.logger.info(f"Creating options form for '{username}'")
-        dfl_form = self.form_for_group("")
-        for grp in self.context.user.groups:
-            form = self.form_for_group(grp.name)
-            if form != dfl_form:
-                # Use first non-default form we encounter
-                break
-        options_template = Template(form)
+        options_template = Template(SPAWNER_FORM_TEMPLATE)
 
         pm = PrepullerManager(context=self.context)
         displayimages = await pm.get_menu_images()

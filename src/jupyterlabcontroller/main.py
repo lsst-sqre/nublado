@@ -18,6 +18,7 @@ from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 
+from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .dependencies.config import configuration_dependency
 from .handlers import external_router, internal_router
 from .services.prepuller import PrepullExecutor
@@ -71,9 +72,7 @@ prepull_executor: Optional[PrepullExecutor] = None
 async def startup_event() -> None:
     app.add_middleware(XForwardedMiddleware)
     await initialize_kubernetes()
-    prepull_scheduler = Scheduler(
-        close_timeout=config.kubernetes.request_timeout
-    )
+    prepull_scheduler = Scheduler(close_timeout=KUBERNETES_REQUEST_TIMEOUT)
     prepull_executor = PrepullExecutor(config=config)
     await prepull_scheduler.spawn(prepull_executor.run())
 

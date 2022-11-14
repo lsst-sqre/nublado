@@ -9,6 +9,7 @@ from safir.logging import configure_logging
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
+from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..storage.docker import DockerStorageClient
 from ..storage.gafaelfawr import GafaelfawrStorageClient
 from ..storage.k8s import K8sStorageClient
@@ -58,9 +59,10 @@ class Context:
         docker_client = DockerStorageClient(
             config=config, logger=logger, http_client=http_client
         )
-        timeout = config.kubernetes.request_timeout
         # K8s client
-        k8s_client = K8sStorageClient(k8s_api=ApiClient(), timeout=timeout)
+        k8s_client = K8sStorageClient(
+            k8s_api=ApiClient(), timeout=KUBERNETES_REQUEST_TIMEOUT
+        )
 
         # User-to-lab map
         user_map: UserMap = {}

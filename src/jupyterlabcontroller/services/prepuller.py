@@ -10,6 +10,11 @@ from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
+from ..constants import (
+    KUBERNETES_REQUEST_TIMEOUT,
+    PREPULLER_POLL_INTERVAL,
+    PREPULLER_PULL_TIMEOUT,
+)
 from ..models.context import Context
 from ..models.domain.prepuller import (
     ContainerImage,
@@ -52,7 +57,7 @@ class PrepullerManager:
 
         self.logger: BoundLogger = self.context.logger
         self.k8s_client: K8sStorageClient = self.context.k8s_client
-        self.config: PrepullerConfig = self.context.config.prepuller.config
+        self.config: PrepullerConfig = self.context.config.prepuller
         self.docker_client: DockerStorageClient = self.context.docker_client
 
     async def get_prepulls(self) -> PrepullerStatus:
@@ -560,7 +565,7 @@ class PrepullExecutor(PrepullerManager):
         await self.shutdown()
 
     async def idle(self) -> None:
-        await asyncio.sleep(self.context.config.prepuller.pollInterval)
+        await asyncio.sleep(PREPULLER_POLL_INTERVAL)
 
     async def startup(self) -> None:
         pass
@@ -574,9 +579,7 @@ class PrepullExecutor(PrepullerManager):
     async def aclose(self) -> None:
         """Close any prepull schedulers."""
         if self.schedulers:
-            scheduler = Scheduler(
-                close_timeout=self.context.config.kubernetes.request_timeout
-            )
+            scheduler = Scheduler(close_timeout=KUBERNETES_REQUEST_TIMEOUT)
             for image in self.schedulers:
                 self.logger.warning(f"Terminating scheduler for {image}")
                 await scheduler.spawn(self.schedulers[image].close())
@@ -622,7 +625,7 @@ class PrepullExecutor(PrepullerManager):
                         required_pulls[img.path] = []
                     required_pulls[img.path].append(i.name)
         self.logger.debug(f"Required pulls by node: {required_pulls}")
-        timeout = self.context.config.prepuller.pullTimeout
+        timeout = PREPULLER_PULL_TIMEOUT
         # Parallelize across nodes but not across images
         for image in required_pulls:
             if image in self.schedulers:
