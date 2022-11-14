@@ -6,10 +6,8 @@ from aiojobs import Scheduler
 from jupyterlabcontroller.constants import KUBERNETES_REQUEST_TIMEOUT
 from jupyterlabcontroller.models.context import Context
 from jupyterlabcontroller.models.v1.prepuller import Image
-from jupyterlabcontroller.services.prepuller import (
-    PrepullerManager,
-    PrepullExecutor,
-)
+from jupyterlabcontroller.services.prepull_executor import PrepullExecutor
+from jupyterlabcontroller.services.prepuller import PrepullerManager
 
 
 @pytest.mark.asyncio

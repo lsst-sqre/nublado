@@ -18,7 +18,7 @@ class NodeTagImage:
     name: str
     digest: str
     tags: Dict[str, str]
-    size: int
+    size: Optional[int]
     prepulled: bool
     tag: str = ""
     nodes: List[str] = field(default_factory=list)
@@ -83,12 +83,14 @@ DigestToNodeTagImages: TypeAlias = Dict[str, NodeTagImage]
 class ExtTag(Tag):
     config_aliases: List[str] = field(default_factory=list)
     node: str = ""
-    size: int = -1
+    size: Optional[int] = None
 
 
 @dataclass
 class NodePool:
     nodes: NodeList
 
-    def eligible_nodes(self) -> List[str]:
+    property
+
+    def eligible(self) -> List[str]:
         return [x.name for x in self.nodes if x.eligible]

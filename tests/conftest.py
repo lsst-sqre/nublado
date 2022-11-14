@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 from copy import copy
 from os.path import dirname
-from typing import AsyncIterator
+from typing import AsyncIterator, Iterator
 
 import pytest
 import pytest_asyncio
@@ -45,6 +46,14 @@ def config() -> Config:
     ``test_objects.json`` in that directory.
     """
     return Config.from_file(filename=TEST_CONFIG)
+
+
+@pytest.fixture(scope="session")
+def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
+    """Increase the scope of the event loop to the test session."""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
 
 
 @pytest_asyncio.fixture

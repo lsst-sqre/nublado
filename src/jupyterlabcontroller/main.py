@@ -21,7 +21,7 @@ from safir.middleware.x_forwarded import XForwardedMiddleware
 from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .dependencies.config import configuration_dependency
 from .handlers import external_router, internal_router
-from .services.prepuller import PrepullExecutor
+from .services.prepull_executor import PrepullExecutor
 
 __all__ = ["app"]
 
