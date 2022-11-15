@@ -43,14 +43,6 @@ class DockerStorageClient:
             # as docker_config.json (by convention).
             secrets_path = f"{dirname(str(config.path))}/docker_config.json"
         self.secrets_path = secrets_path
-        if self.host is None:
-            raise DockerRegistryError(
-                "Could not determine registry from config"
-            )
-        if self.repository is None:
-            raise DockerRegistryError(
-                "Could not determine repository from config"
-            )
         self.http_client = http_client
         self.logger = logger
         self.headers = {

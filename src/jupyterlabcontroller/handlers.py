@@ -1,7 +1,8 @@
 """User-facing routes, as defined in sqr-066 (https://sqr-066.lsst.io)"""
 from collections.abc import AsyncGenerator
+from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from safir.dependencies.logger import logger_dependency
 from safir.metadata import Metadata, get_metadata
@@ -15,13 +16,12 @@ from .dependencies.context import context_dependency
 from .dependencies.token import admin_token_dependency, user_token_dependency
 from .models.context import Context
 from .models.index import Index
-from .models.v1.lab import LabSpecification, RunningLabUsers, UserData
+from .models.v1.lab import LabSpecification, UserData
 from .models.v1.prepuller import DisplayImages, PrepullerStatus
 from .services.events import EventManager
 from .services.form import FormManager
 from .services.lab import LabManager
 from .services.prepuller import PrepullerManager
-from .utils import get_active_users
 
 # from sse_starlette.sse import EventSourceResponse
 
@@ -40,7 +40,6 @@ internal_router = APIRouter()
 
 @external_router.get(
     "/spawner/v1/labs",
-    response_model=RunningLabUsers,
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
     },
@@ -49,9 +48,9 @@ internal_router = APIRouter()
 async def get_lab_users(
     context: Context = Depends(context_dependency),
     admin_token: str = Depends(admin_token_dependency),
-) -> RunningLabUsers:
+) -> List[str]:
     """Returns a list of all users with running labs."""
-    return get_active_users(context.user_map)
+    return context.user_map.running
 
 
 @external_router.get(
@@ -69,7 +68,10 @@ async def get_userdata(
     admin_token: str = Depends(admin_token_dependency),
 ) -> UserData:
     """Returns status of the lab pod for the given user."""
-    return context.user_map[username]
+    userdata = context.user_map.get(username)
+    if userdata is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return userdata
 
 
 @external_router.post(
@@ -133,7 +135,10 @@ async def get_user_status(
     """Get the pod status for the authenticating user."""
     if context.user is None:
         raise RuntimeError("Cannot get user status without user")
-    return context.user_map[context.user.username]
+    userdata = context.user_map.get(context.user.username)
+    if userdata is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return userdata
 
 
 #
@@ -155,11 +160,14 @@ async def get_user_events(
     user_token: str = Depends(user_token_dependency),
 ) -> AsyncGenerator[ServerSentEvent, None]:
     """Returns the events for the lab of the given user"""
+    eventmap = context.event_map.get(username)
+    if eventmap is None:
+        raise RuntimeError(f"User {username} has no event map")
     event_manager = EventManager(
-        logger=context.logger, events=context.event_map.get(username)
+        username=username, logger=context.logger, events=eventmap
     )
     # should return EventSourceResponse:
-    return event_manager.user_event_publisher(username)
+    return event_manager.publish
 
 
 #

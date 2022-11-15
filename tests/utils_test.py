@@ -1,11 +1,10 @@
 """Tests for the jupyterlabcontroller.handlers.internal module and routes."""
 
-from typing import Dict, List
+from typing import Dict
 
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.models.v1.lab import LabSize
 from jupyterlabcontroller.utils import (
-    get_active_users,
     get_namespace_prefix,
     get_user_namespace,
     memory_string_to_int,
@@ -13,8 +12,6 @@ from jupyterlabcontroller.utils import (
     std_annotations,
     std_labels,
 )
-
-from .settings import TestObjectFactory
 
 
 def test_memory_string_to_int() -> None:
@@ -50,9 +47,3 @@ def test_get_namespace_prefix() -> None:
 def test_get_user_namespace() -> None:
     n = get_user_namespace("ribbon")
     assert n == "userlabs-ribbon"
-
-
-def test_get_active_users(obj_factory: TestObjectFactory) -> None:
-    users: List[str] = get_active_users(obj_factory.usermap)
-    assert len(users) == 1
-    assert users[0] == "wrench"

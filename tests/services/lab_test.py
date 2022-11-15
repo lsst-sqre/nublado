@@ -24,3 +24,13 @@ async def test_lab_manager(
     await lm.create_lab()
     present = await lm.check_for_user()
     assert present is True  # And should now have returned
+
+
+@pytest.mark.asyncio
+async def test_get_active_users(
+    obj_factory: TestObjectFactory,
+    user_context: Context,
+) -> None:
+    users = user_context.user_map.running
+    assert len(users) == 1
+    assert users[0] == "wrench"

@@ -8,7 +8,13 @@ from structlog.stdlib import BoundLogger
 from ..config import LabFile, LabSecret
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..models.context import Context
-from ..models.v1.lab import LabSize, LabSpecification, UserData, UserQuota
+from ..models.v1.lab import (
+    LabSize,
+    LabSpecification,
+    LabStatus,
+    UserData,
+    UserQuota,
+)
 from ..storage.k8s import (
     Container,
     NetworkPolicySpec,
@@ -256,11 +262,11 @@ class LabManager:
         user = self.context.user_map.get(username)
         if user is None:
             raise RuntimeError(f"Cannot find map for user {username}")
-        user.status = "terminating"
+        user.status = LabStatus.TERMINATING
         try:
             await self.context.k8s_client.delete_namespace(username)
         except Exception as e:
             self.context.logger.error(f"Could not delete lab environment: {e}")
-            user.status = "failed"
+            user.status = LabStatus.FAILED
             raise
         self.context.user_map.remove(username)

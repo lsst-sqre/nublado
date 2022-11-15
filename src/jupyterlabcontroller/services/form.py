@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import List
 
 from jinja2 import Template
@@ -11,9 +10,9 @@ from .prepuller import PrepullerManager
 DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 
 
-@dataclass
 class FormManager:
-    context: Context
+    def __init__(self, context: Context):
+        self.context = context
 
     def _extract_sizes(self) -> List[FormSize]:
         sz = self.context.config.lab.sizes

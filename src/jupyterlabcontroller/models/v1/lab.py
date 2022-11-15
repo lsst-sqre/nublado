@@ -37,10 +37,6 @@ class PodState(NubladoEnum):
     MISSING = auto()
 
 
-"""GET /nublado/spawner/v1/labs"""
-RunningLabUsers: TypeAlias = List[str]
-
-
 """POST /nublado/spawner/v1/labs/<username>/create"""
 
 

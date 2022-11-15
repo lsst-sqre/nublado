@@ -1,12 +1,19 @@
 """Event model for jupyterlab-controller."""
 
-from typing import Dict
+from typing import Dict, Optional
 
 from ..v1.event import EventQueue
-from .genericmap import GenericMap
 
 
-class EventMap(GenericMap):
+class EventMap:
     def __init__(self) -> None:
-        super().__init__()
         self._dict: Dict[str, EventQueue] = dict()
+
+    def get(self, key: str) -> Optional[EventQueue]:
+        return self._dict.get(key)
+
+    def set(self, key: str, item: EventQueue) -> None:
+        self._dict[key] = item
+
+    def remove(self, key: str) -> None:
+        del self._dict[key]

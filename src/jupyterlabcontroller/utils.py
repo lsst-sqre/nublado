@@ -5,13 +5,7 @@ from typing import Dict, Union
 import bitmath
 
 from .config import Config, LabSizeDefinition, LabSizeDefinitions
-from .models.domain.usermap import UserMap
-from .models.v1.lab import (
-    LabSize,
-    RunningLabUsers,
-    UserQuota,
-    UserQuotaQuantum,
-)
+from .models.v1.lab import LabSize, UserQuota, UserQuotaQuantum
 
 LIMIT_TO_REQUEST_RATIO: float = 4.0  # Seems to work well so far.
 
@@ -31,16 +25,6 @@ def std_annotations() -> Dict[str, str]:
 
 def std_labels() -> Dict[str, str]:
     return copy(_std_labels)
-
-
-def get_active_users(labs: UserMap) -> RunningLabUsers:
-    """Returns a list of users with labs in 'running' state."""
-    r: RunningLabUsers = list()
-    for u in labs.list:
-        ul = labs.get(u.username)
-        if ul.status == "running":
-            r.append(u.username)
-    return r
 
 
 def get_user_namespace(username: str) -> str:
