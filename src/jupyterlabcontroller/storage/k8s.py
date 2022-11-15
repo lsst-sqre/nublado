@@ -209,10 +209,10 @@ class K8sStorageClient:
 
     async def get_image_data(self) -> NodeContainers:
         resp = await self.api.list_node()
-        all_images_by_node: NodeContainers = {}
+        all_images_by_node: NodeContainers = dict()
         for n in resp.items:
             nn = n.metadata.name
-            all_images_by_node[nn] = []
+            all_images_by_node[nn] = list()
             for ci in n.status.images:
                 all_images_by_node[nn].append(
                     ContainerImage.from_v1_container_image(ci)

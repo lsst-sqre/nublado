@@ -23,7 +23,7 @@ class NodeTagImage:
     tag: str = ""
     nodes: List[str] = field(default_factory=list)
     known_alias_tags: List[str] = field(default_factory=list)
-    tagobjs: TagList = TagList(all_tags=[])
+    tagobjs: TagList = TagList(all_tags=list())
     image_type: Optional[TagType] = None
 
     def to_image(self) -> Image:
@@ -44,7 +44,7 @@ class NodeTagImage:
 
         primary_tag: str = ""
         primary_name: str = ""
-        other_names: List[str] = []
+        other_names: List[str] = list()
 
         if recommended in self.tags:
             primary_tag = recommended
@@ -52,7 +52,7 @@ class NodeTagImage:
             del self.tags[recommended]
 
         self.tagobjs = TagList()
-        self.tagobjs.all_tags = []
+        self.tagobjs.all_tags = list()
         for t in self.tags:
             self.tagobjs.all_tags.append(Tag.from_tag(t))
         self.tagobjs.sort_all_tags()

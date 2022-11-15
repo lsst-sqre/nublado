@@ -9,4 +9,4 @@ from .genericmap import GenericMap
 class UserMap(GenericMap):
     def __init__(self) -> None:
         super().__init__()
-        self._dict: Dict[str, UserInfo] = {}
+        self._dict: Dict[str, UserInfo] = dict()

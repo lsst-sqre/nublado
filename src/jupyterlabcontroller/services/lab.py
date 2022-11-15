@@ -132,8 +132,8 @@ class LabManager:
         """Merge the user token with whatever secrets we're injecting
         from the lab controller environment."""
         secret_list: List[LabSecret] = self.context.config.lab.secrets
-        secret_names: List[str] = []
-        secret_keys: List[str] = []
+        secret_names: List[str] = list()
+        secret_keys: List[str] = list()
         for sec in secret_list:
             secret_names.append(sec.secret_name)
             if sec.secret_key in secret_keys:
@@ -147,7 +147,7 @@ class LabManager:
         # going to assume everything is "Opaque" (and thus can contain
         # arbitrary data).
 
-        base64_data: Dict[str, str] = {}
+        base64_data: Dict[str, str] = dict()
         namespace: str = get_namespace_prefix()
         for name in secret_names:
             secret: Secret = await self.context.k8s_client.read_secret(
@@ -190,7 +190,7 @@ class LabManager:
         )
 
     async def create_env(self) -> None:
-        data: Dict[str, str] = {}
+        data: Dict[str, str] = dict()
         data.update(self.context.config.lab.env)
         # FIXME more env injection needed
         await self.context.k8s_client.create_configmap(

@@ -16,7 +16,7 @@ class GafaelfawrStorageClient:
             raise RuntimeError("No HTTP client supplied")
         self.http_client = http_client
         self._user: Optional[UserInfo] = None
-        self._scopes: List[str] = []
+        self._scopes: List[str] = list()
 
     async def get_user(self) -> UserInfo:
         if self._user is None:

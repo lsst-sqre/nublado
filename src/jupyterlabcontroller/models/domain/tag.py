@@ -418,7 +418,7 @@ class Tag(PartialTag):
         cls,
         tag: str,
         image_ref: str = "",
-        alias_tags: List[str] = [],
+        alias_tags: List[str] = list(),
         override_name: str = "",
         digest: Optional[str] = None,
         override_cycle: Optional[int] = None,
@@ -474,11 +474,11 @@ class TagList:
     def sort_all_tags(self) -> None:
         """This sorts the ``all_tags`` field according to the ordering of
         the TagType enum."""
-        new_tags: Dict[TagType, List[Tag]] = {}
+        new_tags: Dict[TagType, List[Tag]] = dict()
         for tag_type in TagType:  # Initialize the dict, relying on the fact
             # that dicts are insertion-ordered in Python 3.6+ (we require
             # 3.10)
-            new_tags[tag_type] = []
+            new_tags[tag_type] = list()
         for tag in self.all_tags:
             new_tags[tag.image_type].append(tag)
         # Now sort the tags within each type in reverse lexical order.  This
@@ -487,7 +487,7 @@ class TagList:
         for tag_type in TagType:
             new_tags[tag.image_type].sort(reverse=True)
         # And flatten it out into a homogeneous list.
-        flat_tags: List[Tag] = []
+        flat_tags: List[Tag] = list()
         for k in new_tags:
             if new_tags[k] is not None:
                 flat_tags.extend(new_tags[k])
@@ -513,7 +513,7 @@ class TagList:
         return taglist.to_dockerimagelist()
 
     def to_dockerimagelist(self, name_is_tag: bool = False) -> List[Image]:
-        image_list: List[Image] = []
+        image_list: List[Image] = list()
         nonempty_tags = [t for t in self.all_tags.copy() if t is not None]
         for t in nonempty_tags:
             image_list.append(

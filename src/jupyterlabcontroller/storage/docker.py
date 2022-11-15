@@ -141,7 +141,7 @@ class DockerStorageClient:
         elif challenge_type == "bearer":
             # Bearer is used by Docker's official registry.
             self.logger.debug(f"Parsing challenge params {params}")
-            parts = {}
+            parts = dict()
             for p in params.split(","):
                 (k, v) = p.split("=")
                 parts[k] = v.replace('"', "")

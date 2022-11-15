@@ -35,7 +35,7 @@ def std_labels() -> Dict[str, str]:
 
 def get_active_users(labs: UserMap) -> RunningLabUsers:
     """Returns a list of users with labs in 'running' state."""
-    r: RunningLabUsers = []
+    r: RunningLabUsers = list()
     for u in labs.list:
         ul = labs.get(u.username)
         if ul.status == "running":

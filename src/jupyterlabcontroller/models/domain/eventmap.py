@@ -9,4 +9,4 @@ from .genericmap import GenericMap
 class EventMap(GenericMap):
     def __init__(self) -> None:
         super().__init__()
-        self._dict: Dict[str, EventQueue] = {}
+        self._dict: Dict[str, EventQueue] = dict()

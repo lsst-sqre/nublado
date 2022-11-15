@@ -49,8 +49,8 @@ class PrepullerManager:
             str, NodeTagImage
         ] = await self.filter_node_images_to_desired_menu(node_images)
 
-        prepulled: List[NodeImage] = []
-        pending: List[NodeImage] = []
+        prepulled: List[NodeImage] = list()
+        pending: List[NodeImage] = list()
 
         for i_name in menu_node_images:
             img = menu_node_images[i_name]
@@ -103,10 +103,10 @@ class PrepullerManager:
             str, NodeTagImage
         ] = await self._filter_node_images_by_availability(menu_node_images)
 
-        menu_images: DisplayImages = {}
+        menu_images: DisplayImages = dict()
         for img in available_menu_node_images:
             menu_images[img] = (available_menu_node_images[img]).to_image()
-        all_menu: Dict[str, Image] = {}
+        all_menu: Dict[str, Image] = dict()
         for n_img in node_images:
             all_menu[n_img.tag] = n_img.to_image()
         menu_images["all"] = all_menu
@@ -115,12 +115,12 @@ class PrepullerManager:
     async def filter_node_images_to_desired_menu(
         self, all_images: List[NodeTagImage]
     ) -> Dict[str, NodeTagImage]:
-        menu_images: Dict[str, NodeTagImage] = {}
+        menu_images: Dict[str, NodeTagImage] = dict()
         for img in all_images:
             # First pass: find recommended tag, put it at top
             if img.tag and img.tag == self.config.recommendedTag:
                 menu_images[img.tag] = img
-        running_count: Dict[TagType, int] = {}
+        running_count: Dict[TagType, int] = dict()
         tag_count = {
             TagType.RELEASE: self.config.num_releases,
             TagType.WEEKLY: self.config.num_weeklies,
@@ -144,7 +144,7 @@ class PrepullerManager:
     async def _filter_node_images_by_availability(
         self, menu_node_images: Dict[str, NodeTagImage]
     ) -> Dict[str, NodeTagImage]:
-        r: Dict[str, NodeTagImage] = {}
+        r: Dict[str, NodeTagImage] = dict()
         for k in menu_node_images:
             if menu_node_images[k].prepulled:
                 r[k] = menu_node_images[k]
@@ -193,7 +193,7 @@ class PrepullerManager:
     def _update_prepulled_images(
         self, nodes: List[Node], image_list: List[NodeTagImage]
     ) -> List[NodeTagImage]:
-        r: List[NodeTagImage] = []
+        r: List[NodeTagImage] = list()
         eligible = [x for x in nodes if x.eligible]
         nnames = [x.name for x in eligible]
         se: Set[str] = set(nnames)
@@ -211,13 +211,13 @@ class PrepullerManager:
     def _update_node_cache(
         self, nodes: List[Node], image_list: List[NodeTagImage]
     ) -> List[Node]:
-        r: List[Node] = []
+        r: List[Node] = list()
         tagobjs: List[Tag]
-        dmap: Dict[str, Dict[str, Any]] = {}
+        dmap: Dict[str, Dict[str, Any]] = dict()
         for i in image_list:
             img = i.to_image()
             if img.digest not in dmap:
-                dmap[img.digest] = {}
+                dmap[img.digest] = dict()
             dmap[img.digest]["img"] = img
             dmap[img.digest]["nodes"] = i.nodes
         for node in nodes:
@@ -235,7 +235,7 @@ class PrepullerManager:
         nodes: List[Node],
     ) -> List[NodeTagImage]:
         eligible_nodes = [x.name for x in nodes if x.eligible]
-        filtered_images: List[NodeTagImage] = []
+        filtered_images: List[NodeTagImage] = list()
         for img in images:
             filtered = NodeTagImage(
                 path=img.path,
@@ -284,7 +284,7 @@ class PrepullerManager:
         self,
         exttags: List[ExtTag],
     ) -> List[NodeTagImage]:
-        dmap: DigestToNodeTagImages = {}
+        dmap: DigestToNodeTagImages = dict()
         for exttag in exttags:
             digest = exttag.digest
             if digest is None or digest == "":
@@ -335,7 +335,7 @@ class PrepullerManager:
         return list(dmap.values())
 
     def _get_exttags_from_images(self, nc: NodeContainers) -> List[ExtTag]:
-        r: List[ExtTag] = []
+        r: List[ExtTag] = list()
         for node in nc:
             ctrs = nc[node]
             for ctr in ctrs:
@@ -348,7 +348,7 @@ class PrepullerManager:
         ctr: ContainerImage,
         node: str,
     ) -> List[ExtTag]:
-        r: List[ExtTag] = []
+        r: List[ExtTag] = list()
         digest: str = ""
         for c in ctr.names:
             # Extract the digest, making sure we don't have conflicting
@@ -390,7 +390,7 @@ class PrepullerManager:
     def _node_containers_to_images(
         self, nc: NodeContainers
     ) -> List[NodeTagImage]:
-        r: List[NodeTagImage] = []
+        r: List[NodeTagImage] = list()
         for node in nc:
             for ctr in nc[node]:
                 img = self.image_from_container(ctr, node)
@@ -403,7 +403,7 @@ class PrepullerManager:
         path = self._extract_path_from_v1_container(ctr)
         size = ctr.size_bytes
         digest = ""
-        tagobjs: List[Tag] = []
+        tagobjs: List[Tag] = list()
         for c in ctr.names:
             # Extract the digest, making sure we don't have conflicting
             # digests.
@@ -421,7 +421,7 @@ class PrepullerManager:
             tag = c.split(":")[-1]
             tagobj = Tag.from_tag(tag=tag, image_ref=c, digest=digest)
             tagobjs.append(tagobj)
-            tags: Dict[str, str] = {}
+            tags: Dict[str, str] = dict()
         tagobjlist = TagList(all_tags=tagobjs)
         for t in tagobjs:
             tags[t.tag] = t.display_name
@@ -433,8 +433,8 @@ class PrepullerManager:
                 size=size,
                 prepulled=False,
                 name="",  # About to be set from instance method
-                known_alias_tags=[],
-                nodes=[],
+                known_alias_tags=list(),
+                nodes=list(),
             )
         return r
 
@@ -463,7 +463,7 @@ class PrepullerManager:
         self,
         images: NodeContainers,
     ) -> NodeContainers:
-        r: NodeContainers = {}
+        r: NodeContainers = dict()
 
         name = self._extract_image_name()
         self.logger.debug(f"Desired image name: {name}")
@@ -474,7 +474,7 @@ class PrepullerManager:
                 if img_name == name:
                     self.logger.debug(f"Adding matching image: {img_name}")
                     if node not in r:
-                        r[node] = []
+                        r[node] = list()
                     t = copy(c)
                     r[node].append(t)
         return r

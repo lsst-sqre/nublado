@@ -40,7 +40,7 @@ class PrepullExecutor:
         config: Optional[Config] = None,
         context: Optional[Context] = None,
     ) -> None:
-        self.schedulers: Dict[str, Scheduler] = {}
+        self.schedulers: Dict[str, Scheduler] = dict()
 
         if context is None:
             if config is None:
@@ -144,13 +144,13 @@ class PrepullExecutor:
 
         pending = status.images.pending
 
-        required_pulls: Dict[str, List[str]] = {}
+        required_pulls: Dict[str, List[str]] = dict()
         for img in pending:
             if img.missing is not None:
                 for i in img.missing:
                     if i.eligible:
                         if img.path not in required_pulls:
-                            required_pulls[img.path] = []
+                            required_pulls[img.path] = list()
                         required_pulls[img.path].append(i.name)
         self.logger.debug(f"Required pulls by node: {required_pulls}")
         timeout = PREPULLER_PULL_TIMEOUT

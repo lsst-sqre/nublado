@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 class GenericMap:
     def __init__(self) -> None:
-        self._dict: Dict[str, Any] = {}
+        self._dict: Dict[str, Any] = dict()
 
     # https://stackoverflow.com/questions/4014621
 
