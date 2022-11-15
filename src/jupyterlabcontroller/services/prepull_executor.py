@@ -146,11 +146,12 @@ class PrepullExecutor:
 
         required_pulls: Dict[str, List[str]] = {}
         for img in pending:
-            for i in img.missing:
-                if i.eligible:
-                    if img.path not in required_pulls:
-                        required_pulls[img.path] = []
-                    required_pulls[img.path].append(i.name)
+            if img.missing is not None:
+                for i in img.missing:
+                    if i.eligible:
+                        if img.path not in required_pulls:
+                            required_pulls[img.path] = []
+                        required_pulls[img.path].append(i.name)
         self.logger.debug(f"Required pulls by node: {required_pulls}")
         timeout = PREPULLER_PULL_TIMEOUT
         # Parallelize across nodes but not across images

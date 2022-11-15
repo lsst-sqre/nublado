@@ -20,10 +20,6 @@ from ..models.v1.prepuller import (
     Image,
     Node,
     NodeImage,
-    NodeImageWithMissing,
-    NodeList,
-    PendingImages,
-    PrepulledImages,
     PrepullerConfig,
     PrepullerContents,
     PrepullerStatus,
@@ -53,11 +49,11 @@ class PrepullerManager:
             str, NodeTagImage
         ] = await self.filter_node_images_to_desired_menu(node_images)
 
-        prepulled: PrepulledImages = []
-        pending: PendingImages = []
+        prepulled: List[NodeImage] = []
+        pending: List[NodeImage] = []
 
         for i_name in menu_node_images:
-            img: NodeTagImage = menu_node_images[i_name]
+            img = menu_node_images[i_name]
             if img.prepulled:
                 prepulled.append(
                     NodeImage(
@@ -69,7 +65,7 @@ class PrepullerManager:
                 )
             else:
                 pending.append(
-                    NodeImageWithMissing(
+                    NodeImage(
                         path=img.path,
                         name=img.name,
                         digest=img.digest,
@@ -87,13 +83,13 @@ class PrepullerManager:
         return status
 
     async def _nodes_present(
-        self, img: NodeTagImage, nodes: NodeList
-    ) -> NodeList:
+        self, img: NodeTagImage, nodes: List[Node]
+    ) -> List[Node]:
         return [x for x in nodes if x.name in img.nodes]
 
     async def _nodes_missing(
-        self, img: NodeTagImage, nodes: NodeList
-    ) -> NodeList:
+        self, img: NodeTagImage, nodes: List[Node]
+    ) -> List[Node]:
         return [x for x in nodes if x.name not in img.nodes]
 
     async def get_menu_images(self) -> DisplayImages:
@@ -156,7 +152,7 @@ class PrepullerManager:
 
     async def get_current_image_and_node_state(
         self,
-    ) -> Tuple[List[NodeTagImage], NodeList]:
+    ) -> Tuple[List[NodeTagImage], List[Node]]:
         """This method does all the work that is common to both requesting
         the prepull status and to getting the images that will construct the
         menu.
@@ -190,12 +186,12 @@ class PrepullerManager:
     def _make_nodes_from_image_data(
         self,
         imgdata: NodeContainers,
-    ) -> NodeList:
-        r: NodeList = [Node(name=n) for n in imgdata.keys()]
+    ) -> List[Node]:
+        r: List[Node] = [Node(name=n) for n in imgdata.keys()]
         return r
 
     def _update_prepulled_images(
-        self, nodes: NodeList, image_list: List[NodeTagImage]
+        self, nodes: List[Node], image_list: List[NodeTagImage]
     ) -> List[NodeTagImage]:
         r: List[NodeTagImage] = []
         eligible = [x for x in nodes if x.eligible]
@@ -213,9 +209,9 @@ class PrepullerManager:
         return r
 
     def _update_node_cache(
-        self, nodes: NodeList, image_list: List[NodeTagImage]
-    ) -> NodeList:
-        r: NodeList = []
+        self, nodes: List[Node], image_list: List[NodeTagImage]
+    ) -> List[Node]:
+        r: List[Node] = []
         tagobjs: List[Tag]
         dmap: Dict[str, Dict[str, Any]] = {}
         for i in image_list:
@@ -236,7 +232,7 @@ class PrepullerManager:
     def _filter_images_to_enabled_nodes(
         self,
         images: List[NodeTagImage],
-        nodes: NodeList,
+        nodes: List[Node],
     ) -> List[NodeTagImage]:
         eligible_nodes = [x.name for x in nodes if x.eligible]
         filtered_images: List[NodeTagImage] = []

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, TypeAlias
 
 from ...storage.k8s import ContainerImage
-from ..v1.prepuller import Image, NodeList
+from ..v1.prepuller import Image, Node
 from .tag import Tag, TagList, TagType
 
 NodeContainers: TypeAlias = Dict[str, List[ContainerImage]]
@@ -88,9 +88,8 @@ class ExtTag(Tag):
 
 @dataclass
 class NodePool:
-    nodes: NodeList
+    nodes: List[Node]
 
-    property
-
+    @property
     def eligible(self) -> List[str]:
         return [x.name for x in self.nodes if x.eligible]

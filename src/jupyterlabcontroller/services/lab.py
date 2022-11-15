@@ -180,8 +180,8 @@ class LabManager:
         gpfile: LabFile = await self._get_file("group")
         # FIXME: Now edit those two...
         data: Dict[str, str] = {
-            pwfile.mountPath: pwfile.contents,
-            gpfile.mountPath: gpfile.contents,
+            pwfile.mount_path: pwfile.contents,
+            gpfile.mount_path: gpfile.contents,
         }
         await self.context.k8s_client.create_configmap(
             name=f"nb-{self.user}-nss",

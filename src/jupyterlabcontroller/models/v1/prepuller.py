@@ -1,7 +1,7 @@
 """Models for prepuller."""
 from __future__ import annotations
 
-from typing import Dict, List, TypeAlias, Union
+from typing import Dict, List, Optional, TypeAlias, Union
 
 from pydantic import BaseModel, Field
 
@@ -59,7 +59,7 @@ class Image(PartialImage):
 
     @property
     def references(self) -> List[str]:
-        r: List[str] = [f"{self.path}@{self.digest}"]
+        r = [f"{self.path}@{self.digest}"]
         for tag in self.tags:
             r.append(f"{self.path}:{tag}")
         return r
@@ -86,8 +86,6 @@ DisplayImages: TypeAlias = Dict[str, Union[Image, DisplayImage]]
 
 # "images" section
 
-ImageList: TypeAlias = List[Image]
-
 
 class Node(BaseModel):
     name: str = Field(
@@ -111,28 +109,24 @@ class Node(BaseModel):
             " reason for ineligibility if it is not."
         ),
     )
-    cached: NodeList = Field(
-        [], title="cached", description="List of images cached on this node"
+    cached: List[Image] = Field(
+        list(),
+        title="cached",
+        description="List of images cached on this node",
     )
 
 
-NodeList: TypeAlias = List[Node]
-
-
 class NodeImage(PartialImage):
-    nodes: NodeList = Field(
-        [],
+    nodes: List[Node] = Field(
+        list(),
         title="nodes",
         description=(
             "List of nodes that should have a complete set of images "
             "prepulled."
         ),
     )
-
-
-class NodeImageWithMissing(NodeImage):
-    missing: NodeList = Field(
-        [],
+    missing: Optional[List[Node]] = Field(
+        None,
         title="missing",
         description=(
             "List of nodes that should have a set of images prepulled"
@@ -141,21 +135,17 @@ class NodeImageWithMissing(NodeImage):
     )
 
 
-PrepulledImages: TypeAlias = List[NodeImage]
-PendingImages: TypeAlias = List[NodeImageWithMissing]
-
-
 class PrepullerContents(BaseModel):
-    prepulled: PrepulledImages = Field(
-        [],
+    prepulled: List[NodeImage] = Field(
+        list(),
         title="prepulled",
         description=(
             "List of nodes that have all desired images completely"
             " prepulled"
         ),
     )
-    pending: PendingImages = Field(
-        [],
+    pending: List[NodeImage] = Field(
+        list(),
         title="pending",
         description=(
             "List of nodes that do not yet have all desired images"
@@ -165,10 +155,10 @@ class PrepullerContents(BaseModel):
 
 
 # "nodes" section
-# It's just a NodeList
+# It's just a List[Node]
 
 
 class PrepullerStatus(BaseModel):
     config: PrepullerConfig
     images: PrepullerContents
-    nodes: NodeList
+    nodes: List[Node]

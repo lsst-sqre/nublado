@@ -115,7 +115,7 @@ lab:
   # how the Lab controller is to modify it.
   files:
   - name: passwd
-    mountPath: /etc/passwd
+    mount_path: /etc/passwd
     modify: true
     contents: |
       root:x:0:0:root:/root:/bin/bash
@@ -136,7 +136,7 @@ lab:
       systemd-network:x:192:192:systemd Network Management:/:/sbin/nologin
       lsst_lcl:x:1000:1000::/home/lsst_lcl:/bin/bash
   - name: group
-    mountPath: /etc/group
+    mount_path: /etc/group
     modify: true
     contents: |
       root:x:0:
@@ -174,13 +174,13 @@ lab:
       ssh_keys:x:998:
       input:x:999:
   - name: dask-config
-    mountPath: /opt/lsst/software/jupyterlab/lsst_dask.yml
+    mount_path: /opt/lsst/software/jupyterlab/lsst_dask.yml
     contents: |
       # No longer used, but preserves compatibility with runlab.sh
       dask_worker.yml: |
         enabled: false
   - name: idds-config
-    mountPath: /opt/lsst/software/jupyterlab/panda
+    mount_path: /opt/lsst/software/jupyterlab/panda
     modify: false
     contents: |
       # Licensed under the Apache License, Version 2.0 (the "License");
@@ -204,20 +204,20 @@ lab:
   # # the unique key that allows the Lab Controller to create the
   # # contents.  Since these are stored as secrets, they will be created
   # # from whole cloth, rather than modified from a base template.
-  # # If 'env' is specified, the mountPath will be stored in that environment
+  # # If 'env' is specified, the mount_path will be stored in that environment
   # # variable.
   # secrets:
   # - name: aws-credentials.ini
-  #   mountPath: /opt/lsst/software/jupyterlab/butler-secret/aws-credentials.ini
+  #   mount_path: /opt/lsst/software/jupyterlab/butler-secret/aws-credentials.ini
   #   env: AWS_SHARED_CREDENTIALS_FILE
 
   # - name: butler-gcs-idf-creds.json
-  #   mountPath: /opt/lsst/software/jupyterlab/butler-secret/butler-gcs-idf-creds.json
+  #   mount_path: /opt/lsst/software/jupyterlab/butler-secret/butler-gcs-idf-creds.json
   #   env: GOOGLE_APPLICATION_CREDENTIALS
   # - name: butler-hmac-idf-creds.json
-  #   mountPath: /opt/lsst/software/jupyterlab/butler-secret/butler-hmac-idf-creds.json
+  #   mount_path: /opt/lsst/software/jupyterlab/butler-secret/butler-hmac-idf-creds.json
   # - name: postgres-credentials.txt
-  #   mountPath: /opt/lsst/software/jupyterlab/butler-secret/postgres-credentials.txt
+  #   mount_path: /opt/lsst/software/jupyterlab/butler-secret/postgres-credentials.txt
   #   env: PGPASSFILE
 prepuller:
   # -- config from sqr-066
