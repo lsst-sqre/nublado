@@ -11,9 +11,3 @@ class DockerCredentials(BaseModel):
 
 
 DockerMap: TypeAlias = Dict[str, DockerCredentials]
-
-
-class DockerRegistryError(Exception):
-    """Unknown error working with the docker registry."""
-
-    pass

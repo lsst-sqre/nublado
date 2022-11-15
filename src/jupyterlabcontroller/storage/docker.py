@@ -10,7 +10,7 @@ from structlog.stdlib import BoundLogger
 from ..config import Config
 from ..constants import CONFIGURATION_PATH, DOCKER_SECRETS_PATH
 from ..models.domain.docker import DockerCredentials as DC
-from ..models.domain.docker import DockerRegistryError
+from ..models.exceptions import DockerRegistryError
 from ..models.v1.prepuller_config import PrepullerConfig
 
 

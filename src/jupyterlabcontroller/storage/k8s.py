@@ -34,6 +34,7 @@ from kubernetes_asyncio.client.rest import ApiException
 from kubernetes_asyncio.watch import Watch
 from structlog.stdlib import BoundLogger
 
+from ..models.exceptions import NSCreationError
 from ..models.v1.event import Event, EventQueue
 from ..models.v1.lab import UserQuota
 from ..utils import std_annotations, std_labels
@@ -57,7 +58,7 @@ class Secret:
 
 ContainerImageList: TypeAlias = List[ContainerImage]
 NodeContainers: TypeAlias = Dict[str, ContainerImageList]
-NSCreationError: TypeAlias = ApiException
+
 
 # FIXME
 # For now these are just aliases, but we want to do what we did with
