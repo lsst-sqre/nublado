@@ -135,7 +135,8 @@ class PrepullerManager:
                 tag_count[tag_type] = 0
             running_count[tag_type] = 0
         for img in all_images:
-            assert img.image_type is not None
+            if img.image_type is None:
+                raise RuntimeError("Image type is None")
             tag_type = img.image_type
             running_count[tag_type] += 1
             if running_count[tag_type] > tag_count[tag_type]:
@@ -360,7 +361,8 @@ class PrepullerManager:
                 _nd = c.split("@")[-1]
                 if not digest:
                     digest = _nd
-                assert digest == _nd, f"{c} has multiple digests"
+                if digest != _nd:
+                    raise RuntimeError(f"{c} has multiple digests")
             for c in ctr.names:
                 # Start over and do it with tags.  Skip the digest.
                 # That does mean there's no way to get untagged images out of
@@ -368,7 +370,8 @@ class PrepullerManager:
                 if "@sha256:" in c:
                     continue
                 tag = c.split(":")[-1]
-                assert self.config.alias_tags is not None
+                if self.config.alias_tags is None:
+                    raise RuntimeError("Alias tags is none")
                 config_aliases: List[str] = self.config.alias_tags
                 partial = PartialTag.parse_tag(tag=tag)
                 if partial.display_name == tag:
@@ -412,7 +415,8 @@ class PrepullerManager:
                 _nd = c.split("@")[-1]
                 if not digest:
                     digest = _nd
-                assert digest == _nd, f"Image at {path} has multiple digests"
+                if digest != _nd:
+                    raise RuntimeError(f"Image at {path} has multiple digests")
         self.logger.debug(f"Found digest: {digest}")
         for c in ctr.names:
             # Start over and do it with tags.
@@ -444,7 +448,7 @@ class PrepullerManager:
             return c.gar.image
         if c.docker is not None:
             return c.docker.repository.split("/")[-1]
-        assert False, f"Config {c} sets neither 'gar' nor 'docker'!"
+        raise RuntimeError(f"Config {c} sets neither 'gar' nor 'docker'!")
 
     def _extract_path_from_v1_container(self, c: ContainerImage) -> str:
         return self._extract_path_from_image_ref(c.names[0])

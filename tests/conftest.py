@@ -14,8 +14,8 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from safir.kubernetes import initialize_kubernetes
 
-from jupyterlabcontroller import main
 from jupyterlabcontroller.config import Config
+from jupyterlabcontroller.main import create_app
 from jupyterlabcontroller.models.context import Context
 from jupyterlabcontroller.utils import get_user_namespace
 
@@ -25,12 +25,12 @@ from .support.mockk8s import MockK8sStorageClient
 
 _here = dirname(__file__)
 
-TEST_CONFIG = f"{_here}/configs/standard/config.yaml"
+CONFIG_DIR = f"{_here}/configs/standard"
 
 
 @pytest.fixture
 def obj_factory() -> TestObjectFactory:
-    filename = f"{dirname(TEST_CONFIG)}/test_objects.json"
+    filename = f"{CONFIG_DIR}/test_objects.json"
     test_object_factory.initialize_from_file(filename)
     return test_object_factory
 
@@ -45,7 +45,7 @@ def config() -> Config:
     as ``config.yaml``, and we expect objects used in testing to be in
     ``test_objects.json`` in that directory.
     """
-    return Config.from_file(filename=TEST_CONFIG)
+    return Config.from_file(f"{CONFIG_DIR}/config.yaml")
 
 
 @pytest.fixture(scope="session")
@@ -63,8 +63,9 @@ async def app() -> AsyncIterator[FastAPI]:
     Wraps the application in a lifespan manager so that startup and shutdown
     events are sent during test execution.
     """
-    async with LifespanManager(main.app):
-        yield main.app
+    app = create_app(config_dir=CONFIG_DIR)
+    async with LifespanManager(app):
+        yield app
 
 
 @pytest_asyncio.fixture

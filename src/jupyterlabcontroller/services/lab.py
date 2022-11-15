@@ -48,7 +48,8 @@ class LabManager:
 
     async def create_lab(self) -> None:
         """Schedules creation of user lab objects/resources."""
-        assert self.context.user is not None, "User needed for lab creation"
+        if self.context.user is None:
+            raise RuntimeError("User needed for lab creation")
         username = self.user
         if await self.check_for_user():
             estr: str = f"lab already exists for {username}"
@@ -223,9 +224,8 @@ class LabManager:
 
     async def create_pod_spec(self) -> PodSpec:
         # FIXME: needs a bunch more stuff
-        assert (
-            self.context.user is not None
-        ), "User required to create pod spec"
+        if self.context.user is None:
+            raise RuntimeError("User required to create pod spec")
         pod = PodSpec(
             containers=[
                 Container(

@@ -27,9 +27,8 @@ class FormManager:
         ]
 
     async def generate_user_lab_form(self) -> str:
-        assert (
-            self.context.user is not None
-        ), "Cannot create user form without user"
+        if self.context.user is None:
+            raise RuntimeError("Cannot create user form without user")
         username = self.context.user.username
         self.context.logger.info(f"Creating options form for '{username}'")
         options_template = Template(SPAWNER_FORM_TEMPLATE)
@@ -37,7 +36,8 @@ class FormManager:
         pm = PrepullerManager(context=self.context)
         displayimages = await pm.get_menu_images()
         cached_images = [displayimages[x] for x in displayimages if x != "all"]
-        assert type(displayimages["all"]) is dict
+        if type(displayimages["all"]) is not dict:
+            raise RuntimeError("displayimages['all'] must be type dict")
         all_images = [displayimages["all"][x] for x in displayimages["all"]]
         sizes = self._extract_sizes()
         self.context.logger.debug(f"cached images: {cached_images}")

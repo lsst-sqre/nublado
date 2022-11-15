@@ -21,7 +21,10 @@ class SafirConfig(BaseModel):
 
     @validator("profile")
     def validate_profile(cls, v: str) -> str:
-        assert v in ("production", "development")
+        if v not in ("production", "development"):
+            raise RuntimeError(
+                "profile must be either 'production' or 'development'"
+            )
         return v
 
 
@@ -67,7 +70,8 @@ class LabFile(BaseModel):
 
     @validator("mountPath")
     def validate_lab_mount_path(cls, v: str) -> str:
-        assert v.startswith("/")
+        if not v.startswith("/"):
+            raise RuntimeError("{v} must be an absolute path")
         return v
 
 
@@ -85,7 +89,8 @@ class LabConfig(BaseModel):
         cls, v: Dict[str, LabSizeDefinition]
     ) -> Dict[str, LabSizeDefinition]:
         for sz_name in v.keys():
-            assert sz_name in lab_sizes
+            if sz_name not in lab_sizes:
+                raise RuntimeError(f"{sz_name} not in {lab_sizes}")
         return v
 
 

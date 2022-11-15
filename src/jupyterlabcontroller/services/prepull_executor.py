@@ -7,11 +7,7 @@ from typing import Dict, List, Optional
 from aiojobs import Scheduler
 
 from ..config import Config
-from ..constants import (
-    KUBERNETES_REQUEST_TIMEOUT,
-    PREPULLER_POLL_INTERVAL,
-    PREPULLER_PULL_TIMEOUT,
-)
+from ..constants import PREPULLER_POLL_INTERVAL, PREPULLER_PULL_TIMEOUT
 from ..models.context import Context
 from ..models.v1.lab import UserGroup, UserInfo
 from ..models.v1.prepuller import PrepullerStatus
@@ -47,7 +43,8 @@ class PrepullExecutor:
         self.schedulers: Dict[str, Scheduler] = {}
 
         if context is None:
-            assert config is not None, "Config must be specified"
+            if config is None:
+                raise RuntimeError("Config must be specified")
             context = Context.initialize(config=config)
             context.token = "token-of-affection"
             context.namespace = get_namespace_prefix()
@@ -63,7 +60,8 @@ class PrepullExecutor:
                     )
                 ],
             )
-        assert context is not None, "Request context must be specified"
+        if context is None:
+            raise RuntimeError("Request context must be specified")
         self.context = context
         self.logger = self.context.logger
         self.manager = PrepullerManager(context=context)
@@ -73,13 +71,24 @@ class PrepullExecutor:
         Loop until we're told to stop.
         """
 
+        if "main" not in self.schedulers or not self.schedulers["main"]:
+            self.schedulers["main"] = Scheduler(close_timeout=0.1)
+
         self.logger.info("Starting prepull executor.")
+        self.main_job = await self.schedulers["main"].spawn(
+            self.primary_loop()
+        )
+
+    async def primary_loop(self) -> None:
         try:
             while True:
                 await self.prepull_images()
                 await self.idle()
         except asyncio.CancelledError:
             self.logger.info("Prepull executor interrupted.")
+        except Exception as e:
+            self.logger.error(f"{e}")
+            raise
         self.logger.info("Shutting down prepull executor.")
         await self.aclose()
 
@@ -87,27 +96,33 @@ class PrepullExecutor:
         await asyncio.sleep(PREPULLER_POLL_INTERVAL)
 
     async def stop(self) -> None:
-        self.stopping = True
-
-    async def shutdown(self) -> None:
         await self.aclose()
 
     async def aclose(self) -> None:
         """Close any prepull schedulers."""
         if self.schedulers:
-            scheduler = Scheduler(close_timeout=KUBERNETES_REQUEST_TIMEOUT)
             for image in self.schedulers:
+                if image == "main":
+                    continue
                 self.logger.warning(f"Terminating scheduler for {image}")
-                await scheduler.spawn(self.schedulers[image].close())
-            await scheduler.close()
+                await self.schedulers["main"].spawn(
+                    self.schedulers[image].close()
+                )
             for image in list(self.schedulers.keys()):
                 del self.schedulers[image]
+        if "main" in self.schedulers and self.schedulers["main"] is not None:
+            self.logger.warning(
+                "Terminating main prepuller executor scheduler"
+            )
+            await self.schedulers["main"].close()
+            del self.schedulers["main"]
 
     async def create_prepuller_pod_spec(
         self, image: str, node: str
     ) -> PodSpec:
         shortname = image.split("/")[-1]
-        assert self.context.user is not None, "User needed for pod creation"
+        if self.context.user is None:
+            raise RuntimeError("User needed for pod creation")
         return PodSpec(
             containers=[
                 Container(

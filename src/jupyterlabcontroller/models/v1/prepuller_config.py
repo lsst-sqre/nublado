@@ -139,7 +139,7 @@ class PrepullerConfig(BaseModel):
         for x in values.keys():
             if x == "gar" or x == "docker":
                 return values
-        assert False, "Exactly one of 'docker' or 'gar' must be defined"
+        raise RuntimeError("Exactly one of 'docker' or 'gar' must be defined")
 
     @validator("registry")
     def validate_registry(cls, v: str) -> str:
@@ -151,12 +151,12 @@ class PrepullerConfig(BaseModel):
     def gar_registry_host(
         cls, v: GARDefinition, values: Dict[str, str]
     ) -> GARDefinition:
-        reg = values["registry"]
-        gsuf = "-docker.pkg.dev"
+        reg = f"{values['registry']}-docker.pkg.dev"
         if v.location != "":
-            assert v.location == f"{reg}-{gsuf}"
+            if v.location != reg:
+                raise RuntimeError(f"{v.location} != {reg}")
         else:
-            v.location = f"{reg}-{gsuf}"
+            v.location = f"{reg}"
         return v
 
     @property

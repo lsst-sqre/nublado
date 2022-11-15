@@ -90,7 +90,8 @@ async def post_new_lab(
     """Create a new Lab pod for a given user"""
     lab_manager = LabManager(lab=lab, context=context)
     username = lab_manager.user
-    assert username != "", "Cannot create lab without user"
+    if username == "":
+        raise RuntimeError("Cannot create lab without user")
     context.logger.debug(f"Received creation request for {username}")
     await lab_manager.create_lab()
     return f"/context/spawner/v1/labs/{username}"
@@ -130,7 +131,8 @@ async def get_user_status(
     admin_token: str = Depends(admin_token_dependency),
 ) -> UserData:
     """Get the pod status for the authenticating user."""
-    assert context.user is not None, "Cannot get user status without user"
+    if context.user is None:
+        raise RuntimeError("Cannot get user status without user")
     return context.user_map[context.user.username]
 
 

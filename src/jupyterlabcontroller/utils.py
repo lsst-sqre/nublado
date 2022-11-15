@@ -75,7 +75,9 @@ def quota_from_size(
     if type(memfld) is int:
         mem = memfld
     else:
-        assert type(memfld) is str  # Mypy is pretty dumb sometimes.
+        # I don't think this can happen, but mypy does.
+        if type(memfld) is not str:
+            raise RuntimeError(f"memfld: {type(memfld)} neither str nor int")
         mem = memory_string_to_int(memfld)
     return UserQuota(
         requests=UserQuotaQuantum(cpu=cpu / ratio, memory=int(mem / ratio)),

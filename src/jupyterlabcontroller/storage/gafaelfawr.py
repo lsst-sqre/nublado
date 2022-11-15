@@ -9,9 +9,11 @@ from ..models.v1.lab import UserInfo
 class GafaelfawrStorageClient:
     def __init__(self, request: Request, http_client: AsyncClient) -> None:
         token = request.headers.get("X-Auth-Request-Token")
-        assert token is not None, "No authorization token supplied"
+        if token is None:
+            raise RuntimeError("No authorization token supplied")
         self.token = token
-        assert http_client is not None, "No HTTP client supplied"
+        if http_client is None:
+            raise RuntimeError("No HTTP client supplied")
         self.http_client = http_client
         self._user: Optional[UserInfo] = None
         self._scopes: List[str] = []
@@ -24,8 +26,9 @@ class GafaelfawrStorageClient:
             # Ask Gafaelfawr for user corresponding to token
             headers = {"Authorization": f"Bearer {self.token}"}
             endpoint = "/auth/ap1/v1/user-info"
-            assert self.http_client is not None  # It won't be post-__init__,
-            # but mypy can't tell that.
+            if self.http_client is None:
+                raise RuntimeError("HTTP Client is None")
+            # It won't be post-__init__, but mypy can't tell that.
             resp = await self.http_client.get(endpoint, headers=headers)
             obj = resp.json()
             self._user = UserInfo.parse_obj(obj)
@@ -35,8 +38,9 @@ class GafaelfawrStorageClient:
         if not self._scopes:
             headers = {"Authorization": f"Bearer {self.token}"}
             endpoint = "/auth/ap1/v1/token-info"
-            assert self.http_client is not None  # It won't be post-__init__
-            # but mypy can't tell that.
+            if self.http_client is None:
+                raise RuntimeError("HTTP Client is None")
+            # It won't be post-__init__ but mypy can't tell that.
             resp = await self.http_client.get(endpoint, headers=headers)
             obj = resp.json()
             self._scopes = obj["scopes"]
