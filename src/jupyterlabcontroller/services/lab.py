@@ -44,7 +44,8 @@ class LabManager:
 
     async def check_for_user(self) -> bool:
         """True if there's a lab for the user, otherwise false."""
-        return self.user in self.context.user_map
+        r = self.context.user_map.get(self.user)
+        return r is not None
 
     async def create_lab(self) -> None:
         """Schedules creation of user lab objects/resources."""

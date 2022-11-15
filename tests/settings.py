@@ -6,8 +6,8 @@ import json
 from copy import copy
 from typing import Any, Dict, List
 
-from jupyterlabcontroller.models.domain.lab import UserMap
 from jupyterlabcontroller.models.domain.prepuller import NodeContainers
+from jupyterlabcontroller.models.domain.usermap import UserMap
 from jupyterlabcontroller.models.enums import lab_statuses, pod_states
 from jupyterlabcontroller.models.v1.lab import (
     LabSpecification,
@@ -105,10 +105,9 @@ class TestObjectFactory:
 
     @property
     def usermap(self) -> UserMap:
-        usermap: UserMap = {}
+        usermap: UserMap = UserMap()
         for v in self.userdatas:
-            n = v.username
-            usermap[n] = v
+            usermap.set(v.username, v)
         return usermap
 
     @property

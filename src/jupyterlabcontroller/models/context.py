@@ -13,8 +13,8 @@ from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..storage.docker import DockerStorageClient
 from ..storage.gafaelfawr import GafaelfawrStorageClient
 from ..storage.k8s import K8sStorageClient
-from .domain.event import EventMap
-from .domain.lab import UserMap
+from .domain.eventmap import EventMap
+from .domain.usermap import UserMap
 from .v1.lab import UserInfo
 
 
@@ -65,10 +65,10 @@ class Context:
         )
 
         # User-to-lab map
-        user_map: UserMap = {}
+        user_map: UserMap = UserMap()
 
         # User-to-event-queue map
-        event_map: EventMap = {}
+        event_map: EventMap = EventMap()
 
         return cls(
             config=config,

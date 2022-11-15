@@ -156,7 +156,7 @@ async def get_user_events(
 ) -> AsyncGenerator[ServerSentEvent, None]:
     """Returns the events for the lab of the given user"""
     event_manager = EventManager(
-        logger=context.logger, events=context.event_map
+        logger=context.logger, events=context.event_map.get(username)
     )
     # should return EventSourceResponse:
     return event_manager.user_event_publisher(username)
