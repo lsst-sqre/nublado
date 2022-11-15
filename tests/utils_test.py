@@ -3,6 +3,7 @@
 from typing import Dict, List
 
 from jupyterlabcontroller.config import Config
+from jupyterlabcontroller.models.v1.lab import LabSize
 from jupyterlabcontroller.utils import (
     get_active_users,
     get_namespace_prefix,
@@ -23,7 +24,7 @@ def test_memory_string_to_int() -> None:
 
 
 def test_quota(config: Config) -> None:
-    quota = quota_from_size("medium", config)
+    quota = quota_from_size(LabSize("medium"), config)
     assert quota.limits.memory == 6442450944
     assert quota.limits.cpu == 2.0
     assert quota.requests.memory == 1610612736

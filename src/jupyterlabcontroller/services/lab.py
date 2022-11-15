@@ -9,7 +9,7 @@ from structlog.stdlib import BoundLogger
 from ..config import LabFile, LabSecret
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..models.context import Context
-from ..models.v1.lab import LabSpecification, UserData, UserQuota
+from ..models.v1.lab import LabSize, LabSpecification, UserData, UserQuota
 from ..storage.k8s import (
     Container,
     NetworkPolicySpec,
@@ -35,7 +35,7 @@ class LabManager:
     @property
     def quota(self) -> UserQuota:
         return quota_from_size(
-            size=self.lab.options.size, config=self.context.config
+            size=LabSize(self.lab.options.size), config=self.context.config
         )
 
     @property

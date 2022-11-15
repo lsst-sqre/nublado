@@ -3,12 +3,39 @@ from __future__ import annotations
 
 from collections import deque
 from copy import copy
+from enum import auto
 from typing import Deque, Dict, List, Tuple, TypeAlias
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 
-from ..enums import lab_statuses, pod_states
+from ..enum import NubladoEnum
 from .event import Event
+
+
+class LabSize(NubladoEnum):
+    # https://www.d20srd.org/srd/combat/movementPositionAndDistance.htm#bigandLittleCreaturesInCombat
+    FINE = auto()
+    DIMINUTIVE = auto()
+    TINY = auto()
+    SMALL = auto()
+    MEDIUM = auto()
+    LARGE = auto()
+    HUGE = auto()
+    GARGANTUAN = auto()
+    COLOSSAL = auto()
+
+
+class LabStatus(NubladoEnum):
+    STARTING = auto()
+    RUNNING = auto()
+    TERMINATING = auto()
+    FAILED = auto()
+
+
+class PodState(NubladoEnum):
+    PRESENT = auto()
+    MISSING = auto()
+
 
 """GET /nublado/spawner/v1/labs"""
 RunningLabUsers: TypeAlias = List[str]
@@ -160,7 +187,7 @@ class UserQuota(BaseModel):
 
 
 class UserData(UserInfo, LabSpecification):
-    status: str = Field(
+    status: LabStatus = Field(
         ...,
         title="status",
         example="running",
@@ -169,7 +196,7 @@ class UserData(UserInfo, LabSpecification):
             " `running`, `terminating`, or `failed`."
         ),
     )
-    pod: str = Field(
+    pod: PodState = Field(
         ...,
         title="pod",
         example="present",
@@ -183,18 +210,6 @@ class UserData(UserInfo, LabSpecification):
         title="events",
         description=("Ordered queue of events for user lab creation/deletion"),
     )
-
-    @validator("status")
-    def legal_user_status(cls, v: str) -> str:
-        if v not in lab_statuses:
-            raise ValueError(f"must be one of {lab_statuses}")
-        return v
-
-    @validator("pod")
-    def legal_pod_state(cls, v: str) -> str:
-        if v not in pod_states:
-            raise ValueError(f"must be one of {pod_states}")
-        return v
 
     def to_components(
         self,
@@ -246,8 +261,8 @@ class UserData(UserInfo, LabSpecification):
         user: UserInfo,
         labspec: LabSpecification,
         quota: UserQuota,
-        status: str,
-        pod: str,
+        status: LabStatus,
+        pod: PodState,
     ) -> "UserData":
         ud = UserData.new_from_user_lab_quota(
             user=user, labspec=labspec, quota=quota

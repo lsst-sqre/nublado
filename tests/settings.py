@@ -8,9 +8,10 @@ from typing import Any, Dict, List
 
 from jupyterlabcontroller.models.domain.prepuller import NodeContainers
 from jupyterlabcontroller.models.domain.usermap import UserMap
-from jupyterlabcontroller.models.enums import lab_statuses, pod_states
 from jupyterlabcontroller.models.v1.lab import (
     LabSpecification,
+    LabStatus,
+    PodState,
     UserData,
     UserInfo,
     UserQuota,
@@ -91,6 +92,8 @@ class TestObjectFactory:
         labspecs = self.labspecs
         quotas = self.quotas
         userinfos = self.userinfos
+        lab_statuses = [x for x in LabStatus]
+        pod_states = [x for x in PodState]
         for idx, v in enumerate(userinfos):
             userdatas.append(
                 UserData.from_components(

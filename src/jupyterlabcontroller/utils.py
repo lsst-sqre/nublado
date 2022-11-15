@@ -6,7 +6,12 @@ import bitmath
 
 from .config import Config, LabSizeDefinition, LabSizeDefinitions
 from .models.domain.usermap import UserMap
-from .models.v1.lab import RunningLabUsers, UserQuota, UserQuotaQuantum
+from .models.v1.lab import (
+    LabSize,
+    RunningLabUsers,
+    UserQuota,
+    UserQuotaQuantum,
+)
 
 LIMIT_TO_REQUEST_RATIO: float = 4.0  # Seems to work well so far.
 
@@ -64,10 +69,10 @@ def memory_string_to_int(memstr: str) -> int:
 
 
 def quota_from_size(
-    size: str, config: Config, ratio: float = LIMIT_TO_REQUEST_RATIO
+    size: LabSize, config: Config, ratio: float = LIMIT_TO_REQUEST_RATIO
 ) -> UserQuota:
     sizemap: LabSizeDefinitions = config.lab.sizes
-    if size not in config.lab.sizes.keys():
+    if size not in config.lab.sizes:
         raise RuntimeError(f"Unknown size {size}")
     sz: LabSizeDefinition = sizemap[size]
     cpu: float = sz.cpu

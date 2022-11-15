@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, TypeAlias, Union
 import yaml
 from pydantic import BaseModel, validator
 
-from .models.enums import lab_sizes
+from .models.v1.lab import LabSize
 from .models.v1.prepuller_config import PrepullerConfig
 
 #
@@ -38,7 +38,7 @@ class LabSizeDefinition(BaseModel):
     memory: Union[int, str] = "1536MiB"
 
 
-LabSizeDefinitions: TypeAlias = Dict[str, LabSizeDefinition]
+LabSizeDefinitions: TypeAlias = Dict[LabSize, LabSizeDefinition]
 
 
 class LabInitContainer(BaseModel):
@@ -83,15 +83,6 @@ class LabConfig(BaseModel):
     volumes: List[LabVolume] = []
     initcontainers: List[LabInitContainer] = []
     quota: Optional[LabQuota] = None
-
-    @validator("sizes")
-    def validate_lab_sizes(
-        cls, v: Dict[str, LabSizeDefinition]
-    ) -> Dict[str, LabSizeDefinition]:
-        for sz_name in v.keys():
-            if sz_name not in lab_sizes:
-                raise RuntimeError(f"{sz_name} not in {lab_sizes}")
-        return v
 
 
 #
