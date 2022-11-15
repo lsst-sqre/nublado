@@ -1,5 +1,4 @@
 import base64
-from collections import deque
 from dataclasses import dataclass
 from typing import Dict, List
 
@@ -59,8 +58,11 @@ class LabManager:
         #
         # Clear user event queue
         #
-        self.context.user_map[username] = UserData.new_from_user_lab_quota(
-            user=self.context.user, labspec=self.lab, quota=self.quota
+        self.context.user_map.set(
+            username,
+            UserData.new_from_user_lab_quota(
+                user=self.context.user, labspec=self.lab, quota=self.quota
+            ),
         )
 
         #
@@ -251,12 +253,14 @@ class LabManager:
         # We ignore the request context, because the Hub can shut things
         # down without a user request.
         # Clear Events for user:
-        self.context.user_map[username].events = deque()
-        self.context.user_map[username].status = "terminating"
+        user = self.context.user_map.get(username)
+        if user is None:
+            raise RuntimeError(f"Cannot find map for user {username}")
+        user.status = "terminating"
         try:
             await self.context.k8s_client.delete_namespace(username)
         except Exception as e:
             self.context.logger.error(f"Could not delete lab environment: {e}")
-            self.context.user_map[username].status = "failed"
+            user.status = "failed"
             raise
-        del self.context.user_map[username]
+        self.context.user_map.remove(username)

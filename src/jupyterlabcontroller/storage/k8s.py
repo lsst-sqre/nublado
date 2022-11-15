@@ -145,7 +145,7 @@ class K8sStorageClient:
         configmap = V1ConfigMap(
             data=data,
             immutable=immutable,
-            metadata=self.get_std_metadata(name="networkpolicy"),
+            metadata=self.get_std_metadata(name="configmap"),
         )
         await self.api.create_namespaced_configmap(namespace, configmap)
 
