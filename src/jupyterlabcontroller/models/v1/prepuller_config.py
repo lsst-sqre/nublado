@@ -136,16 +136,14 @@ class PrepullerConfig(BaseModel):
 
     @root_validator
     def registry_defined(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        for x in values.keys():
-            if x == "gar" or x == "docker":
-                return values
+        klist = list(values.keys())
+        if (
+            "gar" in klist
+            or "docker" in klist
+            and not ("gar" in klist and "docker" in klist)
+        ):
+            return values
         raise RuntimeError("Exactly one of 'docker' or 'gar' must be defined")
-
-    @validator("registry")
-    def validate_registry(cls, v: str) -> str:
-        # only here to ensure that registry is validated for the GAR
-        # validator
-        return v
 
     @validator("gar")
     def gar_registry_host(

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from enum import auto
 from typing import Any, Dict, List, Optional, TypeAlias, Union
 
 import yaml
-from pydantic import BaseModel, validator
+from fastapi import Path
+from pydantic import BaseModel
 
+from .models.enum import NubladoEnum
 from .models.v1.lab import LabSize
 from .models.v1.prepuller_config import PrepullerConfig
 
@@ -13,19 +16,16 @@ from .models.v1.prepuller_config import PrepullerConfig
 #
 
 
+class SafirProfile(NubladoEnum):
+    PRODUCTION = auto()
+    DEVELOPMENT = auto()
+
+
 class SafirConfig(BaseModel):
     name: str
-    profile: str
+    profile: SafirProfile
     logger_name: str
     log_level: str
-
-    @validator("profile")
-    def validate_profile(cls, v: str) -> str:
-        if v not in ("production", "development"):
-            raise RuntimeError(
-                "profile must be either 'production' or 'development'"
-            )
-        return v
 
 
 #
@@ -52,9 +52,9 @@ LabQuota = LabSizeDefinition
 
 
 class LabVolume(BaseModel):
-    container_path: str
+    container_path: str = Path(regex="^/*")
     server: str
-    server_path: str
+    server_path: str = Path(regex="^/*")
 
 
 class LabSecret(BaseModel):
@@ -64,15 +64,9 @@ class LabSecret(BaseModel):
 
 class LabFile(BaseModel):
     name: str
-    mountPath: str
+    mountPath: str = Path(regex="^/*")
     contents: str
     modify: bool = False
-
-    @validator("mountPath")
-    def validate_lab_mount_path(cls, v: str) -> str:
-        if not v.startswith("/"):
-            raise RuntimeError("{v} must be an absolute path")
-        return v
 
 
 class LabConfig(BaseModel):
