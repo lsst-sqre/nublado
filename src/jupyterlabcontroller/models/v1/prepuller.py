@@ -110,7 +110,7 @@ class Node(BaseModel):
         ),
     )
     cached: List[Image] = Field(
-        list(),
+        default_factory=list,
         title="cached",
         description="List of images cached on this node",
     )
@@ -118,7 +118,7 @@ class Node(BaseModel):
 
 class NodeImage(PartialImage):
     nodes: List[Node] = Field(
-        list(),
+        default_factory=list,
         title="nodes",
         description=(
             "List of nodes that should have a complete set of images "
@@ -137,7 +137,7 @@ class NodeImage(PartialImage):
 
 class PrepullerContents(BaseModel):
     prepulled: List[NodeImage] = Field(
-        list(),
+        default_factory=list,
         title="prepulled",
         description=(
             "List of nodes that have all desired images completely"
@@ -145,7 +145,7 @@ class PrepullerContents(BaseModel):
         ),
     )
     pending: List[NodeImage] = Field(
-        list(),
+        default_factory=list,
         title="pending",
         description=(
             "List of nodes that do not yet have all desired images"

@@ -2,7 +2,7 @@
 """
 
 from copy import copy
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Tuple
 
 from structlog.stdlib import BoundLogger
 
@@ -24,7 +24,6 @@ from ..models.v1.prepuller import (
     PrepullerContents,
     PrepullerStatus,
 )
-from ..storage.docker import DockerStorageClient
 from ..storage.k8s import K8sStorageClient
 
 
@@ -35,19 +34,18 @@ class PrepullerManager:
     ) -> None:
         self.context = context
 
-        self.logger: BoundLogger = self.context.logger
-        self.k8s_client: K8sStorageClient = self.context.k8s_client
-        self.config: PrepullerConfig = self.context.config.prepuller
-        self.docker_client: DockerStorageClient = self.context.docker_client
+        self._logger: BoundLogger = self.context.logger
+        self._k8s_client: K8sStorageClient = self.context.k8s_client
+        self._config: PrepullerConfig = self.context.config.prepuller
 
     async def get_prepulls(self) -> PrepullerStatus:
         node_images, nodes = await self.get_current_image_and_node_state()
 
         eligible_nodes = [x for x in nodes if x.eligible]
 
-        menu_node_images: Dict[
-            str, NodeTagImage
-        ] = await self.filter_node_images_to_desired_menu(node_images)
+        menu_node_images = await self.filter_node_images_to_desired_menu(
+            node_images
+        )
 
         prepulled: List[NodeImage] = list()
         pending: List[NodeImage] = list()
@@ -77,9 +75,9 @@ class PrepullerManager:
             prepulled=prepulled, pending=pending
         )
         status: PrepullerStatus = PrepullerStatus(
-            config=self.config, images=images, nodes=nodes
+            config=self._config, images=images, nodes=nodes
         )
-        self.logger.debug(f"Prepuller status: {status}")
+        self._logger.debug(f"Prepuller status: {status}")
         return status
 
     async def _nodes_present(
@@ -95,13 +93,13 @@ class PrepullerManager:
     async def get_menu_images(self) -> DisplayImages:
         node_images, _ = await self.get_current_image_and_node_state()
 
-        menu_node_images: Dict[
-            str, NodeTagImage
-        ] = await self.filter_node_images_to_desired_menu(node_images)
+        menu_node_images = await self.filter_node_images_to_desired_menu(
+            node_images
+        )
 
-        available_menu_node_images: Dict[
-            str, NodeTagImage
-        ] = await self._filter_node_images_by_availability(menu_node_images)
+        available_menu_node_images = (
+            await self._filter_node_images_by_availability(menu_node_images)
+        )
 
         menu_images: DisplayImages = dict()
         for img in available_menu_node_images:
@@ -118,13 +116,13 @@ class PrepullerManager:
         menu_images: Dict[str, NodeTagImage] = dict()
         for img in all_images:
             # First pass: find recommended tag, put it at top
-            if img.tag and img.tag == self.config.recommendedTag:
+            if img.tag and img.tag == self._config.recommendedTag:
                 menu_images[img.tag] = img
         running_count: Dict[TagType, int] = dict()
         tag_count = {
-            TagType.RELEASE: self.config.num_releases,
-            TagType.WEEKLY: self.config.num_weeklies,
-            TagType.DAILY: self.config.num_dailies,
+            TagType.RELEASE: self._config.num_releases,
+            TagType.WEEKLY: self._config.num_weeklies,
+            TagType.DAILY: self._config.num_dailies,
         }
         for tag_type in TagType:
             if tag_count.get(tag_type) is None:
@@ -157,38 +155,37 @@ class PrepullerManager:
         the prepull status and to getting the images that will construct the
         menu.
         """
-        self.logger.debug("Listing nodes and their image contents.")
-        all_images_by_node = await self.k8s_client.get_image_data()
-        self.logger.debug(f"All images on nodes: {all_images_by_node}")
-        self.logger.debug("Constructing initial node pool")
+        self._logger.debug("Listing nodes and their image contents.")
+        all_images_by_node = await self._k8s_client.get_image_data()
+        self._logger.debug(f"All images on nodes: {all_images_by_node}")
+        self._logger.debug("Constructing initial node pool")
         initial_nodes = self._make_nodes_from_image_data(all_images_by_node)
-        self.logger.debug(f"Initial node pool: {initial_nodes}")
-        self.logger.debug("Constructing image state.")
+        self._logger.debug(f"Initial node pool: {initial_nodes}")
+        self._logger.debug("Constructing image state.")
         image_list = self._construct_current_image_state(all_images_by_node)
-        self.logger.debug(f"Image state: {image_list}")
-        self.logger.debug("Calculating image prepull status")
+        self._logger.debug(f"Image state: {image_list}")
+        self._logger.debug("Calculating image prepull status")
         prepulled_images = self._update_prepulled_images(
             initial_nodes, image_list
         )
-        self.logger.debug(f"Prepulled images: {prepulled_images}")
-        self.logger.debug("Calculating node cache state")
+        self._logger.debug(f"Prepulled images: {prepulled_images}")
+        self._logger.debug("Calculating node cache state")
         nodes = self._update_node_cache(initial_nodes, prepulled_images)
-        self.logger.debug("Filtering prepulled images to enabled nodes")
+        self._logger.debug("Filtering prepulled images to enabled nodes")
         enabled_prepulled_images = self._filter_images_to_enabled_nodes(
             prepulled_images, nodes
         )
-        self.logger.debug(
+        self._logger.debug(
             f"Enabled prepulled images: {enabled_prepulled_images}"
         )
-        self.logger.debug(f"Node cache: {nodes}")
+        self._logger.debug(f"Node cache: {nodes}")
         return (enabled_prepulled_images, nodes)
 
     def _make_nodes_from_image_data(
         self,
         imgdata: NodeContainers,
     ) -> List[Node]:
-        r: List[Node] = [Node(name=n) for n in imgdata.keys()]
-        return r
+        return [Node(name=n) for n in imgdata.keys()]
 
     def _update_prepulled_images(
         self, nodes: List[Node], image_list: List[NodeTagImage]
@@ -196,9 +193,9 @@ class PrepullerManager:
         r: List[NodeTagImage] = list()
         eligible = [x for x in nodes if x.eligible]
         nnames = [x.name for x in eligible]
-        se: Set[str] = set(nnames)
+        se = set(nnames)
         for i in image_list:
-            sn: Set[str] = set(i.nodes)
+            sn = set(i.nodes)
             prepulled: bool = True
             if se - sn:
                 # Only use eligible nodes to determine prepulled status
@@ -212,7 +209,6 @@ class PrepullerManager:
         self, nodes: List[Node], image_list: List[NodeTagImage]
     ) -> List[Node]:
         r: List[Node] = list()
-        tagobjs: List[Tag]
         dmap: Dict[str, Dict[str, Any]] = dict()
         for i in image_list:
             img = i.to_image()
@@ -266,18 +262,16 @@ class PrepullerManager:
         filtered_images = self._filter_images_by_config(all_images_by_node)
 
         # Convert to extended Tags.  We will still have duplicates.
-        exttags: List[ExtTag] = self._get_exttags_from_images(filtered_images)
+        exttags = self._get_exttags_from_images(filtered_images)
 
         # Filter by cycle
 
-        cycletags: List[ExtTag] = self._filter_exttags_by_cycle(exttags)
+        cycletags = self._filter_exttags_by_cycle(exttags)
 
         # Deduplicate and convert to NodeTagImages.
 
-        node_images: List[NodeTagImage] = self._get_images_from_exttags(
-            cycletags
-        )
-        self.logger.debug(f"Filtered, deduplicated images: {node_images}")
+        node_images = self._get_images_from_exttags(cycletags)
+        self._logger.debug(f"Filtered, deduplicated images: {node_images}")
         return node_images
 
     def _get_images_from_exttags(
@@ -303,14 +297,14 @@ class PrepullerManager:
             )
 
             if digest not in dmap:
-                self.logger.debug(
+                self._logger.debug(
                     f"Adding {digest} as {img.path}:{exttag.tag}"
                 )
                 dmap[digest] = img
             else:
                 extant_image = dmap[digest]
                 if img.path != extant_image.path:
-                    self.logger.warning(
+                    self._logger.warning(
                         f"Image {digest} found as {img.path} "
                         + f"and also {extant_image.path}."
                     )
@@ -326,12 +320,12 @@ class PrepullerManager:
                         if alias not in extant_image.known_alias_tags:
                             extant_image.known_alias_tags.append(alias)
         for digest in dmap:
-            self.logger.debug(f"Img before tag consolidation: {dmap[digest]}")
+            self._logger.debug(f"Img before tag consolidation: {dmap[digest]}")
             dmap[digest].consolidate_tags(
-                recommended=self.config.recommendedTag
+                recommended=self._config.recommendedTag
             )
-            self.logger.debug(f"Img after tag consolidation: {dmap[digest]}")
-            self.logger.debug(f"Images hash: {dmap}")
+            self._logger.debug(f"Img after tag consolidation: {dmap[digest]}")
+            self._logger.debug(f"Images hash: {dmap}")
         return list(dmap.values())
 
     def _get_exttags_from_images(self, nc: NodeContainers) -> List[ExtTag]:
@@ -366,9 +360,9 @@ class PrepullerManager:
                 if "@sha256:" in c:
                     continue
                 tag = c.split(":")[-1]
-                if self.config.alias_tags is None:
+                if self._config.alias_tags is None:
                     raise RuntimeError("Alias tags is none")
-                config_aliases: List[str] = self.config.alias_tags
+                config_aliases: List[str] = self._config.alias_tags
                 partial = PartialTag.parse_tag(tag=tag)
                 if partial.display_name == tag:
                     partial.display_name = PartialTag.prettify_tag(tag=tag)
@@ -413,7 +407,7 @@ class PrepullerManager:
                     digest = _nd
                 if digest != _nd:
                     raise RuntimeError(f"Image at {path} has multiple digests")
-        self.logger.debug(f"Found digest: {digest}")
+        self._logger.debug(f"Found digest: {digest}")
         for c in ctr.names:
             # Start over and do it with tags.
             if "@sha256:" in c:
@@ -439,7 +433,7 @@ class PrepullerManager:
         return r
 
     def _extract_image_name(self) -> str:
-        c = self.config
+        c = self._config
         if c.gar is not None:
             return c.gar.image
         if c.docker is not None:
@@ -466,13 +460,13 @@ class PrepullerManager:
         r: NodeContainers = dict()
 
         name = self._extract_image_name()
-        self.logger.debug(f"Desired image name: {name}")
+        self._logger.debug(f"Desired image name: {name}")
         for node in images:
             for c in images[node]:
                 path = self._extract_path_from_v1_container(c)
                 img_name = path.split("/")[-1]
                 if img_name == name:
-                    self.logger.debug(f"Adding matching image: {img_name}")
+                    self._logger.debug(f"Adding matching image: {img_name}")
                     if node not in r:
                         r[node] = list()
                     t = copy(c)
@@ -480,6 +474,6 @@ class PrepullerManager:
         return r
 
     def _filter_exttags_by_cycle(self, exttags: List[ExtTag]) -> List[ExtTag]:
-        if self.config.cycle is None:
+        if self._config.cycle is None:
             return exttags
-        return [t for t in exttags if t.cycle == self.config.cycle]
+        return [t for t in exttags if t.cycle == self._config.cycle]

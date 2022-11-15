@@ -213,11 +213,11 @@ class LabFile(BaseModel):
 
 class LabConfig(BaseModel):
     sizes: LabSizeDefinitions
-    env: Dict[str, str] = dict()
-    secrets: List[LabSecret] = list()
-    files: List[LabFile] = list()
-    volumes: List[LabVolume] = list()
-    initcontainers: List[LabInitContainer] = list()
+    env: Dict[str, str] = Field(default_factory=dict)
+    secrets: List[LabSecret] = Field(default_factory=list)
+    files: List[LabFile] = Field(default_factory=list)
+    volumes: List[LabVolume] = Field(default_factory=list)
+    initcontainers: List[LabInitContainer] = Field(default_factory=list)
     quota: Optional[LabQuota] = None
 
 

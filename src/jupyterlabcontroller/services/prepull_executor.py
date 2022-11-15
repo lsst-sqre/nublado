@@ -10,7 +10,6 @@ from ..config import Config
 from ..constants import PREPULLER_POLL_INTERVAL, PREPULLER_PULL_TIMEOUT
 from ..models.context import Context
 from ..models.v1.lab import UserGroup, UserInfo
-from ..models.v1.prepuller import PrepullerStatus
 from ..storage.k8s import Container, PodSpec
 from ..utils import get_namespace_prefix
 from .prepuller import PrepullerManager
@@ -40,7 +39,7 @@ class PrepullExecutor:
         config: Optional[Config] = None,
         context: Optional[Context] = None,
     ) -> None:
-        self.schedulers: Dict[str, Scheduler] = dict()
+        self._schedulers: Dict[str, Scheduler] = dict()
 
         if context is None:
             if config is None:
@@ -63,19 +62,19 @@ class PrepullExecutor:
         if context is None:
             raise RuntimeError("Request context must be specified")
         self.context = context
-        self.logger = self.context.logger
-        self.manager = PrepullerManager(context=context)
+        self._logger = self.context.logger
+        self._manager = PrepullerManager(context=context)
 
     async def run(self) -> None:
         """
         Loop until we're told to stop.
         """
 
-        if "main" not in self.schedulers or not self.schedulers["main"]:
-            self.schedulers["main"] = Scheduler(close_timeout=0.1)
+        if "main" not in self._schedulers or not self._schedulers["main"]:
+            self._schedulers["main"] = Scheduler(close_timeout=0.1)
 
-        self.logger.info("Starting prepull executor.")
-        self.main_job = await self.schedulers["main"].spawn(
+        self._logger.info("Starting prepull executor.")
+        self.main_job = await self._schedulers["main"].spawn(
             self.primary_loop()
         )
 
@@ -85,11 +84,11 @@ class PrepullExecutor:
                 await self.prepull_images()
                 await self.idle()
         except asyncio.CancelledError:
-            self.logger.info("Prepull executor interrupted.")
+            self._logger.info("Prepull executor interrupted.")
         except Exception as e:
-            self.logger.error(f"{e}")
+            self._logger.error(f"{e}")
             raise
-        self.logger.info("Shutting down prepull executor.")
+        self._logger.info("Shutting down prepull executor.")
         await self.aclose()
 
     async def idle(self) -> None:
@@ -100,22 +99,22 @@ class PrepullExecutor:
 
     async def aclose(self) -> None:
         """Close any prepull schedulers."""
-        if self.schedulers:
-            for image in self.schedulers:
+        if self._schedulers:
+            for image in self._schedulers:
                 if image == "main":
                     continue
-                self.logger.warning(f"Terminating scheduler for {image}")
-                await self.schedulers["main"].spawn(
-                    self.schedulers[image].close()
+                self._logger.warning(f"Terminating scheduler for {image}")
+                await self._schedulers["main"].spawn(
+                    self._schedulers[image].close()
                 )
-            for image in list(self.schedulers.keys()):
-                del self.schedulers[image]
-        if "main" in self.schedulers and self.schedulers["main"] is not None:
-            self.logger.warning(
+            for image in list(self._schedulers.keys()):
+                del self._schedulers[image]
+        if "main" in self._schedulers and self._schedulers["main"] is not None:
+            self._logger.warning(
                 "Terminating main prepuller executor scheduler"
             )
-            await self.schedulers["main"].close()
-            del self.schedulers["main"]
+            await self._schedulers["main"].close()
+            del self._schedulers["main"]
 
     async def create_prepuller_pod_spec(
         self, image: str, node: str
@@ -137,10 +136,10 @@ class PrepullExecutor:
 
     async def prepull_images(self) -> None:
         """This is the method to identify everything that needs pulling, and
-        spawns pods with those images on the node that needs them.
+        spawns pods with those images on the nodes that need them.
         """
 
-        status: PrepullerStatus = await self.manager.get_prepulls()
+        status = await self._manager.get_prepulls()
 
         pending = status.images.pending
 
@@ -152,18 +151,18 @@ class PrepullExecutor:
                         if img.path not in required_pulls:
                             required_pulls[img.path] = list()
                         required_pulls[img.path].append(i.name)
-        self.logger.debug(f"Required pulls by node: {required_pulls}")
+        self._logger.debug(f"Required pulls by node: {required_pulls}")
         timeout = PREPULLER_PULL_TIMEOUT
         # Parallelize across nodes but not across images
         for image in required_pulls:
-            if image in self.schedulers:
-                self.logger.warning(
+            if image in self._schedulers:
+                self._logger.warning(
                     f"Scheduler for image {image} already exists.  Presuming "
                     "earlier pull still in progress."
                 )
                 continue
             scheduler = Scheduler(close_timeout=timeout)
-            self.schedulers[image] = scheduler
+            self._schedulers[image] = scheduler
             tag = image.split(":")[1]
             for node in required_pulls[image]:
                 await scheduler.spawn(
@@ -176,8 +175,8 @@ class PrepullExecutor:
                         ),
                     )
                 )
-            self.logger.debug(
+            self._logger.debug(
                 f"Waiting up to {timeout}s for prepuller pods {tag}."
             )
             await scheduler.close()
-            del self.schedulers[image]
+            del self._schedulers[image]

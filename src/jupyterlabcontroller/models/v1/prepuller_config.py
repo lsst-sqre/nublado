@@ -128,7 +128,7 @@ class PrepullerConfig(BaseModel):
         ),
     )
     alias_tags: List[str] = Field(
-        list(),
+        default_factory=list,
         title="alias_tags",
         example=["recommended_cycle0027"],
         description="Additional alias tags for this instance.",
