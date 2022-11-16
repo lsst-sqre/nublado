@@ -130,9 +130,6 @@ class K8sStorageClient:
             name, namespace
         )
         secret_type = secret.type
-        if not secret_type:
-            secret_type = "Opaque"
-            # cf https://kubernetes.io/docs/concepts/configuration/secret/
         return Secret(data=secret.data, secret_type=secret_type)
 
     async def create_configmap(

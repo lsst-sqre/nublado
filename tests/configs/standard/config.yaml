@@ -227,3 +227,8 @@ prepuller:
   num_releases: 1
   num_weeklies: 2
   num_dailies: 3
+# -- Runtime config will be filled in on initialization
+runtime:
+  path: ""
+  namespace: ""
+  instance_url: ""

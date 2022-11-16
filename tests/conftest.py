@@ -17,7 +17,6 @@ from safir.kubernetes import initialize_kubernetes
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.main import create_app
 from jupyterlabcontroller.models.context import Context
-from jupyterlabcontroller.utils import get_user_namespace
 
 from .settings import TestObjectFactory, test_object_factory
 from .support.mockdocker import MockDockerStorageClient
@@ -118,7 +117,7 @@ async def user_context(
     cp.token = "token-of-affection"
     cp.token_scopes = ["exec:notebook"]
     cp.user = obj_factory.userinfos[0]
-    cp.namespace = get_user_namespace(obj_factory.userinfos[0].username)
+    cp.namespace = f"{context.namespace}-{cp.user.username}"
     return cp
 
 
@@ -131,5 +130,5 @@ async def admin_context(
     cp.token = "token-of-authority"
     cp.token_scopes = ["admin:jupyterlab"]
     cp.user = obj_factory.userinfos[1]
-    cp.namespace = get_user_namespace(obj_factory.userinfos[1].username)
+    cp.namespace = f"{context.namespace}-{cp.user.username}"
     return cp

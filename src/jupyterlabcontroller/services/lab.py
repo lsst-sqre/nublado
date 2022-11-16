@@ -23,7 +23,6 @@ from ..storage.k8s import (
     PodSpec,
     Secret,
 )
-from ..utils import get_namespace_prefix
 from .size import SizeManager
 
 
@@ -158,10 +157,9 @@ class LabManager:
         # arbitrary data).
 
         base64_data: Dict[str, str] = dict()
-        namespace: str = get_namespace_prefix()
         for name in secret_names:
             secret: Secret = await self.context.k8s_client.read_secret(
-                name=name, namespace=namespace
+                name=name, namespace=self.context.namespace
             )
             # Retrieve matching keys
             for key in secret.data:

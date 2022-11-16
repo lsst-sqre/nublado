@@ -89,3 +89,6 @@ class Context:
         self.token = gafaelfawr_client.token
         self.user = await gafaelfawr_client.get_user()
         self.token_scopes = await gafaelfawr_client.get_scopes()
+        self.namespace = (
+            f"{self.config.runtime.namespace_prefix}-" f"{self.user.username}"
+        )

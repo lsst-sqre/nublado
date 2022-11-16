@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from enum import auto
 from typing import Any, Dict, List, Optional, TypeAlias, Union
 
@@ -10,6 +11,31 @@ from pydantic import BaseModel, Field
 from .models.enum import NubladoEnum
 from .models.v1.lab import LabSize
 from .models.v1.prepuller_config import PrepullerConfig
+
+
+def get_namespace_prefix() -> str:
+    """If USER_NAMESPACE_PREFIX is set in the environment, that will be used as
+    the namespace prefix.  If it is not, the namespace will be read from the
+    container.  If that the container runtime file does not exist, "userlabs"
+    will be used.
+    """
+    r: str = os.getenv("USER_NAMESPACE_PREFIX", "")
+    if r:
+        return r
+    ns_path = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+    if os.path.exists(ns_path):
+        with open(ns_path) as f:
+            return f.read().strip()
+    return "userlabs"
+
+
+def get_external_instance_url() -> str:
+    """In normal operation, EXTERNAL_INSTANCE_URL will have been set from
+    a global in the Helm chart.  For testing, or if running standalone,
+    either set that URL, or assume you're listening on localhost port 8080.
+    """
+    return os.getenv("EXTERNAL_INSTANCE_URL") or "http://localhost:8080"
+
 
 #
 # Safir
@@ -239,13 +265,24 @@ class LabConfig(BaseModel):
 # See models.v1.prepuller_config
 
 #
+# Runtime
+# filled in at runtime, obv.
+# Not available to users to set.
+#
+class RuntimeConfig(BaseModel):
+    path: str = ""
+    namespace_prefix: str = ""
+    instance_url: str = ""
+
+
+#
 # Config
 #
 class Config(BaseModel):
     safir: SafirConfig
     lab: LabConfig
     prepuller: PrepullerConfig
-    path: Optional[str] = None
+    runtime: RuntimeConfig
 
     @classmethod
     def from_file(
@@ -257,5 +294,9 @@ class Config(BaseModel):
             # In general the YAML might have configuration for other
             # objects than the controller in it.
             r = Config.parse_obj(config_obj)
-            r.path = filename
+            r.runtime = RuntimeConfig(
+                path=filename,
+                namespace_prefix=get_namespace_prefix(),
+                instance_url=get_external_instance_url(),
+            )
             return r

@@ -37,11 +37,13 @@ class DockerStorageClient:
         self.host = prepuller_config.registry
         self.repository = prepuller_config.path
         secrets_path: str = DOCKER_SECRETS_PATH
-        if config.path != CONFIGURATION_PATH:
+        if config.runtime.path != CONFIGURATION_PATH:
             # We are loading the config from non-container-provided place,
             # so therefore the secrets will reside in the same directory
             # as docker_config.json (by convention).
-            secrets_path = f"{dirname(str(config.path))}/docker_config.json"
+            secrets_path = (
+                f"{dirname(str(config.runtime.path))}/docker_config.json"
+            )
         self.secrets_path = secrets_path
         self.http_client = http_client
         self.logger = logger

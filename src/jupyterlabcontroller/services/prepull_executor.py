@@ -11,7 +11,6 @@ from ..constants import PREPULLER_POLL_INTERVAL, PREPULLER_PULL_TIMEOUT
 from ..models.context import Context
 from ..models.v1.lab import UserGroup, UserInfo
 from ..storage.k8s import Container, PodSpec
-from ..utils import get_namespace_prefix
 from .prepuller import PrepullerManager
 
 
@@ -46,7 +45,7 @@ class PrepullExecutor:
                 raise RuntimeError("Config must be specified")
             context = Context.initialize(config=config)
             context.token = "token-of-affection"
-            context.namespace = get_namespace_prefix()
+            context.namespace = config.runtime.namespace_prefix
             context.user = UserInfo(
                 username="prepuller",
                 name="Prepuller User",
@@ -168,7 +167,7 @@ class PrepullExecutor:
                 await scheduler.spawn(
                     self.context.k8s_client.create_pod(
                         name=f"prepull-{tag}",
-                        namespace=get_namespace_prefix(),
+                        namespace=self.context.namespace,
                         pod=await self.create_prepuller_pod_spec(
                             image=image,
                             node=node,
