@@ -2,6 +2,7 @@ import pytest
 
 from jupyterlabcontroller.models.context import Context
 from jupyterlabcontroller.services.lab import LabManager
+from jupyterlabcontroller.services.prepull_executor import PrepullExecutor
 
 from ..settings import TestObjectFactory
 
@@ -10,11 +11,13 @@ from ..settings import TestObjectFactory
 async def test_lab_manager(
     obj_factory: TestObjectFactory,
     user_context: Context,
+    prepull_executor: PrepullExecutor,
 ) -> None:
     lab = obj_factory.labspecs[0]
     lm = LabManager(
         lab=lab,
         context=user_context,
+        prepull_executor=prepull_executor,
     )
     present = await lm.check_for_user()
     assert present is True  # It should already be in the user map

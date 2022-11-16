@@ -3,11 +3,18 @@ in its constructor."""
 
 from typing import Dict, List
 
+import bitmath
+
 from ..config import LabSizeDefinitions
 from ..constants import LIMIT_TO_REQUEST_RATIO
 from ..models.domain.form import FormSize
 from ..models.v1.lab import LabSize, UserResourceQuantum, UserResources
-from ..utils import memory_string_to_int
+
+
+def memory_string_to_int(memstr: str) -> int:
+    if not memstr.endswith("B"):
+        memstr += "B"  # This makes bitmath happy
+    return int(bitmath.parse_string(memstr).bytes)
 
 
 class SizeManager:

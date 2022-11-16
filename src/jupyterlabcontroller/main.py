@@ -17,13 +17,10 @@ from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 
 from .dependencies.config import configuration_dependency
+from .dependencies.prepull import prepull_executor_dependency
 from .handlers import external_router, internal_router
-from .services.prepull_executor import PrepullExecutor
 
 __all__ = ["create_app"]
-
-# FIXME: how do I attach these to the FastAPI app object?
-prepull_executor: Optional[PrepullExecutor] = None
 
 
 def create_app(*, config_dir: Optional[str] = None) -> FastAPI:
@@ -47,6 +44,7 @@ def create_app(*, config_dir: Optional[str] = None) -> FastAPI:
     if config_dir is not None:
         configuration_dependency.set_filename(f"{config_dir}/config.yaml")
     config = configuration_dependency.config
+    prepull_executor_dependency.set_config(config=config)
 
     configure_logging(
         profile=config.safir.profile,
@@ -81,12 +79,9 @@ def create_app(*, config_dir: Optional[str] = None) -> FastAPI:
 
 async def startup_event() -> None:
     await initialize_kubernetes()
-    config = configuration_dependency.config
-    prepull_executor = PrepullExecutor(config=config)
-    await prepull_executor.run()
+    await prepull_executor_dependency.executor.run()
 
 
 async def shutdown_event() -> None:
-    if prepull_executor is not None:
-        await prepull_executor.stop()
+    await prepull_executor_dependency.executor.stop()
     await http_client_dependency.aclose()

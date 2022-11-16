@@ -17,6 +17,7 @@ from safir.kubernetes import initialize_kubernetes
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.main import create_app
 from jupyterlabcontroller.models.context import Context
+from jupyterlabcontroller.services.prepull_executor import PrepullExecutor
 
 from .settings import TestObjectFactory, test_object_factory
 from .support.mockdocker import MockDockerStorageClient
@@ -106,6 +107,15 @@ async def context(
     # Let's pretend we have some running servers already
     cc.user_map = obj_factory.usermap
     return cc
+
+
+@pytest_asyncio.fixture
+async def prepull_executor(
+    context: Context,
+) -> PrepullExecutor:
+    """Return a PrepullExecutor"""
+    pe = PrepullExecutor.initialize(context=context)
+    return pe
 
 
 @pytest_asyncio.fixture

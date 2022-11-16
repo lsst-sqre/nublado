@@ -37,7 +37,6 @@ from structlog.stdlib import BoundLogger
 from ..models.exceptions import NSCreationError
 from ..models.v1.event import Event, EventQueue
 from ..models.v1.lab import UserResourceQuantum
-from ..utils import std_annotations, std_labels
 
 
 @dataclass
@@ -89,7 +88,12 @@ class K8sStorageClient:
 
     def get_std_metadata(self, name: str) -> V1ObjectMeta:
         return V1ObjectMeta(
-            name=name, labels=std_labels(), annotations=std_annotations()
+            name=name,
+            labels={"argocd.argoproj.io/instance": "nublado-users"},
+            annotations={
+                "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+                "argocd.argoproj.io/sync-options": "Prune=false",
+            },
         )
 
     async def create_namespace(self, ns_name: str) -> None:

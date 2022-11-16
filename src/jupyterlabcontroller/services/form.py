@@ -5,14 +5,15 @@ from jinja2 import Template
 from ..constants import SPAWNER_FORM_TEMPLATE
 from ..models.context import Context
 from ..models.domain.form import FormSize
-from .prepuller import PrepullerManager
+from .prepull_executor import PrepullExecutor
 
 DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 
 
 class FormManager:
-    def __init__(self, context: Context):
+    def __init__(self, context: Context, prepull_executor: PrepullExecutor):
         self.context = context
+        self.prepuller_manager = prepull_executor.manager
 
     def _extract_sizes(self) -> List[FormSize]:
         sz = self.context.config.lab.sizes
@@ -32,7 +33,7 @@ class FormManager:
         self.context.logger.info(f"Creating options form for '{username}'")
         options_template = Template(SPAWNER_FORM_TEMPLATE)
 
-        pm = PrepullerManager(context=self.context)
+        pm = self.prepuller_manager
         displayimages = await pm.get_menu_images()
         cached_images = [displayimages[x] for x in displayimages if x != "all"]
         if type(displayimages["all"]) is not dict:

@@ -1,5 +1,4 @@
 import base64
-from dataclasses import dataclass
 from typing import Dict, List
 
 from aiojobs import Scheduler
@@ -23,13 +22,20 @@ from ..storage.k8s import (
     PodSpec,
     Secret,
 )
+from .prepull_executor import PrepullExecutor
 from .size import SizeManager
 
 
-@dataclass
 class LabManager:
-    lab: LabSpecification
-    context: Context
+    def __init__(
+        self,
+        lab: LabSpecification,
+        context: Context,
+        prepull_executor: PrepullExecutor,
+    ) -> None:
+        self.lab = lab
+        self.context = context
+        self.prepull_manager = prepull_executor.manager
 
     @property
     def user(self) -> str:

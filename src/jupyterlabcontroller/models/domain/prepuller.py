@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, TypeAlias
 
 from ...storage.k8s import ContainerImage
+from ..tag import RSPTag, RSPTagList, RSPTagType
 from ..v1.prepuller import Image, Node
-from .tag import Tag, TagList, TagType
 
 NodeContainers: TypeAlias = Dict[str, List[ContainerImage]]
 
@@ -20,11 +20,12 @@ class NodeTagImage:
     tags: Dict[str, str]
     size: Optional[int]
     prepulled: bool
-    tag: str = ""
+    best_tag: str = ""
+    all_tags: List[str] = field(default_factory=list)
     nodes: List[str] = field(default_factory=list)
     known_alias_tags: List[str] = field(default_factory=list)
-    tagobjs: TagList = TagList(all_tags=list())
-    image_type: Optional[TagType] = None
+    tagobjs: RSPTagList = RSPTagList(all_tags=list())
+    best_image_type: Optional[RSPTagType] = None
 
     def to_image(self) -> Image:
         return Image(
@@ -49,12 +50,15 @@ class NodeTagImage:
         if recommended in self.tags:
             primary_tag = recommended
             primary_name = self.tags[recommended]
+            self.all_tags.append(recommended)
             del self.tags[recommended]
 
-        self.tagobjs = TagList()
+        self.tagobjs = RSPTagList()
         self.tagobjs.all_tags = list()
         for t in self.tags:
-            self.tagobjs.all_tags.append(Tag.from_tag(t))
+            self.tagobjs.all_tags.append(
+                RSPTag.from_tag(t, digest=self.digest)
+            )
         self.tagobjs.sort_all_tags()
 
         for t_obj in self.tagobjs.all_tags:
@@ -63,15 +67,15 @@ class NodeTagImage:
                 primary_tag = t_obj.tag
             else:
                 other_names.append(t_obj.display_name)
-            if self.image_type is None:
-                self.image_type = t_obj.image_type
+            if self.best_image_type is None:
+                self.best_image_type = t_obj.image_type
         tag_description: str = primary_name
         if other_names:
             tag_description += f" ({', '.join(x for x in other_names)})"
-        self.tags = {primary_tag: tag_description}
         self.tag = primary_tag
+        self.best_tag = primary_tag
         self.name = tag_description
-        # And now that we have only one tag, stuff it into the image path
+        # And now that we have a best tag, stuff it into the image path
         self.path = f"{self.path}:{self.tag}"
         return
 
@@ -80,10 +84,8 @@ DigestToNodeTagImages: TypeAlias = Dict[str, NodeTagImage]
 
 
 @dataclass
-class ExtTag(Tag):
-    config_aliases: List[str] = field(default_factory=list)
+class NodeTag(RSPTag):
     node: str = ""
-    size: Optional[int] = None
 
 
 @dataclass

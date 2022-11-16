@@ -16,8 +16,8 @@ from jupyterlabcontroller.models.v1.lab import (
     UserInfo,
     UserResources,
 )
+from jupyterlabcontroller.services.size import memory_string_to_int
 from jupyterlabcontroller.storage.k8s import ContainerImage, ContainerImageList
-from jupyterlabcontroller.utils import memory_string_to_int
 
 # Factory to manufacture test objects
 

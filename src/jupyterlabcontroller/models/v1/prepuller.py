@@ -44,11 +44,11 @@ class Image(PartialImage):
         title="tags",
         description="Map between tag and its display name",
     )
-    size: int = Field(
-        -1,
+    size: Optional[int] = Field(
+        None,
         title="size",
         example=8675309,
-        description="Size in bytes of image.  -1 if image size is unknown.",
+        description="Size in bytes of image.  None if image size is unknown.",
     )
     prepulled: bool = Field(
         False,

@@ -14,6 +14,32 @@ from ..storage.k8s import Container, PodSpec
 from .prepuller import PrepullerManager
 
 
+def need_some_context(
+    context: Optional[Context] = None, config: Optional[Config] = None
+) -> Context:
+    if context is None:
+        if config is None:
+            raise RuntimeError("Config must be specified")
+        context = Context.initialize(config=config)
+        context.token = "token-of-affection"
+        context.namespace = config.runtime.namespace_prefix
+        context.user = UserInfo(
+            username="prepuller",
+            name="Prepuller User",
+            uid=1000,
+            gid=1000,
+            groups=[
+                UserGroup(
+                    name="prepuller",
+                    id=1000,
+                )
+            ],
+        )
+    if context is None:
+        raise RuntimeError("Request context must be specified")
+    return context
+
+
 class PrepullExecutor:
     """This uses a PrepullerManager and adds the functionality to actually
     create prepulled pods as needed.
@@ -38,31 +64,18 @@ class PrepullExecutor:
         config: Optional[Config] = None,
         context: Optional[Context] = None,
     ) -> None:
+        new_context = need_some_context(context, config)
         self._schedulers: Dict[str, Scheduler] = dict()
-
-        if context is None:
-            if config is None:
-                raise RuntimeError("Config must be specified")
-            context = Context.initialize(config=config)
-            context.token = "token-of-affection"
-            context.namespace = config.runtime.namespace_prefix
-            context.user = UserInfo(
-                username="prepuller",
-                name="Prepuller User",
-                uid=1000,
-                gid=1000,
-                groups=[
-                    UserGroup(
-                        name="prepuller",
-                        id=1000,
-                    )
-                ],
-            )
-        if context is None:
-            raise RuntimeError("Request context must be specified")
-        self.context = context
+        self.context = new_context
         self._logger = self.context.logger
-        self._manager = PrepullerManager(context=context)
+        self.manager = PrepullerManager(context=self.context)
+
+    @classmethod
+    def initialize(
+        cls, config: Optional[Config] = None, context: Optional[Context] = None
+    ) -> "PrepullExecutor":
+        new_context = need_some_context(context, config)
+        return cls(context=new_context)
 
     async def run(self) -> None:
         """
@@ -138,7 +151,7 @@ class PrepullExecutor:
         spawns pods with those images on the nodes that need them.
         """
 
-        status = await self._manager.get_prepulls()
+        status = await self.manager.get_prepulls()
 
         pending = status.images.pending
 

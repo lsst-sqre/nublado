@@ -1,6 +1,8 @@
 """Classes to hold all the semantic data and metadata we can extract from a
-tag in the format specified by https://sqr-059.lsst.io.  Mostly simplified
-from cachemachine's implementation."""
+tag.  Mostly simplified from cachemachine's implementation.
+
+These are specific to the Rubin Science Platform tag conventions.  The tag
+must be in the format specified by https://sqr-059.lsst.io"""
 
 import re
 from dataclasses import dataclass, field
@@ -9,13 +11,13 @@ from typing import Dict, List, Match, Optional, Tuple
 
 from semver import VersionInfo
 
-from ..v1.prepuller import Image
+from .exceptions import IncomparableImageTypesError
+from .v1.prepuller import Image
 
 
-class TagType(Enum):
+class RSPTagType(Enum):
     """Enum specifying different tag types for Rubin Science Platform Lab
-    images, and an Exception for attempted comparison between
-    incomparable types.
+    images.
 
     These are listed in order of priority to make sorting images easier.
     """
@@ -60,74 +62,77 @@ TAG: Dict[str, str] = {
 # candidate images must precede the release images, because an RC candidate
 # could be a release image with non-empty "rest".
 #
-TAGTYPE_REGEXPS: List[Tuple[TagType, re.Pattern]] = [
+TAGTYPE_REGEXPS: List[Tuple[RSPTagType, re.Pattern]] = [
     # r23_0_0_rc1_c0020.001_20210513
     (
-        TagType.RELEASE_CANDIDATE,
+        RSPTagType.RELEASE_CANDIDATE,
         re.compile(TAG["rc"] + TAG["cycle"] + TAG["rest"] + r"$"),
     ),
     # r23_0_0_rc1_c0020.001
     (
-        TagType.RELEASE_CANDIDATE,
+        RSPTagType.RELEASE_CANDIDATE,
         re.compile(TAG["rc"] + TAG["cycle"] + r"$"),
     ),
     # r23_0_0_rc1_20210513
     (
-        TagType.RELEASE_CANDIDATE,
+        RSPTagType.RELEASE_CANDIDATE,
         re.compile(TAG["rc"] + TAG["rest"] + r"$"),
     ),
     # r23_0_0_rc1
-    (TagType.RELEASE_CANDIDATE, re.compile(TAG["rc"] + r"$")),
+    (RSPTagType.RELEASE_CANDIDATE, re.compile(TAG["rc"] + r"$")),
     # r22_0_1_c0019.001_20210513
     (
-        TagType.RELEASE,
+        RSPTagType.RELEASE,
         re.compile(TAG["release"] + TAG["cycle"] + TAG["rest"] + r"$"),
     ),
     # r22_0_1_c0019.001
-    (TagType.RELEASE, re.compile(TAG["release"] + TAG["cycle"] + r"$")),
+    (RSPTagType.RELEASE, re.compile(TAG["release"] + TAG["cycle"] + r"$")),
     # r22_0_1_20210513
-    (TagType.RELEASE, re.compile(TAG["release"] + TAG["rest"] + r"$")),
+    (RSPTagType.RELEASE, re.compile(TAG["release"] + TAG["rest"] + r"$")),
     # r22_0_1
-    (TagType.RELEASE, re.compile(TAG["release"] + r"$")),
+    (RSPTagType.RELEASE, re.compile(TAG["release"] + r"$")),
     # r170 (obsolete) (no new ones, no additional parts)
-    (TagType.RELEASE, re.compile(r"r(?P<major>\d\d)(?P<minor>\d)$")),
+    (RSPTagType.RELEASE, re.compile(r"r(?P<major>\d\d)(?P<minor>\d)$")),
     # w_2021_13_c0020.001_20210513
     (
-        TagType.WEEKLY,
+        RSPTagType.WEEKLY,
         re.compile(TAG["weekly"] + TAG["cycle"] + TAG["rest"] + r"$"),
     ),
     # w_2021_13_c0020.001
-    (TagType.WEEKLY, re.compile(TAG["weekly"] + TAG["cycle"] + r"$")),
+    (RSPTagType.WEEKLY, re.compile(TAG["weekly"] + TAG["cycle"] + r"$")),
     # w_2021_13_20210513
-    (TagType.WEEKLY, re.compile(TAG["weekly"] + TAG["rest"] + r"$")),
+    (RSPTagType.WEEKLY, re.compile(TAG["weekly"] + TAG["rest"] + r"$")),
     # w_2021_13
-    (TagType.WEEKLY, re.compile(TAG["weekly"] + r"$")),
+    (RSPTagType.WEEKLY, re.compile(TAG["weekly"] + r"$")),
     # d_2021_05_13_c0019.001_20210513
     (
-        TagType.DAILY,
+        RSPTagType.DAILY,
         re.compile(TAG["daily"] + TAG["cycle"] + TAG["rest"] + r"$"),
     ),
     # d_2021_05_13_c0019.001
-    (TagType.DAILY, re.compile(TAG["daily"] + TAG["cycle"] + r"$")),
+    (RSPTagType.DAILY, re.compile(TAG["daily"] + TAG["cycle"] + r"$")),
     # d_2021_05_13_20210513
-    (TagType.DAILY, re.compile(TAG["daily"] + TAG["rest"] + r"$")),
+    (RSPTagType.DAILY, re.compile(TAG["daily"] + TAG["rest"] + r"$")),
     # d_2021_05_13
-    (TagType.DAILY, re.compile(TAG["daily"] + r"$")),
+    (RSPTagType.DAILY, re.compile(TAG["daily"] + r"$")),
     # exp_w_2021_05_13_nosudo
     (
-        TagType.EXPERIMENTAL,
+        RSPTagType.EXPERIMENTAL,
         re.compile(TAG["experimental"] + TAG["rest"] + r"$"),
     ),
 ]
 
 
 @dataclass
-class PartialTag:
-    """The primary method of construction of a PartialTag is the
-    parse_tag classmethod.  The PartialTag holds the data that comes
-    from the tag, but not the associated data such as image_digest or
-    image_ref.  It does construct the provisional display name, but does not
-    know about alias tags."""
+class StandaloneRSPTag:
+    """The primary method of construction of a StandaloneRSPTag is the
+    parse_tag classmethod.  The StandaloneRSPTag holds only the data that comes
+    from the tag text.
+
+    In order to construct a complete RSPTag, which would contain the Docker
+    path, the digest, and the preferred tag and display name, the
+    StandaloneRSPTag must be augmented with data that must be supplied by
+    a Docker repository and does not exist in the tag text."""
 
     tag: str
     """This is the tag on a given image.  We assume there is one and
@@ -138,10 +143,10 @@ class PartialTag:
     example: w_2021_22
     """
 
-    image_type: TagType
+    image_type: RSPTagType
     """Rubin-specific RSP Lab image type.
 
-    example: TagType.WEEKLY
+    example: RSPTagType.WEEKLY
     """
 
     display_name: str
@@ -172,14 +177,14 @@ class PartialTag:
     def parse_tag(
         cls,
         tag: str,
-    ) -> "PartialTag":
+    ) -> "StandaloneRSPTag":
         if not tag:
             tag = DOCKER_DEFAULT_TAG  # This is a Docker convention
         for (tagtype, regexp) in TAGTYPE_REGEXPS:
             match = re.compile(regexp).match(tag)
             if not match:
                 continue
-            display_name, semver, cycle = PartialTag.extract_metadata(
+            display_name, semver, cycle = StandaloneRSPTag.extract_metadata(
                 match=match, tag=tag, tagtype=tagtype
             )
             return cls(
@@ -192,7 +197,7 @@ class PartialTag:
         # Didn't find any matches
         return cls(
             tag=tag,
-            image_type=TagType.UNKNOWN,
+            image_type=RSPTagType.UNKNOWN,
             display_name=tag,
             semantic_version=None,
             cycle=None,
@@ -212,7 +217,7 @@ class PartialTag:
     def extract_metadata(
         match: Match,
         tag: str,
-        tagtype: TagType,
+        tagtype: RSPTagType,
     ) -> Tuple[str, Optional[VersionInfo], Optional[int]]:
         """Return a display name, semantic version (optional), and cycle
         (optional) from match, tag, and type."""
@@ -226,11 +231,11 @@ class PartialTag:
         rest = md.get("rest")
         # We have our defaults.  The rest is optimistically seeing if we can
         # do better
-        if tagtype == TagType.UNKNOWN:
+        if tagtype == RSPTagType.UNKNOWN:
             # We can't do anything better, but we really shouldn't be
             # extracting from an unknown type.
             pass
-        elif tagtype == TagType.EXPERIMENTAL:
+        elif tagtype == RSPTagType.EXPERIMENTAL:
             # This one is slightly complicated.  Because of the way the build
             # process works, our tag likely looks like exp_<other-legal-tag>.
             # So we try that hypothesis.  If that's not how the tag is
@@ -239,19 +244,19 @@ class PartialTag:
             if rest is not None:
                 # it actually never will be None if the regexp matched, but
                 # mypy doesn't know that
-                temp_ptag = PartialTag.parse_tag(rest)
+                temp_ptag = StandaloneRSPTag.parse_tag(rest)
                 # We only care about the display name, not any other fields.
                 name = f"Experimental {temp_ptag.display_name}"
         else:
             # Everything else does get an actual semantic version
-            build = PartialTag.trailing_parts_to_semver_build_component(
+            build = StandaloneRSPTag.trailing_parts_to_semver_build_component(
                 cycle, cbuild, ctag, rest
             )
-            typename = PartialTag.prettify_tag(tagtype.name)
+            typename = StandaloneRSPTag.prettify_tag(tagtype.name)
             restname = name[2:]
             if (
-                tagtype == TagType.RELEASE
-                or tagtype == TagType.RELEASE_CANDIDATE
+                tagtype == RSPTagType.RELEASE
+                or tagtype == RSPTagType.RELEASE_CANDIDATE
             ):
                 # This is bulky because we don't want to raise an error here
                 # if we cannot extract a required field; instead we let the
@@ -260,9 +265,9 @@ class PartialTag:
                 # try/expect block and return None if we can't construct
                 # a version.  In *that* case we have a tag without semantic
                 # version information--which is allowable.
-                major = PartialTag.maybe_int(md.get("major"))
-                minor = PartialTag.maybe_int(md.get("minor"))
-                patch = PartialTag.maybe_int(
+                major = StandaloneRSPTag.maybe_int(md.get("major"))
+                minor = StandaloneRSPTag.maybe_int(md.get("minor"))
+                patch = StandaloneRSPTag.maybe_int(
                     md.get("patch", "0")
                 )  # If omitted, it's zero
                 restname = f"r{major}.{minor}.{patch}"
@@ -275,16 +280,16 @@ class PartialTag:
                 month = md.get("month")
                 week = md.get("week")
                 day = md.get("day")
-                major = PartialTag.maybe_int(year)
-                if tagtype == TagType.WEEKLY:
-                    minor = PartialTag.maybe_int(week)
+                major = StandaloneRSPTag.maybe_int(year)
+                if tagtype == RSPTagType.WEEKLY:
+                    minor = StandaloneRSPTag.maybe_int(week)
                     patch = 0
                     restname = (
                         f"{year}_{week}"  # preserve initial string format
                     )
                 else:
-                    minor = PartialTag.maybe_int(md.get("month"))
-                    patch = PartialTag.maybe_int(md.get("day"))
+                    minor = StandaloneRSPTag.maybe_int(md.get("month"))
+                    patch = StandaloneRSPTag.maybe_int(md.get("day"))
                     restname = (
                         f"{year}_{month}_{day}"  # preserve string format
                     )
@@ -304,7 +309,7 @@ class PartialTag:
                 name += f" (SAL Cycle {cycle}, Build {cbuild})"
             if rest:
                 name += f" [{rest}]"
-            cycle_int = PartialTag.maybe_int(cycle)
+            cycle_int = StandaloneRSPTag.maybe_int(cycle)
         return (name, semver, cycle_int)
 
     @staticmethod
@@ -323,7 +328,6 @@ class PartialTag:
         """This takes care of massaging the cycle components, and 'rest', into
         a semver-compatible buildstring, which is dot-separated and can only
         contain alphanumerics.  See SQR-059 for how it's used.
-        (https://github.com/lsst-sqre/sqr-059)
         """
         if cycle:
             if rest:
@@ -342,12 +346,12 @@ class PartialTag:
             return None
         return rest
 
-    def compare(self, other: "PartialTag") -> int:
+    def compare(self, other: "StandaloneRSPTag") -> int:
         """This is modelled after semver.compare, but raises an exception
         if the images do not have the same image_type."""
         if self.image_type != other.image_type:
             raise IncomparableImageTypesError(
-                f"Tag '{self.tag}' of type {self.image_type} cannot be "
+                f"RSPTag '{self.tag}' of type {self.image_type} cannot be "
                 + f"compared to '{other.tag}' of type {other.image_type}."
             )
         # The easy case: we have a type with a semantic_version attribute.
@@ -368,33 +372,33 @@ class PartialTag:
     """Implement comparison operators."""
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, PartialTag):
+        if not isinstance(other, StandaloneRSPTag):
             return NotImplemented
         return self.compare(other) == 0
 
     def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
 
-    def __gt__(self, other: "PartialTag") -> bool:
+    def __gt__(self, other: "StandaloneRSPTag") -> bool:
         return self.compare(other) == 1
 
-    def __le__(self, other: "PartialTag") -> bool:
+    def __le__(self, other: "StandaloneRSPTag") -> bool:
         return not self.__gt__(other)
 
-    def __lt__(self, other: "PartialTag") -> bool:
+    def __lt__(self, other: "StandaloneRSPTag") -> bool:
         return self.compare(other) == -1
 
-    def __ge__(self, other: "PartialTag") -> bool:
+    def __ge__(self, other: "StandaloneRSPTag") -> bool:
         return not self.__lt__(other)
 
 
 @dataclass
-class Tag(PartialTag):
-    """The primary method of Tag construction
-    is the from_tag classmethod.  The Tag holds all the metadata
+class RSPTag(StandaloneRSPTag):
+    """The primary method of RSPTag construction
+    is the from_tag classmethod.  The RSPTag holds all the metadata
     encoded within a particular tag (in its base class) and also additional
-    metadata known and/or calculated via outside sources, such as the
-    image digest, whether the image is an alias, and the image reference.
+    metadata known and/or calculated via outside sources: the
+    image digest, whether the tag is a known alias, and the image reference.
     """
 
     image_ref: str
@@ -405,10 +409,25 @@ class Tag(PartialTag):
     example: index.docker.io/lsstsqre/sciplat-lab:w_2021_22
     """
 
-    digest: Optional[str]
-    """Image digest for a particular image.
+    digest: str
+    """Image digest for a particular image.  It is required, because without
+    it, you might as well use a StandaloneRSPTag.
 
-    example: "sha256:419c4b7e14603711b25fa9e0569460a753c4b2449fe275bb5f89743b01794a30"  # noqa: E501
+    example: ("sha256:419c4b7e14603711b25fa9e0569460a753"
+              "c4b2449fe275bb5f89743b01794a30")
+    """
+
+    size: Optional[int]
+    """Size in bytes for a particular image.  ``None`` if unknown.
+    """
+
+    alias_tags: List[str]
+    """List of known aliases for this tag.
+    """
+
+    nodes: List[str]
+    """List of names of nodes to which the image corresponding to the tag
+    is pulled.
     """
 
     # We use a classmethod here rather than just allowing specification of
@@ -417,24 +436,28 @@ class Tag(PartialTag):
     def from_tag(
         cls,
         tag: str,
+        digest: str,
         image_ref: str = "",
         alias_tags: List[str] = list(),
+        nodes: List[str] = list(),
         override_name: str = "",
-        digest: Optional[str] = None,
         override_cycle: Optional[int] = None,
-    ) -> "Tag":
-        """Create a Tag object from a tag and a list of alias tags.
+        size: Optional[int] = None,
+    ) -> "RSPTag":
+        """Create a RSPTag object from a tag and a list of alias tags.
         Allow overriding name rather than generating one, and allow an
         optional digest parameter."""
-        partial_tag = PartialTag.parse_tag(tag)
+        if not digest:
+            raise RuntimeError("A digest is required to create an RSPTag")
+        partial_tag = StandaloneRSPTag.parse_tag(tag)
         image_type = partial_tag.image_type
         display_name = partial_tag.display_name
         cycle = partial_tag.cycle
         # Here's where we glue in the alias knowledge.  Note that we just
         # special-case "latest" and "latest_<anything>"
         if tag in alias_tags or tag == "latest" or tag.startswith("latest_"):
-            image_type = TagType.ALIAS
-            display_name = PartialTag.prettify_tag(tag)
+            image_type = RSPTagType.ALIAS
+            display_name = StandaloneRSPTag.prettify_tag(tag)
         # And here we override the name if appropriate.
         if override_name:
             display_name = override_name
@@ -445,10 +468,13 @@ class Tag(PartialTag):
             tag=tag,
             image_ref=image_ref,
             digest=digest,
+            size=size,
             image_type=image_type,
             display_name=display_name,
             semantic_version=partial_tag.semantic_version,
             cycle=cycle,
+            alias_tags=alias_tags,
+            nodes=nodes,
         )
 
     def is_recognized(self) -> bool:
@@ -457,78 +483,50 @@ class Tag(PartialTag):
         experimental images.
         """
         img_type = self.image_type
-        unrecognized = [TagType.UNKNOWN, TagType.ALIAS]
+        unrecognized = (RSPTagType.UNKNOWN, RSPTagType.ALIAS)
         if img_type in unrecognized:
             return False
         return True
 
 
 @dataclass
-class TagList:
-    """This is a class to hold tag objects and return sorted lists of them
-    for construction of the image menu.
+class RSPTagList:
+    """This is a class to hold tag objects and return sorted lists of their
+    corresponding Image objects for construction of the image menu.
     """
 
-    all_tags: List[Tag] = field(default_factory=list)
+    all_tags: List[RSPTag] = field(default_factory=list)
 
     def sort_all_tags(self) -> None:
         """This sorts the ``all_tags`` field according to the ordering of
-        the TagType enum."""
-        new_tags: Dict[TagType, List[Tag]] = dict()
-        for tag_type in TagType:  # Initialize the dict, relying on the fact
+        the RSPTagType enum."""
+        new_tags: Dict[RSPTagType, List[RSPTag]] = dict()
+        for tag_type in RSPTagType:  # Initialize the dict, relying on the fact
             # that dicts are insertion-ordered in Python 3.6+ (we require
-            # 3.10)
+            # 3.10 for TypeAlias, so this is safe)
             new_tags[tag_type] = list()
         for tag in self.all_tags:
             new_tags[tag.image_type].append(tag)
         # Now sort the tags within each type in reverse lexical order.  This
         # will sort them with most recent first, because of the tag type
-        # definitions.
-        for tag_type in TagType:
+        # definitions in SQR-059.
+        for tag_type in RSPTagType:
             new_tags[tag.image_type].sort(reverse=True)
         # And flatten it out into a homogeneous list.
-        flat_tags: List[Tag] = list()
+        flat_tags: List[RSPTag] = list()
         for k in new_tags:
-            if new_tags[k] is not None:
-                flat_tags.extend(new_tags[k])
+            flat_tags.extend(new_tags[k])
         self.all_tags = flat_tags
 
-    def sorted_images(self, img_type: TagType, count: int = 0) -> List[Image]:
-        """This returns a sorted list of images for a given type, highest
-        version (and thus most recent) at the top.  The count
-        parameter specifies how many images should be in the list; leaving it
-        at its default of 0 will return the entire list.
-        """
-        imgs = sorted(
-            [
-                t
-                for t in self.all_tags
-                if (t is not None and img_type == t.image_type)
-            ],
-            reverse=True,
-        )
-        if count is not None:
-            imgs = imgs[:count]
-        taglist = TagList(all_tags=imgs)
-        return taglist.to_dockerimagelist()
-
-    def to_dockerimagelist(self, name_is_tag: bool = False) -> List[Image]:
+    def to_imagelist(self) -> List[Image]:
         image_list: List[Image] = list()
-        nonempty_tags = [t for t in self.all_tags.copy() if t is not None]
-        for t in nonempty_tags:
+        for t in self.all_tags:
             image_list.append(
                 Image(
                     path=t.image_ref,
-                    digest=(t.digest or ""),
-                    name=(
-                        lambda name_is_tag: t.tag
-                        if name_is_tag
-                        else t.display_name
-                    )(name_is_tag),
+                    digest=t.digest,
+                    name=t.display_name,
+                    tags={t.tag: t.display_name},
                 )
             )
         return image_list
-
-
-class IncomparableImageTypesError(Exception):
-    pass
