@@ -46,7 +46,7 @@
       ]
     }
   ],
-  "quotas": [
+  "resources": [
     {
       "limits": {
         "cpu": 4.0,

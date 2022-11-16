@@ -143,10 +143,6 @@ class LabInitContainer(BaseModel):
     )
 
 
-# The quota is just the sum of many sizes, effectively
-LabQuota = LabSizeDefinition
-
-
 class LabSecret(BaseModel):
     secret_name: str = Field(
         ...,
@@ -218,7 +214,6 @@ class LabConfig(BaseModel):
     files: List[LabFile] = Field(default_factory=list)
     volumes: List[LabVolume] = Field(default_factory=list)
     initcontainers: List[LabInitContainer] = Field(default_factory=list)
-    quota: Optional[LabQuota] = None
 
 
 #

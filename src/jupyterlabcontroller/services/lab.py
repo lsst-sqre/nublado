@@ -13,7 +13,7 @@ from ..models.v1.lab import (
     LabSpecification,
     LabStatus,
     UserData,
-    UserQuota,
+    UserResources,
 )
 from ..storage.k8s import (
     Container,
@@ -23,7 +23,8 @@ from ..storage.k8s import (
     PodSpec,
     Secret,
 )
-from ..utils import get_namespace_prefix, quota_from_size
+from ..utils import get_namespace_prefix
+from .size import SizeManager
 
 
 @dataclass
@@ -38,10 +39,9 @@ class LabManager:
         return self.context.user.username
 
     @property
-    def quota(self) -> UserQuota:
-        return quota_from_size(
-            size=LabSize(self.lab.options.size), config=self.context.config
-        )
+    def resources(self) -> UserResources:
+        size_manager = SizeManager(self.context.config.lab.sizes)
+        return size_manager.resources[LabSize(self.lab.options.size)]
 
     @property
     def logger(self) -> BoundLogger:
@@ -66,8 +66,10 @@ class LabManager:
         #
         self.context.user_map.set(
             username,
-            UserData.new_from_user_lab_quota(
-                user=self.context.user, labspec=self.lab, quota=self.quota
+            UserData.new_from_user_resources(
+                user=self.context.user,
+                labspec=self.lab,
+                resources=self.resources,
             ),
         )
 
@@ -217,11 +219,12 @@ class LabManager:
         )
 
     async def create_quota(self) -> None:
-        await self.context.k8s_client.create_quota(
-            name=f"nb-{self.user}",
-            namespace=self.context.namespace,
-            quota=self.quota,
-        )
+        if self.lab.namespace_quota is not None:
+            await self.context.k8s_client.create_quota(
+                name=f"nb-{self.user}",
+                namespace=self.context.namespace,
+                quota=self.lab.namespace_quota,
+            )
 
     async def create_user_pod(self) -> None:
         pod = await self.create_pod_spec()

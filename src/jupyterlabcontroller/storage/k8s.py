@@ -36,7 +36,7 @@ from structlog.stdlib import BoundLogger
 
 from ..models.exceptions import NSCreationError
 from ..models.v1.event import Event, EventQueue
-from ..models.v1.lab import UserQuota
+from ..models.v1.lab import UserResourceQuantum
 from ..utils import std_annotations, std_labels
 
 
@@ -163,19 +163,15 @@ class K8sStorageClient:
         self,
         name: str,
         namespace: str,
-        quota: UserQuota,
+        quota: UserResourceQuantum,
     ) -> None:
         quota_obj = V1ResourceQuota(
             metadata=self.get_std_metadata(name),
             spec=V1ResourceQuotaSpec(
                 hard={
                     "limits": {
-                        "cpu": str(quota.limits.cpu),
-                        "memory": str(quota.limits.memory),
-                    },
-                    "requests": {
-                        "cpu": str(quota.requests.cpu),
-                        "memory": str(quota.requests.memory),
+                        "cpu": str(quota.cpu),
+                        "memory": str(quota.memory),
                     },
                 }
             ),

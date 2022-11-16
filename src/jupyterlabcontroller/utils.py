@@ -1,13 +1,8 @@
 import os
 from copy import copy
-from typing import Dict, Union
+from typing import Dict
 
 import bitmath
-
-from .config import Config, LabSizeDefinition, LabSizeDefinitions
-from .models.v1.lab import LabSize, UserQuota, UserQuotaQuantum
-
-LIMIT_TO_REQUEST_RATIO: float = 4.0  # Seems to work well so far.
 
 __all__ = ["std_annotations", "std_labels"]
 
@@ -50,26 +45,3 @@ def memory_string_to_int(memstr: str) -> int:
     if not memstr.endswith("B"):
         memstr += "B"  # This makes bitmath happy
     return int(bitmath.parse_string(memstr).bytes)
-
-
-def quota_from_size(
-    size: LabSize, config: Config, ratio: float = LIMIT_TO_REQUEST_RATIO
-) -> UserQuota:
-    sizemap: LabSizeDefinitions = config.lab.sizes
-    if size not in config.lab.sizes:
-        raise RuntimeError(f"Unknown size {size}")
-    sz: LabSizeDefinition = sizemap[size]
-    cpu: float = sz.cpu
-    memfld: Union[int, str] = sz.memory
-    mem: int = 0
-    if type(memfld) is int:
-        mem = memfld
-    else:
-        # I don't think this can happen, but mypy does.
-        if type(memfld) is not str:
-            raise RuntimeError(f"memfld: {type(memfld)} neither str nor int")
-        mem = memory_string_to_int(memfld)
-    return UserQuota(
-        requests=UserQuotaQuantum(cpu=cpu / ratio, memory=int(mem / ratio)),
-        limits=UserQuotaQuantum(cpu=cpu, memory=mem),
-    )

@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import deque
 from copy import copy
 from enum import auto
-from typing import Deque, Dict, List, Tuple, TypeAlias
+from typing import Deque, Dict, List, Optional, Tuple, TypeAlias
 
 from pydantic import BaseModel, Field
 
@@ -79,9 +79,29 @@ class UserOptions(BaseModel):
     )
 
 
+class UserResourceQuantum(BaseModel):
+    cpu: float = Field(
+        ...,
+        title="cpu",
+        example=1.5,
+        description=(
+            "Kubernetes CPU resource, floating-point value.  cf"
+            " https://kubernetes.io/docs/tasks/configure-pod-container/"
+            "assign-cpu-resource/"
+        ),
+    )
+    memory: int = Field(
+        ...,
+        title="memory",
+        example=1073741824,
+        description=("Kubernetes memory resource in bytes."),
+    )
+
+
 class LabSpecification(BaseModel):
     options: UserOptions
     env: Dict[str, str]
+    namespace_quota: Optional[UserResourceQuantum]
 
 
 """GET /nublado/spawner/v1/labs/<username>"""
@@ -154,30 +174,11 @@ class UserInfo(BaseModel):
     groups: UserGroupList
 
 
-class UserQuotaQuantum(BaseModel):
-    cpu: float = Field(
-        ...,
-        title="cpu",
-        example=1.5,
-        description=(
-            "Kubernetes CPU resource, floating-point value.  cf"
-            " https://kubernetes.io/docs/tasks/configure-pod-container/"
-            "assign-cpu-resource/"
-        ),
-    )
-    memory: int = Field(
-        ...,
-        title="memory",
-        example=1073741824,
-        description=("Kubernetes memory resource in bytes."),
-    )
-
-
-class UserQuota(BaseModel):
-    limits: UserQuotaQuantum = Field(
+class UserResources(BaseModel):
+    limits: UserResourceQuantum = Field(
         ..., title="limits", description="Maximum allowed resources"
     )
-    requests: UserQuotaQuantum = Field(
+    requests: UserResourceQuantum = Field(
         ..., title="requests", description="Intially-requested resources"
     )
 
@@ -200,7 +201,7 @@ class UserData(UserInfo, LabSpecification):
             "User pod state.  Must be one of `present` or `missing`."
         ),
     )
-    quota: UserQuota
+    resources: UserResources
     events: Deque[Event] = Field(
         deque(),
         title="events",
@@ -209,7 +210,7 @@ class UserData(UserInfo, LabSpecification):
 
     def to_components(
         self,
-    ) -> Tuple[str, str, UserInfo, LabSpecification, UserQuota]:
+    ) -> Tuple[str, str, UserInfo, LabSpecification, UserResources]:
         return (
             self.status,
             self.pod,
@@ -224,18 +225,18 @@ class UserData(UserInfo, LabSpecification):
                 options=copy(self.options),
                 env=copy(self.env),
             ),
-            UserQuota(
-                limits=copy(self.quota.limits),
-                requests=copy(self.quota.requests),
+            UserResources(
+                limits=copy(self.resources.limits),
+                requests=copy(self.resources.requests),
             ),
         )
 
     @classmethod
-    def new_from_user_lab_quota(
+    def new_from_user_resources(
         cls,
         user: UserInfo,
         labspec: LabSpecification,
-        quota: UserQuota,
+        resources: UserResources,
     ) -> "UserData":
         return cls(
             username=user.username,
@@ -248,7 +249,7 @@ class UserData(UserInfo, LabSpecification):
             events=deque(),
             status="starting",
             pod="missing",
-            quota=quota,
+            resources=resources,
         )
 
     @classmethod
@@ -256,12 +257,14 @@ class UserData(UserInfo, LabSpecification):
         cls,
         user: UserInfo,
         labspec: LabSpecification,
-        quota: UserQuota,
+        resources: UserResources,
         status: LabStatus,
         pod: PodState,
     ) -> "UserData":
-        ud = UserData.new_from_user_lab_quota(
-            user=user, labspec=labspec, quota=quota
+        ud = UserData.new_from_user_resources(
+            user=user,
+            labspec=labspec,
+            resources=resources,
         )
         ud.status = status
         ud.pod = pod

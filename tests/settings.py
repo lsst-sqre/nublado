@@ -14,7 +14,7 @@ from jupyterlabcontroller.models.v1.lab import (
     PodState,
     UserData,
     UserInfo,
-    UserQuota,
+    UserResources,
 )
 from jupyterlabcontroller.storage.k8s import ContainerImage, ContainerImageList
 from jupyterlabcontroller.utils import memory_string_to_int
@@ -48,7 +48,7 @@ class TestObjectFactory:
                 }
             )
             # Set memory to bytes rather than text (e.g. "3KiB" -> 3072)
-            for q in self.test_objects["quotas"]:
+            for q in self.test_objects["resources"]:
                 for i in ("limits", "requests"):
                     memfld = q[i]["memory"]
                     if type(memfld) is str:
@@ -81,16 +81,18 @@ class TestObjectFactory:
         ]
 
     @property
-    def quotas(self) -> List[UserQuota]:
+    def resources(self) -> List[UserResources]:
         if not self._canonicalized:
             self.canonicalize()
-        return [UserQuota.parse_obj(x) for x in self.test_objects["quotas"]]
+        return [
+            UserResources.parse_obj(x) for x in self.test_objects["resources"]
+        ]
 
     @property
     def userdatas(self) -> List[UserData]:
         userdatas: List[UserData] = []
         labspecs = self.labspecs
-        quotas = self.quotas
+        resources = self.resources
         userinfos = self.userinfos
         lab_statuses = [x for x in LabStatus]
         pod_states = [x for x in PodState]
@@ -101,7 +103,7 @@ class TestObjectFactory:
                     pod=pod_states[(idx) % len(pod_states)],
                     user=v,
                     labspec=labspecs[idx % len(labspecs)],
-                    quota=quotas[idx % len(quotas)],
+                    resources=resources[idx % len(resources)],
                 )
             )
         return userdatas

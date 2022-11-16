@@ -6,7 +6,7 @@ from jupyterlabcontroller.storage.k8s import (
     NodeContainers,
     PodSpec,
     Secret,
-    UserQuota,
+    UserResourceQuantum,
 )
 
 from ..settings import TestObjectFactory
@@ -49,7 +49,7 @@ class MockK8sStorageClient(K8sStorageClient):
         self,
         name: str,
         namespace: str,
-        quota: UserQuota,
+        quota: UserResourceQuantum,
     ) -> None:
         pass
 

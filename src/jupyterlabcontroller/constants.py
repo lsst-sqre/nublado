@@ -12,6 +12,8 @@ KUBERNETES_REQUEST_TIMEOUT: int = 60
 PREPULLER_POLL_INTERVAL: int = 60
 PREPULLER_PULL_TIMEOUT: int = 600
 
+LIMIT_TO_REQUEST_RATIO: float = 4.0  # Seems to work well so far.
+
 SPAWNER_FORM_TEMPLATE = """
 <script>
 function selectDropdown() {
