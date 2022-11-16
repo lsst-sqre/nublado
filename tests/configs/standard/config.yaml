@@ -43,12 +43,15 @@ lab:
   - container_path: /home
     server_path: /share1/home
     server: 10.13.105.122
+    mode: rw
   - container_path: project
     server_path: /share1/project
     server: 10.13.105.122
+    mode: ro
   - container_path: /scratch
     server_path: /share1/scratch
     server: 10.13.105.122
+    mode: rw
   # -- Environment variables for user lab pods, common to all lab pods
   # in this RSP instance.
   env:

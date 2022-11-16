@@ -83,6 +83,11 @@ class LabSizeDefinition(BaseModel):
 LabSizeDefinitions: TypeAlias = Dict[LabSize, LabSizeDefinition]
 
 
+class FileMode(NubladoEnum):
+    RW = auto()
+    RO = auto()
+
+
 class LabVolume(BaseModel):
     container_path: str = Path(
         ...,
@@ -99,7 +104,9 @@ class LabVolume(BaseModel):
         name="server",
         example="10.13.105.122",
         description=(
-            "Hostname or IP address of the NFS server providing the " "volume"
+            "Hostname or IP address of the NFS server providing the volume.  "
+            "If it is the empty string, the mount is taken to be of type "
+            "HostPath rather than NFS."
         ),
     )
     server_path: str = Path(
@@ -107,9 +114,18 @@ class LabVolume(BaseModel):
         name="container_path",
         example="/share1/home",
         description=(
-            "Absolute path where the volume is exported from the " "NFS server"
+            "Absolute path where the volume is exported from the NFS server"
         ),
         regex="^/*",
+    )
+    mode: FileMode = Field(
+        FileMode("rw"),
+        name="mode",
+        example="rw",
+        description=(
+            "File mode: 'rw' means read/write, while 'ro' means read only.  "
+            "The default is read/write."
+        ),
     )
 
 
