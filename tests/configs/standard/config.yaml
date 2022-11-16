@@ -38,10 +38,6 @@ lab:
   #     runAsUser: 1000
   #     runAsNonRootUser: true
   #     allowPrivilegeEscalation: false
-  # -- Maximum CPU/memory resources for user namespace
-  quota:
-    cpu: 81
-    memory: 243Gi
   # -- Volumes defined to user lab pods
   volumes:
   - container_path: /home
