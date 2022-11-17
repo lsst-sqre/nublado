@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 from collections import deque
-from copy import copy
 from enum import auto
-from typing import Deque, Dict, List, Optional, Tuple, TypeAlias
+from typing import Deque, Dict, List, Optional, TypeAlias
 
 from pydantic import BaseModel, Field
 
@@ -207,29 +206,6 @@ class UserData(UserInfo, LabSpecification):
         title="events",
         description=("Ordered queue of events for user lab creation/deletion"),
     )
-
-    def to_components(
-        self,
-    ) -> Tuple[str, str, UserInfo, LabSpecification, UserResources]:
-        return (
-            self.status,
-            self.pod,
-            UserInfo(
-                username=self.username,
-                name=self.name,
-                uid=self.uid,
-                gid=self.gid,
-                groups=copy(self.groups),
-            ),
-            LabSpecification(
-                options=copy(self.options),
-                env=copy(self.env),
-            ),
-            UserResources(
-                limits=copy(self.resources.limits),
-                requests=copy(self.resources.requests),
-            ),
-        )
 
     @classmethod
     def new_from_user_resources(
