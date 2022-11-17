@@ -10,9 +10,9 @@ from jupyterlabcontroller.services.prepull_executor import PrepullExecutor
 async def test_get_menu_images(prepull_executor: PrepullExecutor) -> None:
     pm = prepull_executor.manager
     r = await pm.get_menu_images()
-    assert "recommended" in r
-    assert type(r["recommended"]) is Image
-    assert r["recommended"].digest == "sha256:5678"
+    assert "recommended" in r.menu
+    assert type(r.menu["recommended"]) is Image
+    assert r.menu["recommended"].digest == "sha256:5678"
 
 
 @pytest.mark.asyncio
@@ -23,7 +23,7 @@ async def test_get_prepulls(prepull_executor: PrepullExecutor) -> None:
     assert r.config.docker.repository == "library/sketchbook"
     assert (
         r.images.prepulled[0].path
-        == "lighthouse.ceres/library/sketchbook:recommended"
+        == "lighthouse.ceres/library/sketchbook:recommended@sha256:5678"
     )
     assert r.nodes[0].name == "node1"
 

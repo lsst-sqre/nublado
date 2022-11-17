@@ -218,7 +218,7 @@ lab:
   # - name: postgres-credentials.txt
   #   mount_path: /opt/lsst/software/jupyterlab/butler-secret/postgres-credentials.txt
   #   env: PGPASSFILE
-prepuller:
+images:
   # -- config from sqr-066
   registry: lighthouse.ceres
   docker:

@@ -1,7 +1,7 @@
 """Models for prepuller."""
 from __future__ import annotations
 
-from typing import Dict, List, Optional, TypeAlias, Union
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -68,20 +68,33 @@ class Image(PartialImage):
 """GET /nublado/spawner/v1/images"""
 # sqr-066 is not very clear about this--its use of "list" is strange.  Let's
 # assume the resulting output is correct, in which case it will be a
-# dict of DisplayImages, with one key representing the best tag for each
-# image, and a final key, "all", representing a list of all available images.
+# dict of DisplayImages, with each of the keys "recommended", "latest-weekly",
+# "latest-daily", and "latest-release", each mapped to an image, and a final
+# key, "all", representing a list of all available images.
 
-DisplayImage: TypeAlias = Dict[str, Image]
-DisplayImages: TypeAlias = Dict[str, Union[Image, DisplayImage]]
+
+def dashify(item: str) -> str:
+    return item.replace("_", "-")
+
+
+class SpawnerImages(BaseModel):
+    recommended: Optional[Image] = None
+    latest_weekly: Optional[Image] = None
+    latest_daily: Optional[Image] = None
+    latest_release: Optional[Image] = None
+    all: List[Image] = Field(default_factory=list)
+
+    class Config:
+        alias_generator = dashify
+        allow_population_by_field_name = True
+
 
 """GET /nublado/spawner/v1/prepulls"""
 
 
-# We will need some fancy validation rules for the compound types.
-
 # "config" section
 
-# This lives in PrepullerConfig
+# This comes from PrepullerConfig
 
 
 # "images" section

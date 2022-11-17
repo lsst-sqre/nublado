@@ -11,18 +11,18 @@ from ..constants import PREPULLER_POLL_INTERVAL
 from ..models.context import Context
 from ..models.domain.prepuller import (
     DigestToNodeTagImages,
+    DisplayImages,
     NodeContainers,
     NodeTagImage,
 )
 from ..models.tag import RSPTag, RSPTagList, RSPTagType, StandaloneRSPTag
 from ..models.v1.prepuller import (
-    DisplayImages,
-    Image,
     Node,
     NodeImage,
     PrepullerConfig,
     PrepullerContents,
     PrepullerStatus,
+    SpawnerImages,
 )
 from ..storage.k8s import ContainerImage, K8sStorageClient
 
@@ -36,7 +36,7 @@ class PrepullerManager:
 
         self._logger: BoundLogger = self.context.logger
         self._k8s_client: K8sStorageClient = self.context.k8s_client
-        self._config: PrepullerConfig = self.context.config.prepuller
+        self._config: PrepullerConfig = self.context.config.images
         self._node_state: Optional[List[Node]] = None
         self._image_state: Optional[List[NodeTagImage]] = None
         self._last_check: datetime.datetime = datetime.datetime(
@@ -150,6 +150,102 @@ class PrepullerManager:
     ) -> List[Node]:
         return [x for x in nodes if x.name not in img.nodes]
 
+    async def get_spawner_images(self) -> SpawnerImages:
+        recommended = self._config.recommended_tag
+        images = await self.get_images()
+        r = SpawnerImages()
+        for img in images:
+            tags = list(img.tags.keys())
+            for t in tags:
+                if t == recommended and r.recommended is None:
+                    r.recommended = img.to_image()
+                if t == "latest_weekly" and r.latest_weekly is None:
+                    r.latest_weekly = img.to_image()
+                if t == "latest_daily" and r.latest_daily is None:
+                    r.latest_daily = img.to_image()
+                if t == "latest_release" and r.latest_release is None:
+                    r.latest_release = img.to_image()
+                if (
+                    r.recommended
+                    and r.latest_weekly
+                    and r.latest_daily
+                    and r.latest_release
+                ):
+                    break
+        return r
+
+    def consolidate_tags(self, img: NodeTagImage) -> NodeTagImage:
+        """We have an annotated image with many tags.  We want to work
+        through these tags and return an image with a canonical pull tag
+        and a single, but possibly compound, (e.g.
+        "Recommended (Weekly 2022_44)") display name.
+        """
+
+        recommended = self._config.recommended_tag
+        primary_tag: str = ""
+        primary_name: str = ""
+        other_names: List[str] = list()
+        best_tag_type: Optional[RSPTagType] = None
+        best_nonalias_tag_type: Optional[RSPTagType] = None
+
+        if recommended in img.tags:
+            primary_tag = recommended
+            primary_name = img.tags[recommended]
+            img.all_tags.append(recommended)
+
+        img.tagobjs = RSPTagList()
+        img.tagobjs.all_tags = list()
+        for t in img.tags:
+            # Turn each text tag into a stripped-down RSPTag...
+            img.tagobjs.all_tags.append(
+                RSPTag.from_tag(
+                    t, digest=img.digest, alias_tags=img.known_alias_tags
+                )
+            )
+        # And then sort them.
+        img.tagobjs.sort_all_tags()
+
+        # Now that they're sorted, construct the return image with
+        # a compound display_name, a canonical tag, and a favored
+        # image type.
+        for t_obj in img.tagobjs.all_tags:
+            if primary_name == "":
+                primary_name = t_obj.display_name
+                primary_tag = t_obj.tag
+            else:
+                other_names.append(t_obj.display_name)
+            if best_tag_type is None:
+                best_tag_type = t_obj.image_type
+            if (
+                best_nonalias_tag_type is None
+                and t_obj.image_type != RSPTagType.ALIAS
+            ):
+                best_nonalias_tag_type = t_obj.image_type
+        tag_description: str = primary_name
+        if other_names:
+            tag_description += f" ({', '.join(x for x in other_names)})"
+        # The "best" tag is the one corresponding to the highest-sorted
+        # tag.  all_tags will be sorted according to the tagobjs, which is
+        # to say, according to type.
+        # And we know the digest, so, hey, let's make that part of the pull
+        # path!
+        path = f"{img.path}:{primary_tag}@{img.digest}"
+        return NodeTagImage(
+            path=path,
+            name=tag_description,
+            digest=img.digest,
+            tags=copy(img.tags),
+            size=img.size,
+            prepulled=img.prepulled,
+            best_tag=primary_tag,
+            all_tags=[t.tag for t in img.tagobjs.all_tags],
+            nodes=copy(img.nodes),
+            known_alias_tags=copy(img.known_alias_tags),
+            tagobjs=copy(img.tagobjs),
+            best_tag_type=best_tag_type,
+            best_nonalias_tag_type=best_nonalias_tag_type,
+        )
+
     async def get_menu_images(self) -> DisplayImages:
         node_images = await self.get_enabled_prepulled_images()
 
@@ -161,23 +257,32 @@ class PrepullerManager:
             await self._filter_node_images_by_availability(menu_node_images)
         )
 
-        menu_images: DisplayImages = dict()
+        raw_images = await self.get_images()
+        images: List[NodeTagImage] = list()
+        for image in raw_images:
+            images.append(self.consolidate_tags(image))
+
+        menu_images: DisplayImages = DisplayImages()
         for img in available_menu_node_images:
-            menu_images[img] = (available_menu_node_images[img]).to_image()
-        all_menu: Dict[str, Image] = dict()
-        for n_img in node_images:
-            all_menu[n_img.tag] = n_img.to_image()
-        menu_images["all"] = all_menu
+            a_obj = available_menu_node_images[img]
+            menu_images.menu[a_obj.best_tag] = a_obj.to_image()
+        for image in images:
+            menu_images.all[image.best_tag] = image.to_image()
         return menu_images
 
     async def filter_node_images_to_desired_menu(
         self, all_images: List[NodeTagImage]
     ) -> Dict[str, NodeTagImage]:
         menu_images: Dict[str, NodeTagImage] = dict()
+        # First: consolidate tags in all images.
+        images: List[NodeTagImage] = list()
         for img in all_images:
+            images.append(self.consolidate_tags(img))
+        for img in images:
             # First pass: find recommended tag, put it at top
-            if img.tag and img.tag == self._config.recommendedTag:
-                menu_images[img.tag] = img
+            self._logger.warning(f"Found recommended tag: {img}")
+            if img.best_tag and img.best_tag == self._config.recommended_tag:
+                menu_images[img.best_tag] = img
         running_count: Dict[RSPTagType, int] = dict()
         tag_count = {
             RSPTagType.RELEASE: self._config.num_releases,
@@ -188,15 +293,16 @@ class PrepullerManager:
             if tag_count.get(tag_type) is None:
                 tag_count[tag_type] = 0
             running_count[tag_type] = 0
-        for img in all_images:
-            if img.best_image_type is None:
-                raise RuntimeError("Image type is None")
-            tag_type = img.best_image_type
+        for img in images:
+            if img.best_nonalias_tag_type is None:
+                self._logger.warning(f"Image type is None: {img}")
+                continue
+            tag_type = img.best_nonalias_tag_type
             running_count[tag_type] += 1
             if running_count[tag_type] > tag_count[tag_type]:
                 continue
-            if img.tag:
-                menu_images[img.tag] = img
+            if img.best_tag:
+                menu_images[img.best_tag] = img
         return menu_images
 
     async def _filter_node_images_by_availability(
@@ -285,7 +391,7 @@ class PrepullerManager:
                 nodes=[x for x in img.nodes if x in eligible_nodes],
                 known_alias_tags=copy(img.known_alias_tags),
                 tagobjs=copy(img.tagobjs),
-                best_image_type=img.best_image_type,
+                best_tag_type=img.best_tag_type,
             )
             filtered_images.append(filtered)
         return filtered_images
@@ -360,9 +466,7 @@ class PrepullerManager:
                             extant_image.known_alias_tags.append(alias)
         for digest in dmap:
             self._logger.debug(f"Img before tag consolidation: {dmap[digest]}")
-            dmap[digest].consolidate_tags(
-                recommended=self._config.recommendedTag
-            )
+            self.consolidate_tags(dmap[digest])
             self._logger.debug(f"Img after tag consolidation: {dmap[digest]}")
             self._logger.debug(f"Images hash: {dmap}")
         return list(dmap.values())

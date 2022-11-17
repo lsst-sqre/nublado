@@ -278,10 +278,12 @@ class RuntimeConfig(BaseModel):
 #
 # Config
 #
+
+
 class Config(BaseModel):
     safir: SafirConfig
     lab: LabConfig
-    prepuller: PrepullerConfig
+    images: PrepullerConfig
     runtime: RuntimeConfig
 
     @classmethod

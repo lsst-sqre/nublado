@@ -18,7 +18,7 @@ from .dependencies.token import admin_token_dependency, user_token_dependency
 from .models.context import Context
 from .models.index import Index
 from .models.v1.lab import LabSpecification, UserData
-from .models.v1.prepuller import DisplayImages, PrepullerStatus
+from .models.v1.prepuller import PrepullerStatus, SpawnerImages
 from .services.events import EventManager
 from .services.form import FormManager
 from .services.lab import LabManager
@@ -216,15 +216,15 @@ async def get_user_lab_form(
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
     },
-    response_model=DisplayImages,
+    response_model=SpawnerImages,
 )
 async def get_images(
     context: Context = Depends(context_dependency),
     admin_token: str = Depends(admin_token_dependency),
     prepull_executor: PrepullExecutor = Depends(prepull_executor_dependency),
-) -> DisplayImages:
+) -> SpawnerImages:
     """Returns known images and their names."""
-    return await prepull_executor.manager.get_menu_images()
+    return await prepull_executor.manager.get_spawner_images()
 
 
 @external_router.get(

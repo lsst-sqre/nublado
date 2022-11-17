@@ -13,10 +13,11 @@ async def test_generate_user_lab_form(
         context=user_context, prepull_executor=prepull_executor
     )
     r = await fm.generate_user_lab_form()
+    user_context.logger.warning(r)
     assert (
         r.find(
-            '<option value="lighthouse.ceres/library/sketchbook:recommended">'
-            "Recommended (Weekly 2077_43, Latest Weekly)</option>"
+            '<option value="lighthouse.ceres/library/sketchbook:'
+            'recommended@sha256:5678">'
         )
         != -1
     )

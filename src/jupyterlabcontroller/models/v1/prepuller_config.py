@@ -85,7 +85,7 @@ class PrepullerConfig(BaseModel):
     )
     docker: Optional[DockerDefinition] = None
     gar: Optional[GARDefinition] = None
-    recommendedTag: str = Field(
+    recommended_tag: str = Field(
         "recommended",
         title="recommended",
         example="recommended",

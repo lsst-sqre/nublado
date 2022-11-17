@@ -19,15 +19,17 @@ class RSPTagType(Enum):
     """Enum specifying different tag types for Rubin Science Platform Lab
     images.
 
-    These are listed in order of priority to make sorting images easier.
+    These are listed in order of priority to make construction of
+    display names trivial: tags in higher categories will be listed
+    before those in lower categories.
     """
 
+    ALIAS = auto()
     RELEASE = auto()
     WEEKLY = auto()
     DAILY = auto()
     RELEASE_CANDIDATE = auto()
     EXPERIMENTAL = auto()
-    ALIAS = auto()
     UNKNOWN = auto()
 
 

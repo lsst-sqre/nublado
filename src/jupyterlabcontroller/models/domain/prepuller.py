@@ -25,7 +25,8 @@ class NodeTagImage:
     nodes: List[str] = field(default_factory=list)
     known_alias_tags: List[str] = field(default_factory=list)
     tagobjs: RSPTagList = RSPTagList(all_tags=list())
-    best_image_type: Optional[RSPTagType] = None
+    best_tag_type: Optional[RSPTagType] = None
+    best_nonalias_tag_type: Optional[RSPTagType] = None
 
     def to_image(self) -> Image:
         return Image(
@@ -37,47 +38,11 @@ class NodeTagImage:
             prepulled=self.prepulled,
         )
 
-    def consolidate_tags(self, recommended: str) -> None:
-        # We have a bunch of tags, potentially, for a given image.
-        # Consolidate this down into a single tag to pull it by, and
-        # a single (but possibly compound, like "Recommended (Weekly 2022_44)",
-        # display name.
 
-        primary_tag: str = ""
-        primary_name: str = ""
-        other_names: List[str] = list()
-
-        if recommended in self.tags:
-            primary_tag = recommended
-            primary_name = self.tags[recommended]
-            self.all_tags.append(recommended)
-            del self.tags[recommended]
-
-        self.tagobjs = RSPTagList()
-        self.tagobjs.all_tags = list()
-        for t in self.tags:
-            self.tagobjs.all_tags.append(
-                RSPTag.from_tag(t, digest=self.digest)
-            )
-        self.tagobjs.sort_all_tags()
-
-        for t_obj in self.tagobjs.all_tags:
-            if primary_name == "":
-                primary_name = t_obj.display_name
-                primary_tag = t_obj.tag
-            else:
-                other_names.append(t_obj.display_name)
-            if self.best_image_type is None:
-                self.best_image_type = t_obj.image_type
-        tag_description: str = primary_name
-        if other_names:
-            tag_description += f" ({', '.join(x for x in other_names)})"
-        self.tag = primary_tag
-        self.best_tag = primary_tag
-        self.name = tag_description
-        # And now that we have a best tag, stuff it into the image path
-        self.path = f"{self.path}:{self.tag}"
-        return
+@dataclass
+class DisplayImages:
+    menu: Dict[str, Image] = field(default_factory=dict)
+    all: Dict[str, Image] = field(default_factory=dict)
 
 
 DigestToNodeTagImages: TypeAlias = Dict[str, NodeTagImage]

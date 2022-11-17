@@ -35,10 +35,8 @@ class FormManager:
 
         pm = self.prepuller_manager
         displayimages = await pm.get_menu_images()
-        cached_images = [displayimages[x] for x in displayimages if x != "all"]
-        if type(displayimages["all"]) is not dict:
-            raise RuntimeError("displayimages['all'] must be type dict")
-        all_images = [displayimages["all"][x] for x in displayimages["all"]]
+        cached_images = list(displayimages.menu.values())
+        all_images = list(displayimages.all.values())
         sizes = self._extract_sizes()
         self.context.logger.debug(f"cached images: {cached_images}")
         self.context.logger.debug(f"all images: {all_images}")
