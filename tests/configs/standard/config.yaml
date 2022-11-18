@@ -7,9 +7,9 @@ safir:
   # -- Application run profile: "development" or "production"
   profile: development
   # -- Root name of the application's logger.
-  logger_name: jupyterlabcontroller
+  loggerName: jupyterlabcontroller
   #
-  log_level: DEBUG
+  logLevel: DEBUG
 # -- Settings for the JupyterLab controller
 lab:
   # These are the maximum CPU/memory allocations for each size
@@ -40,16 +40,16 @@ lab:
   #     allowPrivilegeEscalation: false
   # -- Volumes defined to user lab pods
   volumes:
-  - container_path: /home
-    server_path: /share1/home
+  - containerPath: /home
+    serverPath: /share1/home
     server: 10.13.105.122
     mode: rw
-  - container_path: project
-    server_path: /share1/project
+  - containerPath: project
+    serverPath: /share1/project
     server: 10.13.105.122
     mode: ro
-  - container_path: /scratch
-    server_path: /share1/scratch
+  - containerPath: /scratch
+    serverPath: /share1/scratch
     server: 10.13.105.122
     mode: rw
   # -- Environment variables for user lab pods, common to all lab pods
@@ -114,7 +114,7 @@ lab:
   # how the Lab controller is to modify it.
   files:
   - name: passwd
-    mount_path: /etc/passwd
+    mountPath: /etc/passwd
     modify: true
     contents: |
       root:x:0:0:root:/root:/bin/bash
@@ -135,7 +135,7 @@ lab:
       systemd-network:x:192:192:systemd Network Management:/:/sbin/nologin
       lsst_lcl:x:1000:1000::/home/lsst_lcl:/bin/bash
   - name: group
-    mount_path: /etc/group
+    mountPath: /etc/group
     modify: true
     contents: |
       root:x:0:
@@ -173,13 +173,13 @@ lab:
       ssh_keys:x:998:
       input:x:999:
   - name: dask-config
-    mount_path: /opt/lsst/software/jupyterlab/lsst_dask.yml
+    mountPath: /opt/lsst/software/jupyterlab/lsst_dask.yml
     contents: |
       # No longer used, but preserves compatibility with runlab.sh
       dask_worker.yml: |
         enabled: false
   - name: idds-config
-    mount_path: /opt/lsst/software/jupyterlab/panda
+    mountPath: /opt/lsst/software/jupyterlab/panda
     modify: false
     contents: |
       # Licensed under the Apache License, Version 2.0 (the "License");
@@ -223,12 +223,12 @@ images:
   registry: lighthouse.ceres
   docker:
     repository: library/sketchbook
-  recommended_tag: recommended
-  num_releases: 1
-  num_weeklies: 2
-  num_dailies: 3
+  recommendedTag: recommended
+  numReleases: 1
+  numWeeklies: 2
+  numDailies: 3
 # -- Runtime config will be filled in on initialization
 runtime:
   path: ""
   namespace: ""
-  instance_url: ""
+  instanceUrl: ""

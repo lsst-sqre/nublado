@@ -3,9 +3,9 @@
 from enum import auto
 from typing import Deque, Dict, TypeAlias
 
-from pydantic import BaseModel
 from sse_starlette import ServerSentEvent
 
+from ..camelcase import CamelCaseModel
 from ..enum import NubladoEnum
 
 """GET /nublado/spawner/v1/labs/username/events"""
@@ -19,7 +19,7 @@ class EventTypes(NubladoEnum):
     PROGRESS = auto()
 
 
-class Event(BaseModel):
+class Event(CamelCaseModel):
     data: str
     event: EventTypes
     sent: bool = False

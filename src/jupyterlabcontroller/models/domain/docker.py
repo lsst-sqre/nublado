@@ -1,9 +1,9 @@
+from dataclasses import dataclass
 from typing import Dict, TypeAlias
 
-from pydantic import BaseModel
 
-
-class DockerCredentials(BaseModel):
+@dataclass
+class DockerCredentials:
     registry_host: str
     username: str
     password: str

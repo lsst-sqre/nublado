@@ -6,8 +6,9 @@ from typing import Any, Dict, List, Optional, TypeAlias, Union
 
 import yaml
 from fastapi import Path
-from pydantic import BaseModel, Field
+from pydantic import Field
 
+from .models.camelcase import CamelCaseModel
 from .models.enum import NubladoEnum
 from .models.v1.lab import LabSize
 from .models.v1.prepuller_config import PrepullerConfiguration
@@ -47,7 +48,7 @@ class SafirProfile(NubladoEnum):
     DEVELOPMENT = auto()
 
 
-class SafirConfiguration(BaseModel):
+class SafirConfiguration(CamelCaseModel):
     name: str = Field(
         ...,
         title="name",
@@ -83,7 +84,7 @@ class SafirConfiguration(BaseModel):
 #
 
 
-class LabSizeDefinition(BaseModel):
+class LabSizeDefinition(CamelCaseModel):
     cpu: float = Field(
         ...,
         title="cpu",
@@ -114,7 +115,7 @@ class FileMode(NubladoEnum):
     RO = auto()
 
 
-class LabVolume(BaseModel):
+class LabVolume(CamelCaseModel):
     container_path: str = Path(
         ...,
         name="container_path",
@@ -155,7 +156,7 @@ class LabVolume(BaseModel):
     )
 
 
-class LabInitContainer(BaseModel):
+class LabInitContainer(CamelCaseModel):
     name: str = Field(
         ...,
         title="name",
@@ -185,7 +186,7 @@ class LabInitContainer(BaseModel):
     )
 
 
-class LabSecret(BaseModel):
+class LabSecret(CamelCaseModel):
     secret_name: str = Field(
         ...,
         name="secret_name",
@@ -208,7 +209,7 @@ class LabSecret(BaseModel):
     )
 
 
-class LabFile(BaseModel):
+class LabFile(CamelCaseModel):
     name: str = Field(
         ...,
         name="name",
@@ -249,7 +250,7 @@ class LabFile(BaseModel):
     )
 
 
-class LabConfiguration(BaseModel):
+class LabConfiguration(CamelCaseModel):
     sizes: LabSizeDefinitions
     env: Dict[str, str] = Field(default_factory=dict)
     secrets: List[LabSecret] = Field(default_factory=list)
@@ -269,7 +270,7 @@ class LabConfiguration(BaseModel):
 # filled in at runtime, obv.
 # Not available to users to set.
 #
-class RuntimeConfiguration(BaseModel):
+class RuntimeConfiguration(CamelCaseModel):
     path: str = ""
     namespace_prefix: str = ""
     instance_url: str = ""
@@ -280,7 +281,7 @@ class RuntimeConfiguration(BaseModel):
 #
 
 
-class Configuration(BaseModel):
+class Configuration(CamelCaseModel):
     safir: SafirConfiguration
     lab: LabConfiguration
     images: PrepullerConfiguration

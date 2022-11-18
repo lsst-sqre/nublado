@@ -3,14 +3,15 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
+from ..camelcase import CamelCaseModel
 from .prepuller_config import PrepullerConfiguration
 
 TagToNameMap = Dict[str, str]
 
 
-class PartialImage(BaseModel):
+class PartialImage(CamelCaseModel):
     path: str = Field(
         ...,
         title="path",
@@ -77,7 +78,7 @@ def dashify(item: str) -> str:
     return item.replace("_", "-")
 
 
-class SpawnerImages(BaseModel):
+class SpawnerImages(CamelCaseModel):
     recommended: Optional[Image] = None
     latest_weekly: Optional[Image] = None
     latest_daily: Optional[Image] = None
@@ -100,7 +101,7 @@ class SpawnerImages(BaseModel):
 # "images" section
 
 
-class Node(BaseModel):
+class Node(CamelCaseModel):
     name: str = Field(
         ...,
         title="name",
@@ -148,7 +149,7 @@ class NodeImage(PartialImage):
     )
 
 
-class PrepullerContents(BaseModel):
+class PrepullerContents(CamelCaseModel):
     prepulled: List[NodeImage] = Field(
         default_factory=list,
         title="prepulled",
@@ -171,7 +172,7 @@ class PrepullerContents(BaseModel):
 # It's just a List[Node]
 
 
-class PrepullerStatus(BaseModel):
+class PrepullerStatus(CamelCaseModel):
     config: PrepullerConfiguration
     images: PrepullerContents
     nodes: List[Node]

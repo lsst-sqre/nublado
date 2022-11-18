@@ -5,8 +5,9 @@ from collections import deque
 from enum import auto
 from typing import Deque, Dict, List, Optional, TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
+from ..camelcase import CamelCaseModel
 from ..enum import NubladoEnum
 from .event import Event
 
@@ -39,7 +40,7 @@ class PodState(NubladoEnum):
 """POST /nublado/spawner/v1/labs/<username>/create"""
 
 
-class UserOptions(BaseModel):
+class UserOptions(CamelCaseModel):
     debug: bool = Field(
         False,
         title="Debug",
@@ -78,7 +79,7 @@ class UserOptions(BaseModel):
     )
 
 
-class UserResourceQuantum(BaseModel):
+class UserResourceQuantum(CamelCaseModel):
     cpu: float = Field(
         ...,
         title="cpu",
@@ -97,7 +98,7 @@ class UserResourceQuantum(BaseModel):
     )
 
 
-class LabSpecification(BaseModel):
+class LabSpecification(CamelCaseModel):
     options: UserOptions
     env: Dict[str, str]
     namespace_quota: Optional[UserResourceQuantum]
@@ -107,7 +108,7 @@ class LabSpecification(BaseModel):
 """GET /nublado/spawner/v1/user-status"""
 
 
-class UserGroup(BaseModel):
+class UserGroup(CamelCaseModel):
     name: str = Field(
         ...,
         title="name",
@@ -131,7 +132,7 @@ class UserGroup(BaseModel):
 UserGroupList: TypeAlias = List[UserGroup]
 
 
-class UserInfo(BaseModel):
+class UserInfo(CamelCaseModel):
     username: str = Field(
         ...,
         title="username",
@@ -173,7 +174,7 @@ class UserInfo(BaseModel):
     groups: UserGroupList
 
 
-class UserResources(BaseModel):
+class UserResources(CamelCaseModel):
     limits: UserResourceQuantum = Field(
         ..., title="limits", description="Maximum allowed resources"
     )

@@ -3,10 +3,12 @@ and we need to avoid circular imports."""
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import Field, root_validator, validator
+
+from ..camelcase import CamelCaseModel
 
 
-class DockerDefinition(BaseModel):
+class DockerDefinition(CamelCaseModel):
     repository: str = Field(
         ...,
         title="repository",
@@ -18,7 +20,7 @@ class DockerDefinition(BaseModel):
     )
 
 
-class GARDefinition(BaseModel):
+class GARDefinition(CamelCaseModel):
     repository: str = Field(
         ...,
         title="repository",
@@ -55,7 +57,7 @@ class GARDefinition(BaseModel):
     )
 
 
-class ImagePathAndName(BaseModel):
+class ImagePathAndName(CamelCaseModel):
     path: str = Field(
         ...,
         title="path",
@@ -74,7 +76,7 @@ class ImagePathAndName(BaseModel):
     )
 
 
-class PrepullerConfiguration(BaseModel):
+class PrepullerConfiguration(CamelCaseModel):
     """See https://sqr-059.lsst.io for how this is used."""
 
     registry: str = Field(
