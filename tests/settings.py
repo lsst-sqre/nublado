@@ -6,7 +6,7 @@ import json
 from copy import copy
 from typing import Any, Dict, List
 
-from jupyterlabcontroller.models.domain.prepuller import NodeContainers
+from jupyterlabcontroller.models.domain.prepuller import NodeContainers, TagMap
 from jupyterlabcontroller.models.domain.usermap import UserMap
 from jupyterlabcontroller.models.v1.lab import (
     LabSpecification,
@@ -120,6 +120,10 @@ class TestObjectFactory:
         if not self._canonicalized:
             self.canonicalize()
         return self.test_objects["node_contents"]
+
+    @property
+    def repocontents(self) -> TagMap:
+        return TagMap(self.test_objects["repo_contents"])
 
 
 test_object_factory = TestObjectFactory()

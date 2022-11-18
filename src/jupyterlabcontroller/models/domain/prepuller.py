@@ -60,3 +60,9 @@ class NodePool:
     @property
     def eligible(self) -> List[str]:
         return [x.name for x in self.nodes if x.eligible]
+
+
+@dataclass
+class TagMap:
+    by_digest: Dict[str, List[str]] = field(default_factory=dict)
+    by_tag: Dict[str, str] = field(default_factory=dict)

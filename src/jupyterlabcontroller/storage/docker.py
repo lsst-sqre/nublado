@@ -1,8 +1,9 @@
 """Docker v2 registry client, based on cachemachine's client."""
+import asyncio
 import base64
 import json
 from os.path import dirname
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from httpx import AsyncClient, Response
 from structlog.stdlib import BoundLogger
@@ -10,6 +11,7 @@ from structlog.stdlib import BoundLogger
 from ..config import Config
 from ..constants import CONFIGURATION_PATH, DOCKER_SECRETS_PATH
 from ..models.domain.docker import DockerCredentials as DC
+from ..models.domain.prepuller import TagMap
 from ..models.exceptions import DockerRegistryError
 from ..models.v1.prepuller_config import PrepullerConfig
 
@@ -76,10 +78,12 @@ class DockerStorageClient:
             msg = f"Unknown error listing tags from <{url}>: {r}"
             raise DockerRegistryError(msg)
 
-    async def get_image_hash(self, tag: str, authenticate: bool = True) -> str:
-        """Get the hash of a tag.
+    async def get_image_digest(
+        self, tag: str, authenticate: bool = True
+    ) -> str:
+        """Get the digest of a tag.
 
-        Get the associated image hash of a Docker tag.
+        Get the associated image digest of a Docker tag.
 
         Parameters
         ----------
@@ -87,19 +91,35 @@ class DockerStorageClient:
         authenticate: should we try and authenticate?  Used internally
           for retrying after successful authentication.
 
-        Returns the hash as a string, such as "sha256:abcdef"
+        Returns the digest as a string, such as "sha256:abcdef"
         """
         url = f"https://{self.host}/v2/{self.repository}/manifests/{tag}"
         r = await self.http_client.head(url, headers=self.headers)
-        self.logger.debug(f"Get image hash response: {r}")
+        self.logger.debug(f"Get image digest response: {r}")
         if r.status_code == 200:
             return r.headers["Docker-Content-Digest"]
         elif r.status_code == 401 and authenticate:
             await self._authenticate(r)
-            return await self.get_image_hash(tag, authenticate=False)
+            return await self.get_image_digest(tag, authenticate=False)
         else:
-            msg = f"Unknown error retrieving hash from <{url}>: {r}"
+            msg = f"Unknown error retrieving digest from <{url}>: {r}"
             raise DockerRegistryError(msg)
+
+    async def get_tag_map(self) -> TagMap:
+        tags = await self.list_tags()
+        tasks: List[asyncio.Task] = list()
+        for tag in tags:
+            tasks.append(asyncio.create_task(self.get_image_digest(tag)))
+        digests: List[Any] = await asyncio.gather(*tasks)  # Actually str...
+        d_str: List[str] = [str(x) for x in digests]  # Really a no-op
+        t_to_d: Dict[str, str] = dict(zip(tags, d_str))
+        d_to_t: Dict[str, List[str]] = dict()
+        for tag in t_to_d:
+            digest = t_to_d[tag]
+            if digest not in d_to_t:
+                d_to_t[digest] = list()
+            d_to_t[digest].append(tag)
+        return TagMap(by_digest=d_to_t, by_tag=t_to_d)
 
     async def _authenticate(self, response: Response) -> None:
         """Internal method to authenticate after getting an auth challenge.

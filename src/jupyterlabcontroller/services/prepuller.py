@@ -14,6 +14,7 @@ from ..models.domain.prepuller import (
     DisplayImages,
     NodeContainers,
     NodeTagImage,
+    TagMap,
 )
 from ..models.tag import RSPTag, RSPTagList, RSPTagType, StandaloneRSPTag
 from ..models.v1.prepuller import (
@@ -24,6 +25,7 @@ from ..models.v1.prepuller import (
     PrepullerStatus,
     SpawnerImages,
 )
+from ..storage.docker import DockerStorageClient
 from ..storage.k8s import ContainerImage, K8sStorageClient
 
 
@@ -36,9 +38,11 @@ class PrepullerManager:
 
         self._logger: BoundLogger = self.context.logger
         self._k8s_client: K8sStorageClient = self.context.k8s_client
+        self._docker_client: DockerStorageClient = self.context.docker_client
         self._config: PrepullerConfig = self.context.config.images
         self._node_state: Optional[List[Node]] = None
         self._image_state: Optional[List[NodeTagImage]] = None
+        self._tag_map: Optional[TagMap] = None
         self._last_check: datetime.datetime = datetime.datetime(
             year=1970,
             month=1,
@@ -63,6 +67,8 @@ class PrepullerManager:
     async def refresh_if_needed(self) -> None:
         if self.needs_refresh:
             await self.refresh_state_from_k8s()
+            await self.refresh_state_from_docker_repo()
+            self._last_check = datetime.datetime.now(tz=datetime.timezone.utc)
 
     async def get_nodes(self) -> List[Node]:
         await self.refresh_if_needed()
@@ -96,6 +102,15 @@ class PrepullerManager:
         return self._update_node_cache(
             await self.get_nodes(), await self.get_prepulled_images()
         )
+
+    async def get_tag_map(self) -> TagMap:
+        await self.refresh_if_needed()
+        if self._tag_map is None:
+            raise RuntimeError(
+                "Failed to retrieve tag map from docker "
+                f"repository {self._config.path}"
+            )
+        return self._tag_map
 
     async def get_prepulls(self) -> PrepullerStatus:
         node_images = await self.get_enabled_prepulled_images()
@@ -327,7 +342,15 @@ class PrepullerManager:
         self._logger.debug(f"Node pool: {self._nodes}")
         self._images = self._construct_current_image_state(all_images_by_node)
         self._logger.debug(f"Images by node: {self._images}")
-        self._last_check = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    async def refresh_state_from_docker_repo(self) -> None:
+        # Clear state
+        self._tags = None
+        self._logger.debug(
+            "Listing image tags from Docker repository " f"{self._config.path}"
+        )
+        self._tags = await self._docker_client.get_tag_map()
+        self._logger.debug(f"tag_map: {self._tags}")
 
     def _make_nodes_from_image_data(
         self,
