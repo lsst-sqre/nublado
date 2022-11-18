@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from .prepuller_config import PrepullerConfig
+from .prepuller_config import PrepullerConfiguration
 
 TagToNameMap = Dict[str, str]
 
@@ -94,7 +94,7 @@ class SpawnerImages(BaseModel):
 
 # "config" section
 
-# This comes from PrepullerConfig
+# This comes from PrepullerConfiguration
 
 
 # "images" section
@@ -172,6 +172,6 @@ class PrepullerContents(BaseModel):
 
 
 class PrepullerStatus(BaseModel):
-    config: PrepullerConfig
+    config: PrepullerConfiguration
     images: PrepullerContents
     nodes: List[Node]

@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from safir.kubernetes import initialize_kubernetes
 
-from jupyterlabcontroller.config import Config
+from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.main import create_app
 from jupyterlabcontroller.models.context import Context
 from jupyterlabcontroller.services.prepull_executor import PrepullExecutor
@@ -36,7 +36,7 @@ def obj_factory() -> TestObjectFactory:
 
 
 @pytest.fixture
-def config() -> Config:
+def config() -> Configuration:
     """Change the test application configuration to point at a file that
     replaces the YAML that would usually be mounted into the container at
     ``/etc/nublado/config.yaml``.  For testing and standalone purposes, if
@@ -45,7 +45,7 @@ def config() -> Config:
     as ``config.yaml``, and we expect objects used in testing to be in
     ``test_objects.json`` in that directory.
     """
-    return Config.from_file(f"{CONFIG_DIR}/config.yaml")
+    return Configuration.from_file(f"{CONFIG_DIR}/config.yaml")
 
 
 @pytest.fixture(scope="session")
@@ -91,7 +91,7 @@ def docker_storage_client(
 
 @pytest_asyncio.fixture
 async def context(
-    config: Config,
+    config: Configuration,
     client: AsyncClient,
     obj_factory: TestObjectFactory,
     k8s_storage_client: MockK8sStorageClient,

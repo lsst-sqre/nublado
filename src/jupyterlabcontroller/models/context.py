@@ -8,7 +8,7 @@ from kubernetes_asyncio.client import ApiClient
 from safir.logging import configure_logging
 from structlog.stdlib import BoundLogger
 
-from ..config import Config
+from ..config import Configuration
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..storage.docker import DockerStorageClient
 from ..storage.gafaelfawr import GafaelfawrStorageClient
@@ -20,7 +20,7 @@ from .v1.lab import UserInfo
 
 @dataclass
 class Context:
-    config: Config
+    config: Configuration
     http_client: AsyncClient
     logger: BoundLogger
     docker_client: DockerStorageClient
@@ -35,7 +35,7 @@ class Context:
     @classmethod
     def initialize(
         cls,
-        config: Config,
+        config: Configuration,
         logger: Optional[BoundLogger] = None,
         http_client: Optional[AsyncClient] = None,
     ) -> "Context":

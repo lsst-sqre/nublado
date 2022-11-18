@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from .models.enum import NubladoEnum
 from .models.v1.lab import LabSize
-from .models.v1.prepuller_config import PrepullerConfig
+from .models.v1.prepuller_config import PrepullerConfiguration
 
 
 def get_namespace_prefix() -> str:
@@ -47,7 +47,7 @@ class SafirProfile(NubladoEnum):
     DEVELOPMENT = auto()
 
 
-class SafirConfig(BaseModel):
+class SafirConfiguration(BaseModel):
     name: str = Field(
         ...,
         title="name",
@@ -215,7 +215,7 @@ class LabFile(BaseModel):
         example="passwd",
         description=(
             "Name of file to be mounted into the user Lab container "
-            "as a ConfigMap.  This name must be unique, and is used "
+            "as a ConfigurationMap.  This name must be unique, and is used "
             "if modify is True to signal the lab controller how the "
             "file needs modification before injection into the "
             "container"
@@ -249,7 +249,7 @@ class LabFile(BaseModel):
     )
 
 
-class LabConfig(BaseModel):
+class LabConfiguration(BaseModel):
     sizes: LabSizeDefinitions
     env: Dict[str, str] = Field(default_factory=dict)
     secrets: List[LabSecret] = Field(default_factory=list)
@@ -269,34 +269,34 @@ class LabConfig(BaseModel):
 # filled in at runtime, obv.
 # Not available to users to set.
 #
-class RuntimeConfig(BaseModel):
+class RuntimeConfiguration(BaseModel):
     path: str = ""
     namespace_prefix: str = ""
     instance_url: str = ""
 
 
 #
-# Config
+# Configuration
 #
 
 
-class Config(BaseModel):
-    safir: SafirConfig
-    lab: LabConfig
-    images: PrepullerConfig
-    runtime: RuntimeConfig
+class Configuration(BaseModel):
+    safir: SafirConfiguration
+    lab: LabConfiguration
+    images: PrepullerConfiguration
+    runtime: RuntimeConfiguration
 
     @classmethod
     def from_file(
         cls,
         filename: str,
-    ) -> Config:
+    ) -> Configuration:
         with open(filename) as f:
             config_obj: Dict[Any, Any] = yaml.safe_load(f)
             # In general the YAML might have configuration for other
             # objects than the controller in it.
-            r = Config.parse_obj(config_obj)
-            r.runtime = RuntimeConfig(
+            r = Configuration.parse_obj(config_obj)
+            r.runtime = RuntimeConfiguration(
                 path=filename,
                 namespace_prefix=get_namespace_prefix(),
                 instance_url=get_external_instance_url(),

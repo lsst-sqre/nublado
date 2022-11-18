@@ -1,25 +1,25 @@
-"""Configuration dependency."""
+"""Configurationuration dependency."""
 from typing import Optional
 
-from ..config import Config
+from ..config import Configuration
 from ..constants import CONFIGURATION_PATH
 
 
-class ConfigurationDependency:
+class ConfigurationurationDependency:
     def __init__(self, filename: str = CONFIGURATION_PATH) -> None:
         self._filename: str = filename
-        self._config: Optional[Config] = None
+        self._config: Optional[Configuration] = None
         #  Defer initialization until first use.
 
     async def __call__(
         self,
-    ) -> Config:
+    ) -> Configuration:
         return self.config
 
     @property
-    def config(self) -> Config:
+    def config(self) -> Configuration:
         if self._config is None:
-            self._config = Config.from_file(
+            self._config = Configuration.from_file(
                 self._filename,
             )
         return self._config
@@ -27,9 +27,9 @@ class ConfigurationDependency:
     def set_filename(self, path: str) -> None:
         """Change the settings path and reload."""
         self._filename = path
-        self._config = Config.from_file(
+        self._config = Configuration.from_file(
             filename=self._filename,
         )
 
 
-configuration_dependency = ConfigurationDependency()
+configuration_dependency = ConfigurationurationDependency()

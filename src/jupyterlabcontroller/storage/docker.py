@@ -8,12 +8,12 @@ from typing import Any, Dict, List, Optional
 from httpx import AsyncClient, Response
 from structlog.stdlib import BoundLogger
 
-from ..config import Config
+from ..config import Configuration
 from ..constants import CONFIGURATION_PATH, DOCKER_SECRETS_PATH
 from ..models.domain.docker import DockerCredentials as DC
 from ..models.domain.prepuller import TagMap
 from ..models.exceptions import DockerRegistryError
-from ..models.v1.prepuller_config import PrepullerConfig
+from ..models.v1.prepuller_config import PrepullerConfiguration
 
 
 class DockerStorageClient:
@@ -27,7 +27,7 @@ class DockerStorageClient:
     def __init__(
         self,
         logger: BoundLogger,
-        config: Config,
+        config: Configuration,
         http_client: AsyncClient,
     ) -> None:
         """Create a new Docker Client.
@@ -35,7 +35,7 @@ class DockerStorageClient:
         Parameters
         ----------
         """
-        prepuller_config: PrepullerConfig = config.images
+        prepuller_config: PrepullerConfiguration = config.images
         self.host = prepuller_config.registry
         self.repository = prepuller_config.path
         secrets_path: str = DOCKER_SECRETS_PATH

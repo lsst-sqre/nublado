@@ -5,13 +5,15 @@ from __future__ import annotations
 import pytest
 from httpx import AsyncClient
 
-from jupyterlabcontroller.config import Config
+from jupyterlabcontroller.config import Configuration
 
 """Tests for the jupyterlabcontroller.handlers external routes."""
 
 
 @pytest.mark.asyncio
-async def test_get_external_index(client: AsyncClient, config: Config) -> None:
+async def test_get_external_index(
+    client: AsyncClient, config: Configuration
+) -> None:
     """Test ``GET /jupyterlab-controller/``"""
     response = await client.get("/jupyterlab-controller/")
     assert response.status_code == 200
@@ -28,7 +30,9 @@ async def test_get_external_index(client: AsyncClient, config: Config) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_internal_index(client: AsyncClient, config: Config) -> None:
+async def test_get_internal_index(
+    client: AsyncClient, config: Configuration
+) -> None:
     """Test ``GET /``"""
     response = await client.get("/")
     assert response.status_code == 200

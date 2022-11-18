@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 
 from aiojobs import Scheduler
 
-from ..config import Config
+from ..config import Configuration
 from ..constants import PREPULLER_POLL_INTERVAL, PREPULLER_PULL_TIMEOUT
 from ..models.context import Context
 from ..models.v1.lab import UserGroup, UserInfo
@@ -15,11 +15,11 @@ from .prepuller import PrepullerManager
 
 
 def need_some_context(
-    context: Optional[Context] = None, config: Optional[Config] = None
+    context: Optional[Context] = None, config: Optional[Configuration] = None
 ) -> Context:
     if context is None:
         if config is None:
-            raise RuntimeError("Config must be specified")
+            raise RuntimeError("Configuration must be specified")
         context = Context.initialize(config=config)
         context.token = "token-of-affection"
         context.namespace = config.runtime.namespace_prefix
@@ -61,7 +61,7 @@ class PrepullExecutor:
 
     def __init__(
         self,
-        config: Optional[Config] = None,
+        config: Optional[Configuration] = None,
         context: Optional[Context] = None,
     ) -> None:
         new_context = need_some_context(context, config)
@@ -72,7 +72,9 @@ class PrepullExecutor:
 
     @classmethod
     def initialize(
-        cls, config: Optional[Config] = None, context: Optional[Context] = None
+        cls,
+        config: Optional[Configuration] = None,
+        context: Optional[Context] = None,
     ) -> "PrepullExecutor":
         new_context = need_some_context(context, config)
         return cls(context=new_context)

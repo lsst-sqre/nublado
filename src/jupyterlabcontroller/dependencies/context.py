@@ -1,7 +1,7 @@
 """
 ContextDependency is an all-in-one dependency, because managing
 individual dependencies turned out to be a real pain.  It's designed to
-capture the context of any request.  It requires that a Config has been
+capture the context of any request.  It requires that a Configuration has been
 loaded before it can be instantiated.
 """
 
@@ -11,7 +11,7 @@ from safir.dependencies.http_client import http_client_dependency
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ..config import Config
+from ..config import Configuration
 from ..models.context import Context
 from .config import configuration_dependency
 
@@ -20,7 +20,7 @@ class ContextDependency:
     async def __call__(
         self,
         request: Request,
-        config: Config = Depends(configuration_dependency),
+        config: Configuration = Depends(configuration_dependency),
         http_client: AsyncClient = Depends(http_client_dependency),
         logger: BoundLogger = Depends(logger_dependency),
     ) -> Context:

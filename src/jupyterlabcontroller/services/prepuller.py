@@ -20,7 +20,7 @@ from ..models.tag import RSPTag, RSPTagList, RSPTagType, StandaloneRSPTag
 from ..models.v1.prepuller import (
     Node,
     NodeImage,
-    PrepullerConfig,
+    PrepullerConfiguration,
     PrepullerContents,
     PrepullerStatus,
     SpawnerImages,
@@ -39,7 +39,7 @@ class PrepullerManager:
         self._logger: BoundLogger = self.context.logger
         self._k8s_client: K8sStorageClient = self.context.k8s_client
         self._docker_client: DockerStorageClient = self.context.docker_client
-        self._config: PrepullerConfig = self.context.config.images
+        self._config: PrepullerConfiguration = self.context.config.images
         self._node_state: Optional[List[Node]] = None
         self._image_state: Optional[List[NodeTagImage]] = None
         self._tag_map: Optional[TagMap] = None
@@ -604,7 +604,9 @@ class PrepullerManager:
             return c.gar.image
         if c.docker is not None:
             return c.docker.repository.split("/")[-1]
-        raise RuntimeError(f"Config {c} sets neither 'gar' nor 'docker'!")
+        raise RuntimeError(
+            f"Configuration {c} sets neither 'gar' nor 'docker'!"
+        )
 
     def _extract_path_from_container(self, c: ContainerImage) -> str:
         return self._extract_path_from_image_ref(c.names[0])

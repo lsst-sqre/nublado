@@ -1,5 +1,5 @@
-"""This is its own file because it's part of the domain Config object, and
-we need to avoid circular imports."""
+"""This is its own file because it's part of the domain Configuration object,
+and we need to avoid circular imports."""
 
 from typing import Any, Dict, List, Optional
 
@@ -74,7 +74,7 @@ class ImagePathAndName(BaseModel):
     )
 
 
-class PrepullerConfig(BaseModel):
+class PrepullerConfiguration(BaseModel):
     """See https://sqr-059.lsst.io for how this is used."""
 
     registry: str = Field(

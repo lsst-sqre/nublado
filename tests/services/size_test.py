@@ -1,12 +1,12 @@
 import pytest
 
-from jupyterlabcontroller.config import Config
+from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.models.v1.lab import LabSize
 from jupyterlabcontroller.services.size import SizeManager
 
 
 @pytest.mark.asyncio
-async def test_resources(config: Config) -> None:
+async def test_resources(config: Configuration) -> None:
     size_manager = SizeManager(sizes=config.lab.sizes)
     resource = size_manager.resources[LabSize("medium")]
     assert resource.limits.memory == 6442450944
@@ -16,7 +16,7 @@ async def test_resources(config: Config) -> None:
 
 
 @pytest.mark.asyncio
-async def test_form(config: Config) -> None:
+async def test_form(config: Configuration) -> None:
     size_manager = SizeManager(sizes=config.lab.sizes)
     formdata = size_manager.formdata
     assert len(formdata) == 3

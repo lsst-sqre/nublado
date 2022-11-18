@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi import Depends
 
-from ..config import Config
+from ..config import Configuration
 from ..services.prepull_executor import PrepullExecutor
 from ..services.prepuller import PrepullerManager
 from .config import configuration_dependency
@@ -10,17 +10,17 @@ from .config import configuration_dependency
 
 class PrepullExecutorDependency:
     def __init__(self) -> None:
-        self._config: Optional[Config] = None
+        self._config: Optional[Configuration] = None
         self._executor: Optional[PrepullExecutor] = None
         self._manager: Optional[PrepullerManager] = None
         # Defer initialization until first use.
 
     async def __call__(
-        self, config: Config = Depends(configuration_dependency)
+        self, config: Configuration = Depends(configuration_dependency)
     ) -> PrepullExecutor:
         return self.executor
 
-    def set_config(self, config: Config) -> None:
+    def set_config(self, config: Configuration) -> None:
         self._config = config
 
     @property

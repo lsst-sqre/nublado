@@ -10,7 +10,7 @@ from safir.models import ErrorModel
 from sse_starlette.sse import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
-from .config import Config
+from .config import Configuration
 from .dependencies.config import configuration_dependency
 from .dependencies.context import context_dependency
 from .dependencies.prepull import prepull_executor_dependency
@@ -263,7 +263,7 @@ async def get_prepulls(
 )
 async def get_index(
     logger: BoundLogger = Depends(logger_dependency),
-    config: Config = Depends(configuration_dependency),
+    config: Configuration = Depends(configuration_dependency),
 ) -> Index:
     """GET ``/nublado/`` (the app's external root).
 
@@ -316,7 +316,7 @@ or other information that should not be visible outside the Kubernetes cluster.
     summary="Application metadata",
 )
 async def get_internal_index(
-    config: Config = Depends(configuration_dependency),
+    config: Configuration = Depends(configuration_dependency),
 ) -> Metadata:
     """GET ``/`` (the app's internal root).
 
