@@ -1,19 +1,30 @@
 import pytest
+from httpx import AsyncClient
+from structlog.stdlib import BoundLogger
 
-from jupyterlabcontroller.models.context import Context
+from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.services.form import FormManager
-from jupyterlabcontroller.services.prepull_executor import PrepullExecutor
+from jupyterlabcontroller.services.prepuller import PrepullerManager
 
 
 @pytest.mark.asyncio
 async def test_generate_user_lab_form(
-    user_context: Context, prepull_executor: PrepullExecutor
+    username: str,
+    config: Configuration,
+    prepuller_manager: PrepullerManager,
+    logger: BoundLogger,
+    http_client: AsyncClient,
 ) -> None:
+    lab_sizes = config.lab.sizes
     fm: FormManager = FormManager(
-        context=user_context, prepull_executor=prepull_executor
+        username=username,
+        prepuller_manager=prepuller_manager,
+        logger=logger,
+        http_client=http_client,
+        lab_sizes=lab_sizes,
     )
     r = await fm.generate_user_lab_form()
-    user_context.logger.warning(r)
+    logger.warning(r)
     assert (
         r.find(
             '<option value="lighthouse.ceres/library/sketchbook:'

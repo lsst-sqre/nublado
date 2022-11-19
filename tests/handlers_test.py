@@ -12,10 +12,10 @@ from jupyterlabcontroller.config import Configuration
 
 @pytest.mark.asyncio
 async def test_get_external_index(
-    client: AsyncClient, config: Configuration
+    app_client: AsyncClient, config: Configuration
 ) -> None:
     """Test ``GET /jupyterlab-controller/``"""
-    response = await client.get("/jupyterlab-controller/")
+    response = await app_client.get("/jupyterlab-controller/")
     assert response.status_code == 200
     data = response.json()
     metadata = data["metadata"]
@@ -31,10 +31,10 @@ async def test_get_external_index(
 
 @pytest.mark.asyncio
 async def test_get_internal_index(
-    client: AsyncClient, config: Configuration
+    app_client: AsyncClient, config: Configuration
 ) -> None:
     """Test ``GET /``"""
-    response = await client.get("/")
+    response = await app_client.get("/")
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == config.safir.name

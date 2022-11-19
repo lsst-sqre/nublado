@@ -123,7 +123,7 @@ class TestObjectFactory:
 
     @property
     def repocontents(self) -> TagMap:
-        return TagMap(self.test_objects["repo_contents"])
+        return TagMap(**self.test_objects["repo_contents"])
 
 
 test_object_factory = TestObjectFactory()

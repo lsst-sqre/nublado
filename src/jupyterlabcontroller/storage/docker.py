@@ -1,58 +1,39 @@
 """Docker v2 registry client, based on cachemachine's client."""
 import asyncio
-import base64
-import json
-from os.path import dirname
 from typing import Any, Dict, List, Optional
 
 from httpx import AsyncClient, Response
 from structlog.stdlib import BoundLogger
 
-from ..config import Configuration
-from ..constants import CONFIGURATION_PATH, DOCKER_SECRETS_PATH
 from ..models.domain.docker import DockerCredentials as DC
 from ..models.domain.prepuller import TagMap
 from ..models.exceptions import DockerRegistryError
-from ..models.v1.prepuller_config import PrepullerConfiguration
 
 
 class DockerStorageClient:
     """Simple client for querying Docker registry."""
 
-    secrets_path: Optional[str] = None
-    credentials: Optional[DC] = None
-    host: Optional[str] = None
-    repository: Optional[str] = None
-
     def __init__(
         self,
         logger: BoundLogger,
-        config: Configuration,
+        host: str,
+        repository: str,
         http_client: AsyncClient,
+        credentials: Optional[DC] = None,
     ) -> None:
         """Create a new Docker Client.
 
         Parameters
         ----------
         """
-        prepuller_config: PrepullerConfiguration = config.images
-        self.host = prepuller_config.registry
-        self.repository = prepuller_config.path
-        secrets_path: str = DOCKER_SECRETS_PATH
-        if config.runtime.path != CONFIGURATION_PATH:
-            # We are loading the config from non-container-provided place,
-            # so therefore the secrets will reside in the same directory
-            # as docker_config.json (by convention).
-            secrets_path = (
-                f"{dirname(str(config.runtime.path))}/docker_config.json"
-            )
-        self.secrets_path = secrets_path
+        self.host = host
+        self.repository = repository
         self.http_client = http_client
         self.logger = logger
         self.headers = {
             "Accept": "application/vnd.docker.distribution.manifest.v2+json"
         }
-        self._lookup_credentials()
+        self.credentials = credentials
 
     async def list_tags(self, authenticate: bool = True) -> List[str]:
         """List all the tags.
@@ -181,49 +162,3 @@ class DockerStorageClient:
         else:
             msg = f"Unknown authentication challenge {challenge}"
             raise DockerRegistryError(msg)
-
-    def _lookup_credentials(self) -> None:
-        """Find credentials for the current client.
-
-        Using the repository host, look for an entry in the dockerconfig
-        whose key is a string with which the hostname ends, which contains
-        a username and password for authenticating.
-        """
-
-        if self.secrets_path is None:
-            self.logger.warning("Cannot determine secrets location")
-            return
-        try:
-            with open(self.secrets_path) as f:
-                self.logger.debug(f"Parsing {self.secrets_path}")
-                credstore = json.loads(f.read())
-                if self.host is None:
-                    # This can't happen but mypy doesn't know that
-                    self.logger.warning("Could not determine host from config")
-                    return
-                for host in credstore["auths"]:
-                    if not host:
-                        self.logger.warning(
-                            "host is empty; setting default credentials"
-                        )
-                        host = ""
-                    b64auth = credstore["auths"][host]["auth"]
-                    basic_auth = base64.b64decode(b64auth).decode()
-                    username, password = basic_auth.split(":", 1)
-                    if self.host.endswith(host):
-                        self.credentials = DC(
-                            registry_host=host,
-                            username=username,
-                            password=password,
-                            base64_auth=b64auth,
-                        )
-                    self.logger.debug(f"Added authentication for '{host}'")
-        except FileNotFoundError:
-            # It's possible we're only using unauthenticated registries.
-            self.logger.warning(
-                f"no Docker config found at {self.secrets_path}"
-            )
-        if self.credentials is None:
-            self.logger.warning(
-                f"No Docker credentials loaded for {self.host}"
-            )

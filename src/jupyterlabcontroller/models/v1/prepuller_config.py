@@ -160,14 +160,19 @@ class PrepullerConfiguration(CamelCaseModel):
         return v
 
     @property
+    def repository(self) -> str:
+        # Return the image repository (docker reference without the host/tag)
+        if self.gar is not None:
+            r = (
+                f"/{self.gar.project_id}/{self.gar.repository}/"
+                f"{self.gar.image}"
+            )
+        else:
+            if self.docker is not None:
+                r = f"/{self.docker.repository}"
+        return r
+
+    @property
     def path(self) -> str:
         # Return the canonical path to the set of tagged images
-        p = self.registry
-        gar = self.gar
-        if gar is not None:
-            p += f"/{gar.project_id}/{gar.repository}/{gar.image}"
-        else:
-            docker = self.docker
-            if docker is not None:
-                p += f"/{docker.repository}"
-        return p
+        return f"{self.registry}/{self.repository}"

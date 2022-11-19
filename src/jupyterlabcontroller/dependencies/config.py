@@ -1,11 +1,11 @@
-"""Configurationuration dependency."""
+"""Configuration dependency."""
 from typing import Optional
 
 from ..config import Configuration
 from ..constants import CONFIGURATION_PATH
 
 
-class ConfigurationurationDependency:
+class ConfigurationDependency:
     def __init__(self, filename: str = CONFIGURATION_PATH) -> None:
         self._filename: str = filename
         self._config: Optional[Configuration] = None
@@ -32,4 +32,4 @@ class ConfigurationurationDependency:
         )
 
 
-configuration_dependency = ConfigurationurationDependency()
+configuration_dependency = ConfigurationDependency()

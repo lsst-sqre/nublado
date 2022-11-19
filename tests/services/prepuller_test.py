@@ -3,22 +3,20 @@ import asyncio
 import pytest
 
 from jupyterlabcontroller.models.v1.prepuller import Image
-from jupyterlabcontroller.services.prepull_executor import PrepullExecutor
+from jupyterlabcontroller.services.prepuller import PrepullerManager
 
 
 @pytest.mark.asyncio
-async def test_get_menu_images(prepull_executor: PrepullExecutor) -> None:
-    pm = prepull_executor.manager
-    r = await pm.get_menu_images()
+async def test_get_menu_images(prepuller_manager: PrepullerManager) -> None:
+    r = await prepuller_manager.get_menu_images()
     assert "recommended" in r.menu
     assert type(r.menu["recommended"]) is Image
     assert r.menu["recommended"].digest == "sha256:5678"
 
 
 @pytest.mark.asyncio
-async def test_get_prepulls(prepull_executor: PrepullExecutor) -> None:
-    pm = prepull_executor.manager
-    r = await pm.get_prepulls()
+async def test_get_prepulls(prepuller_manager: PrepullerManager) -> None:
+    r = await prepuller_manager.get_prepulls()
     assert r.config.docker is not None
     assert r.config.docker.repository == "library/sketchbook"
     assert (
@@ -29,8 +27,8 @@ async def test_get_prepulls(prepull_executor: PrepullExecutor) -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_prepuller(prepull_executor: PrepullExecutor) -> None:
-    await prepull_executor.run()
+async def test_run_prepuller(prepuller_manager: PrepullerManager) -> None:
+    await prepuller_manager.run()
     await asyncio.sleep(0.2)
-    await prepull_executor.stop()
+    await prepuller_manager.stop()
     await asyncio.sleep(0.2)

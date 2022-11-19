@@ -13,7 +13,7 @@ from structlog.stdlib import BoundLogger
 from .config import Configuration
 from .dependencies.config import configuration_dependency
 from .dependencies.context import context_dependency
-from .dependencies.prepull import prepull_executor_dependency
+from .dependencies.prepull import prepuller_manager_dependency
 from .dependencies.token import admin_token_dependency, user_token_dependency
 from .models.context import Context
 from .models.index import Index
@@ -21,8 +21,8 @@ from .models.v1.lab import LabSpecification, UserData
 from .models.v1.prepuller import PrepullerStatus, SpawnerImages
 from .services.events import EventManager
 from .services.form import FormManager
-from .services.lab import LabManager
-from .services.prepull_executor import PrepullExecutor
+from .services.lab import DeleteLabManager, LabManager
+from .services.prepuller import PrepullerManager
 
 # from sse_starlette.sse import EventSourceResponse
 
@@ -89,15 +89,29 @@ async def post_new_lab(
     lab: LabSpecification,
     context: Context = Depends(context_dependency),
     user_token: str = Depends(user_token_dependency),
-    prepull_executor: PrepullExecutor = Depends(prepull_executor_dependency),
+    prepuller_manager: PrepullerManager = Depends(
+        prepuller_manager_dependency
+    ),
+    logger: BoundLogger = Depends(logger_dependency),
 ) -> str:
     """Create a new Lab pod for a given user"""
+    # This can't really happen because we wouldn't have a user token without
+    # one.
+    if context.user is None:
+        raise RuntimeError("Require user from context to create user lab")
+    username = context.user.username
     lab_manager = LabManager(
-        lab=lab, context=context, prepull_executor=prepull_executor
+        username=username,
+        namespace=context.namespace,
+        lab=lab,
+        logger=logger,
+        lab_config=context.config.lab,
+        prepuller_manager=prepuller_manager,
+        user_map=context.user_map,
+        k8s_client=context.k8s_client,
+        user=context.user,
+        token=user_token,
     )
-    username = lab_manager.user
-    if username == "":
-        raise RuntimeError("Cannot create lab without user")
     context.logger.debug(f"Received creation request for {username}")
     await lab_manager.create_lab()
     return f"/context/spawner/v1/labs/{username}"
@@ -114,17 +128,15 @@ async def post_new_lab(
 )
 async def delete_user_lab(
     username: str,
+    logger: BoundLogger = Depends(logger_dependency),
     context: Context = Depends(context_dependency),
     admin_token: str = Depends(admin_token_dependency),
-    prepull_executor: PrepullExecutor = Depends(prepull_executor_dependency),
 ) -> None:
     """Stop a running pod."""
-    lab_manager = LabManager(
-        lab=LabSpecification(),
-        context=context,
-        prepull_executor=prepull_executor,
+    del_lab_manager = DeleteLabManager(
+        k8s_client=context.k8s_client, logger=logger, user_map=context.user_map
     )
-    await lab_manager.delete_lab_environment(username)
+    await del_lab_manager.delete_lab_environment(username)
     return
 
 
@@ -194,11 +206,18 @@ async def get_user_lab_form(
     username: str,
     context: Context = Depends(context_dependency),
     user_token: str = Depends(user_token_dependency),
-    prepull_executor: PrepullExecutor = Depends(prepull_executor_dependency),
+    logger: BoundLogger = Depends(logger_dependency),
+    prepuller_manager: PrepullerManager = Depends(
+        prepuller_manager_dependency
+    ),
 ) -> str:
     """Get the lab creation form for a particular user."""
     form_manager = FormManager(
-        context=context, prepull_executor=prepull_executor
+        username=username,
+        logger=logger,
+        http_client=context.http_client,
+        prepuller_manager=prepuller_manager,
+        lab_sizes=context.config.lab.sizes,
     )
     return await form_manager.generate_user_lab_form()
 
@@ -221,10 +240,12 @@ async def get_user_lab_form(
 async def get_images(
     context: Context = Depends(context_dependency),
     admin_token: str = Depends(admin_token_dependency),
-    prepull_executor: PrepullExecutor = Depends(prepull_executor_dependency),
+    prepuller_manager: PrepullerManager = Depends(
+        prepuller_manager_dependency
+    ),
 ) -> SpawnerImages:
     """Returns known images and their names."""
-    return await prepull_executor.manager.get_spawner_images()
+    return await prepuller_manager.get_spawner_images()
 
 
 @external_router.get(
@@ -236,12 +257,13 @@ async def get_images(
     response_model=PrepullerStatus,
 )
 async def get_prepulls(
-    context: Context = Depends(context_dependency),
     admin_token: str = Depends(admin_token_dependency),
-    prepull_executor: PrepullExecutor = Depends(prepull_executor_dependency),
+    prepuller_manager: PrepullerManager = Depends(
+        prepuller_manager_dependency
+    ),
 ) -> PrepullerStatus:
     """Returns the list of known images and their names."""
-    return await prepull_executor.manager.get_prepulls()
+    return await prepuller_manager.get_prepulls()
 
 
 #

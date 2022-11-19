@@ -38,6 +38,10 @@ class Context:
         config: Configuration,
         logger: Optional[BoundLogger] = None,
         http_client: Optional[AsyncClient] = None,
+        docker_client: Optional[DockerStorageClient] = None,
+        k8s_client: Optional[K8sStorageClient] = None,
+        user_map: Optional[UserMap] = None,
+        event_map: Optional[EventMap] = None,
     ) -> "Context":
         if logger is None:
             # Logger
@@ -56,19 +60,28 @@ class Context:
             raise RuntimeError("Could not get http_client")
 
         # Docker client
-        docker_client = DockerStorageClient(
-            config=config, logger=logger, http_client=http_client
-        )
+        if docker_client is None:
+            docker_client = DockerStorageClient(
+                host=config.images.registry,
+                repository=config.images.repository,
+                logger=logger,
+                http_client=http_client,
+            )
         # K8s client
-        k8s_client = K8sStorageClient(
-            k8s_api=ApiClient(), timeout=KUBERNETES_REQUEST_TIMEOUT
-        )
+        if k8s_client is None:
+            k8s_client = K8sStorageClient(
+                k8s_api=ApiClient(),
+                timeout=KUBERNETES_REQUEST_TIMEOUT,
+                logger=logger,
+            )
 
         # User-to-lab map
-        user_map: UserMap = UserMap()
+        if user_map is None:
+            user_map = UserMap()
 
         # User-to-event-queue map
-        event_map: EventMap = EventMap()
+        if event_map is None:
+            event_map = EventMap()
 
         return cls(
             config=config,
@@ -82,7 +95,7 @@ class Context:
 
     async def patch_with_request(self, request: Request) -> None:
         # Getting user and token from request are async so we can't
-        # do it at object creation time.
+        # do it at object creation time
         gafaelfawr_client = GafaelfawrStorageClient(
             request=request, http_client=self.http_client
         )
@@ -90,5 +103,5 @@ class Context:
         self.user = await gafaelfawr_client.get_user()
         self.token_scopes = await gafaelfawr_client.get_scopes()
         self.namespace = (
-            f"{self.config.runtime.namespace_prefix}-" f"{self.user.username}"
+            f"{self.config.runtime.namespace_prefix}-{self.user.username}"
         )

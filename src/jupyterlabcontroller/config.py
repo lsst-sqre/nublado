@@ -294,12 +294,10 @@ class Configuration(CamelCaseModel):
     ) -> Configuration:
         with open(filename) as f:
             config_obj: Dict[Any, Any] = yaml.safe_load(f)
-            # In general the YAML might have configuration for other
-            # objects than the controller in it.
-            r = Configuration.parse_obj(config_obj)
-            r.runtime = RuntimeConfiguration(
-                path=filename,
-                namespace_prefix=get_namespace_prefix(),
-                instance_url=get_external_instance_url(),
-            )
-            return r
+        r = Configuration.parse_obj(config_obj)
+        r.runtime = RuntimeConfiguration(
+            path=filename,
+            namespace_prefix=get_namespace_prefix(),
+            instance_url=get_external_instance_url(),
+        )
+        return r

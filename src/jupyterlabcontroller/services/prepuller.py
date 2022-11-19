@@ -1,14 +1,23 @@
-"""Answer questions about the prepull state.  Requires ability to spawn pods.
+"""Prepull images to nodes and answer questions about the prepull
+state; requires the ability to spawn pods.  It really doesn't matter
+what user we use and we don't need to mount any volumes: the only
+action we take is sleeping for five seconds, so not being in NSS
+doesn't make a difference, and "any non-zero uid" will work just fine.
+
+This should be a per-process singleton, although we're not going to try to
+enforce that.
 """
 
+
+import asyncio
 import datetime
 from copy import copy
 from typing import Any, Dict, List, Optional
 
+from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
-from ..constants import PREPULLER_POLL_INTERVAL
-from ..models.context import Context
+from ..constants import PREPULLER_POLL_INTERVAL, PREPULLER_PULL_TIMEOUT
 from ..models.domain.prepuller import (
     DigestToNodeTagImages,
     DisplayImages,
@@ -26,20 +35,24 @@ from ..models.v1.prepuller import (
     SpawnerImages,
 )
 from ..storage.docker import DockerStorageClient
-from ..storage.k8s import ContainerImage, K8sStorageClient
+from ..storage.k8s import Container, ContainerImage, K8sStorageClient, PodSpec
 
 
 class PrepullerManager:
     def __init__(
         self,
-        context: Context,
+        namespace: str,
+        logger: BoundLogger,
+        k8s_client: K8sStorageClient,
+        docker_client: DockerStorageClient,
+        config: PrepullerConfiguration,
     ) -> None:
-        self.context = context
 
-        self._logger: BoundLogger = self.context.logger
-        self._k8s_client: K8sStorageClient = self.context.k8s_client
-        self._docker_client: DockerStorageClient = self.context.docker_client
-        self._config: PrepullerConfiguration = self.context.config.images
+        self.logger = logger
+        self.namespace = namespace
+        self.k8s_client = k8s_client
+        self.docker_client = docker_client
+        self.config = config
         self._node_state: Optional[List[Node]] = None
         self._image_state: Optional[List[NodeTagImage]] = None
         self._tag_map: Optional[TagMap] = None
@@ -53,6 +66,7 @@ class PrepullerManager:
             microsecond=0,
             tzinfo=datetime.timezone.utc,
         )
+        self._schedulers: Dict[str, Scheduler] = dict()
 
     @property
     def needs_refresh(self) -> bool:
@@ -86,19 +100,87 @@ class PrepullerManager:
         return self._images
 
     async def get_prepulled_images(self) -> List[NodeTagImage]:
-        self._logger.debug("Calculating image prepull status")
+        self.logger.debug("Calculating image prepull status")
         return self._update_prepulled_images(
             await self.get_nodes(), await self.get_images()
         )
 
     async def get_enabled_prepulled_images(self) -> List[NodeTagImage]:
-        self._logger.debug("Calculating image prepull status")
-        return self._update_prepulled_images(
-            await self.get_nodes(), await self.get_images()
+        self.logger.debug("Calculating image prepull status")
+        present_images = await self.get_images()
+        remote_tags = await self._make_tags_from_tag_map()
+        available_remote_images = await self.get_available_images(remote_tags)
+        available_images = self._merge_local_and_remote_images(
+            present_images, available_remote_images
         )
 
+        return self._update_prepulled_images(
+            await self.get_nodes(), available_images
+        )
+
+    def _make_digest_map(
+        self, imgs: List[NodeTagImage]
+    ) -> Dict[str, NodeTagImage]:
+        imgmap: Dict[str, NodeTagImage] = dict()
+        for i in imgs:
+            dig = i.digest
+            if dig not in imgmap:
+                imgmap[dig] = i
+            o = imgmap[dig]
+            old_tags = set(o.all_tags)
+            old_nodes = set(o.nodes)
+            old_aliases = set(o.known_alias_tags)
+            new_tags = set(i.all_tags)
+            new_nodes = set(i.nodes)
+            new_aliases = set(i.known_alias_tags)
+            # Merge nodes, tags, aliases, prepulled, and update size
+            o.all_tags = list(old_tags.union(new_tags))
+            o.nodes = list(old_nodes.union(new_nodes))
+            o.known_alias_tags = list(old_aliases.union(new_aliases))
+            o.prepulled = o.prepulled & i.prepulled
+            if o.size is None:
+                o.size = i.size
+        return imgmap
+
+    def _merge_local_and_remote_images(
+        self,
+        local: List[NodeTagImage],
+        remote: List[NodeTagImage],
+    ) -> List[NodeTagImage]:
+        validated_local = self._validate_digests(local, remote)
+        all_img = copy(validated_local)
+        all_img.extend(remote)
+        image_map = self._make_digest_map(all_img)
+        return [self.consolidate_tags(x) for x in image_map.values()]
+
+    def _validate_digests(
+        self,
+        local: List[NodeTagImage],
+        remote: List[NodeTagImage],
+    ) -> List[NodeTagImage]:
+        for l_img in local:
+            if not self._validate_single_image(l_img, remote):
+                l_img.nodes = list()  # It needs repulling
+        return local
+
+    def _validate_single_image(
+        self, l_img: NodeTagImage, remote: List[NodeTagImage]
+    ) -> bool:
+        for l_tag in l_img.all_tags:
+            for r_img in remote:
+                if l_tag in r_img.all_tags:
+                    if l_img.digest != r_img.digest:
+                        self.logger.warning(
+                            f"Local image tag {l_tag} has digest "
+                            f"{l_img.digest}, but remote image has "
+                            f"digest {r_img.digest}.  Invalidating "
+                            f"local image"
+                        )
+                        return False
+        return True
+
     async def get_node_cache(self) -> List[Node]:
-        self._logger.debug("Calculating node cache state")
+        self.logger.debug("Calculating node cache state")
         return self._update_node_cache(
             await self.get_nodes(), await self.get_prepulled_images()
         )
@@ -108,9 +190,31 @@ class PrepullerManager:
         if self._tag_map is None:
             raise RuntimeError(
                 "Failed to retrieve tag map from docker "
-                f"repository {self._config.path}"
+                f"repository {self.config.path}"
             )
         return self._tag_map
+
+    async def _make_tags_from_tag_map(self) -> List[RSPTag]:
+        tagmap = await self.get_tag_map()
+        available_tagobjs: List[RSPTag] = list()
+        for dig in tagmap.by_digest:
+            for tag in tagmap.by_digest[dig]:
+                available_tagobjs.append(
+                    RSPTag.from_tag(
+                        tag=tag,
+                        digest=dig,
+                        image_ref=self.config.path,
+                    )
+                )
+        return available_tagobjs
+
+    async def get_available_images(
+        self, tags: List[RSPTag]
+    ) -> List[NodeTagImage]:
+        return [
+            self.consolidate_tags(x)
+            for x in self._get_deduplicated_images_from_tags(tags)
+        ]
 
     async def get_prepulls(self) -> PrepullerStatus:
         node_images = await self.get_enabled_prepulled_images()
@@ -150,9 +254,9 @@ class PrepullerManager:
             prepulled=prepulled, pending=pending
         )
         status: PrepullerStatus = PrepullerStatus(
-            config=self._config, images=images, nodes=nodes
+            config=self.config, images=images, nodes=nodes
         )
-        self._logger.debug(f"Prepuller status: {status}")
+        self.logger.debug(f"Prepuller status: {status}")
         return status
 
     async def _nodes_present(
@@ -166,7 +270,7 @@ class PrepullerManager:
         return [x for x in nodes if x.name not in img.nodes]
 
     async def get_spawner_images(self) -> SpawnerImages:
-        recommended = self._config.recommended_tag
+        recommended = self.config.recommended_tag
         images = await self.get_images()
         r = SpawnerImages()
         for img in images:
@@ -196,7 +300,7 @@ class PrepullerManager:
         "Recommended (Weekly 2022_44)") display name.
         """
 
-        recommended = self._config.recommended_tag
+        recommended = self.config.recommended_tag
         primary_tag: str = ""
         primary_name: str = ""
         other_names: List[str] = list()
@@ -244,7 +348,8 @@ class PrepullerManager:
         # to say, according to type.
         # And we know the digest, so, hey, let's make that part of the pull
         # path!
-        path = f"{img.path}:{primary_tag}@{img.digest}"
+        untagged = img.path.split(":")[0]
+        path = f"{untagged}:{primary_tag}@{img.digest}"
         return NodeTagImage(
             path=path,
             name=tag_description,
@@ -295,14 +400,14 @@ class PrepullerManager:
             images.append(self.consolidate_tags(img))
         for img in images:
             # First pass: find recommended tag, put it at top
-            self._logger.warning(f"Found recommended tag: {img}")
-            if img.best_tag and img.best_tag == self._config.recommended_tag:
+            self.logger.debug(f"Found recommended tag: {img}")
+            if img.best_tag and img.best_tag == self.config.recommended_tag:
                 menu_images[img.best_tag] = img
         running_count: Dict[RSPTagType, int] = dict()
         tag_count = {
-            RSPTagType.RELEASE: self._config.num_releases,
-            RSPTagType.WEEKLY: self._config.num_weeklies,
-            RSPTagType.DAILY: self._config.num_dailies,
+            RSPTagType.RELEASE: self.config.num_releases,
+            RSPTagType.WEEKLY: self.config.num_weeklies,
+            RSPTagType.DAILY: self.config.num_dailies,
         }
         for tag_type in RSPTagType:
             if tag_count.get(tag_type) is None:
@@ -310,7 +415,7 @@ class PrepullerManager:
             running_count[tag_type] = 0
         for img in images:
             if img.best_nonalias_tag_type is None:
-                self._logger.warning(f"Image type is None: {img}")
+                self.logger.warning(f"Image type is None: {img}")
                 continue
             tag_type = img.best_nonalias_tag_type
             running_count[tag_type] += 1
@@ -334,23 +439,23 @@ class PrepullerManager:
         self._nodes = None
         self._images = None
         # Now repopulate it
-        self._logger.debug("Listing nodes and their image contents.")
-        all_images_by_node = await self._k8s_client.get_image_data()
-        self._logger.debug(f"All images on nodes: {all_images_by_node}")
-        self._logger.debug("Constructing node pool")
+        self.logger.debug("Listing nodes and their image contents.")
+        all_images_by_node = await self.k8s_client.get_image_data()
+        self.logger.debug(f"All images on nodes: {all_images_by_node}")
+        self.logger.debug("Constructing node pool")
         self._nodes = self._make_nodes_from_image_data(all_images_by_node)
-        self._logger.debug(f"Node pool: {self._nodes}")
+        self.logger.debug(f"Node pool: {self._nodes}")
         self._images = self._construct_current_image_state(all_images_by_node)
-        self._logger.debug(f"Images by node: {self._images}")
+        self.logger.debug(f"Images by node: {self._images}")
 
     async def refresh_state_from_docker_repo(self) -> None:
         # Clear state
-        self._tags = None
-        self._logger.debug(
-            "Listing image tags from Docker repository " f"{self._config.path}"
+        self._tag_map = None
+        self.logger.debug(
+            "Listing image tags from Docker repository " f"{self.config.path}"
         )
-        self._tags = await self._docker_client.get_tag_map()
-        self._logger.debug(f"tag_map: {self._tags}")
+        self._tag_map = await self.docker_client.get_tag_map()
+        self.logger.debug(f"tag_map: {self._tag_map}")
 
     def _make_nodes_from_image_data(
         self,
@@ -431,7 +536,7 @@ class PrepullerManager:
 
         filtered_images = self._filter_images_by_config(all_images_by_node)
 
-        self._logger.debug(f"Filtered images: {filtered_images}")
+        self.logger.debug(f"Filtered images: {filtered_images}")
 
         # Convert to (full) Tags.  We will still have duplicates.
         tags = self._get_tags_from_images(filtered_images)
@@ -443,7 +548,7 @@ class PrepullerManager:
         # Deduplicate and convert to NodeTagImages.
 
         node_images = self._get_deduplicated_images_from_tags(cycletags)
-        self._logger.debug(f"Filtered, deduplicated images: {node_images}")
+        self.logger.debug(f"Filtered, deduplicated images: {node_images}")
         return node_images
 
     def _get_deduplicated_images_from_tags(
@@ -469,12 +574,12 @@ class PrepullerManager:
             )
 
             if digest not in dmap:
-                self._logger.debug(f"Adding {digest} as {img.path}:{tag.tag}")
+                self.logger.debug(f"Adding {digest} as {img.path}:{tag.tag}")
                 dmap[digest] = img
             else:
                 extant_image = dmap[digest]
                 if img.path != extant_image.path:
-                    self._logger.warning(
+                    self.logger.warning(
                         f"Image {digest} found as {img.path} "
                         + f"and also {extant_image.path}."
                     )
@@ -488,10 +593,10 @@ class PrepullerManager:
                         if alias not in extant_image.known_alias_tags:
                             extant_image.known_alias_tags.append(alias)
         for digest in dmap:
-            self._logger.debug(f"Img before tag consolidation: {dmap[digest]}")
+            self.logger.debug(f"Img before tag consolidation: {dmap[digest]}")
             self.consolidate_tags(dmap[digest])
-            self._logger.debug(f"Img after tag consolidation: {dmap[digest]}")
-            self._logger.debug(f"Images hash: {dmap}")
+            self.logger.debug(f"Img after tag consolidation: {dmap[digest]}")
+            self.logger.debug(f"Images hash: {dmap}")
         return list(dmap.values())
 
     def _get_tags_from_images(self, nc: NodeContainers) -> List[RSPTag]:
@@ -526,9 +631,9 @@ class PrepullerManager:
             if "@sha256:" in c:
                 continue
             tag = c.split(":")[-1]
-            if self._config.alias_tags is None:
+            if self.config.alias_tags is None:
                 raise RuntimeError("Alias tags is none")
-            config_aliases = self._config.alias_tags
+            config_aliases = self.config.alias_tags
             partial = StandaloneRSPTag.parse_tag(tag=tag)
             if partial.display_name == tag:
                 partial.display_name = StandaloneRSPTag.prettify_tag(tag=tag)
@@ -573,7 +678,7 @@ class PrepullerManager:
                     digest = _nd
                 if digest != _nd:
                     raise RuntimeError(f"Image at {path} has multiple digests")
-        self._logger.debug(f"Found digest: {digest}")
+        self.logger.debug(f"Found digest: {digest}")
         for c in ctr.names:
             # Start over and do it with tags.
             if "@sha256:" in c:
@@ -599,7 +704,7 @@ class PrepullerManager:
         return r
 
     def _extract_image_name(self) -> str:
-        c = self._config
+        c = self.config
         if c.gar is not None:
             return c.gar.image
         if c.docker is not None:
@@ -628,13 +733,13 @@ class PrepullerManager:
         r: NodeContainers = dict()
 
         name = self._extract_image_name()
-        self._logger.debug(f"Desired image name: {name}")
+        self.logger.debug(f"Desired image name: {name}")
         for node in images:
             for c in images[node]:
                 path = self._extract_path_from_container(c)
                 img_name = path.split("/")[-1]
                 if img_name == name:
-                    self._logger.debug(f"Adding matching image: {img_name}")
+                    self.logger.debug(f"Adding matching image: {img_name}")
                     if node not in r:
                         r[node] = list()
                     t = copy(c)
@@ -642,6 +747,139 @@ class PrepullerManager:
         return r
 
     def _filter_tags_by_cycle(self, tags: List[RSPTag]) -> List[RSPTag]:
-        if self._config.cycle is None:
+        if self.config.cycle is None:
             return tags
-        return [t for t in tags if t.cycle == self._config.cycle]
+        return [t for t in tags if t.cycle == self.config.cycle]
+
+    #
+    # The rest of the file is the bits about running the prepull executor
+    #
+
+    async def run(self) -> None:
+        """
+        Loop until we're told to stop.
+        """
+
+        if "main" not in self._schedulers or not self._schedulers["main"]:
+            self._schedulers["main"] = Scheduler(close_timeout=0.1)
+
+        self.logger.info("Starting prepull executor.")
+        self.main_job = await self._schedulers["main"].spawn(
+            self.primary_loop()
+        )
+
+    async def primary_loop(self) -> None:
+        try:
+            while True:
+                await self.prepull_images()
+                await self.idle()
+        except asyncio.CancelledError:
+            self.logger.info("Prepull executor interrupted.")
+        except Exception as e:
+            self.logger.error(f"{e}")
+            raise
+        self.logger.info("Shutting down prepull executor.")
+        await self.aclose()
+
+    async def idle(self) -> None:
+        await asyncio.sleep(PREPULLER_POLL_INTERVAL)
+
+    async def stop(self) -> None:
+        await self.aclose()
+
+    async def aclose(self) -> None:
+        """Close any prepull schedulers."""
+        if self._schedulers:
+            for image in self._schedulers:
+                if image == "main":
+                    continue
+                self.logger.warning(f"Terminating scheduler for {image}")
+                await self._schedulers["main"].spawn(
+                    self._schedulers[image].close()
+                )
+            for image in list(self._schedulers.keys()):
+                del self._schedulers[image]
+        if "main" in self._schedulers and self._schedulers["main"] is not None:
+            self.logger.warning(
+                "Terminating main prepuller executor scheduler"
+            )
+            await self._schedulers["main"].close()
+            del self._schedulers["main"]
+
+    async def create_prepuller_pod_spec(
+        self,
+        image: str,
+        node: str,
+    ) -> PodSpec:
+        shortname = image.split("/")[-1]
+
+        #        user = UserInfo(
+        #            username="prepuller",
+        #            name="Prepuller User",
+        #            uid=1000,
+        #            gid=1000,
+        #            groups=[
+        #                UserGroup(
+        #                    name="prepuller",
+        #                    id=1000,
+        #                )
+        #            ],
+        #        )
+        return PodSpec(
+            containers=[
+                Container(
+                    name=f"prepull-{shortname}",
+                    command=["/bin/sleep", "5"],
+                    image=image,
+                    working_dir="/tmp",
+                )
+            ],
+            node_name=node,
+        )
+
+    async def prepull_images(self) -> None:
+        """This is the method to identify everything that needs pulling, and
+        spawns pods with those images on the nodes that need them.
+        """
+
+        status = await self.get_prepulls()
+
+        pending = status.images.pending
+
+        required_pulls: Dict[str, List[str]] = dict()
+        for img in pending:
+            if img.missing is not None:
+                for i in img.missing:
+                    if i.eligible:
+                        if img.path not in required_pulls:
+                            required_pulls[img.path] = list()
+                        required_pulls[img.path].append(i.name)
+        self.logger.debug(f"Required pulls by node: {required_pulls}")
+        timeout = PREPULLER_PULL_TIMEOUT
+        # Parallelize across nodes but not across images
+        for image in required_pulls:
+            if image in self._schedulers:
+                self.logger.warning(
+                    f"Scheduler for image {image} already exists.  Presuming "
+                    "earlier pull still in progress."
+                )
+                continue
+            scheduler = Scheduler(close_timeout=timeout)
+            self._schedulers[image] = scheduler
+            tag = image.split(":")[1]
+            for node in required_pulls[image]:
+                await scheduler.spawn(
+                    self.k8s_client.create_pod(
+                        name=f"prepull-{tag}",
+                        namespace=self.namespace,
+                        pod=await self.create_prepuller_pod_spec(
+                            image=image,
+                            node=node,
+                        ),
+                    )
+                )
+            self.logger.debug(
+                f"Waiting up to {timeout}s for prepuller pods {tag}."
+            )
+            await scheduler.close()
+            del self._schedulers[image]

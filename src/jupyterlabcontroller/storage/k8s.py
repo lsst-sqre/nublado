@@ -78,10 +78,13 @@ Volume: TypeAlias = V1Volume
 
 
 class K8sStorageClient:
-    def __init__(self, k8s_api: ApiClient, timeout: int) -> None:
+    def __init__(
+        self, k8s_api: ApiClient, timeout: int, logger: BoundLogger
+    ) -> None:
         self.k8s_api = k8s_api
         self.api = client.CoreV1Api(k8s_api)
         self.timeout = timeout
+        self.logger = logger
 
     async def aclose(self) -> None:
         await self.k8s_api.close()

@@ -1,8 +1,12 @@
 import pytest
+from structlog.stdlib import BoundLogger
 
+from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.models.context import Context
-from jupyterlabcontroller.services.lab import LabManager
-from jupyterlabcontroller.services.prepull_executor import PrepullExecutor
+from jupyterlabcontroller.models.domain.usermap import UserMap
+from jupyterlabcontroller.services.lab import DeleteLabManager, LabManager
+from jupyterlabcontroller.services.prepuller import PrepullerManager
+from jupyterlabcontroller.storage.k8s import K8sStorageClient
 
 from ..settings import TestObjectFactory
 
@@ -10,18 +14,38 @@ from ..settings import TestObjectFactory
 @pytest.mark.asyncio
 async def test_lab_manager(
     obj_factory: TestObjectFactory,
+    prepuller_manager: PrepullerManager,
     user_context: Context,
-    prepull_executor: PrepullExecutor,
+    logger: BoundLogger,
+    config: Configuration,
+    k8s_storage_client: K8sStorageClient,
+    user_map: UserMap,
 ) -> None:
     lab = obj_factory.labspecs[0]
+    assert user_context.user is not None
+    user = user_context.user
+    username = user.username
+    namespace = user_context.namespace
+    token = user_context.token
+    lab_config = config.lab
     lm = LabManager(
+        username=username,
+        namespace=namespace,
+        user_map=user_map,
         lab=lab,
-        context=user_context,
-        prepull_executor=prepull_executor,
+        prepuller_manager=prepuller_manager,
+        logger=logger,
+        lab_config=lab_config,
+        k8s_client=k8s_storage_client,
+        user=user,
+        token=token,
     )
     present = await lm.check_for_user()
     assert present is True  # It should already be in the user map
-    await lm.delete_lab_environment(username=lm.user)
+    dlm = DeleteLabManager(
+        user_map=user_map, k8s_client=k8s_storage_client, logger=logger
+    )
+    await dlm.delete_lab_environment(username=username)
     present = await lm.check_for_user()
     assert present is False  # And now it should not be
     await lm.create_lab()
