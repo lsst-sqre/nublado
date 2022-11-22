@@ -9,7 +9,6 @@ from jupyterlabcontroller.services.prepuller import PrepullerManager
 
 @pytest.mark.asyncio
 async def test_generate_user_lab_form(
-    username: str,
     config: Configuration,
     prepuller_manager: PrepullerManager,
     logger: BoundLogger,
@@ -17,14 +16,12 @@ async def test_generate_user_lab_form(
 ) -> None:
     lab_sizes = config.lab.sizes
     fm: FormManager = FormManager(
-        username=username,
         prepuller_manager=prepuller_manager,
         logger=logger,
         http_client=http_client,
         lab_sizes=lab_sizes,
     )
     r = await fm.generate_user_lab_form()
-    logger.warning(r)
     assert (
         r.find(
             '<option value="lighthouse.ceres/library/sketchbook:'

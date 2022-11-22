@@ -15,13 +15,11 @@ DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 class FormManager:
     def __init__(
         self,
-        username: str,
         prepuller_manager: PrepullerManager,
         logger: BoundLogger,
         http_client: AsyncClient,
         lab_sizes: LabSizeDefinitions,
     ):
-        self.username = username
         self.prepuller_manager = prepuller_manager
         self.logger = logger
         self.http_client = http_client
@@ -39,9 +37,6 @@ class FormManager:
         ]
 
     async def generate_user_lab_form(self) -> str:
-        if self.username is None:
-            raise RuntimeError("Cannot create user form without user")
-        self.logger.info(f"Creating options form for '{self.username}'")
         options_template = Template(SPAWNER_FORM_TEMPLATE)
 
         pm = self.prepuller_manager
