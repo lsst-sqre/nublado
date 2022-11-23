@@ -104,6 +104,7 @@ async def post_new_lab(
         username=username,
         namespace=context.namespace,
         manager_namespace=context.config.runtime.namespace_prefix,
+        instance_url=context.config.runtime.instance_url,
         lab=lab,
         logger=logger,
         lab_config=context.config.lab,

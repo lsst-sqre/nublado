@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections import deque
 from enum import auto
-from typing import Deque, Dict, List, Optional, TypeAlias
+from typing import Deque, Dict, List, Optional
 
 from pydantic import Field
 
@@ -129,9 +129,6 @@ class UserGroup(CamelCaseModel):
     )
 
 
-UserGroupList: TypeAlias = List[UserGroup]
-
-
 class UserInfo(CamelCaseModel):
     username: str = Field(
         ...,
@@ -171,7 +168,7 @@ class UserInfo(CamelCaseModel):
             " unsigned integer."
         ),
     )
-    groups: UserGroupList
+    groups: List[UserGroup]
 
 
 class UserResources(CamelCaseModel):

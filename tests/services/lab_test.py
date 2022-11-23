@@ -28,11 +28,13 @@ async def test_lab_manager(
     namespace = user_context.namespace
     token = user_context.token
     manager_namespace = config.runtime.namespace_prefix
+    instance_url = config.runtime.instance_url
     lab_config = config.lab
     lm = LabManager(
         username=username,
         namespace=namespace,
         manager_namespace=manager_namespace,
+        instance_url=instance_url,
         user_map=user_map,
         lab=lab,
         prepuller_manager=prepuller_manager,

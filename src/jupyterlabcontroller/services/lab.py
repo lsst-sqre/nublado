@@ -1,3 +1,4 @@
+import re
 from typing import Dict, Optional
 
 from aiojobs import Scheduler
@@ -6,6 +7,7 @@ from structlog.stdlib import BoundLogger
 from ..config import LabConfiguration, LabFile
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..models.domain.usermap import UserMap
+from ..models.tag import StandaloneRSPTag
 from ..models.v1.lab import (
     LabSize,
     LabSpecification,
@@ -31,6 +33,7 @@ class LabManager:
         username: str,
         namespace: str,
         manager_namespace: str,
+        instance_url: str,
         lab: LabSpecification,
         user_map: UserMap,
         prepuller_manager: PrepullerManager,
@@ -43,6 +46,7 @@ class LabManager:
         self.username = username
         self.namespace = namespace
         self.manager_namespace = manager_namespace
+        self.instance_url = instance_url
         self.user_map = user_map
         self.lab = lab
         self.prepuller_manager = prepuller_manager
@@ -137,21 +141,100 @@ class LabManager:
     async def create_nss(self) -> None:
         pwfile = await self._get_file("passwd")
         gpfile = await self._get_file("group")
-        # FIXME: Now edit those two...
+        if self.user is None:
+            raise RuntimeError("Can't create NSS without user")
+
+        pwfile.contents += (
+            "\n"
+            f"{self.username}:x:{self.user.uid}:{self.user.gid}:"
+            f"{self.user.name}:/home/{self.username}:/bin/bash"
+        )
+        groups = self.user.groups
+        for grp in groups:
+            gpfile.contents += "\n" f"{grp.name}:x:{grp.id}:"
+            if grp.id != self.user.gid:
+                gpfile.contents += self.user.username
         data: Dict[str, str] = {
             pwfile.mount_path: pwfile.contents,
             gpfile.mount_path: gpfile.contents,
         }
         await self.k8s_client.create_configmap(
-            name=f"nb-{self.user}-nss",
+            name=f"nb-{self.username}-nss",
             namespace=self.namespace,
             data=data,
         )
 
     async def create_env(self) -> None:
+        if self.user is None:
+            raise RuntimeError("Cannot create user env without user")
         data: Dict[str, str] = dict()
+        # Get the static ones from the lab config
         data.update(self.lab_config.env)
-        # FIXME more env injection needed
+        # Get the stuff from the options form
+        options = self.lab.options
+        if options.debug:
+            data["DEBUG"] = "TRUE"
+        if options.reset_user_env:
+            data["RESET_USER_ENV"] = "TRUE"
+        # Values used in more than one place
+        jhub_oauth_scopes = (
+            f'["access:servers!server={self.username}/", '
+            f'"access:servers!user={self.username}"]'
+        )
+        image = options.image
+        # Remember how we decided to pull the image with the digest and tag?
+        image_re = r".*:(?P<tag>.*)@sha256:(?P<digest>.*)$"
+        image_digest = ""
+        image_tag = ""
+        i_match = re.compile(image_re).match(image)
+        if i_match is not None:
+            gd = i_match.groupdict()
+            image_digest = gd["image"]
+            image_tag = gd["tag"]
+        image_descr = StandaloneRSPTag.from_tag(image_tag).display_name
+        data.update(
+            {
+                # Image data for display frame
+                "JUPYTER_IMAGE": image,
+                "JUPYTER_IMAGE_SPEC": image,
+                "IMAGE_DESCRIPTION": image_descr,
+                "IMAGE_DIGEST": image_digest,
+                # Get resource limits
+                "CPU_LIMIT": str(self.resources.limits.cpu),
+                "MEM_GUARANTEE": str(self.resources.requests.memory),
+                "MEM_LIMIT": str(self.resources.limits.memory),
+                # Get user/group info
+                "EXTERNAL_GID": str(self.user.gid),
+                "EXTERNAL_GROUPS": ",".join(
+                    [f"{x.name}:{x.id}" for x in self.user.groups]
+                ),
+                "EXTERNAL_UID": str(self.user.uid),
+                # Get global instance URL
+                "EXTERNAL_URL": self.instance_url,
+                "EXTERNAL_INSTANCE_URL": self.instance_url,
+                # Set access token
+                "ACCESS_TOKEN": self.token,
+                # Set up JupyterHub info
+                "JUPYTERHUB_ACTIVITY_URL": (
+                    f"http://hub.{self.manager_namespace}:8081/nb/hub/"
+                    f"api/users/{self.username}/activity"
+                ),
+                "JUPYTERHUB_CLIENT_ID": f"jupyterhub-user-{self.username}",
+                "JUPYTERHUB_OAUTH_ACCESS_SCOPES": jhub_oauth_scopes,
+                "JUPYTERHUB_OAUTH_CALLBACK_URL": (
+                    f"/nb/user/{self.username}/oauth_callback"
+                ),
+                "JUPYTERHUB_OAUTH_SCOPES": jhub_oauth_scopes,
+                "JUPYTERHUB_SERVICE_PREFIX": f"/nb/user/{self.username}",
+                "JUPYTERHUB_SERVICE_URL": (
+                    "http://0.0.0.0:8888/nb/user/" f"{self.username}"
+                ),
+                "JUPYTERHUB_USER": self.username,
+            }
+        )
+        # FIXME more env injection needed:
+        # JPY_API_TOKEN -- guess it has to come from the Hub in the
+        # options form response?
         await self.k8s_client.create_configmap(
             name=f"nb-{self.user}-env",
             namespace=self.namespace,
