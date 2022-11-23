@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, Optional, TypeAlias
+import base64
+from typing import Any, Dict, List, Optional, TypeAlias
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client.api_client import ApiClient
@@ -31,6 +32,7 @@ from kubernetes_asyncio.client.rest import ApiException
 from kubernetes_asyncio.watch import Watch
 from structlog.stdlib import BoundLogger
 
+from ..config import LabSecret
 from ..models.exceptions import NSCreationError, NSDeletionError, WatchError
 from ..models.k8s import ContainerImage, NodeContainers, Secret
 from ..models.v1.event import Event, EventQueue
@@ -114,6 +116,81 @@ class K8sStorageClient:
             ),
             self.timeout,
         )
+
+    async def create_secrets(
+        self,
+        secret_list: List[LabSecret],
+        username: str,
+        token: str,
+        source_ns: str,
+        target_ns: str,
+    ) -> bool:
+        """The return value here is a little subtle.  It
+        returns True if pull secrets were created, and False otherwise.  We
+        are going to use that later on to determine whether to stuff
+        imagePullSecrets into the created pod.
+        """
+        pull_secrets = [
+            x for x in secret_list if x.secret_name == "pull_secret"
+        ]
+        secrets = [x for x in secret_list if x.secret_name != "pull_secret"]
+        data = await self.merge_controller_secrets(
+            secret_list=secrets, token=token, source_ns=source_ns
+        )
+        await self.create_secret(
+            name=f"nb-{username}",
+            namespace=target_ns,
+            data=data,
+        )
+        if pull_secrets:
+            pull_secret = await self.copy_pull_secret(source_ns=source_ns)
+            await self.create_secret(
+                name="pull-secret",
+                namespace=target_ns,
+                data=pull_secret,
+                secret_type="kubernetes.io/dockerconfigjson",
+            )
+            return True
+        return False
+
+    async def copy_pull_secret(self, source_ns: str) -> Dict[str, str]:
+        secret = await self.read_secret(
+            name="pull-secret", namespace=source_ns
+        )
+        return secret.data
+
+    async def merge_controller_secrets(
+        self, secret_list: List[LabSecret], token: str, source_ns: str
+    ) -> Dict[str, str]:
+        """Merge the user token with whatever secrets we're injecting
+        from the lab controller environment."""
+        secret_names: List[str] = list()
+        secret_keys: List[str] = list()
+        for sec in secret_list:
+            secret_names.append(sec.secret_name)
+            if sec.secret_key in secret_keys:
+                raise RuntimeError("Duplicate secret key {sec.secret_key}")
+            secret_keys.append(sec.secret_key)
+        # In theory, we should parallelize the secret reads.  But in practice
+        # it makes life a lot more complex, and we probably just have one,
+        # the controller secret.  Pull-secret will be handled separately.
+        base64_data: Dict[str, str] = dict()
+        for name in secret_names:
+            secret: Secret = await self.read_secret(
+                name=name, namespace=source_ns
+            )
+            # Retrieve matching keys
+            for key in secret.data:
+                if key in secret_keys:
+                    base64_data[key] = secret.data[key]
+        # There's no point in decoding it; all we're gonna do is pass it
+        # down to create a secret as base64 anyway.
+        if "token" in base64_data:
+            raise RuntimeError("'token' must come from the user token")
+        if not token:
+            raise RuntimeError("User token cannot be empty")
+        base64_data["token"] = str(base64.b64encode(token.encode("utf-8")))
+        return base64_data
 
     async def create_secret(
         self,

@@ -1,10 +1,9 @@
-import base64
 from typing import Dict, List, Optional
 
 from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
-from ..config import LabConfiguration, LabFile, LabSecret
+from ..config import LabConfiguration, LabFile
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..models.domain.usermap import UserMap
 from ..models.v1.lab import (
@@ -21,7 +20,6 @@ from ..storage.k8s import (
     NetworkPolicySpec,
     PodSecurityContext,
     PodSpec,
-    Secret,
 )
 from .prepuller import PrepullerManager
 from .size import SizeManager
@@ -59,6 +57,7 @@ class LabManager:
                     f" does not match {username}"
                 )
         self.token = token
+        self._use_pull_secrets = False
 
     @property
     def resources(self) -> UserResources:
@@ -119,66 +118,13 @@ class LabManager:
         return
 
     async def create_secrets(self) -> None:
-        data = await self.merge_controller_secrets()
-        await self.k8s_client.create_secret(
-            name=f"nb-{self.username}",
-            namespace=self.namespace,
-            data=data,
+        self._use_pull_secrets = await self.k8s_client.create_secrets(
+            secret_list=self.lab_config.secrets,
+            username=self.username,
+            token=self.token,
+            source_ns=self.manager_namespace,
+            target_ns=self.namespace,
         )
-        pull_secrets = await self.copy_pull_secrets()
-        if pull_secrets:
-            await self.k8s_client.create_secret(
-                name="pull-secret",
-                namespace=self.namespace,
-                data=pull_secrets,
-                secret_type="kubernetes.io/dockerconfigjson",
-            )
-
-    async def copy_pull_secrets(self) -> Dict[str, str]:
-        secret_list: List[LabSecret] = self.lab_config.secrets
-        secnames = [x.secret_name for x in secret_list]
-        if "pull-secret" not in secnames:
-            return dict()
-        secret = await self.k8s_client.read_secret(
-            name="pull-secret", namespace=self.manager_namespace
-        )
-        return secret.data
-
-    async def merge_controller_secrets(self) -> Dict[str, str]:
-        """Merge the user token with whatever secrets we're injecting
-        from the lab controller environment."""
-        secret_list: List[LabSecret] = self.lab_config.secrets
-        secret_names: List[str] = list()
-        secret_keys: List[str] = list()
-        for sec in secret_list:
-            if sec.secret_name == "pull-secret":
-                continue  # Pull-secret is special
-            secret_names.append(sec.secret_name)
-            if sec.secret_key in secret_keys:
-                raise RuntimeError("Duplicate secret key {sec.secret_key}")
-            secret_keys.append(sec.secret_key)
-        # In theory, we should parallelize the secret reads.  But in practice
-        # it makes life a lot more complex, and we probably just have one,
-        # the controller secret.  Pull-secret will be handled separately.
-        base64_data: Dict[str, str] = dict()
-        for name in secret_names:
-            secret: Secret = await self.k8s_client.read_secret(
-                name=name, namespace=self.manager_namespace
-            )
-            # Retrieve matching keys
-            for key in secret.data:
-                if key in secret_keys:
-                    base64_data[key] = secret.data[key]
-        # There's no point in decoding it; all we're gonna do is pass it
-        # down to create a secret as base64 anyway.
-        if "token" in base64_data:
-            raise RuntimeError("'token' must come from the user token")
-        if not self.token:
-            raise RuntimeError("User token cannot be empty")
-        base64_data["token"] = str(
-            base64.b64encode(self.token.encode("utf-8"))
-        )
-        return base64_data
 
     async def _get_file(self, name: str) -> LabFile:
         # This feels like the config data structure should be a dict
@@ -242,6 +188,7 @@ class LabManager:
 
     async def create_pod_spec(self, user: UserInfo) -> PodSpec:
         # FIXME: needs a bunch more stuff
+        # self._use_pull_secrets
         pod = PodSpec(
             containers=[
                 Container(
