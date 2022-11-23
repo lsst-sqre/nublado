@@ -16,7 +16,7 @@ class MockK8sStorageClient(K8sStorageClient):
     def __init__(self, test_obj: TestObjectFactory) -> None:
         self._test_obj = test_obj
 
-    async def create_namespace(self, ns_name: str) -> None:
+    async def create_user_namespace(self, ns_name: str) -> None:
         pass
 
     async def create_secret(
@@ -24,6 +24,7 @@ class MockK8sStorageClient(K8sStorageClient):
         name: str,
         namespace: str,
         data: Dict[str, str],
+        secret_type: str = "Opaque",
         immutable: bool = False,
     ) -> None:
         pass

@@ -34,7 +34,7 @@ from kubernetes_asyncio.client.rest import ApiException
 from kubernetes_asyncio.watch import Watch
 from structlog.stdlib import BoundLogger
 
-from ..models.exceptions import NSCreationError
+from ..models.exceptions import NSCreationError, NSDeletionError
 from ..models.v1.event import Event, EventQueue
 from ..models.v1.lab import UserResourceQuantum
 
@@ -99,29 +99,57 @@ class K8sStorageClient:
             },
         )
 
-    async def create_namespace(self, ns_name: str) -> None:
+    async def create_user_namespace(self, namespace: str) -> None:
+        ns_retries = 0
+        ns_max_retries = 5
+        self.logger.info(f"Attempting creation of namespace '{namespace}'")
         try:
-            await asyncio.wait_for(
-                self.api.create_namespace(
-                    V1Namespace(metadata=self.get_std_metadata(name=ns_name))
-                ),
-                self.timeout,
-            )
+            await self._k8s_create_namespace(namespace)
         except ApiException as e:
-            raise NSCreationError(e)
+            if e.status == 409:
+                self.logger.info(f"Namespace {namespace} already exists")
+                # ... but we know that we don't have a lab for the user,
+                # because we got this far.  So there's a stranded namespace,
+                # and we should delete it and recreate it.
+                #
+                # The spec actually calls for us to delete the lab and then the
+                # namespace, but let's just remove the namespace, which should
+                # also clean up all its contents.
+                await self.delete_namespace(namespace)
+                ns_retries += 1
+                # Give up after a while.
+                if ns_retries > ns_max_retries:
+                    raise NSCreationError(
+                        "Maximum namespace creation retries "
+                        f"({ns_max_retries}) exceeded"
+                    )
+                # Just try again, and return *that* one's return value.
+                return await self.create_user_namespace(namespace)
+            else:
+                self.logger.exception(
+                    f"Failed to create namespace {namespace}: {e}"
+                )
+                raise
+
+    async def _k8s_create_namespace(self, ns_name: str) -> None:
+        await asyncio.wait_for(
+            self.api.create_namespace(
+                V1Namespace(metadata=self.get_std_metadata(name=ns_name))
+            ),
+            self.timeout,
+        )
 
     async def create_secret(
         self,
         name: str,
         namespace: str,
         data: Dict[str, str],
+        secret_type: str = "Opaque",
         immutable: bool = True,
     ) -> None:
-        #
-        # FIXME: special-case "pull-secret"
-        #
         secret = V1Secret(
             data=data,
+            type=secret_type,
             immutable=immutable,
             metadata=self.get_std_metadata(name),
         )
@@ -195,17 +223,32 @@ class K8sStorageClient:
         """Delete the namespace with name ``namespace``.  If it doesn't exist,
         that's OK.
 
-        Exposed because create_lab may use it if the user namespace exists but
-        we don't have a lab record.
+        We send the deletion.  Once it's underway, we loop, reading the
+        namespace.  We eventually expect a 404, and when we get it we
+        return.  If it doesn't arrive within the timeout, we raise the
+        timeout exception, and if we get some other error, we repackage that
+        and raise it.
         """
-        try:
-            await asyncio.wait_for(
-                self.api.delete_namespace(namespace),
-                self.timeout,
-            )
-        except ApiException as e:
-            if e.status != 404:
-                raise
+        poll_interval = 2.0
+        delete_sent = False
+        timeout = self.timeout
+        elapsed = 0.0
+        # asyncio.timeout() doesn't appear until Python 3.11 :-(
+        while elapsed < timeout:
+            try:
+                if not delete_sent:
+                    await asyncio.wait_for(
+                        self.api.delete_namespace(namespace),
+                        self.timeout,
+                    )
+                    delete_sent = True
+                self.api.read_namespace(namespace)
+                await asyncio.sleep(poll_interval)
+                elapsed += poll_interval
+            except ApiException as e:
+                if e.status == 404:
+                    return
+                raise NSDeletionError(str(e))
 
     async def get_image_data(self) -> NodeContainers:
         resp = await self.api.list_node()

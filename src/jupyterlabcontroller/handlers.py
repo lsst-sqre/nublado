@@ -103,6 +103,7 @@ async def post_new_lab(
     lab_manager = LabManager(
         username=username,
         namespace=context.namespace,
+        manager_namespace=context.config.runtime.namespace_prefix,
         lab=lab,
         logger=logger,
         lab_config=context.config.lab,
@@ -200,7 +201,6 @@ async def get_user_events(
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
     },
-    # FIXME: is there a response_class for 'str' ?
 )
 async def get_user_lab_form(
     username: str,
@@ -213,7 +213,6 @@ async def get_user_lab_form(
 ) -> str:
     """Get the lab creation form for a particular user."""
     form_manager = FormManager(
-        username=username,
         logger=logger,
         http_client=context.http_client,
         prepuller_manager=prepuller_manager,

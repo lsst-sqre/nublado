@@ -19,7 +19,6 @@ from ..storage.k8s import (
     Container,
     K8sStorageClient,
     NetworkPolicySpec,
-    NSCreationError,
     PodSecurityContext,
     PodSpec,
     Secret,
@@ -33,6 +32,7 @@ class LabManager:
         self,
         username: str,
         namespace: str,
+        manager_namespace: str,
         lab: LabSpecification,
         user_map: UserMap,
         prepuller_manager: PrepullerManager,
@@ -44,6 +44,7 @@ class LabManager:
     ) -> None:
         self.username = username
         self.namespace = namespace
+        self.manager_namespace = manager_namespace
         self.user_map = user_map
         self.lab = lab
         self.prepuller_manager = prepuller_manager
@@ -101,46 +102,13 @@ class LabManager:
         await self.create_user_pod()
 
     async def create_user_namespace(self) -> None:
-        # FIXME move retries into storage layer
-        ns_retries: int = 0
-        ns_max_retries: int = 5
-        namespace = self.namespace
-        self.logger.info(f"Attempting creation of namespace '{namespace}'")
-        try:
-            await self.k8s_client.create_namespace(namespace)
-        except NSCreationError as e:
-            if e.status == 409:
-                self.logger.info(f"Namespace {namespace} already exists")
-                # ... but we know that we don't have a lab for the user,
-                # because we got this far.  So there's a stranded namespace,
-                # and we should delete it and recreate it.
-                #
-                # The spec actually calls for us to delete the lab and then the
-                # namespace, but let's just remove the namespace, which should
-                # also clean up all its contents.
-                await self.k8s_client.delete_namespace(namespace)
-                ns_retries += 1
-                # Give up after a while.
-                if ns_retries > ns_max_retries:
-                    raise RuntimeError(
-                        "Maximum namespace creation retries "
-                        f"({ns_max_retries}) exceeded"
-                    )
-                # Just try again, and return *that* one's return value.
-                return await self.create_user_namespace()
-            else:
-                self.logger.exception(
-                    f"Failed to create namespace {namespace}: {e}"
-                )
-                raise
+        await self.k8s_client.create_user_namespace(self.namespace)
 
     async def create_user_lab_objects(self) -> None:
         # Initially this will create all the resources in parallel.  If it
         # turns out we need to sequence that, we do this more manually with
         # explicit awaits.
-        scheduler: Scheduler = Scheduler(
-            close_timeout=KUBERNETES_REQUEST_TIMEOUT
-        )
+        scheduler = Scheduler(close_timeout=KUBERNETES_REQUEST_TIMEOUT)
         await scheduler.spawn(self.create_secrets())
         await scheduler.spawn(self.create_nss())
         await scheduler.spawn(self.create_env())
@@ -151,12 +119,30 @@ class LabManager:
         return
 
     async def create_secrets(self) -> None:
-        data: Dict[str, str] = await self.merge_controller_secrets()
+        data = await self.merge_controller_secrets()
         await self.k8s_client.create_secret(
             name=f"nb-{self.username}",
             namespace=self.namespace,
             data=data,
         )
+        pull_secrets = await self.copy_pull_secrets()
+        if pull_secrets:
+            await self.k8s_client.create_secret(
+                name="pull-secret",
+                namespace=self.namespace,
+                data=pull_secrets,
+                secret_type="kubernetes.io/dockerconfigjson",
+            )
+
+    async def copy_pull_secrets(self) -> Dict[str, str]:
+        secret_list: List[LabSecret] = self.lab_config.secrets
+        secnames = [x.secret_name for x in secret_list]
+        if "pull-secret" not in secnames:
+            return dict()
+        secret = await self.k8s_client.read_secret(
+            name="pull-secret", namespace=self.manager_namespace
+        )
+        return secret.data
 
     async def merge_controller_secrets(self) -> Dict[str, str]:
         """Merge the user token with whatever secrets we're injecting
@@ -165,22 +151,19 @@ class LabManager:
         secret_names: List[str] = list()
         secret_keys: List[str] = list()
         for sec in secret_list:
+            if sec.secret_name == "pull-secret":
+                continue  # Pull-secret is special
             secret_names.append(sec.secret_name)
             if sec.secret_key in secret_keys:
                 raise RuntimeError("Duplicate secret key {sec.secret_key}")
             secret_keys.append(sec.secret_key)
         # In theory, we should parallelize the secret reads.  But in practice
-        # it makes life a lot more complex, and we will have at most two:
-        # the controller secret and a pull secret.
-        #
-        # There is also some subtlety about the secret type.  For now we are
-        # going to assume everything is "Opaque" (and thus can contain
-        # arbitrary data).
-
+        # it makes life a lot more complex, and we probably just have one,
+        # the controller secret.  Pull-secret will be handled separately.
         base64_data: Dict[str, str] = dict()
         for name in secret_names:
             secret: Secret = await self.k8s_client.read_secret(
-                name=name, namespace=self.namespace
+                name=name, namespace=self.manager_namespace
             )
             # Retrieve matching keys
             for key in secret.data:
