@@ -250,10 +250,8 @@ class PrepullerManager:
                         missing=await self._nodes_missing(img, eligible_nodes),
                     )
                 )
-        images: PrepullerContents = PrepullerContents(
-            prepulled=prepulled, pending=pending
-        )
-        status: PrepullerStatus = PrepullerStatus(
+        images = PrepullerContents(prepulled=prepulled, pending=pending)
+        status = PrepullerStatus(
             config=self.config, images=images, nodes=nodes
         )
         self.logger.debug(f"Prepuller status: {status}")
@@ -301,8 +299,8 @@ class PrepullerManager:
         """
 
         recommended = self.config.recommended_tag
-        primary_tag: str = ""
-        primary_name: str = ""
+        primary_tag = ""
+        primary_name = ""
         other_names: List[str] = list()
         best_tag_type: Optional[RSPTagType] = None
         best_nonalias_tag_type: Optional[RSPTagType] = None
@@ -382,7 +380,7 @@ class PrepullerManager:
         for image in raw_images:
             images.append(self.consolidate_tags(image))
 
-        menu_images: DisplayImages = DisplayImages()
+        menu_images = DisplayImages()
         for img in available_menu_node_images:
             a_obj = available_menu_node_images[img]
             menu_images.menu[a_obj.best_tag] = a_obj.to_image()
@@ -613,7 +611,7 @@ class PrepullerManager:
         ctr: ContainerImage,
         node: str,
     ) -> List[RSPTag]:
-        digest: str = ""
+        digest = ""
         for c in ctr.names:
             # Extract the digest, making sure we don't have conflicting
             # digests.

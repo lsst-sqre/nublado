@@ -93,7 +93,7 @@ class DockerStorageClient:
             tasks.append(asyncio.create_task(self.get_image_digest(tag)))
         digests: List[Any] = await asyncio.gather(*tasks)  # Actually str...
         d_str: List[str] = [str(x) for x in digests]  # Really a no-op
-        t_to_d: Dict[str, str] = dict(zip(tags, d_str))
+        t_to_d = dict(zip(tags, d_str))
         d_to_t: Dict[str, List[str]] = dict()
         for tag in t_to_d:
             digest = t_to_d[tag]

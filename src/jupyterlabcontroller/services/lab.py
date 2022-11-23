@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
@@ -129,15 +129,15 @@ class LabManager:
     async def _get_file(self, name: str) -> LabFile:
         # This feels like the config data structure should be a dict
         # in the first place.
-        files: List[LabFile] = self.lab_config.files
+        files = self.lab_config.files
         for file in files:
             if file.name == name:
                 return file
         return LabFile()
 
     async def create_nss(self) -> None:
-        pwfile: LabFile = await self._get_file("passwd")
-        gpfile: LabFile = await self._get_file("group")
+        pwfile = await self._get_file("passwd")
+        gpfile = await self._get_file("group")
         # FIXME: Now edit those two...
         data: Dict[str, str] = {
             pwfile.mount_path: pwfile.contents,
