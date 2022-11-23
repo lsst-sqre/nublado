@@ -1,8 +1,11 @@
 from copy import copy
 from dataclasses import dataclass
+from enum import auto
 from typing import Dict, List, TypeAlias
 
 from kubernetes_asyncio.client.models import V1ContainerImage
+
+from .enum import NubladoEnum
 
 
 @dataclass
@@ -24,3 +27,8 @@ class Secret:
 
 
 NodeContainers: TypeAlias = Dict[str, List[ContainerImage]]
+
+
+class ObjectOperation(NubladoEnum):
+    CREATION = auto()
+    DELETION = auto()

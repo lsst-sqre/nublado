@@ -57,7 +57,6 @@ class LabManager:
                     f" does not match {username}"
                 )
         self.token = token
-        self._use_pull_secrets = False
 
     @property
     def resources(self) -> UserResources:
@@ -118,7 +117,7 @@ class LabManager:
         return
 
     async def create_secrets(self) -> None:
-        self._use_pull_secrets = await self.k8s_client.create_secrets(
+        await self.k8s_client.create_secrets(
             secret_list=self.lab_config.secrets,
             username=self.username,
             token=self.token,
@@ -188,7 +187,6 @@ class LabManager:
 
     async def create_pod_spec(self, user: UserInfo) -> PodSpec:
         # FIXME: needs a bunch more stuff
-        # self._use_pull_secrets
         pod = PodSpec(
             containers=[
                 Container(

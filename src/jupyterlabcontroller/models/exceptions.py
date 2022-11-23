@@ -26,3 +26,16 @@ class WatchError(Exception):
     """Error raised when the K8s watch fails too many times in a row."""
 
     pass
+
+
+class WaitingForObjectError(Exception):
+    """Error raised when something goes wrong waiting for object creation/
+    deletion."""
+
+    pass
+
+
+class KubernetesError(Exception):
+    """Generic error for something keeling over in the K8s layer."""
+
+    pass

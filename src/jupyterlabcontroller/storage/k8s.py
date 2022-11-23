@@ -33,8 +33,18 @@ from kubernetes_asyncio.watch import Watch
 from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
-from ..models.exceptions import NSCreationError, NSDeletionError, WatchError
-from ..models.k8s import ContainerImage, NodeContainers, Secret
+from ..models.exceptions import (
+    KubernetesError,
+    NSCreationError,
+    WaitingForObjectError,
+    WatchError,
+)
+from ..models.k8s import (
+    ContainerImage,
+    NodeContainers,
+    ObjectOperation,
+    Secret,
+)
 from ..models.v1.event import Event, EventQueue
 from ..models.v1.lab import UserResourceQuantum
 
@@ -79,8 +89,6 @@ class K8sStorageClient:
         )
 
     async def create_user_namespace(self, namespace: str) -> None:
-        ns_retries = 0
-        ns_max_retries = 5
         self.logger.info(f"Attempting creation of namespace '{namespace}'")
         try:
             await self._k8s_create_namespace(namespace)
@@ -95,19 +103,20 @@ class K8sStorageClient:
                 # namespace, but let's just remove the namespace, which should
                 # also clean up all its contents.
                 await self.delete_namespace(namespace)
-                ns_retries += 1
-                # Give up after a while.
-                if ns_retries > ns_max_retries:
-                    raise NSCreationError(
-                        "Maximum namespace creation retries "
-                        f"({ns_max_retries}) exceeded"
-                    )
                 # Just try again, and return *that* one's return value.
                 return await self.create_user_namespace(namespace)
             else:
                 estr = f"Failed to create namespace {namespace}: {e}"
                 self.logger.exception(estr)
                 raise NSCreationError(estr)
+        # We don't want to give control back until the namespace exists,
+        # because the next step will be creating objects in that namespace.
+        await self._wait_for_operation(
+            namespace=namespace,
+            item="namespace",
+            operation=ObjectOperation.CREATION,
+            interval=0.2,
+        )
 
     async def _k8s_create_namespace(self, ns_name: str) -> None:
         await asyncio.wait_for(
@@ -124,12 +133,7 @@ class K8sStorageClient:
         token: str,
         source_ns: str,
         target_ns: str,
-    ) -> bool:
-        """The return value here is a little subtle.  It
-        returns True if pull secrets were created, and False otherwise.  We
-        are going to use that later on to determine whether to stuff
-        imagePullSecrets into the created pod.
-        """
+    ) -> None:
         pull_secrets = [
             x for x in secret_list if x.secret_name == "pull_secret"
         ]
@@ -150,8 +154,61 @@ class K8sStorageClient:
                 data=pull_secret,
                 secret_type="kubernetes.io/dockerconfigjson",
             )
-            return True
-        return False
+            # We are going to use the existence of the pull secret when
+            # we create the pod in order to tell whether we should patch
+            # in imagePullSecrets.  So we need to wait for it to show
+            # up before we move on to the pod creation part.
+            await self._wait_for_operation(
+                namespace=target_ns,
+                item="pull-secret",
+                operation=ObjectOperation.CREATION,
+                interval=0.2,
+            )
+        return
+
+    async def _wait_for_operation(
+        self,
+        namespace: str,
+        item: str,
+        operation: ObjectOperation,
+        interval: float,
+    ) -> None:
+        # asyncio.timeout() doesn't appear until Python 3.11 :-(
+        thangs = {
+            "pull-secret": self.api.read_namespaced_secret(
+                "pull-secret", namespace
+            ),
+            "namespace": self.api.read_namespace(namespace),
+        }
+
+        thang = thangs.get(item)
+        if thang is None:
+            raise RuntimeError("Don't know how to wait for {item} {operation}")
+        elapsed = 0.0
+        while elapsed < self.timeout:
+            errored = False
+            try:
+                await asyncio.wait_for(
+                    thang,
+                    self.timeout,
+                )
+                return
+            except ApiException as e:
+                if e.status != 404:
+                    if operation == ObjectOperation.DELETION:
+                        return
+                    raise WaitingForObjectError(str(e))
+                errored = True
+            if not errored and operation == ObjectOperation.CREATION:
+                return
+            # If we're here, it's a delete, and the read didn't get an
+            # error, or it's a creation and we did get an error, so we
+            # need to wait and then retry
+            await asyncio.sleep(interval)
+            elapsed += interval
+        raise asyncio.TimeoutError(
+            f"Timeout while waiting for {item} {operation}"
+        )
 
     async def copy_pull_secret(self, source_ns: str) -> Dict[str, str]:
         secret = await self.read_secret(
@@ -266,8 +323,23 @@ class K8sStorageClient:
     async def create_pod(
         self, name: str, namespace: str, pod: PodSpec
     ) -> None:
+        # Here's where we handle pull secrets.  We look for a secret named
+        # "pull-secret" in the target namespace, and if it exists, we jam it
+        # into the PodSpec.  That's why we had to wait for pull-secret
+        # creation in the namespace-resource-creation step.
+        pull_secret = True
+        try:
+            _ = self.api.read_namespaced_secret(
+                "pull-secret", namespace=namespace
+            )
+        except ApiException as e:
+            if e.status != 404:
+                raise KubernetesError(f"{e} [status {e.status}]")
+            pull_secret = False
+        if pull_secret:
+            pod.image_pull_secrets = [{"name": "pull-secret"}]
         pod_obj = V1Pod(metadata=self.get_std_metadata(name), spec=pod)
-        await self.api.create_namespaced_pod(namespace, pod_obj)
+        await self.api.create_namespaced_pod(namespace=namespace, body=pod_obj)
 
     async def delete_namespace(
         self,
@@ -282,26 +354,16 @@ class K8sStorageClient:
         timeout exception, and if we get some other error, we repackage that
         and raise it.
         """
-        poll_interval = 2.0
-        delete_sent = False
-        timeout = self.timeout
-        elapsed = 0.0
-        # asyncio.timeout() doesn't appear until Python 3.11 :-(
-        while elapsed < timeout:
-            try:
-                if not delete_sent:
-                    await asyncio.wait_for(
-                        self.api.delete_namespace(namespace),
-                        self.timeout,
-                    )
-                    delete_sent = True
-                self.api.read_namespace(namespace)
-                await asyncio.sleep(poll_interval)
-                elapsed += poll_interval
-            except ApiException as e:
-                if e.status == 404:
-                    return
-                raise NSDeletionError(str(e))
+        await asyncio.wait_for(
+            self.api.delete_namespace(namespace),
+            self.timeout,
+        )
+        await self._wait_for_operation(
+            namespace=namespace,
+            item="namespace",
+            operation=ObjectOperation.DELETION,
+            interval=2.0,
+        )
 
     async def get_image_data(self) -> NodeContainers:
         resp = await self.api.list_node()
