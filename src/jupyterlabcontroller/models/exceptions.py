@@ -20,3 +20,9 @@ class NSDeletionError(Exception):
     """Error while attempting namespace deletion."""
 
     pass
+
+
+class WatchError(Exception):
+    """Error raised when the K8s watch fails too many times in a row."""
+
+    pass

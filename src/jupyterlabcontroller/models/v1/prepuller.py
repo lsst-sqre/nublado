@@ -67,11 +67,8 @@ class Image(PartialImage):
 
 
 """GET /nublado/spawner/v1/images"""
-# sqr-066 is not very clear about this--its use of "list" is strange.  Let's
-# assume the resulting output is correct, in which case it will be a
-# dict of DisplayImages, with each of the keys "recommended", "latest-weekly",
-# "latest-daily", and "latest-release", each mapped to an image, and a final
-# key, "all", representing a list of all available images.
+# Dashify is needed to turn, e.g. "latest_weekly" into the required
+# "latest-weekly" per sqr-066.
 
 
 def dashify(item: str) -> str:

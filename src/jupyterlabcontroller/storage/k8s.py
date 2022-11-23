@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from copy import copy
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, TypeAlias
+from typing import Any, Dict, Optional, TypeAlias
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client.api_client import ApiClient
@@ -11,7 +9,6 @@ from kubernetes_asyncio.client.models import (
     V1Affinity,
     V1ConfigMap,
     V1Container,
-    V1ContainerImage,
     V1LocalObjectReference,
     V1Namespace,
     V1NetworkPolicy,
@@ -34,30 +31,10 @@ from kubernetes_asyncio.client.rest import ApiException
 from kubernetes_asyncio.watch import Watch
 from structlog.stdlib import BoundLogger
 
-from ..models.exceptions import NSCreationError, NSDeletionError
+from ..models.exceptions import NSCreationError, NSDeletionError, WatchError
+from ..models.k8s import ContainerImage, NodeContainers, Secret
 from ..models.v1.event import Event, EventQueue
 from ..models.v1.lab import UserResourceQuantum
-
-
-@dataclass
-class ContainerImage:
-    names: List[str]
-    size_bytes: int
-
-    @classmethod
-    def from_v1_container_image(cls, img: V1ContainerImage) -> ContainerImage:
-        return cls(names=copy(img.names), size_bytes=img.size_bytes)
-
-
-@dataclass
-class Secret:
-    data: Dict[str, str]
-    secret_type: str = "Opaque"
-
-
-ContainerImageList: TypeAlias = List[ContainerImage]
-NodeContainers: TypeAlias = Dict[str, ContainerImageList]
-
 
 # FIXME
 # For now these are just aliases, but we want to do what we did with
@@ -126,10 +103,9 @@ class K8sStorageClient:
                 # Just try again, and return *that* one's return value.
                 return await self.create_user_namespace(namespace)
             else:
-                self.logger.exception(
-                    f"Failed to create namespace {namespace}: {e}"
-                )
-                raise
+                estr = f"Failed to create namespace {namespace}: {e}"
+                self.logger.exception(estr)
+                raise NSCreationError(estr)
 
     async def _k8s_create_namespace(self, ns_name: str) -> None:
         await asyncio.wait_for(
@@ -321,7 +297,7 @@ class K8sWatcher:
                 msg = "ApiException from watch"
                 consecutive_failures += 1
                 if consecutive_failures > 10:
-                    raise
+                    raise WatchError("Too many consecutive watch failures.")
                 else:
                     self._logger.exception(msg, error=str(e))
                     msg = "Pausing 10s before attempting to continue"

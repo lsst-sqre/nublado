@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 
 from jupyterlabcontroller.models.domain.prepuller import NodeContainers, TagMap
 from jupyterlabcontroller.models.domain.usermap import UserMap
+from jupyterlabcontroller.models.k8s import ContainerImage
 from jupyterlabcontroller.models.v1.lab import (
     LabSpecification,
     LabStatus,
@@ -17,15 +18,14 @@ from jupyterlabcontroller.models.v1.lab import (
     UserResources,
 )
 from jupyterlabcontroller.services.size import memory_string_to_int
-from jupyterlabcontroller.storage.k8s import ContainerImage, ContainerImageList
 
 # Factory to manufacture test objects
 
 
 class TestObjectFactory:
-    _filename: str = ""
-    _canonicalized: bool = False
-    test_objects: Dict[str, Any] = {}
+    _filename = ""
+    _canonicalized = False
+    test_objects: Dict[str, Any] = dict()
 
     def initialize_from_file(self, filename: str) -> None:
         if filename and filename != self._filename:
@@ -53,10 +53,10 @@ class TestObjectFactory:
                     memfld = q[i]["memory"]
                     if type(memfld) is str:
                         q[i]["memory"] = memory_string_to_int(memfld)
-            # Make node contents into ContainerImageList
+            # Make node contents into List[ContainerImage]
             for node in self.test_objects["node_contents"]:
                 nc = self.test_objects["node_contents"][node]
-                clist: ContainerImageList = []
+                clist: List[ContainerImage] = list()
                 for img in nc:
                     clist.append(
                         ContainerImage(
@@ -90,7 +90,7 @@ class TestObjectFactory:
 
     @property
     def userdatas(self) -> List[UserData]:
-        userdatas: List[UserData] = []
+        userdatas: List[UserData] = list()
         labspecs = self.labspecs
         resources = self.resources
         userinfos = self.userinfos
@@ -110,7 +110,7 @@ class TestObjectFactory:
 
     @property
     def usermap(self) -> UserMap:
-        usermap: UserMap = UserMap()
+        usermap = UserMap()
         for v in self.userdatas:
             usermap.set(v.username, v)
         return usermap

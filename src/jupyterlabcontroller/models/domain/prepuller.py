@@ -5,7 +5,7 @@ but which are handy for internal bookkeeping
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, TypeAlias
 
-from ...storage.k8s import ContainerImage
+from ..k8s import ContainerImage
 from ..tag import RSPTag, RSPTagList, RSPTagType
 from ..v1.prepuller import Image, Node
 
