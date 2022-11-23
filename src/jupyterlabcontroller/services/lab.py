@@ -14,6 +14,7 @@ from ..models.v1.lab import (
     LabStatus,
     UserData,
     UserInfo,
+    UserResourceQuantum,
     UserResources,
 )
 from ..storage.k8s import (
@@ -113,6 +114,7 @@ class LabManager:
         scheduler = Scheduler(close_timeout=KUBERNETES_REQUEST_TIMEOUT)
         await scheduler.spawn(self.create_secrets())
         await scheduler.spawn(self.create_nss())
+        await scheduler.spawn(self.create_file_configmap())
         await scheduler.spawn(self.create_env())
         await scheduler.spawn(self.create_network_policy())
         await scheduler.spawn(self.create_quota())
@@ -138,33 +140,75 @@ class LabManager:
                 return file
         return LabFile()
 
-    async def create_nss(self) -> None:
-        pwfile = await self._get_file("passwd")
-        gpfile = await self._get_file("group")
-        if self.user is None:
-            raise RuntimeError("Can't create NSS without user")
+    #
+    # We are splitting "build": create the in-memory object representing
+    # the resource -- and "create": submit it to Kubernetes -- for the next
+    # few things, so that we can more easily unit test the object construction
+    # logic.
+    #
 
-        pwfile.contents += (
-            "\n"
-            f"{self.username}:x:{self.user.uid}:{self.user.gid}:"
-            f"{self.user.name}:/home/{self.username}:/bin/bash"
-        )
-        groups = self.user.groups
-        for grp in groups:
-            gpfile.contents += "\n" f"{grp.name}:x:{grp.id}:"
-            if grp.id != self.user.gid:
-                gpfile.contents += self.user.username
-        data: Dict[str, str] = {
-            pwfile.mount_path: pwfile.contents,
-            gpfile.mount_path: gpfile.contents,
-        }
+    async def create_nss(self) -> None:
+        data = await self.build_nss()
         await self.k8s_client.create_configmap(
             name=f"nb-{self.username}-nss",
             namespace=self.namespace,
             data=data,
         )
 
+    async def build_nss(self) -> Dict[str, str]:
+        pwfile = await self._get_file("passwd")
+        gpfile = await self._get_file("group")
+        if self.user is None:
+            raise RuntimeError("Can't create NSS without user")
+
+        pwfile.contents += (
+            f"{self.username}:x:{self.user.uid}:{self.user.gid}:"
+            f"{self.user.name}:/home/{self.username}:/bin/bash"
+            "\n"
+        )
+        groups = self.user.groups
+        for grp in groups:
+            gpfile.contents += f"{grp.name}:x:{grp.id}:"
+            if grp.id != self.user.gid:
+                gpfile.contents += self.user.username
+            gpfile.contents += "\n"
+        data: Dict[str, str] = {
+            pwfile.mount_path: pwfile.contents,
+            gpfile.mount_path: gpfile.contents,
+        }
+        return data
+
+    async def create_file_configmap(self) -> None:
+        data = await self.build_file_configmap()
+        await self.k8s_client.create_configmap(
+            name=f"nb-{self.user}-configmap",
+            namespace=self.namespace,
+            data=data,
+        )
+
+    async def build_file_configmap(self) -> Dict[str, str]:
+        files = self.lab_config.files
+        data: Dict[str, str] = dict()
+        for file in files:
+            if not file.modify:
+                data[file.mount_path] = file.contents
+            else:
+                # We don't currently have anything other than passwd/group
+                # which are handled specially anyway (in NSS).
+                #
+                # We might have to add other file handling here later.
+                pass
+        return data
+
     async def create_env(self) -> None:
+        data = await self.build_env()
+        await self.k8s_client.create_configmap(
+            name=f"nb-{self.user}-env",
+            namespace=self.namespace,
+            data=data,
+        )
+
+    async def build_env(self) -> Dict[str, str]:
         if self.user is None:
             raise RuntimeError("Cannot create user env without user")
         data: Dict[str, str] = dict()
@@ -189,9 +233,9 @@ class LabManager:
         i_match = re.compile(image_re).match(image)
         if i_match is not None:
             gd = i_match.groupdict()
-            image_digest = gd["image"]
+            image_digest = gd["digest"]
             image_tag = gd["tag"]
-        image_descr = StandaloneRSPTag.from_tag(image_tag).display_name
+        image_descr = StandaloneRSPTag.parse_tag(image_tag).display_name
         data.update(
             {
                 # Image data for display frame
@@ -235,40 +279,43 @@ class LabManager:
         # FIXME more env injection needed:
         # JPY_API_TOKEN -- guess it has to come from the Hub in the
         # options form response?
-        await self.k8s_client.create_configmap(
-            name=f"nb-{self.user}-env",
-            namespace=self.namespace,
-            data=data,
-        )
+        return data
 
     async def create_network_policy(self) -> None:
-        # FIXME
-        policy = NetworkPolicySpec()
+        policy = await self.build_network_policy_spec()
         await self.k8s_client.create_network_policy(
             name=f"nb-{self.user}-env",
             namespace=self.namespace,
             spec=policy,
         )
 
+    async def build_network_policy_spec(self) -> NetworkPolicySpec:
+        # FIXME
+        return NetworkPolicySpec()
+
     async def create_quota(self) -> None:
-        if self.lab.namespace_quota is not None:
+        quota = await self.build_namespace_quota()
+        if quota is not None:
             await self.k8s_client.create_quota(
                 name=f"nb-{self.user}",
                 namespace=self.namespace,
-                quota=self.lab.namespace_quota,
+                quota=quota,
             )
+
+    async def build_namespace_quota(self) -> Optional[UserResourceQuantum]:
+        return self.lab.namespace_quota
 
     async def create_user_pod(self) -> None:
         if self.user is None:
             raise RuntimeError("Cannot create user pod without user")
-        pod = await self.create_pod_spec(self.user)
+        pod = await self.build_pod_spec(self.user)
         await self.k8s_client.create_pod(
             name=f"nb-{self.username}",
             namespace=self.namespace,
             pod=pod,
         )
 
-    async def create_pod_spec(self, user: UserInfo) -> PodSpec:
+    async def build_pod_spec(self, user: UserInfo) -> PodSpec:
         # FIXME: needs a bunch more stuff
         pod = PodSpec(
             containers=[
