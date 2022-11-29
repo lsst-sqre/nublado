@@ -232,7 +232,6 @@ async def test_vols(
     vols = await lm.build_volumes()
     vnames = [x.volume.name for x in vols]
     assert vnames == [
-        "tmp",
         "home",
         "project",
         "scratch",
@@ -242,6 +241,8 @@ async def test_vols(
         "nss-rachel-idds-config",
         "nb-rachel-secrets",
         "nb-rachel-env",
+        "tmp",
+        "nb-rachel-runtime",
     ]
 
 
@@ -280,9 +281,9 @@ async def test_pod_spec(
     )
     ps = await lm.build_pod_spec(user=user)
     ctr = ps.containers[0]
-    assert ps.volumes[-1].config_map.name == "nb-rachel-env"
+    assert ps.volumes[-3].config_map.name == "nb-rachel-env"
     assert ps.security_context.fs_group == 1101
     assert ps.security_context.supplemental_groups[1] == 2028
     assert ctr.env_from.config_map_ref.name == "nb-rachel-env"
     assert ctr.security_context.privileged is None
-    assert ctr.volume_mounts[1].mount_path == "/home"
+    assert ctr.volume_mounts[1].mount_path == "/project"

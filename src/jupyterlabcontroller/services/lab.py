@@ -23,14 +23,18 @@ from ..storage.k8s import (
     ConfigMapEnvSource,
     ConfigMapVolumeSource,
     Container,
+    DownwardAPIVolumeFile,
+    DownwardAPIVolumeSource,
     EmptyDirVolumeSource,
     EnvFromSource,
     HostPathVolumeSource,
     K8sStorageClient,
     KeyToPath,
     NFSVolumeSource,
+    ObjectFieldSelector,
     PodSecurityContext,
     PodSpec,
+    ResourceFieldSelector,
     SecretVolumeSource,
     SecurityContext,
     Volume,
@@ -463,24 +467,83 @@ class LabManager:
         )
         return env_vol
 
+    async def build_tmp_volume(self) -> LabVolumeContainer:
+        return LabVolumeContainer(
+            volume=Volume(
+                empty_dir=EmptyDirVolumeSource(),
+                name="tmp",
+            ),
+            volume_mount=VolumeMount(
+                mount_path="/tmp",
+                read_only=False,
+                name="tmp",
+            ),
+        )
+
+    async def build_runtime_volume(self) -> LabVolumeContainer:
+        #
+        # Step six: introspective information about the pod, only known
+        # after pod dispatch.
+        #
+
+        # Let's just grab all the fields.
+        volfields = [
+            "metadata.name",
+            "metadata.namespace",
+            "metadata.uid",
+            "spec.serviceAccountName",
+            "spec.nodeName",
+            "status.hostIP",
+            "status.podIP",
+            "metadata.labels",
+            "metadata.annotations",
+        ]
+        resfields = [
+            "limits.cpu",
+            "requests.cpu",
+            "limits.memory",
+            "requests.memory",
+            "limits.ephemeral-storage",
+            "requests.ephemeral-storage",
+        ]
+        volfiles = [
+            DownwardAPIVolumeFile(
+                field_ref=ObjectFieldSelector(field_path=x),
+                path=x.replace(".", "_").lower(),
+            )
+            for x in volfields
+        ]
+        volfiles.extend(
+            [
+                DownwardAPIVolumeFile(
+                    resource_field_ref=ResourceFieldSelector(
+                        container_name="notebook",
+                        resource=x,
+                    ),
+                    path=x.replace(".", "_").lower(),
+                )
+                for x in resfields
+            ]
+        )
+        runtime_vol = LabVolumeContainer(
+            volume=Volume(
+                name=f"nb-{self.username}-runtime",
+                downward_api=DownwardAPIVolumeSource(items=volfiles),
+            ),
+            volume_mount=VolumeMount(
+                mount_path="/opt/lsst/software/jupyterlab/runtime",
+                name=f"nb-{self.username}-runtime",
+                read_only=True,
+            ),
+        )
+        return runtime_vol
+
     async def build_volumes(self) -> List[LabVolumeContainer]:
         """This stitches together the Volume and VolumeMount definitions
         from each of our sources.
         """
         # Begin with the /tmp empty_dir
-        vols: List[LabVolumeContainer] = [
-            LabVolumeContainer(
-                volume=Volume(
-                    empty_dir=EmptyDirVolumeSource(),
-                    name="tmp",
-                ),
-                volume_mount=VolumeMount(
-                    mount_path="/tmp",
-                    read_only=False,
-                    name="tmp",
-                ),
-            ),
-        ]
+        vols: List[LabVolumeContainer] = []
         lab_config_vols = await self.build_lab_config_volumes(
             self.lab_config.volumes
         )
@@ -493,6 +556,10 @@ class LabManager:
         vols.append(secret_vol)
         env_vol = await self.build_env_volume()
         vols.append(env_vol)
+        tmp_vol = await self.build_tmp_volume()
+        vols.append(tmp_vol)
+        runtime_vol = await self.build_runtime_volume()
+        vols.append(runtime_vol)
         return vols
 
     async def build_init_ctrs(self) -> List[Container]:

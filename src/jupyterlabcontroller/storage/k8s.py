@@ -12,6 +12,8 @@ from kubernetes_asyncio.client.models import (
     V1ConfigMapEnvSource,
     V1ConfigMapVolumeSource,
     V1Container,
+    V1DownwardAPIVolumeFile,
+    V1DownwardAPIVolumeSource,
     V1EmptyDirVolumeSource,
     V1EnvFromSource,
     V1HostPathVolumeSource,
@@ -28,10 +30,12 @@ from kubernetes_asyncio.client.models import (
     V1NodeSelector,
     V1NodeSelectorRequirement,
     V1NodeSelectorTerm,
+    V1ObjectFieldSelector,
     V1ObjectMeta,
     V1Pod,
     V1PodSecurityContext,
     V1PodSpec,
+    V1ResourceFieldSelector,
     V1ResourceQuota,
     V1ResourceQuotaSpec,
     V1Secret,
@@ -73,6 +77,8 @@ Affinity: TypeAlias = V1Affinity
 ConfigMapEnvSource: TypeAlias = V1ConfigMapEnvSource
 ConfigMapVolumeSource: TypeAlias = V1ConfigMapVolumeSource
 Container: TypeAlias = V1Container
+DownwardAPIVolumeFile: TypeAlias = V1DownwardAPIVolumeFile
+DownwardAPIVolumeSource: TypeAlias = V1DownwardAPIVolumeSource
 EmptyDirVolumeSource: TypeAlias = V1EmptyDirVolumeSource
 EnvFromSource: TypeAlias = V1EnvFromSource
 HostPathVolumeSource: TypeAlias = V1HostPathVolumeSource
@@ -83,8 +89,10 @@ NodeAffinity: TypeAlias = V1NodeAffinity
 NodeSelector: TypeAlias = V1NodeSelector
 NodeSelectorRequirement: TypeAlias = V1NodeSelectorRequirement
 NodeSelectorTerm: TypeAlias = V1NodeSelectorTerm
+ObjectFieldSelector: TypeAlias = V1ObjectFieldSelector
 PodSecurityContext: TypeAlias = V1PodSecurityContext
 PodSpec: TypeAlias = V1PodSpec
+ResourceFieldSelector: TypeAlias = V1ResourceFieldSelector
 SecretVolumeSource: TypeAlias = V1SecretVolumeSource
 SecurityContext: TypeAlias = V1SecurityContext
 Toleration: TypeAlias = V1Toleration
