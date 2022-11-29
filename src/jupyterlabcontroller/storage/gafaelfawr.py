@@ -1,22 +1,24 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from fastapi import Request
 from httpx import AsyncClient
 
 from ..models.v1.lab import UserInfo
 
 
 class GafaelfawrStorageClient:
-    def __init__(self, request: Request, http_client: AsyncClient) -> None:
-        token = request.headers.get("X-Auth-Request-Token")
-        if token is None:
-            raise RuntimeError("No authorization token supplied")
+    def __init__(self, token: str, http_client: AsyncClient) -> None:
         self.token = token
-        if http_client is None:
-            raise RuntimeError("No HTTP client supplied")
         self.http_client = http_client
         self._user: Optional[UserInfo] = None
         self._scopes: List[str] = list()
+        self._headers = {"Authorization": f"Bearer {token}"}
+        self._api_url = "/auth/api/v1"
+
+    async def _fetch(self, endpoint: str) -> Any:
+        resp = await self.http_client.get(
+            f"{self._api_url}/{endpoint}", headers=self._headers
+        )
+        return resp.json()
 
     async def get_user(self) -> UserInfo:
         if self._user is None:
@@ -24,25 +26,13 @@ class GafaelfawrStorageClient:
             # manager is a single request.  If there's more than one
             # get_user() call in its lifespan, something's weird, though.
             # Ask Gafaelfawr for user corresponding to token
-            headers = {"Authorization": f"Bearer {self.token}"}
-            endpoint = "/auth/ap1/v1/user-info"
-            if self.http_client is None:
-                raise RuntimeError("HTTP Client is None")
-            # It won't be post-__init__, but mypy can't tell that.
-            resp = await self.http_client.get(endpoint, headers=headers)
-            obj = resp.json()
+            obj = await self._fetch("user-info")
             self._user = UserInfo.parse_obj(obj)
         return self._user
 
     async def get_scopes(self) -> List[str]:
         if not self._scopes:
-            headers = {"Authorization": f"Bearer {self.token}"}
-            endpoint = "/auth/ap1/v1/token-info"
-            if self.http_client is None:
-                raise RuntimeError("HTTP Client is None")
-            # It won't be post-__init__ but mypy can't tell that.
-            resp = await self.http_client.get(endpoint, headers=headers)
-            obj = resp.json()
+            obj = await self._fetch("token-info")
             self._scopes = obj["scopes"]
         return self._scopes
 

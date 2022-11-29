@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 import structlog
-from fastapi import Request
 from httpx import AsyncClient
 from kubernetes_asyncio.client import ApiClient
 from safir.logging import configure_logging
@@ -93,13 +92,13 @@ class Context:
             event_map=event_map,
         )
 
-    async def patch_with_request(self, request: Request) -> None:
-        # Getting user and token from request are async so we can't
-        # do it at object creation time
+    async def patch_with_token(self, token: str) -> None:
+        # Getting token from request is async so we can't do it at
+        # object creation time
         gafaelfawr_client = GafaelfawrStorageClient(
-            request=request, http_client=self.http_client
+            token=token, http_client=self.http_client
         )
-        self.token = gafaelfawr_client.token
+        self.token = token
         self.user = await gafaelfawr_client.get_user()
         self.token_scopes = await gafaelfawr_client.get_scopes()
         self.namespace = (
