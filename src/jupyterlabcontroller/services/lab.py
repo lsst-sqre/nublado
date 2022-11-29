@@ -1,11 +1,13 @@
 import re
-from typing import Dict, Optional
+from pathlib import Path
+from typing import Dict, List, Optional
 
 from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
-from ..config import LabConfiguration, LabFile
+from ..config import LabConfiguration, LabFile, LabVolume
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
+from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.usermap import UserMap
 from ..models.tag import StandaloneRSPTag
 from ..models.v1.lab import (
@@ -18,11 +20,21 @@ from ..models.v1.lab import (
     UserResources,
 )
 from ..storage.k8s import (
+    ConfigMapEnvSource,
+    ConfigMapVolumeSource,
     Container,
+    EmptyDirVolumeSource,
+    EnvFromSource,
+    HostPathVolumeSource,
     K8sStorageClient,
-    NetworkPolicySpec,
+    KeyToPath,
+    NFSVolumeSource,
     PodSecurityContext,
     PodSpec,
+    SecretVolumeSource,
+    SecurityContext,
+    Volume,
+    VolumeMount,
 )
 from .prepuller import PrepullerManager
 from .size import SizeManager
@@ -181,7 +193,7 @@ class LabManager:
     async def create_file_configmap(self) -> None:
         data = await self.build_file_configmap()
         await self.k8s_client.create_configmap(
-            name=f"nb-{self.user}-configmap",
+            name=f"nb-{self.username}-configmap",
             namespace=self.namespace,
             data=data,
         )
@@ -282,16 +294,12 @@ class LabManager:
         return data
 
     async def create_network_policy(self) -> None:
-        policy = await self.build_network_policy_spec()
+        # No corresponding "build" because the policy is hardcoded in the
+        # storage driver.
         await self.k8s_client.create_network_policy(
             name=f"nb-{self.user}-env",
             namespace=self.namespace,
-            spec=policy,
         )
-
-    async def build_network_policy_spec(self) -> NetworkPolicySpec:
-        # FIXME
-        return NetworkPolicySpec()
 
     async def create_quota(self) -> None:
         quota = await self.build_namespace_quota()
@@ -315,21 +323,242 @@ class LabManager:
             pod=pod,
         )
 
-    async def build_pod_spec(self, user: UserInfo) -> PodSpec:
-        # FIXME: needs a bunch more stuff
-        pod = PodSpec(
-            containers=[
-                Container(
-                    name="notebook",
-                    args=["/opt/lsst/software/jupyterlab/runlab.sh"],
-                    image=self.lab.options.image,
-                    security_context=PodSecurityContext(
-                        run_as_non_root=True,
-                        run_as_user=user.uid,
-                    ),
-                    working_dir=f"/home/{user.username}",
+    async def build_lab_config_volumes(
+        self, config: List[LabVolume]
+    ) -> List[LabVolumeContainer]:
+        #
+        # Step one: disks specified in config, whether for the lab itself
+        # or one of its init containers.
+        #
+        vols: List[LabVolumeContainer] = []
+        for storage in config:
+            ro = False
+            if storage.mode == "ro":
+                ro = True
+            vname = storage.container_path.replace("/", "_")[1:]
+            if not storage.server:
+                vol = Volume(
+                    host_path=HostPathVolumeSource(path=storage.server_path),
+                    name=vname,
                 )
-            ],
+            else:
+                vol = Volume(
+                    NFSVolumeSource(
+                        path=storage.server_path,
+                        read_only=ro,
+                        server=storage.server,
+                    ),
+                    name=vname,
+                )
+            vm = VolumeMount(
+                mount_path=storage.container_path,
+                read_only=ro,
+                name=vname,
+            )
+            vols.append(LabVolumeContainer(volume=vol, volume_mount=vm))
+        return vols
+
+    async def build_nss_volumes(self) -> List[LabVolumeContainer]:
+        #
+        # Step two: NSS files
+        #
+        vols: List[LabVolumeContainer] = []
+        for item in ("passwd", "group"):
+            vols.append(
+                LabVolumeContainer(
+                    volume=Volume(
+                        name=f"nss-{self.username}-{item}",
+                        config_map=ConfigMapVolumeSource(
+                            name=f"nb-{self.username}-nss",
+                            items=KeyToPath(
+                                mode=0x0644,
+                                key=item,
+                                path=item,
+                            ),
+                        ),
+                    ),
+                    volume_mount=VolumeMount(
+                        mount_path=f"/etc/{item}",
+                        name=f"nss-{self.username}-{item}",
+                        read_only=True,
+                        sub_path=item,
+                    ),
+                )
+            )
+        return vols
+
+    async def build_cm_volumes(self) -> List[LabVolumeContainer]:
+        #
+        # Step three: other configmap files
+        #
+        vols: List[LabVolumeContainer] = []
+        for cfile in self.lab_config.files:
+            cname = cfile.name
+            if cname == "passwd" or cname == "group":
+                continue  # We already handled these
+            path = Path(cfile.mount_path)
+            filename = str(path.name)
+            vols.append(
+                LabVolumeContainer(
+                    volume=Volume(
+                        name=f"nss-{self.username}-{cname}",
+                        config_map=ConfigMapVolumeSource(
+                            name=f"nb-{self.username}-configmap",
+                            items=KeyToPath(
+                                mode=0x0644,
+                                key=cname,
+                                path=filename,
+                            ),
+                        ),
+                    ),
+                    volume_mount=VolumeMount(
+                        mount_path=cfile.mount_path,
+                        name=f"nss-{self.username}-{cname}",
+                        read_only=True,  # Is that necessarily the case?
+                        sub_path=filename,
+                    ),
+                )
+            )
+        return vols
+
+    async def build_secret_volume(self) -> LabVolumeContainer:
+        #
+        # Step four: secret
+        #
+        # We are going to introduce a new location for all of these and patch
+        # things into the existing locations with modifications of runlab.sh.
+        # All the secrets will show up in the same directory.  That means
+        # we will need to symlink or the existing butler secret.
+        sec_vol = LabVolumeContainer(
+            volume=Volume(
+                name=f"nb-{self.username}-secrets",
+                secret=SecretVolumeSource(
+                    secret_name=f"nb-{self.username}",
+                ),
+            ),
+            volume_mount=VolumeMount(
+                mount_path="/opt/lsst/software/jupyterlab/secrets",
+                name=f"nb-{self.username}-secrets",
+                read_only=True,  # Likely, but I'm not certain
+            ),
+        )
+        return sec_vol
+
+    async def build_env_volume(self) -> LabVolumeContainer:
+        #
+        # Step five: environment
+        #
+        env_vol = LabVolumeContainer(
+            volume=Volume(
+                name=f"nb-{self.username}-env",
+                config_map=ConfigMapVolumeSource(
+                    name=f"nb-{self.username}-env",
+                ),
+            ),
+            volume_mount=VolumeMount(
+                mount_path="/opt/lsst/software/jupyterlab/environment",
+                name=f"nb-{self.username}-env",
+                read_only=False,  # We'd like to be able to update this
+            ),
+        )
+        return env_vol
+
+    async def build_volumes(self) -> List[LabVolumeContainer]:
+        """This stitches together the Volume and VolumeMount definitions
+        from each of our sources.
+        """
+        # Begin with the /tmp empty_dir
+        vols: List[LabVolumeContainer] = [
+            LabVolumeContainer(
+                volume=Volume(
+                    empty_dir=EmptyDirVolumeSource(),
+                    name="tmp",
+                ),
+                volume_mount=VolumeMount(
+                    mount_path="/tmp",
+                    read_only=False,
+                    name="tmp",
+                ),
+            ),
+        ]
+        lab_config_vols = await self.build_lab_config_volumes(
+            self.lab_config.volumes
+        )
+        vols.extend(lab_config_vols)
+        nss_vols = await self.build_nss_volumes()
+        vols.extend(nss_vols)
+        cm_vols = await self.build_cm_volumes()
+        vols.extend(cm_vols)
+        secret_vol = await self.build_secret_volume()
+        vols.append(secret_vol)
+        env_vol = await self.build_env_volume()
+        vols.append(env_vol)
+        return vols
+
+    async def build_init_ctrs(self) -> List[Container]:
+        init_ctrs: List[Container] = []
+        ic_volumes: List[LabVolumeContainer] = []
+        for ic in self.lab_config.initcontainers:
+            if ic.volumes is not None:
+                ic_volumes = await self.build_lab_config_volumes(ic.volumes)
+            ic_vol_mounts = [x.volume_mount for x in ic_volumes]
+            ic_sec_ctx = (
+                SecurityContext(
+                    run_as_non_root=True,
+                    run_as_user=1000,
+                    allow_privilege_escalation=False,
+                ),
+            )
+            if ic.privileged:
+                ic_sec_ctx = SecurityContext(
+                    run_as_non_root=False,
+                    run_as_user=0,
+                    allow_privilege_escalation=True,
+                )
+            ctr = Container(
+                name=ic.name,
+                image=ic.image,
+                security_context=ic_sec_ctx,
+                volume_mounts=ic_vol_mounts,
+            )
+            self.logger.debug(f"Added init container {ctr}")
+            init_ctrs.append(ctr)
+        return init_ctrs
+
+    async def build_pod_spec(self, user: UserInfo) -> PodSpec:
+        vol_recs = await self.build_volumes()
+        volumes = [x.volume for x in vol_recs]
+        vol_mounts = [x.volume_mount for x in vol_recs]
+        init_ctrs = await self.build_init_ctrs()
+        nb_ctr = Container(
+            name="notebook",
+            args=["/opt/lsst/software/jupyterlab/runlab.sh"],
+            env_from=EnvFromSource(
+                config_map_ref=ConfigMapEnvSource(
+                    name=f"nb-{self.username}-env"
+                )
+            ),
+            image=self.lab.options.image,
+            image_pull_policy="Always",
+            security_context=SecurityContext(
+                run_as_non_root=True,
+                run_as_user=user.uid,
+            ),
+            volume_mounts=vol_mounts,
+            working_dir=f"/home/{user.username}",
+        )
+        supp_grps = [x.id for x in user.groups]
+        # FIXME work out tolerations
+        pod = PodSpec(
+            init_containers=[init_ctrs],
+            containers=[nb_ctr],
+            restart_policy="OnFailure",
+            security_context=PodSecurityContext(
+                run_as_non_root=True,
+                fs_group=user.gid,
+                supplemental_groups=supp_grps,
+            ),
+            volumes=volumes,
         )
         self.logger.debug("New pod spec: {pod}")
         return pod

@@ -194,3 +194,95 @@ async def test_env(
     assert env["EXTERNAL_UID"] == "1101"
     assert env["ACCESS_TOKEN"] == "token-of-affection"
     assert env["JUPYTERHUB_SERVICE_PREFIX"] == "/nb/user/rachel"
+
+
+@pytest.mark.asyncio
+async def test_vols(
+    obj_factory: TestObjectFactory,
+    prepuller_manager: PrepullerManager,
+    user_context: Context,
+    logger: BoundLogger,
+    config: Configuration,
+    k8s_storage_client: K8sStorageClient,
+    user_map: UserMap,
+) -> None:
+    lab = obj_factory.labspecs[0]
+    assert user_context.user is not None
+    user = user_context.user
+    username = user.username
+    namespace = user_context.namespace
+    token = user_context.token
+    manager_namespace = config.runtime.namespace_prefix
+    instance_url = config.runtime.instance_url
+    lab_config = config.lab
+    lm = LabManager(
+        username=username,
+        namespace=namespace,
+        manager_namespace=manager_namespace,
+        instance_url=instance_url,
+        user_map=user_map,
+        lab=lab,
+        prepuller_manager=prepuller_manager,
+        logger=logger,
+        lab_config=lab_config,
+        k8s_client=k8s_storage_client,
+        user=user,
+        token=token,
+    )
+    vols = await lm.build_volumes()
+    vnames = [x.volume.name for x in vols]
+    assert vnames == [
+        "tmp",
+        "home",
+        "project",
+        "scratch",
+        "nss-rachel-passwd",
+        "nss-rachel-group",
+        "nss-rachel-dask-config",
+        "nss-rachel-idds-config",
+        "nb-rachel-secrets",
+        "nb-rachel-env",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_pod_spec(
+    obj_factory: TestObjectFactory,
+    prepuller_manager: PrepullerManager,
+    user_context: Context,
+    logger: BoundLogger,
+    config: Configuration,
+    k8s_storage_client: K8sStorageClient,
+    user_map: UserMap,
+) -> None:
+    lab = obj_factory.labspecs[0]
+    assert user_context.user is not None
+    user = user_context.user
+    username = user.username
+    namespace = user_context.namespace
+    token = user_context.token
+    manager_namespace = config.runtime.namespace_prefix
+    instance_url = config.runtime.instance_url
+    lab_config = config.lab
+    lm = LabManager(
+        username=username,
+        namespace=namespace,
+        manager_namespace=manager_namespace,
+        instance_url=instance_url,
+        user_map=user_map,
+        lab=lab,
+        prepuller_manager=prepuller_manager,
+        logger=logger,
+        lab_config=lab_config,
+        k8s_client=k8s_storage_client,
+        user=user,
+        token=token,
+    )
+    ps = await lm.build_pod_spec(user=user)
+    ctr = ps.containers[0]
+    assert ps.volumes[-1].config_map.name == "nb-rachel-env"
+    assert ps.security_context.fs_group == 1101
+    assert ps.security_context.supplemental_groups[1] == 2028
+    assert ctr.env_from.config_map_ref.name == "nb-rachel-env"
+    assert ctr.security_context.privileged is None
+    assert ctr.volume_mounts[1].mount_path == "/home"

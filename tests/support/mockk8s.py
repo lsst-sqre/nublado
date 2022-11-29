@@ -2,7 +2,6 @@ from typing import Dict
 
 from jupyterlabcontroller.storage.k8s import (
     K8sStorageClient,
-    NetworkPolicySpec,
     NodeContainers,
     PodSpec,
     Secret,
@@ -41,9 +40,7 @@ class MockK8sStorageClient(K8sStorageClient):
     ) -> None:
         pass
 
-    async def create_network_policy(
-        self, name: str, namespace: str, spec: NetworkPolicySpec
-    ) -> None:
+    async def create_network_policy(self, name: str, namespace: str) -> None:
         pass
 
     async def create_quota(

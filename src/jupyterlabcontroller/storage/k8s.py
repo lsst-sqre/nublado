@@ -9,11 +9,21 @@ from kubernetes_asyncio.client.api_client import ApiClient
 from kubernetes_asyncio.client.models import (
     V1Affinity,
     V1ConfigMap,
+    V1ConfigMapEnvSource,
+    V1ConfigMapVolumeSource,
     V1Container,
+    V1EmptyDirVolumeSource,
+    V1EnvFromSource,
+    V1HostPathVolumeSource,
+    V1KeyToPath,
+    V1LabelSelector,
     V1LocalObjectReference,
     V1Namespace,
     V1NetworkPolicy,
+    V1NetworkPolicyIngressRule,
+    V1NetworkPolicyPort,
     V1NetworkPolicySpec,
+    V1NFSVolumeSource,
     V1NodeAffinity,
     V1NodeSelector,
     V1NodeSelectorRequirement,
@@ -25,8 +35,11 @@ from kubernetes_asyncio.client.models import (
     V1ResourceQuota,
     V1ResourceQuotaSpec,
     V1Secret,
+    V1SecretVolumeSource,
+    V1SecurityContext,
     V1Toleration,
     V1Volume,
+    V1VolumeMount,
 )
 from kubernetes_asyncio.client.rest import ApiException
 from kubernetes_asyncio.watch import Watch
@@ -52,18 +65,33 @@ from ..models.v1.lab import UserResourceQuantum
 # For now these are just aliases, but we want to do what we did with
 # ContainerImage above and create simplified versions of the objects
 # with some defaults held constant.
-NetworkPolicySpec: TypeAlias = V1NetworkPolicySpec
-PodSpec: TypeAlias = V1PodSpec
+#
+# Not sure this is even worth it since K8s does a perfectly adequate job
+# of making models for all its types.  Maybe we should just use them
+# directly?  Not very many can be usefully simplified.
 Affinity: TypeAlias = V1Affinity
+ConfigMapEnvSource: TypeAlias = V1ConfigMapEnvSource
+ConfigMapVolumeSource: TypeAlias = V1ConfigMapVolumeSource
 Container: TypeAlias = V1Container
+EmptyDirVolumeSource: TypeAlias = V1EmptyDirVolumeSource
+EnvFromSource: TypeAlias = V1EnvFromSource
+HostPathVolumeSource: TypeAlias = V1HostPathVolumeSource
+KeyToPath: TypeAlias = V1KeyToPath
 LocalObjectReference: TypeAlias = V1LocalObjectReference
+NFSVolumeSource: TypeAlias = V1NFSVolumeSource
 NodeAffinity: TypeAlias = V1NodeAffinity
 NodeSelector: TypeAlias = V1NodeSelector
 NodeSelectorRequirement: TypeAlias = V1NodeSelectorRequirement
 NodeSelectorTerm: TypeAlias = V1NodeSelectorTerm
 PodSecurityContext: TypeAlias = V1PodSecurityContext
+PodSpec: TypeAlias = V1PodSpec
+SecretVolumeSource: TypeAlias = V1SecretVolumeSource
+SecurityContext: TypeAlias = V1SecurityContext
 Toleration: TypeAlias = V1Toleration
 Volume: TypeAlias = V1Volume
+VolumeMount: TypeAlias = V1VolumeMount
+
+# Weirdly, it turns out that NFS is internally an alias to AWS EBS.
 
 
 class K8sStorageClient:
@@ -292,12 +320,31 @@ class K8sStorageClient:
         await self.api.create_namespaced_configmap(namespace, configmap)
 
     async def create_network_policy(
-        self, name: str, namespace: str, spec: NetworkPolicySpec
+        self,
+        name: str,
+        namespace: str,
     ) -> None:
         api = client.NetworkingV1Api(self.k8s_api)
         policy = V1NetworkPolicy(
             metadata=self.get_std_metadata(name),
-            spec=spec,
+            spec=V1NetworkPolicySpec(
+                policy_types=["Ingress"],
+                pod_selector=V1LabelSelector(
+                    match_labels={"app": "jupyterhub", "component": "hub"}
+                ),
+                ingress=[
+                    V1NetworkPolicyIngressRule(
+                        ports=[
+                            V1NetworkPolicyPort(
+                                port={"port": "http"},
+                            ),
+                            V1NetworkPolicyPort(
+                                port={"port": 8081},
+                            ),
+                        ],
+                    ),
+                ],
+            ),
         )
         await api.create_namespaced_network_policy(namespace, policy)
 

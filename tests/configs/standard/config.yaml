@@ -31,20 +31,28 @@ lab:
   # -- List of specifications for containers to run to commission a new user.
   initcontainers: []
   # Each member of the list should set a container `name`, `image`, and
-  # `securityContext` and may contain `volumeMounts`.
+  # `privileged`, and may contain `volumes` (defined immediately below).
+  # If `privileged` is true, the container will run as root with
+  # `allowPrivilegeEscalation` true; otherwise it will (by convention)
+  # run as user 1000.
   # - name: farthing
   #   image: lsstsqre/farthing
-  #   securityContext:
-  #     runAsUser: 1000
-  #     runAsNonRootUser: true
-  #     allowPrivilegeEscalation: false
+  #   privileged: false
+  # - name: provisionator
+  #   image: lsstsqre/provisionator
+  #   privileged: true
+  #   volumes:
+  #   - containerPath: /home
+  #     serverPath: /share1/home
+  #     server: 10.13.105.122
+  #     mode: rw
   # -- Volumes defined to user lab pods
   volumes:
   - containerPath: /home
     serverPath: /share1/home
     server: 10.13.105.122
     mode: rw
-  - containerPath: project
+  - containerPath: /project
     serverPath: /share1/project
     server: 10.13.105.122
     mode: ro

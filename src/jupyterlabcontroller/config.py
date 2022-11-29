@@ -138,7 +138,7 @@ class LabVolume(CamelCaseModel):
     )
     server_path: str = Path(
         ...,
-        name="container_path",
+        name="server_path",
         example="/share1/home",
         description=(
             "Absolute path where the volume is exported from the NFS server"
