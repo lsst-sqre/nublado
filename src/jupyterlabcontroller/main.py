@@ -87,19 +87,21 @@ def create_app(
         )
 
     app = FastAPI(
-        title="jupyterlab-controller",
+        title=config.safir.name,
         description=metadata("jupyterlab-controller")["Summary"],
         version=version("jupyterlab-controller"),
-        openapi_url=f"/{config.safir.name}/openapi.json",
-        docs_url=f"/{config.safir.name}/docs",
-        redoc_url=f"/{config.safir.name}/redoc",
+        openapi_url=f"/{config.safir.root_endpoint}/openapi.json",
+        docs_url=f"/{config.safir.root_endpoint}/docs",
+        redoc_url=f"/{config.safir.root_endpoint}/redoc",
     )
 
     """The main FastAPI application for jupyterlab-controller."""
 
     # Attach the routers.
     app.include_router(internal_router)
-    app.include_router(external_router, prefix=f"/{config.safir.name}")
+    app.include_router(
+        external_router, prefix=f"/{config.safir.root_endpoint}"
+    )
 
     # Register lifecycle handlers.
     app.on_event("startup")(startup_event)

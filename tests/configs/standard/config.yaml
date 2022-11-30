@@ -2,8 +2,10 @@
 # but we'd rather do it this way and just control all config through
 # the ConfigMap
 safir:
-  # -- The application's name (not the root HTTP endpoint path)
+  # -- The application's name (not necessarily the root HTTP endpoint path)
   name: jupyterlab-controller
+  # -- The application's root HTTP endpoint path
+  rootEndpoint: nublado
   # -- Application run profile: "development" or "production"
   profile: development
   # -- Root name of the application's logger.

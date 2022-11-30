@@ -54,15 +54,21 @@ class SafirConfiguration(CamelCaseModel):
         title="name",
         example="jupyterlab-controller",
         description=(
-            "Application name (not necessarily the root " "endpoint path)"
+            "Application name (not necessarily the root HTTP endpoint path)"
         ),
+    )
+    root_endpoint: str = Field(
+        ...,
+        title="root_endpoint",
+        example="nublado",
+        description=("Application root HTTP endpoint path"),
     )
     profile: SafirProfile = Field(
         ...,
         title="profile",
         example="production",
         description=(
-            "Application run profile, either 'production' " "or 'development'"
+            "Application run profile, either 'production' or 'development'"
         ),
     )
     logger_name: str = Field(

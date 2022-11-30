@@ -14,8 +14,8 @@ from jupyterlabcontroller.config import Configuration
 async def test_get_external_index(
     app_client: AsyncClient, config: Configuration
 ) -> None:
-    """Test ``GET /jupyterlab-controller/``"""
-    response = await app_client.get("/jupyterlab-controller/")
+    """Test ``GET /nublado/``"""
+    response = await app_client.get("/nublado/")
     assert response.status_code == 200
     data = response.json()
     metadata = data["metadata"]
