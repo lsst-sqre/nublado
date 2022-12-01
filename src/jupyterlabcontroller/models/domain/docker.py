@@ -24,7 +24,10 @@ class DockerCredentialsMap:
         self._credentials: Dict[str, DockerCredentials] = dict()
         if filename == "":
             return
-        self.load_file(filename)
+        try:
+            self.load_file(filename)
+        except FileNotFoundError:
+            self.logger.warning(f"No credentials file at {filename}")
 
     def get(self, host: str) -> Optional[DockerCredentials]:
         for h in self._credentials:

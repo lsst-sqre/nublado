@@ -16,6 +16,7 @@ from ..constants import (
 )
 from ..models.domain.docker import DockerCredentials, DockerCredentialsMap
 from ..storage.docker import DockerStorageClient
+from ..storage.gafaelfawr import GafaelfawrStorageClient
 from ..storage.k8s import K8sStorageClient
 from .config import configuration_dependency
 from .credentials import docker_credentials_dependency
@@ -124,3 +125,32 @@ class DockerStorageDependency:
 
 
 docker_storage_dependency = DockerStorageDependency()
+
+
+class GafaelfawrStorageDependency:
+    def __init__(self) -> None:
+        self._token: str = ""
+        self._http_client: AsyncClient = Depends(http_client_dependency)
+        self._gafaelfawr_client: Optional[GafaelfawrStorageClient] = None
+
+    def set_state(self, client: GafaelfawrStorageClient) -> None:
+        self._gafaelfawr_client = client
+        client.set_token(self._token)
+
+    async def __call__(
+        self,
+    ) -> GafaelfawrStorageClient:
+        return self.gafaelfawr_client
+
+    @property
+    def gafaelfawr_client(self) -> GafaelfawrStorageClient:
+        if self._http_client is None:
+            raise RuntimeError("gafaelfawr client has no http client")
+        if self._gafaelfawr_client is None:
+            self._gafaelfawr_client = GafaelfawrStorageClient(
+                token=self._token, http_client=self._http_client
+            )
+        return self._gafaelfawr_client
+
+
+gafaelfawr_storage_dependency = GafaelfawrStorageDependency()

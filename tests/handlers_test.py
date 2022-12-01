@@ -42,3 +42,13 @@ async def test_get_internal_index(
     assert isinstance(data["description"], str)
     assert isinstance(data["repository_url"], str)
     assert isinstance(data["documentation_url"], str)
+
+
+@pytest.mark.asyncio
+async def test_get_labs(
+    admin_client: AsyncClient,
+    config: Configuration,
+) -> None:
+    response = await admin_client.get("/nublado/spawner/v1/labs")
+    data = response.json()
+    assert data == list()

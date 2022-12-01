@@ -151,12 +151,14 @@ class PrepullerConfiguration(CamelCaseModel):
     def gar_registry_host(
         cls, v: GARDefinition, values: Dict[str, str]
     ) -> GARDefinition:
-        reg = f"{values['registry']}-docker.pkg.dev"
+        reg = values["registry"]
         if v.location != "":
+            if not v.location.endswith("-docker.pkg.dev"):
+                v.location += "-docker.pkg.dev"
             if v.location != reg:
                 raise RuntimeError(f"{v.location} != {reg}")
         else:
-            v.location = f"{reg}"
+            v.location = values["registry"]
         return v
 
     @property

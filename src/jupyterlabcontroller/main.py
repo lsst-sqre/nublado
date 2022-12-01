@@ -23,6 +23,7 @@ from .dependencies.config import configuration_dependency
 from .dependencies.prepull import prepuller_manager_dependency
 from .dependencies.storage import (
     docker_storage_dependency,
+    gafaelfawr_storage_dependency,
     k8s_storage_dependency,
 )
 from .handlers import external_router, internal_router
@@ -79,6 +80,8 @@ def create_app(
             config=config,
             http_client=http_client,
         )
+        gafaelfawr_client = storage_clients.gafaelfawr_client
+        gafaelfawr_storage_dependency.set_state(client=gafaelfawr_client)
         prepuller_manager_dependency.set_state(
             logger=logger,
             k8s_client=k8s_client,

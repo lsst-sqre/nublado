@@ -14,10 +14,15 @@ from structlog.stdlib import BoundLogger
 from ..config import Configuration
 from ..models.context import Context
 from ..storage.docker import DockerStorageClient
+from ..storage.gafaelfawr import GafaelfawrStorageClient
 from ..storage.k8s import K8sStorageClient
 from .config import configuration_dependency
 from .header_token import token_dependency
-from .storage import docker_storage_dependency, k8s_storage_dependency
+from .storage import (
+    docker_storage_dependency,
+    gafaelfawr_storage_dependency,
+    k8s_storage_dependency,
+)
 
 
 class ContextDependency:
@@ -31,6 +36,9 @@ class ContextDependency:
         docker_client: DockerStorageClient = Depends(
             docker_storage_dependency
         ),
+        gafaelfawr_client: GafaelfawrStorageClient = Depends(
+            gafaelfawr_storage_dependency
+        ),
         token: str = Depends(token_dependency),
     ) -> Context:
         context: Context = Context.initialize(
@@ -39,6 +47,7 @@ class ContextDependency:
             logger=logger,
             k8s_client=k8s_client,
             docker_client=docker_client,
+            gafaelfawr_client=gafaelfawr_client,
         )
         await context.patch_with_token(token=token)
         return context

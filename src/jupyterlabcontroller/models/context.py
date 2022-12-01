@@ -24,6 +24,7 @@ class Context:
     logger: BoundLogger
     docker_client: DockerStorageClient
     k8s_client: K8sStorageClient
+    gafaelfawr_client: GafaelfawrStorageClient
     user_map: UserMap
     event_map: EventMap
     namespace: str = ""
@@ -39,6 +40,7 @@ class Context:
         http_client: Optional[AsyncClient] = None,
         docker_client: Optional[DockerStorageClient] = None,
         k8s_client: Optional[K8sStorageClient] = None,
+        gafaelfawr_client: Optional[GafaelfawrStorageClient] = None,
         user_map: Optional[UserMap] = None,
         event_map: Optional[EventMap] = None,
     ) -> "Context":
@@ -74,6 +76,12 @@ class Context:
                 logger=logger,
             )
 
+        # Gafaelfawr client
+        if gafaelfawr_client is None:
+            gafaelfawr_client = GafaelfawrStorageClient(
+                token="", http_client=http_client
+            )
+
         # User-to-lab map
         if user_map is None:
             user_map = UserMap()
@@ -88,6 +96,7 @@ class Context:
             logger=logger,
             docker_client=docker_client,
             k8s_client=k8s_client,
+            gafaelfawr_client=gafaelfawr_client,
             user_map=user_map,
             event_map=event_map,
         )
@@ -95,12 +104,12 @@ class Context:
     async def patch_with_token(self, token: str) -> None:
         # Getting token from request is async so we can't do it at
         # object creation time
-        gafaelfawr_client = GafaelfawrStorageClient(
-            token=token, http_client=self.http_client
-        )
         self.token = token
-        self.user = await gafaelfawr_client.get_user()
-        self.token_scopes = await gafaelfawr_client.get_scopes()
+        self.gafaelfawr_client.set_token(token)
+        self.logger.warning(f"Patched gf client with token '{token}'")
+        self.user = await self.gafaelfawr_client.get_user()
+        self.logger.warning(f"user: {self.user}")
+        self.token_scopes = await self.gafaelfawr_client.get_scopes()
         self.namespace = (
             f"{self.config.runtime.namespace_prefix}-{self.user.username}"
         )

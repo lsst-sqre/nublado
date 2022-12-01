@@ -7,12 +7,22 @@ from ..models.v1.lab import UserInfo
 
 class GafaelfawrStorageClient:
     def __init__(self, token: str, http_client: AsyncClient) -> None:
-        self.token = token
+        self.token = ""
         self.http_client = http_client
         self._user: Optional[UserInfo] = None
-        self._scopes: List[str] = list()
-        self._headers = {"Authorization": f"Bearer {token}"}
         self._api_url = "/auth/api/v1"
+        self.set_token(token)
+
+    def _reset_token_info(self) -> None:
+        self._headers = {"Authorization": f"bearer {self.token}"}
+        self._scopes: List[str] = list()
+        self._user = None
+
+    def set_token(self, token: str) -> None:
+        if token == self.token:
+            return
+        self.token = token
+        self._reset_token_info()
 
     async def _fetch(self, endpoint: str) -> Any:
         resp = await self.http_client.get(
