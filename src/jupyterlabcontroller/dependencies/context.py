@@ -5,7 +5,7 @@ capture the context of any request.  It requires that a Configuration has been
 loaded before it can be instantiated.
 """
 
-from fastapi import Depends, Request
+from fastapi import Depends, Header, Request
 from httpx import AsyncClient
 from safir.dependencies.http_client import http_client_dependency
 from safir.dependencies.logger import logger_dependency
@@ -16,8 +16,8 @@ from ..models.context import Context
 from ..storage.docker import DockerStorageClient
 from ..storage.gafaelfawr import GafaelfawrStorageClient
 from ..storage.k8s import K8sStorageClient
+from ..util import extract_bearer_token
 from .config import configuration_dependency
-from .header_token import token_dependency
 from .storage import (
     docker_storage_dependency,
     gafaelfawr_storage_dependency,
@@ -39,7 +39,7 @@ class ContextDependency:
         gafaelfawr_client: GafaelfawrStorageClient = Depends(
             gafaelfawr_storage_dependency
         ),
-        token: str = Depends(token_dependency),
+        authorization: str = Header(...),
     ) -> Context:
         context: Context = Context.initialize(
             config=config,
@@ -49,7 +49,8 @@ class ContextDependency:
             docker_client=docker_client,
             gafaelfawr_client=gafaelfawr_client,
         )
-        await context.patch_with_token(token=token)
+        token = extract_bearer_token(authorization)
+        await context.patch_with_token(token)
         return context
 
 

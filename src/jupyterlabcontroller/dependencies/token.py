@@ -1,18 +1,19 @@
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
 
 from ..constants import ADMIN_SCOPE, USER_SCOPE
 from ..models.context import Context
+from ..util import extract_bearer_token
 from .context import context_dependency
-from .header_token import token_dependency
 
 
 class UserTokenDependency:
     async def __call__(
         self,
         request: Request,
-        token: str = Depends(token_dependency),
+        authorization: str = Header(...),
         context: Context = Depends(context_dependency),
     ) -> str:
+        token = extract_bearer_token(authorization)
         if token != context.token:
             raise HTTPException(status_code=424, detail="Failed Dependency")
         if USER_SCOPE not in context.token_scopes:
@@ -27,9 +28,10 @@ class AdminTokenDependency:
     async def __call__(
         self,
         request: Request,
-        token: str = Depends(token_dependency),
+        authorization: str = Header(...),
         context: Context = Depends(context_dependency),
     ) -> str:
+        token = extract_bearer_token(authorization)
         if token != context.token:
             raise HTTPException(status_code=424, detail="Failed Dependency")
         if ADMIN_SCOPE not in context.token_scopes:
