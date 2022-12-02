@@ -3,137 +3,127 @@ and we need to avoid circular imports."""
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, root_validator, validator
+from pydantic import Field, root_validator
 
 from ..camelcase import CamelCaseModel
 
 
 class DockerDefinition(CamelCaseModel):
+    registry: str = Field(
+        "docker.io",
+        name="registry",
+        example="lighthouse.ceres",
+        title="hostname (and optional port) of Docker repository",
+    )
     repository: str = Field(
         ...,
-        title="repository",
-        example="lighthouse.ceres/library/sketchbook",
-        description=(
-            "Docker registry path (excluding the tag or digest)"
-            " to the Lab image."
-        ),
+        name="repository",
+        example="library/sketchbook",
+        title="Docker repository path to lab image (no tag or digest)",
     )
 
 
 class GARDefinition(CamelCaseModel):
     repository: str = Field(
         ...,
-        title="repository",
+        name="repository",
         example="library",
-        description=(
-            "Google Artifact Registry 'repository' (between project"
-            " and image in constructed path)"
-        ),
+        title="Google Artifact Registry 'repository'",
+        description="item between project and image in constructed path",
     )
     image: str = Field(
         ...,
-        title="image",
+        name="image",
         example="sketchbook",
-        description="Google Artifact Registry image name",
+        title="Google Artifact Registry image name",
     )
     project_id: str = Field(
         ...,
-        title="project_id",
+        name="project_id",
         example="ceres-lighthouse-6ab4",
-        description=(
-            "GCP Project ID for project containing the Artifact Registry"
-        ),
+        title="GCP Project ID for project containing the Artifact Registry",
     )
-    location: str = Field(
+    registry: str = Field(
         ...,
-        title="location",
+        name="registry",
         example="us-central1-docker.pkg.dev",
+        title="Hostname of Google Artifact Registry",
         description=(
-            "Hostname of Google Artifact Registry.  Should be"
-            " a regional or multiregional identifier prepended"
-            " to '-docker.pkg.dev', e.g. 'us-docker.pkg.dev' or"
-            " 'us-central1-docker.pkg.dev'."
+            "Should be a regional or multiregional identifier prepended "
+            "to '-docker.pkg.dev', e.g. 'us-docker.pkg.dev' or "
+            "'us-central1-docker.pkg.dev'"
         ),
+        regex=r".*-docker\.pkg\.dev$",
     )
 
 
 class ImagePathAndName(CamelCaseModel):
     path: str = Field(
         ...,
-        title="path",
+        name="path",
         example="lighthouse.ceres/library/sketchbook:latest_daily",
-        description=(
-            "Full Docker registry path (cf."
-            " https://docs.docker.com/registry/introduction/ )"
-            " for lab image."
-        ),
+        title="Full Docker registry path for lab image.",
+        description="cf. https://docs.docker.com/registry/introduction/",
     )
     name: str = Field(
         ...,
-        title="name",
+        name="name",
         example="Latest Daily (Daily 2077_10_23)",
-        description=("Human-readable version of image tag"),
+        title="Human-readable representation of image tag",
     )
 
 
 class PrepullerConfiguration(CamelCaseModel):
     """See https://sqr-059.lsst.io for how this is used."""
 
-    registry: str = Field(
-        "registry.hub.docker.com",
-        title="registry",
-        example="lighthouse.ceres",
-        description="Hostname of Docker repository",
-    )
     docker: Optional[DockerDefinition] = None
     gar: Optional[GARDefinition] = None
     recommended_tag: str = Field(
         "recommended",
-        title="recommended",
+        name="recommended",
         example="recommended",
-        description="Image tag to use as `recommended` image",
+        title="Image tag to use as `recommended` image",
     )
     num_releases: int = Field(
         1,
-        title="num_releases",
+        name="num_releases",
         example=1,
-        description="Number of Release images to prepull and display in menu.",
+        title="Number of Release images to prepull and display in menu",
     )
     num_weeklies: int = Field(
         2,
-        title="num_weeklies",
+        name="num_weeklies",
         example=2,
-        description="Number of Weekly images to prepull and display in menu.",
+        title="Number of Weekly images to prepull and display in menu",
     )
     num_dailies: int = Field(
         3,
-        title="num_dailies",
+        name="num_dailies",
         example=3,
-        description="Number of Daily images to prepull and display in menu.",
+        title="Number of Daily images to prepull and display in menu",
     )
     cycle: Optional[int] = Field(
         None,
-        title="cycle",
+        name="cycle",
         example=27,
-        description=(
-            "Cycle number describing XML schema version of this"
-            " image.  Currently only used by T&S RSP."
-        ),
+        title="Cycle number describing XML schema version of this image",
+        description="Currently only used by T&S RSP",
     )
     pin: Optional[List[ImagePathAndName]] = Field(
         None,
-        title="pin",
+        name="pin",
         example=["lighthouse.ceres/library/sketchbook:d_2077_10_23"],
+        title="List of images to prepull and pin to the menu",
         description=(
-            "List of images to prepull and pin to the menu, "
-            "even if they would not normally be prepulled."
+            "Forces images to be cached and pinned to the menu "
+            "even when they would not normally be prepulled"
         ),
     )
     alias_tags: List[str] = Field(
         default_factory=list,
-        title="alias_tags",
+        name="alias_tags",
         example=["recommended_cycle0027"],
-        description="Additional alias tags for this instance.",
+        title="Additional alias tags for this instance.",
     )
 
     @root_validator
@@ -147,19 +137,17 @@ class PrepullerConfiguration(CamelCaseModel):
             return values
         raise RuntimeError("Exactly one of 'docker' or 'gar' must be defined")
 
-    @validator("gar")
-    def gar_registry_host(
-        cls, v: GARDefinition, values: Dict[str, str]
-    ) -> GARDefinition:
-        reg = values["registry"]
-        if v.location != "":
-            if not v.location.endswith("-docker.pkg.dev"):
-                v.location += "-docker.pkg.dev"
-            if v.location != reg:
-                raise RuntimeError(f"{v.location} != {reg}")
-        else:
-            v.location = values["registry"]
-        return v
+    @property
+    def registry(self) -> str:
+        # Return the image registry (hostname and optional port)
+        if self.gar is not None:
+            return self.gar.registry
+        if self.docker is None:
+            # The validator keeps this from happening, but mypy can't tell
+            raise RuntimeError(
+                "Exactly one of 'docker' or 'gar' must be defined"
+            )
+        return self.docker.registry
 
     @property
     def repository(self) -> str:

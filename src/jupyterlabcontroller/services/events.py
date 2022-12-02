@@ -1,15 +1,16 @@
 import asyncio
 from collections.abc import AsyncGenerator
+from typing import Deque
 
 from sse_starlette.sse import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
-from ..models.v1.event import EventQueue
+from ..models.v1.event import Event
 
 
 class EventManager:
     def __init__(
-        self, username: str, logger: BoundLogger, events: EventQueue
+        self, username: str, logger: BoundLogger, events: Deque[Event]
     ) -> None:
         self.username = username
         self.logger = logger

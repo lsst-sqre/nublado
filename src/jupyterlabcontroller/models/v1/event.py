@@ -1,7 +1,6 @@
 """Event model for jupyterlab-controller."""
 
 from enum import auto
-from typing import Deque, Dict, TypeAlias
 
 from sse_starlette import ServerSentEvent
 
@@ -27,7 +26,3 @@ class Event(CamelCaseModel):
     def toSSE(self) -> ServerSentEvent:
         """The ServerSentEvent is the thing actually emitted to the client."""
         return ServerSentEvent(data=self.data, event=self.event)
-
-
-EventQueue: TypeAlias = Deque[Event]
-EventMap: TypeAlias = Dict[str, EventQueue]

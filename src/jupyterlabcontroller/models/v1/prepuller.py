@@ -14,48 +14,45 @@ TagToNameMap = Dict[str, str]
 class PartialImage(CamelCaseModel):
     path: str = Field(
         ...,
-        title="path",
+        name="path",
         example="lighthouse.ceres/library/sketchbook:latest_daily",
-        description=(
-            "Full Docker registry path (cf."
-            " https://docs.docker.com/registry/introduction/ )"
-            " for lab image."
-        ),
+        title="Full Docker registry path for lab image",
+        description="cf. https://docs.docker.com/registry/introduction/",
     )
     name: str = Field(
         ...,
-        title="name",
+        name="name",
         example="Latest Daily (Daily 2077_10_23)",
-        description=("Human-readable version of image tag"),
+        title="Human-readable version of image tag",
     )
     digest: str = Field(
         ...,
-        title="digest",
+        name="digest",
         example=(
             "sha256:e693782192ecef4f7846ad2b21"
             "b1574682e700747f94c5a256b5731331a2eec2"
         ),
-        description="(presumably-unique) digest of image contents",
+        title="unique digest of image contents",
     )
 
 
 class Image(PartialImage):
     tags: TagToNameMap = Field(
         ...,
-        title="tags",
-        description="Map between tag and its display name",
+        name="tags",
+        title="Map between tag and its display name",
     )
     size: Optional[int] = Field(
         None,
-        title="size",
+        name="size",
         example=8675309,
-        description="Size in bytes of image.  None if image size is unknown.",
+        title="Size in bytes of image.  None if image size is unknown",
     )
     prepulled: bool = Field(
         False,
-        title="prepulled",
+        name="prepulled",
         example=False,
-        description="Whether image is prepulled to all eligible nodes.",
+        title="Whether image is prepulled to all eligible nodes",
     )
 
     @property
@@ -101,67 +98,52 @@ class SpawnerImages(CamelCaseModel):
 class Node(CamelCaseModel):
     name: str = Field(
         ...,
-        title="name",
+        name="name",
         example="gke-science-platform-d-core-pool-78ee-03baf5c9-7w75",
-        description="Name of node",
+        title="Name of node",
     )
     eligible: bool = Field(
         True,
-        title="eligible",
+        name="eligible",
         example=True,
-        description="Whether node is eligible for prepulling",
+        title="Whether node is eligible for prepulling",
     )
     comment: str = Field(
         "",
-        title="comment",
+        name="comment",
         example="Cordoned because of disk problems.",
-        description=(
-            "Empty if node is eligible, but a human-readable"
-            " reason for ineligibility if it is not."
-        ),
+        title="Human-readable reason for node ineligibility, else empty.",
     )
     cached: List[Image] = Field(
         default_factory=list,
-        title="cached",
-        description="List of images cached on this node",
+        name="cached",
+        title="List of images cached on this node",
     )
 
 
 class NodeImage(PartialImage):
     nodes: List[Node] = Field(
         default_factory=list,
-        title="nodes",
-        description=(
-            "List of nodes that should have a complete set of images "
-            "prepulled."
-        ),
+        name="nodes",
+        title="List of nodes that should get prepulled images",
     )
     missing: Optional[List[Node]] = Field(
         None,
-        title="missing",
-        description=(
-            "List of nodes that should have a set of images prepulled"
-            " but that have not yet completed."
-        ),
+        name="missing",
+        title="List of nodes whose image prepulls have not yet finished",
     )
 
 
 class PrepullerContents(CamelCaseModel):
     prepulled: List[NodeImage] = Field(
         default_factory=list,
-        title="prepulled",
-        description=(
-            "List of nodes that have all desired images completely"
-            " prepulled"
-        ),
+        name="prepulled",
+        title="List of nodes whose image prepulls are complete",
     )
     pending: List[NodeImage] = Field(
         default_factory=list,
-        title="pending",
-        description=(
-            "List of nodes that do not yet have all desired images"
-            " prepulled"
-        ),
+        name="pending",
+        title="List of nodes whose image prepulls have not yet finished",
     )
 
 

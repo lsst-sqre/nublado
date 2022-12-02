@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
-from ..config import LabConfiguration, LabFile, LabVolume
+from ..config import LabConfiguration, LabVolume
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.usermap import UserMap
@@ -147,15 +147,6 @@ class LabManager:
             target_ns=self.namespace,
         )
 
-    async def _get_file(self, name: str) -> LabFile:
-        # This feels like the config data structure should be a dict
-        # in the first place.
-        files = self.lab_config.files
-        for file in files:
-            if file.name == name:
-                return file
-        return LabFile()
-
     #
     # We are splitting "build": create the in-memory object representing
     # the resource -- and "create": submit it to Kubernetes -- for the next
@@ -172,8 +163,8 @@ class LabManager:
         )
 
     async def build_nss(self) -> Dict[str, str]:
-        pwfile = await self._get_file("passwd")
-        gpfile = await self._get_file("group")
+        pwfile = self.lab_config.files["/etc/passwd"]
+        gpfile = self.lab_config.files["/etc/group"]
         if self.user is None:
             raise RuntimeError("Can't create NSS without user")
 
@@ -189,8 +180,8 @@ class LabManager:
                 gpfile.contents += self.user.username
             gpfile.contents += "\n"
         data: Dict[str, str] = {
-            pwfile.mount_path: pwfile.contents,
-            gpfile.mount_path: gpfile.contents,
+            "/etc/passwd": pwfile.contents,
+            "/etc/group": gpfile.contents,
         }
         return data
 
@@ -206,8 +197,8 @@ class LabManager:
         files = self.lab_config.files
         data: Dict[str, str] = dict()
         for file in files:
-            if not file.modify:
-                data[file.mount_path] = file.contents
+            if not files[file].modify:
+                data[file] = files[file].contents
             else:
                 # We don't currently have anything other than passwd/group
                 # which are handled specially anyway (in NSS).
@@ -397,27 +388,26 @@ class LabManager:
         #
         vols: List[LabVolumeContainer] = []
         for cfile in self.lab_config.files:
-            cname = cfile.name
-            if cname == "passwd" or cname == "group":
+            if cfile == "/etc/passwd" or cfile == "/etc/group":
                 continue  # We already handled these
-            path = Path(cfile.mount_path)
-            filename = str(path.name)
+            path = Path(cfile)
+            filename = re.sub(r"[_\.]", "-", str(path.name))
             vols.append(
                 LabVolumeContainer(
                     volume=Volume(
-                        name=f"nss-{self.username}-{cname}",
+                        name=f"nss-{self.username}-{filename}",
                         config_map=ConfigMapVolumeSource(
                             name=f"nb-{self.username}-configmap",
                             items=KeyToPath(
                                 mode=0x0644,
-                                key=cname,
-                                path=filename,
+                                key=filename,
+                                path=cfile,
                             ),
                         ),
                     ),
                     volume_mount=VolumeMount(
-                        mount_path=cfile.mount_path,
-                        name=f"nss-{self.username}-{cname}",
+                        mount_path=cfile,
+                        name=f"nss-{self.username}-{filename}",
                         read_only=True,  # Is that necessarily the case?
                         sub_path=filename,
                     ),

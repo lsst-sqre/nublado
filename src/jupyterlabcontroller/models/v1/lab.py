@@ -43,38 +43,36 @@ class PodState(NubladoEnum):
 class UserOptions(CamelCaseModel):
     debug: bool = Field(
         False,
-        title="Debug",
+        name="debug",
         example=False,
-        description="Enable verbose logging in spawned Lab container",
+        title="Whether to enable verbose logging in Lab container",
     )
     image: str = Field(
         ...,
-        title="Lab container image",
+        name="image",
         example="lighthouse.ceres/library/sketchbook:latest_daily",
-        description=(
-            "Full Docker registry path (cf."
-            " https://docs.docker.com/registry/introduction/ )"
-            " for lab image."
-        ),
+        title="Full Docker registry path for lab image",
+        description="cf. https://docs.docker.com/registry/introduction/",
     )
     reset_user_env: bool = Field(
         False,
-        title="Reset user environment",
+        name="reset_user_env",
         example=False,
+        title="Whether to relocate user environment data",
         description=(
-            "When spawning the lab, move `.cache`, `.local`, and"
-            " `.jupyter` directories aside."
+            "When spawning the lab, move `.cache`, `.local`, and "
+            "`.jupyter` directories aside."
         ),
     )
     size: str = Field(
         ...,
-        title="Container size",
+        name="size",
+        title="Container size descriptor",
         description=(
-            "Container size descriptor.  Must be one of the sizes"
-            " specified at"
-            " https://www.d20srd.org/srd/combat/"
+            "Must be one of the sizes specified at "
+            "https://www.d20srd.org/srd/combat/"
             "movementPositionAndDistance.htm#bigandLittleCreaturesInCombat\n"
-            "Actual definition of each size is instance-defined."
+            "Actual definition of each size is instance-defined"
         ),
     )
 
@@ -82,19 +80,20 @@ class UserOptions(CamelCaseModel):
 class UserResourceQuantum(CamelCaseModel):
     cpu: float = Field(
         ...,
-        title="cpu",
+        name="cpu",
         example=1.5,
+        title="Kubernetes CPU resource quantity",
         description=(
-            "Kubernetes CPU resource, floating-point value.  cf"
-            " https://kubernetes.io/docs/tasks/configure-pod-container/"
-            "assign-cpu-resource/"
+            "cf. "
+            "https://kubernetes.io/docs/tasks/"
+            "configure-pod-container/assign-cpu-resource/\n"
         ),
     )
     memory: int = Field(
         ...,
-        title="memory",
+        name="memory",
         example=1073741824,
-        description=("Kubernetes memory resource in bytes."),
+        title="Kubernetes memory resource in bytes",
     )
 
 
@@ -111,98 +110,90 @@ class LabSpecification(CamelCaseModel):
 class UserGroup(CamelCaseModel):
     name: str = Field(
         ...,
-        title="name",
+        name="name",
         example="ferrymen",
-        description=(
-            "Group to which lab user belongs.  Should follow general"
-            " Unix naming conventions and therefore match the regular"
-            " expression `[a-z_][a-z0-9_-]*[$]` ."
-        ),
+        title="Group to which lab user belongs",
+        description="Should follow Unix naming conventions",
+        regex="^[a-z_][a-z0-9_-]*[$]?$",
     )
     id: int = Field(
         ...,
-        title="id",
+        name="id",
         example=2023,
-        description=(
-            "Numeric GID of the group (POSIX).  32-bit unsigned " " integer."
-        ),
+        title="Numeric GID of the group (POSIX)",
+        description="32-bit unsigned integer",
     )
 
 
 class UserInfo(CamelCaseModel):
     username: str = Field(
         ...,
-        title="username",
+        name="username",
         example="ribbon",
-        description=(
-            "Username for Lab user.  Should follow general Unix"
-            " naming conventions and therefore match the regular"
-            " expression `[a-z_][a-z0-9_-]*[$]` ."
-        ),
+        title="Username for Lab user",
+        description="Should follow Unix naming conventions",
+        regex="^[a-z_][a-z0-9_-]*[$]?$",
     )
     name: str = Field(
         ...,
-        title="name",
+        name="name",
         example="Ribbon",
+        title="Human-friendly display name for user",
         description=(
-            "Human-friendly display name for user.  May contain"
-            " contain spaces and capital letters; should be the"
-            " user's preferred representation of their name to"
-            " other humans."
+            "May contain spaces and capital letters; should be the "
+            "user's preferred representation of their name to "
+            "other humans"
         ),
     )
     uid: int = Field(
         ...,
-        title="uid",
+        name="uid",
         example=1104,
-        description=(
-            "Numeric UID for user (POSIX).  32-bit unsigned integer."
-        ),
+        title="Numeric UID for user (POSIX)",
+        description="32-bit unsigned integer",
     )
     gid: int = Field(
         ...,
-        title="gid",
+        name="gid",
         example=1104,
-        description=(
-            "Numeric GID for user's primary group (POSIX).  32-bit"
-            " unsigned integer."
-        ),
+        title="Numeric GID for user's primary group (POSIX)",
+        description="32-bit unsigned integer",
     )
     groups: List[UserGroup]
 
 
 class UserResources(CamelCaseModel):
     limits: UserResourceQuantum = Field(
-        ..., title="limits", description="Maximum allowed resources"
+        ..., name="limits", title="Maximum allowed resources"
     )
     requests: UserResourceQuantum = Field(
-        ..., title="requests", description="Intially-requested resources"
+        ..., name="requests", title="Intially-requested resources"
     )
 
 
 class UserData(UserInfo, LabSpecification):
     status: LabStatus = Field(
         ...,
-        title="status",
+        name="status",
         example="running",
+        title="Status of user container.",
         description=(
-            "Status of user container.  Must be one of `starting`,"
-            " `running`, `terminating`, or `failed`."
+            "Must be one of `starting`, "
+            "`running`, `terminating`, or `failed`."
         ),
     )
     pod: PodState = Field(
         ...,
-        title="pod",
+        name="pod",
         example="present",
-        description=(
-            "User pod state.  Must be one of `present` or `missing`."
-        ),
+        title="User pod state.",
+        description="Must be one of `present` or `missing`.",
     )
     resources: UserResources
     events: Deque[Event] = Field(
         deque(),
-        title="events",
-        description=("Ordered queue of events for user lab creation/deletion"),
+        name="events",
+        title="Ordered queue of events for user lab creation/deletion",
     )
 
     @classmethod

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from typing import Any, Dict, List, Optional, TypeAlias
+from typing import Any, Deque, Dict, List, Optional, TypeAlias
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client.api_client import ApiClient
@@ -62,7 +62,7 @@ from ..models.k8s import (
     ObjectOperation,
     Secret,
 )
-from ..models.v1.event import Event, EventQueue
+from ..models.v1.event import Event
 from ..models.v1.lab import UserResourceQuantum
 
 # FIXME
@@ -443,7 +443,7 @@ class K8sWatcher:
         The plural for the custom resource for which to watch.
     api_client : ``kubernetes_asyncio.client.ApiClient``
         The Kubernetes client.
-    queue : `EventQueue`
+    queue : `Deque[Event]`
         The queue into which to put the events.
     logger : `structlog.stdlib.BoundLogger`
         Logger to use for messages.
@@ -453,7 +453,7 @@ class K8sWatcher:
         self,
         plural: str,
         api_client: ApiClient,
-        queue: EventQueue,
+        queue: Deque[Event],
         logger: BoundLogger,
     ) -> None:
         self._plural = plural

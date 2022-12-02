@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import os
 from enum import auto
-from typing import Any, Dict, List, Optional, TypeAlias, Union
+from typing import Dict, List, TypeAlias
 
 import yaml
 from fastapi import Path
 from pydantic import Field
+from safir.logging import LogLevel, Profile
 
 from .models.camelcase import CamelCaseModel
 from .models.enum import NubladoEnum
@@ -43,45 +44,38 @@ def get_external_instance_url() -> str:
 #
 
 
-class SafirProfile(NubladoEnum):
-    PRODUCTION = auto()
-    DEVELOPMENT = auto()
-
-
 class SafirConfiguration(CamelCaseModel):
     name: str = Field(
         ...,
-        title="name",
+        name="name",
         example="jupyterlab-controller",
-        description=(
+        title=(
             "Application name (not necessarily the root HTTP endpoint path)"
         ),
     )
     root_endpoint: str = Field(
         ...,
-        title="root_endpoint",
+        name="root_endpoint",
         example="nublado",
-        description=("Application root HTTP endpoint path"),
+        title="Application root HTTP endpoint path",
     )
-    profile: SafirProfile = Field(
-        ...,
-        title="profile",
+    profile: Profile = Field(
+        "production",
+        name="profile",
         example="production",
-        description=(
-            "Application run profile, either 'production' or 'development'"
-        ),
+        title="Application run profile, either 'production' or 'development'",
     )
     logger_name: str = Field(
         ...,
-        title="logger_name",
+        name="logger_name",
         example="jupyterlabcontroller",
-        description="Root name of the application's logger",
+        title="Root name of the application's logger",
     )
-    log_level: str = Field(
-        ...,
-        title="log_level",
+    log_level: LogLevel = Field(
+        "INFO",
+        name="log_level",
         example="INFO",
-        description="String representing the default log level",
+        title="Application log level",
     )
 
 
@@ -93,23 +87,20 @@ class SafirConfiguration(CamelCaseModel):
 class LabSizeDefinition(CamelCaseModel):
     cpu: float = Field(
         ...,
-        title="cpu",
+        name="cpu",
+        title="Number of CPU resource units for container",
         example=0.5,
         description=(
-            "Number of CPU resource units for Lab container.  See "
-            "https://kubernetes.io/docs/concepts/configuration/"
+            "See https://kubernetes.io/docs/concepts/configuration/"
             "manage-resources-containers/"
         ),
     )
-    memory: Union[int, str] = Field(
+    memory: str = Field(
         ...,
-        title="memory",
+        name="memory",
+        title="Amount of memory for Lab container.",
         example="1536MiB",
-        description=(
-            "Amount of memory for Lab container.  May be specified "
-            "as a text string (e.g. '1536Mib') or as an integer "
-            "representing the number of bytes"
-        ),
+        description="Must be specified as a text string (e.g. '1536MiB')",
     )
 
 
@@ -126,69 +117,62 @@ class LabVolume(CamelCaseModel):
         ...,
         name="container_path",
         example="/home",
-        description=(
-            "Absolute path where the volume is mounted inside the "
-            "Lab container"
-        ),
+        title="Absolute path of the volume mounted inside the Lab container",
         regex="^/*",
     )
     server: str = Field(
         ...,
         name="server",
         example="10.13.105.122",
+        title="Name or address of the server providing the volume",
         description=(
-            "Hostname or IP address of the NFS server providing the volume.  "
-            "If it is the empty string, the mount is taken to be of type "
-            "HostPath rather than NFS."
+            "If 'server' is the empty string, the mount is taken to be of "
+            "type HostPath rather than NFS"
         ),
     )
     server_path: str = Path(
         ...,
         name="server_path",
         example="/share1/home",
-        description=(
-            "Absolute path where the volume is exported from the NFS server"
-        ),
+        title="Absolute path where the volume is exported from the NFS server",
         regex="^/*",
     )
     mode: FileMode = Field(
         FileMode("rw"),
         name="mode",
         example="rw",
-        description=(
-            "File mode: 'rw' means read/write, while 'ro' means read only.  "
-            "The default is read/write."
-        ),
+        title="File mode: 'rw' is read/write and 'ro' is read-only",
+        regex="^r[ow]$",
     )
 
 
 class LabInitContainer(CamelCaseModel):
     name: str = Field(
         ...,
-        title="name",
+        name="name",
         example="multus-init",
-        description="Name of an initContainer run before the user Lab starts",
+        title="Name of an initContainer run before the user Lab starts",
     )
     image: str = Field(
         ...,
-        title="image",
+        name="image",
         example="docker.io/lsstit/ddsnet4u:latest",
-        description="Docker registry path to initContainer image",
+        title="Docker registry path to initContainer image",
     )
     privileged: bool = Field(
         False,
-        title="privileged",
+        name="privileged",
         example=False,
+        title="Whether the initContainer needs privilege to do its job",
         description=(
-            "Whether the initContainer needs privilege to do its "
-            "job (e.g., configure networking or provision "
-            "filesystems)"
+            "For example, permission to configure networking or "
+            "provision filesystems"
         ),
     )
-    volumes: Optional[List[LabVolume]] = Field(
-        None,
-        title="volumes",
-        description="Volumes mounted by this initContainer",
+    volumes: List[LabVolume] = Field(
+        list(),
+        name="volumes",
+        title="Volumes mounted by this initContainer",
     )
 
 
@@ -197,47 +181,22 @@ class LabSecret(CamelCaseModel):
         ...,
         name="secret_name",
         example="credentials",
-        description=(
-            "Name of secret in Lab controller namespace from which "
-            " secrets will be be copied into user Lab namespace"
-        ),
+        title="Name of source secret in Lab controller namespace",
     )
     secret_key: str = Field(
         ...,
         name="secret_key",
         example="butler-credentials",
+        title="Key of source secret within secret_name",
         description=(
-            "Name of key within secret given by secret_name of "
-            "secret to be copied into user Lab namespace.  Note that "
-            "it is the values file maintainer's responsibility to "
-            "ensure there is no collision between key names"
+            "Note that it is the values file maintainer's "
+            "responsibility to ensure there is no collision "
+            "between key names"
         ),
     )
 
 
 class LabFile(CamelCaseModel):
-    name: str = Field(
-        ...,
-        name="name",
-        example="passwd",
-        description=(
-            "Name of file to be mounted into the user Lab container "
-            "as a ConfigurationMap.  This name must be unique, and is used "
-            "if modify is True to signal the lab controller how the "
-            "file needs modification before injection into the "
-            "container"
-        ),
-    )
-    mount_path: str = Path(
-        ...,
-        name="mount_path",
-        example="/home",
-        description=(
-            "Absolute path where the file will be mounted into the "
-            "Lab container"
-        ),
-        regex="^/*",
-    )
     contents: str = Field(
         ...,
         name="contents",
@@ -246,13 +205,13 @@ class LabFile(CamelCaseModel):
             "bin:x:1:1:bin:/bin:/sbin/nologin\n",
             "...",
         ),
-        description="Contents of file",
+        title="Contents of file",
     )
     modify: bool = Field(
         False,
         name="modify",
         example=False,
-        description="Whether to modify this file before injection",
+        title="Whether to modify this file before injection",
     )
 
 
@@ -260,7 +219,7 @@ class LabConfiguration(CamelCaseModel):
     sizes: LabSizeDefinitions
     env: Dict[str, str] = Field(default_factory=dict)
     secrets: List[LabSecret] = Field(default_factory=list)
-    files: List[LabFile] = Field(default_factory=list)
+    files: Dict[str, LabFile] = Field(default_factory=list)
     volumes: List[LabVolume] = Field(default_factory=list)
     initcontainers: List[LabInitContainer] = Field(default_factory=list)
 
@@ -299,8 +258,7 @@ class Configuration(CamelCaseModel):
         filename: str,
     ) -> Configuration:
         with open(filename) as f:
-            config_obj: Dict[Any, Any] = yaml.safe_load(f)
-        r = Configuration.parse_obj(config_obj)
+            r = Configuration.parse_obj(yaml.safe_load(f))
         r.runtime = RuntimeConfiguration(
             path=filename,
             namespace_prefix=get_namespace_prefix(),

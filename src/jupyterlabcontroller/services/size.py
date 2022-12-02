@@ -27,16 +27,7 @@ class SizeManager:
         for sz in self._sizes:
             cpu = self._sizes[sz].cpu
             memfld = self._sizes[sz].memory
-            mem: int = 0
-            if type(memfld) is int:
-                mem = memfld
-            else:
-                # I don't think this can happen, but mypy does.
-                if type(memfld) is not str:
-                    raise RuntimeError(
-                        f"memfld: {type(memfld)} neither str nor int"
-                    )
-                mem = memory_string_to_int(memfld)
+            mem = memory_string_to_int(memfld)
             r[LabSize(sz)] = UserResources(
                 requests=UserResourceQuantum(
                     cpu=cpu / LIMIT_TO_REQUEST_RATIO,
