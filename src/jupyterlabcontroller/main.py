@@ -10,10 +10,7 @@ called.
 from importlib.metadata import metadata, version
 from typing import Optional
 
-import structlog
 from fastapi import FastAPI
-from httpx import AsyncClient
-from safir import logging
 from safir.dependencies.http_client import http_client_dependency
 from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
@@ -21,11 +18,6 @@ from safir.middleware.x_forwarded import XForwardedMiddleware
 
 from .dependencies.config import configuration_dependency
 from .dependencies.prepull import prepuller_manager_dependency
-from .dependencies.storage import (
-    docker_storage_dependency,
-    gafaelfawr_storage_dependency,
-    k8s_storage_dependency,
-)
 from .handlers import external_router, internal_router
 from .models.domain.storage import StorageClientBundle
 
@@ -64,30 +56,6 @@ def create_app(
         name=config.safir.logger_name,
     )
     configure_uvicorn_logging(config.safir.log_level)
-
-    if storage_clients is not None:
-        k8s_client = storage_clients.k8s_client
-        logger = structlog.get_logger(logging.logger_name)
-        http_client = AsyncClient(follow_redirects=True)
-        k8s_storage_dependency.set_state(
-            k8s_client=k8s_client,
-            logger=logger,
-        )
-        docker_client = storage_clients.docker_client
-        docker_storage_dependency.set_state(
-            docker_client=docker_client,
-            logger=logger,
-            config=config,
-            http_client=http_client,
-        )
-        gafaelfawr_client = storage_clients.gafaelfawr_client
-        gafaelfawr_storage_dependency.set_state(client=gafaelfawr_client)
-        prepuller_manager_dependency.set_state(
-            logger=logger,
-            k8s_client=k8s_client,
-            docker_client=docker_client,
-            config=config,
-        )
 
     app = FastAPI(
         title=config.safir.name,

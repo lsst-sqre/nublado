@@ -14,6 +14,7 @@ from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
 from safir import logging
+from safir.dependencies.http_client import http_client_dependency
 from safir.kubernetes import initialize_kubernetes
 from structlog.stdlib import BoundLogger
 
@@ -21,11 +22,6 @@ from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.dependencies.config import configuration_dependency
 from jupyterlabcontroller.dependencies.prepull import (
     prepuller_manager_dependency,
-)
-from jupyterlabcontroller.dependencies.storage import (
-    docker_storage_dependency,
-    gafaelfawr_storage_dependency,
-    k8s_storage_dependency,
 )
 from jupyterlabcontroller.main import create_app
 from jupyterlabcontroller.models.context import Context
@@ -104,11 +100,7 @@ async def k8s_storage_client(
 ) -> K8sStorageClient:
     # Force K8s configuration to load
     await initialize_kubernetes()
-    k8s_storage_dependency.set_state(
-        k8s_client=MockK8sStorageClient(test_obj=obj_factory),
-        logger=logger,
-    )
-    return k8s_storage_dependency.k8s_client
+    return MockK8sStorageClient(test_obj=obj_factory)
 
 
 @pytest_asyncio.fixture
@@ -116,12 +108,9 @@ async def gafaelfawr_storage_client(
     http_client: AsyncClient,
     obj_factory: TestObjectFactory,
 ) -> GafaelfawrStorageClient:
-    gafaelfawr_storage_dependency.set_state(
-        client=MockGafaelfawrStorageClient(
-            token="", http_client=http_client, test_obj=obj_factory
-        )
+    return MockGafaelfawrStorageClient(
+        http_client=http_client_dependency(), test_obj=obj_factory
     )
-    return gafaelfawr_storage_dependency.gafaelfawr_client
 
 
 @pytest_asyncio.fixture
@@ -132,13 +121,7 @@ async def docker_storage_client(
     logger: BoundLogger,
     http_client: AsyncClient,
 ) -> DockerStorageClient:
-    docker_storage_dependency.set_state(
-        docker_client=MockDockerStorageClient(test_obj=obj_factory),
-        logger=logger,
-        http_client=http_client,
-        config=config,
-    )
-    return docker_storage_dependency.docker_client
+    return MockDockerStorageClient(test_obj=obj_factory)
 
 
 @pytest_asyncio.fixture

@@ -6,7 +6,7 @@ from typing import Dict, List, TypeAlias
 
 import yaml
 from fastapi import Path
-from pydantic import Field
+from pydantic import Field, validator
 from safir.logging import LogLevel, Profile
 
 from .models.camelcase import CamelCaseModel
@@ -238,7 +238,20 @@ class LabConfiguration(CamelCaseModel):
 class RuntimeConfiguration(CamelCaseModel):
     path: str = ""
     namespace_prefix: str = ""
-    instance_url: str = ""
+    instance_url: str = Field(
+        "http://localhost:8080", env="EXTERNAL_INSTANCE_URL"
+    )
+
+    @validator("namespace_prefix")
+    def ns_prefix(cls, v: str) -> str:
+        r = os.getenv("USER_NAMESPACE_PREFIX", "")
+        if r:
+            return r
+        ns_path = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+        if os.path.exists(ns_path):
+            with open(ns_path) as f:
+                return f.read().strip()
+        return "userlabs"
 
 
 #
@@ -259,9 +272,5 @@ class Configuration(CamelCaseModel):
     ) -> Configuration:
         with open(filename) as f:
             r = Configuration.parse_obj(yaml.safe_load(f))
-        r.runtime = RuntimeConfiguration(
-            path=filename,
-            namespace_prefix=get_namespace_prefix(),
-            instance_url=get_external_instance_url(),
-        )
+        r.runtime = RuntimeConfiguration(path=filename)
         return r

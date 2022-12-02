@@ -10,22 +10,22 @@ from ..settings import TestObjectFactory, test_object_factory
 
 class MockGafaelfawrStorageClient(GafaelfawrStorageClient):
     def __init__(
-        self, token: str, http_client: AsyncClient, test_obj: TestObjectFactory
+        self, http_client: AsyncClient, test_obj: TestObjectFactory
     ) -> None:
-        self.token = token
+        pass
 
-    async def get_user(self) -> UserInfo:
-        if self.token == "token-of-affection":
+    async def get_user(self, token: str) -> UserInfo:
+        if token == "token-of-affection":
             return test_object_factory.userinfos[0]
-        elif self.token == "token-of-authority":
+        elif token == "token-of-authority":
             return test_object_factory.userinfos[1]
         else:
-            raise RuntimeError(f"invalid token '{self.token}'")
+            raise RuntimeError(f"invalid token '{token}'")
 
-    async def get_scopes(self) -> List[str]:
+    async def get_scopes(self, token: str) -> List[str]:
         scopes: List[str] = []
-        if self.token == "token-of-affection":
+        if token == "token-of-affection":
             scopes = ["exec:notebook"]
-        elif self.token == "token-of-authority":
+        elif token == "token-of-authority":
             scopes = ["exec:notebook", "admin:jupyterlab"]
         return scopes

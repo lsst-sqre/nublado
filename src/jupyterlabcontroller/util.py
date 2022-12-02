@@ -1,5 +1,6 @@
 """General utility functions."""
 
+import datetime
 from typing import Any, Callable, Dict
 
 from fastapi import HTTPException
@@ -91,3 +92,7 @@ def extract_bearer_token(header: str) -> str:
     if header[:7].lower() != "bearer ":
         raise HTTPException(status_code=422, detail="Unprocessible Entity")
     return header[7:]
+
+
+def now() -> datetime.datetime:
+    return datetime.datetime.now(tz=datetime.timezone.utc)

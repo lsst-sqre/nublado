@@ -25,33 +25,26 @@ from .storage import (
 )
 
 
-class ContextDependency:
-    async def __call__(
-        self,
-        request: Request,
-        config: Configuration = Depends(configuration_dependency),
-        http_client: AsyncClient = Depends(http_client_dependency),
-        logger: BoundLogger = Depends(logger_dependency),
-        k8s_client: K8sStorageClient = Depends(k8s_storage_dependency),
-        docker_client: DockerStorageClient = Depends(
-            docker_storage_dependency
-        ),
-        gafaelfawr_client: GafaelfawrStorageClient = Depends(
-            gafaelfawr_storage_dependency
-        ),
-        authorization: str = Header(...),
-    ) -> Context:
-        context: Context = Context.initialize(
-            config=config,
-            http_client=http_client,
-            logger=logger,
-            k8s_client=k8s_client,
-            docker_client=docker_client,
-            gafaelfawr_client=gafaelfawr_client,
-        )
-        token = extract_bearer_token(authorization)
-        await context.patch_with_token(token)
-        return context
-
-
-context_dependency = ContextDependency()
+async def context_dependency(
+    request: Request,
+    config: Configuration = Depends(configuration_dependency),
+    http_client: AsyncClient = Depends(http_client_dependency),
+    logger: BoundLogger = Depends(logger_dependency),
+    k8s_client: K8sStorageClient = Depends(k8s_storage_dependency),
+    docker_client: DockerStorageClient = Depends(docker_storage_dependency),
+    gafaelfawr_client: GafaelfawrStorageClient = Depends(
+        gafaelfawr_storage_dependency
+    ),
+    authorization: str = Header(...),
+) -> Context:
+    context = Context.initialize(
+        config=config,
+        http_client=http_client,
+        logger=logger,
+        k8s_client=k8s_client,
+        docker_client=docker_client,
+        gafaelfawr_client=gafaelfawr_client,
+    )
+    token = extract_bearer_token(authorization)
+    await context.patch_with_token(token)
+    return context

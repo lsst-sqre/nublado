@@ -79,7 +79,7 @@ class Context:
         # Gafaelfawr client
         if gafaelfawr_client is None:
             gafaelfawr_client = GafaelfawrStorageClient(
-                token="", http_client=http_client
+                http_client=http_client
             )
 
         # User-to-lab map
@@ -105,11 +105,8 @@ class Context:
         # Getting token from request is async so we can't do it at
         # object creation time
         self.token = token
-        self.gafaelfawr_client.set_token(token)
-        self.logger.warning(f"Patched gf client with token '{token}'")
-        self.user = await self.gafaelfawr_client.get_user()
-        self.logger.warning(f"user: {self.user}")
-        self.token_scopes = await self.gafaelfawr_client.get_scopes()
+        self.user = await self.gafaelfawr_client.get_user(token)
+        self.token_scopes = await self.gafaelfawr_client.get_scopes(token)
         self.namespace = (
             f"{self.config.runtime.namespace_prefix}-{self.user.username}"
         )

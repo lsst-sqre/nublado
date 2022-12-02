@@ -1,50 +1,36 @@
-from typing import Any, List, Optional
+from typing import Any, Dict, List, cast
 
 from httpx import AsyncClient
 
+from ..models.domain.storage import GafaelfawrCache
 from ..models.v1.lab import UserInfo
 
 
 class GafaelfawrStorageClient:
-    def __init__(self, token: str, http_client: AsyncClient) -> None:
-        self.token = ""
+    def __init__(self, http_client: AsyncClient) -> None:
         self.http_client = http_client
-        self._user: Optional[UserInfo] = None
         self._api_url = "/auth/api/v1"
-        self.set_token(token)
+        self._cache: Dict[str, GafaelfawrCache]
 
-    def _reset_token_info(self) -> None:
-        self._headers = {"Authorization": f"bearer {self.token}"}
-        self._scopes: List[str] = list()
-        self._user = None
-
-    def set_token(self, token: str) -> None:
-        if token == self.token:
-            return
-        self.token = token
-        self._reset_token_info()
-
-    async def _fetch(self, endpoint: str) -> Any:
-        resp = await self.http_client.get(
-            f"{self._api_url}/{endpoint}", headers=self._headers
-        )
+    async def _fetch(self, endpoint: str, token: str) -> Any:
+        url = f"{self._api_url}/{endpoint}"
+        headers = {"Authorization": f"bearer {token}"}
+        resp = await self.http_client.get(url, headers=headers)
         return resp.json()
 
-    async def get_user(self) -> UserInfo:
-        if self._user is None:
-            # It's OK to use a cache here, since the lifespan of this
-            # manager is a single request.  If there's more than one
-            # get_user() call in its lifespan, something's weird, though.
-            # Ask Gafaelfawr for user corresponding to token
-            obj = await self._fetch("user-info")
-            self._user = UserInfo.parse_obj(obj)
-        return self._user
+    async def get_user(self, token: str) -> UserInfo:
+        # defaultdict did not work as I expected.
+        if self._cache.get(token) is None:
+            self._cache[token] = GafaelfawrCache()
+        if self._cache[token].user is None:
+            obj = await self._fetch("user-info", token)
+            self._cache[token].user = UserInfo.parse_obj(obj)
+        return cast(UserInfo, self._cache[token].user)
 
-    async def get_scopes(self) -> List[str]:
-        if not self._scopes:
-            obj = await self._fetch("token-info")
-            self._scopes = obj["scopes"]
-        return self._scopes
-
-    async def get_token(self) -> str:
-        return self.token
+    async def get_scopes(self, token: str) -> List[str]:
+        if self._cache.get(token) is None:
+            self._cache[token] = GafaelfawrCache()
+        if self._cache[token].scopes is None:
+            obj = await self._fetch("token-info", token)
+            self._cache[token].scopes = cast(List[str], obj["scopes"])
+        return cast(List[str], self._cache[token].scopes)
