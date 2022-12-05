@@ -10,7 +10,7 @@ class GafaelfawrStorageClient:
     def __init__(self, http_client: AsyncClient) -> None:
         self.http_client = http_client
         self._api_url = "/auth/api/v1"
-        self._cache: Dict[str, GafaelfawrCache]
+        self._cache: Dict[str, GafaelfawrCache] = dict()
 
     async def _fetch(self, endpoint: str, token: str) -> Any:
         url = f"{self._api_url}/{endpoint}"

@@ -1,5 +1,6 @@
 """Constants for jupyterlab-controller
 """
+from datetime import datetime, timedelta
 from pathlib import Path
 
 CONFIGURATION_PATH = "/etc/nublado/config.yaml"
@@ -10,8 +11,11 @@ USER_SCOPE = "exec:notebook"
 
 KUBERNETES_REQUEST_TIMEOUT: int = 60
 
-PREPULLER_POLL_INTERVAL: int = 60
-PREPULLER_PULL_TIMEOUT: int = 600
+PREPULLER_POLL_INTERVAL = timedelta(seconds=60)
+EPOCH = datetime(1970, 1, 1)
+# These are in seconds; they're arguments to various functions, not timedeltas.
+PREPULLER_PULL_TIMEOUT = 600
+PREPULLER_INTERNAL_POLL_PERIOD = 1.0
 
 LIMIT_TO_REQUEST_RATIO: float = 4.0  # Seems to work well so far.
 

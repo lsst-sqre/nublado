@@ -1,24 +1,20 @@
 from typing import List
 
-from httpx import AsyncClient
-
 from jupyterlabcontroller.models.v1.lab import UserInfo
 from jupyterlabcontroller.storage.gafaelfawr import GafaelfawrStorageClient
 
-from ..settings import TestObjectFactory, test_object_factory
+from ..settings import TestObjectFactory
 
 
 class MockGafaelfawrStorageClient(GafaelfawrStorageClient):
-    def __init__(
-        self, http_client: AsyncClient, test_obj: TestObjectFactory
-    ) -> None:
-        pass
+    def __init__(self, test_obj: TestObjectFactory) -> None:
+        self.test_object_factory = test_obj
 
     async def get_user(self, token: str) -> UserInfo:
         if token == "token-of-affection":
-            return test_object_factory.userinfos[0]
+            return self.test_object_factory.userinfos[0]
         elif token == "token-of-authority":
-            return test_object_factory.userinfos[1]
+            return self.test_object_factory.userinfos[1]
         else:
             raise RuntimeError(f"invalid token '{token}'")
 

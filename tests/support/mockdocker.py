@@ -3,7 +3,7 @@ from typing import List
 from jupyterlabcontroller.models.domain.prepuller import TagMap
 from jupyterlabcontroller.storage.docker import DockerStorageClient
 
-from ..settings import TestObjectFactory
+from ..settings import TestObjectFactory, test_object_factory
 
 
 class MockDockerStorageClient(DockerStorageClient):
@@ -24,3 +24,6 @@ class MockDockerStorageClient(DockerStorageClient):
 
     async def get_tag_map(self) -> TagMap:
         return self._test_obj.repocontents
+
+
+mock_docker_dependency = MockDockerStorageClient(test_obj=test_object_factory)

@@ -1,14 +1,12 @@
-from dataclasses import dataclass, field
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import List
 
-import structlog
 from httpx import AsyncClient
-from kubernetes_asyncio.client import ApiClient
-from safir.logging import configure_logging
 from structlog.stdlib import BoundLogger
 
 from ..config import Configuration
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
+from ..factory import Factory
 from ..storage.docker import DockerStorageClient
 from ..storage.gafaelfawr import GafaelfawrStorageClient
 from ..storage.k8s import K8sStorageClient
@@ -22,91 +20,48 @@ class Context:
     config: Configuration
     http_client: AsyncClient
     logger: BoundLogger
-    docker_client: DockerStorageClient
-    k8s_client: K8sStorageClient
-    gafaelfawr_client: GafaelfawrStorageClient
-    user_map: UserMap
-    event_map: EventMap
-    namespace: str = ""
-    token: str = ""
-    token_scopes: List[str] = field(default_factory=list)
-    user: Optional[UserInfo] = None
+    factory: Factory
+    token: str
 
-    @classmethod
-    def initialize(
-        cls,
-        config: Configuration,
-        logger: Optional[BoundLogger] = None,
-        http_client: Optional[AsyncClient] = None,
-        docker_client: Optional[DockerStorageClient] = None,
-        k8s_client: Optional[K8sStorageClient] = None,
-        gafaelfawr_client: Optional[GafaelfawrStorageClient] = None,
-        user_map: Optional[UserMap] = None,
-        event_map: Optional[EventMap] = None,
-    ) -> "Context":
-        if logger is None:
-            # Logger
-            configure_logging(
-                name=config.safir.logger_name,
-                profile=config.safir.profile,
-                log_level=config.safir.log_level,
-            )
-            logger = structlog.get_logger(config.safir.logger_name)
-        if logger is None:
-            raise RuntimeError("Could not get logger")
-        if http_client is None:
-            # HTTP Client
-            http_client = AsyncClient()
-        if http_client is None:
-            raise RuntimeError("Could not get http_client")
+    @property
+    def user_map(self) -> UserMap:
+        return self.factory.user_map
 
-        # Docker client
-        if docker_client is None:
-            docker_client = DockerStorageClient(
-                host=config.images.registry,
-                repository=config.images.repository,
-                logger=logger,
-                http_client=http_client,
-            )
-        # K8s client
-        if k8s_client is None:
-            k8s_client = K8sStorageClient(
-                k8s_api=ApiClient(),
-                timeout=KUBERNETES_REQUEST_TIMEOUT,
-                logger=logger,
-            )
+    @property
+    def event_map(self) -> EventMap:
+        return self.factory.event_map
 
-        # Gafaelfawr client
-        if gafaelfawr_client is None:
-            gafaelfawr_client = GafaelfawrStorageClient(
-                http_client=http_client
-            )
+    @property
+    def gafaelfawr_client(self) -> GafaelfawrStorageClient:
+        return GafaelfawrStorageClient(http_client=self.factory.http_client)
 
-        # User-to-lab map
-        if user_map is None:
-            user_map = UserMap()
-
-        # User-to-event-queue map
-        if event_map is None:
-            event_map = EventMap()
-
-        return cls(
-            config=config,
-            http_client=http_client,
-            logger=logger,
-            docker_client=docker_client,
-            k8s_client=k8s_client,
-            gafaelfawr_client=gafaelfawr_client,
-            user_map=user_map,
-            event_map=event_map,
+    @property
+    def k8s_client(self) -> K8sStorageClient:
+        return K8sStorageClient(
+            k8s_api=self.factory.k8s_api,
+            timeout=KUBERNETES_REQUEST_TIMEOUT,
+            logger=self.logger,
         )
 
-    async def patch_with_token(self, token: str) -> None:
-        # Getting token from request is async so we can't do it at
-        # object creation time
-        self.token = token
-        self.user = await self.gafaelfawr_client.get_user(token)
-        self.token_scopes = await self.gafaelfawr_client.get_scopes(token)
-        self.namespace = (
-            f"{self.config.runtime.namespace_prefix}-{self.user.username}"
+    @property
+    def docker_client(self) -> DockerStorageClient:
+        return DockerStorageClient(
+            host=self.config.images.registry,
+            repository=self.config.images.repository,
+            logger=self.logger,
+            http_client=self.factory.http_client,
         )
+
+    async def get_user(self) -> UserInfo:
+        return await self.gafaelfawr_client.get_user(self.token)
+
+    async def get_token_scopes(self) -> List[str]:
+        return await self.gafaelfawr_client.get_scopes(self.token)
+
+    async def get_username(self) -> str:
+        user = await self.get_user()
+        return user.username
+
+    async def get_namespace(self) -> str:
+        username = await self.get_username()
+        return f"{self.config.runtime.namespace_prefix}-{username}"

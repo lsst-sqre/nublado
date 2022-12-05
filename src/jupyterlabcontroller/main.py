@@ -17,9 +17,8 @@ from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 
 from .dependencies.config import configuration_dependency
-from .dependencies.prepull import prepuller_manager_dependency
+from .dependencies.prepull import prepuller_executor_dependency
 from .handlers import external_router, internal_router
-from .models.domain.storage import StorageClientBundle
 
 __all__ = ["create_app"]
 
@@ -27,7 +26,6 @@ __all__ = ["create_app"]
 def create_app(
     *,
     config_dir: Optional[str] = None,
-    storage_clients: Optional[StorageClientBundle] = None,
 ) -> FastAPI:
     """Create the FastAPI application.
 
@@ -85,9 +83,11 @@ def create_app(
 
 async def startup_event() -> None:
     await initialize_kubernetes()
-    await prepuller_manager_dependency.run()
+    executor = await prepuller_executor_dependency()
+    await executor.start()
 
 
 async def shutdown_event() -> None:
-    await prepuller_manager_dependency.stop()
+    executor = await prepuller_executor_dependency()
+    await executor.stop()
     await http_client_dependency.aclose()

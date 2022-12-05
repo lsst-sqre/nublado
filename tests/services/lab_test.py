@@ -5,7 +5,6 @@ from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.models.context import Context
 from jupyterlabcontroller.models.domain.usermap import UserMap
 from jupyterlabcontroller.services.lab import DeleteLabManager, LabManager
-from jupyterlabcontroller.services.prepuller import PrepullerManager
 from jupyterlabcontroller.storage.k8s import K8sStorageClient
 
 from ..settings import TestObjectFactory
@@ -14,19 +13,17 @@ from ..settings import TestObjectFactory
 @pytest.mark.asyncio
 async def test_lab_manager(
     obj_factory: TestObjectFactory,
-    prepuller_manager: PrepullerManager,
-    user_context: Context,
+    context: Context,
+    user_token: str,
     logger: BoundLogger,
     config: Configuration,
-    k8s_storage_client: K8sStorageClient,
     user_map: UserMap,
 ) -> None:
     lab = obj_factory.labspecs[0]
-    assert user_context.user is not None
-    user = user_context.user
+    user = await context.get_user()
     username = user.username
-    namespace = user_context.namespace
-    token = user_context.token
+    namespace = await context.get_namespace()
+    token = context.token
     manager_namespace = config.runtime.namespace_prefix
     instance_url = config.runtime.instance_url
     lab_config = config.lab
@@ -37,17 +34,16 @@ async def test_lab_manager(
         instance_url=instance_url,
         user_map=user_map,
         lab=lab,
-        prepuller_manager=prepuller_manager,
         logger=logger,
         lab_config=lab_config,
-        k8s_client=k8s_storage_client,
+        k8s_client=context.k8s_client,
         user=user,
         token=token,
     )
     present = await lm.check_for_user()
     assert present is True  # It should already be in the user map
     dlm = DeleteLabManager(
-        user_map=user_map, k8s_client=k8s_storage_client, logger=logger
+        user_map=user_map, k8s_client=context.k8s_client, logger=logger
     )
     await dlm.delete_lab_environment(username=username)
     present = await lm.check_for_user()
@@ -70,7 +66,6 @@ async def test_get_active_users(
 @pytest.mark.asyncio
 async def test_nss(
     obj_factory: TestObjectFactory,
-    prepuller_manager: PrepullerManager,
     user_context: Context,
     logger: BoundLogger,
     config: Configuration,
@@ -78,10 +73,9 @@ async def test_nss(
     user_map: UserMap,
 ) -> None:
     lab = obj_factory.labspecs[0]
-    assert user_context.user is not None
-    user = user_context.user
+    user = await user_context.get_user()
     username = user.username
-    namespace = user_context.namespace
+    namespace = await user_context.get_namespace()
     token = user_context.token
     manager_namespace = config.runtime.namespace_prefix
     instance_url = config.runtime.instance_url
@@ -93,7 +87,6 @@ async def test_nss(
         instance_url=instance_url,
         user_map=user_map,
         lab=lab,
-        prepuller_manager=prepuller_manager,
         logger=logger,
         lab_config=lab_config,
         k8s_client=k8s_storage_client,
@@ -117,7 +110,6 @@ async def test_nss(
 @pytest.mark.asyncio
 async def test_configmap(
     obj_factory: TestObjectFactory,
-    prepuller_manager: PrepullerManager,
     user_context: Context,
     logger: BoundLogger,
     config: Configuration,
@@ -125,10 +117,9 @@ async def test_configmap(
     user_map: UserMap,
 ) -> None:
     lab = obj_factory.labspecs[0]
-    assert user_context.user is not None
-    user = user_context.user
+    user = await user_context.get_user()
     username = user.username
-    namespace = user_context.namespace
+    namespace = await user_context.get_namespace()
     token = user_context.token
     manager_namespace = config.runtime.namespace_prefix
     instance_url = config.runtime.instance_url
@@ -140,7 +131,6 @@ async def test_configmap(
         instance_url=instance_url,
         user_map=user_map,
         lab=lab,
-        prepuller_manager=prepuller_manager,
         logger=logger,
         lab_config=lab_config,
         k8s_client=k8s_storage_client,
@@ -156,7 +146,6 @@ async def test_configmap(
 @pytest.mark.asyncio
 async def test_env(
     obj_factory: TestObjectFactory,
-    prepuller_manager: PrepullerManager,
     user_context: Context,
     logger: BoundLogger,
     config: Configuration,
@@ -164,10 +153,9 @@ async def test_env(
     user_map: UserMap,
 ) -> None:
     lab = obj_factory.labspecs[0]
-    assert user_context.user is not None
-    user = user_context.user
+    user = await user_context.get_user()
     username = user.username
-    namespace = user_context.namespace
+    namespace = await user_context.get_namespace()
     token = user_context.token
     manager_namespace = config.runtime.namespace_prefix
     instance_url = config.runtime.instance_url
@@ -179,7 +167,6 @@ async def test_env(
         instance_url=instance_url,
         user_map=user_map,
         lab=lab,
-        prepuller_manager=prepuller_manager,
         logger=logger,
         lab_config=lab_config,
         k8s_client=k8s_storage_client,
@@ -199,7 +186,6 @@ async def test_env(
 @pytest.mark.asyncio
 async def test_vols(
     obj_factory: TestObjectFactory,
-    prepuller_manager: PrepullerManager,
     user_context: Context,
     logger: BoundLogger,
     config: Configuration,
@@ -207,10 +193,9 @@ async def test_vols(
     user_map: UserMap,
 ) -> None:
     lab = obj_factory.labspecs[0]
-    assert user_context.user is not None
-    user = user_context.user
+    user = await user_context.get_user()
     username = user.username
-    namespace = user_context.namespace
+    namespace = await user_context.get_namespace()
     token = user_context.token
     manager_namespace = config.runtime.namespace_prefix
     instance_url = config.runtime.instance_url
@@ -222,7 +207,6 @@ async def test_vols(
         instance_url=instance_url,
         user_map=user_map,
         lab=lab,
-        prepuller_manager=prepuller_manager,
         logger=logger,
         lab_config=lab_config,
         k8s_client=k8s_storage_client,
@@ -249,7 +233,6 @@ async def test_vols(
 @pytest.mark.asyncio
 async def test_pod_spec(
     obj_factory: TestObjectFactory,
-    prepuller_manager: PrepullerManager,
     user_context: Context,
     logger: BoundLogger,
     config: Configuration,
@@ -257,10 +240,9 @@ async def test_pod_spec(
     user_map: UserMap,
 ) -> None:
     lab = obj_factory.labspecs[0]
-    assert user_context.user is not None
-    user = user_context.user
+    user = await user_context.get_user()
     username = user.username
-    namespace = user_context.namespace
+    namespace = await user_context.get_namespace()
     token = user_context.token
     manager_namespace = config.runtime.namespace_prefix
     instance_url = config.runtime.instance_url
@@ -272,7 +254,6 @@ async def test_pod_spec(
         instance_url=instance_url,
         user_map=user_map,
         lab=lab,
-        prepuller_manager=prepuller_manager,
         logger=logger,
         lab_config=lab_config,
         k8s_client=k8s_storage_client,

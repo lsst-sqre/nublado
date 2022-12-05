@@ -40,7 +40,6 @@ from ..storage.k8s import (
     Volume,
     VolumeMount,
 )
-from .prepuller import PrepullerManager
 from .size import SizeManager
 
 
@@ -53,7 +52,6 @@ class LabManager:
         instance_url: str,
         lab: LabSpecification,
         user_map: UserMap,
-        prepuller_manager: PrepullerManager,
         logger: BoundLogger,
         lab_config: LabConfiguration,
         k8s_client: K8sStorageClient,
@@ -66,7 +64,6 @@ class LabManager:
         self.instance_url = instance_url
         self.user_map = user_map
         self.lab = lab
-        self.prepuller_manager = prepuller_manager
         self.logger = logger
         self.lab_config = lab_config
         self.k8s_client = k8s_client

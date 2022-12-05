@@ -375,6 +375,28 @@ class K8sStorageClient:
         )
         await self.api.create_namespaced_resource_quota(namespace, quota_obj)
 
+    def create_prepuller_pod_spec(
+        self,
+        image: str,
+        node: str,
+    ) -> V1PodSpec:
+        # This creates a spec for a pod with a particular image on a
+        # particular node.  That pod does nothing but sleep five
+        # seconds and then exit.  Its only function is to ensure that
+        # that image gets pulled to that node.
+        shortname = image.split("/")[-1]
+        return V1PodSpec(
+            containers=[
+                Container(
+                    name=f"prepull-{shortname}",
+                    command=["/bin/sleep", "5"],
+                    image=image,
+                    working_dir="/tmp",
+                )
+            ],
+            node_name=node,
+        )
+
     async def create_pod(
         self, name: str, namespace: str, pod: PodSpec
     ) -> None:

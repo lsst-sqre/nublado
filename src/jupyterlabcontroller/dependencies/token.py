@@ -16,7 +16,7 @@ class UserTokenDependency:
         token = extract_bearer_token(authorization)
         if token != context.token:
             raise HTTPException(status_code=424, detail="Failed Dependency")
-        if USER_SCOPE not in context.token_scopes:
+        if USER_SCOPE not in await context.get_token_scopes():
             raise HTTPException(status_code=403, detail="Forbidden")
         return context.token
 
@@ -34,7 +34,7 @@ class AdminTokenDependency:
         token = extract_bearer_token(authorization)
         if token != context.token:
             raise HTTPException(status_code=424, detail="Failed Dependency")
-        if ADMIN_SCOPE not in context.token_scopes:
+        if ADMIN_SCOPE not in await context.get_token_scopes():
             raise HTTPException(status_code=403, detail="Forbidden")
         return context.token
 

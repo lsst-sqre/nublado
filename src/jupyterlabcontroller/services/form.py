@@ -7,7 +7,7 @@ from structlog.stdlib import BoundLogger
 from ..config import LabSizeDefinitions
 from ..constants import SPAWNER_FORM_TEMPLATE
 from ..models.domain.form import FormSize
-from .prepuller import PrepullerManager
+from .prepuller.arbitrator import PrepullerArbitrator
 
 DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 
@@ -15,12 +15,12 @@ DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 class FormManager:
     def __init__(
         self,
-        prepuller_manager: PrepullerManager,
+        prepuller_arbitrator: PrepullerArbitrator,
         logger: BoundLogger,
         http_client: AsyncClient,
         lab_sizes: LabSizeDefinitions,
     ):
-        self.prepuller_manager = prepuller_manager
+        self.prepuller_arbitrator = prepuller_arbitrator
         self.logger = logger
         self.http_client = http_client
         self.lab_sizes = lab_sizes
@@ -39,8 +39,8 @@ class FormManager:
     async def generate_user_lab_form(self) -> str:
         options_template = Template(SPAWNER_FORM_TEMPLATE)
 
-        pm = self.prepuller_manager
-        displayimages = await pm.get_menu_images()
+        pa = self.prepuller_arbitrator
+        displayimages = await pa.get_menu_images()
         cached_images = list(displayimages.menu.values())
         all_images = list(displayimages.all.values())
         sizes = self._extract_sizes()

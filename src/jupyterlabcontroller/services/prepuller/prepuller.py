@@ -36,6 +36,7 @@ from ..models.v1.prepuller import (
 )
 from ..storage.docker import DockerStorageClient
 from ..storage.k8s import Container, ContainerImage, K8sStorageClient, PodSpec
+from ..util import now
 
 
 class PrepullerManager:
@@ -70,11 +71,7 @@ class PrepullerManager:
 
     @property
     def needs_refresh(self) -> bool:
-        if datetime.datetime.now(
-            tz=datetime.timezone.utc
-        ) - self._last_check > datetime.timedelta(
-            seconds=PREPULLER_POLL_INTERVAL
-        ):
+        if now() - self._last_check > PREPULLER_POLL_INTERVAL:
             return True
         return False
 

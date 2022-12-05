@@ -1,6 +1,7 @@
 """Docker v2 registry client, based on cachemachine's client."""
 import asyncio
-from typing import Any, Dict, List, Optional
+from collections import defaultdict
+from typing import Dict, List, Optional, cast
 
 from httpx import AsyncClient, Response
 from structlog.stdlib import BoundLogger
@@ -64,13 +65,13 @@ class DockerStorageClient:
     ) -> str:
         """Get the digest of a tag.
 
-        Get the associated image digest of a Docker tag.
+        Get the digest associated with an image tag.
 
         Parameters
         ----------
         tag: the tag to inspect
-        authenticate: should we try and authenticate?  Used internally
-          for retrying after successful authentication.
+        authenticate: should we to authenticate?  Used internally for
+          retrying after successful authentication.
 
         Returns the digest as a string, such as "sha256:abcdef"
         """
@@ -90,15 +91,14 @@ class DockerStorageClient:
         tags = await self.list_tags()
         tasks: List[asyncio.Task] = list()
         for tag in tags:
+            # We probably want to rate-limit this ourselves somehow
             tasks.append(asyncio.create_task(self.get_image_digest(tag)))
-        digests: List[Any] = await asyncio.gather(*tasks)  # Actually str...
-        d_str: List[str] = [str(x) for x in digests]  # Really a no-op
-        t_to_d = dict(zip(tags, d_str))
-        d_to_t: Dict[str, List[str]] = dict()
-        for tag in t_to_d:
-            digest = t_to_d[tag]
-            if digest not in d_to_t:
-                d_to_t[digest] = list()
+        digests = cast(
+            List[str], await asyncio.gather(*tasks)
+        )  # gather doesn't know it's all strings, but we do.
+        t_to_d = dict(zip(tags, digests))
+        d_to_t: Dict[str, List[str]] = defaultdict(list)
+        for tag, digest in t_to_d.items():
             d_to_t[digest].append(tag)
         return TagMap(by_digest=d_to_t, by_tag=t_to_d)
 
