@@ -5,7 +5,6 @@ from httpx import AsyncClient
 from structlog.stdlib import BoundLogger
 
 from ..config import Configuration
-from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..factory import Factory
 from ..storage.docker import DockerStorageClient
 from ..storage.gafaelfawr import GafaelfawrStorageClient
@@ -25,32 +24,23 @@ class Context:
 
     @property
     def user_map(self) -> UserMap:
-        return self.factory.user_map
+        return self.factory.get_user_map()
 
     @property
     def event_map(self) -> EventMap:
-        return self.factory.event_map
+        return self.factory.get_event_map()
 
     @property
     def gafaelfawr_client(self) -> GafaelfawrStorageClient:
-        return GafaelfawrStorageClient(http_client=self.factory.http_client)
+        return self.factory.create_gafaelfawr_client()
 
     @property
     def k8s_client(self) -> K8sStorageClient:
-        return K8sStorageClient(
-            k8s_api=self.factory.k8s_api,
-            timeout=KUBERNETES_REQUEST_TIMEOUT,
-            logger=self.logger,
-        )
+        return self.factory.create_k8s_client()
 
     @property
     def docker_client(self) -> DockerStorageClient:
-        return DockerStorageClient(
-            host=self.config.images.registry,
-            repository=self.config.images.repository,
-            logger=self.logger,
-            http_client=self.factory.http_client,
-        )
+        return self.factory.create_docker_client()
 
     async def get_user(self) -> UserInfo:
         return await self.gafaelfawr_client.get_user(self.token)
