@@ -9,7 +9,7 @@ from ..models.v1.prepuller import PrepullerConfiguration
 from ..services.prepuller.arbitrator import PrepullerArbitrator
 from ..services.prepuller.executor import PrepullerExecutor
 from ..services.prepuller.state import PrepullerState
-from ..services.prepuller.tag_client import PrepullerTagClient
+from ..services.prepuller.tag import PrepullerTagClient
 from ..storage.docker import DockerStorageClient
 from ..storage.k8s import K8sStorageClient
 from .config import configuration_dependency
@@ -59,15 +59,21 @@ class PrepullerTagClientDependency:
         logger: BoundLogger = Depends(logger_dependency),
         config: Configuration = Depends(configuration_dependency),
     ) -> PrepullerTagClient:
-        return self._tag_client
+        return self.prepuller_tag_client
 
     @property
     def prepuller_tag_client(self) -> PrepullerTagClient:
+        if self._prepuller_state is None:
+            raise RuntimeError("prepuller_state cannot be None")
+        if self._logger is None:
+            raise RuntimeError("logger cannot be None")
+        if self._config is None:
+            raise RuntimeError("config cannot be None")
         if self._tag_client is None:
             self._tag_client = PrepullerTagClient(
                 state=self._prepuller_state,
                 logger=self._logger,
-                config=self._config,
+                config=self._config.images,
             )
         else:
             self._tag_client.logger = self._logger

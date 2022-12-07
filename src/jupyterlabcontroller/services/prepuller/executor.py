@@ -6,7 +6,7 @@ services (either Kubernetes or Docker).
 import asyncio
 from typing import Optional
 
-from aoijobs import Scheduler
+from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
 from ...constants import PREPULLER_INTERNAL_POLL_PERIOD, PREPULLER_PULL_TIMEOUT
@@ -59,8 +59,8 @@ class PrepullerExecutor:
     async def start(self) -> None:
         self.logger.info("Starting prepuller background tasks")
         self._stopping = False
-        await self._docker_scheduler.spawn(self._docker_refresh)
-        await self._k8s_scheduler.spawn(self._k8s_refresh)
+        await self._docker_scheduler.spawn(self._docker_refresh())
+        await self._k8s_scheduler.spawn(self._k8s_refresh())
         await self._prepuller_scheduler_start()
 
     async def stop(self) -> None:

@@ -40,7 +40,7 @@ class FormManager:
         options_template = Template(SPAWNER_FORM_TEMPLATE)
 
         pa = self.prepuller_arbitrator
-        displayimages = await pa.get_menu_images()
+        displayimages = pa.get_menu_images()
         cached_images = list(displayimages.menu.values())
         all_images = list(displayimages.all.values())
         sizes = self._extract_sizes()

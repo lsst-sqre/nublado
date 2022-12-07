@@ -1,11 +1,9 @@
 from dataclasses import dataclass
 
 from jupyterlabcontroller.models.context import Context
-from jupyterlabcontroller.models.storage.docker import DockerStorageClient
-from jupyterlabcontroller.models.storage.gafaelfawr import (
-    GafaelfawrStorageClient,
-)
-from jupyterlabcontroller.models.storage.k8s import K8sStorageClient
+from jupyterlabcontroller.storage.docker import DockerStorageClient
+from jupyterlabcontroller.storage.gafaelfawr import GafaelfawrStorageClient
+from jupyterlabcontroller.storage.k8s import K8sStorageClient
 
 from ..conftest import TestObjectFactory
 from .mockdocker import MockDockerStorageClient

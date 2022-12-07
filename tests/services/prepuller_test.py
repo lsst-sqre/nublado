@@ -13,7 +13,7 @@ from jupyterlabcontroller.services.prepuller.executor import PrepullerExecutor
 async def test_get_menu_images(
     prepuller_arbitrator: PrepullerArbitrator,
 ) -> None:
-    r = await prepuller_arbitrator.get_menu_images()
+    r = prepuller_arbitrator.get_menu_images()
     assert "recommended" in r.menu
     assert type(r.menu["recommended"]) is Image
     assert r.menu["recommended"].digest == "sha256:5678"
@@ -21,7 +21,7 @@ async def test_get_menu_images(
 
 @pytest.mark.asyncio
 async def test_get_prepulls(prepuller_arbitrator: PrepullerArbitrator) -> None:
-    r = await prepuller_arbitrator.get_prepulls()
+    r = prepuller_arbitrator.get_prepulls()
     assert r.config.docker is not None
     assert r.config.docker.repository == "library/sketchbook"
     assert (

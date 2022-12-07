@@ -5,14 +5,14 @@ from typing import AsyncIterator
 import structlog
 from httpx import AsyncClient
 from kubernetes_asyncio.client.api_client import ApiClient
-from safir.dependencies.http import http_client_dependency
+from safir.dependencies.http_client import http_client_dependency
 from structlog.stdlib import BoundLogger
 
 from .config import Configuration
 from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .dependencies.credentials import docker_credentials_dependency
 from .dependencies.map import event_map_dependency, user_map_dependency
-from .dependencies.prepuller import prepuller_executor_dependency
+from .dependencies.prepull import prepuller_executor_dependency
 from .models.domain.docker import DockerCredentialsMap
 from .models.domain.eventmap import EventMap
 from .models.domain.usermap import UserMap

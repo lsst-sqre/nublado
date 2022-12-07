@@ -4,7 +4,7 @@ repository.
 """
 
 
-from ..storage.docker import DockerStorageClient
+from ...storage.docker import DockerStorageClient
 from .state import PrepullerState
 
 

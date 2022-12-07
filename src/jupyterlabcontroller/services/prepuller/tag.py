@@ -7,14 +7,14 @@ from typing import List, Optional
 
 from structlog.stdlib import BoundLogger
 
-from ...storage.k8s import ContainerImage
-from ..models.domain.prepuller import (
+from ...models.domain.prepuller import (
     DigestToNodeTagImages,
     NodeContainers,
     NodeTagImage,
 )
-from ..models.tag import RSPTag, RSPTagList, RSPTagType, StandaloneRSPTag
-from ..models.v1.prepuller import PrepullerConfiguration
+from ...models.tag import RSPTag, RSPTagList, RSPTagType, StandaloneRSPTag
+from ...models.v1.prepuller import PrepullerConfiguration
+from ...storage.k8s import ContainerImage
 from .state import PrepullerState
 from .util import extract_path_from_image_ref
 

@@ -1,6 +1,6 @@
 """Constants for jupyterlab-controller
 """
-from datetime import datetime, timedelta
+import datetime
 from pathlib import Path
 
 CONFIGURATION_PATH = "/etc/nublado/config.yaml"
@@ -9,11 +9,10 @@ DOCKER_SECRETS_PATH = "/etc/secrets/.dockerconfigjson"
 ADMIN_SCOPE = "admin:jupyterlab"
 USER_SCOPE = "exec:notebook"
 
-KUBERNETES_REQUEST_TIMEOUT: int = 60
-
-PREPULLER_POLL_INTERVAL = timedelta(seconds=60)
-EPOCH = datetime(1970, 1, 1)
+PREPULLER_POLL_INTERVAL = datetime.timedelta(seconds=60)
+EPOCH = datetime.datetime.fromtimestamp(0, tz=datetime.timezone.utc)
 # These are in seconds; they're arguments to various functions, not timedeltas.
+KUBERNETES_REQUEST_TIMEOUT = 60
 PREPULLER_PULL_TIMEOUT = 600
 PREPULLER_INTERNAL_POLL_PERIOD = 1.0
 

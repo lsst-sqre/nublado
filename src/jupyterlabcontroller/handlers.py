@@ -243,7 +243,7 @@ async def get_images(
     ),
 ) -> SpawnerImages:
     """Returns known images and their names."""
-    return await prepuller_arbitrator.get_spawner_images()
+    return prepuller_arbitrator.get_spawner_images()
 
 
 @external_router.get(
@@ -261,7 +261,7 @@ async def get_prepulls(
     ),
 ) -> PrepullerStatus:
     """Returns the list of known images and their names."""
-    return await prepuller_arbitrator.get_prepulls()
+    return prepuller_arbitrator.get_prepulls()
 
 
 #
