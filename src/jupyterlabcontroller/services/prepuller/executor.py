@@ -55,21 +55,37 @@ class PrepullerExecutor:
         self._k8s_scheduler = Scheduler()
         self._prepull_scheduler: Optional[Scheduler] = None
         self._stopping = False
+        self._running = False
 
     async def start(self) -> None:
+        if self._stopping:
+            self.logger.error(
+                "Cannot start prepuller background tasks "
+                "while they are stopping."
+            )
+            return
+        if self._running:
+            self.logger.info("Prepuller background tasks are already running.")
+            return
         self.logger.info("Starting prepuller background tasks")
-        self._stopping = False
         await self._docker_scheduler.spawn(self._docker_refresh())
         await self._k8s_scheduler.spawn(self._k8s_refresh())
         await self._prepuller_scheduler_start()
+        self._running = True
 
     async def stop(self) -> None:
         self.logger.info("Stopping prepuller background tasks")
         self.stopping = True
+        if not self._running:
+            self.logger.info(
+                "Prepuller background tasks were already stopped."
+            )
         await self._docker_scheduler.close()
         await self._k8s_scheduler.close()
         if self._prepull_scheduler is not None:
             await self._wait_for_prepuller_close()
+        self._stopping = False
+        self._running = False
 
     async def _prepuller_scheduler_start(self) -> None:
         # Poll until we see that we have data in our local and remote state
@@ -104,7 +120,7 @@ class PrepullerExecutor:
             accumulated_delay += increment
         if self._prepull_scheduler is not None:
             self.logger.error(
-                "Prepuller did not close within " f"{PREPULLER_PULL_TIMEOUT}s"
+                f"Prepuller did not close within f{PREPULLER_PULL_TIMEOUT}s"
             )
 
     async def _docker_refresh(self) -> None:

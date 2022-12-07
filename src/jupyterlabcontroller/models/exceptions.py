@@ -39,3 +39,9 @@ class KubernetesError(Exception):
     """Generic error for something keeling over in the K8s layer."""
 
     pass
+
+
+class LabExistsError(Exception):
+    """Raised when lab creation is attempted for a user with an active lab."""
+
+    pass

@@ -280,9 +280,7 @@ class K8sStorageClient:
         # down to create a secret as base64 anyway.
         if "token" in base64_data:
             raise RuntimeError("'token' must come from the user token")
-        if not token:
-            raise RuntimeError("User token cannot be empty")
-        base64_data["token"] = str(base64.b64encode(token.encode("utf-8")))
+        base64_data["token"] = str(base64.b64encode(token.encode()))
         return base64_data
 
     async def create_secret(

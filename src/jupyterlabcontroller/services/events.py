@@ -1,28 +1,25 @@
 import asyncio
 from collections.abc import AsyncGenerator
-from typing import Deque
 
 from sse_starlette.sse import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
-from ..models.v1.event import Event
+from ..models.domain.eventmap import EventMap
 
 
 class EventManager:
-    def __init__(
-        self, username: str, logger: BoundLogger, events: Deque[Event]
-    ) -> None:
-        self.username = username
+    def __init__(self, logger: BoundLogger, event_map: EventMap) -> None:
         self.logger = logger
-        self.events = events
+        self.event_map = event_map
 
-    @property
     async def publish(
         self,
+        username: str,
     ) -> AsyncGenerator[ServerSentEvent, None]:
+        events = self.event_map.get(username)
         try:
             while True:
-                for ev in self.events:
+                for ev in events:
                     if ev.sent:
                         continue
                     sse = ev.toSSE()
@@ -31,8 +28,6 @@ class EventManager:
                 # FIXME really use a semaphore
                 await asyncio.sleep(1.0)
         except asyncio.CancelledError:
-            self.logger.info(
-                f"User event stream disconnected for {self.username}"
-            )
+            self.logger.info(f"User event stream disconnected for {username}")
             # Clean up?
             # raise  # probably not actually an error

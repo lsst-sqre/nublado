@@ -1,4 +1,5 @@
 import re
+from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -9,6 +10,7 @@ from ..config import LabConfiguration, LabVolume
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.usermap import UserMap
+from ..models.exceptions import LabExistsError
 from ..models.tag import StandaloneRSPTag
 from ..models.v1.lab import (
     LabSize,
@@ -19,6 +21,7 @@ from ..models.v1.lab import (
     UserResourceQuantum,
     UserResources,
 )
+from ..storage.gafaelfawr import GafaelfawrStorageClient
 from ..storage.k8s import (
     ConfigMapEnvSource,
     ConfigMapVolumeSource,
@@ -46,64 +49,53 @@ from .size import SizeManager
 class LabManager:
     def __init__(
         self,
-        username: str,
-        namespace: str,
         manager_namespace: str,
         instance_url: str,
-        lab: LabSpecification,
         user_map: UserMap,
         logger: BoundLogger,
         lab_config: LabConfiguration,
         k8s_client: K8sStorageClient,
-        user: Optional[UserInfo] = None,
-        token: str = "",
+        gafaelfawr_client: GafaelfawrStorageClient,
     ) -> None:
-        self.username = username
-        self.namespace = namespace
         self.manager_namespace = manager_namespace
         self.instance_url = instance_url
         self.user_map = user_map
-        self.lab = lab
         self.logger = logger
         self.lab_config = lab_config
         self.k8s_client = k8s_client
-        self.user = user
-        if user is not None:
-            if user.username != username:
-                raise RuntimeError(
-                    f"Username from user record {user.username}"
-                    f" does not match {username}"
-                )
-        self.token = token
+        self.gafaelfawr_client = gafaelfawr_client
 
-    @property
-    def resources(self) -> UserResources:
+    def _namespace_from_user(self, user: UserInfo) -> str:
+        return f"{self.manager_namespace}-{user.username}"
+
+    def get_resources(self, lab: LabSpecification) -> UserResources:
         size_manager = SizeManager(self.lab_config.sizes)
-        return size_manager.resources[LabSize(self.lab.options.size)]
+        return size_manager.resources[LabSize(lab.options.size)]
 
-    async def check_for_user(self) -> bool:
+    def check_for_user(self, username: str) -> bool:
         """True if there's a lab for the user, otherwise false."""
-        r = self.user_map.get(self.username)
+        r = self.user_map.get(username)
         return r is not None
 
-    async def create_lab(self) -> None:
+    async def create_lab(self, token: str, lab: LabSpecification) -> None:
         """Schedules creation of user lab objects/resources."""
-        if self.user is None:
-            raise RuntimeError("User needed for lab creation")
-        username = self.username
-        if await self.check_for_user():
+        user = await self.gafaelfawr_client.get_user(token)
+        username = user.username
+        namespace = self._namespace_from_user(user)
+
+        if self.check_for_user(username):
             estr: str = f"lab already exists for {username}"
             self.logger.error(f"create_lab failed: {estr}")
-            raise RuntimeError(estr)
+            raise LabExistsError(estr)
         #
         # Clear user event queue
         #
         self.user_map.set(
             username,
             UserData.new_from_user_resources(
-                user=self.user,
-                labspec=self.lab,
-                resources=self.resources,
+                user=user,
+                labspec=lab,
+                resources=self.get_resources(lab),
             ),
         )
 
@@ -113,35 +105,48 @@ class LabManager:
         # pod will need, and the third is the pod itself.
         #
 
-        await self.create_user_namespace()
-        await self.create_user_lab_objects()
-        await self.create_user_pod()
+        await self.k8s_client.create_user_namespace(namespace)
+        await self.create_user_lab_objects(user=user, token=token, lab=lab)
+        await self.create_user_pod(user=user, lab=lab)
 
-    async def create_user_namespace(self) -> None:
-        await self.k8s_client.create_user_namespace(self.namespace)
-
-    async def create_user_lab_objects(self) -> None:
+    async def create_user_lab_objects(
+        self,
+        user: UserInfo,
+        token: str,
+        lab: LabSpecification,
+    ) -> None:
         # Initially this will create all the resources in parallel.  If it
         # turns out we need to sequence that, we do this more manually with
         # explicit awaits.
+        username = user.username
+
         scheduler = Scheduler(close_timeout=KUBERNETES_REQUEST_TIMEOUT)
-        await scheduler.spawn(self.create_secrets())
-        await scheduler.spawn(self.create_nss())
-        await scheduler.spawn(self.create_file_configmap())
-        await scheduler.spawn(self.create_env())
-        await scheduler.spawn(self.create_network_policy())
-        await scheduler.spawn(self.create_quota())
+
+        await scheduler.spawn(
+            self.create_secrets(
+                username=username,
+                namespace=self._namespace_from_user(user),
+                token=token,
+            )
+        )
+        await scheduler.spawn(self.create_nss(user=user))
+        await scheduler.spawn(self.create_file_configmap(user=user))
+        await scheduler.spawn(self.create_env(user=user, lab=lab, token=token))
+        await scheduler.spawn(self.create_network_policy(user=user))
+        await scheduler.spawn(self.create_quota(user=user, lab=lab))
         self.logger.info("Waiting for user resources to be created.")
         await scheduler.close()
         return
 
-    async def create_secrets(self) -> None:
+    async def create_secrets(
+        self, username: str, token: str, namespace: str
+    ) -> None:
         await self.k8s_client.create_secrets(
             secret_list=self.lab_config.secrets,
-            username=self.username,
-            token=self.token,
+            username=username,
+            token=token,
             source_ns=self.manager_namespace,
-            target_ns=self.namespace,
+            target_ns=namespace,
         )
 
     #
@@ -151,30 +156,30 @@ class LabManager:
     # logic.
     #
 
-    async def create_nss(self) -> None:
-        data = await self.build_nss()
+    async def create_nss(self, user: UserInfo) -> None:
+        namespace = self._namespace_from_user(user)
+        data = self.build_nss(user=user)
         await self.k8s_client.create_configmap(
-            name=f"nb-{self.username}-nss",
-            namespace=self.namespace,
+            name=f"nb-{user.username}-nss",
+            namespace=namespace,
             data=data,
         )
 
-    async def build_nss(self) -> Dict[str, str]:
+    def build_nss(self, user: UserInfo) -> Dict[str, str]:
+        username = user.username
         pwfile = self.lab_config.files["/etc/passwd"]
         gpfile = self.lab_config.files["/etc/group"]
-        if self.user is None:
-            raise RuntimeError("Can't create NSS without user")
 
         pwfile.contents += (
-            f"{self.username}:x:{self.user.uid}:{self.user.gid}:"
-            f"{self.user.name}:/home/{self.username}:/bin/bash"
+            f"{username}:x:{user.uid}:{user.gid}:"
+            f"{user.name}:/home/{username}:/bin/bash"
             "\n"
         )
-        groups = self.user.groups
+        groups = user.groups
         for grp in groups:
             gpfile.contents += f"{grp.name}:x:{grp.id}:"
-            if grp.id != self.user.gid:
-                gpfile.contents += self.user.username
+            if grp.id != user.gid:
+                gpfile.contents += user.username
             gpfile.contents += "\n"
         data: Dict[str, str] = {
             "/etc/passwd": pwfile.contents,
@@ -182,15 +187,16 @@ class LabManager:
         }
         return data
 
-    async def create_file_configmap(self) -> None:
-        data = await self.build_file_configmap()
+    async def create_file_configmap(self, user: UserInfo) -> None:
+        namespace = self._namespace_from_user(user)
+        data = self.build_file_configmap()
         await self.k8s_client.create_configmap(
-            name=f"nb-{self.username}-configmap",
-            namespace=self.namespace,
+            name=f"nb-{user.username}-configmap",
+            namespace=namespace,
             data=data,
         )
 
-    async def build_file_configmap(self) -> Dict[str, str]:
+    def build_file_configmap(self) -> Dict[str, str]:
         files = self.lab_config.files
         data: Dict[str, str] = dict()
         for file in files:
@@ -204,30 +210,32 @@ class LabManager:
                 pass
         return data
 
-    async def create_env(self) -> None:
-        data = await self.build_env()
+    async def create_env(
+        self, user: UserInfo, lab: LabSpecification, token: str
+    ) -> None:
+        data = self.build_env(user=user, lab=lab, token=token)
         await self.k8s_client.create_configmap(
-            name=f"nb-{self.user}-env",
-            namespace=self.namespace,
+            name=f"nb-{user.username}-env",
+            namespace=self._namespace_from_user(user),
             data=data,
         )
 
-    async def build_env(self) -> Dict[str, str]:
-        if self.user is None:
-            raise RuntimeError("Cannot create user env without user")
-        data: Dict[str, str] = dict()
-        # Get the static ones from the lab config
-        data.update(self.lab_config.env)
+    def build_env(
+        self, user: UserInfo, lab: LabSpecification, token: str
+    ) -> Dict[str, str]:
+        username = user.username
+        # Get the static env vars from the lab config
+        data = deepcopy(self.lab_config.env)
         # Get the stuff from the options form
-        options = self.lab.options
+        options = lab.options
         if options.debug:
             data["DEBUG"] = "TRUE"
         if options.reset_user_env:
             data["RESET_USER_ENV"] = "TRUE"
         # Values used in more than one place
         jhub_oauth_scopes = (
-            f'["access:servers!server={self.username}/", '
-            f'"access:servers!user={self.username}"]'
+            f'["access:servers!server={username}/", '
+            f'"access:servers!user={username}"]'
         )
         image = options.image
         # Remember how we decided to pull the image with the digest and tag?
@@ -240,6 +248,10 @@ class LabManager:
             image_digest = gd["digest"]
             image_tag = gd["tag"]
         image_descr = StandaloneRSPTag.parse_tag(image_tag).display_name
+        resources = self.get_resources(lab=lab)
+        #
+        # More of these, eventually, will come from the options form.
+        #
         data.update(
             {
                 # Image data for display frame
@@ -248,36 +260,36 @@ class LabManager:
                 "IMAGE_DESCRIPTION": image_descr,
                 "IMAGE_DIGEST": image_digest,
                 # Get resource limits
-                "CPU_LIMIT": str(self.resources.limits.cpu),
-                "MEM_GUARANTEE": str(self.resources.requests.memory),
-                "MEM_LIMIT": str(self.resources.limits.memory),
+                "CPU_LIMIT": str(resources.limits.cpu),
+                "MEM_GUARANTEE": str(resources.requests.memory),
+                "MEM_LIMIT": str(resources.limits.memory),
                 # Get user/group info
-                "EXTERNAL_GID": str(self.user.gid),
+                "EXTERNAL_GID": str(user.gid),
                 "EXTERNAL_GROUPS": ",".join(
-                    [f"{x.name}:{x.id}" for x in self.user.groups]
+                    [f"{x.name}:{x.id}" for x in user.groups]
                 ),
-                "EXTERNAL_UID": str(self.user.uid),
+                "EXTERNAL_UID": str(user.uid),
                 # Get global instance URL
                 "EXTERNAL_URL": self.instance_url,
                 "EXTERNAL_INSTANCE_URL": self.instance_url,
                 # Set access token
-                "ACCESS_TOKEN": self.token,
+                "ACCESS_TOKEN": token,
                 # Set up JupyterHub info
                 "JUPYTERHUB_ACTIVITY_URL": (
                     f"http://hub.{self.manager_namespace}:8081/nb/hub/"
-                    f"api/users/{self.username}/activity"
+                    f"api/users/{username}/activity"
                 ),
-                "JUPYTERHUB_CLIENT_ID": f"jupyterhub-user-{self.username}",
+                "JUPYTERHUB_CLIENT_ID": f"jupyterhub-user-{username}",
                 "JUPYTERHUB_OAUTH_ACCESS_SCOPES": jhub_oauth_scopes,
                 "JUPYTERHUB_OAUTH_CALLBACK_URL": (
-                    f"/nb/user/{self.username}/oauth_callback"
+                    f"/nb/user/{username}/oauth_callback"
                 ),
                 "JUPYTERHUB_OAUTH_SCOPES": jhub_oauth_scopes,
-                "JUPYTERHUB_SERVICE_PREFIX": f"/nb/user/{self.username}",
+                "JUPYTERHUB_SERVICE_PREFIX": f"/nb/user/{username}",
                 "JUPYTERHUB_SERVICE_URL": (
-                    "http://0.0.0.0:8888/nb/user/" f"{self.username}"
+                    "http://0.0.0.0:8888/nb/user/" f"{username}"
                 ),
-                "JUPYTERHUB_USER": self.username,
+                "JUPYTERHUB_USER": username,
             }
         )
         # FIXME more env injection needed:
@@ -285,37 +297,41 @@ class LabManager:
         # options form response?
         return data
 
-    async def create_network_policy(self) -> None:
+    async def create_network_policy(self, user: UserInfo) -> None:
         # No corresponding "build" because the policy is hardcoded in the
         # storage driver.
         await self.k8s_client.create_network_policy(
-            name=f"nb-{self.user}-env",
-            namespace=self.namespace,
+            name=f"nb-{user.username}-env",
+            namespace=self._namespace_from_user(user),
         )
 
-    async def create_quota(self) -> None:
-        quota = await self.build_namespace_quota()
+    async def create_quota(
+        self, user: UserInfo, lab: LabSpecification
+    ) -> None:
+        quota = self.build_namespace_quota(lab=lab)
         if quota is not None:
             await self.k8s_client.create_quota(
-                name=f"nb-{self.user}",
-                namespace=self.namespace,
+                name=f"nb-{user.username}",
+                namespace=self._namespace_from_user(user),
                 quota=quota,
             )
 
-    async def build_namespace_quota(self) -> Optional[UserResourceQuantum]:
-        return self.lab.namespace_quota
+    def build_namespace_quota(
+        self, lab: LabSpecification
+    ) -> Optional[UserResourceQuantum]:
+        return lab.namespace_quota
 
-    async def create_user_pod(self) -> None:
-        if self.user is None:
-            raise RuntimeError("Cannot create user pod without user")
-        pod = await self.build_pod_spec(self.user)
+    async def create_user_pod(
+        self, user: UserInfo, lab: LabSpecification
+    ) -> None:
+        pod = self.build_pod_spec(user=user, lab=lab)
         await self.k8s_client.create_pod(
-            name=f"nb-{self.username}",
-            namespace=self.namespace,
+            name=f"nb-{user.username}",
+            namespace=self._namespace_from_user(user),
             pod=pod,
         )
 
-    async def build_lab_config_volumes(
+    def build_lab_config_volumes(
         self, config: List[LabVolume]
     ) -> List[LabVolumeContainer]:
         #
@@ -350,7 +366,7 @@ class LabManager:
             vols.append(LabVolumeContainer(volume=vol, volume_mount=vm))
         return vols
 
-    async def build_nss_volumes(self) -> List[LabVolumeContainer]:
+    def build_nss_volumes(self, username: str) -> List[LabVolumeContainer]:
         #
         # Step two: NSS files
         #
@@ -359,9 +375,9 @@ class LabManager:
             vols.append(
                 LabVolumeContainer(
                     volume=Volume(
-                        name=f"nss-{self.username}-{item}",
+                        name=f"nss-{username}-{item}",
                         config_map=ConfigMapVolumeSource(
-                            name=f"nb-{self.username}-nss",
+                            name=f"nb-{username}-nss",
                             items=KeyToPath(
                                 mode=0x0644,
                                 key=item,
@@ -371,7 +387,7 @@ class LabManager:
                     ),
                     volume_mount=VolumeMount(
                         mount_path=f"/etc/{item}",
-                        name=f"nss-{self.username}-{item}",
+                        name=f"nss-{username}-{item}",
                         read_only=True,
                         sub_path=item,
                     ),
@@ -379,7 +395,7 @@ class LabManager:
             )
         return vols
 
-    async def build_cm_volumes(self) -> List[LabVolumeContainer]:
+    def build_cm_volumes(self, username: str) -> List[LabVolumeContainer]:
         #
         # Step three: other configmap files
         #
@@ -392,9 +408,9 @@ class LabManager:
             vols.append(
                 LabVolumeContainer(
                     volume=Volume(
-                        name=f"nss-{self.username}-{filename}",
+                        name=f"nss-{username}-{filename}",
                         config_map=ConfigMapVolumeSource(
-                            name=f"nb-{self.username}-configmap",
+                            name=f"nb-{username}-configmap",
                             items=KeyToPath(
                                 mode=0x0644,
                                 key=filename,
@@ -404,7 +420,7 @@ class LabManager:
                     ),
                     volume_mount=VolumeMount(
                         mount_path=cfile,
-                        name=f"nss-{self.username}-{filename}",
+                        name=f"nss-{username}-{filename}",
                         read_only=True,  # Is that necessarily the case?
                         sub_path=filename,
                     ),
@@ -412,7 +428,7 @@ class LabManager:
             )
         return vols
 
-    async def build_secret_volume(self) -> LabVolumeContainer:
+    def build_secret_volume(self, username: str) -> LabVolumeContainer:
         #
         # Step four: secret
         #
@@ -422,39 +438,39 @@ class LabManager:
         # we will need to symlink or the existing butler secret.
         sec_vol = LabVolumeContainer(
             volume=Volume(
-                name=f"nb-{self.username}-secrets",
+                name=f"nb-{username}-secrets",
                 secret=SecretVolumeSource(
-                    secret_name=f"nb-{self.username}",
+                    secret_name=f"nb-{username}",
                 ),
             ),
             volume_mount=VolumeMount(
                 mount_path="/opt/lsst/software/jupyterlab/secrets",
-                name=f"nb-{self.username}-secrets",
+                name=f"nb-{username}-secrets",
                 read_only=True,  # Likely, but I'm not certain
             ),
         )
         return sec_vol
 
-    async def build_env_volume(self) -> LabVolumeContainer:
+    def build_env_volume(self, username: str) -> LabVolumeContainer:
         #
         # Step five: environment
         #
         env_vol = LabVolumeContainer(
             volume=Volume(
-                name=f"nb-{self.username}-env",
+                name=f"nb-{username}-env",
                 config_map=ConfigMapVolumeSource(
-                    name=f"nb-{self.username}-env",
+                    name=f"nb-{username}-env",
                 ),
             ),
             volume_mount=VolumeMount(
                 mount_path="/opt/lsst/software/jupyterlab/environment",
-                name=f"nb-{self.username}-env",
+                name=f"nb-{username}-env",
                 read_only=False,  # We'd like to be able to update this
             ),
         )
         return env_vol
 
-    async def build_tmp_volume(self) -> LabVolumeContainer:
+    def build_tmp_volume(self) -> LabVolumeContainer:
         return LabVolumeContainer(
             volume=Volume(
                 empty_dir=EmptyDirVolumeSource(),
@@ -467,31 +483,21 @@ class LabManager:
             ),
         )
 
-    async def build_runtime_volume(self) -> LabVolumeContainer:
+    def build_runtime_volume(self, username: str) -> LabVolumeContainer:
         #
         # Step six: introspective information about the pod, only known
         # after pod dispatch.
         #
 
-        # Let's just grab all the fields.
+        # The only field we need is spec.nodeName
         volfields = [
-            "metadata.name",
-            "metadata.namespace",
-            "metadata.uid",
-            "spec.serviceAccountName",
             "spec.nodeName",
-            "status.hostIP",
-            "status.podIP",
-            "metadata.labels",
-            "metadata.annotations",
         ]
         resfields = [
             "limits.cpu",
             "requests.cpu",
             "limits.memory",
             "requests.memory",
-            "limits.ephemeral-storage",
-            "requests.ephemeral-storage",
         ]
         volfiles = [
             DownwardAPIVolumeFile(
@@ -514,38 +520,38 @@ class LabManager:
         )
         runtime_vol = LabVolumeContainer(
             volume=Volume(
-                name=f"nb-{self.username}-runtime",
+                name=f"nb-{username}-runtime",
                 downward_api=DownwardAPIVolumeSource(items=volfiles),
             ),
             volume_mount=VolumeMount(
                 mount_path="/opt/lsst/software/jupyterlab/runtime",
-                name=f"nb-{self.username}-runtime",
+                name=f"nb-{username}-runtime",
                 read_only=True,
             ),
         )
         return runtime_vol
 
-    async def build_volumes(self) -> List[LabVolumeContainer]:
+    def build_volumes(self, username: str) -> List[LabVolumeContainer]:
         """This stitches together the Volume and VolumeMount definitions
         from each of our sources.
         """
         # Begin with the /tmp empty_dir
         vols: List[LabVolumeContainer] = []
-        lab_config_vols = await self.build_lab_config_volumes(
+        lab_config_vols = self.build_lab_config_volumes(
             self.lab_config.volumes
         )
         vols.extend(lab_config_vols)
-        nss_vols = await self.build_nss_volumes()
+        nss_vols = self.build_nss_volumes(username=username)
         vols.extend(nss_vols)
-        cm_vols = await self.build_cm_volumes()
+        cm_vols = self.build_cm_volumes(username=username)
         vols.extend(cm_vols)
-        secret_vol = await self.build_secret_volume()
+        secret_vol = self.build_secret_volume(username=username)
         vols.append(secret_vol)
-        env_vol = await self.build_env_volume()
+        env_vol = self.build_env_volume(username=username)
         vols.append(env_vol)
-        tmp_vol = await self.build_tmp_volume()
+        tmp_vol = self.build_tmp_volume()
         vols.append(tmp_vol)
-        runtime_vol = await self.build_runtime_volume()
+        runtime_vol = self.build_runtime_volume(username=username)
         vols.append(runtime_vol)
         return vols
 
@@ -554,7 +560,7 @@ class LabManager:
         ic_volumes: List[LabVolumeContainer] = []
         for ic in self.lab_config.initcontainers:
             if ic.volumes is not None:
-                ic_volumes = await self.build_lab_config_volumes(ic.volumes)
+                ic_volumes = self.build_lab_config_volumes(ic.volumes)
             ic_vol_mounts = [x.volume_mount for x in ic_volumes]
             ic_sec_ctx = (
                 SecurityContext(
@@ -579,27 +585,26 @@ class LabManager:
             init_ctrs.append(ctr)
         return init_ctrs
 
-    async def build_pod_spec(self, user: UserInfo) -> PodSpec:
-        vol_recs = await self.build_volumes()
+    def build_pod_spec(self, user: UserInfo, lab: LabSpecification) -> PodSpec:
+        username = user.username
+        vol_recs = self.build_volumes(username=username)
         volumes = [x.volume for x in vol_recs]
         vol_mounts = [x.volume_mount for x in vol_recs]
-        init_ctrs = await self.build_init_ctrs()
+        init_ctrs = self.build_init_ctrs()
         nb_ctr = Container(
             name="notebook",
             args=["/opt/lsst/software/jupyterlab/runlab.sh"],
             env_from=EnvFromSource(
-                config_map_ref=ConfigMapEnvSource(
-                    name=f"nb-{self.username}-env"
-                )
+                config_map_ref=ConfigMapEnvSource(name=f"nb-{username}-env")
             ),
-            image=self.lab.options.image,
+            image=lab.options.image,
             image_pull_policy="Always",
             security_context=SecurityContext(
                 run_as_non_root=True,
                 run_as_user=user.uid,
             ),
             volume_mounts=vol_mounts,
-            working_dir=f"/home/{user.username}",
+            working_dir=f"/home/{username}",
         )
         supp_grps = [x.id for x in user.groups]
         # FIXME work out tolerations
@@ -617,22 +622,7 @@ class LabManager:
         self.logger.debug("New pod spec: {pod}")
         return pod
 
-
-class DeleteLabManager:
-    """DeleteLabManager is much simpler, both because it only has one job,
-    and because it requires an admin token rather than a user token."""
-
-    def __init__(
-        self,
-        user_map: UserMap,
-        k8s_client: K8sStorageClient,
-        logger: BoundLogger,
-    ) -> None:
-        self.user_map = user_map
-        self.k8s_client = k8s_client
-        self.logger = logger
-
-    async def delete_lab_environment(self, username: str) -> None:
+    async def delete_lab(self, username: str) -> None:
         user = self.user_map.get(username)
         if user is None:
             raise RuntimeError(f"Cannot find map for user {username}")

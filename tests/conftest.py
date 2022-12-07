@@ -109,12 +109,13 @@ async def context(
 ) -> Context:
     """Return a ``Context`` configured to supply dependencies."""
     cc = MockContext(
+        ip_address="127.0.0.1",
         test_obj=obj_factory,
         http_client=await http_client_dependency(),
         logger=logger,
         token=token,
         config=config,
-        factory=factory,
+        _factory=factory,
     )
 
     return cc

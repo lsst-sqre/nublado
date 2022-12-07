@@ -5,38 +5,18 @@ capture the context of any request.  It requires that a Configuration has been
 loaded before it can be instantiated.
 """
 
-from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, Request
+from httpx import AsyncClient
+from safir.dependencies.http_client import http_client_dependency
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
 from ..config import Configuration
 from ..factory import Factory, ProcessContext
-
-
-@dataclass
-class RequestContext:
-    request: Request
-    """The incoming request."""
-
-    config: Configuration
-    """Jupyterlab-controller configuration."""
-
-    logger: BoundLogger
-    """The request logger, which can be rebound with discovered context."""
-
-    ip_address: str
-    """The IP address of the client sending the request."""
-
-    factory: Factory
-    """The component factory."""
-
-    def rebind_logger(self, **values: Any) -> None:
-        """Add the given values to the logging context."""
-        self.logger = self.logger.bind(**values)
-        self.factory.set_logger(self.logger)
+from ..models.context import Context
+from ..util import extract_bearer_token
 
 
 class ContextDependency:
@@ -55,9 +35,10 @@ class ContextDependency:
     async def __call__(
         self,
         request: Request,
+        http_client: AsyncClient = Depends(http_client_dependency),
         logger: BoundLogger = Depends(logger_dependency),
         authorization: str = Header(...),
-    ) -> RequestContext:
+    ) -> Context:
         """Creates a per-request context and returns it."""
         if self._config is None or self._process_context is None:
             raise RuntimeError("ContextDependency not initialized")
@@ -71,12 +52,14 @@ class ContextDependency:
                     "type": "missing_client_ip",
                 },
             )
-        return RequestContext(
-            request=request,
+        token = extract_bearer_token(authorization)
+        return Context(
             ip_address=ip_address,
             config=self._config,
             logger=logger,
-            factory=Factory(self._process_context, logger),
+            http_client=http_client,
+            token=token,
+            _factory=Factory(self._process_context, logger),
         )
 
     @property

@@ -18,8 +18,7 @@ class UserMap:
     def remove(self, key: str) -> None:
         del self._dict[key]
 
-    @property
-    def running(self) -> List[str]:
+    async def running(self) -> List[str]:
         return [
             self._dict[k].username
             for k in self._dict.keys()
