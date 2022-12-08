@@ -113,7 +113,7 @@ class PrepullerK8sClient:
     async def run_prepull_image(self, image: str, nodes: List[str]) -> None:
         pass
 
-    async def create_prepuller_pod_spec(
+    def create_prepuller_pod_spec(
         self,
         image: str,
         node: str,
@@ -147,8 +147,9 @@ class PrepullerK8sClient:
     async def create_prepuller_pod(
         self, image: str, node: str, name: str, namespace: str
     ) -> None:
+        spec = self.create_prepuller_pod_spec(image=image, node=node)
         await self.k8s_client.create_pod(
             name=name,
             namespace=namespace,
-            pod=self.create_prepuller_pod_spec(image=image, node=node),
+            pod=spec,
         )

@@ -49,7 +49,7 @@ class PrepullerState:
 
     @property
     def remote_images(self) -> TagMap:
-        return self.remote_images
+        return self._remote_images
 
     def set_remote_images(self, tag_map: TagMap) -> None:
         self._remote_images = tag_map

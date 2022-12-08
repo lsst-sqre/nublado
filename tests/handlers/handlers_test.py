@@ -12,7 +12,8 @@ from jupyterlabcontroller.config import Configuration
 
 @pytest.mark.asyncio
 async def test_get_external_index(
-    app_client: AsyncClient, config: Configuration
+    config: Configuration,
+    app_client: AsyncClient,
 ) -> None:
     """Test ``GET /nublado/``"""
     response = await app_client.get("/nublado/")

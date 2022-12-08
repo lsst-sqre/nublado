@@ -1,56 +1,57 @@
 import pytest
-from structlog.stdlib import BoundLogger
 
-from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.models.context import Context
-from jupyterlabcontroller.models.domain.usermap import UserMap
-from jupyterlabcontroller.storage.k8s import K8sStorageClient
 
 from ..settings import TestObjectFactory
 
 
 @pytest.mark.asyncio
 async def test_lab_manager(
+    user_context: Context,
     obj_factory: TestObjectFactory,
-    context: Context,
-    user_token: str,
-    logger: BoundLogger,
-    config: Configuration,
-    user_map: UserMap,
 ) -> None:
-    lab = obj_factory.labspecs[0]
-    user = await context.get_user()
+    user = await user_context.get_user()
     username = user.username
-    token = context.token
-    lm = context.lab_manager
+    token = user_context.token
+    lab = obj_factory.labspecs[0]
+    lm = user_context.lab_manager
     present = lm.check_for_user(username)
-    assert present is True  # It should already be in the user map
-    await lm.delete_lab(username=username)
-    present = lm.check_for_user(username)
-    assert present is False  # And now it should not be
+    assert present is False  # User map should be empty
     await lm.create_lab(token=token, lab=lab)
     present = lm.check_for_user(username)
-    assert present is True  # And should now have returned
+    assert present is True  # And should now have an entry
+    # We couldn't really do this next thing through the handler with a
+    # user token.
+    await lm.delete_lab(username=username)
+    present = lm.check_for_user(username)  # Deleted again
+    assert present is False
 
 
 @pytest.mark.asyncio
 async def test_get_active_users(
+    admin_context: Context,
     obj_factory: TestObjectFactory,
-    user_context: Context,
 ) -> None:
-    users = await user_context.user_map.running()
+    user = await admin_context.get_user()
+    username = user.username
+    token = admin_context.token
+    lab = obj_factory.labspecs[0]
+    lm = admin_context.lab_manager
+    users = await admin_context.user_map.running()
+    assert len(users) == 0
+    await lm.create_lab(token=token, lab=lab)
+    users = await admin_context.user_map.running()
     assert len(users) == 1
     assert users[0] == "wrench"
+    await lm.delete_lab(username=username)
+    users = await admin_context.user_map.running()
+    assert len(users) == 0
 
 
 @pytest.mark.asyncio
 async def test_nss(
     obj_factory: TestObjectFactory,
     user_context: Context,
-    logger: BoundLogger,
-    config: Configuration,
-    k8s_storage_client: K8sStorageClient,
-    user_map: UserMap,
 ) -> None:
     user = await user_context.get_user()
     lm = user_context.lab_manager
@@ -72,10 +73,6 @@ async def test_nss(
 async def test_configmap(
     obj_factory: TestObjectFactory,
     user_context: Context,
-    logger: BoundLogger,
-    config: Configuration,
-    k8s_storage_client: K8sStorageClient,
-    user_map: UserMap,
 ) -> None:
     lm = user_context.lab_manager
     cm = lm.build_file_configmap()
@@ -88,10 +85,6 @@ async def test_configmap(
 async def test_env(
     obj_factory: TestObjectFactory,
     user_context: Context,
-    logger: BoundLogger,
-    config: Configuration,
-    k8s_storage_client: K8sStorageClient,
-    user_map: UserMap,
 ) -> None:
     lab = obj_factory.labspecs[0]
     user = await user_context.get_user()
@@ -111,10 +104,6 @@ async def test_env(
 async def test_vols(
     obj_factory: TestObjectFactory,
     user_context: Context,
-    logger: BoundLogger,
-    config: Configuration,
-    k8s_storage_client: K8sStorageClient,
-    user_map: UserMap,
 ) -> None:
     user = await user_context.get_user()
     username = user.username
@@ -140,10 +129,6 @@ async def test_vols(
 async def test_pod_spec(
     obj_factory: TestObjectFactory,
     user_context: Context,
-    logger: BoundLogger,
-    config: Configuration,
-    k8s_storage_client: K8sStorageClient,
-    user_map: UserMap,
 ) -> None:
     lab = obj_factory.labspecs[0]
     user = await user_context.get_user()

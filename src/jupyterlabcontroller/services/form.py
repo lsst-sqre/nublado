@@ -36,7 +36,7 @@ class FormManager:
             for x in sz
         ]
 
-    async def generate_user_lab_form(self) -> str:
+    def generate_user_lab_form(self) -> str:
         options_template = Template(SPAWNER_FORM_TEMPLATE)
 
         pa = self.prepuller_arbitrator

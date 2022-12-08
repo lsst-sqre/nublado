@@ -108,6 +108,7 @@ class LabManager:
         await self.k8s_client.create_user_namespace(namespace)
         await self.create_user_lab_objects(user=user, token=token, lab=lab)
         await self.create_user_pod(user=user, lab=lab)
+        self.user_map.set_status(user.username, status=LabStatus.RUNNING)
 
     async def create_user_lab_objects(
         self,
@@ -167,8 +168,8 @@ class LabManager:
 
     def build_nss(self, user: UserInfo) -> Dict[str, str]:
         username = user.username
-        pwfile = self.lab_config.files["/etc/passwd"]
-        gpfile = self.lab_config.files["/etc/group"]
+        pwfile = deepcopy(self.lab_config.files["/etc/passwd"])
+        gpfile = deepcopy(self.lab_config.files["/etc/group"])
 
         pwfile.contents += (
             f"{username}:x:{user.uid}:{user.gid}:"
@@ -555,7 +556,7 @@ class LabManager:
         vols.append(runtime_vol)
         return vols
 
-    async def build_init_ctrs(self) -> List[Container]:
+    def build_init_ctrs(self) -> List[Container]:
         init_ctrs: List[Container] = []
         ic_volumes: List[LabVolumeContainer] = []
         for ic in self.lab_config.initcontainers:
@@ -619,7 +620,7 @@ class LabManager:
             ),
             volumes=volumes,
         )
-        self.logger.debug("New pod spec: {pod}")
+        self.logger.debug(f"New pod spec: {pod}")
         return pod
 
     async def delete_lab(self, username: str) -> None:

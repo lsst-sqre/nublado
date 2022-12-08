@@ -13,13 +13,11 @@ from structlog.stdlib import BoundLogger
 from .config import Configuration
 from .dependencies.config import configuration_dependency
 from .dependencies.context import context_dependency
-from .dependencies.prepull import prepuller_arbitrator_dependency
 from .dependencies.token import admin_token_dependency, user_token_dependency
 from .models.context import Context
 from .models.index import Index
 from .models.v1.lab import LabSpecification, UserData
 from .models.v1.prepuller import PrepullerStatus, SpawnerImages
-from .services.prepuller.arbitrator import PrepullerArbitrator
 
 # from sse_starlette.sse import EventSourceResponse
 
@@ -183,13 +181,10 @@ async def get_user_lab_form(
     context: Context = Depends(context_dependency),
     user_token: str = Depends(user_token_dependency),
     logger: BoundLogger = Depends(logger_dependency),
-    prepuller_arbitrator: PrepullerArbitrator = Depends(
-        prepuller_arbitrator_dependency
-    ),
 ) -> str:
     """Get the lab creation form for a particular user."""
     form_manager = context.form_manager
-    return await form_manager.generate_user_lab_form()
+    return form_manager.generate_user_lab_form()
 
 
 #
@@ -210,12 +205,9 @@ async def get_user_lab_form(
 async def get_images(
     context: Context = Depends(context_dependency),
     admin_token: str = Depends(admin_token_dependency),
-    prepuller_arbitrator: PrepullerArbitrator = Depends(
-        prepuller_arbitrator_dependency
-    ),
 ) -> SpawnerImages:
     """Returns known images and their names."""
-    return prepuller_arbitrator.get_spawner_images()
+    return context.prepuller_arbitrator.get_spawner_images()
 
 
 @external_router.get(
@@ -227,13 +219,10 @@ async def get_images(
     response_model=PrepullerStatus,
 )
 async def get_prepulls(
-    admin_token: str = Depends(admin_token_dependency),
-    prepuller_arbitrator: PrepullerArbitrator = Depends(
-        prepuller_arbitrator_dependency
-    ),
+    context: Context = Depends(context_dependency),
 ) -> PrepullerStatus:
     """Returns the list of known images and their names."""
-    return prepuller_arbitrator.get_prepulls()
+    return context.prepuller_arbitrator.get_prepulls()
 
 
 #

@@ -8,8 +8,6 @@ loaded before it can be instantiated.
 from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, Request
-from httpx import AsyncClient
-from safir.dependencies.http_client import http_client_dependency
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
@@ -35,9 +33,8 @@ class ContextDependency:
     async def __call__(
         self,
         request: Request,
-        http_client: AsyncClient = Depends(http_client_dependency),
         logger: BoundLogger = Depends(logger_dependency),
-        authorization: str = Header(...),
+        authorization: str = Header("bearer nobody"),
     ) -> Context:
         """Creates a per-request context and returns it."""
         if self._config is None or self._process_context is None:
@@ -52,15 +49,39 @@ class ContextDependency:
                     "type": "missing_client_ip",
                 },
             )
-        token = extract_bearer_token(authorization)
+        # FIXME IDGI
+        # print(f"****{authorization}**** ===={str(authorization)}====")
+        # print(f"$$$${request.headers['authorization']}$$$$")
+        # print(f"%%%%{request.headers.get(
+        #     'authorization','bearer quijibo')}%%%%")
+        # token = extract_bearer_token(str(authorization))
+        token = extract_bearer_token(request.headers.get("authorization", ""))
+        if token == "":
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "msg": "unresolvable token",
+                    "type": "unresolvable token",
+                },
+            )
+
         return Context(
             ip_address=ip_address,
-            config=self._config,
             logger=logger,
-            http_client=http_client,
             token=token,
-            _factory=Factory(self._process_context, logger),
+            _factory=Factory(context=self._process_context, logger=logger),
         )
+
+    async def replace_process_context(
+        self, process_context: ProcessContext
+    ) -> None:
+        """Swap in a new process context, for use in tests."""
+        if self._process_context:
+            await self._process_context.aclose()
+        self._process_context = process_context
+
+    def get_process_context(self) -> Optional[ProcessContext]:
+        return self._process_context
 
     @property
     def process_context(self) -> ProcessContext:

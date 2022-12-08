@@ -1,4 +1,4 @@
-from fastapi import Depends, Header, HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 
 from ..constants import ADMIN_SCOPE, USER_SCOPE
 from ..models.context import Context
@@ -23,7 +23,6 @@ class AdminTokenDependency:
     async def __call__(
         self,
         request: Request,
-        authorization: str = Header(...),
         context: Context = Depends(context_dependency),
     ) -> str:
         if ADMIN_SCOPE not in await context.get_token_scopes():

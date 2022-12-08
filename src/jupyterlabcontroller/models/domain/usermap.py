@@ -15,6 +15,9 @@ class UserMap:
     def set(self, key: str, item: UserData) -> None:
         self._dict[key] = item
 
+    def set_status(self, key: str, status: LabStatus) -> None:
+        self._dict[key].status = status
+
     def remove(self, key: str) -> None:
         del self._dict[key]
 

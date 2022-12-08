@@ -10,22 +10,40 @@ called.
 from importlib.metadata import metadata, version
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from safir.dependencies.http_client import http_client_dependency
 from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
+from starlette.datastructures import Headers
 
 from .dependencies.config import configuration_dependency
-from .dependencies.prepull import prepuller_executor_dependency
+from .dependencies.context import ContextDependency, context_dependency
 from .handlers import external_router, internal_router
 
 __all__ = ["create_app"]
+
+# This seems like an awful way to do it.  FIXME?
+injected_context_dependency: Optional[ContextDependency] = None
+
+fake_request = Request(
+    {
+        "type": "http",
+        "path": "/",
+        "headers": Headers({"Authorization": "Bearer nobody"}).raw,
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "client": {"127.0.0.1", 8080},
+        "server": {"127.0.0.1", 8080},
+    }
+)
 
 
 def create_app(
     *,
     config_dir: Optional[str] = None,
+    context_dependency: Optional[ContextDependency] = None,
 ) -> FastAPI:
     """Create the FastAPI application.
 
@@ -43,10 +61,18 @@ def create_app(
     # If config_dir is set, we will assume that it contains the path
     # to a directory that contains both 'config.yaml' and
     # 'docker_config.json'.
+    #
+    # If ProcessContext is supplied, we use it instead of initializing a
+    # new one.  The only way I can see to make the linkage at app startup
+    # work right now is via a process global, which seems hideous.
 
     if config_dir is not None:
         configuration_dependency.set_filename(f"{config_dir}/config.yaml")
     config = configuration_dependency.config
+
+    if context_dependency is not None:
+        global injected_context_dependency
+        injected_context_dependency = context_dependency
 
     configure_logging(
         profile=config.safir.profile,
@@ -83,11 +109,17 @@ def create_app(
 
 async def startup_event() -> None:
     await initialize_kubernetes()
-    executor = await prepuller_executor_dependency()
+    if injected_context_dependency is not None:
+        context_dependency = injected_context_dependency
+    config = configuration_dependency.config
+    await context_dependency.initialize(config)
+    context = await context_dependency(request=fake_request)
+    executor = context.prepuller_executor
     await executor.start()
 
 
 async def shutdown_event() -> None:
-    executor = await prepuller_executor_dependency()
+    context = await context_dependency(request=fake_request)
+    executor = context.prepuller_executor
     await executor.stop()
     await http_client_dependency.aclose()

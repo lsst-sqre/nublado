@@ -70,7 +70,19 @@
       "size": "small"
     }
   ],
-  "lab_specification": [],
+  "lab_specification": [
+    {
+      "options": {
+	"image": "lighthouse.ceres/library/sketchbook:latest_daily@sha256:1234",
+	"size": "small"
+      },
+      "env": {
+	"HOME": "/home/ceres",
+	"SHELL": "/bin/bash"
+      }
+    }
+
+  ],
   "node_contents": {
     "node1": [
       {

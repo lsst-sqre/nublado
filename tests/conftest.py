@@ -8,28 +8,21 @@ from typing import AsyncIterator, Iterator
 
 import pytest
 import pytest_asyncio
-import structlog
 from asgi_lifespan import LifespanManager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from httpx import AsyncClient
-from safir import logging
-from safir.dependencies.http_client import http_client_dependency
-from structlog.stdlib import BoundLogger
+from starlette.datastructures import Headers
 
 from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.dependencies.config import configuration_dependency
-from jupyterlabcontroller.factory import Factory
+from jupyterlabcontroller.dependencies.context import ContextDependency
 from jupyterlabcontroller.main import create_app
 from jupyterlabcontroller.models.context import Context
-from jupyterlabcontroller.models.domain.docker import DockerCredentialsMap
-from jupyterlabcontroller.models.v1.lab import UserInfo
 
 from .settings import TestObjectFactory, test_object_factory
-from .support.mockcontext import MockContext
+from .support.mockcontextdependency import MockContextDependency
 
 _here = Path(__file__).parent
-
-CONFIG_DIR = Path(_here / "configs/standard")
 
 """Change the test application configuration to point at a file that
 replaces the YAML that would usually be mounted into the container at
@@ -40,30 +33,38 @@ directory as ``config.yaml``, and we expect objects used in testing to
 be in ``test_objects.json`` in that directory.
 """
 
+# We want the prepuller state to persist across tests.
 
-@pytest.fixture
-def obj_factory() -> TestObjectFactory:
-    filename = str(CONFIG_DIR / "test_objects.json")
+
+@pytest.fixture(scope="session")
+def std_config_dir() -> Path:
+    return Path(_here / "configs/standard")
+
+
+@pytest.fixture(scope="session")
+def obj_factory(std_config_dir: Path) -> TestObjectFactory:
+    filename = str(std_config_dir / "test_objects.json")
     test_object_factory.initialize_from_file(filename)
     return test_object_factory
 
 
-@pytest.fixture
-def config() -> Configuration:
-    configuration_dependency.set_filename(f"{CONFIG_DIR}/config.yaml")
+@pytest.fixture(scope="session")
+def config(std_config_dir: Path) -> Configuration:
+    configuration_dependency.set_filename(str(std_config_dir / "config.yaml"))
     return configuration_dependency.config
 
 
-@pytest.fixture
-def logger() -> BoundLogger:
-    return structlog.get_logger(logging.logger_name)
-
-
-@pytest_asyncio.fixture
-async def docker_credentials(logger: BoundLogger) -> DockerCredentialsMap:
-    filename = str(CONFIG_DIR / "docker_config.json")
-    docker_creds = DockerCredentialsMap(filename=filename, logger=logger)
-    return docker_creds
+@pytest_asyncio.fixture(scope="session")
+async def context_dependency(
+    config: Configuration, obj_factory: TestObjectFactory
+) -> ContextDependency:
+    dep = MockContextDependency(test_obj=obj_factory)
+    await dep.initialize(config=config)
+    false_context = await dep(request=make_request(token="prepuller-state"))
+    px = false_context.prepuller_executor
+    await px.k8s_client.refresh_state_from_k8s()
+    await px.docker_client.refresh_state_from_docker_repo()
+    return dep
 
 
 @pytest.fixture(scope="session")
@@ -75,14 +76,18 @@ def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
 
 
 @pytest_asyncio.fixture
-async def app() -> AsyncIterator[FastAPI]:
+async def app(
+    context_dependency: MockContextDependency,
+    obj_factory: TestObjectFactory,
+    std_config_dir: Path,
+) -> AsyncIterator[FastAPI]:
     """Return a configured test application.
 
     Wraps the application in a lifespan manager so that startup and shutdown
     events are sent during test execution.
     """
     app = create_app(
-        config_dir=str(CONFIG_DIR),
+        config_dir=str(std_config_dir), context_dependency=context_dependency
     )
     async with LifespanManager(app):
         yield app
@@ -94,48 +99,40 @@ async def app_client(
 ) -> AsyncIterator[AsyncClient]:
     """Return an ``httpx.AsyncClient`` configured to talk to the test app."""
     async with AsyncClient(
-        app=app, base_url=config.runtime.instance_url
+        app=app,
+        base_url=config.runtime.instance_url,
     ) as client:
         yield client
 
 
-@pytest_asyncio.fixture
-async def context(
-    config: Configuration,
-    obj_factory: TestObjectFactory,
-    logger: BoundLogger,
-    factory: Factory,
-    token: str,
-) -> Context:
-    """Return a ``Context`` configured to supply dependencies."""
-    cc = MockContext(
-        ip_address="127.0.0.1",
-        test_obj=obj_factory,
-        http_client=await http_client_dependency(),
-        logger=logger,
-        token=token,
-        config=config,
-        _factory=factory,
+def make_request(token: str) -> Request:
+    return Request(
+        {
+            "type": "http",
+            "path": "/",
+            "headers": Headers({"Authorization": f"Bearer {token}"}).raw,
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "client": {"127.0.0.1", 8080},
+            "server": {"127.0.0.1", 8080},
+        }
     )
 
-    return cc
+
+@pytest_asyncio.fixture
+async def user_context(
+    obj_factory: TestObjectFactory, context_dependency: MockContextDependency
+) -> Context:
+    return await context_dependency(
+        request=make_request(token="token-of-affection")
+    )
 
 
 @pytest_asyncio.fixture
-async def user(obj_factory: TestObjectFactory) -> UserInfo:
-    return obj_factory.userinfos[0]
-
-
-@pytest_asyncio.fixture
-async def username(user: UserInfo) -> str:
-    return user.username
-
-
-@pytest_asyncio.fixture
-async def user_token() -> str:
-    return "token-of-affection"
-
-
-@pytest_asyncio.fixture
-async def admin_token() -> str:
-    return "token-of-authority"
+async def admin_context(
+    obj_factory: TestObjectFactory, context_dependency: MockContextDependency
+) -> Context:
+    return await context_dependency(
+        request=make_request(token="token-of-authority")
+    )

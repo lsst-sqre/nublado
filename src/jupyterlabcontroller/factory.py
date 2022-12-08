@@ -18,16 +18,11 @@ from .constants import (
 from .models.domain.docker import DockerCredentialsMap
 from .models.domain.eventmap import EventMap
 from .models.domain.usermap import UserMap
-from .services.events import EventManager
-from .services.form import FormManager
-from .services.lab import LabManager
 from .services.prepuller.arbitrator import PrepullerArbitrator
 from .services.prepuller.executor import PrepullerExecutor
 from .services.prepuller.state import PrepullerState
 from .services.prepuller.tag import PrepullerTagClient
-from .services.size import SizeManager
 from .storage.docker import DockerStorageClient
-from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.k8s import K8sStorageClient
 
 
@@ -105,7 +100,7 @@ class Factory:
     async def create(cls, config: Configuration) -> "Factory":
         logger = structlog.get_logger(config.safir.logger_name)
         context = await ProcessContext.from_config(config)
-        return cls(context, logger)
+        return cls(context=context, logger=logger)
 
     @classmethod
     @asynccontextmanager
@@ -122,13 +117,13 @@ class Factory:
         logger: BoundLogger,
     ) -> None:
         self._context = context
-        self._logger = logger
+        self.logger = logger
 
     async def aclose(self) -> None:
         await self._context.aclose()
 
     def set_logger(self, logger: BoundLogger) -> None:
-        self._logger = logger
+        self.logger = logger
 
     def get_config(self) -> Configuration:
         return self._context.config
@@ -139,65 +134,17 @@ class Factory:
     def get_prepuller_executor(self) -> PrepullerExecutor:
         return self._context.prepuller_executor
 
-    def get_user_map(self) -> UserMap:
-        return self._context.user_map
-
-    def get_event_map(self) -> EventMap:
-        return self._context.event_map
-
     def get_http_client(self) -> AsyncClient:
         return self._context.http_client
 
-    def get_k8s_api_client(self) -> ApiClient:
+    def get_k8s_client(self) -> ApiClient:
         return self._context.k8s_client
 
     def get_docker_credentials(self) -> DockerCredentialsMap:
         return self._context.docker_credentials
 
-    def create_size_manager(self) -> SizeManager:
-        return SizeManager(sizes=self.get_config().lab.sizes)
+    def get_user_map(self) -> UserMap:
+        return self._context.user_map
 
-    def create_form_manager(self) -> FormManager:
-        return FormManager(
-            prepuller_arbitrator=self._context.prepuller_executor.arbitrator,
-            logger=self._logger,
-            http_client=self.get_http_client(),
-            lab_sizes=self.get_config().lab.sizes,
-        )
-
-    def create_lab_manager(self) -> LabManager:
-        return LabManager(
-            instance_url=self.get_config().runtime.instance_url,
-            manager_namespace=self.get_config().runtime.namespace_prefix,
-            user_map=self.get_user_map(),
-            logger=self._logger,
-            lab_config=self.get_config().lab,
-            k8s_client=self.create_k8s_client(),
-            gafaelfawr_client=self.create_gafaelfawr_client(),
-        )
-
-    def create_event_manager(self) -> EventManager:
-        return EventManager(
-            logger=self._logger, event_map=self.get_event_map()
-        )
-
-    # lab_manager and event_manager when we have refactored them to no
-    # longer be per-user?
-
-    def create_gafaelfawr_client(self) -> GafaelfawrStorageClient:
-        return GafaelfawrStorageClient(http_client=self.get_http_client())
-
-    def create_k8s_client(self) -> K8sStorageClient:
-        return K8sStorageClient(
-            k8s_api=self.get_k8s_api_client(),
-            timeout=KUBERNETES_REQUEST_TIMEOUT,
-            logger=self._logger,
-        )
-
-    def create_docker_client(self) -> DockerStorageClient:
-        return DockerStorageClient(
-            host=self.get_config().images.registry,
-            repository=self.get_config().images.repository,
-            logger=self._logger,
-            http_client=self.get_http_client(),
-        )
+    def get_event_map(self) -> EventMap:
+        return self._context.event_map
