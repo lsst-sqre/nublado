@@ -17,14 +17,14 @@ from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 from starlette.datastructures import Headers
 
+from .dependencies import context
 from .dependencies.config import configuration_dependency
-from .dependencies.context import ContextDependency, context_dependency
 from .handlers import external_router, internal_router
 
 __all__ = ["create_app"]
 
 # This seems like an awful way to do it.  FIXME?
-injected_context_dependency: Optional[ContextDependency] = None
+injected_context_dependency: Optional[context.ContextDependency] = None
 
 fake_request = Request(
     {
@@ -43,7 +43,7 @@ fake_request = Request(
 def create_app(
     *,
     config_dir: Optional[str] = None,
-    context_dependency: Optional[ContextDependency] = None,
+    context_dependency: Optional[context.ContextDependency] = None,
 ) -> FastAPI:
     """Create the FastAPI application.
 
@@ -108,18 +108,19 @@ def create_app(
 
 
 async def startup_event() -> None:
+    global context_dependency
     await initialize_kubernetes()
     if injected_context_dependency is not None:
-        context_dependency = injected_context_dependency
+        context.context_dependency = injected_context_dependency
     config = configuration_dependency.config
-    await context_dependency.initialize(config)
-    context = await context_dependency(request=fake_request)
-    executor = context.prepuller_executor
+    await context.context_dependency.initialize(config)
+    ctx = await context.context_dependency(request=fake_request)
+    executor = ctx.prepuller_executor
     await executor.start()
 
 
 async def shutdown_event() -> None:
-    context = await context_dependency(request=fake_request)
-    executor = context.prepuller_executor
+    ctx = await context.context_dependency(request=fake_request)
+    executor = ctx.prepuller_executor
     await executor.stop()
     await http_client_dependency.aclose()
