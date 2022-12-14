@@ -53,6 +53,9 @@ class ProcessContext:
             credentials_file = str(
                 Path(config.runtime.path).parent / "docker_config.json"
             )
+        docker_credentials = DockerCredentialsMap(
+            logger=logger, filename=credentials_file
+        )
         return cls(
             config=config,
             http_client=await http_client_dependency(),
@@ -69,6 +72,9 @@ class ProcessContext:
                     repository=config.images.repository,
                     logger=logger,
                     http_client=await http_client_dependency(),
+                    credentials=docker_credentials.get(
+                        config.images.registry,
+                    ),
                 ),
                 logger=logger,
                 config=config.images,
@@ -84,9 +90,7 @@ class ProcessContext:
                     logger=logger,
                 ),
             ),
-            docker_credentials=DockerCredentialsMap(
-                logger=logger, filename=credentials_file
-            ),
+            docker_credentials=docker_credentials,
             user_map=UserMap(),
             event_map=EventMap(),
         )

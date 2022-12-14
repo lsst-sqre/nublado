@@ -129,7 +129,7 @@ class Context:
             logger=self.logger,
             http_client=self.http_client,
             credentials=self.docker_credentials.get(
-                self.config.images.registry
+                self.config.images.registry,
             ),
         )
 

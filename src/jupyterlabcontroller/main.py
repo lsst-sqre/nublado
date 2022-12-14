@@ -10,6 +10,7 @@ called.
 from importlib.metadata import metadata, version
 from typing import Optional
 
+import structlog
 from fastapi import FastAPI, Request
 from safir.dependencies.http_client import http_client_dependency
 from safir.kubernetes import initialize_kubernetes
@@ -114,13 +115,20 @@ async def startup_event() -> None:
         context.context_dependency = injected_context_dependency
     config = configuration_dependency.config
     await context.context_dependency.initialize(config)
-    ctx = await context.context_dependency(request=fake_request)
+    ctx = await context.context_dependency(
+        request=fake_request,
+        logger=structlog.get_logger(name=config.safir.logger_name),
+    )
     executor = ctx.prepuller_executor
     await executor.start()
 
 
 async def shutdown_event() -> None:
-    ctx = await context.context_dependency(request=fake_request)
+    config = configuration_dependency.config
+    ctx = await context.context_dependency(
+        request=fake_request,
+        logger=structlog.get_logger(name=config.safir.logger_name),
+    )
     executor = ctx.prepuller_executor
     await executor.stop()
     await http_client_dependency.aclose()

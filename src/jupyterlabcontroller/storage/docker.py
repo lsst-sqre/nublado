@@ -50,7 +50,7 @@ class DockerStorageClient:
         r = await self.http_client.get(url, headers=self.headers)
         self.logger.debug(f"List tags response: {r}")
         if r.status_code == 200:
-            body = await r.json()
+            body = r.json()
             self.logger.debug(body)
             return body["tags"]
         elif r.status_code == 401 and authenticate:
@@ -152,7 +152,7 @@ class DockerStorageClient:
             )
             r = await self.http_client.get(url, auth=auth, params=parts)
             if r.status_code == 200:
-                body = await r.json()
+                body = r.json()
                 token = body["token"]
                 self.headers["Authorization"] = f"Bearer {token}"
                 self.logger.info("Authenticated with bearer token")
