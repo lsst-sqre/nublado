@@ -20,7 +20,7 @@ from starlette.datastructures import Headers
 
 from .dependencies import context
 from .dependencies.config import configuration_dependency
-from .handlers import external_router, internal_router
+from .handlers import form, indexes, labs, prepuller, user_status
 
 __all__ = ["create_app"]
 
@@ -94,10 +94,15 @@ def create_app(
     """The main FastAPI application for jupyterlab-controller."""
 
     # Attach the routers.
-    app.include_router(internal_router)
+    app.include_router(indexes.internal_index_router)
     app.include_router(
-        external_router, prefix=f"/{config.safir.root_endpoint}"
+        indexes.external_index_router, prefix=f"/{config.safir.root_endpoint}"
     )
+    spawner = f"{config.safir.root_endpoint}/spawner/v1"
+    app.include_router(labs.router, prefix=f"/{spawner}/labs")
+    app.include_router(user_status.router, prefix=f"/{spawner}/user-status")
+    app.include_router(form.router, prefix=f"/{spawner}/lab-form")
+    app.include_router(prepuller.router, prefix=f"/{spawner}")
 
     # Register lifecycle handlers.
     app.on_event("startup")(startup_event)
