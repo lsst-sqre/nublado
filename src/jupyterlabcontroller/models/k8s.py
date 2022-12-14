@@ -5,7 +5,7 @@ from typing import Dict, List, TypeAlias
 
 from kubernetes_asyncio.client.models import V1ContainerImage
 
-from .enum import NubladoEnum
+from .enums import NubladoEnum
 
 
 @dataclass

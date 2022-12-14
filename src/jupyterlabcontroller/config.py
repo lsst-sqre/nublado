@@ -10,7 +10,7 @@ from pydantic import Field, validator
 from safir.logging import LogLevel, Profile
 
 from .models.camelcase import CamelCaseModel
-from .models.enum import NubladoEnum
+from .models.enums import NubladoEnum
 from .models.v1.lab import LabSize
 from .models.v1.prepuller_config import PrepullerConfiguration
 

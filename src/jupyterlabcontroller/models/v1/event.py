@@ -5,7 +5,7 @@ from enum import auto
 from sse_starlette import ServerSentEvent
 
 from ..camelcase import CamelCaseModel
-from ..enum import NubladoEnum
+from ..enums import NubladoEnum
 
 """GET /nublado/spawner/v1/labs/username/events"""
 

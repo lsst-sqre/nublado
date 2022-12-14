@@ -8,7 +8,7 @@ from typing import Deque, Dict, List, Optional
 from pydantic import Field
 
 from ..camelcase import CamelCaseModel
-from ..enum import NubladoEnum
+from ..enums import NubladoEnum
 from .event import Event
 
 
