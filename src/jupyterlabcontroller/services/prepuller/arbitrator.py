@@ -77,7 +77,6 @@ class PrepullerArbitrator:
         status = PrepullerStatus(
             config=self.config, images=images, nodes=nodes
         )
-        self.logger.debug(f"Prepuller status: {status}")
         return status
 
     def _nodes_present(
@@ -96,7 +95,6 @@ class PrepullerArbitrator:
         validate their digests against the remote digests and build up
         a list of images that are
         """
-        self.logger.debug("Calculating image prepull status")
         present_images = self.state.images
         remote_tags = self._make_tags_from_remote_images()
         available_remote_images = self.tag_client.deduplicate_images_from_tags(
@@ -206,7 +204,6 @@ class PrepullerArbitrator:
     # Phase 2
     def get_node_cache(self) -> List[Node]:
         """Determine which images are cached on each node."""
-        self.logger.debug("Calculating node cache state")
         return self._update_node_cache(
             self.state.nodes,
             self.determine_image_prepull_status(self.state.images),
@@ -279,7 +276,6 @@ class PrepullerArbitrator:
             images.append(self.tag_client.consolidate_tags(image))
         for image in images:
             # First pass: find recommended tag, put it at top
-            self.logger.debug(f"Found recommended tag: {image}")
             if (
                 image.best_tag
                 and image.best_tag == self.config.recommended_tag

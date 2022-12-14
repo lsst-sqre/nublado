@@ -149,7 +149,6 @@ class PrepullerTagClient:
             )
 
             if digest not in dmap:
-                self.logger.debug(f"Adding {digest} as {img.path}:{tag.tag}")
                 dmap[digest] = img
             else:
                 extant_image = dmap[digest]
@@ -168,10 +167,7 @@ class PrepullerTagClient:
                         if alias not in extant_image.known_alias_tags:
                             extant_image.known_alias_tags.append(alias)
         for digest in dmap:
-            self.logger.debug(f"Img before tag consolidation: {dmap[digest]}")
             self.consolidate_tags(dmap[digest])
-            self.logger.debug(f"Img after tag consolidation: {dmap[digest]}")
-            self.logger.debug(f"Images hash: {dmap}")
         return list(dmap.values())
 
     def consolidate_tags(self, img: NodeTagImage) -> NodeTagImage:

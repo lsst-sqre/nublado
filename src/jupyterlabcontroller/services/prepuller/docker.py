@@ -26,6 +26,5 @@ class PrepullerDockerClient:
 
     async def refresh_state_from_docker_repo(self) -> None:
         tag_map = await self.docker_client.get_tag_map()
-        self.logger.debug(f"tag_map: {tag_map}")
         self.state.set_remote_images(tag_map)
         self.state.update_docker_check_time()

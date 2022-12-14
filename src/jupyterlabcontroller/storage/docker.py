@@ -48,10 +48,8 @@ class DockerStorageClient:
         """
         url = f"https://{self.host}/v2/{self.repository}/tags/list"
         r = await self.http_client.get(url, headers=self.headers)
-        self.logger.debug(f"List tags response: {r}")
         if r.status_code == 200:
             body = r.json()
-            self.logger.debug(body)
             return body["tags"]
         elif r.status_code == 401 and authenticate:
             await self._authenticate(r)
@@ -77,7 +75,6 @@ class DockerStorageClient:
         """
         url = f"https://{self.host}/v2/{self.repository}/manifests/{tag}"
         r = await self.http_client.head(url, headers=self.headers)
-        self.logger.debug(f"Get image digest response: {r}")
         if r.status_code == 200:
             return r.headers["Docker-Content-Digest"]
         elif r.status_code == 401 and authenticate:
@@ -112,7 +109,6 @@ class DockerStorageClient:
         ----------
         response: response that contains an auth challenge.
         """
-        self.logger.debug(f"Authenticating {response}")
         challenge = response.headers.get("WWW-Authenticate")
         if not challenge:
             raise DockerRegistryError("No authentication challenge")

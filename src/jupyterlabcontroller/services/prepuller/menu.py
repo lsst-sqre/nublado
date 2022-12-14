@@ -93,13 +93,11 @@ class PrepullerManager:
         return self._images
 
     async def get_prepulled_images(self) -> List[NodeTagImage]:
-        self.logger.debug("Calculating image prepull status")
         return self._update_prepulled_images(
             await self.get_nodes(), await self.get_images()
         )
 
     async def get_enabled_prepulled_images(self) -> List[NodeTagImage]:
-        self.logger.debug("Calculating image prepull status")
         present_images = await self.get_images()
         remote_tags = await self._make_tags_from_tag_map()
         available_remote_images = await self.get_available_images(remote_tags)
@@ -173,7 +171,6 @@ class PrepullerManager:
         return True
 
     async def get_node_cache(self) -> List[Node]:
-        self.logger.debug("Calculating node cache state")
         return self._update_node_cache(
             await self.get_nodes(), await self.get_prepulled_images()
         )
@@ -247,7 +244,6 @@ class PrepullerManager:
         status = PrepullerStatus(
             config=self.config, images=images, nodes=nodes
         )
-        self.logger.debug(f"Prepuller status: {status}")
         return status
 
     async def _nodes_present(
@@ -391,7 +387,6 @@ class PrepullerManager:
             images.append(self.consolidate_tags(img))
         for img in images:
             # First pass: find recommended tag, put it at top
-            self.logger.debug(f"Found recommended tag: {img}")
             if img.best_tag and img.best_tag == self.config.recommended_tag:
                 menu_images[img.best_tag] = img
         running_count: Dict[RSPTagType, int] = dict()
@@ -430,23 +425,14 @@ class PrepullerManager:
         self._nodes = None
         self._images = None
         # Now repopulate it
-        self.logger.debug("Listing nodes and their image contents.")
         all_images_by_node = await self.k8s_client.get_image_data()
-        self.logger.debug(f"All images on nodes: {all_images_by_node}")
-        self.logger.debug("Constructing node pool")
         self._nodes = self._make_nodes_from_image_data(all_images_by_node)
-        self.logger.debug(f"Node pool: {self._nodes}")
         self._images = self._construct_current_image_state(all_images_by_node)
-        self.logger.debug(f"Images by node: {self._images}")
 
     async def refresh_state_from_docker_repo(self) -> None:
         # Clear state
         self._tag_map = None
-        self.logger.debug(
-            "Listing image tags from Docker repository " f"{self.config.path}"
-        )
         self._tag_map = await self.docker_client.get_tag_map()
-        self.logger.debug(f"tag_map: {self._tag_map}")
 
     def _make_nodes_from_image_data(
         self,
@@ -527,8 +513,6 @@ class PrepullerManager:
 
         filtered_images = self._filter_images_by_config(all_images_by_node)
 
-        self.logger.debug(f"Filtered images: {filtered_images}")
-
         # Convert to (full) Tags.  We will still have duplicates.
         tags = self._get_tags_from_images(filtered_images)
 
@@ -539,7 +523,6 @@ class PrepullerManager:
         # Deduplicate and convert to NodeTagImages.
 
         node_images = self._get_deduplicated_images_from_tags(cycletags)
-        self.logger.debug(f"Filtered, deduplicated images: {node_images}")
         return node_images
 
     def _get_deduplicated_images_from_tags(
@@ -565,7 +548,6 @@ class PrepullerManager:
             )
 
             if digest not in dmap:
-                self.logger.debug(f"Adding {digest} as {img.path}:{tag.tag}")
                 dmap[digest] = img
             else:
                 extant_image = dmap[digest]
@@ -584,10 +566,7 @@ class PrepullerManager:
                         if alias not in extant_image.known_alias_tags:
                             extant_image.known_alias_tags.append(alias)
         for digest in dmap:
-            self.logger.debug(f"Img before tag consolidation: {dmap[digest]}")
             self.consolidate_tags(dmap[digest])
-            self.logger.debug(f"Img after tag consolidation: {dmap[digest]}")
-            self.logger.debug(f"Images hash: {dmap}")
         return list(dmap.values())
 
     def _get_tags_from_images(self, nc: NodeContainers) -> List[RSPTag]:
@@ -669,7 +648,6 @@ class PrepullerManager:
                     digest = _nd
                 if digest != _nd:
                     raise RuntimeError(f"Image at {path} has multiple digests")
-        self.logger.debug(f"Found digest: {digest}")
         for c in ctr.names:
             # Start over and do it with tags.
             if "@sha256:" in c:
@@ -724,13 +702,11 @@ class PrepullerManager:
         r: NodeContainers = dict()
 
         name = self._extract_image_name()
-        self.logger.debug(f"Desired image name: {name}")
         for node in images:
             for c in images[node]:
                 path = self._extract_path_from_container(c)
                 img_name = path.split("/")[-1]
                 if img_name == name:
-                    self.logger.debug(f"Adding matching image: {img_name}")
                     if node not in r:
                         r[node] = list()
                     t = copy(c)
