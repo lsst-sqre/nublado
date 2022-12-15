@@ -122,15 +122,15 @@ class Node(CamelCaseModel):
 
 
 class NodeImage(PartialImage):
-    nodes: List[Node] = Field(
+    nodes: List[str] = Field(
         default_factory=list,
         name="nodes",
-        title="List of nodes that should get prepulled images",
+        title="List of node names that should get prepulled images",
     )
-    missing: Optional[List[Node]] = Field(
+    missing: Optional[List[str]] = Field(
         None,
         name="missing",
-        title="List of nodes whose image prepulls have not yet finished",
+        title="List of node names whose image prepulls have not yet finished",
     )
 
 

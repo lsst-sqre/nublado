@@ -39,11 +39,11 @@ class PrepullerArbitrator:
     def get_prepulls(self) -> PrepullerStatus:
         """GET /nublado/spawner/v1/prepulls"""
         # Phase 1: get prepulled status for each desired image
-        node_images = self.get_enabled_prepulled_images()
+        node_images = self.get_images()
         # Phase 2: determine which nodes have which images
         nodes = self.get_node_cache()
 
-        eligible_nodes = [x for x in nodes if x.eligible]
+        eligible_nodes = [x.name for x in nodes if x.eligible]
 
         # Phase 3: get desired images for menu (which are the ones to
         # prepull)
@@ -79,18 +79,14 @@ class PrepullerArbitrator:
         )
         return status
 
-    def _nodes_present(
-        self, img: NodeTagImage, nodes: List[Node]
-    ) -> List[Node]:
-        return [x for x in nodes if x.name in img.nodes]
+    def _nodes_present(self, img: NodeTagImage, nodes: List[str]) -> List[str]:
+        return [x for x in nodes if x in img.nodes]
 
-    def _nodes_missing(
-        self, img: NodeTagImage, nodes: List[Node]
-    ) -> List[Node]:
-        return [x for x in nodes if x.name not in img.nodes]
+    def _nodes_missing(self, img: NodeTagImage, nodes: List[str]) -> List[str]:
+        return [x for x in nodes if x not in img.nodes]
 
     # Phase 1
-    def get_enabled_prepulled_images(self) -> List[NodeTagImage]:
+    def get_images(self) -> List[NodeTagImage]:
         """Starting with images that are present on at least one node,
         validate their digests against the remote digests and build up
         a list of images that are
@@ -299,8 +295,8 @@ class PrepullerArbitrator:
         return desired_images
 
     def get_spawner_images(self) -> SpawnerImages:
-        """GET /nublado/spawner/v1/prepulls"""
-        images = self.state.images
+        """GET /nublado/spawner/v1/images"""
+        images = self.get_images()
 
         spawner_tag_count = {
             RSPTagType.RELEASE: 1,
@@ -327,7 +323,7 @@ class PrepullerArbitrator:
 
     def get_menu_images(self) -> DisplayImages:
         """Used to construct the spawner form."""
-        node_images = self.get_enabled_prepulled_images()
+        node_images = self.get_images()
 
         menu_node_images = self.filter_node_images_to_desired_menu(node_images)
 
@@ -370,12 +366,13 @@ class PrepullerArbitrator:
         pending = status.images.pending
 
         required_pulls: Dict[str, List[str]] = dict()
+        eligible_node_names = [x.name for x in self.state.nodes if x.eligible]
         for img in pending:
             if img.missing is not None:
                 for i in img.missing:
-                    if i.eligible:
+                    if i in eligible_node_names:
                         if img.path not in required_pulls:
                             required_pulls[img.path] = list()
-                        required_pulls[img.path].append(i.name)
+                        required_pulls[img.path].append(i)
         self.logger.debug(f"Required pulls by node: {required_pulls}")
         return required_pulls

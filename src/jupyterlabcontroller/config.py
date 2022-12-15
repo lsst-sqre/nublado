@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from enum import auto
-from typing import Dict, List, Optional, TypeAlias
+from typing import Dict, List, TypeAlias
 
 import yaml
 from fastapi import Path
@@ -227,7 +227,7 @@ class Configuration(CamelCaseModel):
     safir: SafirConfiguration
     lab: LabConfiguration
     images: PrepullerConfiguration
-    runtime: Optional[RuntimeConfiguration]
+    runtime: RuntimeConfiguration
 
     @classmethod
     def from_file(
