@@ -38,6 +38,7 @@ class PrepullerK8sClient:
             await self.refresh_state_from_k8s()
 
     async def refresh_state_from_k8s(self) -> None:
+        self.logger.info("Querying K8s for image state on cluster nodes.")
         # Phase 1: interrogate K8s cluster for images on nodes.
         all_images_by_node = await self.k8s_client.get_image_data()
         # Phase 2: construct node objects from image data.
@@ -48,6 +49,7 @@ class PrepullerK8sClient:
         self.state.set_images(images)
         self.state.set_nodes(nodes)
         self.state.update_k8s_check_time()
+        self.logger.info("K8s query complete.")
 
     def _make_nodes_from_image_data(
         self,

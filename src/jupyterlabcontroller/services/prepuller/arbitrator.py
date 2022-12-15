@@ -321,12 +321,18 @@ class PrepullerArbitrator:
 
         desired_list = [x.to_image() for x in list(desired_images.values())]
 
+        all = [x.to_image() for x in images]
+        all.reverse()
+        for img in all:
+            if img.path[0] == ":":  # We just have the tag, not the rest
+                img.path = f"{self.config.path}{img.path}"
+
         return SpawnerImages(
             recommended=desired_list[0],
             latest_release=desired_list[1],
             latest_weekly=desired_list[2],
             latest_daily=desired_list[3],
-            all=[x.to_image() for x in images],
+            all=all,
         )
 
     def get_menu_images(self) -> DisplayImages:
@@ -339,17 +345,19 @@ class PrepullerArbitrator:
             menu_node_images
         )
 
-        raw_images = self.state.images
-        images: List[NodeTagImage] = list()
-        for image in raw_images:
-            images.append(self.tag_client.consolidate_tags(image))
+        all = [x.to_image() for x in node_images]
+        all.reverse()
+        for image in all:
+            if image.path[0] == ":":  # We just have the tag, not the rest
+                image.path = f"{self.config.path}{image.path}"
 
         menu_images = DisplayImages()
         for node_image in available_menu_node_images:
             available = available_menu_node_images[node_image]
             menu_images.menu[available.best_tag] = available.to_image()
-        for image in images:
-            menu_images.all[image.best_tag] = image.to_image()
+        for image in all:
+            first_tag = list(image.tags.keys())[0]
+            menu_images.all[first_tag] = image
         return menu_images
 
     def _filter_node_images_by_availability(

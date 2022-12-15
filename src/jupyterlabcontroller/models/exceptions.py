@@ -45,3 +45,7 @@ class LabExistsError(Exception):
     """Raised when lab creation is attempted for a user with an active lab."""
 
     pass
+
+
+class NoUserMapError(Exception):
+    """Raised when a user deletion is called for a user without a lab."""

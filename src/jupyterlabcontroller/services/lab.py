@@ -10,7 +10,7 @@ from ..config import LabConfiguration, LabVolume
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.usermap import UserMap
-from ..models.exceptions import LabExistsError
+from ..models.exceptions import LabExistsError, NoUserMapError
 from ..models.tag import StandaloneRSPTag
 from ..models.v1.lab import (
     LabSize,
@@ -626,7 +626,7 @@ class LabManager:
     async def delete_lab(self, username: str) -> None:
         user = self.user_map.get(username)
         if user is None:
-            raise RuntimeError(f"Cannot find map for user {username}")
+            raise NoUserMapError(f"Cannot find map for user {username}")
         user.status = LabStatus.TERMINATING
         try:
             await self.k8s_client.delete_namespace(username)

@@ -25,6 +25,8 @@ class PrepullerDockerClient:
             await self.refresh_state_from_docker_repo()
 
     async def refresh_state_from_docker_repo(self) -> None:
+        self.logger.info("Querying docker repository for image tags.")
         tag_map = await self.docker_client.get_tag_map()
         self.state.set_remote_images(tag_map)
         self.state.update_docker_check_time()
+        self.logger.info("Docker repository query complete.")

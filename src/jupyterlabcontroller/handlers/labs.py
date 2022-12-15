@@ -12,6 +12,7 @@ from structlog.stdlib import BoundLogger
 
 from ..dependencies.context import context_dependency
 from ..models.context import Context
+from ..models.exceptions import NoUserMapError
 from ..models.v1.lab import LabSpecification, UserData
 
 # FastAPI routers
@@ -106,7 +107,10 @@ async def delete_user_lab(
 ) -> None:
     """Stop a running pod."""
     lab_manager = context.lab_manager
-    await lab_manager.delete_lab(username)
+    try:
+        await lab_manager.delete_lab(username)
+    except NoUserMapError:
+        raise HTTPException(status_code=404, detail="Not found")
     return
 
 
