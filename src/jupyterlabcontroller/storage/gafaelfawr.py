@@ -2,14 +2,17 @@ from typing import Any, Dict, List, cast
 
 from httpx import AsyncClient
 
+from ..config import Configuration
 from ..models.domain.storage import GafaelfawrCache
 from ..models.v1.lab import UserInfo
 
 
 class GafaelfawrStorageClient:
-    def __init__(self, http_client: AsyncClient) -> None:
+    def __init__(
+        self, http_client: AsyncClient, config: Configuration
+    ) -> None:
         self.http_client = http_client
-        self._api_url = "/auth/api/v1"
+        self._api_url = f"{config.runtime.instance_url}/auth/api/v1"
         self._cache: Dict[str, GafaelfawrCache] = dict()
 
     async def _fetch(self, endpoint: str, token: str) -> Any:

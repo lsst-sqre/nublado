@@ -111,7 +111,9 @@ class Context:
 
     @property
     def gafaelfawr_client(self) -> GafaelfawrStorageClient:
-        return GafaelfawrStorageClient(http_client=self.http_client)
+        return GafaelfawrStorageClient(
+            config=self.config, http_client=self.http_client
+        )
 
     @property
     def k8s_client(self) -> K8sStorageClient:
