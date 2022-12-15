@@ -95,7 +95,8 @@ async def app(
 
 @pytest_asyncio.fixture
 async def app_client(
-    app: FastAPI, config: Configuration
+    app: FastAPI,
+    config: Configuration,
 ) -> AsyncIterator[AsyncClient]:
     """Return an ``httpx.AsyncClient`` configured to talk to the test app."""
     async with AsyncClient(

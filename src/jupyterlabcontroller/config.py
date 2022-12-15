@@ -2,42 +2,17 @@ from __future__ import annotations
 
 import os
 from enum import auto
-from typing import Dict, List, TypeAlias
+from typing import Dict, List, Optional, TypeAlias
 
 import yaml
 from fastapi import Path
-from pydantic import Field, validator
+from pydantic import Field
 from safir.logging import LogLevel, Profile
 
 from .models.camelcase import CamelCaseModel
 from .models.enums import NubladoEnum
 from .models.v1.lab import LabSize
 from .models.v1.prepuller_config import PrepullerConfiguration
-
-
-def get_namespace_prefix() -> str:
-    """If USER_NAMESPACE_PREFIX is set in the environment, that will be used as
-    the namespace prefix.  If it is not, the namespace will be read from the
-    container.  If that the container runtime file does not exist, "userlabs"
-    will be used.
-    """
-    r: str = os.getenv("USER_NAMESPACE_PREFIX", "")
-    if r:
-        return r
-    ns_path = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
-    if os.path.exists(ns_path):
-        with open(ns_path) as f:
-            return f.read().strip()
-    return "userlabs"
-
-
-def get_external_instance_url() -> str:
-    """In normal operation, EXTERNAL_INSTANCE_URL will have been set from
-    a global in the Helm chart.  For testing, or if running standalone,
-    either set that URL, or assume you're listening on localhost port 8080.
-    """
-    return os.getenv("EXTERNAL_INSTANCE_URL") or "http://localhost:8080"
-
 
 #
 # Safir
@@ -233,25 +208,14 @@ class LabConfiguration(CamelCaseModel):
 #
 # Runtime
 # filled in at runtime, obv.
-# Not available to users to set.
+# If set, will be ignored.
 #
 class RuntimeConfiguration(CamelCaseModel):
     path: str = ""
     namespace_prefix: str = ""
-    instance_url: str = Field(
-        "http://localhost:8080", env="EXTERNAL_INSTANCE_URL"
-    )
+    instance_url: str = ""
 
-    @validator("namespace_prefix")
-    def ns_prefix(cls, v: str) -> str:
-        r = os.getenv("USER_NAMESPACE_PREFIX", "")
-        if r:
-            return r
-        ns_path = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
-        if os.path.exists(ns_path):
-            with open(ns_path) as f:
-                return f.read().strip()
-        return "userlabs"
+    # FIXME: Don't understand why forcing values in validator isn't working.
 
 
 #
@@ -263,7 +227,7 @@ class Configuration(CamelCaseModel):
     safir: SafirConfiguration
     lab: LabConfiguration
     images: PrepullerConfiguration
-    runtime: RuntimeConfiguration
+    runtime: Optional[RuntimeConfiguration]
 
     @classmethod
     def from_file(
@@ -272,5 +236,20 @@ class Configuration(CamelCaseModel):
     ) -> Configuration:
         with open(filename) as f:
             r = Configuration.parse_obj(yaml.safe_load(f))
-        r.runtime = RuntimeConfiguration(path=filename)
+        ns_prefix = os.getenv("USER_NAMESPACE_PREFIX", "")
+        if not ns_prefix:
+            ns_path = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+            if os.path.exists(ns_path):
+                with open(ns_path) as f:
+                    ns_prefix = f.read().strip()
+            else:
+                ns_prefix = "userlabs"
+
+        r.runtime = RuntimeConfiguration(
+            path=filename,
+            instance_url=os.getenv(
+                "EXTERNAL_INSTANCE_URL", "http://127.0.0.1:8080"
+            ),
+            namespace_prefix=ns_prefix,
+        )
         return r
