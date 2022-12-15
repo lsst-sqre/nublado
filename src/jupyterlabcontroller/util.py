@@ -3,8 +3,6 @@
 import datetime
 from typing import Any, Callable, Dict
 
-from fastapi import HTTPException
-
 
 def to_camel_case(string: str) -> str:
     """Convert a string to camel case.
@@ -84,14 +82,6 @@ def validate_exactly_one_of(
         return v
 
     return validator
-
-
-def extract_bearer_token(header: str) -> str:
-    """Verify that token starts with case-insensitive 'bearer ' and then
-    return the part after that, which should be the token."""
-    if header[:7].lower() != "bearer ":
-        raise HTTPException(status_code=422, detail="Unprocessible Entity")
-    return header[7:]
 
 
 def now() -> datetime.datetime:

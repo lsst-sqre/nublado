@@ -31,7 +31,7 @@ fake_request = Request(
     {
         "type": "http",
         "path": "/",
-        "headers": Headers({"Authorization": "Bearer nobody"}).raw,
+        "headers": Headers({"X-Auth-Request-Token": "dummy"}).raw,
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",

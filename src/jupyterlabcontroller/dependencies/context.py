@@ -14,7 +14,6 @@ from structlog.stdlib import BoundLogger
 from ..config import Configuration
 from ..factory import Factory, ProcessContext
 from ..models.context import Context
-from ..util import extract_bearer_token
 
 
 class ContextDependency:
@@ -34,7 +33,7 @@ class ContextDependency:
         self,
         request: Request,
         logger: BoundLogger = Depends(logger_dependency),
-        authorization: str = Header("bearer nobody"),
+        x_auth_request_token: str = Header(default=""),
     ) -> Context:
         """Creates a per-request context and returns it."""
         if self._config is None or self._process_context is None:
@@ -49,22 +48,7 @@ class ContextDependency:
                     "type": "missing_client_ip",
                 },
             )
-        # FIXME IDGI
-        # print(f"****{authorization}**** ===={str(authorization)}====")
-        # print(f"$$$${request.headers['authorization']}$$$$")
-        # print(f"%%%%{request.headers.get(
-        #     'authorization','bearer quijibo')}%%%%")
-        # token = extract_bearer_token(str(authorization))
-        token = extract_bearer_token(request.headers.get("authorization", ""))
-        if token == "":
-            raise HTTPException(
-                status_code=422,
-                detail={
-                    "msg": "unresolvable token",
-                    "type": "unresolvable token",
-                },
-            )
-
+        token = x_auth_request_token
         return Context(
             ip_address=ip_address,
             logger=logger,

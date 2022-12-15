@@ -19,7 +19,9 @@ class GafaelfawrStorageClient:
         url = f"{self._api_url}/{endpoint}"
         headers = {"Authorization": f"bearer {token}"}
         resp = await self.http_client.get(url, headers=headers)
-        return resp.json()
+        j = resp.json()
+        print(f"*** auth response {j} ***")
+        return j
 
     async def get_user(self, token: str) -> UserInfo:
         # defaultdict did not work as I expected.

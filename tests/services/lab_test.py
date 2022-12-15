@@ -29,22 +29,22 @@ async def test_lab_manager(
 
 @pytest.mark.asyncio
 async def test_get_active_users(
-    admin_context: Context,
+    user_context: Context,
     obj_factory: TestObjectFactory,
 ) -> None:
-    user = await admin_context.get_user()
+    user = await user_context.get_user()
     username = user.username
-    token = admin_context.token
+    token = user_context.token
     lab = obj_factory.labspecs[0]
-    lm = admin_context.lab_manager
-    users = await admin_context.user_map.running()
+    lm = user_context.lab_manager
+    users = await user_context.user_map.running()
     assert len(users) == 0
     await lm.create_lab(token=token, lab=lab)
-    users = await admin_context.user_map.running()
+    users = await user_context.user_map.running()
     assert len(users) == 1
-    assert users[0] == "wrench"
+    assert users[0] == "rachel"
     await lm.delete_lab(username=username)
-    users = await admin_context.user_map.running()
+    users = await user_context.user_map.running()
     assert len(users) == 0
 
 

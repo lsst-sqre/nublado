@@ -1,7 +1,7 @@
 from typing import Optional
 
 import structlog
-from fastapi import Header, Request
+from fastapi import Request
 from structlog.stdlib import BoundLogger
 
 from jupyterlabcontroller.config import Configuration
@@ -35,12 +35,14 @@ class MockContextDependency(ContextDependency):
         logger: BoundLogger = structlog.get_logger(
             "jupyterlabcontroller-test"
         ),
-        authorization: str = Header("bearer nobody"),
+        x_auth_request_token: str = "token-of-affection",
     ) -> MockContext:
         if self._process_context is None:
             raise RuntimeError("process_context cannot be None")
         ctx = await super().__call__(
-            request=request, logger=logger, authorization=authorization
+            request=request,
+            logger=logger,
+            x_auth_request_token=x_auth_request_token,
         )
         return MockContext(
             token=ctx.token,

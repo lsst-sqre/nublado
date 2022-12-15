@@ -228,7 +228,9 @@ class PrepullerArbitrator:
                 digest = node_tag_image.digest
                 nodes_for_digest = digest_map[digest]["nodes"]
                 if node.name in nodes_for_digest:
-                    node.cached.append(digest_map[digest]["image"])
+                    cache_digests = [x.digest for x in node.cached]
+                    if digest not in cache_digests:
+                        node.cached.append(digest_map[digest]["image"])
             node_cache.append(node)
         return node_cache
 

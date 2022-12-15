@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends
 from safir.models import ErrorModel
 
 from ..dependencies.context import context_dependency
-from ..dependencies.token import admin_token_dependency
 from ..models.context import Context
 from ..models.v1.prepuller import PrepullerStatus, SpawnerImages
 
@@ -31,7 +30,6 @@ router = APIRouter()
 )
 async def get_images(
     context: Context = Depends(context_dependency),
-    admin_token: str = Depends(admin_token_dependency),
 ) -> SpawnerImages:
     """Returns known images and their names."""
     return context.prepuller_arbitrator.get_spawner_images()

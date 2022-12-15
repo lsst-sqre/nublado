@@ -136,6 +136,17 @@ class Context:
         )
 
     async def get_user(self) -> UserInfo:
+        if not self.token:
+            # Yes, this is a gross sentinel value, but it's
+            # better than having to thread "if x is not None" checks
+            # through a bunch of places.
+            return UserInfo(
+                username="nobody",
+                name="Nobody",
+                uid=65534,
+                gid=65534,
+                groups=[],
+            )
         return await self.gafaelfawr_client.get_user(self.token)
 
     async def get_token_scopes(self) -> List[str]:

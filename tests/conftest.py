@@ -122,18 +122,7 @@ def make_request(token: str) -> Request:
 
 
 @pytest_asyncio.fixture
-async def user_context(
-    obj_factory: TestObjectFactory, context_dependency: MockContextDependency
-) -> Context:
+async def user_context(context_dependency: MockContextDependency) -> Context:
     return await context_dependency(
         request=make_request(token="token-of-affection")
-    )
-
-
-@pytest_asyncio.fixture
-async def admin_context(
-    obj_factory: TestObjectFactory, context_dependency: MockContextDependency
-) -> Context:
-    return await context_dependency(
-        request=make_request(token="token-of-authority")
     )
