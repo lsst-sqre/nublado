@@ -209,17 +209,22 @@ class PrepullerArbitrator:
     def _update_node_cache(
         self, nodes: List[Node], image_list: List[NodeTagImage]
     ) -> List[Node]:
-        """Update which images are cached on each node."""
+        """Update which (desired) images are cached on each node."""
         node_cache: List[Node] = list()
         digest_map: Dict[str, Dict[str, Any]] = dict()
-        for node_tag_image in image_list:
+        desired_list = list(
+            self.filter_node_images_to_desired_menu(
+                all_images=image_list
+            ).values()
+        )
+        for node_tag_image in desired_list:
             image = node_tag_image.to_image()
             if image.digest not in digest_map:
                 digest_map[image.digest] = dict()
             digest_map[image.digest]["image"] = image
             digest_map[image.digest]["nodes"] = node_tag_image.nodes
         for node in nodes:
-            for node_tag_image in image_list:
+            for node_tag_image in desired_list:
                 digest = node_tag_image.digest
                 nodes_for_digest = digest_map[digest]["nodes"]
                 if node.name in nodes_for_digest:
@@ -319,6 +324,7 @@ class PrepullerArbitrator:
             latest_release=desired_list[1],
             latest_weekly=desired_list[2],
             latest_daily=desired_list[3],
+            all=[x.to_image() for x in images],
         )
 
     def get_menu_images(self) -> DisplayImages:
