@@ -54,6 +54,7 @@ class PrepullerExecutor:
         self.arbitrator = arbitrator
         self._docker_scheduler = Scheduler()
         self._k8s_scheduler = Scheduler()
+        self._master_prepull_scheduler = Scheduler()
         self._prepull_scheduler: Optional[Scheduler] = None
         self._stopping = False
         self._running = False
@@ -71,7 +72,9 @@ class PrepullerExecutor:
         self.logger.info("Starting prepuller background tasks")
         await self._docker_scheduler.spawn(self._docker_refresh())
         await self._k8s_scheduler.spawn(self._k8s_refresh())
-        await self._prepuller_scheduler_start()
+        await self._master_prepull_scheduler.spawn(
+            self._prepuller_scheduler_start()
+        )
         self._running = True
 
     async def stop(self) -> None:
@@ -85,6 +88,7 @@ class PrepullerExecutor:
         await self._k8s_scheduler.close()
         if self._prepull_scheduler is not None:
             await self._wait_for_prepuller_close()
+        await self._master_prepull_scheduler.close()
         self._stopping = False
         self._running = False
 
@@ -93,7 +97,7 @@ class PrepullerExecutor:
         # caches, then kick off a prepuller.  If something is wrong with
         # either K8s or the Docker repo, we will not start a prepuller until
         # they have successfully updated the images
-        while True:
+        while not self._stopping:
             while (
                 not self.state.remote_images.by_digest
                 or not self.state.nodes

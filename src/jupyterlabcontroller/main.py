@@ -110,10 +110,6 @@ def create_app(
 
     app.add_middleware(XForwardedMiddleware)
 
-    logger = structlog.get_logger(name="FastAPI main")
-    for r in app.routes:
-        logger.critical(f"*** ROUTE: {r} ***")
-
     return app
 
 
