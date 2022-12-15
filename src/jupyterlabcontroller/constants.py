@@ -9,7 +9,8 @@ DOCKER_SECRETS_PATH = "/etc/secrets/.dockerconfigjson"
 ADMIN_SCOPE = "admin:jupyterlab"
 USER_SCOPE = "exec:notebook"
 
-PREPULLER_POLL_INTERVAL = datetime.timedelta(seconds=60)
+PREPULLER_DOCKER_POLL_INTERVAL = datetime.timedelta(minutes=5)
+PREPULLER_K8S_POLL_INTERVAL = datetime.timedelta(minutes=1)
 EPOCH = datetime.datetime.fromtimestamp(0, tz=datetime.timezone.utc)
 # These are in seconds; they're arguments to various functions, not timedeltas.
 KUBERNETES_REQUEST_TIMEOUT = 60

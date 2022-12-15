@@ -11,10 +11,13 @@ and all of their operations are done in-memory.
 
 from typing import List
 
-from ...constants import EPOCH
+from ...constants import (
+    EPOCH,
+    PREPULLER_DOCKER_POLL_INTERVAL,
+    PREPULLER_K8S_POLL_INTERVAL,
+)
 from ...models.domain.prepuller import Node, NodeTagImage, TagMap
-from ...util import now
-from .util import stale
+from ...util import now, stale
 
 
 class PrepullerState:
@@ -28,15 +31,19 @@ class PrepullerState:
 
     @property
     def needs_docker_refresh(self) -> bool:
-        return stale(self._last_docker_check)
+        return stale(self._last_docker_check, PREPULLER_DOCKER_POLL_INTERVAL)
 
     @property
     def needs_k8s_refresh(self) -> bool:
-        return stale(self._last_k8s_check)
+        return stale(self._last_k8s_check, PREPULLER_K8S_POLL_INTERVAL)
 
     @property
     def needs_prepuller_refresh(self) -> bool:
-        return stale(self._last_prepuller_run)
+        # Choose the smaller of the polling intervals
+        interval = PREPULLER_K8S_POLL_INTERVAL
+        if PREPULLER_DOCKER_POLL_INTERVAL < interval:
+            interval = PREPULLER_DOCKER_POLL_INTERVAL
+        return stale(self._last_prepuller_run, interval)
 
     def update_docker_check_time(self) -> None:
         self._last_docker_check = now()

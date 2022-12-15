@@ -86,3 +86,7 @@ def validate_exactly_one_of(
 
 def now() -> datetime.datetime:
     return datetime.datetime.now(tz=datetime.timezone.utc)
+
+
+def stale(check_time: datetime.datetime, max_age: datetime.timedelta) -> bool:
+    return now() - max_age > check_time
