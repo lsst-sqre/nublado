@@ -109,9 +109,20 @@ class K8sStorageClient:
     async def aclose(self) -> None:
         await self.k8s_api.close()
 
-    def get_std_metadata(self, name: str) -> V1ObjectMeta:
+    def get_nonamespace_metadata(self, name: str) -> V1ObjectMeta:
         return V1ObjectMeta(
             name=name,
+            labels={"argocd.argoproj.io/instance": "nublado-users"},
+            annotations={
+                "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+                "argocd.argoproj.io/sync-options": "Prune=false",
+            },
+        )
+
+    def get_std_metadata(self, name: str, namespace: str) -> V1ObjectMeta:
+        return V1ObjectMeta(
+            name=name,
+            namespace=namespace,
             labels={"argocd.argoproj.io/instance": "nublado-users"},
             annotations={
                 "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
@@ -140,11 +151,16 @@ class K8sStorageClient:
                 estr = f"Failed to create namespace {namespace}: {e}"
                 self.logger.exception(estr)
                 raise NSCreationError(estr)
+        # Now we need to wait for the namespace to exist before we can
+        # let things be created in it.
+        await self._wait_for_namespace_creation(namespace)
 
     async def _k8s_create_namespace(self, ns_name: str) -> None:
         await asyncio.wait_for(
             self.api.create_namespace(
-                V1Namespace(metadata=self.get_std_metadata(name=ns_name))
+                V1Namespace(
+                    metadata=self.get_nonamespace_metadata(name=ns_name)
+                )
             ),
             self.timeout,
         )
@@ -157,7 +173,7 @@ class K8sStorageClient:
         source_ns: str,
         target_ns: str,
     ) -> None:
-        self.logger.debug("***Namespaces: {source_ns} -> {target_ns}***")
+        self.logger.debug(f"***Namespaces: {source_ns} -> {target_ns}***")
         pull_secrets = [
             x for x in secret_list if x.secret_name == "pull_secret"
         ]
@@ -195,6 +211,23 @@ class K8sStorageClient:
             await asyncio.sleep(interval)
             elapsed += interval
         raise WaitingForObjectError("Timed out waiting for ns deletion")
+
+    async def _wait_for_namespace_creation(
+        self, namespace: str, interval: float = 0.2
+    ) -> None:
+        elapsed = 0.0
+        while elapsed < self.timeout:
+            try:
+                await self.api.read_namespace(namespace)
+                return
+            except ApiException as e:
+                if e.status == 404:
+                    await asyncio.sleep(interval)
+                    elapsed += interval
+                else:
+                    self.logger.critical(f"*** API Error: {e} ***")
+                    raise WaitingForObjectError(str(e))
+        raise WaitingForObjectError("Timed out waiting for ns creation")
 
     async def copy_pull_secret(self, source_ns: str) -> Dict[str, str]:
         secret = await self.read_secret(
@@ -245,9 +278,11 @@ class K8sStorageClient:
             data=data,
             type=secret_type,
             immutable=immutable,
-            metadata=self.get_std_metadata(name),
+            metadata=self.get_std_metadata(name, namespace),
         )
-        await self.api.create_namespaced_secret(namespace, secret)
+        await self.api.create_namespaced_secret(
+            namespace=namespace, body=secret
+        )
         return
 
     async def read_secret(
@@ -271,10 +306,14 @@ class K8sStorageClient:
         configmap = V1ConfigMap(
             data=data,
             immutable=immutable,
-            metadata=self.get_std_metadata(name="configmap"),
+            metadata=self.get_std_metadata(
+                name="configmap", namespace=namespace
+            ),
         )
         self.logger.debug(f"Configmap to create: {configmap}")
-        await self.api.create_namespaced_config_map(namespace, configmap)
+        await self.api.create_namespaced_config_map(
+            namespace=namespace, body=configmap
+        )
 
     async def create_network_policy(
         self,
@@ -283,7 +322,7 @@ class K8sStorageClient:
     ) -> None:
         api = client.NetworkingV1Api(self.k8s_api)
         policy = V1NetworkPolicy(
-            metadata=self.get_std_metadata(name),
+            metadata=self.get_std_metadata(name, namespace=namespace),
             spec=V1NetworkPolicySpec(
                 policy_types=["Ingress"],
                 pod_selector=V1LabelSelector(
@@ -304,7 +343,9 @@ class K8sStorageClient:
             ),
         )
         self.logger.debug(f"Network Policy to create: {policy}")
-        await api.create_namespaced_network_policy(namespace, policy)
+        await api.create_namespaced_network_policy(
+            namespace=namespace, body=policy
+        )
 
     async def create_quota(
         self,
@@ -313,7 +354,7 @@ class K8sStorageClient:
         quota: UserResourceQuantum,
     ) -> None:
         quota_obj = V1ResourceQuota(
-            metadata=self.get_std_metadata(name),
+            metadata=self.get_std_metadata(name, namespace=namespace),
             spec=V1ResourceQuotaSpec(
                 hard={
                     "limits": {
@@ -324,7 +365,9 @@ class K8sStorageClient:
             ),
         )
         self.logger.debug(f"Quota to create: {quota_obj}")
-        await self.api.create_namespaced_resource_quota(namespace, quota_obj)
+        await self.api.create_namespaced_resource_quota(
+            namespace=namespace, body=quota_obj
+        )
 
     def create_prepuller_pod_spec(
         self,
@@ -366,7 +409,9 @@ class K8sStorageClient:
             pull_secret = False
         if pull_secret:
             pod.image_pull_secrets = [{"name": "pull-secret"}]
-        pod_obj = V1Pod(metadata=self.get_std_metadata(name), spec=pod)
+        pod_obj = V1Pod(
+            metadata=self.get_std_metadata(name, namespace=namespace), spec=pod
+        )
         await self.logger.debug(f"Creating pod: {pod_obj}")
         await self.api.create_namespaced_pod(namespace=namespace, body=pod_obj)
 
