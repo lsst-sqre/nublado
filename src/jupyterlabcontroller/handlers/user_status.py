@@ -5,6 +5,7 @@ from safir.models import ErrorModel
 
 from ..dependencies.context import context_dependency
 from ..models.context import Context
+from ..models.exceptions import InvalidUserError
 from ..models.v1.lab import UserData
 
 # FastAPI routers
@@ -33,8 +34,9 @@ async def get_user_status(
     context: Context = Depends(context_dependency),
 ) -> UserData:
     """Get the pod status for the authenticating user."""
-    user = await context.get_user()
-    if user.username == "nobody":
+    try:
+        user = await context.get_user()
+    except InvalidUserError:
         raise HTTPException(status_code=403, detail="Forbidden")
     userdata = context.user_map.get(user.username)
     if userdata is None:

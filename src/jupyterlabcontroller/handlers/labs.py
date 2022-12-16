@@ -12,7 +12,7 @@ from structlog.stdlib import BoundLogger
 
 from ..dependencies.context import context_dependency
 from ..models.context import Context
-from ..models.exceptions import NoUserMapError
+from ..models.exceptions import InvalidUserError, NoUserMapError
 from ..models.v1.lab import LabSpecification, UserData
 
 # FastAPI routers
@@ -79,8 +79,9 @@ async def post_new_lab(
     logger: BoundLogger = Depends(logger_dependency),
 ) -> str:
     """Create a new Lab pod for a given user"""
-    user = await context.get_user()
-    if user.username == "nobody":
+    try:
+        user = await context.get_user()
+    except InvalidUserError:
         raise HTTPException(status_code=403, detail="Forbidden")
     token_username = user.username
     if token_username != username:
@@ -127,8 +128,9 @@ async def get_user_events(
     context: Context = Depends(context_dependency),
 ) -> AsyncGenerator[ServerSentEvent, None]:
     """Returns the events for the lab of the given user"""
-    user = await context.get_user()
-    if user.username == "nobody":
+    try:
+        user = await context.get_user()
+    except InvalidUserError:
         raise HTTPException(status_code=403, detail="Forbidden")
     token_username = user.username
     if token_username != username:
@@ -151,8 +153,9 @@ async def get_user_status(
     context: Context = Depends(context_dependency),
 ) -> UserData:
     """Get the pod status for the authenticating user."""
-    user = await context.get_user()
-    if user.username == "nobody":
+    try:
+        user = await context.get_user()
+    except InvalidUserError:
         raise HTTPException(status_code=403, detail="Forbidden")
     userdata = context.user_map.get(user.username)
     if userdata is None:

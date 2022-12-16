@@ -20,7 +20,6 @@ class GafaelfawrStorageClient:
         headers = {"Authorization": f"bearer {token}"}
         resp = await self.http_client.get(url, headers=headers)
         j = resp.json()
-        print(f"*** auth response {j} ***")
         return j
 
     async def get_user(self, token: str) -> UserInfo:

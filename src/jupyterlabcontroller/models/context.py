@@ -22,6 +22,7 @@ from ..storage.k8s import K8sStorageClient
 from .domain.docker import DockerCredentialsMap
 from .domain.eventmap import EventMap
 from .domain.usermap import UserMap
+from .exceptions import InvalidUserError
 from .v1.lab import UserInfo
 
 
@@ -137,17 +138,11 @@ class Context:
 
     async def get_user(self) -> UserInfo:
         if not self.token:
-            # Yes, this is a gross sentinel value, but it's
-            # better than having to thread "if x is not None" checks
-            # through a bunch of places.
-            return UserInfo(
-                username="nobody",
-                name="Nobody",
-                uid=65534,
-                gid=65534,
-                groups=[],
-            )
-        return await self.gafaelfawr_client.get_user(self.token)
+            raise InvalidUserError("Could not determine user from token")
+        try:
+            return await self.gafaelfawr_client.get_user(self.token)
+        except Exception as exc:
+            raise InvalidUserError(f"{exc}")
 
     async def get_token_scopes(self) -> List[str]:
         return await self.gafaelfawr_client.get_scopes(self.token)
