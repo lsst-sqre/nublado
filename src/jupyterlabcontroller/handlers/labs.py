@@ -5,10 +5,8 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
-from safir.dependencies.logger import logger_dependency
 from safir.models import ErrorModel
 from sse_starlette.sse import ServerSentEvent
-from structlog.stdlib import BoundLogger
 
 from ..dependencies.context import context_dependency
 from ..models.context import Context
@@ -76,7 +74,6 @@ async def post_new_lab(
     username: str,
     lab: LabSpecification,
     context: Context = Depends(context_dependency),
-    logger: BoundLogger = Depends(logger_dependency),
 ) -> str:
     """Create a new Lab pod for a given user"""
     try:
@@ -103,7 +100,6 @@ async def post_new_lab(
 )
 async def delete_user_lab(
     username: str,
-    logger: BoundLogger = Depends(logger_dependency),
     context: Context = Depends(context_dependency),
 ) -> None:
     """Stop a running pod."""
