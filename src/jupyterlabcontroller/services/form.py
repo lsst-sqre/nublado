@@ -44,9 +44,6 @@ class FormManager:
         cached_images = list(displayimages.menu.values())
         all_images = list(displayimages.all.values())
         sizes = self._extract_sizes()
-        self.logger.debug(f"cached images: {cached_images}")
-        self.logger.debug(f"all images: {all_images}")
-        self.logger.debug(f"sizes: {sizes}")
         return options_template.render(
             dropdown_sentinel=DROPDOWN_SENTINEL_VALUE,
             cached_images=cached_images,
