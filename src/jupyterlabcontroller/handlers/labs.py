@@ -83,8 +83,8 @@ async def post_new_lab(
     token_username = user.username
     if token_username != username:
         raise HTTPException(status_code=403, detail="Forbidden")
-    lab_manager = context.lab_manager
     context.logger.debug(f"Received creation request for {username}")
+    lab_manager = context.lab_manager
     await lab_manager.create_lab(token=context.token, lab=lab)
     return f"/nublado/spawner/v1/labs/{username}"
 

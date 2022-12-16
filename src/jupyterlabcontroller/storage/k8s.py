@@ -56,12 +56,7 @@ from ..models.exceptions import (
     WaitingForObjectError,
     WatchError,
 )
-from ..models.k8s import (
-    ContainerImage,
-    NodeContainers,
-    ObjectOperation,
-    Secret,
-)
+from ..models.k8s import ContainerImage, NodeContainers, Secret
 from ..models.v1.event import Event
 from ..models.v1.lab import UserResourceQuantum
 
@@ -145,14 +140,6 @@ class K8sStorageClient:
                 estr = f"Failed to create namespace {namespace}: {e}"
                 self.logger.exception(estr)
                 raise NSCreationError(estr)
-        # We don't want to give control back until the namespace exists,
-        # because the next step will be creating objects in that namespace.
-        await self._wait_for_operation(
-            namespace=namespace,
-            item="namespace",
-            operation=ObjectOperation.CREATION,
-            interval=0.2,
-        )
 
     async def _k8s_create_namespace(self, ns_name: str) -> None:
         await asyncio.wait_for(
@@ -170,6 +157,7 @@ class K8sStorageClient:
         source_ns: str,
         target_ns: str,
     ) -> None:
+        self.logger.debug("***Namespaces: {source_ns} -> {target_ns}***")
         pull_secrets = [
             x for x in secret_list if x.secret_name == "pull_secret"
         ]
@@ -190,61 +178,23 @@ class K8sStorageClient:
                 data=pull_secret,
                 secret_type="kubernetes.io/dockerconfigjson",
             )
-            # We are going to use the existence of the pull secret when
-            # we create the pod in order to tell whether we should patch
-            # in imagePullSecrets.  So we need to wait for it to show
-            # up before we move on to the pod creation part.
-            await self._wait_for_operation(
-                namespace=target_ns,
-                item="pull-secret",
-                operation=ObjectOperation.CREATION,
-                interval=0.2,
-            )
         return
 
-    async def _wait_for_operation(
-        self,
-        namespace: str,
-        item: str,
-        operation: ObjectOperation,
-        interval: float,
+    async def _wait_for_namespace_deletion(
+        self, namespace: str, interval: float = 0.2
     ) -> None:
-        # asyncio.timeout() doesn't appear until Python 3.11 :-(
-        thangs = {
-            "pull-secret": self.api.read_namespaced_secret(
-                "pull-secret", namespace
-            ),
-            "namespace": self.api.read_namespace(namespace),
-        }
-
-        thang = thangs.get(item)
-        if thang is None:
-            raise RuntimeError("Don't know how to wait for {item} {operation}")
         elapsed = 0.0
         while elapsed < self.timeout:
-            errored = False
             try:
-                await asyncio.wait_for(
-                    thang,
-                    self.timeout,
-                )
-                return
+                await self.api.read_namespace(namespace)
             except ApiException as e:
-                if e.status != 404:
-                    if operation == ObjectOperation.DELETION:
-                        return
-                    raise WaitingForObjectError(str(e))
-                errored = True
-            if not errored and operation == ObjectOperation.CREATION:
-                return
-            # If we're here, it's a delete, and the read didn't get an
-            # error, or it's a creation and we did get an error, so we
-            # need to wait and then retry
+                if e.status == 404:
+                    return
+                self.logger.critical(f"*** API Error: {e} ***")
+                raise WaitingForObjectError(str(e))
             await asyncio.sleep(interval)
             elapsed += interval
-        raise asyncio.TimeoutError(
-            f"Timeout while waiting for {item} {operation}"
-        )
+        raise WaitingForObjectError("Timed out waiting for ns deletion")
 
     async def copy_pull_secret(self, source_ns: str) -> Dict[str, str]:
         secret = await self.read_secret(
@@ -323,7 +273,8 @@ class K8sStorageClient:
             immutable=immutable,
             metadata=self.get_std_metadata(name="configmap"),
         )
-        await self.api.create_namespaced_configmap(namespace, configmap)
+        self.logger.debug(f"Configmap to create: {configmap}")
+        await self.api.create_namespaced_config_map(namespace, configmap)
 
     async def create_network_policy(
         self,
@@ -352,6 +303,7 @@ class K8sStorageClient:
                 ],
             ),
         )
+        self.logger.debug(f"Network Policy to create: {policy}")
         await api.create_namespaced_network_policy(namespace, policy)
 
     async def create_quota(
@@ -371,6 +323,7 @@ class K8sStorageClient:
                 }
             ),
         )
+        self.logger.debug(f"Quota to create: {quota_obj}")
         await self.api.create_namespaced_resource_quota(namespace, quota_obj)
 
     def create_prepuller_pod_spec(
@@ -404,7 +357,7 @@ class K8sStorageClient:
         # creation in the namespace-resource-creation step.
         pull_secret = True
         try:
-            _ = self.api.read_namespaced_secret(
+            _ = await self.api.read_namespaced_secret(
                 "pull-secret", namespace=namespace
             )
         except ApiException as e:
@@ -414,6 +367,7 @@ class K8sStorageClient:
         if pull_secret:
             pod.image_pull_secrets = [{"name": "pull-secret"}]
         pod_obj = V1Pod(metadata=self.get_std_metadata(name), spec=pod)
+        await self.logger.debug(f"Creating pod: {pod_obj}")
         await self.api.create_namespaced_pod(namespace=namespace, body=pod_obj)
 
     async def delete_namespace(
@@ -429,16 +383,12 @@ class K8sStorageClient:
         timeout exception, and if we get some other error, we repackage that
         and raise it.
         """
+        self.logger.debug(f"Deleting namespace {namespace}")
         await asyncio.wait_for(
             self.api.delete_namespace(namespace),
             self.timeout,
         )
-        await self._wait_for_operation(
-            namespace=namespace,
-            item="namespace",
-            operation=ObjectOperation.DELETION,
-            interval=2.0,
-        )
+        await self._wait_for_namespace_deletion(namespace)
 
     async def get_image_data(self) -> NodeContainers:
         resp = await self.api.list_node()

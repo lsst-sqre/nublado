@@ -620,7 +620,6 @@ class LabManager:
             ),
             volumes=volumes,
         )
-        self.logger.debug(f"New pod spec: {pod}")
         return pod
 
     async def delete_lab(self, username: str) -> None:
@@ -629,7 +628,9 @@ class LabManager:
             raise NoUserMapError(f"Cannot find map for user {username}")
         user.status = LabStatus.TERMINATING
         try:
-            await self.k8s_client.delete_namespace(username)
+            await self.k8s_client.delete_namespace(
+                self._namespace_from_user(user)
+            )
         except Exception as e:
             self.logger.error(f"Could not delete lab environment: {e}")
             user.status = LabStatus.FAILED
