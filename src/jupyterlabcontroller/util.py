@@ -90,3 +90,11 @@ def now() -> datetime.datetime:
 
 def stale(check_time: datetime.datetime, max_age: datetime.timedelta) -> bool:
     return now() - max_age > check_time
+
+
+def deslashify(data: str) -> str:
+    return data.replace("/", "_._")
+
+
+def slashify(data: str) -> str:
+    return data.replace("_._", "/")

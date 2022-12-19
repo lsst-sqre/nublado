@@ -115,8 +115,10 @@ lab:
     # files.
     # EXTERNAL_INSTANCE_URL is a special case: it's
     # constant-per-instance, but you can't template values files
-  secrets: []
-  #  secretRef: credentials
+  secrets:
+    - secretName: pull_secret
+      secretKey: ".dockerconfigjson"
+  #  secretName: credentials
   #  secretKey: butler-credentials
   # -- Files to be mounted as ConfigMaps inside the user lab pod.
   # Some of these will require modification.  Those are noted with

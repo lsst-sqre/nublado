@@ -59,6 +59,7 @@ from ..models.exceptions import (
 from ..models.k8s import ContainerImage, NodeContainers, Secret
 from ..models.v1.event import Event
 from ..models.v1.lab import UserResourceQuantum
+from ..util import deslashify
 
 # FIXME
 # For now these are just aliases, but we want to do what we did with
@@ -153,16 +154,12 @@ class K8sStorageClient:
                 raise NSCreationError(estr)
         # Now we need to wait for the namespace to exist before we can
         # let things be created in it.
-        await self._wait_for_namespace_creation(namespace)
+        # Or maybe not.
+        # await self._wait_for_namespace_creation(namespace)
 
     async def _k8s_create_namespace(self, ns_name: str) -> None:
-        await asyncio.wait_for(
-            self.api.create_namespace(
-                V1Namespace(
-                    metadata=self.get_nonamespace_metadata(name=ns_name)
-                )
-            ),
-            self.timeout,
+        await self.api.create_namespace(
+            V1Namespace(metadata=self.get_nonamespace_metadata(name=ns_name))
         )
 
     async def create_secrets(
@@ -173,7 +170,6 @@ class K8sStorageClient:
         source_ns: str,
         target_ns: str,
     ) -> None:
-        self.logger.debug(f"***Namespaces: {source_ns} -> {target_ns}***")
         pull_secrets = [
             x for x in secret_list if x.secret_name == "pull_secret"
         ]
@@ -206,7 +202,6 @@ class K8sStorageClient:
             except ApiException as e:
                 if e.status == 404:
                     return
-                self.logger.critical(f"*** API Error: {e} ***")
                 raise WaitingForObjectError(str(e))
             await asyncio.sleep(interval)
             elapsed += interval
@@ -215,6 +210,7 @@ class K8sStorageClient:
     async def _wait_for_namespace_creation(
         self, namespace: str, interval: float = 0.2
     ) -> None:
+        # Not clear this is necessary
         elapsed = 0.0
         while elapsed < self.timeout:
             try:
@@ -222,10 +218,13 @@ class K8sStorageClient:
                 return
             except ApiException as e:
                 if e.status == 404:
+                    self.logger.warning(
+                        f"Namespace {namespace} does not exist at {elapsed}s."
+                    )
                     await asyncio.sleep(interval)
                     elapsed += interval
                 else:
-                    self.logger.critical(f"*** API Error: {e} ***")
+                    self.logger.error(f"API Error: {e}")
                     raise WaitingForObjectError(str(e))
         raise WaitingForObjectError("Timed out waiting for ns creation")
 
@@ -264,6 +263,7 @@ class K8sStorageClient:
         if "token" in base64_data:
             raise RuntimeError("'token' must come from the user token")
         base64_data["token"] = str(base64.b64encode(token.encode()))
+        self.logger.debug(f"*** secret data {base64_data} ***")
         return base64_data
 
     async def create_secret(
@@ -274,6 +274,7 @@ class K8sStorageClient:
         secret_type: str = "Opaque",
         immutable: bool = True,
     ) -> None:
+
         secret = V1Secret(
             data=data,
             type=secret_type,
@@ -303,17 +304,22 @@ class K8sStorageClient:
         data: Dict[str, str],
         immutable: bool = True,
     ) -> None:
+        mangled_data = dict()
+        for k in data:
+            mangled_data[deslashify(k)] = data[k]
         configmap = V1ConfigMap(
-            data=data,
+            data=mangled_data,
             immutable=immutable,
-            metadata=self.get_std_metadata(
-                name="configmap", namespace=namespace
-            ),
+            metadata=self.get_std_metadata(name=name, namespace=namespace),
         )
         self.logger.debug(f"Configmap to create: {configmap}")
-        await self.api.create_namespaced_config_map(
-            namespace=namespace, body=configmap
-        )
+        try:
+            await self.api.create_namespaced_config_map(
+                namespace=namespace, body=configmap
+            )
+        except Exception as exc:
+            self.logger.error(f"*** Create configmap failed: {exc} ***")
+            raise
 
     async def create_network_policy(
         self,
