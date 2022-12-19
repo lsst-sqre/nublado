@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from ...storage.k8s import Volume, VolumeMount
+from kubernetes_asyncio.client.models import V1Volume, V1VolumeMount
 
 
 @dataclass
 class LabVolumeContainer:
-    volume: Volume
-    volume_mount: VolumeMount
+    volume: V1Volume
+    volume_mount: V1VolumeMount

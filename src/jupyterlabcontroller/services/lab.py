@@ -3,6 +3,26 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from kubernetes_asyncio.client.models import (
+    V1ConfigMapEnvSource,
+    V1ConfigMapVolumeSource,
+    V1Container,
+    V1DownwardAPIVolumeFile,
+    V1DownwardAPIVolumeSource,
+    V1EmptyDirVolumeSource,
+    V1EnvFromSource,
+    V1HostPathVolumeSource,
+    V1KeyToPath,
+    V1NFSVolumeSource,
+    V1ObjectFieldSelector,
+    V1PodSecurityContext,
+    V1PodSpec,
+    V1ResourceFieldSelector,
+    V1SecretVolumeSource,
+    V1SecurityContext,
+    V1Volume,
+    V1VolumeMount,
+)
 from structlog.stdlib import BoundLogger
 
 from ..config import LabConfiguration, LabVolume
@@ -20,28 +40,8 @@ from ..models.v1.lab import (
     UserResources,
 )
 from ..storage.gafaelfawr import GafaelfawrStorageClient
-from ..storage.k8s import (
-    ConfigMapEnvSource,
-    ConfigMapVolumeSource,
-    Container,
-    DownwardAPIVolumeFile,
-    DownwardAPIVolumeSource,
-    EmptyDirVolumeSource,
-    EnvFromSource,
-    HostPathVolumeSource,
-    K8sStorageClient,
-    KeyToPath,
-    NFSVolumeSource,
-    ObjectFieldSelector,
-    PodSecurityContext,
-    PodSpec,
-    ResourceFieldSelector,
-    SecretVolumeSource,
-    SecurityContext,
-    Volume,
-    VolumeMount,
-)
-from ..util import slashify
+from ..storage.k8s import K8sStorageClient
+from ..util import deslashify
 from .size import SizeManager
 
 #  argh from aiojobs import Scheduler
@@ -103,7 +103,7 @@ class LabManager:
 
         #
         # This process has three stages: first is the creation or recreation
-        # of the user namespace.  Second is all the resources the user Lab
+        # of the user namespace.  V1Second is all the resources the user Lab
         # pod will need, and the third is the pod itself.
         #
 
@@ -155,7 +155,6 @@ class LabManager:
     async def create_secrets(
         self, username: str, token: str, namespace: str
     ) -> None:
-        self.logger.debug(f"Create secrets: {namespace}/{username}/{token}")
         try:
             await self.k8s_client.create_secrets(
                 secret_list=self.lab_config.secrets,
@@ -164,10 +163,9 @@ class LabManager:
                 source_ns=self.manager_namespace,
                 target_ns=namespace,
             )
-            self.logger.debug("*** Secrets created ***")
         except Exception as exc:
-            self.logger.critical(f"***Secret creation Exception {exc}***")
-        self.logger.debug("*** create_secrets done ***")
+            self.logger.error(f"***V1Secret creation Exception {exc}***")
+            raise
 
     #
     # We are splitting "build": create the in-memory object representing
@@ -345,10 +343,15 @@ class LabManager:
         self, user: UserInfo, lab: LabSpecification
     ) -> None:
         pod = self.build_pod_spec(user=user, lab=lab)
+        snames = [x.secret_name for x in self.lab_config.secrets]
+        needs_pull_secret = False
+        if "pull-secret" in snames:
+            needs_pull_secret = True
         await self.k8s_client.create_pod(
             name=f"nb-{user.username}",
             namespace=self._namespace_from_user(user),
             pod=pod,
+            pull_secret=needs_pull_secret,
         )
 
     def build_lab_config_volumes(
@@ -365,20 +368,20 @@ class LabManager:
                 ro = True
             vname = storage.container_path.replace("/", "_")[1:]
             if not storage.server:
-                vol = Volume(
-                    host_path=HostPathVolumeSource(path=storage.server_path),
+                vol = V1Volume(
+                    host_path=V1HostPathVolumeSource(path=storage.server_path),
                     name=vname,
                 )
             else:
-                vol = Volume(
-                    NFSVolumeSource(
+                vol = V1Volume(
+                    V1NFSVolumeSource(
                         path=storage.server_path,
                         read_only=ro,
                         server=storage.server,
                     ),
                     name=vname,
                 )
-            vm = VolumeMount(
+            vm = V1VolumeMount(
                 mount_path=storage.container_path,
                 read_only=ro,
                 name=vname,
@@ -391,25 +394,29 @@ class LabManager:
         # Step two: NSS files
         #
         vols: List[LabVolumeContainer] = []
-        for item in ("passwd", "group"):
+        for item in ("/etc/passwd", "/etc/group"):
+            bname = item.split("/")[-1]
+            dsitem = deslashify(item)
             vols.append(
                 LabVolumeContainer(
-                    volume=Volume(
-                        name=f"nss-{username}-{item}",
-                        config_map=ConfigMapVolumeSource(
+                    volume=V1Volume(
+                        name=f"nss-{username}-{bname}",
+                        config_map=V1ConfigMapVolumeSource(
                             name=f"nb-{username}-nss",
-                            items=KeyToPath(
-                                mode=0x0644,
-                                key=item,
-                                path=item,
-                            ),
+                            items=[
+                                V1KeyToPath(
+                                    mode=0o0644,
+                                    key=dsitem,
+                                    path=bname,
+                                )
+                            ],
                         ),
                     ),
-                    volume_mount=VolumeMount(
-                        mount_path=slashify(f"/etc/{item}"),
-                        name=f"nss-{username}-{item}",
+                    volume_mount=V1VolumeMount(
+                        mount_path=item,
+                        name=f"nss-{username}-{bname}",
                         read_only=True,
-                        sub_path=item,
+                        sub_path=bname,
                     ),
                 )
             )
@@ -421,24 +428,28 @@ class LabManager:
         #
         vols: List[LabVolumeContainer] = []
         for cfile in self.lab_config.files:
+            dscfile = deslashify(cfile)
             if cfile == "/etc/passwd" or cfile == "/etc/group":
                 continue  # We already handled these
             path = Path(cfile)
+            bname = cfile.split("/")[-1]
             filename = re.sub(r"[_\.]", "-", str(path.name))
             vols.append(
                 LabVolumeContainer(
-                    volume=Volume(
+                    volume=V1Volume(
                         name=f"nss-{username}-{filename}",
-                        config_map=ConfigMapVolumeSource(
+                        config_map=V1ConfigMapVolumeSource(
                             name=f"nb-{username}-configmap",
-                            items=KeyToPath(
-                                mode=0x0644,
-                                key=filename,
-                                path=cfile,
-                            ),
+                            items=[
+                                V1KeyToPath(
+                                    mode=0o0644,
+                                    key=dscfile,
+                                    path=bname,
+                                )
+                            ],
                         ),
                     ),
-                    volume_mount=VolumeMount(
+                    volume_mount=V1VolumeMount(
                         mount_path=cfile,
                         name=f"nss-{username}-{filename}",
                         read_only=True,  # Is that necessarily the case?
@@ -457,13 +468,13 @@ class LabManager:
         # All the secrets will show up in the same directory.  That means
         # we will need to symlink or the existing butler secret.
         sec_vol = LabVolumeContainer(
-            volume=Volume(
+            volume=V1Volume(
                 name=f"nb-{username}-secrets",
-                secret=SecretVolumeSource(
+                secret=V1SecretVolumeSource(
                     secret_name=f"nb-{username}",
                 ),
             ),
-            volume_mount=VolumeMount(
+            volume_mount=V1VolumeMount(
                 mount_path="/opt/lsst/software/jupyterlab/secrets",
                 name=f"nb-{username}-secrets",
                 read_only=True,  # Likely, but I'm not certain
@@ -476,13 +487,13 @@ class LabManager:
         # Step five: environment
         #
         env_vol = LabVolumeContainer(
-            volume=Volume(
+            volume=V1Volume(
                 name=f"nb-{username}-env",
-                config_map=ConfigMapVolumeSource(
+                config_map=V1ConfigMapVolumeSource(
                     name=f"nb-{username}-env",
                 ),
             ),
-            volume_mount=VolumeMount(
+            volume_mount=V1VolumeMount(
                 mount_path="/opt/lsst/software/jupyterlab/environment",
                 name=f"nb-{username}-env",
                 read_only=False,  # We'd like to be able to update this
@@ -492,11 +503,11 @@ class LabManager:
 
     def build_tmp_volume(self) -> LabVolumeContainer:
         return LabVolumeContainer(
-            volume=Volume(
-                empty_dir=EmptyDirVolumeSource(),
+            volume=V1Volume(
+                empty_dir=V1EmptyDirVolumeSource(),
                 name="tmp",
             ),
-            volume_mount=VolumeMount(
+            volume_mount=V1VolumeMount(
                 mount_path="/tmp",
                 read_only=False,
                 name="tmp",
@@ -520,16 +531,16 @@ class LabManager:
             "requests.memory",
         ]
         volfiles = [
-            DownwardAPIVolumeFile(
-                field_ref=ObjectFieldSelector(field_path=x),
+            V1DownwardAPIVolumeFile(
+                field_ref=V1ObjectFieldSelector(field_path=x),
                 path=x.replace(".", "_").lower(),
             )
             for x in volfields
         ]
         volfiles.extend(
             [
-                DownwardAPIVolumeFile(
-                    resource_field_ref=ResourceFieldSelector(
+                V1DownwardAPIVolumeFile(
+                    resource_field_ref=V1ResourceFieldSelector(
                         container_name="notebook",
                         resource=x,
                     ),
@@ -539,11 +550,11 @@ class LabManager:
             ]
         )
         runtime_vol = LabVolumeContainer(
-            volume=Volume(
+            volume=V1Volume(
                 name=f"nb-{username}-runtime",
-                downward_api=DownwardAPIVolumeSource(items=volfiles),
+                downward_api=V1DownwardAPIVolumeSource(items=volfiles),
             ),
-            volume_mount=VolumeMount(
+            volume_mount=V1VolumeMount(
                 mount_path="/opt/lsst/software/jupyterlab/runtime",
                 name=f"nb-{username}-runtime",
                 read_only=True,
@@ -575,27 +586,27 @@ class LabManager:
         vols.append(runtime_vol)
         return vols
 
-    def build_init_ctrs(self) -> List[Container]:
-        init_ctrs: List[Container] = []
+    def build_init_ctrs(self) -> List[V1Container]:
+        init_ctrs: List[V1Container] = []
         ic_volumes: List[LabVolumeContainer] = []
         for ic in self.lab_config.initcontainers:
             if ic.volumes is not None:
                 ic_volumes = self.build_lab_config_volumes(ic.volumes)
             ic_vol_mounts = [x.volume_mount for x in ic_volumes]
             ic_sec_ctx = (
-                SecurityContext(
+                V1SecurityContext(
                     run_as_non_root=True,
                     run_as_user=1000,
                     allow_privilege_escalation=False,
                 ),
             )
             if ic.privileged:
-                ic_sec_ctx = SecurityContext(
+                ic_sec_ctx = V1SecurityContext(
                     run_as_non_root=False,
                     run_as_user=0,
                     allow_privilege_escalation=True,
                 )
-            ctr = Container(
+            ctr = V1Container(
                 name=ic.name,
                 image=ic.image,
                 security_context=ic_sec_ctx,
@@ -605,21 +616,27 @@ class LabManager:
             init_ctrs.append(ctr)
         return init_ctrs
 
-    def build_pod_spec(self, user: UserInfo, lab: LabSpecification) -> PodSpec:
+    def build_pod_spec(
+        self, user: UserInfo, lab: LabSpecification
+    ) -> V1PodSpec:
         username = user.username
         vol_recs = self.build_volumes(username=username)
         volumes = [x.volume for x in vol_recs]
         vol_mounts = [x.volume_mount for x in vol_recs]
         init_ctrs = self.build_init_ctrs()
-        nb_ctr = Container(
+        nb_ctr = V1Container(
             name="notebook",
             args=["/opt/lsst/software/jupyterlab/runlab.sh"],
-            env_from=EnvFromSource(
-                config_map_ref=ConfigMapEnvSource(name=f"nb-{username}-env")
-            ),
+            env_from=[
+                V1EnvFromSource(
+                    config_map_ref=V1ConfigMapEnvSource(
+                        name=f"nb-{username}-env"
+                    )
+                )
+            ],
             image=lab.options.image,
             image_pull_policy="Always",
-            security_context=SecurityContext(
+            security_context=V1SecurityContext(
                 run_as_non_root=True,
                 run_as_user=user.uid,
             ),
@@ -628,11 +645,11 @@ class LabManager:
         )
         supp_grps = [x.id for x in user.groups]
         # FIXME work out tolerations
-        pod = PodSpec(
-            init_containers=[init_ctrs],
+        pod = V1PodSpec(
+            init_containers=init_ctrs,
             containers=[nb_ctr],
             restart_policy="OnFailure",
-            security_context=PodSecurityContext(
+            security_context=V1PodSecurityContext(
                 run_as_non_root=True,
                 fs_group=user.gid,
                 supplemental_groups=supp_grps,

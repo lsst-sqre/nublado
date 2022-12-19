@@ -5,11 +5,12 @@
 from copy import copy
 from typing import List
 
+from kubernetes_asyncio.client.models import V1Container, V1PodSpec
 from structlog.stdlib import BoundLogger
 
 from ...models.domain.prepuller import NodeContainers, NodeTagImage
 from ...models.v1.prepuller import Node, PrepullerConfiguration
-from ...storage.k8s import Container, ContainerImage, K8sStorageClient, PodSpec
+from ...storage.k8s import ContainerImage, K8sStorageClient
 from .state import PrepullerState
 from .tag import PrepullerTagClient
 from .util import extract_path_from_image_ref
@@ -110,7 +111,7 @@ class PrepullerK8sClient:
         self,
         image: str,
         node: str,
-    ) -> PodSpec:
+    ) -> V1PodSpec:
         shortname = image.split("/")[-1]
 
         #        user = UserInfo(
@@ -125,9 +126,9 @@ class PrepullerK8sClient:
         #                )
         #            ],
         #        )
-        return PodSpec(
+        return V1PodSpec(
             containers=[
-                Container(
+                V1Container(
                     name=f"prepull-{shortname}",
                     command=["/bin/sleep", "5"],
                     image=image,

@@ -2,48 +2,25 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from typing import Any, Deque, Dict, List, Optional, TypeAlias
+from typing import Any, Deque, Dict, List, Optional
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client.api_client import ApiClient
 from kubernetes_asyncio.client.models import (
-    V1Affinity,
     V1ConfigMap,
-    V1ConfigMapEnvSource,
-    V1ConfigMapVolumeSource,
     V1Container,
-    V1DownwardAPIVolumeFile,
-    V1DownwardAPIVolumeSource,
-    V1EmptyDirVolumeSource,
-    V1EnvFromSource,
-    V1HostPathVolumeSource,
-    V1KeyToPath,
     V1LabelSelector,
-    V1LocalObjectReference,
     V1Namespace,
     V1NetworkPolicy,
     V1NetworkPolicyIngressRule,
     V1NetworkPolicyPort,
     V1NetworkPolicySpec,
-    V1NFSVolumeSource,
-    V1NodeAffinity,
-    V1NodeSelector,
-    V1NodeSelectorRequirement,
-    V1NodeSelectorTerm,
-    V1ObjectFieldSelector,
     V1ObjectMeta,
     V1Pod,
-    V1PodSecurityContext,
     V1PodSpec,
-    V1ResourceFieldSelector,
     V1ResourceQuota,
     V1ResourceQuotaSpec,
     V1Secret,
-    V1SecretVolumeSource,
-    V1SecurityContext,
-    V1Toleration,
-    V1Volume,
-    V1VolumeMount,
 )
 from kubernetes_asyncio.client.rest import ApiException
 from kubernetes_asyncio.watch import Watch
@@ -51,7 +28,6 @@ from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
 from ..models.exceptions import (
-    KubernetesError,
     NSCreationError,
     WaitingForObjectError,
     WatchError,
@@ -60,42 +36,6 @@ from ..models.k8s import ContainerImage, NodeContainers, Secret
 from ..models.v1.event import Event
 from ..models.v1.lab import UserResourceQuantum
 from ..util import deslashify
-
-# FIXME
-# For now these are just aliases, but we want to do what we did with
-# ContainerImage above and create simplified versions of the objects
-# with some defaults held constant.
-#
-# Not sure this is even worth it since K8s does a perfectly adequate job
-# of making models for all its types.  Maybe we should just use them
-# directly?  Not very many can be usefully simplified.
-Affinity: TypeAlias = V1Affinity
-ConfigMapEnvSource: TypeAlias = V1ConfigMapEnvSource
-ConfigMapVolumeSource: TypeAlias = V1ConfigMapVolumeSource
-Container: TypeAlias = V1Container
-DownwardAPIVolumeFile: TypeAlias = V1DownwardAPIVolumeFile
-DownwardAPIVolumeSource: TypeAlias = V1DownwardAPIVolumeSource
-EmptyDirVolumeSource: TypeAlias = V1EmptyDirVolumeSource
-EnvFromSource: TypeAlias = V1EnvFromSource
-HostPathVolumeSource: TypeAlias = V1HostPathVolumeSource
-KeyToPath: TypeAlias = V1KeyToPath
-LocalObjectReference: TypeAlias = V1LocalObjectReference
-NFSVolumeSource: TypeAlias = V1NFSVolumeSource
-NodeAffinity: TypeAlias = V1NodeAffinity
-NodeSelector: TypeAlias = V1NodeSelector
-NodeSelectorRequirement: TypeAlias = V1NodeSelectorRequirement
-NodeSelectorTerm: TypeAlias = V1NodeSelectorTerm
-ObjectFieldSelector: TypeAlias = V1ObjectFieldSelector
-PodSecurityContext: TypeAlias = V1PodSecurityContext
-PodSpec: TypeAlias = V1PodSpec
-ResourceFieldSelector: TypeAlias = V1ResourceFieldSelector
-SecretVolumeSource: TypeAlias = V1SecretVolumeSource
-SecurityContext: TypeAlias = V1SecurityContext
-Toleration: TypeAlias = V1Toleration
-Volume: TypeAlias = V1Volume
-VolumeMount: TypeAlias = V1VolumeMount
-
-# Weirdly, it turns out that NFS is internally an alias to AWS EBS.
 
 
 class K8sStorageClient:
@@ -262,8 +202,7 @@ class K8sStorageClient:
         # down to create a secret as base64 anyway.
         if "token" in base64_data:
             raise RuntimeError("'token' must come from the user token")
-        base64_data["token"] = str(base64.b64encode(token.encode()))
-        self.logger.debug(f"*** secret data {base64_data} ***")
+        base64_data["token"] = base64.b64encode(token.encode()).decode()
         return base64_data
 
     async def create_secret(
@@ -318,7 +257,7 @@ class K8sStorageClient:
                 namespace=namespace, body=configmap
             )
         except Exception as exc:
-            self.logger.error(f"*** Create configmap failed: {exc} ***")
+            self.logger.error(f"Create config_map failed: {exc}")
             raise
 
     async def create_network_policy(
@@ -327,6 +266,9 @@ class K8sStorageClient:
         namespace: str,
     ) -> None:
         api = client.NetworkingV1Api(self.k8s_api)
+        # FIXME we need to further restrict Ingress to the right pods,
+        # and Egress to ... external world, Hub, Portal, Gafaelfawr.  What
+        # else?
         policy = V1NetworkPolicy(
             metadata=self.get_std_metadata(name, namespace=namespace),
             spec=V1NetworkPolicySpec(
@@ -338,10 +280,7 @@ class K8sStorageClient:
                     V1NetworkPolicyIngressRule(
                         ports=[
                             V1NetworkPolicyPort(
-                                port={"port": "http"},
-                            ),
-                            V1NetworkPolicyPort(
-                                port={"port": 8081},
+                                port=8888,
                             ),
                         ],
                     ),
@@ -349,9 +288,13 @@ class K8sStorageClient:
             ),
         )
         self.logger.debug(f"Network Policy to create: {policy}")
-        await api.create_namespaced_network_policy(
-            namespace=namespace, body=policy
-        )
+        try:
+            await api.create_namespaced_network_policy(
+                namespace=namespace, body=policy
+            )
+        except Exception as exc:
+            self.logger.error(f"Network policy creation failed: {exc}")
+            raise
 
     async def create_quota(
         self,
@@ -387,7 +330,7 @@ class K8sStorageClient:
         shortname = image.split("/")[-1]
         return V1PodSpec(
             containers=[
-                Container(
+                V1Container(
                     name=f"prepull-{shortname}",
                     command=["/bin/sleep", "5"],
                     image=image,
@@ -398,28 +341,25 @@ class K8sStorageClient:
         )
 
     async def create_pod(
-        self, name: str, namespace: str, pod: PodSpec
+        self,
+        name: str,
+        namespace: str,
+        pod: V1PodSpec,
+        pull_secret: bool = False,
     ) -> None:
-        # Here's where we handle pull secrets.  We look for a secret named
-        # "pull-secret" in the target namespace, and if it exists, we jam it
-        # into the PodSpec.  That's why we had to wait for pull-secret
-        # creation in the namespace-resource-creation step.
-        pull_secret = True
-        try:
-            _ = await self.api.read_namespaced_secret(
-                "pull-secret", namespace=namespace
-            )
-        except ApiException as e:
-            if e.status != 404:
-                raise KubernetesError(f"{e} [status {e.status}]")
-            pull_secret = False
         if pull_secret:
             pod.image_pull_secrets = [{"name": "pull-secret"}]
         pod_obj = V1Pod(
             metadata=self.get_std_metadata(name, namespace=namespace), spec=pod
         )
-        await self.logger.debug(f"Creating pod: {pod_obj}")
-        await self.api.create_namespaced_pod(namespace=namespace, body=pod_obj)
+        self.logger.debug(f"Creating pod: {pod_obj}")
+        try:
+            await self.api.create_namespaced_pod(
+                namespace=namespace, body=pod_obj
+            )
+        except Exception as exc:
+            self.logger.error(f"Error creating pod: {exc}")
+            raise
 
     async def delete_namespace(
         self,

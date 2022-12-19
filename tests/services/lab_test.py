@@ -138,6 +138,6 @@ async def test_pod_spec(
     assert ps.volumes[-3].config_map.name == "nb-rachel-env"
     assert ps.security_context.fs_group == 1101
     assert ps.security_context.supplemental_groups[1] == 2028
-    assert ctr.env_from.config_map_ref.name == "nb-rachel-env"
+    assert ctr.env_from[0].config_map_ref.name == "nb-rachel-env"
     assert ctr.security_context.privileged is None
     assert ctr.volume_mounts[1].mount_path == "/project"

@@ -1,10 +1,10 @@
 from typing import Dict
 
+from kubernetes_asyncio.client.models import V1PodSpec, V1Secret
+
 from jupyterlabcontroller.storage.k8s import (
     K8sStorageClient,
     NodeContainers,
-    PodSpec,
-    Secret,
     UserResourceQuantum,
 )
 
@@ -28,8 +28,8 @@ class MockK8sStorageClient(K8sStorageClient):
     ) -> None:
         pass
 
-    async def read_secret(self, name: str, namespace: str) -> Secret:
-        return Secret(data={})
+    async def read_secret(self, name: str, namespace: str) -> V1Secret:
+        return V1Secret(data={})
 
     async def create_configmap(
         self,
@@ -52,7 +52,11 @@ class MockK8sStorageClient(K8sStorageClient):
         pass
 
     async def create_pod(
-        self, name: str, namespace: str, pod: PodSpec
+        self,
+        name: str,
+        namespace: str,
+        pod: V1PodSpec,
+        pull_secret: bool = False,
     ) -> None:
         pass
 
