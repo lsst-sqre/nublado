@@ -11,6 +11,8 @@ from kubernetes_asyncio.client.models import (
     V1DownwardAPIVolumeSource,
     V1EmptyDirVolumeSource,
     V1EnvFromSource,
+    V1EnvVar,
+    V1EnvVarSource,
     V1HostPathVolumeSource,
     V1KeyToPath,
     V1NFSVolumeSource,
@@ -374,7 +376,7 @@ class LabManager:
                 )
             else:
                 vol = V1Volume(
-                    V1NFSVolumeSource(
+                    nfs=V1NFSVolumeSource(
                         path=storage.server_path,
                         read_only=ro,
                         server=storage.server,
@@ -389,39 +391,6 @@ class LabManager:
             vols.append(LabVolumeContainer(volume=vol, volume_mount=vm))
         return vols
 
-    def build_nss_volumes(self, username: str) -> List[LabVolumeContainer]:
-        #
-        # Step two: NSS files
-        #
-        vols: List[LabVolumeContainer] = []
-        for item in ("/etc/passwd", "/etc/group"):
-            bname = item.split("/")[-1]
-            dsitem = deslashify(item)
-            vols.append(
-                LabVolumeContainer(
-                    volume=V1Volume(
-                        name=f"nss-{username}-{bname}",
-                        config_map=V1ConfigMapVolumeSource(
-                            name=f"nb-{username}-nss",
-                            items=[
-                                V1KeyToPath(
-                                    mode=0o0644,
-                                    key=dsitem,
-                                    path=bname,
-                                )
-                            ],
-                        ),
-                    ),
-                    volume_mount=V1VolumeMount(
-                        mount_path=item,
-                        name=f"nss-{username}-{bname}",
-                        read_only=True,
-                        sub_path=bname,
-                    ),
-                )
-            )
-        return vols
-
     def build_cm_volumes(self, username: str) -> List[LabVolumeContainer]:
         #
         # Step three: other configmap files
@@ -429,17 +398,19 @@ class LabManager:
         vols: List[LabVolumeContainer] = []
         for cfile in self.lab_config.files:
             dscfile = deslashify(cfile)
+            cmname = f"nb-{username}-configmap"
             if cfile == "/etc/passwd" or cfile == "/etc/group":
-                continue  # We already handled these
+                cmname = f"nb-{username}-nss"
             path = Path(cfile)
-            bname = cfile.split("/")[-1]
+            bname = str(path.name)
+            # dname = str(path.parent)
             filename = re.sub(r"[_\.]", "-", str(path.name))
             vols.append(
                 LabVolumeContainer(
                     volume=V1Volume(
                         name=f"nss-{username}-{filename}",
                         config_map=V1ConfigMapVolumeSource(
-                            name=f"nb-{username}-configmap",
+                            name=cmname,
                             items=[
                                 V1KeyToPath(
                                     mode=0o0644,
@@ -453,7 +424,7 @@ class LabManager:
                         mount_path=cfile,
                         name=f"nss-{username}-{filename}",
                         read_only=True,  # Is that necessarily the case?
-                        sub_path=filename,
+                        sub_path=bname,
                     ),
                 )
             )
@@ -521,22 +492,26 @@ class LabManager:
         #
 
         # The only field we need is spec.nodeName
-        volfields = [
-            "spec.nodeName",
-        ]
+        # Except we can't have it:
+        # https://github.com/kubernetes/kubernetes/issues/64168
+        # So we will inject it into the env instead.
+        # volfields = [
+        #    "spec.nodeName",
+        # ]
         resfields = [
             "limits.cpu",
             "requests.cpu",
             "limits.memory",
             "requests.memory",
         ]
-        volfiles = [
-            V1DownwardAPIVolumeFile(
-                field_ref=V1ObjectFieldSelector(field_path=x),
-                path=x.replace(".", "_").lower(),
-            )
-            for x in volfields
-        ]
+        # volfiles = [
+        #    V1DownwardAPIVolumeFile(
+        #        field_ref=V1ObjectFieldSelector(field_path=x),
+        #        path=x.replace(".", "_").lower(),
+        #    )
+        #    for x in volfields
+        # ]
+        volfiles: List[V1DownwardAPIVolumeFile] = list()
         volfiles.extend(
             [
                 V1DownwardAPIVolumeFile(
@@ -572,8 +547,6 @@ class LabManager:
             self.lab_config.volumes
         )
         vols.extend(lab_config_vols)
-        nss_vols = self.build_nss_volumes(username=username)
-        vols.extend(nss_vols)
         cm_vols = self.build_cm_volumes(username=username)
         vols.extend(cm_vols)
         secret_vol = self.build_secret_volume(username=username)
@@ -627,12 +600,25 @@ class LabManager:
         nb_ctr = V1Container(
             name="notebook",
             args=["/opt/lsst/software/jupyterlab/runlab.sh"],
+            env=[
+                # Because spec.nodeName is not reflected in
+                # DownwardAPIVolumeSource:
+                # https://github.com/kubernetes/kubernetes/issues/64168
+                V1EnvVar(
+                    name="K8S_NODE_NAME",
+                    value_from=V1EnvVarSource(
+                        field_ref=V1ObjectFieldSelector(
+                            field_path="spec.nodeName"
+                        )
+                    ),
+                ),
+            ],
             env_from=[
                 V1EnvFromSource(
                     config_map_ref=V1ConfigMapEnvSource(
                         name=f"nb-{username}-env"
                     )
-                )
+                ),
             ],
             image=lab.options.image,
             image_pull_policy="Always",
