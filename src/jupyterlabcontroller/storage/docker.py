@@ -6,9 +6,9 @@ from typing import Dict, List, Optional, cast
 from httpx import AsyncClient, Response
 from structlog.stdlib import BoundLogger
 
+from ..exceptions import DockerRegistryError
 from ..models.domain.docker import DockerCredentials as DC
 from ..models.domain.prepuller import TagMap
-from ..models.exceptions import DockerRegistryError
 
 
 class DockerStorageClient:

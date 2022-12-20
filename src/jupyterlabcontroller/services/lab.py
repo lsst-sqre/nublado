@@ -28,9 +28,9 @@ from kubernetes_asyncio.client.models import (
 from structlog.stdlib import BoundLogger
 
 from ..config import LabConfiguration, LabVolume
+from ..exceptions import LabExistsError, NoUserMapError
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.usermap import UserMap
-from ..models.exceptions import LabExistsError, NoUserMapError
 from ..models.tag import StandaloneRSPTag
 from ..models.v1.lab import (
     LabSize,

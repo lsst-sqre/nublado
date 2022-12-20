@@ -9,8 +9,8 @@ from safir.models import ErrorModel
 from sse_starlette.sse import ServerSentEvent
 
 from ..dependencies.context import context_dependency
+from ..exceptions import InvalidUserError, LabExistsError, NoUserMapError
 from ..models.context import Context
-from ..models.exceptions import InvalidUserError, NoUserMapError
 from ..models.v1.lab import LabSpecification, UserData
 
 # FastAPI routers
@@ -85,7 +85,10 @@ async def post_new_lab(
         raise HTTPException(status_code=403, detail="Forbidden")
     context.logger.debug(f"Received creation request for {username}")
     lab_manager = context.lab_manager
-    await lab_manager.create_lab(token=context.token, lab=lab)
+    try:
+        await lab_manager.create_lab(token=context.token, lab=lab)
+    except LabExistsError:
+        raise HTTPException(status_code=409, detail="Conflict")
     return f"/nublado/spawner/v1/labs/{username}"
 
 

@@ -11,7 +11,7 @@ from typing import Dict, List, Match, Optional, Tuple
 
 from semver import VersionInfo
 
-from .exceptions import IncomparableImageTypesError
+from ..exceptions import IncomparableImageTypesError
 from .v1.prepuller import Image
 
 

@@ -27,7 +27,8 @@ from kubernetes_asyncio.watch import Watch
 from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
-from ..models.exceptions import (
+from ..exceptions import (
+    MissingSecretError,
     NSCreationError,
     WaitingForObjectError,
     WatchError,
@@ -230,9 +231,17 @@ class K8sStorageClient:
         name: str,
         namespace: str,
     ) -> Secret:
-        secret: V1Secret = await self.api.read_namespaced_secret(
-            name, namespace
-        )
+        try:
+            secret: V1Secret = await self.api.read_namespaced_secret(
+                name, namespace
+            )
+        except Exception as exc:
+            errstr = (
+                f"Failed to read secret {name} in namespace {namespace}: "
+                f"{exc}"
+            )
+            self.logger.error(errstr)
+            raise MissingSecretError(errstr)
         secret_type = secret.type
         return Secret(data=secret.data, secret_type=secret_type)
 

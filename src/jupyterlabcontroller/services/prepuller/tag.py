@@ -77,7 +77,10 @@ class PrepullerTagClient:
                 if not digest:
                     digest = _nd
                 if digest != _nd:
-                    raise RuntimeError(f"{c} has multiple digests")
+                    self.logger.error(
+                        f"{c} has multiple digests.  Keeping {digest} "
+                        f"and ignoring {_nd}.  Check repository integrity"
+                    )
         r: List[RSPTag] = list()
         for c in ctr.names:
             # Start over and do it with tags.  Skip the digest.

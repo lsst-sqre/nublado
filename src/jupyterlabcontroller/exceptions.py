@@ -50,6 +50,16 @@ class LabExistsError(Exception):
 class NoUserMapError(Exception):
     """Raised when a user deletion is called for a user without a lab."""
 
+    pass
+
 
 class InvalidUserError(Exception):
     """Raised when a user cannot be resolved from a token."""
+
+    pass
+
+
+class MissingSecretError(Exception):
+    """Raised when we try to copy a non-existent secret."""
+
+    pass

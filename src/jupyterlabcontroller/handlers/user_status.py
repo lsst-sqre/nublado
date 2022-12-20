@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from safir.models import ErrorModel
 
 from ..dependencies.context import context_dependency
+from ..exceptions import InvalidUserError
 from ..models.context import Context
-from ..models.exceptions import InvalidUserError
 from ..models.v1.lab import UserData
 
 # FastAPI routers

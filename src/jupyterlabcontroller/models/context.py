@@ -7,6 +7,7 @@ from structlog.stdlib import BoundLogger
 
 from ..config import Configuration
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
+from ..exceptions import InvalidUserError
 from ..factory import Factory
 from ..services.events import EventManager
 from ..services.form import FormManager
@@ -22,7 +23,6 @@ from ..storage.k8s import K8sStorageClient
 from .domain.docker import DockerCredentialsMap
 from .domain.eventmap import EventMap
 from .domain.usermap import UserMap
-from .exceptions import InvalidUserError
 from .v1.lab import UserInfo
 
 
