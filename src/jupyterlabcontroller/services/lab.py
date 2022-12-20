@@ -3,6 +3,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from aiojobs import Scheduler
 from kubernetes_asyncio.client.models import (
     V1ConfigMapEnvSource,
     V1ConfigMapVolumeSource,
@@ -28,6 +29,7 @@ from kubernetes_asyncio.client.models import (
 from structlog.stdlib import BoundLogger
 
 from ..config import LabConfiguration, LabVolume
+from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..exceptions import LabExistsError, NoUserMapError
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.usermap import UserMap
@@ -45,9 +47,6 @@ from ..storage.gafaelfawr import GafaelfawrStorageClient
 from ..storage.k8s import K8sStorageClient
 from ..util import deslashify
 from .size import SizeManager
-
-#  argh from aiojobs import Scheduler
-#  blargh from ..constants import KUBERNETES_REQUEST_TIMEOUT
 
 
 class LabManager:
@@ -125,33 +124,23 @@ class LabManager:
         # explicit awaits.
         username = user.username
 
-        # scheduler = Scheduler(close_timeout=KUBERNETES_REQUEST_TIMEOUT)
+        scheduler = Scheduler(close_timeout=KUBERNETES_REQUEST_TIMEOUT)
 
-        # await scheduler.spawn(
-        #     self.create_secrets(
-        #         username=username,
-        #         namespace=self._namespace_from_user(user),
-        #         token=token,
-        #     )
-        # )
-        # await scheduler.spawn(self.create_nss(user=user))
-        # await scheduler.spawn(self.create_file_configmap(user=user))
-        # await scheduler.spawn(self.create_env(user=user, lab=lab,
-        # token=token))
-        # await scheduler.spawn(self.create_network_policy(user=user))
-        # await scheduler.spawn(self.create_quota(user=user, lab=lab))
-
-        await self.create_secrets(
-            username=username,
-            namespace=self._namespace_from_user(user),
-            token=token,
+        await scheduler.spawn(
+            self.create_secrets(
+                username=username,
+                namespace=self._namespace_from_user(user),
+                token=token,
+            )
         )
-        await self.create_nss(user=user)
-        await self.create_file_configmap(user=user)
-        await self.create_env(user=user, lab=lab, token=token)
-        await self.create_network_policy(user=user)
-        await self.create_quota(user=user, lab=lab)
+        await scheduler.spawn(self.create_nss(user=user))
+        await scheduler.spawn(self.create_file_configmap(user=user))
+        await scheduler.spawn(self.create_env(user=user, lab=lab, token=token))
+        await scheduler.spawn(self.create_network_policy(user=user))
+        await scheduler.spawn(self.create_quota(user=user, lab=lab))
         self.logger.info("Waiting for user resources to be created.")
+        await scheduler.close()
+        self.logger.info("User resources created.")
         return
 
     async def create_secrets(
