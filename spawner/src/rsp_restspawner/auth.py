@@ -1,63 +1,60 @@
-"""Authenticator for the Nublado 3 instantiation of JupyterHub.
-Based on Nublado2's version."""
+"""Authenticator for the Nublado 3 instantiation of JupyterHub."""
+import os
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
-from httpx import AsyncClient
+from jupyterhub.app import JupyterHub
 from jupyterhub.auth import Authenticator
 from jupyterhub.handlers import BaseHandler, LogoutHandler
+from jupyterhub.user import User
 from jupyterhub.utils import url_path_join
 from tornado import web
+from tornado.httputil import HTTPHeaders
+from tornado.web import RequestHandler
 
-if TYPE_CHECKING:
-    from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from .http import get_client
 
-    from jupyterhub.app import JupyterHub
-    from jupyterhub.user import User
-    from tornado.httputil import HTTPHeaders
-    from tornado.web import RequestHandler
-
-    Route = Tuple[str, Type[BaseHandler]]
+Route = Tuple[str, Type[BaseHandler]]
 
 
-async def _build_auth_info(
-    headers: HTTPHeaders,
-    http_client: Optional[AsyncClient] = None,
-    base_url: str = "http://localhost:8080",
-) -> Dict[str, Any]:
-    """Construct the authentication information for a user.
+async def _build_auth_info(headers: HTTPHeaders) -> Dict[str, Any]:
+    """Construct the authentication information for a user.  This is
+    simplified from the Nublado v2 implementation, because the Hub has a lot
+    less to do with the information it gets.
 
-    Retrieve the token from the headers, use that token to retrieve the
-    metadata for the token, and use that data to build an auth info dict
-    in the format expected by JupyterHub.  This is in a separate method so
-    that it can be unit-tested.
+    Retrieve the token from the headers, and build an auth info dict
+    in the format expected by JupyterHub.  We don't need to do
+    anything with the token other than call the REST JupyterLab
+    controller API, because the JupyterLab controller handles all the
+    details of deciding what to do with it.
+
+    Except, hmmm, I think we do need a username to make the Hub happy.
+
+    This is in a separate method so that it can be unit-tested.
     """
     token = headers.get("X-Auth-Request-Token")
     if not token:
-        raise web.HTTPError(401, "No request token")
-
-    if http_client is None:
-        http_client = AsyncClient(follow_redirects=True)
-
+        raise web.HTTPError(401, "No request token")  # Shouldn't happen
+    base_url = os.getenv("EXTERNAL_INSTANCE_URL", "http://localhost:8080")
     # Retrieve the token metadata.
     api_url = url_path_join(base_url, "/auth/api/v1/user-info")
-    resp = await http_client.get(
-        api_url, headers={"Authorization": f"bearer {token}"}
-    )
-    if resp.status_code != 200:
+    client = await get_client(token=token)
+    r = await client.get(api_url)
+    # All of this really shouldn't happen either.  The token has been through
+    # Gafaelfawr in the last few milliseconds, after all.
+    resp = r.json()
+    if resp.status != 200:
         raise web.HTTPError(500, "Cannot reach token analysis API")
     try:
-        auth_state = resp.json()
+        auth_state = await resp.json()
     except Exception:
         raise web.HTTPError(500, "Cannot get information for token")
-    if "username" not in auth_state or "uid" not in auth_state:
+    if "username" not in auth_state:
         raise web.HTTPError(403, "Request token is invalid")
 
+    # The spawner wants a user with a name, and we pass the token down into
+    # the spawned environment.
+
     auth_state["token"] = token
-    if "groups" not in auth_state:
-        auth_state["groups"] = []
     return {
         "name": auth_state["username"],
         "auth_state": auth_state,
@@ -65,7 +62,8 @@ async def _build_auth_info(
 
 
 class GafaelfawrAuthenticator(Authenticator):
-    """JupyterHub authenticator using Gafaelfawr headers.
+    """JupyterHub authenticator using Gafaelfawr headers.  This is straight
+    from Nublado v2.
 
     Rather than implement any authentication logic inside of JupyterHub,
     authentication is done via an ``auth_request`` handler made by the NGINX
@@ -163,10 +161,11 @@ class GafaelfawrAuthenticator(Authenticator):
         if not handler:
             return True
 
-        # If there is no X-Auth-Request-Token header, this request did not go
-        # through the ingress and thus is coming from inside the cluster, such
-        # as requests to JupyterHub from a JupyterLab instance.  Allow
-        # JupyterHub to use its normal authentication logic
+        # If there is no X-Auth-Request-Token header, this request did
+        # not go through the Hub ingress and thus is coming from
+        # inside the cluster, such as requests to JupyterHub from a
+        # JupyterLab instance.  Allow JupyterHub to use its normal
+        # authentication logic
         token = handler.request.headers.get("X-Auth-Request-Token")
         if not token:
             return True

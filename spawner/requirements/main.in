@@ -8,4 +8,4 @@
 # Spawner deps
 jupyterhub
 httpx
-
+pydantic
