@@ -97,6 +97,7 @@ class Context:
             instance_url=self.config.runtime.instance_url,
             manager_namespace=self.config.runtime.namespace_prefix,
             user_map=self.user_map,
+            event_map=self.event_map,
             logger=self.logger,
             lab_config=self.config.lab,
             k8s_client=self.k8s_client,

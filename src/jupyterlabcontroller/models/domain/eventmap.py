@@ -11,10 +11,15 @@ class EventMap:
         self._dict: Dict[str, Deque[Event]] = dict()
 
     def get(self, key: str) -> Deque[Event]:
-        return self._dict.get(key, deque())
+        if key not in self._dict:
+            self._dict[key] = deque()
+        return self._dict[key]
 
     def set(self, key: str, item: Deque[Event]) -> None:
         self._dict[key] = item
 
     def remove(self, key: str) -> None:
-        del self._dict[key]
+        try:
+            del self._dict[key]
+        except KeyError:
+            pass
