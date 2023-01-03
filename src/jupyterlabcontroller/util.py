@@ -98,3 +98,28 @@ def deslashify(data: str) -> str:
 
 def slashify(data: str) -> str:
     return data.replace("_._", "/")
+
+
+# Dashify is needed to turn, e.g. "latest_weekly" into the required
+# "latest-weekly" per sqr-066.
+
+
+def dashify(item: str) -> str:
+    return item.replace("_", "-")
+
+
+def image_to_podname(image: str) -> str:
+    short_name = (image.split(":")[0]).split("/")[-1]
+    tag = dashify((image.split(":")[1]).split("@")[0])
+    return f"{short_name}-{tag}"
+
+
+def extract_path_from_image_ref(ref: str) -> str:
+    # Remove the specifier from either a digest or a tagged image
+    if "@sha256:" in ref:
+        # Everything before the '@'
+        untagged = ref.split("@")[0]
+    else:
+        # Everything before the last ':'
+        untagged = ":".join(ref.split(":")[:-1])
+    return untagged

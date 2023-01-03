@@ -11,9 +11,9 @@ from structlog.stdlib import BoundLogger
 from ...models.domain.prepuller import NodeContainers, NodeTagImage
 from ...models.v1.prepuller import Node, PrepullerConfiguration
 from ...storage.k8s import ContainerImage, K8sStorageClient
+from ...util import extract_path_from_image_ref, image_to_podname
 from .state import PrepullerState
 from .tag import PrepullerTagClient
-from .util import extract_path_from_image_ref
 
 
 class PrepullerK8sClient:
@@ -112,24 +112,15 @@ class PrepullerK8sClient:
         image: str,
         node: str,
     ) -> V1PodSpec:
-        shortname = image.split("/")[-1]
-
-        #        user = UserInfo(
-        #            username="prepuller",
-        #            name="Prepuller User",
-        #            uid=1000,
-        #            gid=1000,
-        #            groups=[
-        #                UserGroup(
-        #                    name="prepuller",
-        #                    id=1000,
-        #                )
-        #            ],
-        #        )
+        # This creates a spec for a pod with a particular image on a
+        # particular node.  That pod does nothing but sleep five
+        # seconds and then exit.  Its only function is to ensure that
+        # that image gets pulled to that node.
+        podname = image_to_podname(image)
         return V1PodSpec(
             containers=[
                 V1Container(
-                    name=f"prepull-{shortname}",
+                    name=f"prepull-{podname}",
                     command=["/bin/sleep", "5"],
                     image=image,
                     working_dir="/tmp",

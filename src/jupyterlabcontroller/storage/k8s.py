@@ -8,7 +8,6 @@ from kubernetes_asyncio import client
 from kubernetes_asyncio.client.api_client import ApiClient
 from kubernetes_asyncio.client.models import (
     V1ConfigMap,
-    V1Container,
     V1LabelSelector,
     V1Namespace,
     V1NetworkPolicy,
@@ -325,28 +324,6 @@ class K8sStorageClient:
         self.logger.debug(f"Quota to create: {quota_obj}")
         await self.api.create_namespaced_resource_quota(
             namespace=namespace, body=quota_obj
-        )
-
-    def create_prepuller_pod_spec(
-        self,
-        image: str,
-        node: str,
-    ) -> V1PodSpec:
-        # This creates a spec for a pod with a particular image on a
-        # particular node.  That pod does nothing but sleep five
-        # seconds and then exit.  Its only function is to ensure that
-        # that image gets pulled to that node.
-        shortname = image.split("/")[-1]
-        return V1PodSpec(
-            containers=[
-                V1Container(
-                    name=f"prepull-{shortname}",
-                    command=["/bin/sleep", "5"],
-                    image=image,
-                    working_dir="/tmp",
-                )
-            ],
-            node_name=node,
         )
 
     async def create_pod(

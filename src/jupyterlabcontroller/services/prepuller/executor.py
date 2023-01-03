@@ -10,10 +10,10 @@ from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
 
 from ...constants import PREPULLER_INTERNAL_POLL_PERIOD, PREPULLER_PULL_TIMEOUT
-from ...models.v1.prepuller import dashify
 from ...models.v1.prepuller_config import PrepullerConfiguration
 from ...storage.docker import DockerStorageClient
 from ...storage.k8s import K8sStorageClient
+from ...util import image_to_podname
 from .arbitrator import PrepullerArbitrator
 from .docker import PrepullerDockerClient
 from .k8s import PrepullerK8sClient
@@ -161,12 +161,11 @@ class PrepullerExecutor:
             self._prepull_scheduler = Scheduler(
                 close_timeout=PREPULLER_PULL_TIMEOUT
             )
-            short_name = (image.split(":")[0]).split("/")[-1]
-            tag = dashify((image.split(":")[1]).split("@")[0])
+            podname = image_to_podname(image)
             for node in required_pulls[image]:
                 await self._prepull_scheduler.spawn(
                     self.k8s_client.create_prepuller_pod(
-                        name=f"prepull-{short_name}-{tag}",
+                        name=f"prepull-{podname}",
                         namespace=self.namespace,
                         image=image,
                         node=node,
@@ -174,7 +173,7 @@ class PrepullerExecutor:
                 )
             self.logger.debug(
                 f"Waiting up to {PREPULLER_PULL_TIMEOUT}s for prepuller "
-                f"pod 'prepull-{short_name}-{tag}'."
+                f"pod 'prepull-{podname}'."
             )
             await self._prepull_scheduler.close()
             # FIXME catch the TimeoutError if it happens

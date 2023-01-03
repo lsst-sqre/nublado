@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 
 from pydantic import Field
 
+from ...util import dashify
 from ..camelcase import CamelCaseModel
 from .prepuller_config import PrepullerConfiguration
 
@@ -64,12 +65,6 @@ class Image(PartialImage):
 
 
 """GET /nublado/spawner/v1/images"""
-# Dashify is needed to turn, e.g. "latest_weekly" into the required
-# "latest-weekly" per sqr-066.
-
-
-def dashify(item: str) -> str:
-    return item.replace("_", "-")
 
 
 class SpawnerImages(CamelCaseModel):
