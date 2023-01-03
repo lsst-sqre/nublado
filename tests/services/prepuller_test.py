@@ -1,6 +1,6 @@
 import pytest
 
-from jupyterlabcontroller.models.context import Context
+from jupyterlabcontroller.factory import Context
 from jupyterlabcontroller.models.v1.prepuller import Image
 
 

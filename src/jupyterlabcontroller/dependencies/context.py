@@ -12,8 +12,7 @@ from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
 from ..config import Configuration
-from ..factory import Factory, ProcessContext
-from ..models.context import Context
+from ..factory import Context, Factory, ProcessContext
 
 
 class ContextDependency:

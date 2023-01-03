@@ -16,8 +16,8 @@ from starlette.datastructures import Headers
 from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.dependencies.config import configuration_dependency
 from jupyterlabcontroller.dependencies.context import ContextDependency
+from jupyterlabcontroller.factory import Context
 from jupyterlabcontroller.main import create_app
-from jupyterlabcontroller.models.context import Context
 
 from .settings import TestObjectFactory, test_object_factory
 from .support.mockcontextdependency import MockContextDependency

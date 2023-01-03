@@ -6,7 +6,7 @@ from safir.models import ErrorModel
 from structlog.stdlib import BoundLogger
 
 from ..dependencies.context import context_dependency
-from ..models.context import Context
+from ..factory import Context
 
 # FastAPI routers
 router = APIRouter()

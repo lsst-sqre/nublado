@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from jupyterlabcontroller.models.context import Context
+from jupyterlabcontroller.factory import Context
 from jupyterlabcontroller.storage.docker import DockerStorageClient
 from jupyterlabcontroller.storage.gafaelfawr import GafaelfawrStorageClient
 from jupyterlabcontroller.storage.k8s import K8sStorageClient

@@ -8,7 +8,7 @@ from sse_starlette.sse import ServerSentEvent
 
 from ..dependencies.context import context_dependency
 from ..dependencies.token import user_token_dependency
-from ..models.context import Context
+from ..factory import Context
 
 # FastAPI routers
 router = APIRouter()

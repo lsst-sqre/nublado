@@ -5,6 +5,7 @@ from sse_starlette.sse import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
 from ..models.domain.eventmap import EventMap
+from ..models.v1.event import EventTypes
 
 
 class EventManager:
@@ -25,9 +26,16 @@ class EventManager:
                     sse = ev.toSSE()
                     ev.sent = True
                     yield sse
-                # FIXME really use a semaphore
+                    if ev.event in (EventTypes.COMPLETE, EventTypes.FAILED):
+                        return  # Close the stream.
+                # We're out of events...so poll until a new one arrives?
+                #
+                # FIXME really use a semaphore?  Don't have a good mental
+                # model here.
                 await asyncio.sleep(1.0)
-        except asyncio.CancelledError:
-            self.logger.info(f"User event stream disconnected for {username}")
+        except asyncio.CancelledError as exc:
+            self.logger.info(
+                f"User event stream disconnected for {username}: {exc}"
+            )
             # Clean up?
             # raise  # probably not actually an error

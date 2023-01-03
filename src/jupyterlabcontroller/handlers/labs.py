@@ -10,7 +10,7 @@ from sse_starlette.sse import ServerSentEvent
 
 from ..dependencies.context import context_dependency
 from ..exceptions import InvalidUserError, LabExistsError, NoUserMapError
-from ..models.context import Context
+from ..factory import Context
 from ..models.v1.lab import LabSpecification, UserData
 
 # FastAPI routers

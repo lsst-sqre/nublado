@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from safir.models import ErrorModel
 
 from ..dependencies.context import context_dependency
-from ..models.context import Context
+from ..factory import Context
 from ..models.v1.prepuller import PrepullerStatus, SpawnerImages
 
 # FastAPI routers

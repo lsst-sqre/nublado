@@ -5,7 +5,7 @@ from safir.models import ErrorModel
 
 from ..dependencies.context import context_dependency
 from ..exceptions import InvalidUserError
-from ..models.context import Context
+from ..factory import Context
 from ..models.v1.lab import UserData
 
 # FastAPI routers
