@@ -1,12 +1,11 @@
 """User-facing routes, as defined in sqr-066 (https://sqr-066.lsst.io),
 these specifically for lab manipulation"""
-from collections.abc import AsyncGenerator
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from safir.models import ErrorModel
-from sse_starlette.sse import ServerSentEvent
+from sse_starlette import EventSourceResponse
 
 from ..dependencies.context import context_dependency
 from ..exceptions import InvalidUserError, LabExistsError, NoUserMapError
@@ -125,7 +124,7 @@ async def delete_user_lab(
 async def get_user_events(
     username: str,
     context: Context = Depends(context_dependency),
-) -> AsyncGenerator[ServerSentEvent, None]:
+) -> EventSourceResponse:
     """Returns the events for the lab of the given user"""
     try:
         user = await context.get_user()
@@ -135,7 +134,6 @@ async def get_user_events(
     if token_username != username:
         raise HTTPException(status_code=403, detail="Forbidden")
     event_manager = context.event_manager
-    # should return EventSourceResponse:
     return event_manager.publish(username)
 
 

@@ -29,7 +29,6 @@ from structlog.stdlib import BoundLogger
 
 from ..config import LabConfiguration, LabVolume
 from ..exceptions import LabExistsError, NoUserMapError
-from ..models.domain.eventmap import EventMap
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.usermap import UserMap
 from ..models.tag import StandaloneRSPTag
@@ -46,6 +45,7 @@ from ..models.v1.lab import (
 from ..storage.gafaelfawr import GafaelfawrStorageClient
 from ..storage.k8s import K8sStorageClient
 from ..util import deslashify
+from .events import EventManager
 from .size import SizeManager
 
 #  argh from aiojobs import Scheduler
@@ -58,7 +58,7 @@ class LabManager:
         manager_namespace: str,
         instance_url: str,
         user_map: UserMap,
-        event_map: EventMap,
+        event_manager: EventManager,
         logger: BoundLogger,
         lab_config: LabConfiguration,
         k8s_client: K8sStorageClient,
@@ -67,7 +67,7 @@ class LabManager:
         self.manager_namespace = manager_namespace
         self.instance_url = instance_url
         self.user_map = user_map
-        self.event_map = event_map
+        self.event_manager = event_manager
         self.logger = logger
         self.lab_config = lab_config
         self.k8s_client = k8s_client
@@ -85,21 +85,21 @@ class LabManager:
         r = self.user_map.get(username)
         return r is not None
 
-    def info_event(self, username: str, message: str, pct: int) -> None:
+    async def info_event(self, username: str, message: str, pct: int) -> None:
         if pct < 0 or pct > 100:
             raise RuntimeError(
                 "% completion must be between 0 and 100 inclusive"
             )
-        ev_queue = self.event_map.get(username)
+        ev_queue = self.event_manager.get(username)
         umsg = f"{message} for {username}"
-        ev_queue.append(Event(data=umsg, event=EventTypes.INFO))
-        ev_queue.append(Event(data=str(pct), event=EventTypes.PROGRESS))
+        await ev_queue.asend(Event(data=umsg, event=EventTypes.INFO))
+        await ev_queue.asend(Event(data=str(pct), event=EventTypes.PROGRESS))
         self.logger.info(f"Event: {umsg}: {pct}% ")
 
-    def completion_event(self, username: str) -> None:
-        ev_queue = self.event_map.get(username)
+    async def completion_event(self, username: str) -> None:
+        ev_queue = self.event_manager.get(username)
         cstr = f"Operation complete for {username}"
-        ev_queue.append(
+        await ev_queue.asend(
             Event(
                 data=cstr,
                 event=EventTypes.COMPLETE,
@@ -107,14 +107,14 @@ class LabManager:
         )
         self.logger.info(cstr)
 
-    def failure_event(
+    async def failure_event(
         self, username: str, message: str, fatal: bool = True
     ) -> None:
-        ev_queue = self.event_map.get(username)
+        ev_queue = self.event_manager.get(username)
         umsg = message + f" for {username}"
-        ev_queue.append(Event(data=umsg, event=EventTypes.ERROR))
+        await ev_queue.asend(Event(data=umsg, event=EventTypes.ERROR))
         if fatal:
-            ev_queue.append(
+            await ev_queue.asend(
                 Event(
                     data=f"Lab creation failed for {username}",
                     event=EventTypes.FAILED,
@@ -135,7 +135,7 @@ class LabManager:
         # because we don't want to wipe out the existing log, since we will
         # not be spawning.
         if self.check_for_user(username):
-            self.failure_event(username, "lab already exists")
+            await self.failure_event(username, "lab already exists")
             raise LabExistsError(f"lab already exists for {username}")
         # Add a new usermap entry
         self.user_map.set(
@@ -149,22 +149,22 @@ class LabManager:
         #
         # Clear user event queue
         #
-        self.event_map.remove(username)
+        self.event_manager.remove(username)
         #
         # This process has three stages: first is the creation or recreation
         # of the user namespace.  V1Second is all the resources the user Lab
         # pod will need, and the third is the pod itself.
         #
 
-        self.info_event(username, "Lab creation initiated", 2)
+        await self.info_event(username, "Lab creation initiated", 2)
         await self.k8s_client.create_user_namespace(namespace)
-        self.info_event(username, "User namespace created", 5)
+        await self.info_event(username, "User namespace created", 5)
         await self.create_user_lab_objects(user=user, token=token, lab=lab)
-        self.info_event(username, "Resource objects created", 35)
+        await self.info_event(username, "Resource objects created", 35)
         await self.create_user_pod(user=user, lab=lab)
-        self.info_event(username, "Pod created", 90)
+        await self.info_event(username, "Pod created", 90)
         self.user_map.set_status(user.username, status=LabStatus.RUNNING)
-        self.completion_event(username)
+        await self.completion_event(username)
 
     async def create_user_lab_objects(
         self,
@@ -187,19 +187,19 @@ class LabManager:
                 namespace=self._namespace_from_user(user),
                 token=token,
             )
-            self.info_event(username, "Secrets created", 10)
+            await self.info_event(username, "Secrets created", 10)
             await self.create_nss(user=user)
-            self.info_event(username, "NSS files created", 15)
+            await self.info_event(username, "NSS files created", 15)
             await self.create_file_configmap(user=user)
-            self.info_event(username, "Config files created", 20)
+            await self.info_event(username, "Config files created", 20)
             await self.create_env(user=user, lab=lab, token=token)
-            self.info_event(username, "Environment created", 25)
+            await self.info_event(username, "Environment created", 25)
             await self.create_network_policy(user=user)
-            self.info_event(username, "Network policy created", 25)
+            await self.info_event(username, "Network policy created", 25)
             await self.create_quota(user=user, lab=lab)
-            self.info_event(username, "Quota created", 30)
+            await self.info_event(username, "Quota created", 30)
         except Exception as exc:
-            self.failure_event(username, f"Exception: '{exc}'")
+            await self.failure_event(username, f"Exception: '{exc}'")
         return
 
     async def create_secrets(
@@ -700,18 +700,20 @@ class LabManager:
         #
         # Clear user event queue
         #
-        self.event_map.remove(username)
+        self.event_manager.remove(username)
         try:
-            self.info_event(username, "Deleting user lab and resources", 25)
+            await self.info_event(
+                username, "Deleting user lab and resources", 25
+            )
             await self.k8s_client.delete_namespace(
                 self._namespace_from_user(user)
             )
-            self.completion_event(
+            await self.completion_event(
                 username,
             )
         except Exception as e:
             emsg = f"Could not delete lab environment: '{e}'"
-            self.failure_event(username, emsg)
+            await self.failure_event(username, emsg)
             user.status = LabStatus.FAILED
             raise
         self.user_map.remove(username)

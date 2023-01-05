@@ -17,7 +17,6 @@ from .constants import (
 )
 from .exceptions import InvalidUserError
 from .models.domain.docker import DockerCredentialsMap
-from .models.domain.eventmap import EventMap
 from .models.domain.usermap import UserMap
 from .models.v1.lab import UserInfo
 from .services.events import EventManager
@@ -53,7 +52,7 @@ class ProcessContext:
     docker_credentials: DockerCredentialsMap
     prepuller_executor: PrepullerExecutor
     user_map: UserMap
-    event_map: EventMap
+    event_manager: EventManager
 
     @classmethod
     async def from_config(cls, config: Configuration) -> "ProcessContext":
@@ -105,7 +104,7 @@ class ProcessContext:
             ),
             docker_credentials=docker_credentials,
             user_map=UserMap(),
-            event_map=EventMap(),
+            event_manager=EventManager(logger=logger),
         )
 
     async def aclose(self) -> None:
@@ -163,8 +162,8 @@ class Factory:
     def get_user_map(self) -> UserMap:
         return self._context.user_map
 
-    def get_event_map(self) -> EventMap:
-        return self._context.event_map
+    def get_event_manager(self) -> EventManager:
+        return self._context.event_manager
 
 
 @dataclass
@@ -192,8 +191,8 @@ class Context:
         return self._factory.get_user_map()
 
     @property
-    def event_map(self) -> EventMap:
-        return self._factory.get_event_map()
+    def event_manager(self) -> EventManager:
+        return self._factory.get_event_manager()
 
     @property
     def http_client(self) -> AsyncClient:
@@ -247,18 +246,11 @@ class Context:
             instance_url=self.config.runtime.instance_url,
             manager_namespace=self.config.runtime.namespace_prefix,
             user_map=self.user_map,
-            event_map=self.event_map,
+            event_manager=self.event_manager,
             logger=self.logger,
             lab_config=self.config.lab,
             k8s_client=self.k8s_client,
             gafaelfawr_client=self.gafaelfawr_client,
-        )
-
-    @property
-    def event_manager(self) -> EventManager:
-        return EventManager(
-            logger=self.logger,
-            event_map=self.event_map,
         )
 
     @property

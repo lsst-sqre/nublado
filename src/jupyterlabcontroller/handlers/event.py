@@ -1,10 +1,8 @@
 """User-facing routes, as defined in sqr-066 (https://sqr-066.lsst.io),
 specifically for watching user events"""
-from collections.abc import AsyncGenerator
-
 from fastapi import APIRouter, Depends
 from safir.models import ErrorModel
-from sse_starlette.sse import ServerSentEvent
+from sse_starlette import EventSourceResponse
 
 from ..dependencies.context import context_dependency
 from ..dependencies.token import user_token_dependency
@@ -29,7 +27,7 @@ async def get_user_events(
     username: str,
     context: Context = Depends(context_dependency),
     user_token: str = Depends(user_token_dependency),
-) -> AsyncGenerator[ServerSentEvent, None]:
+) -> EventSourceResponse:
     """Returns the events for the lab of the given user"""
     event_manager = context.event_manager
     # should return EventSourceResponse:
