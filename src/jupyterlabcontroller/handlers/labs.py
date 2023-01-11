@@ -10,7 +10,7 @@ from sse_starlette import EventSourceResponse
 from ..dependencies.context import context_dependency
 from ..exceptions import InvalidUserError, LabExistsError, NoUserMapError
 from ..factory import Context
-from ..models.v1.lab import LabSpecification, UserData
+from ..models.v1.lab import LabSpecificationWireProtocol, UserData
 
 # FastAPI routers
 router = APIRouter()
@@ -71,7 +71,7 @@ async def get_userdata(
 )
 async def post_new_lab(
     username: str,
-    lab: LabSpecification,
+    lab: LabSpecificationWireProtocol,
     context: Context = Depends(context_dependency),
 ) -> str:
     """Create a new Lab pod for a given user"""
@@ -85,7 +85,9 @@ async def post_new_lab(
     context.logger.debug(f"Received creation request for {username}")
     lab_manager = context.lab_manager
     try:
-        await lab_manager.create_lab(token=context.token, lab=lab)
+        await lab_manager.create_lab(
+            token=context.token, lab=lab.to_lab_specification()
+        )
     except LabExistsError:
         raise HTTPException(status_code=409, detail="Conflict")
     return f"/nublado/spawner/v1/labs/{username}"

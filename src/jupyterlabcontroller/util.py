@@ -123,3 +123,11 @@ def extract_path_from_image_ref(ref: str) -> str:
         # Everything before the last ':'
         untagged = ":".join(ref.split(":")[:-1])
     return untagged
+
+
+def str_to_bool(inp: str) -> bool:
+    """This is OK at detecting False, and everything else is True"""
+    inpl = inp.lower()
+    if inpl in ("f", "false", "n", "no", "off", "0"):
+        return False
+    return True

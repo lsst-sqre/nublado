@@ -5,8 +5,10 @@ from collections import deque
 from enum import auto
 from typing import Deque, Dict, List, Optional
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
+from ...constants import DROPDOWN_SENTINEL_VALUE
+from ...util import str_to_bool
 from ..camelcase import CamelCaseModel
 from ..enums import NubladoEnum
 from .event import Event
@@ -37,10 +39,11 @@ class PodState(NubladoEnum):
     MISSING = auto()
 
 
-"""POST /nublado/spawner/v1/labs/<username>/create"""
-
-
 class UserOptions(CamelCaseModel):
+    """The internal representation of the structure we get from the user POST
+    to create a lab.
+    """
+
     debug: bool = Field(
         False,
         name="debug",
@@ -77,6 +80,59 @@ class UserOptions(CamelCaseModel):
     )
 
 
+"""POST /nublado/spawner/v1/labs/<username>/create"""
+
+
+class UserOptionsWireProtocol(BaseModel):
+    image_list: List[str] = Field(
+        ...,
+        name="image_list",
+        example=[
+            "lighthouse.ceres/library/sketchbook:latest_daily",
+            "lighthouse.ceres/library/sketchbook:latest_weekly",
+        ],
+        title="Images from selection radio button",
+    )
+    image_dropdown: List[str] = Field(
+        ...,
+        name="image_dropdown",
+        example=[
+            "lighthouse.ceres/library/sketchbook@sha256:1234",
+            "lighthouse.ceres/library/sketchbook@sha256:5678",
+        ],
+        title="Images from dropdown list",
+    )
+    size: List[str] = Field(
+        ...,
+        name="size",
+        example=["small", "medium", "large"],
+        title="Image size",
+    )
+    enable_debug: List[str] = Field(
+        ...,
+        name="enable_debug",
+        example="false",
+        title="Enable debugging in spawned Lab",
+    )
+    reset_user_env: List[str] = Field(
+        ...,
+        name="reset_user_env",
+        example="false",
+        title="Relocate user environment (.cache, .jupyter, .local)",
+    )
+
+    def to_user_options(self) -> UserOptions:
+        image = self.image_list[0]
+        if image == DROPDOWN_SENTINEL_VALUE:
+            image = self.image_dropdown[0]
+        return UserOptions(
+            image=image,
+            size=self.size[0],
+            debug=str_to_bool(self.enable_debug[0]),
+            reset_user_env=str_to_bool(self.reset_user_env[0]),
+        )
+
+
 class UserResourceQuantum(CamelCaseModel):
     cpu: float = Field(
         ...,
@@ -101,6 +157,19 @@ class LabSpecification(CamelCaseModel):
     options: UserOptions
     env: Dict[str, str]
     namespace_quota: Optional[UserResourceQuantum]
+
+
+class LabSpecificationWireProtocol(CamelCaseModel):
+    options: UserOptionsWireProtocol
+    env: Dict[str, str]
+    namespace_quota: Optional[UserResourceQuantum]
+
+    def to_lab_specification(self) -> LabSpecification:
+        return LabSpecification(
+            options=self.options.to_user_options(),
+            env=self.env,
+            namespace_quota=self.namespace_quota,
+        )
 
 
 """GET /nublado/spawner/v1/labs/<username>"""

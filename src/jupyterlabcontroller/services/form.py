@@ -5,11 +5,9 @@ from jinja2 import Template
 from structlog.stdlib import BoundLogger
 
 from ..config import LabSizeDefinitions
-from ..constants import SPAWNER_FORM_TEMPLATE
+from ..constants import DROPDOWN_SENTINEL_VALUE, SPAWNER_FORM_TEMPLATE
 from ..models.domain.form import FormSize
 from .prepuller.arbitrator import PrepullerArbitrator
-
-DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 
 
 class FormManager:

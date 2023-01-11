@@ -9,6 +9,8 @@ DOCKER_SECRETS_PATH = "/etc/secrets/.dockerconfigjson"
 ADMIN_SCOPE = "admin:jupyterlab"
 USER_SCOPE = "exec:notebook"
 
+DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
+
 PREPULLER_DOCKER_POLL_INTERVAL = datetime.timedelta(minutes=5)
 PREPULLER_K8S_POLL_INTERVAL = datetime.timedelta(minutes=1)
 EPOCH = datetime.datetime.fromtimestamp(0, tz=datetime.timezone.utc)
