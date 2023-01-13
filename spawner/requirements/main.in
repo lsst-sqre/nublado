@@ -9,3 +9,7 @@
 jupyterhub
 httpx
 pydantic
+
+# Zero-to-JupyterHub unconditionally imports this (even though I'm using
+# a non-KubeSpawner spawner class)
+kubernetes_asyncio
