@@ -10,6 +10,9 @@ jupyterhub
 httpx
 pydantic
 
+# Postgres backing store
+psycopg2
+
 # Zero-to-JupyterHub unconditionally imports this (even though I'm using
 # a non-KubeSpawner spawner class)
 kubernetes_asyncio

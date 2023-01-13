@@ -17,8 +17,8 @@ from .util import get_namespace
 
 
 class RSPRestSpawner(Spawner):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.pod_name = ""
         self.admin_token = get_admin_token()
         self.base_url = os.getenv(
