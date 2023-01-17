@@ -1,7 +1,7 @@
 """Authenticator for the Nublado 3 instantiation of JupyterHub."""
-import os
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
+from httpx import Headers
 from jupyterhub.app import JupyterHub
 from jupyterhub.auth import Authenticator
 from jupyterhub.handlers import BaseHandler, LogoutHandler
@@ -12,11 +12,13 @@ from tornado.httputil import HTTPHeaders
 from tornado.web import RequestHandler
 
 from .http import get_client
+from .util import get_external_instance_url
 
 Route = Tuple[str, Type[BaseHandler]]
+AuthState = Dict[str, Any]
 
 
-async def _build_auth_info(headers: HTTPHeaders) -> Dict[str, Any]:
+async def _build_auth_info(headers: HTTPHeaders) -> AuthState:
     """Construct the authentication information for a user.  This is
     simplified from the Nublado v2 implementation, because the Hub has a lot
     less to do with the information it gets.
@@ -34,31 +36,37 @@ async def _build_auth_info(headers: HTTPHeaders) -> Dict[str, Any]:
     token = headers.get("X-Auth-Request-Token")
     if not token:
         raise web.HTTPError(401, "No request token")  # Shouldn't happen
-    base_url = os.getenv("EXTERNAL_INSTANCE_URL", "http://localhost:8080")
+    base_url = get_external_instance_url()
     # Retrieve the token metadata.
     api_url = url_path_join(base_url, "/auth/api/v1/user-info")
-    client = await get_client(token=token)
+    client = await get_client()
+    client.headers = Headers(
+        {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+    )
+
     r = await client.get(api_url)
     # All of this really shouldn't happen either.  The token has been through
     # Gafaelfawr in the last few milliseconds, after all.
-    resp = r.json()
-    if resp.status != 200:
-        raise web.HTTPError(500, "Cannot reach token analysis API")
-    try:
-        auth_state = await resp.json()
-    except Exception:
-        raise web.HTTPError(500, "Cannot get information for token")
+    if r.status_code != 200:
+        raise web.HTTPError(
+            500, f"Cannot reach token analysis API: status {r.status_code}"
+        )
+    auth_state = r.json()
     if "username" not in auth_state:
-        raise web.HTTPError(403, "Request token is invalid")
+        raise web.HTTPError(403, f"Response is invalid: {auth_state}")
 
     # The spawner wants a user with a name, and we pass the token down into
     # the spawned environment.
 
     auth_state["token"] = token
-    return {
+    user_state = {
         "name": auth_state["username"],
         "auth_state": auth_state,
     }
+    return user_state
 
 
 class GafaelfawrAuthenticator(Authenticator):
@@ -127,6 +135,9 @@ class GafaelfawrAuthenticator(Authenticator):
         # most recent token and group information.
         self.refresh_pre_spawn = True
 
+        #
+        self.auth_data: Optional[AuthState] = None
+
     async def authenticate(
         self, handler: RequestHandler, data: Dict[str, str]
     ) -> Optional[Union[str, Dict[str, Any]]]:
@@ -174,9 +185,16 @@ class GafaelfawrAuthenticator(Authenticator):
         # replace the stored auth state with the new auth state.
         auth_state = await user.get_auth_state()
         if token == auth_state["token"]:
+            # It does match, so it's still fine
             return True
         else:
-            return await _build_auth_info(handler.request.headers)
+            auth_data = await _build_auth_info(handler.request.headers)
+        if type(auth_data) is dict:
+            self.auth_data = auth_data
+            await user.save_auth_state(auth_data["auth_state"])
+        else:
+            raise web.HTTPError(500, f"Couldn't use auth_data -> {auth_data}")
+        return auth_data
 
 
 class GafaelfawrLogoutHandler(LogoutHandler):

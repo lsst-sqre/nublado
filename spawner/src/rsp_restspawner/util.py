@@ -1,6 +1,11 @@
 """General utility functions."""
 
 import os
+from typing import Any, Dict
+
+import yaml
+
+_config: Dict[str, Any] = {}
 
 
 def to_camel_case(string: str) -> str:
@@ -32,3 +37,31 @@ def get_namespace() -> str:
     else:
         ns = "userlabs"
     return ns
+
+
+def _get_config() -> Dict[str, Any]:
+    global _config
+    if not _config:
+        config_path = "/usr/local/etc/jupyterhub/existing-secret/values.yaml"
+        if os.path.exists(config_path):
+            with open(config_path) as f:
+                _config = yaml.safe_load(f)
+    return _config
+
+
+def get_external_instance_url() -> str:
+    cfg = _get_config()
+    try:
+        ext_url = cfg["global"]["baseUrl"]
+    except KeyError:
+        ext_url = os.getenv("EXTERNAL_INSTANCE_URL", "http://localhost:8080/")
+    return ext_url
+
+
+def get_hub_base_url() -> str:
+    cfg = _get_config()
+    try:
+        hub_base = cfg["hub"]["baseUrl"]
+    except KeyError:
+        hub_base = "/hub"
+    return hub_base

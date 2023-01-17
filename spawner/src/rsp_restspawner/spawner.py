@@ -12,60 +12,93 @@ from jupyterhub.spawner import Spawner
 
 from .admin import get_admin_token
 from .constants import LabStatus
+from .errors import SpawnerError
 from .http import get_client
-from .util import get_namespace
+from .util import get_external_instance_url, get_hub_base_url, get_namespace
 
 
 class RSPRestSpawner(Spawner):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Optional[Any], **kwargs: Optional[Any]) -> None:
         super().__init__(*args, **kwargs)
         self.pod_name = ""
         self.admin_token = get_admin_token()
-        self.base_url = os.getenv(
-            "EXTERNAL_INSTANCE_URL", "http://localhost:8080"
-        )
+        self.external_url = get_external_instance_url()
+        self.hub_base_url = get_hub_base_url()
         namespace = get_namespace()
         self.ctrl_url = os.getenv(
             "JUPYTERLAB_CONTROLLER_URL",
-            f"{self.base_url}/{namespace}/spawner/v1",
+            f"{self.external_url}/{namespace}/spawner/v1",
         )
 
-    def get_state(self) -> Dict[str, Any]:
-        # Do something with state
-        state = super().get_state()
-        state["pod_name"] = self.pod_name
-        return state
-
-    def load_state(self, state: Dict[str, Any]) -> None:
-        # Set our own traits from state
-        self.user_token = state["token"]
+    async def _get_user_environment(self) -> Dict[str, str]:
+        uname = self.user.name
+        jhub_oauth_scopes = (
+            f'["access:servers!server={uname}/", '
+            f'"access:servers!user={uname}"]'
+        )
+        # We are only going to set the JupyterHub items here.
+        # Everything else will be handled via the controller.
+        return {
+            "JUPYTERHUB_ACTIVITY_URL": (
+                f"http://hub.{get_namespace()}:8081{self.hub_base_url}"
+                f"/hub/api/users/{uname}/activity"
+            ),
+            "JUPYTERHUB_API_TOKEN": self.api_token,
+            "JUPYTERHUB_API_URL": self.hub.api_url,
+            "JUPYTERHUB_CLIENT_ID": f"jupyterhub-user-{uname}",
+            "JUPYTERHUB_OAUTH_ACCESS_SCOPES": jhub_oauth_scopes,
+            "JUPYTERHUB_OAUTH_CALLBACK_URL": (
+                f"{self.hub_base_url}/user/{uname}/oauth_callback"
+            ),
+            "JUPYTERHUB_OAUTH_SCOPES": jhub_oauth_scopes,
+            "JUPYTERHUB_SERVICE_PREFIX": f"{self.hub_base_url}/user/{uname}",
+            "JUPYTERHUB_SERVICE_URL": (
+                f"http://0.0.0.0:8888{self.hub_base_url}/user/{uname}"
+            ),
+            "JUPYTERHUB_USER": uname,
+        }
 
     async def start(self) -> str:
         """Returns expected URL of running pod
         (returns before creation completes)."""
         formdata = self.options_from_form(self.user_options)
+        uname = self.user.name
         lab_specification = {
             "options": formdata,
-            "env": {
-                "EXTERNAL_INSTANCE_URL": self.base_url,
-                "JUPYTERHUB_API_TOKEN": self.api_token,
-                "JUPYTERHUB_API_URL": self.hub.api_url,
-                "ACCESS_TOKEN": self.user_token,
-            },
+            "env": await self._get_user_environment(),
         }
         client = await self._configure_client()
         r = await client.post(
-            f"{self.ctrl_url}/{self.user}/create",
-            data=lab_specification,
+            f"{self.ctrl_url}/labs/{uname}/create",
+            json=lab_specification,
+            timeout=600.0,
+            follow_redirects=False,
         )
-        if r.status_code == 409:
-            # Do something?  hook them up to their running pod?  Not sure.
-            pass
-        return r.text  # I think
+        if r.status_code == 409 or r.status_code == 303:
+            #
+            # The 409 is Conflict; so just return the Lab URL, same as
+            # we would for a new Lab.
+            #
+            # We don't actually do anything with the redirect; it returns
+            # the URL to ask the controller (as admin) for lab status.
+            #
+            # One of the objects we create (for exactly this reason) is a K8s
+            # service.  K8s will know how to route to it, so we just return
+            # its (in-cluster) DNS name as the hostname, which gets resolved
+            # to an IP address by the K8s resolver.
+            user_ns = f"{get_namespace()}-{uname}"
+            return f"http://lab.{user_ns}:8888"
+        raise SpawnerError(r)
 
     async def stop(self) -> None:
         client = await self._configure_client(token=self.admin_token)
-        await client.delete(f"{self.ctrl_url}/{self.user}")
+        r = await client.delete(
+            f"{self.ctrl_url}/labs/{self.user.name}", timeout=300.0
+        )
+        if r.status_code == 202 or r.status_code == 404:
+            # We're deleting it, or it wasn't there to start with.
+            return
+        raise SpawnerError(r)
 
     async def poll(self) -> Optional[int]:
         """
@@ -83,8 +116,10 @@ class RSPRestSpawner(Spawner):
         r = await client.get(f"{self.ctrl_url}/user-status")
         if r.status_code == 404:
             return 1  # No lab for user.
+        if r.status_code != 200:
+            raise SpawnerError(r)
         result = r.json()
-        if result.status in (
+        if result["status"] in (
             LabStatus.STARTING,
             LabStatus.RUNNING,
             LabStatus.TERMINATING,
@@ -92,11 +127,16 @@ class RSPRestSpawner(Spawner):
             return None
         return 2  # Pod failed; we could check 'pod' and 'events' to see why.
 
-    async def _options_form_default(self) -> str:
+    async def options_form(self, spawner: Spawner) -> str:
+        if spawner != self:
+            raise RuntimeError(
+                f"options_form(): self->{self}, spawner->{spawner}"
+            )
         client = await self._configure_client(content_type="text/html")
-        r = await client.get(
-            f"{self.base_url}/spawner/v1/lab-form/{self.user}",
-        )
+        form_url = f"{self.ctrl_url}/lab-form/{self.user.name}"
+        r = await client.get(form_url)
+        if r.status_code != 200:
+            raise SpawnerError(r)
         return r.text
 
     async def _configure_client(
@@ -109,11 +149,13 @@ class RSPRestSpawner(Spawner):
         type (default: 'application/json').
         """
         if token == "":
-            token = self.user_token
+            auth_state = await self.user.get_auth_state()
+            token = auth_state.get("token", "UNINITIALIZED")
+        auth = f"Bearer {token}"
         client = await get_client()
         client.headers = Headers(
             {
-                "Authorization": f"Bearer {token}",
+                "Authorization": auth,
                 "Content-Type": content_type,
             }
         )
