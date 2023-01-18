@@ -1,5 +1,6 @@
 """User-facing routes, as defined in sqr-066 (https://sqr-066.lsst.io),
 these specifically for lab manipulation"""
+import os
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,6 +12,11 @@ from ..dependencies.context import context_dependency
 from ..exceptions import InvalidUserError, LabExistsError, NoUserMapError
 from ..factory import Context
 from ..models.v1.lab import LabSpecificationWireProtocol, UserData
+
+
+def _external_url() -> str:
+    return os.environ.get("EXTERNAL_INSTANCE_URL", "http://localhost:8080")
+
 
 # FastAPI routers
 router = APIRouter()
@@ -90,7 +96,7 @@ async def post_new_lab(
         )
     except LabExistsError:
         raise HTTPException(status_code=409, detail="Conflict")
-    return f"/nublado/spawner/v1/labs/{username}"
+    return f"{_external_url()}/nublado/spawner/v1/labs/{username}"
 
 
 @router.delete(

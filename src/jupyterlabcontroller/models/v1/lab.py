@@ -109,15 +109,15 @@ class UserOptionsWireProtocol(BaseModel):
         title="Image size",
     )
     enable_debug: List[str] = Field(
-        ...,
+        ["false"],
         name="enable_debug",
-        example="false",
+        example=["false"],
         title="Enable debugging in spawned Lab",
     )
     reset_user_env: List[str] = Field(
-        ...,
+        ["false"],
         name="reset_user_env",
-        example="false",
+        example=["false"],
         title="Relocate user environment (.cache, .jupyter, .local)",
     )
 
@@ -127,7 +127,7 @@ class UserOptionsWireProtocol(BaseModel):
             image = self.image_dropdown[0]
         return UserOptions(
             image=image,
-            size=self.size[0],
+            size=LabSize(self.size[0].lower()),
             debug=str_to_bool(self.enable_debug[0]),
             reset_user_env=str_to_bool(self.reset_user_env[0]),
         )

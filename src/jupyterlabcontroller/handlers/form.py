@@ -1,6 +1,7 @@
 """User-facing routes, as defined in sqr-066 (https://sqr-066.lsst.io)
 specifically for producing spawner forms"""
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import HTMLResponse
 from safir.dependencies.logger import logger_dependency
 from safir.models import ErrorModel
 from structlog.stdlib import BoundLogger
@@ -25,6 +26,7 @@ internal_router = APIRouter()
 @router.get(
     "/{username}",
     summary="Get lab form for user",
+    response_class=HTMLResponse,
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
     },

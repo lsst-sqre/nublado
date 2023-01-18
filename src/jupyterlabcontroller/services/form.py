@@ -25,7 +25,7 @@ class FormManager:
 
     def _extract_sizes(self) -> List[FormSize]:
         sz = self.lab_sizes
-        return [
+        szlist = [
             FormSize(
                 name=x.title(),
                 cpu=str((sz[x]).cpu),
@@ -33,6 +33,8 @@ class FormManager:
             )
             for x in sz
         ]
+        szlist.reverse()
+        return szlist
 
     def generate_user_lab_form(self) -> str:
         options_template = Template(SPAWNER_FORM_TEMPLATE)

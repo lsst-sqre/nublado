@@ -356,9 +356,9 @@ class LabManager:
                 "JUPYTERHUB_USER": username,
             }
         )
-        # FIXME more env injection needed:
-        # JPY_API_TOKEN -- guess it has to come from the Hub in the
-        # options form response?
+        # Now inject from options form (overwrites existing values).
+        for key in lab.env:
+            data.update({key: lab.env[key]})
         return data
 
     async def create_network_policy(self, user: UserInfo) -> None:
@@ -645,22 +645,21 @@ class LabManager:
         volumes = [x.volume for x in vol_recs]
         vol_mounts = [x.volume_mount for x in vol_recs]
         init_ctrs = self.build_init_ctrs()
+        env = [
+            # Because spec.nodeName is not reflected in
+            # DownwardAPIVolumeSource:
+            # https://github.com/kubernetes/kubernetes/issues/64168
+            V1EnvVar(
+                name="K8S_NODE_NAME",
+                value_from=V1EnvVarSource(
+                    field_ref=V1ObjectFieldSelector(field_path="spec.nodeName")
+                ),
+            ),
+        ]
         nb_ctr = V1Container(
             name="notebook",
             args=["/opt/lsst/software/jupyterlab/runlab.sh"],
-            env=[
-                # Because spec.nodeName is not reflected in
-                # DownwardAPIVolumeSource:
-                # https://github.com/kubernetes/kubernetes/issues/64168
-                V1EnvVar(
-                    name="K8S_NODE_NAME",
-                    value_from=V1EnvVarSource(
-                        field_ref=V1ObjectFieldSelector(
-                            field_path="spec.nodeName"
-                        )
-                    ),
-                ),
-            ],
+            env=env,
             env_from=[
                 V1EnvFromSource(
                     config_map_ref=V1ConfigMapEnvSource(
