@@ -7,6 +7,7 @@ from kubernetes_asyncio.client.models import (
     V1ConfigMapEnvSource,
     V1ConfigMapVolumeSource,
     V1Container,
+    V1ContainerPort,
     V1DownwardAPIVolumeFile,
     V1DownwardAPIVolumeSource,
     V1EmptyDirVolumeSource,
@@ -160,9 +161,9 @@ class LabManager:
         await self.k8s_client.create_user_namespace(namespace)
         await self.info_event(username, "User namespace created", 5)
         await self.create_user_lab_objects(user=user, token=token, lab=lab)
-        await self.info_event(username, "Resource objects created", 35)
+        await self.info_event(username, "Resource objects created", 40)
         await self.create_user_pod(user=user, lab=lab)
-        await self.info_event(username, "Pod created", 90)
+        await self.info_event(username, "Pod created", 75)
         self.user_map.set_status(user.username, status=LabStatus.RUNNING)
         await self.completion_event(username)
 
@@ -198,6 +199,8 @@ class LabManager:
             await self.info_event(username, "Network policy created", 25)
             await self.create_quota(user=user, lab=lab)
             await self.info_event(username, "Quota created", 30)
+            await self.create_lab_service(user=user)
+            await self.info_event(username, "Service created", 35)
         except Exception as exc:
             await self.failure_event(username, f"Exception: '{exc}'")
         return
@@ -287,7 +290,6 @@ class LabManager:
     def build_env(
         self, user: UserInfo, lab: LabSpecification, token: str
     ) -> Dict[str, str]:
-        username = user.username
         # Get the static env vars from the lab config
         data = deepcopy(self.lab_config.env)
         # Get the stuff from the options form
@@ -296,11 +298,6 @@ class LabManager:
             data["DEBUG"] = "TRUE"
         if options.reset_user_env:
             data["RESET_USER_ENV"] = "TRUE"
-        # Values used in more than one place
-        jhub_oauth_scopes = (
-            f'["access:servers!server={username}/", '
-            f'"access:servers!user={username}"]'
-        )
         image = options.image
         # Remember how we decided to pull the image with the digest and tag?
         image_re = r".*:(?P<tag>.*)@sha256:(?P<digest>.*)$"
@@ -338,25 +335,10 @@ class LabManager:
                 "EXTERNAL_INSTANCE_URL": self.instance_url,
                 # Set access token
                 "ACCESS_TOKEN": token,
-                # Set up JupyterHub info
-                "JUPYTERHUB_ACTIVITY_URL": (
-                    f"http://hub.{self.manager_namespace}:8081/nb/hub/"
-                    f"api/users/{username}/activity"
-                ),
-                "JUPYTERHUB_CLIENT_ID": f"jupyterhub-user-{username}",
-                "JUPYTERHUB_OAUTH_ACCESS_SCOPES": jhub_oauth_scopes,
-                "JUPYTERHUB_OAUTH_CALLBACK_URL": (
-                    f"/nb/user/{username}/oauth_callback"
-                ),
-                "JUPYTERHUB_OAUTH_SCOPES": jhub_oauth_scopes,
-                "JUPYTERHUB_SERVICE_PREFIX": f"/nb/user/{username}",
-                "JUPYTERHUB_SERVICE_URL": (
-                    "http://0.0.0.0:8888/nb/user/" f"{username}"
-                ),
-                "JUPYTERHUB_USER": username,
             }
         )
         # Now inject from options form (overwrites existing values).
+        # All JupyterHub config comes in from here.
         for key in lab.env:
             data.update({key: lab.env[key]})
         return data
@@ -367,6 +349,13 @@ class LabManager:
         await self.k8s_client.create_network_policy(
             name=f"nb-{user.username}-env",
             namespace=self._namespace_from_user(user),
+        )
+
+    async def create_lab_service(self, user: UserInfo) -> None:
+        # No corresponding build because the service is hardcoded in the
+        # storage driver.
+        await self.k8s_client.create_lab_service(
+            username=user.username, namespace=self._namespace_from_user(user)
         )
 
     async def create_quota(
@@ -402,6 +391,7 @@ class LabManager:
             namespace=self._namespace_from_user(user),
             pod=pod,
             pull_secret=needs_pull_secret,
+            labels={"app": "lab"},
         )
 
     def build_lab_config_volumes(
@@ -669,6 +659,12 @@ class LabManager:
             ],
             image=lab.options.image,
             image_pull_policy="Always",
+            ports=[
+                V1ContainerPort(
+                    container_port=8888,
+                    name="jupyterlab",
+                ),
+            ],
             security_context=V1SecurityContext(
                 run_as_non_root=True,
                 run_as_user=user.uid,

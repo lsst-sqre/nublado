@@ -20,6 +20,9 @@ from kubernetes_asyncio.client.models import (
     V1ResourceQuota,
     V1ResourceQuotaSpec,
     V1Secret,
+    V1Service,
+    V1ServicePort,
+    V1ServiceSpec,
 )
 from kubernetes_asyncio.client.rest import ApiException
 from kubernetes_asyncio.watch import Watch
@@ -273,7 +276,7 @@ class K8sStorageClient:
         name: str,
         namespace: str,
     ) -> None:
-        api = client.NetworkingV1Api(self.k8s_api)
+        # api = client.NetworkingV1Api(self.k8s_api)
         # FIXME we need to further restrict Ingress to the right pods,
         # and Egress to ... external world, Hub, Portal, Gafaelfawr.  What
         # else?
@@ -296,12 +299,33 @@ class K8sStorageClient:
             ),
         )
         self.logger.debug(f"Network Policy to create: {policy}")
+        self.logger.debug("Not really creating")
+        # try:
+        #     await api.create_namespaced_network_policy(
+        #         namespace=namespace, body=policy
+        #     )
+        # except Exception as exc:
+        #     self.logger.error(f"Network policy creation failed: {exc}")
+        #     raise
+
+    async def create_lab_service(self, username: str, namespace: str) -> None:
+        svcname = "lab"
+        svc = V1Service(
+            metadata=self.get_std_metadata(svcname, namespace=namespace),
+            spec=V1ServiceSpec(
+                ports=[V1ServicePort(port=8888, target_port=8888)],
+                selector={
+                    "app": "lab",
+                },
+            ),
+        )
+        self.logger.debug(f"Service to create: {svc}")
         try:
-            await api.create_namespaced_network_policy(
-                namespace=namespace, body=policy
+            await self.api.create_namespaced_service(
+                namespace=namespace, body=svc
             )
         except Exception as exc:
-            self.logger.error(f"Network policy creation failed: {exc}")
+            self.logger.error(f"Service creation failed: {exc}")
             raise
 
     async def create_quota(
@@ -332,12 +356,14 @@ class K8sStorageClient:
         namespace: str,
         pod: V1PodSpec,
         pull_secret: bool = False,
+        labels: Dict[str, str] = dict(),
     ) -> None:
         if pull_secret:
             pod.image_pull_secrets = [{"name": "pull-secret"}]
-        pod_obj = V1Pod(
-            metadata=self.get_std_metadata(name, namespace=namespace), spec=pod
-        )
+        metadata = self.get_std_metadata(name, namespace=namespace)
+        if labels:
+            metadata.labels = labels
+        pod_obj = V1Pod(metadata=metadata, spec=pod)
         self.logger.debug(f"Creating pod: {pod_obj}")
         try:
             await self.api.create_namespaced_pod(

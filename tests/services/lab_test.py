@@ -97,7 +97,6 @@ async def test_env(
     assert env["CPU_LIMIT"] == "1.0"
     assert env["EXTERNAL_UID"] == "1101"
     assert env["ACCESS_TOKEN"] == "token-of-affection"
-    assert env["JUPYTERHUB_SERVICE_PREFIX"] == "/nb/user/rachel"
 
 
 @pytest.mark.asyncio

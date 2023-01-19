@@ -57,6 +57,7 @@ class MockK8sStorageClient(K8sStorageClient):
         namespace: str,
         pod: V1PodSpec,
         pull_secret: bool = False,
+        labels: Dict[str, str] = dict(),
     ) -> None:
         pass
 
