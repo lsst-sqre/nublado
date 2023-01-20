@@ -331,7 +331,6 @@ class LabManager:
                 ),
                 "EXTERNAL_UID": str(user.uid),
                 # Get global instance URL
-                "EXTERNAL_URL": self.instance_url,
                 "EXTERNAL_INSTANCE_URL": self.instance_url,
                 # Set access token
                 "ACCESS_TOKEN": token,
