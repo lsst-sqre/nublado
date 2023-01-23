@@ -165,4 +165,4 @@ class PrepullerConfiguration(CamelCaseModel):
     @property
     def path(self) -> str:
         # Return the canonical path to the set of tagged images
-        return f"{self.registry}/{self.repository}"
+        return f"{self.registry}{self.repository}"
