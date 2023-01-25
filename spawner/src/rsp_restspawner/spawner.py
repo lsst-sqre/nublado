@@ -5,6 +5,7 @@ interface described in sqr-066.
 """
 
 import os
+from collections.abc import AsyncGenerator
 from typing import Any, Dict, List, Optional
 
 from httpx import AsyncClient, Headers
@@ -51,9 +52,9 @@ class RSPRestSpawner(Spawner):
                 f"{self.hub_base_url}/user/{uname}/oauth_callback"
             ),
             "JUPYTERHUB_OAUTH_SCOPES": jhub_oauth_scopes,
-            "JUPYTERHUB_SERVICE_PREFIX": f"{self.hub_base_url}/user/{uname}",
+            "JUPYTERHUB_SERVICE_PREFIX": f"{self.hub_base_url}/user/{uname}/",
             "JUPYTERHUB_SERVICE_URL": (
-                f"http://0.0.0.0:8888{self.hub_base_url}/user/{uname}"
+                f"http://0.0.0.0:8888{self.hub_base_url}/user/{uname}/"
             ),
             "JUPYTERHUB_USER": uname,
         }
@@ -167,3 +168,44 @@ class RSPRestSpawner(Spawner):
         """All the processing is done in the Lab Controller; this is just a
         passthrough."""
         return formdata
+
+    async def progress(self) -> AsyncGenerator:
+        progress: Optional[int] = None
+        prev_progress: Optional[int] = None
+        message: Optional[str] = None
+        event_endpoint = f"{self.ctrl_url}/labs/{self.user.name}/events"
+        client = await self._configure_client(content_type="event/stream")
+        async with client.stream("GET", event_endpoint, timeout=30.0) as resp:
+            async for line in resp.aiter_lines():
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith("event: "):
+                    e_type = line[7:]
+                    continue
+                if e_type == "complete":
+                    pm = {
+                        "progress": 90,
+                        "message": "Lab pod running",
+                        "ready": True,
+                    }
+                    yield pm
+                    return
+                if line.startswith("data: "):
+                    if e_type == "progress":
+                        progress = int(line[6:])
+                    if e_type in ("info", "error", "failed"):
+                        message = line[6:]
+                        progress = progress or prev_progress or 50
+                if message and progress:
+                    pm = {
+                        "progress": progress,
+                        "message": message,
+                        "ready": False,
+                    }
+                    message = None
+                    prev_progress = progress
+                    progress = None
+                    yield pm
+                    if e_type in ("error", "failed"):
+                        raise RuntimeError(pm["message"])
