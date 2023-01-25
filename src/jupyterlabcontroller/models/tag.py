@@ -6,7 +6,7 @@ must be in the format specified by https://sqr-059.lsst.io"""
 
 import re
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import IntEnum, auto
 from typing import Dict, List, Match, Optional, Tuple
 
 from semver import VersionInfo
@@ -15,7 +15,7 @@ from ..exceptions import IncomparableImageTypesError
 from .v1.prepuller import Image
 
 
-class RSPTagType(Enum):
+class RSPTagType(IntEnum):
     """Enum specifying different tag types for Rubin Science Platform Lab
     images.
 

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from collections.abc import AsyncGenerator
+from functools import partial
 from typing import Any, Deque, Dict, List, Optional
 
-from kubernetes_asyncio import client
+from kubernetes_asyncio import client, watch
 from kubernetes_asyncio.client.api_client import ApiClient
 from kubernetes_asyncio.client.models import (
     V1ConfigMap,
@@ -88,17 +90,22 @@ class K8sStorageClient:
                 # The spec actually calls for us to delete the lab and then the
                 # namespace, but let's just remove the namespace, which should
                 # also clean up all its contents.
-                await self.delete_namespace(namespace)
+                try:
+                    await self.delete_namespace(namespace)
+                except ApiException as e2:
+                    if e2.status == 404:
+                        return  # No such namespace is just fine (but weird).
+                    estr = f"Failed to delete namespace {namespace}: {e2}"
+                    self.logger.exception(estr)
+                    raise NSCreationError(estr)
+                # Wait until it's gone.
+                await self.wait_for_namespace_deletion(namespace)
                 # Just try again, and return *that* one's return value.
                 return await self.create_user_namespace(namespace)
-            else:
-                estr = f"Failed to create namespace {namespace}: {e}"
-                self.logger.exception(estr)
-                raise NSCreationError(estr)
-        # Now we need to wait for the namespace to exist before we can
-        # let things be created in it.
-        # Or maybe not.
-        # await self._wait_for_namespace_creation(namespace)
+            # Outer try/except
+            estr = f"Failed to create namespace {namespace}: {e}"
+            self.logger.exception(estr)
+            raise NSCreationError(estr)
 
     async def _k8s_create_namespace(self, ns_name: str) -> None:
         await self.api.create_namespace(
@@ -135,9 +142,15 @@ class K8sStorageClient:
             )
         return
 
-    async def _wait_for_namespace_deletion(
+    async def wait_for_namespace_deletion(
         self, namespace: str, interval: float = 0.2
     ) -> None:
+        """Once it's underway, we loop, reading the
+        namespace.  We eventually expect a 404, and when we get it we
+        return.  If it doesn't arrive within the timeout, we raise the
+        timeout exception, and if we get some other error, we repackage that
+        and raise it.
+        """
         elapsed = 0.0
         while elapsed < self.timeout:
             try:
@@ -150,26 +163,112 @@ class K8sStorageClient:
             elapsed += interval
         raise WaitingForObjectError("Timed out waiting for ns deletion")
 
-    async def _wait_for_namespace_creation(
-        self, namespace: str, interval: float = 0.2
+    async def wait_for_pod_creation(
+        self, podname: str, namespace: str, interval: float = 0.2
     ) -> None:
-        # Not clear this is necessary
+        """This method polls to see whether the pod has been created
+        successfully, and doesn't return until it has been.  If the pod
+        failed, it raises an exception, if the pod stays in "Unknown" state
+        for too long, it raises an exception, and if it doesn't go
+        into "Running" or "Completed" state in 570 seconds, it raises an
+        exception.
+        """
         elapsed = 0.0
-        while elapsed < self.timeout:
+        unk = 0
+        unk_threshold = 20
+        pod_timeout = 570  # 9-1/2 minutes.  Arbitrary.
+        while elapsed < pod_timeout:
             try:
-                await self.api.read_namespace(namespace)
-                return
+                pod = await self.api.read_namespaced_pod_status(
+                    name=podname, namespace=namespace
+                )  # Actually returns a V1Pod, not a V1PodStatus
+                pod_status = pod.status
             except ApiException as e:
                 if e.status == 404:
                     self.logger.warning(
-                        f"Namespace {namespace} does not exist at {elapsed}s."
+                        f"Pod {namespace}/{podname} does not exist "
+                        + f"at {elapsed}s."
                     )
-                    await asyncio.sleep(interval)
-                    elapsed += interval
                 else:
                     self.logger.error(f"API Error: {e}")
                     raise WaitingForObjectError(str(e))
-        raise WaitingForObjectError("Timed out waiting for ns creation")
+            phase = pod_status.phase
+            if phase == "Unknown":
+                unk += 1
+                if unk > unk_threshold:
+                    raise WaitingForObjectError(
+                        f"Pod {namespace}/{podname} stayed in unknown "
+                        + f"longer than {unk_threshold * interval}s"
+                    )
+            if phase == "Failed":
+                raise WaitingForObjectError(
+                    f"Pod {namespace}/{podname} failed: {pod_status.message}"
+                )
+            if phase in ("Running", "Succeeded"):
+                # "Succeeded" would be weird
+                return
+            # If we got this far, it's "Pending" and we just wait a bit
+            # and look again.
+            unk = 0
+            await asyncio.sleep(interval)
+            elapsed += interval
+        # And if we get this far, it timed out without being created.
+        raise WaitingForObjectError(
+            f"Timed out waiting for pod {namespace}/{podname} creation"
+        )
+
+    async def reflect_pod_events(
+        self, namespace: str, podname: str
+    ) -> AsyncGenerator:
+        """This can probably be rolled into the wait_for_pod above
+        somehow, but I'm implementing this separately because I haven't
+        quite seen the right shape of it yet.
+
+        This is going to yield messages that are reflected from K8s while the
+        pod is Pending, and return once pod is Running, Completed, or Failed.
+        """
+        self.logger.debug("Entering reflect_pod_events()")
+        api = self.api
+        w = watch.Watch()
+        # See the Kubespawner for this, but _preload_content=False makes
+        # the k8s client do a lot less work.  All we care about is the
+        # event text anyway.
+        method = partial(
+            getattr(api, "list_namespaced_pod"), _preload_content=False
+        )
+        watch_args = {
+            "_request_timeout": 30,
+            "timeout_seconds": 30,
+            "namespace": namespace,
+            "field_selector": f"metadata.name={podname}"
+            # We can probably get away without resource_version
+        }
+        stopping = False
+        self.logger.debug(f"method: {method}, watch_args: {watch_args}")
+        async with w.stream(method, **watch_args) as stream:
+            seen_messages: List[str] = []
+            self.logger.debug("Entering w.stream()")
+            async for event in stream:
+                status = event["raw_object"]["status"]
+                phase = status["phase"]
+                if phase in ("Running", "Completed", "Failed"):
+                    self.logger.debug(f"Pod phase: {phase}")
+                    stopping = True
+                for c in status["conditions"]:
+                    message = c.get("message", "")
+                    if message and message not in seen_messages:
+                        seen_messages.append(message)
+                        self.logger.debug(f"Yielding '{message}'")
+                        yield message
+                if stopping:
+                    self.logger.debug("Exiting event watcher")
+                    break
+            if stopping:
+                self.logger.debug("Exiting w.stream()")
+                self.logger.debug("Stopping watch")
+                w.stop()
+                self.logger.debug("Exiting reflect.pod_events()")
+                return
 
     async def copy_pull_secret(self, source_ns: str) -> Dict[str, str]:
         secret = await self.read_secret(
@@ -276,7 +375,7 @@ class K8sStorageClient:
         name: str,
         namespace: str,
     ) -> None:
-        # api = client.NetworkingV1Api(self.k8s_api)
+        api = client.NetworkingV1Api(self.k8s_api)
         # FIXME we need to further restrict Ingress to the right pods,
         # and Egress to ... external world, Hub, Portal, Gafaelfawr.  What
         # else?
@@ -299,14 +398,14 @@ class K8sStorageClient:
             ),
         )
         self.logger.debug(f"Network Policy to create: {policy}")
-        self.logger.debug("Not really creating")
-        # try:
-        #     await api.create_namespaced_network_policy(
-        #         namespace=namespace, body=policy
-        #     )
-        # except Exception as exc:
-        #     self.logger.error(f"Network policy creation failed: {exc}")
-        #     raise
+        # self.logger.debug("Not really creating")
+        try:
+            await api.create_namespaced_network_policy(
+                namespace=namespace, body=policy
+            )
+        except Exception as exc:
+            self.logger.error(f"Network policy creation failed: {exc}")
+            raise
 
     async def create_lab_service(self, username: str, namespace: str) -> None:
         svcname = "lab"
@@ -379,19 +478,17 @@ class K8sStorageClient:
     ) -> None:
         """Delete the namespace with name ``namespace``.  If it doesn't exist,
         that's OK.
-
-        We send the deletion.  Once it's underway, we loop, reading the
-        namespace.  We eventually expect a 404, and when we get it we
-        return.  If it doesn't arrive within the timeout, we raise the
-        timeout exception, and if we get some other error, we repackage that
-        and raise it.
         """
         self.logger.debug(f"Deleting namespace {namespace}")
-        await asyncio.wait_for(
-            self.api.delete_namespace(namespace),
-            self.timeout,
-        )
-        await self._wait_for_namespace_deletion(namespace)
+        try:
+            await asyncio.wait_for(
+                self.api.delete_namespace(namespace),
+                self.timeout,
+            )
+        except ApiException as exc:
+            if exc.status == 404:
+                return  # "Not there to start with" is fine
+            raise
 
     async def get_image_data(self) -> NodeContainers:
         resp = await self.api.list_node()

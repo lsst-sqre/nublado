@@ -1,7 +1,8 @@
 import re
+from asyncio import Task, create_task
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from kubernetes_asyncio.client.models import (
     V1ConfigMapEnvSource,
@@ -73,8 +74,10 @@ class LabManager:
         self.lab_config = lab_config
         self.k8s_client = k8s_client
         self.gafaelfawr_client = gafaelfawr_client
+        self._tasks: Set[Task] = set()
 
-    def _namespace_from_user(self, user: UserInfo) -> str:
+    def namespace_from_user(self, user: UserInfo) -> str:
+        """Exposed because the unit tests use it."""
         return f"{self.manager_namespace}-{user.username}"
 
     def get_resources(self, lab: LabSpecification) -> UserResources:
@@ -126,11 +129,53 @@ class LabManager:
             estr = "Fatal e" + estr[1:]
         self.logger.error(estr)
 
+    async def await_pod_spawn(self, namespace: str, username: str) -> None:
+        """This is designed to run as a background task and just wait until
+        the pod has been created and inject a completion event into the
+        event queue when it has.
+        """
+        try:
+            await self.k8s_client.wait_for_pod_creation(
+                podname=f"nb-{username}", namespace=namespace
+            )
+        except Exception:
+            self.user_map.set_status(username, status=LabStatus.FAILED)
+            raise
+        self.user_map.set_status(username, status=LabStatus.RUNNING)
+        await self.completion_event(username)
+
+    async def await_ns_deletion(self, namespace: str, username: str) -> None:
+        """This is designed to run as a background task and just wait until
+        the pod has been created and inject a completion event into the
+        event queue when it has.
+        """
+        await self.k8s_client.wait_for_namespace_deletion(namespace=namespace)
+        await self.completion_event(username)
+        self.user_map.remove(username)
+
+    async def inject_pod_events(
+        self, namespace: str, username: str, start: int = 46, end: int = 89
+    ) -> None:
+        """This is designed to run as a background task.  When
+        Kubernetes starts a pod, it will emit some events as the pod
+        startup progresses.  This captures those events and injects them into
+        the event queue.
+        """
+        progress = start
+        async for evt in self.k8s_client.reflect_pod_events(
+            namespace=namespace, podname=f"nb-{username}"
+        ):
+            await self.info_event(username, evt, progress)
+            # As with Kubespawner, we don't know how many of these we will
+            # get, so we will just move 1/3 closer to the end of the
+            # region each time.
+            progress = int(progress + ((end - progress) / 3))
+
     async def create_lab(self, token: str, lab: LabSpecification) -> None:
         """Schedules creation of user lab objects/resources."""
         user = await self.gafaelfawr_client.get_user(token)
         username = user.username
-        namespace = self._namespace_from_user(user)
+        namespace = self.namespace_from_user(user)
 
         # unclear if we should clear the event queue before this.  Probably not
         # because we don't want to wipe out the existing log, since we will
@@ -163,9 +208,24 @@ class LabManager:
         await self.create_user_lab_objects(user=user, token=token, lab=lab)
         await self.info_event(username, "Resource objects created", 40)
         await self.create_user_pod(user=user, lab=lab)
-        await self.info_event(username, "Pod created", 75)
-        self.user_map.set_status(user.username, status=LabStatus.RUNNING)
-        await self.completion_event(username)
+        self.user_map.set_status(username, status=LabStatus.STARTING)
+        await self.info_event(username, "Pod requested", 45)
+        # Create a task to add the completed event when the pod finishes
+        # spawning
+        pod_task = create_task(
+            self.await_pod_spawn(namespace=namespace, username=user.username)
+        )
+        # Create a task to monitor and inject pod events during spawn
+        evt_task = create_task(
+            self.inject_pod_events(
+                namespace=namespace, username=user.username, start=46, end=89
+            )
+        )
+        # Schedule the tasks and their cleanup
+        self._tasks.add(pod_task)
+        pod_task.add_done_callback(self._tasks.discard)
+        self._tasks.add(evt_task)
+        evt_task.add_done_callback(self._tasks.discard)
 
     async def create_user_lab_objects(
         self,
@@ -185,7 +245,7 @@ class LabManager:
         try:
             await self.create_secrets(
                 username=username,
-                namespace=self._namespace_from_user(user),
+                namespace=self.namespace_from_user(user),
                 token=token,
             )
             await self.info_event(username, "Secrets created", 10)
@@ -224,7 +284,7 @@ class LabManager:
     #
 
     async def create_nss(self, user: UserInfo) -> None:
-        namespace = self._namespace_from_user(user)
+        namespace = self.namespace_from_user(user)
         data = self.build_nss(user=user)
         await self.k8s_client.create_configmap(
             name=f"nb-{user.username}-nss",
@@ -255,7 +315,7 @@ class LabManager:
         return data
 
     async def create_file_configmap(self, user: UserInfo) -> None:
-        namespace = self._namespace_from_user(user)
+        namespace = self.namespace_from_user(user)
         data = self.build_file_configmap()
         await self.k8s_client.create_configmap(
             name=f"nb-{user.username}-configmap",
@@ -283,7 +343,7 @@ class LabManager:
         data = self.build_env(user=user, lab=lab, token=token)
         await self.k8s_client.create_configmap(
             name=f"nb-{user.username}-env",
-            namespace=self._namespace_from_user(user),
+            namespace=self.namespace_from_user(user),
             data=data,
         )
 
@@ -347,14 +407,14 @@ class LabManager:
         # storage driver.
         await self.k8s_client.create_network_policy(
             name=f"nb-{user.username}-env",
-            namespace=self._namespace_from_user(user),
+            namespace=self.namespace_from_user(user),
         )
 
     async def create_lab_service(self, user: UserInfo) -> None:
         # No corresponding build because the service is hardcoded in the
         # storage driver.
         await self.k8s_client.create_lab_service(
-            username=user.username, namespace=self._namespace_from_user(user)
+            username=user.username, namespace=self.namespace_from_user(user)
         )
 
     async def create_quota(
@@ -364,7 +424,7 @@ class LabManager:
         if quota is not None:
             await self.k8s_client.create_quota(
                 name=f"nb-{user.username}",
-                namespace=self._namespace_from_user(user),
+                namespace=self.namespace_from_user(user),
                 quota=quota,
             )
 
@@ -387,7 +447,7 @@ class LabManager:
         # has completed.
         await self.k8s_client.create_pod(
             name=f"nb-{user.username}",
-            namespace=self._namespace_from_user(user),
+            namespace=self.namespace_from_user(user),
             pod=pod,
             pull_secret=needs_pull_secret,
             labels={"app": "lab"},
@@ -440,7 +500,6 @@ class LabManager:
                 cmname = f"nb-{username}-nss"
             path = Path(cfile)
             bname = str(path.name)
-            # dname = str(path.parent)
             filename = re.sub(r"[_\.]", "-", str(path.name))
             vols.append(
                 LabVolumeContainer(
@@ -541,13 +600,6 @@ class LabManager:
             "limits.memory",
             "requests.memory",
         ]
-        # volfiles = [
-        #    V1DownwardAPIVolumeFile(
-        #        field_ref=V1ObjectFieldSelector(field_path=x),
-        #        path=x.replace(".", "_").lower(),
-        #    )
-        #    for x in volfields
-        # ]
         volfiles: List[V1DownwardAPIVolumeFile] = list()
         volfiles.extend(
             [
@@ -700,14 +752,18 @@ class LabManager:
                 username, "Deleting user lab and resources", 25
             )
             await self.k8s_client.delete_namespace(
-                self._namespace_from_user(user)
-            )
-            await self.completion_event(
-                username,
+                self.namespace_from_user(user)
             )
         except Exception as e:
             emsg = f"Could not delete lab environment: '{e}'"
             await self.failure_event(username, emsg)
             user.status = LabStatus.FAILED
             raise
-        self.user_map.remove(username)
+        ns_task = create_task(
+            self.await_ns_deletion(
+                namespace=self.namespace_from_user(user),
+                username=user.username,
+            )
+        )
+        self._tasks.add(ns_task)
+        ns_task.add_done_callback(self._tasks.discard)

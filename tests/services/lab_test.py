@@ -23,6 +23,9 @@ async def test_lab_manager(
     # We couldn't really do this next thing through the handler with a
     # user token.
     await lm.delete_lab(username=username)
+    await lm.await_ns_deletion(
+        namespace=lm.namespace_from_user(user), username=username
+    )
     present = lm.check_for_user(username)  # Deleted again
     assert present is False
 
@@ -40,6 +43,9 @@ async def test_get_active_users(
     users = await user_context.user_map.running()
     assert len(users) == 0
     await lm.create_lab(token=token, lab=lab)
+    await lm.await_pod_spawn(
+        namespace=lm.namespace_from_user(user), username=username
+    )
     users = await user_context.user_map.running()
     assert len(users) == 1
     assert users[0] == "rachel"

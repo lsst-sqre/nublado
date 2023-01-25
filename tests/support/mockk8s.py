@@ -69,3 +69,13 @@ class MockK8sStorageClient(K8sStorageClient):
 
     async def get_image_data(self) -> NodeContainers:
         return self._test_obj.nodecontents
+
+    async def wait_for_pod_creation(
+        self, podname: str, namespace: str, interval: float = 0.2
+    ) -> None:
+        pass
+
+    async def wait_for_namespace_deletion(
+        self, namespace: str, interval: float = 0.2
+    ) -> None:
+        pass

@@ -338,6 +338,9 @@ class PrepullerArbitrator:
     def get_menu_images(self) -> DisplayImages:
         """Used to construct the spawner form."""
         node_images = self.get_images()
+        # Sort the images in display order
+        node_images.sort(key=lambda x: (x.best_tag_type, x.name))
+        node_images.reverse()
 
         menu_node_images = self.filter_node_images_to_desired_menu(node_images)
 
@@ -346,7 +349,6 @@ class PrepullerArbitrator:
         )
 
         all = [x.to_image() for x in node_images]
-        all.reverse()
         for image in all:
             if image.path[0] == ":":  # We just have the tag, not the rest
                 image.path = f"{self.config.path}{image.path}"
