@@ -2,6 +2,7 @@ from typing import Dict
 
 from kubernetes_asyncio.client.models import V1PodSpec, V1Secret
 
+from jupyterlabcontroller.models.v1.lab import UserData
 from jupyterlabcontroller.storage.k8s import (
     K8sStorageClient,
     NodeContainers,
@@ -79,3 +80,9 @@ class MockK8sStorageClient(K8sStorageClient):
         self, namespace: str, interval: float = 0.2
     ) -> None:
         pass
+
+    async def get_observed_user_state(
+        self, manager_namespace: str
+    ) -> Dict[str, UserData]:
+        mtd: Dict[str, UserData] = dict()
+        return mtd

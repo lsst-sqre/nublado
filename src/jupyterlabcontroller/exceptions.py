@@ -22,12 +22,6 @@ class NSDeletionError(Exception):
     pass
 
 
-class WatchError(Exception):
-    """Error raised when the K8s watch fails too many times in a row."""
-
-    pass
-
-
 class WaitingForObjectError(Exception):
     """Error raised when something goes wrong waiting for object creation/
     deletion."""

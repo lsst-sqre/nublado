@@ -14,3 +14,14 @@ class NubladoEnum(str, Enum):
         if name != name.upper():
             raise RuntimeError("Enum names must be entirely upper-case")
         return name.lower()
+
+
+class NubladoTitleEnum(str, Enum):
+    """The same as NubladoEnum, but the values are title case."""
+
+    def _generate_next_value_(  # type: ignore
+        name, start, count, last_values
+    ) -> str:
+        if name != name.upper():
+            raise RuntimeError("Enum names must be entirely upper-case")
+        return name.title()

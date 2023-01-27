@@ -4,7 +4,7 @@ import asyncio
 import base64
 from collections.abc import AsyncGenerator
 from functools import partial
-from typing import Any, Deque, Dict, List, Optional
+from typing import Dict, List
 
 from kubernetes_asyncio import client, watch
 from kubernetes_asyncio.client.api_client import ApiClient
@@ -27,19 +27,17 @@ from kubernetes_asyncio.client.models import (
     V1ServiceSpec,
 )
 from kubernetes_asyncio.client.rest import ApiException
-from kubernetes_asyncio.watch import Watch
 from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
 from ..exceptions import (
+    KubernetesError,
     MissingSecretError,
     NSCreationError,
     WaitingForObjectError,
-    WatchError,
 )
-from ..models.k8s import ContainerImage, NodeContainers, Secret
-from ..models.v1.event import Event
-from ..models.v1.lab import UserResourceQuantum
+from ..models.k8s import ContainerImage, K8sPodPhase, NodeContainers, Secret
+from ..models.v1.lab import UserData, UserResourceQuantum
 from ..util import deslashify
 
 
@@ -193,19 +191,19 @@ class K8sStorageClient:
                     self.logger.error(f"API Error: {e}")
                     raise WaitingForObjectError(str(e))
             phase = pod_status.phase
-            if phase == "Unknown":
+            if phase == K8sPodPhase.UNKNOWN:
                 unk += 1
                 if unk > unk_threshold:
                     raise WaitingForObjectError(
                         f"Pod {namespace}/{podname} stayed in unknown "
                         + f"longer than {unk_threshold * interval}s"
                     )
-            if phase == "Failed":
+            if phase == K8sPodPhase.FAILED:
                 raise WaitingForObjectError(
                     f"Pod {namespace}/{podname} failed: {pod_status.message}"
                 )
-            if phase in ("Running", "Succeeded"):
-                # "Succeeded" would be weird
+            if phase in (K8sPodPhase.RUNNING, K8sPodPhase.SUCCEEDED):
+                # "Succeeded" would be weird for a Lab pod.
                 return
             # If we got this far, it's "Pending" and we just wait a bit
             # and look again.
@@ -227,7 +225,6 @@ class K8sStorageClient:
         This is going to yield messages that are reflected from K8s while the
         pod is Pending, and return once pod is Running, Completed, or Failed.
         """
-        self.logger.debug("Entering reflect_pod_events()")
         api = self.api
         w = watch.Watch()
         # See the Kubespawner for this, but _preload_content=False makes
@@ -241,33 +238,37 @@ class K8sStorageClient:
             "timeout_seconds": 30,
             "namespace": namespace,
             "field_selector": f"metadata.name={podname}"
-            # We can probably get away without resource_version
+            # We can probably get away without resource_version, because
+            # we are watching a single pod for a short time (basically
+            # just while it's in Pending phase).
         }
         stopping = False
-        self.logger.debug(f"method: {method}, watch_args: {watch_args}")
         async with w.stream(method, **watch_args) as stream:
             seen_messages: List[str] = []
-            self.logger.debug("Entering w.stream()")
             async for event in stream:
                 status = event["raw_object"]["status"]
                 phase = status["phase"]
-                if phase in ("Running", "Completed", "Failed"):
-                    self.logger.debug(f"Pod phase: {phase}")
+                if phase in (
+                    K8sPodPhase.RUNNING,
+                    K8sPodPhase.SUCCEEDED,
+                    K8sPodPhase.FAILED,
+                ):
+                    self.logger.debug(f"Terminating watch: pod phase {phase}")
                     stopping = True
+                if phase in K8sPodPhase.UNKNOWN:
+                    self.logger.warning(
+                        f"Pod {namespace}/{podname} in 'Unknown' phase"
+                    )
                 for c in status["conditions"]:
                     message = c.get("message", "")
                     if message and message not in seen_messages:
                         seen_messages.append(message)
-                        self.logger.debug(f"Yielding '{message}'")
+                        self.logger.debug(f"Watch reporting '{message}'")
                         yield message
                 if stopping:
-                    self.logger.debug("Exiting event watcher")
                     break
             if stopping:
-                self.logger.debug("Exiting w.stream()")
-                self.logger.debug("Stopping watch")
                 w.stop()
-                self.logger.debug("Exiting reflect.pod_events()")
                 return
 
     async def copy_pull_secret(self, source_ns: str) -> Dict[str, str]:
@@ -502,87 +503,47 @@ class K8sStorageClient:
                 )
         return all_images_by_node
 
-
-# Needs adaptation to our use case
-class K8sWatcher:
-    """Watch for cluster-wide changes to a custom resource.
-
-    Parameters
-    ----------
-    plural : `str`
-        The plural for the custom resource for which to watch.
-    api_client : ``kubernetes_asyncio.client.ApiClient``
-        The Kubernetes client.
-    queue : `Deque[Event]`
-        The queue into which to put the events.
-    logger : `structlog.stdlib.BoundLogger`
-        Logger to use for messages.
-    """
-
-    def __init__(
-        self,
-        plural: str,
-        api_client: ApiClient,
-        queue: Deque[Event],
-        logger: BoundLogger,
-    ) -> None:
-        self._plural = plural
-        self._queue = queue
-        self._logger = logger
-        self._api = api_client
-
-    async def run(self) -> None:
-        """Watch for changes to the configured custom object.
-
-        This method is intended to be run as a background async task.  It will
-        run forever, adding any custom object changes to the associated queue.
-        """
-        self._logger.debug("Starting Kubernetes watcher")
-        consecutive_failures = 0
-        watch_call = (
-            self._api.list_cluster_custom_object,
-            "gafaelfawr.lsst.io",
-            "v1alpha1",
-            self._plural,
-        )
-        while True:
+    async def get_observed_user_state(
+        self, manager_namespace: str
+    ) -> Dict[str, UserData]:
+        observed_state = dict()
+        api = self.api
+        ns_prefix = f"{manager_namespace}-"
+        namespaces = await api.list_namespace()
+        namespace_list = [x.metadata.name for x in namespaces.items]
+        user_namespaces = [
+            x for x in namespace_list if x.startswith(ns_prefix)
+        ]
+        errorstr = ""
+        for u_ns in user_namespaces:
+            username = u_ns[len(ns_prefix) :]
+            podname = f"nb-{username}"
             try:
-                async with Watch().stream(*watch_call) as stream:
-                    async for raw_event in stream:
-                        event = self._parse_raw_event(raw_event)
-                        if event:
-                            self._queue.append(event)
-                        consecutive_failures = 0
+                pod = await api.read_namespaced_pod_status(
+                    name=podname, namespace=u_ns
+                )
+                observed_state[username] = UserData.from_pod(pod)
             except ApiException as e:
-                # 410 status code just means our watch expired, and the
-                # correct thing to do is quietly restart it.
-                if e.status == 410:
-                    continue
-                msg = "ApiException from watch"
-                consecutive_failures += 1
-                if consecutive_failures > 10:
-                    raise WatchError("Too many consecutive watch failures.")
+                if e.status == 404:
+                    self.logger.warning(
+                        f"Found user namespace for {username} but no pod; "
+                        + "attempting namespace deletion."
+                    )
+                    try:
+                        await self.delete_namespace(u_ns)
+                        await self.wait_for_namespace_deletion(u_ns)
+                    # Accumulate errors
+                    except ApiException as e2:
+                        if not errorstr:
+                            errorstr = str(e2)
+                        else:
+                            errorstr += f", {e2}"
                 else:
-                    self._logger.exception(msg, error=str(e))
-                    msg = "Pausing 10s before attempting to continue"
-                    self._logger.info()
-                    await asyncio.sleep(10)
-
-    def _parse_raw_event(self, raw_event: Dict[str, Any]) -> Optional[Event]:
-        """Parse a raw event from the watch API.
-
-        Returns
-        -------
-        event : `Event` or `None`
-            An `Event` object if the event could be parsed, otherwise
-           `None`.
-        """
-        try:
-            return Event(
-                event=raw_event["type"],
-                data=raw_event["object"]
-                # namespace=raw_event["object"]["metadata"]["namespace"],
-                # generation=raw_event["object"]["metadata"]["generation"],
-            )
-        except KeyError:
-            return None
+                    if not errorstr:
+                        errorstr = str(e)
+                    else:
+                        errorstr += f", {e}"
+        # If we have accumulated errors, re-raise
+        if errorstr:
+            raise KubernetesError(errorstr)
+        return observed_state

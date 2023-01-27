@@ -12,6 +12,9 @@ class UserMap:
     def get(self, key: str) -> Optional[UserData]:
         return self._dict.get(key)
 
+    def list_users(self) -> List[str]:
+        return list(self._dict.keys())
+
     def set(self, key: str, item: UserData) -> None:
         self._dict[key] = item
 

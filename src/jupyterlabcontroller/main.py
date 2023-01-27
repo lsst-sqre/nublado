@@ -126,6 +126,8 @@ async def startup_event() -> None:
     )
     executor = ctx.prepuller_executor
     await executor.start()
+    lab_manager = ctx.lab_manager
+    await lab_manager.reconcile_user_map()
 
 
 async def shutdown_event() -> None:

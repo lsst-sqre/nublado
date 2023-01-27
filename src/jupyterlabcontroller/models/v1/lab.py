@@ -5,6 +5,7 @@ from collections import deque
 from enum import auto
 from typing import Deque, Dict, List, Optional
 
+from kubernetes_asyncio.client.models import V1Pod
 from pydantic import BaseModel, Field
 
 from ...constants import DROPDOWN_SENTINEL_VALUE
@@ -302,4 +303,69 @@ class UserData(UserInfo, LabSpecification):
         )
         ud.status = status
         ud.pod = pod
+        return ud
+
+    @classmethod
+    def from_pod(cls, pod: V1Pod) -> "UserData":
+        # We will extract everything from the discovered pod that we need
+        # to build a UserData entry.  Size and namespace quota may be
+        # incorrect, and group name information and user display name will
+        # be lost.
+        #
+        # We use this when reconciling the user map with the observed state
+        # of the world at startup.
+        podname = pod.metadata.name
+        username = podname[3:]  # Starts with "nb-"
+        status = pod.status.phase.lower()
+        # pod_state = PodState.PRESENT
+        lab_ctr = [x for x in pod.spec.containers if x.name == "notebook"][0]
+        if not lab_ctr:
+            # try the first container instead...but lab should be "notebook"
+            lab_ctr = pod.spec.containers[0]
+            # So this will likely crash in extraction
+        lab_env_l = lab_ctr.env
+        lab_env: Dict[str, str] = dict()
+        for ev in lab_env_l:
+            lab_env[ev.name] = ev.value or ""  # We will miss reflected vals
+        uid = lab_ctr.security_context.run_as_user
+        gid = lab_ctr.security_context.run_as_group or uid
+        supp_gids = pod.spec.security_context.supplemental_groups or []
+        # Now extract enough to get our options and quotas rebuilt
+        mem_limit = float(lab_env.get("MEM_LIMIT", 3 * 2**20))
+        mem_request = mem_limit / 4
+        cpu_limit = float(lab_env.get("CPU_LIMIT", 1.0))
+        cpu_request = float(lab_env.get("CPU_GUARANTEE", cpu_limit / 4))
+        opt_debug = str_to_bool(lab_env.get("DEBUG", ""))
+        opt_image = lab_env.get("JUPYTER_IMAGE_SPEC", "unknown")
+        opt_reset_user_env = str_to_bool(lab_env.get("RESET_USER_ENV", ""))
+        opt_size = LabSize.SMALL  # We could try harder, but...
+        opts = UserOptions(
+            debug=opt_debug,
+            image=opt_image,
+            reset_user_env=opt_reset_user_env,
+            size=opt_size,
+        )
+        # We can't recover the group names
+        groups = [{"name": f"g{x}", "id": x} for x in supp_gids]
+        user_info = UserInfo(
+            username=username,
+            name=username,  # We can't recover the display name
+            uid=uid,
+            gid=gid,
+            groups=groups,
+        )
+        lab_spec = LabSpecification(
+            options=opts, env=lab_env, namespace_quota=None
+        )
+        resources = UserResources(
+            limits=UserResourceQuantum(memory=mem_limit, cpu=cpu_limit),
+            requests=UserResourceQuantum(memory=mem_request, cpu=cpu_request),
+        )
+        ud = UserData.new_from_user_resources(
+            user=user_info,
+            labspec=lab_spec,
+            resources=resources,
+        )
+        ud.status = LabStatus(status)
+        ud.pod = PodState.PRESENT
         return ud

@@ -767,3 +767,54 @@ class LabManager:
         )
         self._tasks.add(ns_task)
         ns_task.add_done_callback(self._tasks.discard)
+
+    async def reconcile_user_map(self) -> None:
+        self.logger.debug("Reconciling user map with observed state.")
+        user_map = self.user_map
+        observed_state = await self.k8s_client.get_observed_user_state(
+            self.manager_namespace
+        )
+        known_users = user_map.list_users()
+        obs_users = list(observed_state.keys())
+
+        # First pass: take everything in the user map and correct its
+        # state (or remove it) if needed.
+        for user in known_users:
+            u_rec = user_map.get(user)
+            if u_rec is None:
+                continue  # Shouldn't happen
+            status = u_rec.status
+            # User was not found by observation
+            if user not in obs_users:
+                self.logger.warning(
+                    f"User {user} not found in observed state."
+                )
+                if status == LabStatus.FAILED:
+                    self.logger.warning(f"Retaining failed state for {user}")
+                else:
+                    self.logger.warning(f"Removing record for user {user}")
+                    self.event_manager.remove(user)
+                    user_map.remove(user)
+            # User was observed to exist
+            else:
+                obs_rec = observed_state[user]
+                if obs_rec.status != status:
+                    self.logger.warning(
+                        f"User map shows status for {user} as {status}, "
+                        + f"but observed is {obs_rec.status}"
+                    )
+                    if status == LabStatus.FAILED:
+                        self.logger.error("Not updating failed status")
+                    else:
+                        self.logger.warning("Updating user map")
+                        user_map.set_status(user, status=obs_rec.status)
+        # Second pass: take observed state and create any missing user map
+        # entries
+        for user in obs_users:
+            obs_rec = observed_state[user]
+            if user not in known_users:
+                self.logger.warning(
+                    f"No entry for observed user '{user}' in user "
+                    + "map.  Creating record from observation"
+                )
+                user_map.set(user, obs_rec)

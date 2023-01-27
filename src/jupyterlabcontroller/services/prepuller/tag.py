@@ -191,6 +191,7 @@ class PrepullerTagClient:
             primary_tag = recommended
             primary_name = img.tags[recommended]
             img.all_tags.append(recommended)
+            best_tag_type = RSPTagType.ALIAS
 
         img.tagobjs = RSPTagList()
         img.tagobjs.all_tags = list()
