@@ -654,12 +654,6 @@ class LabManager:
         for ic in self.lab_config.initcontainers:
             if ic.volumes is not None:
                 ic_volumes = self.build_lab_config_volumes(ic.volumes)
-
-            # InitContainer gets same environment as notebook; makes
-            # provisioning much easier
-            env_vol = self.build_env_volume(username=username)
-            ic_volumes.append(env_vol)
-
             ic_vol_mounts = [x.volume_mount for x in ic_volumes]
             ic_sec_ctx = (
                 V1SecurityContext(
@@ -675,6 +669,15 @@ class LabManager:
                     allow_privilege_escalation=True,
                 )
             ctr = V1Container(
+                # We use the same environment as the notebook, because it
+                # includes things we need for provisioning.
+                env_from=[
+                    V1EnvFromSource(
+                        config_map_ref=V1ConfigMapEnvSource(
+                            name=f"nb-{username}-env"
+                        )
+                    ),
+                ],
                 name=ic.name,
                 image=ic.image,
                 security_context=ic_sec_ctx,
