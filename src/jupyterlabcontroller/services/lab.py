@@ -648,12 +648,18 @@ class LabManager:
         vols.append(runtime_vol)
         return vols
 
-    def build_init_ctrs(self) -> List[V1Container]:
+    def build_init_ctrs(self, username: str) -> List[V1Container]:
         init_ctrs: List[V1Container] = []
         ic_volumes: List[LabVolumeContainer] = []
         for ic in self.lab_config.initcontainers:
             if ic.volumes is not None:
                 ic_volumes = self.build_lab_config_volumes(ic.volumes)
+
+            # InitContainer gets same environment as notebook; makes
+            # provisioning much easier
+            env_vol = self.build_env_volume(username=username)
+            ic_volumes.append(env_vol)
+
             ic_vol_mounts = [x.volume_mount for x in ic_volumes]
             ic_sec_ctx = (
                 V1SecurityContext(
@@ -685,7 +691,7 @@ class LabManager:
         vol_recs = self.build_volumes(username=username)
         volumes = [x.volume for x in vol_recs]
         vol_mounts = [x.volume_mount for x in vol_recs]
-        init_ctrs = self.build_init_ctrs()
+        init_ctrs = self.build_init_ctrs(username)
         env = [
             # Because spec.nodeName is not reflected in
             # DownwardAPIVolumeSource:
