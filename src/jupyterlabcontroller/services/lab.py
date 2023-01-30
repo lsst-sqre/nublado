@@ -651,7 +651,7 @@ class LabManager:
     def build_init_ctrs(self, username: str) -> List[V1Container]:
         init_ctrs: List[V1Container] = []
         ic_volumes: List[LabVolumeContainer] = []
-        for ic in self.lab_config.initcontainers:
+        for ic in self.lab_config.init_containers:
             if ic.volumes is not None:
                 ic_volumes = self.build_lab_config_volumes(ic.volumes)
             ic_vol_mounts = [x.volume_mount for x in ic_volumes]

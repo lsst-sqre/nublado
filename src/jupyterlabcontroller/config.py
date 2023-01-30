@@ -196,7 +196,7 @@ class LabConfiguration(CamelCaseModel):
     secrets: List[LabSecret] = Field(default_factory=list)
     files: Dict[str, LabFile] = Field(default_factory=list)
     volumes: List[LabVolume] = Field(default_factory=list)
-    initcontainers: List[LabInitContainer] = Field(default_factory=list)
+    init_containers: List[LabInitContainer] = Field(default_factory=list)
 
 
 #
