@@ -7,6 +7,7 @@ from typing import List, Optional
 
 from structlog.stdlib import BoundLogger
 
+from ...exceptions import StateUpdateError
 from ...models.domain.prepuller import (
     DigestToNodeTagImages,
     NodeContainers,
@@ -15,7 +16,6 @@ from ...models.domain.prepuller import (
 from ...models.tag import RSPTag, RSPTagList, RSPTagType, StandaloneRSPTag
 from ...models.v1.prepuller import PrepullerConfiguration
 from ...storage.k8s import ContainerImage
-from ...util import extract_path_from_image_ref
 from .state import PrepullerState
 
 
@@ -30,9 +30,9 @@ class PrepullerTagClient:
         self.logger = logger
         self.config = config
 
-    def get_current_image_state(
+    def get_local_images_by_digest(
         self, images_by_node: NodeContainers
-    ) -> List[NodeTagImage]:
+    ) -> DigestToNodeTagImages:
         # This is a convenience method, used by PrepullerK8sClient,
         # that uses the rest of our methods as a processing pipeline.
 
@@ -43,10 +43,15 @@ class PrepullerTagClient:
         # Second, the cycle filter, if any, is applied
         cycletags = self.filter_tags_by_cycle(tags)
 
-        # Finally, deduplicate the tags and return NodeTagImages
-        node_images = self.deduplicate_images_from_tags(cycletags)
-
+        # Finally, deduplicate the tags and return DigestToNodeTagImages
+        node_images = self.images_by_digest(cycletags)
         return node_images
+
+    def get_current_image_state(
+        self, images_by_node: NodeContainers
+    ) -> List[NodeTagImage]:
+        node_images = self.get_local_images_by_digest(images_by_node)
+        return list(node_images.values())
 
     def get_tags_from_images(self, nc: NodeContainers) -> List[RSPTag]:
         """Take a set of NodeContainers and return a list of RSPTags
@@ -129,10 +134,10 @@ class PrepullerTagClient:
     # really ain't much in this day and age.
     #
     # Note that this method also calls consolidate_tags()
-    def deduplicate_images_from_tags(
+    def images_by_digest(
         self,
         tags: List[RSPTag],
-    ) -> List[NodeTagImage]:
+    ) -> DigestToNodeTagImages:
         dmap: DigestToNodeTagImages = dict()
         for tag in tags:
             digest = tag.digest
@@ -141,7 +146,7 @@ class PrepullerTagClient:
                 # have a digest.
                 continue
             img = NodeTagImage(
-                path=extract_path_from_image_ref(ref=tag.image_ref),
+                path=tag.image_ref,
                 digest=digest,
                 name=tag.display_name,
                 size=tag.size,
@@ -156,11 +161,10 @@ class PrepullerTagClient:
             else:
                 extant_image = dmap[digest]
                 if img.path != extant_image.path:
-                    self.logger.warning(
+                    self.logger.info(
                         f"Image {digest} found as {img.path} "
                         + f"and also {extant_image.path}."
                     )
-                    continue
                 extant_image.tags.update(img.tags)
                 for t in tag.nodes:
                     if t not in extant_image.nodes:
@@ -171,7 +175,12 @@ class PrepullerTagClient:
                             extant_image.known_alias_tags.append(alias)
         for digest in dmap:
             self.consolidate_tags(dmap[digest])
-        return list(dmap.values())
+        return dmap
+
+    def deduplicate_images_from_tags(
+        self, tags_by_digest: DigestToNodeTagImages
+    ) -> List[NodeTagImage]:
+        return list(tags_by_digest.values())
 
     def consolidate_tags(self, img: NodeTagImage) -> NodeTagImage:
         """We have an annotated image with many tags.  We want to work
@@ -187,43 +196,76 @@ class PrepullerTagClient:
         best_tag_type: Optional[RSPTagType] = None
         best_nonalias_tag_type: Optional[RSPTagType] = None
 
+        savedigest = ""
         if recommended in img.tags:
             primary_tag = recommended
             primary_name = img.tags[recommended]
             img.all_tags.append(recommended)
+            img.known_alias_tags.append(recommended)
             best_tag_type = RSPTagType.ALIAS
-
-        img.tagobjs = RSPTagList()
-        img.tagobjs.all_tags = list()
+        tag_objs: List[RSPTag] = list()
         for t in img.tags:
             # Turn each text tag into a stripped-down RSPTag...
-            img.tagobjs.all_tags.append(
+            tag_objs.append(
                 RSPTag.from_tag(
-                    t, digest=img.digest, alias_tags=img.known_alias_tags
+                    tag=t,
+                    digest=img.digest,
+                    alias_tags=img.known_alias_tags,
+                    image_ref=img.path,  # Maybe?
                 )
             )
-        # And then sort them.
-        img.tagobjs.sort_all_tags()
+        # And then put those tags into the RSPTagList, which will sort it
+        # for us and allow us to retrieve a TagMap.
+        img.tagobjs = RSPTagList(tags=tag_objs)
 
         # Now that they're sorted, construct the return image with
         # a compound display_name, a canonical tag, and a favored
         # image type.
-        for t_obj in img.tagobjs.all_tags:
-            if primary_name == "":
-                primary_name = t_obj.display_name
-                primary_tag = t_obj.tag
+
+        tags_by_digest = img.tagobjs.tag_map.by_digest
+        for digest in tags_by_digest:
+            tag_objs = tags_by_digest[digest]
+            if len(tag_objs) > 1:
+                savedigest = digest
+                for t_obj in tag_objs:
+                    # The construction loses the fact that recommended is
+                    # inherently an alias.  Add that back in.
+                    if (
+                        t_obj.image_type == RSPTagType.UNKNOWN
+                        and t_obj.tag == recommended
+                    ):
+                        t_obj.image_type = RSPTagType.ALIAS
+                    if primary_name == "":
+                        primary_name = t_obj.display_name
+                        primary_tag = t_obj.tag
+                    else:
+                        other_names.append(t_obj.display_name)
+                    if best_tag_type is None:
+                        best_tag_type = t_obj.image_type
+                    if (
+                        best_nonalias_tag_type is None
+                        and t_obj.image_type != RSPTagType.ALIAS
+                    ):
+                        best_nonalias_tag_type = t_obj.image_type
             else:
-                other_names.append(t_obj.display_name)
-            if best_tag_type is None:
-                best_tag_type = t_obj.image_type
-            if (
-                best_nonalias_tag_type is None
-                and t_obj.image_type != RSPTagType.ALIAS
-            ):
-                best_nonalias_tag_type = t_obj.image_type
-        tag_description: str = primary_name
+                only_tag = img.tagobjs.tags[0]
+                primary_name = only_tag.display_name
+                primary_tag = only_tag.tag
+        tag_desc: str = primary_name
         if other_names:
-            tag_description += f" ({', '.join(x for x in other_names)})"
+            if primary_name in other_names:
+                other_names.remove(primary_name)
+                if other_names:
+                    tag_desc += f" ({', '.join(x for x in other_names)})"
+        if tag_desc != primary_name:
+            # Change it for reporting of remote images too.
+            self.logger.info(f"Updating name for {savedigest} -> {tag_desc}")
+            try:
+                self.state.update_remote_image_name_by_digest(
+                    savedigest, tag_desc
+                )
+            except StateUpdateError as exc:
+                self.logger.error(f"Name update failed: {exc}")
         # The "best" tag is the one corresponding to the highest-sorted
         # tag.  all_tags will be sorted according to the tagobjs, which is
         # to say, according to type.
@@ -231,15 +273,18 @@ class PrepullerTagClient:
         # path!
         untagged = img.path.split(":")[0]
         path = f"{untagged}:{primary_tag}@{img.digest}"
+        # and now that we've done all *that*...if we have the tag in our
+        # remote images by digest, which we should, we update that image's
+        # display name.
         return NodeTagImage(
             path=path,
-            name=tag_description,
+            name=tag_desc,
             digest=img.digest,
             tags=copy(img.tags),
             size=img.size,
             prepulled=img.prepulled,
             best_tag=primary_tag,
-            all_tags=[t.tag for t in img.tagobjs.all_tags],
+            all_tags=[t.tag for t in img.tagobjs.tags],
             nodes=copy(img.nodes),
             known_alias_tags=copy(img.known_alias_tags),
             tagobjs=copy(img.tagobjs),

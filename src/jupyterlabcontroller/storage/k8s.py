@@ -215,6 +215,45 @@ class K8sStorageClient:
             f"Timed out waiting for pod {namespace}/{podname} creation"
         )
 
+    async def remove_completed_pod(
+        self, podname: str, namespace: str, interval: float = 0.2
+    ) -> None:
+        elapsed = 0.0
+        pod_timeout = 30  # arbitrary, but the prepuller pod should just sleep
+        # 5 seconds and go away.
+        while elapsed < pod_timeout:
+            try:
+                pod = await self.api.read_namespaced_pod_status(
+                    name=podname, namespace=namespace
+                )  # Actually returns a V1Pod, not a V1PodStatus
+                pod_status = pod.status
+            except ApiException as e:
+                if e.status == 404:
+                    # Not there to start with is OK.
+                    return
+                else:
+                    self.logger.error(f"API Error: {e}")
+                    raise WaitingForObjectError(str(e))
+            phase = pod_status.phase
+            if phase == K8sPodPhase.SUCCEEDED:
+                try:
+                    self.logger.info(
+                        f"Removing Completed pod {namespace}/{podname}"
+                    )
+                    await self.api.delete_namespaced_pod(
+                        name=podname, namespace=namespace
+                    )
+                    return
+                except ApiException as e:
+                    if e.status == 404:
+                        return
+            await asyncio.sleep(interval)
+            elapsed += interval
+        # And if we get this far, it timed out without being created.
+        raise WaitingForObjectError(
+            f"Timed out waiting for pod {namespace}/{podname} creation"
+        )
+
     async def reflect_pod_events(
         self, namespace: str, podname: str
     ) -> AsyncGenerator:
@@ -362,7 +401,6 @@ class K8sStorageClient:
             immutable=immutable,
             metadata=self.get_std_metadata(name=name, namespace=namespace),
         )
-        self.logger.debug(f"Configmap to create: {configmap}")
         try:
             await self.api.create_namespaced_config_map(
                 namespace=namespace, body=configmap
@@ -398,8 +436,6 @@ class K8sStorageClient:
                 ],
             ),
         )
-        self.logger.debug(f"Network Policy to create: {policy}")
-        # self.logger.debug("Not really creating")
         try:
             await api.create_namespaced_network_policy(
                 namespace=namespace, body=policy
@@ -419,7 +455,6 @@ class K8sStorageClient:
                 },
             ),
         )
-        self.logger.debug(f"Service to create: {svc}")
         try:
             await self.api.create_namespaced_service(
                 namespace=namespace, body=svc
@@ -445,7 +480,6 @@ class K8sStorageClient:
                 }
             ),
         )
-        self.logger.debug(f"Quota to create: {quota_obj}")
         await self.api.create_namespaced_resource_quota(
             namespace=namespace, body=quota_obj
         )
@@ -464,7 +498,6 @@ class K8sStorageClient:
         if labels:
             metadata.labels = labels
         pod_obj = V1Pod(metadata=metadata, spec=pod)
-        self.logger.debug(f"Creating pod: {pod_obj}")
         try:
             await self.api.create_namespaced_pod(
                 namespace=namespace, body=pod_obj
@@ -472,6 +505,7 @@ class K8sStorageClient:
         except Exception as exc:
             self.logger.error(f"Error creating pod: {exc}")
             raise
+        self.logger.debug(f"Created pod {namespace}/{name}")
 
     async def delete_namespace(
         self,

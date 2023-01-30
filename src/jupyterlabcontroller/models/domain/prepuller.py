@@ -24,7 +24,7 @@ class NodeTagImage:
     all_tags: List[str] = field(default_factory=list)
     nodes: List[str] = field(default_factory=list)
     known_alias_tags: List[str] = field(default_factory=list)
-    tagobjs: RSPTagList = RSPTagList(all_tags=list())
+    tagobjs: RSPTagList = RSPTagList(tags=list())
     best_tag_type: Optional[RSPTagType] = None
     best_nonalias_tag_type: Optional[RSPTagType] = None
 
@@ -60,9 +60,3 @@ class NodePool:
     @property
     def eligible(self) -> List[str]:
         return [x.name for x in self.nodes if x.eligible]
-
-
-@dataclass
-class TagMap:
-    by_digest: Dict[str, List[str]] = field(default_factory=dict)
-    by_tag: Dict[str, str] = field(default_factory=dict)

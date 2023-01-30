@@ -1,14 +1,14 @@
 """Docker v2 registry client, based on cachemachine's client."""
 import asyncio
-from collections import defaultdict
-from typing import Dict, List, Optional, cast
+from typing import List, Optional, cast
 
 from httpx import AsyncClient, Response
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import DockerRegistryError
 from ..models.domain.docker import DockerCredentials as DC
-from ..models.domain.prepuller import TagMap
+from ..models.tag import RSPTag, RSPTagList, TagMap
+from ..util import extract_untagged_path_from_image_ref
 
 
 class DockerStorageClient:
@@ -19,6 +19,7 @@ class DockerStorageClient:
         logger: BoundLogger,
         host: str,
         repository: str,
+        recommended_tag: str,
         http_client: AsyncClient,
         credentials: Optional[DC] = None,
     ) -> None:
@@ -35,6 +36,11 @@ class DockerStorageClient:
             "Accept": "application/vnd.docker.distribution.manifest.v2+json"
         }
         self.credentials = credentials
+        self.recommended_tag = recommended_tag
+
+    @property
+    def ref(self) -> str:
+        return f"{self.host}{self.repository}"
 
     async def list_tags(self, authenticate: bool = True) -> List[str]:
         """List all the tags.
@@ -83,21 +89,6 @@ class DockerStorageClient:
         else:
             msg = f"Unknown error retrieving digest from <{url}>: {r}"
             raise DockerRegistryError(msg)
-
-    async def get_tag_map(self) -> TagMap:
-        tags = await self.list_tags()
-        tasks: List[asyncio.Task] = list()
-        for tag in tags:
-            # We probably want to rate-limit this ourselves somehow
-            tasks.append(asyncio.create_task(self.get_image_digest(tag)))
-        digests = cast(
-            List[str], await asyncio.gather(*tasks)
-        )  # gather doesn't know it's all strings, but we do.
-        t_to_d = dict(zip(tags, digests))
-        d_to_t: Dict[str, List[str]] = defaultdict(list)
-        for tag, digest in t_to_d.items():
-            d_to_t[digest].append(tag)
-        return TagMap(by_digest=d_to_t, by_tag=t_to_d)
 
     async def _authenticate(self, response: Response) -> None:
         """Internal method to authenticate after getting an auth challenge.
@@ -158,3 +149,42 @@ class DockerStorageClient:
         else:
             msg = f"Unknown authentication challenge {challenge}"
             raise DockerRegistryError(msg)
+
+    async def get_tag_map(self) -> TagMap:
+        """This is the only actual repository function we directly perform
+        (since pulls are done by K8s).  We query all the tags for a given
+        repository to get their digests, inflate the tag and digest pairs
+        into RSPTag objects, and return a structure with dicts indexed by
+        tag and by digest.  This in turn will let us easily compare what
+        we have remotely and what we have locally, because it doesn't matter
+        what tag we pulled a given image by, but whether we have an image
+        with the proper digest already on a given node.
+        """
+        tags = await self.list_tags()
+        tasks: List[asyncio.Task] = list()
+        for tag in tags:
+            # We probably want to rate-limit this ourselves somehow
+            tasks.append(asyncio.create_task(self.get_image_digest(tag)))
+        digests = cast(
+            List[str], await asyncio.gather(*tasks)
+        )  # gather doesn't know it's all strings, but we do.
+        t_to_d = dict(zip(tags, digests))
+        rsp_tags: List[RSPTag] = list()
+        # Inflate each tag/digest pair into an RSPTag
+        untagged_ref = extract_untagged_path_from_image_ref(self.ref)
+        for tag in t_to_d:
+            alias_tags = []
+            if tag == self.recommended_tag:
+                alias_tags = [self.recommended_tag]
+            rsp_tags.append(
+                RSPTag.from_tag(
+                    tag=tag,
+                    digest=t_to_d[tag],
+                    image_ref=f"{untagged_ref}:{tag}",
+                    alias_tags=alias_tags,
+                )
+            )
+        # Put it into a RSPTagList, which will sort the tags and produce
+        # the map.
+        rsp_taglist = RSPTagList(tags=rsp_tags)
+        return rsp_taglist.tag_map

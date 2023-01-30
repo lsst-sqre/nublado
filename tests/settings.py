@@ -6,9 +6,10 @@ import json
 from copy import copy
 from typing import Any, Dict, List
 
-from jupyterlabcontroller.models.domain.prepuller import NodeContainers, TagMap
+from jupyterlabcontroller.models.domain.prepuller import NodeContainers
 from jupyterlabcontroller.models.domain.usermap import UserMap
 from jupyterlabcontroller.models.k8s import ContainerImage
+from jupyterlabcontroller.models.tag import RSPTag, TagMap
 from jupyterlabcontroller.models.v1.lab import (
     LabSpecification,
     LabStatus,
@@ -53,7 +54,8 @@ class TestObjectFactory:
                     memfld = q[i]["memory"]
                     if type(memfld) is str:
                         q[i]["memory"] = memory_string_to_int(memfld)
-            # Make node contents into List[ContainerImage]
+            # Make node contents into NodeContainers
+            new_nc: NodeContainers = dict()
             for node in self.test_objects["node_contents"]:
                 nc = self.test_objects["node_contents"][node]
                 clist: List[ContainerImage] = list()
@@ -64,7 +66,31 @@ class TestObjectFactory:
                             size_bytes=img["sizeBytes"],
                         )
                     )
-                self.test_objects["node_contents"][node] = clist
+                new_nc[node] = clist
+            self.test_objects["node_contents"] = new_nc
+            # Make repo contents into TagMap
+            bd: Dict[str, List[RSPTag]] = dict()
+            ref = self.test_objects["user_options"][0]["image"].split(":")[0]
+            tlm = self.test_objects["repo_contents"]["by_digest"]
+            for digest in tlm:
+                taglist = tlm[digest]
+                if digest not in bd:
+                    bd[digest] = list()
+                for tag in taglist:
+                    bd[digest].append(
+                        RSPTag.from_tag(
+                            tag=tag, digest=digest, image_ref=f"{ref}:{tag}"
+                        )
+                    )
+            bt: Dict[str, RSPTag] = dict()
+            tags = self.test_objects["repo_contents"]["by_tag"]
+            for tag in tags:
+                digest = self.test_objects["repo_contents"]["by_tag"][tag]
+                bt[tag] = RSPTag.from_tag(
+                    tag=tag, digest=digest, image_ref=f"{ref}:{tag}"
+                )
+            tag_map = TagMap(by_tag=bt, by_digest=bd)
+            self.test_objects["repo_contents"] = tag_map
         self._canonicalized = True
 
     @property
@@ -123,7 +149,9 @@ class TestObjectFactory:
 
     @property
     def repocontents(self) -> TagMap:
-        return TagMap(**self.test_objects["repo_contents"])
+        if not self._canonicalized:
+            self.canonicalize()
+        return self.test_objects["repo_contents"]
 
 
 test_object_factory = TestObjectFactory()

@@ -8,10 +8,10 @@ from typing import List
 from kubernetes_asyncio.client.models import V1Container, V1PodSpec
 from structlog.stdlib import BoundLogger
 
-from ...models.domain.prepuller import NodeContainers, NodeTagImage
+from ...models.domain.prepuller import DigestToNodeTagImages, NodeContainers
 from ...models.v1.prepuller import Node, PrepullerConfiguration
 from ...storage.k8s import ContainerImage, K8sStorageClient
-from ...util import extract_path_from_image_ref, image_to_podname
+from ...util import extract_untagged_path_from_image_ref
 from .state import PrepullerState
 from .tag import PrepullerTagClient
 
@@ -47,7 +47,7 @@ class PrepullerK8sClient:
         # Phase 3: get the state of images on those nodes.
         images = self._construct_current_image_state(all_images_by_node)
         # Phase 4: update persistent state.
-        self.state.set_images(images)
+        self.state.set_local_images(images)
         self.state.set_nodes(nodes)
         self.state.update_k8s_check_time()
         self.logger.info("K8s query complete.")
@@ -61,7 +61,7 @@ class PrepullerK8sClient:
     def _construct_current_image_state(
         self,
         all_images_by_node: NodeContainers,
-    ) -> List[NodeTagImage]:
+    ) -> DigestToNodeTagImages:
         """Return annotated images representing the state of valid images
         across nodes (including those not enabled).
         """
@@ -75,7 +75,7 @@ class PrepullerK8sClient:
         # get deduplicated NodeTagImages from the Tag client for our
         # filtered images
 
-        node_images = self.tag_client.get_current_image_state(
+        node_images = self.tag_client.get_local_images_by_digest(
             images_by_node=filtered_images
         )
         return node_images
@@ -102,10 +102,8 @@ class PrepullerK8sClient:
         return r
 
     def _extract_path_from_container(self, c: ContainerImage) -> str:
-        return extract_path_from_image_ref(c.names[0])
-
-    async def run_prepull_image(self, image: str, nodes: List[str]) -> None:
-        pass
+        path = extract_untagged_path_from_image_ref(c.names[0])
+        return path
 
     def create_prepuller_pod_spec(
         self,
@@ -116,25 +114,36 @@ class PrepullerK8sClient:
         # particular node.  That pod does nothing but sleep five
         # seconds and then exit.  Its only function is to ensure that
         # that image gets pulled to that node.
-        podname = image_to_podname(image)
         return V1PodSpec(
             containers=[
                 V1Container(
-                    name=f"prepull-{podname}",
+                    name="prepull",
                     command=["/bin/sleep", "5"],
                     image=image,
                     working_dir="/tmp",
                 )
             ],
             node_name=node,
+            restart_policy="Never",
         )
 
     async def create_prepuller_pod(
-        self, image: str, node: str, name: str, namespace: str
+        self, name: str, namespace: str, image: str, node: str
     ) -> None:
         spec = self.create_prepuller_pod_spec(image=image, node=node)
-        await self.k8s_client.create_pod(
-            name=name,
-            namespace=namespace,
-            pod=spec,
-        )
+        try:
+            await self.k8s_client.create_pod(
+                name=name,
+                namespace=namespace,
+                pod=spec,
+            )
+            await self.k8s_client.wait_for_pod_creation(
+                podname=name, namespace=namespace
+            )
+            await self.k8s_client.remove_completed_pod(
+                podname=name, namespace=namespace
+            )
+
+        except Exception as exc:
+            self.logger.error(f"Pod creation error: {exc}")
+        self.logger.debug(f"Created prepuller pod {namespace}/{name}.")

@@ -5,7 +5,7 @@ These are specific to the Rubin Science Platform tag conventions.  The tag
 must be in the format specified by https://sqr-059.lsst.io"""
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import IntEnum, auto
 from typing import Dict, List, Match, Optional, Tuple
 
@@ -19,18 +19,18 @@ class RSPTagType(IntEnum):
     """Enum specifying different tag types for Rubin Science Platform Lab
     images.
 
-    These are listed in reverse order of priority to make construction of
+    These are listed in order of priority to make construction of
     display name lists trivial: tags in higher categories will be listed
     before those in lower categories.
     """
 
-    UNKNOWN = auto()
-    EXPERIMENTAL = auto()
-    RELEASE_CANDIDATE = auto()
-    DAILY = auto()
-    WEEKLY = auto()
-    RELEASE = auto()
     ALIAS = auto()
+    RELEASE = auto()
+    WEEKLY = auto()
+    DAILY = auto()
+    RELEASE_CANDIDATE = auto()
+    EXPERIMENTAL = auto()
+    UNKNOWN = auto()
 
 
 DOCKER_DEFAULT_TAG = "latest"
@@ -491,44 +491,96 @@ class RSPTag(StandaloneRSPTag):
         return True
 
 
+# Below here, we have some convenience classes to produce sorted lists
+# and dicts mapping tag names or digests to RSPTag objects.
+
+
 @dataclass
+class TagMap:
+    by_digest: Dict[str, List[RSPTag]]
+    by_tag: Dict[str, RSPTag]
+
+
 class RSPTagList:
-    """This is a class to hold tag objects and return sorted lists of their
-    corresponding Image objects for construction of the image menu.
+    """This is a class to hold tag objects and keep them sorted.  It can
+    yield TagMaps on demand
     """
 
-    all_tags: List[RSPTag] = field(default_factory=list)
+    def __init__(self, tags: List[RSPTag]) -> None:
+        self._all_tags: List[RSPTag] = list()
+        self._tag_map: TagMap = TagMap(by_digest=dict(), by_tag=dict())
+        self._rebuild(tags=tags)
 
-    def sort_all_tags(self) -> None:
-        """This sorts the ``all_tags`` field according to the ordering of
+    @property
+    def tags(self) -> List[RSPTag]:
+        return self._all_tags
+
+    @property
+    def tag_map(self) -> TagMap:
+        return self._tag_map
+
+    def set_tags(self, tags: List[RSPTag]) -> None:
+        self._rebuild(tags)
+
+    def _rebuild(self, tags: List[RSPTag]) -> None:
+        self._all_tags = tags
+        self._sort_all_tags()
+        self._make_tag_map()
+
+    def _sort_all_tags(self) -> None:
+        """This sorts the ``_all_tags`` field according to the ordering of
         the RSPTagType enum."""
         new_tags: Dict[RSPTagType, List[RSPTag]] = dict()
         for tag_type in RSPTagType:  # Initialize the dict, relying on the fact
             # that dicts are insertion-ordered in Python 3.6+ (we require
             # 3.10 for TypeAlias, so this is safe)
             new_tags[tag_type] = list()
-        for tag in self.all_tags:
+        for tag in self.tags:
             new_tags[tag.image_type].append(tag)
         # Now sort the tags within each type in reverse lexical order.  This
         # will sort them with most recent first, because of the tag type
         # definitions in SQR-059.
         for tag_type in RSPTagType:
-            new_tags[tag.image_type].sort(reverse=True)
+            new_tags[tag_type].sort(reverse=True)
         # And flatten it out into a homogeneous list.
         flat_tags: List[RSPTag] = list()
         for k in new_tags:
             flat_tags.extend(new_tags[k])
-        self.all_tags = flat_tags
+        self._all_tags = flat_tags
 
     def to_imagelist(self) -> List[Image]:
         image_list: List[Image] = list()
-        for t in self.all_tags:
+        for t in self.tags:
             image_list.append(
                 Image(
-                    path=t.image_ref,
+                    path=f"{t.image_ref}@{t.digest}",
                     digest=t.digest,
                     name=t.display_name,
                     tags={t.tag: t.display_name},
                 )
             )
         return image_list
+
+    def _by_digest(self) -> Dict[str, List[RSPTag]]:
+        digestmap: Dict[str, List[RSPTag]] = dict()
+        for tag in self.tags:
+            if tag.digest not in digestmap:
+                digestmap[tag.digest] = list()
+            digestmap[tag.digest].append(tag)
+        return digestmap
+
+    def _by_tag(self) -> Dict[str, RSPTag]:
+        tagdict: Dict[str, RSPTag] = dict()
+        for tag in self.tags:
+            tagdict[tag.tag] = tag
+        return tagdict
+
+    def _make_tag_map(self) -> None:
+        self._tag_map = TagMap(
+            by_digest=self._by_digest(), by_tag=self._by_tag()
+        )
+
+    def __str__(self) -> str:
+        value = f"{type(self).__name__}: by_digest: {self._by_digest()}"
+        value += f" ; by_tag: {self._by_tag()}"
+        return value

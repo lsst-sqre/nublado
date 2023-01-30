@@ -19,6 +19,8 @@ class MockProcessContext(ProcessContext):
         pc = await super().from_config(config)
         k8s_client = MockK8sStorageClient(test_obj=test_obj)
         docker_client = MockDockerStorageClient(test_obj=test_obj)
-        pc.prepuller_executor.k8s_client.k8s_client = k8s_client
-        pc.prepuller_executor.docker_client.docker_client = docker_client
+        px = pc.prepuller_executor
+        px.state.set_remote_images(test_obj.repocontents)
+        px.k8s_client.k8s_client = k8s_client
+        px.docker_client.docker_client = docker_client
         return cast("MockProcessContext", pc)

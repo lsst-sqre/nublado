@@ -1,6 +1,8 @@
 """This class will manage communication with the Docker repository in order
 to fetch tag information and determine which images are available from the
 repository.
+
+These are known as our remote images.
 """
 
 

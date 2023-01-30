@@ -7,6 +7,9 @@ from jupyterlabcontroller.factory import Context
 async def test_generate_user_lab_form(
     user_context: Context,
 ) -> None:
+    px = user_context.prepuller_executor
+    await px.k8s_client.refresh_state_from_k8s()
+    await px.docker_client.refresh_state_from_docker_repo()
     r = user_context.form_manager.generate_user_lab_form()
     assert (
         r.find(

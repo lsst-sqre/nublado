@@ -71,6 +71,9 @@ class PrepullerExecutor:
             return
         self.logger.info("Starting prepuller background tasks")
         await self._docker_scheduler.spawn(self._docker_refresh())
+        # We want the remote list to populate before we look at what we
+        # have locally.
+        await self._wait_for_remote_images_to_populate()
         await self._k8s_scheduler.spawn(self._k8s_refresh())
         await self._master_prepull_scheduler.spawn(
             self._prepuller_scheduler_start()
@@ -91,6 +94,32 @@ class PrepullerExecutor:
         await self._master_prepull_scheduler.close()
         self._stopping = False
         self._running = False
+
+    async def _wait_for_remote_images_to_populate(self) -> None:
+        """This is a minor optimization.  Basically, if we do not wait for
+        the remote images to update, we won't have nice display name
+        resolution for alias tags (such as "Recommended") until the first run
+        of the local image scan *after* the remote scan has completed.
+
+        If this method fails, the attempted image renaming will cause an
+        error in the log and potential difficulty debugging what container
+        a user is actually running, but doesn't break anything major.
+
+        45 seconds is arbitrary.
+        """
+        increment = PREPULLER_INTERNAL_POLL_PERIOD
+        total_wait = 0.0
+        max_wait = 45.0
+        while not self.state.remote_images.by_digest:
+            await asyncio.sleep(increment)
+            total_wait += increment
+            increment *= 1.5
+            self.logger.info(
+                f"Waited for remote images for {total_wait}s so far"
+            )
+            if total_wait > max_wait:
+                self.logger.error("Ceasing to wait for remote images.")
+                return
 
     async def _prepuller_scheduler_start(self) -> None:
         # Poll until we see that we have data in our local and remote state
@@ -151,31 +180,39 @@ class PrepullerExecutor:
         # We would expect the pull to take about the same time for any node,
         # so this shouldn't waste too much time.
 
+        #
+        # FIXME get rid of scheduler temporarily to see error messages
+        #
         for image in required_pulls:
-            if self._prepull_scheduler is not None:
-                self.logger.warning(
-                    "Prepull scheduler already exists.  Presuming "
-                    "earlier pull still in progress.  Not starting new pull."
-                )
-                return
-            self._prepull_scheduler = Scheduler(
-                close_timeout=PREPULLER_PULL_TIMEOUT
-            )
+            #     if self._prepull_scheduler is not None:
+            #         self.logger.warning(
+            #             "Prepull scheduler already exists.  Presuming "
+            #  --    "earlier pull still in progress.  Not starting new pull."
+            #         )
+            #         return
+            #     self._prepull_scheduler = Scheduler(
+            #         close_timeout=PREPULLER_PULL_TIMEOUT
+            #     )
             podname = image_to_podname(image)
             for node in required_pulls[image]:
-                await self._prepull_scheduler.spawn(
-                    self.k8s_client.create_prepuller_pod(
-                        name=f"prepull-{podname}",
+                self.logger.debug(
+                    f"Creating {self.namespace}/prepull-{podname}-{node}"
+                )
+                if True:
+                    #                await self._prepull_scheduler.spawn(
+                    # This is now going to wait for each pod to start running
+                    # before going to the next.
+                    await self.k8s_client.create_prepuller_pod(
+                        name=f"prepull-{podname}-{node}",
                         namespace=self.namespace,
                         image=image,
                         node=node,
-                    ),
-                )
-            self.logger.debug(
-                f"Waiting up to {PREPULLER_PULL_TIMEOUT}s for prepuller "
-                f"pod 'prepull-{podname}'."
-            )
-            await self._prepull_scheduler.close()
+                    )
+            #            self.logger.debug(
+            #    --   f"Waiting up to {PREPULLER_PULL_TIMEOUT}s for prepuller "
+            #                f"pod 'prepull-{podname}'."
+            #            )
+            #           await self._prepull_scheduler.close()
             # FIXME catch the TimeoutError if it happens
-            self.logger.debug("Prepull_images complete.")
             self._prepull_scheduler = None
+            await self.k8s_client.refresh_state_from_k8s()

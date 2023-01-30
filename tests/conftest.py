@@ -124,5 +124,5 @@ def make_request(token: str) -> Request:
 @pytest_asyncio.fixture
 async def user_context(context_dependency: MockContextDependency) -> Context:
     return await context_dependency(
-        request=make_request(token="token-of-affection")
+        request=make_request(token="token-of-affection"),
     )

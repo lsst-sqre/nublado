@@ -84,6 +84,7 @@ class ProcessContext:
                     repository=config.images.repository,
                     logger=logger,
                     http_client=await http_client_dependency(),
+                    recommended_tag=config.images.recommended_tag,
                     credentials=docker_credentials.get(
                         config.images.registry,
                     ),
@@ -277,6 +278,7 @@ class Context:
             credentials=self.docker_credentials.get(
                 self.config.images.registry,
             ),
+            recommended_tag=self.config.images.recommended_tag,
         )
 
     async def get_user(self) -> UserInfo:

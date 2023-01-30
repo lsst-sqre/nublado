@@ -57,3 +57,9 @@ class MissingSecretError(Exception):
     """Raised when we try to copy a non-existent secret."""
 
     pass
+
+
+class StateUpdateError(Exception):
+    """Raised when an attempt to update prepuller state fails."""
+
+    pass

@@ -111,18 +111,42 @@ def dashify(item: str) -> str:
 def image_to_podname(image: str) -> str:
     short_name = (image.split(":")[0]).split("/")[-1]
     tag = dashify((image.split(":")[1]).split("@")[0])
-    return f"{short_name}-{tag}"
+    if not short_name or not tag:
+        raise RuntimeError(
+            "At least one of short_name '{short_name}' and tag '{tag}' empty!"
+        )
+    podname = f"{short_name}-{tag}"
+    if "@sha256-" in podname:
+        podname = podname.replace("@sha256-", "-sha256-")
+    return podname
 
 
-def extract_path_from_image_ref(ref: str) -> str:
-    # Remove the specifier from either a digest or a tagged image
+def extract_untagged_path_from_image_ref(ref: str) -> str:
+    # Remove the digest if it's there
     if "@sha256:" in ref:
         # Everything before the '@'
-        untagged = ref.split("@")[0]
+        undigested = ref.split("@")[0]
     else:
-        # Everything before the last ':'
-        untagged = ":".join(ref.split(":")[:-1])
+        # it's the whole thing
+        undigested = ref
+    if ":" in undigested:
+        untagged = undigested.split(":")[0]
+    else:
+        untagged = undigested
     return untagged
+
+
+def remove_tag_from_image_ref(ref: str) -> str:
+    if "@sha256:" in ref:
+        digest = ref.split("@")[1]
+        tagged = ref.split("@")[0]
+        if ":" in tagged:
+            untagged_loc = tagged.split(":")[0]
+        else:
+            untagged_loc = tagged
+        return f"{untagged_loc}@{digest}"
+    else:
+        raise RuntimeError(f"Ref {ref} has no digest")
 
 
 def str_to_bool(inp: str) -> bool:

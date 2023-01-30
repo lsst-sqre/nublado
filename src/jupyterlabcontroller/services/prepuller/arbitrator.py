@@ -3,14 +3,14 @@ so that it knows what images need prepulling.
 """
 
 
-from copy import copy
-from typing import Any, Dict, List
+from typing import Dict, List, Optional
 
 from structlog.stdlib import BoundLogger
 
-from ...models.domain.prepuller import DisplayImages, NodeTagImage
-from ...models.tag import RSPTag, RSPTagType
+from ...models.domain.prepuller import DisplayImages
+from ...models.tag import RSPTag, RSPTagList, RSPTagType
 from ...models.v1.prepuller import (
+    Image,
     Node,
     NodeImage,
     PrepullerConfiguration,
@@ -38,338 +38,206 @@ class PrepullerArbitrator:
 
     def get_prepulls(self) -> PrepullerStatus:
         """GET /nublado/spawner/v1/prepulls"""
-        # Phase 1: get prepulled status for each desired image
-        node_images = self.get_images()
-        # Phase 2: determine which nodes have which images
-        nodes = self.get_node_cache()
+        # Phase 1: determine desired tags.
+        desired_rsptags = self.get_desired_rsptags()
+        # Phase 2: determine eligible nodes
+        eligible_nodes = [x.name for x in self.state.nodes if x.eligible]
 
-        eligible_nodes = [x.name for x in nodes if x.eligible]
+        # Phase 3: update status for local images
+        img_status = self.update_image_status(desired_rsptags, eligible_nodes)
 
-        # Phase 3: get desired images for menu (which are the ones to
-        # prepull)
-        menu_node_images = self.filter_node_images_to_desired_menu(node_images)
+        # Phase 4: construct node list with cached images
+        nodelist = self.recalculate_node_cache(self.state.nodes, img_status)
 
-        prepulled: List[NodeImage] = list()
-        pending: List[NodeImage] = list()
-
-        for i_name in menu_node_images:
-            img = menu_node_images[i_name]
-            if img.prepulled:
-                prepulled.append(
-                    NodeImage(
-                        path=img.path,
-                        name=img.name,
-                        digest=img.digest,
-                        nodes=self._nodes_present(img, eligible_nodes),
-                    )
-                )
-            else:
-                pending.append(
-                    NodeImage(
-                        path=img.path,
-                        name=img.name,
-                        digest=img.digest,
-                        nodes=self._nodes_present(img, eligible_nodes),
-                        missing=self._nodes_missing(img, eligible_nodes),
-                    )
-                )
-        images = PrepullerContents(prepulled=prepulled, pending=pending)
         status = PrepullerStatus(
-            config=self.config, images=images, nodes=nodes
+            config=self.config, images=img_status, nodes=nodelist
         )
         return status
 
-    def _nodes_present(self, img: NodeTagImage, nodes: List[str]) -> List[str]:
-        return [x for x in nodes if x in img.nodes]
-
-    def _nodes_missing(self, img: NodeTagImage, nodes: List[str]) -> List[str]:
-        return [x for x in nodes if x not in img.nodes]
-
     # Phase 1
-    def get_images(self) -> List[NodeTagImage]:
-        """Starting with images that are present on at least one node,
-        validate their digests against the remote digests and build up
-        a list of images that are
+    def get_desired_rsptags(self, bot: bool = False) -> RSPTagList:
+        """This returns the desired tags for either prepulling or bot user
+        use.  If the ``bot`` parameter is True, it will return one (the
+        latest) daily, weekly, and release tag, as well as the recommended
+        tag.  If the ``bot`` parameter is False, it will return the
+        count of each tag type specified in the prepuller configuration.
         """
-        present_images = self.state.images
-        remote_tags = self._make_tags_from_remote_images()
-        available_remote_images = self.tag_client.deduplicate_images_from_tags(
-            remote_tags
-        )
-        available_images = self._reconcile_local_and_remote_digests(
-            present_images, available_remote_images
-        )
-        # Recalculate prepull status with remote images factored in
-        return self.determine_image_prepull_status(available_images)
+        remote = self.state.remote_images.by_digest
+        desired: List[RSPTag] = list()
+        recommended: Optional[RSPTag] = None
+        release: List[RSPTag] = list()
+        weekly: List[RSPTag] = list()
+        daily: List[RSPTag] = list()
+        r_count = self.config.num_releases
+        w_count = self.config.num_weeklies
+        d_count = self.config.num_dailies
+        if bot:
+            r_count = 1
+            w_count = 1
+            d_count = 1
+        for digest in remote:
+            if (
+                (recommended is not None)
+                and (len(release) >= r_count)
+                and (len(weekly) >= w_count)
+                and (len(daily) >= d_count)
+            ):
+                # We have all the tags we want
+                break
+            seen: Dict[str, bool] = dict()
+            rsp_list = remote[digest]
+            for rsptag in rsp_list:
+                if rsptag.tag == self.config.recommended_tag:
+                    recommended = rsptag
+                    rsptag.image_type = RSPTagType.ALIAS
+                    seen[digest] = True
+                    continue
+                if (
+                    rsptag.image_type == RSPTagType.RELEASE
+                    and len(release) < r_count
+                    and digest not in seen
+                ):
+                    release.append(rsptag)
+                    seen[digest] = True
+                    continue
+                if (
+                    rsptag.image_type == RSPTagType.WEEKLY
+                    and len(weekly) < w_count
+                    and digest not in seen
+                ):
+                    weekly.append(rsptag)
+                    seen[digest] = True
+                    continue
+                if (
+                    rsptag.image_type == RSPTagType.DAILY
+                    and len(daily) < d_count
+                    and digest not in seen
+                ):
+                    daily.append(rsptag)
+                    seen[digest] = True
+                    continue
+        if recommended:
+            desired.insert(0, recommended)
+        desired.extend(release)
+        desired.extend(weekly)
+        desired.extend(daily)
+        taglist = RSPTagList(tags=desired)
+        return taglist
 
-    # Phase 1A
-    def _make_tags_from_remote_images(self) -> List[RSPTag]:
-        # Convert our remote image digest map of Docker tags into a list of RSP
-        # rich Tag format objects.  This is inefficient.  FIXME later.
-        remote_images = self.state.remote_images
-        available_tagobjs: List[RSPTag] = list()
-        for digest in remote_images.by_digest:
-            for tag in remote_images.by_digest[digest]:
-                available_tagobjs.append(
-                    RSPTag.from_tag(
-                        tag=tag,
+    # Phase 3
+    def update_image_status(
+        self, desired: RSPTagList, eligible_nodes: List[str]
+    ) -> PrepullerContents:
+        desired_by_digest = desired.tag_map.by_digest
+        present_by_digest = self.state.local_images
+        eligible = set(eligible_nodes)
+        status = PrepullerContents(prepulled=list(), pending=list())
+        for digest in desired_by_digest:
+            if digest in present_by_digest:
+                # We have it on at least one node...possibly not an
+                # eligible one
+                image = present_by_digest[digest]
+                present_nodes = set(image.nodes)
+                if eligible <= present_nodes:
+                    # It exists on all eligible nodes
+                    status.prepulled.append(
+                        NodeImage(
+                            path=image.path,
+                            name=image.name,
+                            digest=digest,
+                            nodes=eligible_nodes,
+                        )
+                    )
+                    continue
+                # It exists on some but not all eligible nodes
+                needed = eligible - present_nodes
+                present = eligible & present_nodes
+                status.pending.append(
+                    NodeImage(
+                        path=image.path,
+                        name=image.name,
                         digest=digest,
-                        image_ref=self.config.path,
+                        nodes=list(present),
+                        missing=list(needed),
                     )
                 )
-        return available_tagobjs
+            else:
+                # It's missing on all nodes
+                rsptag = desired_by_digest[digest][0]
+                status.pending.append(
+                    NodeImage(
+                        path=rsptag.image_ref,
+                        name=rsptag.tag,
+                        digest=digest,
+                        nodes=list(),
+                        missing=eligible_nodes,
+                    )
+                )
+        return status
 
-    # Phase 1B
-    def _reconcile_local_and_remote_digests(
-        self,
-        local: List[NodeTagImage],
-        remote: List[NodeTagImage],
-    ) -> List[NodeTagImage]:
-        validated_local = self._validate_digests(local, remote)
-        all_img = copy(validated_local)  # Start with local images
-        all_img.extend(remote)  # Add any remote images we haven't pulled
-        # Rebuild our images with knowledge from remote repository
-        image_map = self._rectify_images(all_img)
-        # Rebuild our image list with re-consolidated tags, since we
-        # might have discovered new things about the images
-        return [
-            self.tag_client.consolidate_tags(x) for x in image_map.values()
-        ]
-
-    # Phase 1B.i
-    def _validate_digests(
-        self,
-        local: List[NodeTagImage],
-        remote: List[NodeTagImage],
-    ) -> List[NodeTagImage]:
-        for local_image in local:
-            if not self._validate_single_image(local_image, remote):
-                # Local image has different hash than remote, so it must
-                # have been retagged on the Docker repository, and therefore
-                # it needs repulling, so invalidate it on all nodes.
-                local_image.nodes = list()
-        return local
-
-    # Phase 1B.ii
-    def _validate_single_image(
-        self, l_img: NodeTagImage, remote: List[NodeTagImage]
-    ) -> bool:
-        for l_tag in l_img.all_tags:
-            for r_img in remote:
-                if l_tag in r_img.all_tags:
-                    if l_img.digest != r_img.digest:
-                        self.logger.warning(
-                            f"Local image tag {l_tag} has digest "
-                            f"{l_img.digest}, but remote image has "
-                            f"digest {r_img.digest}.  Invalidating "
-                            f"local image"
-                        )
-                        return False
-        return True
-
-    # Phase 1B.iii
-    def _rectify_images(
-        self, input_images: List[NodeTagImage]
-    ) -> Dict[str, NodeTagImage]:
-        image_map: Dict[str, NodeTagImage] = dict()
-        for input_image in input_images:
-            digest = input_image.digest
-            if digest not in image_map:
-                image_map[digest] = input_image  # We've never seen it before
-            old_image = image_map[digest]  # But maybe we have.  If we just
-            # added it, old_image will be the same as input_image, but if
-            # not, we may need to update the image
-            old_tags = set(old_image.all_tags)
-            old_nodes = set(old_image.nodes)
-            old_aliases = set(old_image.known_alias_tags)
-            new_tags = set(input_image.all_tags)
-            new_nodes = set(input_image.nodes)
-            new_aliases = set(input_image.known_alias_tags)
-            # Merge nodes, tags, aliases, prepulled, and update size
-            old_image.all_tags = list(old_tags.union(new_tags))
-            old_image.nodes = list(old_nodes.union(new_nodes))
-            old_image.known_alias_tags = list(old_aliases.union(new_aliases))
-            old_image.prepulled = old_image.prepulled & input_image.prepulled
-            if old_image.size is None:
-                old_image.size = input_image.size  # We're going to assume we
-                # don't have inconsistent sizes; if we do, something is badly
-                # wrong, but we use the size for, at most, display, so it's not
-                # worth blowing up over.
-        return image_map
-
-    # Phase 2
-    def get_node_cache(self) -> List[Node]:
-        """Determine which images are cached on each node."""
-        return self._update_node_cache(
-            self.state.nodes,
-            self.determine_image_prepull_status(self.state.images),
-        )
-
-    # Phase 2A
-    def _update_node_cache(
-        self, nodes: List[Node], image_list: List[NodeTagImage]
+    # Phase 4
+    def recalculate_node_cache(
+        self, nodes: List[Node], images: PrepullerContents
     ) -> List[Node]:
-        """Update which (desired) images are cached on each node."""
-        node_cache: List[Node] = list()
-        digest_map: Dict[str, Dict[str, Any]] = dict()
-        desired_list = list(
-            self.filter_node_images_to_desired_menu(
-                all_images=image_list
-            ).values()
-        )
-        for node_tag_image in desired_list:
-            image = node_tag_image.to_image()
-            if image.digest not in digest_map:
-                digest_map[image.digest] = dict()
-            digest_map[image.digest]["image"] = image
-            digest_map[image.digest]["nodes"] = node_tag_image.nodes
-        for node in nodes:
-            for node_tag_image in desired_list:
-                digest = node_tag_image.digest
-                nodes_for_digest = digest_map[digest]["nodes"]
-                if node.name in nodes_for_digest:
-                    cache_digests = [x.digest for x in node.cached]
-                    if digest not in cache_digests:
-                        node.cached.append(digest_map[digest]["image"])
-            node_cache.append(node)
-        return node_cache
-
-    # Utility method used in multiple phases of get_prepulls()
-    def determine_image_prepull_status(
-        self, images: List[NodeTagImage]
-    ) -> List[NodeTagImage]:
-        # This works across nodes to see whether if an image is on
-        # one eligible node, it is on all eligible nodes
-        nodes = self.state.nodes
-        r: List[NodeTagImage] = list()
-        eligible_node_names = set([x.name for x in nodes if x.eligible])
-        for i in images:
-            image_node_names = set(i.nodes)
-            prepulled: bool = True
-            if eligible_node_names - image_node_names:
-                # Only use eligible nodes to determine prepulled status
-                prepulled = False
-            c = copy(i)  # Leave the original intact
-            c.prepulled = prepulled  # Update copy's prepull status
-            r.append(c)
-        return r
-
-    def filter_node_images_to_desired_menu(
-        self, all_images: List[NodeTagImage]
-    ) -> Dict[str, NodeTagImage]:
-        """Used in get_prepulls() and get_menu_images()"""
-        menu_tag_count = {
-            RSPTagType.RELEASE: self.config.num_releases,
-            RSPTagType.WEEKLY: self.config.num_weeklies,
-            RSPTagType.DAILY: self.config.num_dailies,
-        }
-        return self.filter_node_images_to_desired(
-            tag_count=menu_tag_count, all_images=all_images
-        )
-
-    def filter_node_images_to_desired(
-        self, tag_count: Dict[RSPTagType, int], all_images: List[NodeTagImage]
-    ) -> Dict[str, NodeTagImage]:
-        """Convenience method used by get_spawner_images (which is asking for
-        one of each of daily, weekly, and release) as well as the above"""
-        desired_images: Dict[str, NodeTagImage] = dict()
-        # First: consolidate tags in all images.
-        images: List[NodeTagImage] = list()
-        for image in all_images:
-            images.append(self.tag_client.consolidate_tags(image))
-        for image in images:
-            # First pass: find recommended tag, put it at top
-            if (
-                image.best_tag
-                and image.best_tag == self.config.recommended_tag
-            ):
-                desired_images[image.best_tag] = image
-        running_count: Dict[RSPTagType, int] = dict()
-        for tag_type in RSPTagType:
-            if tag_count.get(tag_type) is None:
-                tag_count[tag_type] = 0
-            running_count[tag_type] = 0
-        for image in images:
-            if image.best_nonalias_tag_type is None:
-                self.logger.warning(f"Image type is None: {image}")
-                continue
-            tag_type = image.best_nonalias_tag_type
-            running_count[tag_type] += 1
-            if running_count[tag_type] > tag_count[tag_type]:
-                continue
-            if image.best_tag:
-                desired_images[image.best_tag] = image
-        return desired_images
+        node_dict: Dict[str, Node] = dict()
+        # Make dict for node list
+        for n in nodes:
+            node_dict[n.name] = Node(
+                name=n.name,
+                eligible=n.eligible,
+                comment=n.comment,
+                cached=list(),
+            )
+        for prepulled in images.prepulled:
+            img = Image(
+                path=prepulled.path,
+                digest=prepulled.digest,
+                name=prepulled.name,
+                tags=dict(),
+            )
+            for node in prepulled.nodes:
+                node_dict[node].cached.append(img)
+        for pending in images.pending:
+            img = Image(
+                path=pending.path,
+                digest=pending.digest,
+                name=pending.name,
+                tags=dict(),
+            )
+            for node in pending.nodes:
+                node_dict[node].cached.append(img)
+        return list(node_dict.values())
 
     def get_spawner_images(self) -> SpawnerImages:
         """GET /nublado/spawner/v1/images"""
-        images = self.get_images()
-
-        spawner_tag_count = {
-            RSPTagType.RELEASE: 1,
-            RSPTagType.WEEKLY: 1,
-            RSPTagType.DAILY: 1,
-        }
-
-        desired_images = self.filter_node_images_to_desired(
-            spawner_tag_count, images
-        )
-
-        # We will have four images here: recommended, latest release,
-        # latest weekly, and latest daily, in that order (because of the
-        # ordering of the RSPTag enum).
-
-        desired_list = [x.to_image() for x in list(desired_images.values())]
-
-        all = [x.to_image() for x in images]
-        all.reverse()
-        for img in all:
-            if img.path[0] == ":":  # We just have the tag, not the rest
-                img.path = f"{self.config.path}{img.path}"
-
+        # Phase 1: determine desired tags.
+        image_list = self.get_desired_rsptags(bot=True).to_imagelist()
+        # Phase 2: get all tags
+        all = RSPTagList(
+            tags=list(self.state.remote_images.by_tag.values())
+        ).to_imagelist()
         return SpawnerImages(
-            recommended=desired_list[0],
-            latest_release=desired_list[1],
-            latest_weekly=desired_list[2],
-            latest_daily=desired_list[3],
+            recommended=image_list[0],
+            latest_release=image_list[1],
+            latest_weekly=image_list[2],
+            latest_daily=image_list[3],
             all=all,
         )
 
     def get_menu_images(self) -> DisplayImages:
         """Used to construct the spawner form."""
-        node_images = self.get_images()
-        # Sort the images in display order
-        node_images.sort(key=lambda x: (x.best_tag_type, x.name))
-        node_images.reverse()
 
-        menu_node_images = self.filter_node_images_to_desired_menu(node_images)
-
-        available_menu_node_images = self._filter_node_images_by_availability(
-            menu_node_images
-        )
-
-        all = [x.to_image() for x in node_images]
-        for image in all:
-            if image.path[0] == ":":  # We just have the tag, not the rest
-                image.path = f"{self.config.path}{image.path}"
-
+        image_menu = self.get_desired_rsptags().to_imagelist()
+        all = RSPTagList(
+            tags=list(self.state.remote_images.by_tag.values())
+        ).to_imagelist()
         menu_images = DisplayImages()
-        for node_image in available_menu_node_images:
-            available = available_menu_node_images[node_image]
-            menu_images.menu[available.best_tag] = available.to_image()
+        for image in image_menu:
+            menu_images.menu[image.name] = image
         for image in all:
             first_tag = list(image.tags.keys())[0]
             menu_images.all[first_tag] = image
         return menu_images
-
-    def _filter_node_images_by_availability(
-        self, menu_node_images: Dict[str, NodeTagImage]
-    ) -> Dict[str, NodeTagImage]:
-        r: Dict[str, NodeTagImage] = dict()
-        for k in menu_node_images:
-            if menu_node_images[k].prepulled:
-                r[k] = menu_node_images[k]
-        return r
 
     def get_required_prepull_images(self) -> Dict[str, List[str]]:
         """This is the method to identify everything that needs pulling.
@@ -384,13 +252,11 @@ class PrepullerArbitrator:
         pending = status.images.pending
 
         required_pulls: Dict[str, List[str]] = dict()
-        eligible_node_names = [x.name for x in self.state.nodes if x.eligible]
         for img in pending:
+            path = img.path
             if img.missing is not None:
                 for i in img.missing:
-                    if i in eligible_node_names:
-                        if img.path not in required_pulls:
-                            required_pulls[img.path] = list()
-                        required_pulls[img.path].append(i)
-        self.logger.debug(f"Required pulls by node: {required_pulls}")
+                    if path not in required_pulls:
+                        required_pulls[path] = list()
+                    required_pulls[path].append(i)
         return required_pulls

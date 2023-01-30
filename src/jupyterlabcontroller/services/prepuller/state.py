@@ -16,15 +16,17 @@ from ...constants import (
     PREPULLER_DOCKER_POLL_INTERVAL,
     PREPULLER_K8S_POLL_INTERVAL,
 )
-from ...models.domain.prepuller import Node, NodeTagImage, TagMap
+from ...exceptions import StateUpdateError
+from ...models.domain.prepuller import DigestToNodeTagImages, Node
+from ...models.tag import TagMap
 from ...util import now, stale
 
 
 class PrepullerState:
     def __init__(self) -> None:
-        self._remote_images = TagMap()
+        self._remote_images = TagMap(by_digest=dict(), by_tag=dict())
         self._nodes: List[Node] = list()
-        self._images: List[NodeTagImage] = list()
+        self._local_images: DigestToNodeTagImages = {}
         self._last_docker_check = EPOCH
         self._last_k8s_check = EPOCH
         self._last_prepuller_run = EPOCH
@@ -61,12 +63,23 @@ class PrepullerState:
     def set_remote_images(self, tag_map: TagMap) -> None:
         self._remote_images = tag_map
 
-    @property
-    def images(self) -> List[NodeTagImage]:
-        return self._images
+    def update_remote_image_name_by_digest(
+        self, digest: str, name: str
+    ) -> None:
+        by_dig = self._remote_images.by_digest
+        if digest not in by_dig:
+            raise StateUpdateError(
+                f"Digest {digest} is not in remote_images {by_dig}."
+            )
+        for tag in by_dig[digest]:
+            tag.display_name = name
 
-    def set_images(self, images: List[NodeTagImage]) -> None:
-        self._images = images
+    @property
+    def local_images(self) -> DigestToNodeTagImages:
+        return self._local_images
+
+    def set_local_images(self, local_images: DigestToNodeTagImages) -> None:
+        self._local_images = local_images
 
     @property
     def nodes(self) -> List[Node]:
