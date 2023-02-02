@@ -683,7 +683,7 @@ class LabManager:
                 security_context=ic_sec_ctx,
                 volume_mounts=ic_vol_mounts,
             )
-            self.logger.debug(f"Added init container {ctr}")
+            self.logger.debug(f"Added init container {ic.name} ({ic.image})")
             init_ctrs.append(ctr)
         return init_ctrs
 

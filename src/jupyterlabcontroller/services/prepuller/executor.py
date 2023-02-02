@@ -4,7 +4,7 @@ services (either Kubernetes or Docker).
 """
 
 import asyncio
-from typing import Optional
+from typing import Optional, Set
 
 from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
@@ -58,6 +58,7 @@ class PrepullerExecutor:
         self._prepull_scheduler: Optional[Scheduler] = None
         self._stopping = False
         self._running = False
+        self._prepull_tasks: Set[asyncio.Task] = set()
 
     async def start(self) -> None:
         if self._stopping:
@@ -179,40 +180,24 @@ class PrepullerExecutor:
         # in series, but spawn pods on all its nodes in parallel.
         # We would expect the pull to take about the same time for any node,
         # so this shouldn't waste too much time.
-
-        #
-        # FIXME get rid of scheduler temporarily to see error messages
-        #
         for image in required_pulls:
-            #     if self._prepull_scheduler is not None:
-            #         self.logger.warning(
-            #             "Prepull scheduler already exists.  Presuming "
-            #  --    "earlier pull still in progress.  Not starting new pull."
-            #         )
-            #         return
-            #     self._prepull_scheduler = Scheduler(
-            #         close_timeout=PREPULLER_PULL_TIMEOUT
-            #     )
             podname = image_to_podname(image)
             for node in required_pulls[image]:
                 self.logger.debug(
                     f"Creating {self.namespace}/prepull-{podname}-{node}"
                 )
-                if True:
-                    #                await self._prepull_scheduler.spawn(
-                    # This is now going to wait for each pod to start running
-                    # before going to the next.
-                    await self.k8s_client.create_prepuller_pod(
+                prepull_task = asyncio.create_task(
+                    self.k8s_client.create_prepuller_pod(
                         name=f"prepull-{podname}-{node}",
                         namespace=self.namespace,
                         image=image,
                         node=node,
                     )
-            #            self.logger.debug(
-            #    --   f"Waiting up to {PREPULLER_PULL_TIMEOUT}s for prepuller "
-            #                f"pod 'prepull-{podname}'."
-            #            )
-            #           await self._prepull_scheduler.close()
-            # FIXME catch the TimeoutError if it happens
-            self._prepull_scheduler = None
-            await self.k8s_client.refresh_state_from_k8s()
+                )
+                self._prepull_tasks.add(prepull_task)
+                prepull_task.add_done_callback(self._prepull_tasks.discard)
+            # Wait for pod_creation to complete on each node before going on
+            # to the next image.
+            await asyncio.gather(*self._prepull_tasks)
+        # Refresh our view of the local node state
+        await self.k8s_client.refresh_state_from_k8s()

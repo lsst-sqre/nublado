@@ -143,7 +143,6 @@ class PrepullerK8sClient:
             await self.k8s_client.remove_completed_pod(
                 podname=name, namespace=namespace
             )
-
         except Exception as exc:
             self.logger.error(f"Pod creation error: {exc}")
-        self.logger.debug(f"Created prepuller pod {namespace}/{name}.")
+        self.logger.debug(f"Prepuller pod {namespace}/{name} completed.")
