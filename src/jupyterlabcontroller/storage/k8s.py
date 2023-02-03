@@ -270,40 +270,49 @@ class K8sStorageClient:
         # the k8s client do a lot less work.  All we care about is the
         # event text anyway.
         method = partial(
-            getattr(api, "list_namespaced_pod"), _preload_content=False
+            getattr(api, "list_namespaced_event"), _preload_content=False
         )
         watch_args = {
             "_request_timeout": 30,
             "timeout_seconds": 30,
             "namespace": namespace,
-            "field_selector": f"metadata.name={podname}"
+            "field_selector": f"involvedObject.name={podname}"
             # We can probably get away without resource_version, because
-            # we are watching a single pod for a short time (basically
-            # just while it's in Pending phase).
+            # we are watching a single namespace's events for a short time
+            # (basically just while it's in Pending phase).
         }
         stopping = False
         async with w.stream(method, **watch_args) as stream:
             seen_messages: List[str] = []
             async for event in stream:
-                status = event["raw_object"]["status"]
-                phase = status["phase"]
-                if phase in (
-                    K8sPodPhase.RUNNING,
-                    K8sPodPhase.SUCCEEDED,
-                    K8sPodPhase.FAILED,
-                ):
-                    self.logger.debug(f"Terminating watch: pod phase {phase}")
+                # Check to see if pod has entered a state (i.e. not Pending or
+                # Unknown) where we can stop watching.
+                try:
+                    pod=await api.read_namespaced_pod_status(
+                        name=podname,
+                        namespace=namespace)
+                except ApiException as e:
+                    # Dunno why it stopped, but we can stop watching
+                    if e.status == 404:
+                        phase = K8sPodPhase.FAILED  # A guess, but
+                        # puts us into stopping state
+                    else:
+                        self.logger.error(f"API Error: {e}")
+                        raise WaitingForObjectError(str(e))
+                phase = pod.status.phase
+                if phase in (K8sPodPhase.RUNNING, K8sPodPhase.SUCCEEDED,
+                             K8sPodPhase.FAILED):
                     stopping = True
-                if phase in K8sPodPhase.UNKNOWN:
+                if phase == K8sPodPhase.UNKNOWN:
                     self.logger.warning(
-                        f"Pod {namespace}/{podname} in 'Unknown' phase"
+                        f"Pod {namespace}/{podname} in Unknown phase."
                     )
-                for c in status["conditions"]:
-                    message = c.get("message", "")
-                    if message and message not in seen_messages:
-                        seen_messages.append(message)
-                        self.logger.debug(f"Watch reporting '{message}'")
-                        yield message
+                # Now gather up our events and forward those
+                message = event["raw_object"]["message"]
+                if message and message not in seen_messages:
+                    seen_messages.append(message)
+                    self.logger.debug(f"Watch reporting '{message}'")
+                    yield message
                 if stopping:
                     break
             if stopping:
