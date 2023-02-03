@@ -216,6 +216,17 @@ class PrepullerArbitrator:
         all = RSPTagList(
             tags=list(self.state.remote_images.by_tag.values())
         ).to_imagelist()
+        # Phase 3: get prepulls and correct prepull state
+        prepulls = self.get_prepulls()
+        prepulled_images: Dict[str, bool] = {}
+        for prepulled_img in prepulls.images.prepulled:
+            prepulled_images[prepulled_img.digest] = True
+        for img in image_list:
+            if img.digest in prepulled_images:
+                img.prepulled=True
+        for img in all:
+            if img.digest in prepulled_images:
+                img.prepulled=True
         return SpawnerImages(
             recommended=image_list[0],
             latest_release=image_list[1],
