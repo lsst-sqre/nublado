@@ -4,7 +4,8 @@ services (either Kubernetes or Docker).
 """
 
 import asyncio
-from typing import Optional, Set
+from functools import partial
+from typing import Dict, Optional, Set
 
 from aiojobs import Scheduler
 from structlog.stdlib import BoundLogger
@@ -58,7 +59,7 @@ class PrepullerExecutor:
         self._prepull_scheduler: Optional[Scheduler] = None
         self._stopping = False
         self._running = False
-        self._prepull_tasks: Set[asyncio.Task] = set()
+        self._prepull_tasks: Dict[str, asyncio.Task] = dict()
 
     async def start(self) -> None:
         if self._stopping:
@@ -122,6 +123,12 @@ class PrepullerExecutor:
                 self.logger.error("Ceasing to wait for remote images.")
                 return
 
+            
+    def _remove_prepull_task(self, key: str) -> None:
+        if key in self._prepull_tasks:
+            del self._prepull_tasks[key]
+
+            
     async def _prepuller_scheduler_start(self) -> None:
         # Poll until we see that we have data in our local and remote state
         # caches, then kick off a prepuller.  If something is wrong with
@@ -181,23 +188,31 @@ class PrepullerExecutor:
         # We would expect the pull to take about the same time for any node,
         # so this shouldn't waste too much time.
         for image in required_pulls:
+            self.logger.debug(f"Beginning prepulls for {image}")
             podname = image_to_podname(image)
+            node_tasks: Set[asyncio.Task] = set()
             for node in required_pulls[image]:
+                task_key = f"{podname}-{node}"
                 self.logger.debug(
-                    f"Creating {self.namespace}/prepull-{podname}-{node}"
+                    f"Creating {self.namespace}/prepull-{task_key}"
                 )
                 prepull_task = asyncio.create_task(
                     self.k8s_client.create_prepuller_pod(
-                        name=f"prepull-{podname}-{node}",
+                        name=f"prepull-{task_key}",
                         namespace=self.namespace,
                         image=image,
                         node=node,
                     )
                 )
-                self._prepull_tasks.add(prepull_task)
-                prepull_task.add_done_callback(self._prepull_tasks.discard)
+                node_tasks.add(prepull_task)
+                prepull_task.add_done_callback(
+                    node_tasks.discard
+                )
             # Wait for pod_creation to complete on each node before going on
             # to the next image.
-            await asyncio.gather(*self._prepull_tasks)
-        # Refresh our view of the local node state
+            await asyncio.gather(*node_tasks)
+            self.logger.debug(f"Prepull tasks done across nodes for {image}")
+        # We've finished prepull tasks for all images and nodes; refresh our
+        # view of the local node state.
+        self.logger.debug("Prepull tasks finished for all images.")
         await self.k8s_client.refresh_state_from_k8s()
