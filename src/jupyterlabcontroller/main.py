@@ -12,6 +12,7 @@ from typing import Optional
 
 import structlog
 from fastapi import FastAPI, Request
+from kubernetes_asyncio.config.config_exception import ConfigException
 from safir.dependencies.http_client import http_client_dependency
 from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
@@ -115,15 +116,27 @@ def create_app(
 
 async def startup_event() -> None:
     global context_dependency
-    await initialize_kubernetes()
+    k_str = ""
+    try:
+        await initialize_kubernetes()
+    except ConfigException as exc:
+        # This only happens in GH CI, and it's harmless because we don't
+        # make any actual K8s calls in the test suite--it's all mocked out.
+        #
+        # But we have to sit on the error until we have something to log it
+        # with.
+        #
+        # If we really don't have K8s configuration, we'll fall apart as soon
+        # as we start the prepuller executor just below.
+        k_str = str(exc)
     if injected_context_dependency is not None:
         context.context_dependency = injected_context_dependency
     config = configuration_dependency.config
     await context.context_dependency.initialize(config)
-    ctx = await context.context_dependency(
-        request=fake_request,
-        logger=structlog.get_logger(name=config.safir.logger_name),
-    )
+    logger = structlog.get_logger(name=config.safir.logger_name)
+    if k_str:
+        logger.warning(k_str)
+    ctx = await context.context_dependency(request=fake_request, logger=logger)
     executor = ctx.prepuller_executor
     await executor.start()
     lab_manager = ctx.lab_manager
