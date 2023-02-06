@@ -288,9 +288,9 @@ class K8sStorageClient:
                 # Check to see if pod has entered a state (i.e. not Pending or
                 # Unknown) where we can stop watching.
                 try:
-                    pod=await api.read_namespaced_pod_status(
-                        name=podname,
-                        namespace=namespace)
+                    pod = await api.read_namespaced_pod_status(
+                        name=podname, namespace=namespace
+                    )
                 except ApiException as e:
                     # Dunno why it stopped, but we can stop watching
                     if e.status == 404:
@@ -300,8 +300,11 @@ class K8sStorageClient:
                         self.logger.error(f"API Error: {e}")
                         raise WaitingForObjectError(str(e))
                 phase = pod.status.phase
-                if phase in (K8sPodPhase.RUNNING, K8sPodPhase.SUCCEEDED,
-                             K8sPodPhase.FAILED):
+                if phase in (
+                    K8sPodPhase.RUNNING,
+                    K8sPodPhase.SUCCEEDED,
+                    K8sPodPhase.FAILED,
+                ):
                     stopping = True
                 if phase == K8sPodPhase.UNKNOWN:
                     self.logger.warning(

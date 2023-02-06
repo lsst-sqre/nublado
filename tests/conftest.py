@@ -38,7 +38,12 @@ be in ``test_objects.json`` in that directory.
 
 @pytest.fixture(scope="session")
 def std_config_dir() -> Path:
-    return Path(_here / "configs/standard")
+    return Path(_here / "configs" / "standard" / "input")
+
+
+@pytest.fixture(scope="session")
+def std_result_dir(std_config_dir: Path) -> Path:
+    return Path(std_config_dir.parent / "output")
 
 
 @pytest.fixture(scope="session")

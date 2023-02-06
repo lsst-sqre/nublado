@@ -22,34 +22,34 @@ function selectDropdown() {
 <tr>
 <td width="50%">
   <div class="radio radio-inline">
-{% for i in cached_images %}
+{% for i in cached_images -%}
     <input type="radio" name="image_list"
      id="image{{ loop.index }}" value="{{ i.path }}"
-     {% if loop.first %} checked {% endif %}
+     {% if loop.first %} checked {%- endif -%}
     >
     <label for="image{{ loop.index }}">{{ i.name }}</label><br />
 {% endfor %}
     <input type="radio" name="image_list"
         id="{{ dropdown_sentinel }}"
         value="{{ dropdown_sentinel }}"
-        {% if not cached_images %} checked {% endif %}
+        {% if not cached_images %} checked {%- endif -%}
     >
     <label for="{{ dropdown_sentinel }}">
       Select uncached image (slower start):
     </label><br />
     <select name="image_dropdown" onclick="selectDropdown()">
-    {% for i in all_images %}
+{% for i in all_images -%}
         <option value="{{ i.path }}">{{ i.name }}</option>
-    {% endfor %}
+{% endfor %}
     </select>
   </div>
 </td>
 <td width="50%">
   <div class="radio radio-inline">
-{% for s in sizes %}
+{% for s in sizes -%}
     <input type="radio" name="size"
      id="{{ s.name }}" value="{{ s.name }}"
-     {% if loop.first %} checked {% endif %}
+     {% if loop.first %} checked {%- endif -%}
     >
     <label for="{{ s.name }}">
       {{ s.name }} ({{ s.cpu }} CPU, {{ s.memory }} RAM)

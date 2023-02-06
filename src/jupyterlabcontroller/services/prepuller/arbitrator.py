@@ -223,10 +223,10 @@ class PrepullerArbitrator:
             prepulled_images[prepulled_img.digest] = True
         for img in image_list:
             if img.digest in prepulled_images:
-                img.prepulled=True
+                img.prepulled = True
         for img in all:
             if img.digest in prepulled_images:
-                img.prepulled=True
+                img.prepulled = True
         return SpawnerImages(
             recommended=image_list[0],
             latest_release=image_list[1],

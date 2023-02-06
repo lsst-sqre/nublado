@@ -4,7 +4,6 @@ services (either Kubernetes or Docker).
 """
 
 import asyncio
-from functools import partial
 from typing import Dict, Optional, Set
 
 from aiojobs import Scheduler
@@ -123,12 +122,10 @@ class PrepullerExecutor:
                 self.logger.error("Ceasing to wait for remote images.")
                 return
 
-            
     def _remove_prepull_task(self, key: str) -> None:
         if key in self._prepull_tasks:
             del self._prepull_tasks[key]
 
-            
     async def _prepuller_scheduler_start(self) -> None:
         # Poll until we see that we have data in our local and remote state
         # caches, then kick off a prepuller.  If something is wrong with
@@ -205,9 +202,7 @@ class PrepullerExecutor:
                     )
                 )
                 node_tasks.add(prepull_task)
-                prepull_task.add_done_callback(
-                    node_tasks.discard
-                )
+                prepull_task.add_done_callback(node_tasks.discard)
             # Wait for pod_creation to complete on each node before going on
             # to the next image.
             await asyncio.gather(*node_tasks)

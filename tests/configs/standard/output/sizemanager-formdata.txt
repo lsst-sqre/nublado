@@ -1,0 +1,1 @@
+[FormSize(name='Small', cpu='1.0', memory='3Gi'), FormSize(name='Medium', cpu='2.0', memory='6Gi'), FormSize(name='Large', cpu='4.0', memory='12Gi')]

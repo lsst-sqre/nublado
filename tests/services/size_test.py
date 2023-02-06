@@ -1,25 +1,22 @@
+from pathlib import Path
+
 import pytest
 
 from jupyterlabcontroller.config import Configuration
-from jupyterlabcontroller.models.v1.lab import LabSize
 from jupyterlabcontroller.services.size import SizeManager
 
-
-@pytest.mark.asyncio
-async def test_resources(config: Configuration) -> None:
-    size_manager = SizeManager(sizes=config.lab.sizes)
-    resource = size_manager.resources[LabSize("medium")]
-    assert resource.limits.memory == 6442450944
-    assert resource.limits.cpu == 2.0
-    assert resource.requests.memory == 1610612736
-    assert resource.requests.cpu == 0.5
+from ..support.check_file import check_file
 
 
 @pytest.mark.asyncio
-async def test_form(config: Configuration) -> None:
+async def test_resources(config: Configuration, std_result_dir: Path) -> None:
     size_manager = SizeManager(sizes=config.lab.sizes)
-    formdata = size_manager.formdata
-    assert len(formdata) == 3
-    assert formdata[0].name == "Small"
-    assert formdata[0].cpu == "1.0"
-    assert formdata[0].memory == "3Gi"
+    szr_str = f"{size_manager.resources}"
+    check_file(szr_str, std_result_dir / "sizemanager-resources.txt")
+
+
+@pytest.mark.asyncio
+async def test_form(config: Configuration, std_result_dir: Path) -> None:
+    size_manager = SizeManager(sizes=config.lab.sizes)
+    szf_str = f"{size_manager.formdata}"
+    check_file(szf_str, std_result_dir / "sizemanager-formdata.txt")
