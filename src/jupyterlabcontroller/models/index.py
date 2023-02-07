@@ -1,12 +1,12 @@
 """Models for jupyterlab-controller."""
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 from safir.metadata import Metadata as SafirMetadata
 
-__all__ = ["Index"]
+from .camelcase import CamelCaseModel
 
 
-class Index(BaseModel):
+class Index(CamelCaseModel):
     """Metadata returned by the external root URL of the application.
 
     Notes
