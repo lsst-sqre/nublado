@@ -7,10 +7,10 @@ from typing import Deque, Dict, List, Optional
 
 from kubernetes_asyncio.client.models import V1Pod
 from pydantic import BaseModel, Field
+from safir.pydantic import CamelCaseModel
 
 from ...constants import DROPDOWN_SENTINEL_VALUE
 from ...util import str_to_bool
-from ..camelcase import CamelCaseModel
 from ..enums import NubladoEnum
 from .event import Event
 

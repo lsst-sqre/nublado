@@ -4,8 +4,7 @@ and we need to avoid circular imports."""
 from typing import Any, Dict, List, Optional
 
 from pydantic import Field, root_validator
-
-from ..camelcase import CamelCaseModel
+from safir.pydantic import CamelCaseModel
 
 
 class DockerDefinition(CamelCaseModel):

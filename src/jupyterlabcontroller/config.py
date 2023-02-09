@@ -8,8 +8,8 @@ import yaml
 from fastapi import Path
 from pydantic import Field
 from safir.logging import LogLevel, Profile
+from safir.pydantic import CamelCaseModel
 
-from .models.camelcase import CamelCaseModel
 from .models.enums import NubladoEnum
 from .models.v1.lab import LabSize
 from .models.v1.prepuller_config import PrepullerConfiguration

@@ -11,6 +11,8 @@ and all of their operations are done in-memory.
 
 from typing import List
 
+from safir.datetime import current_datetime
+
 from ...constants import (
     EPOCH,
     PREPULLER_DOCKER_POLL_INTERVAL,
@@ -19,7 +21,7 @@ from ...constants import (
 from ...exceptions import StateUpdateError
 from ...models.domain.prepuller import DigestToNodeTagImages, Node
 from ...models.tag import TagMap
-from ...util import now, stale
+from ...util import stale
 
 
 class PrepullerState:
@@ -48,13 +50,13 @@ class PrepullerState:
         return stale(self._last_prepuller_run, interval)
 
     def update_docker_check_time(self) -> None:
-        self._last_docker_check = now()
+        self._last_docker_check = current_datetime()
 
     def update_k8s_check_time(self) -> None:
-        self._last_k8s_check = now()
+        self._last_k8s_check = current_datetime()
 
     def update_prepuller_run_time(self) -> None:
-        self._last_prepuller_run = now()
+        self._last_prepuller_run = current_datetime()
 
     @property
     def remote_images(self) -> TagMap:
