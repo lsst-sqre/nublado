@@ -79,12 +79,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2
         with:
@@ -98,7 +92,6 @@ jobs:
           context: .
           push: true
           tags: |
-            lsstsqre/jupyterlab-controller:${{ steps.vars.outputs.tag }}
             ghcr.io/lsst-sqre/jupyterlab-controller:${{ steps.vars.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
