@@ -171,10 +171,6 @@ class StandaloneRSPTag:
     example: 20
     """
 
-    # Required for SemanticVersion
-    class Config:
-        arbitrary_types_allowed = True
-
     @classmethod
     def parse_tag(
         cls,
