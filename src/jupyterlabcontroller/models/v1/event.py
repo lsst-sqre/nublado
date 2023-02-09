@@ -2,9 +2,9 @@
 
 from enum import auto
 
+from safir.pydantic import CamelCaseModel
 from sse_starlette import ServerSentEvent
 
-from ..camelcase import CamelCaseModel
 from ..enums import NubladoEnum
 
 """GET /nublado/spawner/v1/labs/username/events"""

@@ -4,9 +4,9 @@ from __future__ import annotations
 from typing import Dict, List, Optional
 
 from pydantic import Field
+from safir.pydantic import CamelCaseModel
 
 from ...util import dashify
-from ..camelcase import CamelCaseModel
 from .prepuller_config import PrepullerConfiguration
 
 TagToNameMap = Dict[str, str]
