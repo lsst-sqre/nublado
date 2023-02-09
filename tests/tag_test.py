@@ -2,9 +2,46 @@
 
 from __future__ import annotations
 
+import pytest
 from semver import VersionInfo
 
-from jupyterlabcontroller.models.tag import RSPTagType, StandaloneRSPTag
+from jupyterlabcontroller.models.tag import (
+    IncomparableImageTypesError,
+    RSPTagType,
+    StandaloneRSPTag,
+)
+
+
+def test_compare_tag() -> None:
+    """Test comparisons of StandaloneRSPTag objects."""
+    one = StandaloneRSPTag.parse_tag("r21_0_1")
+    two = StandaloneRSPTag.parse_tag("r21_0_2")
+    assert one == one
+    assert one <= one
+    assert one >= one
+    assert one != two
+    assert one < two
+    assert one <= two
+    assert two >= one
+
+    three = StandaloneRSPTag.parse_tag("d_2023_02_09")
+    assert three == three
+    with pytest.raises(IncomparableImageTypesError):
+        one == three
+    with pytest.raises(IncomparableImageTypesError):
+        one < three
+    with pytest.raises(IncomparableImageTypesError):
+        one <= three
+
+    four = StandaloneRSPTag.parse_tag("d_2023_02_10_c0030.004")
+    assert three != four
+    assert three < four
+
+    exp_one = StandaloneRSPTag.parse_tag("exp_20230209")
+    exp_two = StandaloneRSPTag.parse_tag("exp_random")
+    assert exp_one == exp_one
+    assert exp_one != exp_two
+    assert exp_one < exp_two
 
 
 def test_parse_tag() -> None:
@@ -171,6 +208,13 @@ def test_parse_tag() -> None:
             tag="MiXeD_CaSe_TaG",
             image_type=RSPTagType.UNKNOWN,
             display_name="MiXeD_CaSe_TaG",
+            semantic_version=None,
+            cycle=None,
+        ),
+        "": StandaloneRSPTag(
+            tag="latest",
+            image_type=RSPTagType.UNKNOWN,
+            display_name="latest",
             semantic_version=None,
             cycle=None,
         ),
