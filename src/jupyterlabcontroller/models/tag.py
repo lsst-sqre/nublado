@@ -51,7 +51,7 @@ TAG: Dict[str, str] = {
     # exp_flattened_build
     "experimental": r"(?:exp)",
     # c0020.002
-    "cycle": r"_(?P<ctag>c|csal)(?P<cycle>\d+)\.(?P<cbuild>\d+)",
+    "cycle": r"_c(?P<cycle>\d+)\.(?P<cbuild>\d+)",
     # _whatever_your_little_heart_desires
     "rest": r"_(?P<rest>.*)",
 }
@@ -220,7 +220,6 @@ class StandaloneRSPTag:
         md = match.groupdict()
         name = tag
         semver = None
-        ctag = md.get("ctag")
         cycle = md.get("cycle")
         cbuild = md.get("cbuild")
         cycle_int = None
@@ -245,7 +244,7 @@ class StandaloneRSPTag:
                 name = f"Experimental {temp_ptag.display_name}"
         else:
             # Everything else does get an actual semantic version
-            build = cls._build_component(cycle, cbuild, ctag, rest)
+            build = cls._build_component(cycle, cbuild, rest)
             typename = StandaloneRSPTag.prettify_tag(tagtype.name)
             restname = name[2:]
             if (
@@ -317,7 +316,6 @@ class StandaloneRSPTag:
         cls,
         cycle: str | None,
         cbuild: str | None,
-        ctag: str | None,
         rest: Optional[str] = None,
     ) -> str | None:
         """Determine the build component of the semantic version.
@@ -328,9 +326,6 @@ class StandaloneRSPTag:
             The cycle number, if any.
         cbuild
             The build number within a cycle, if any.
-        ctag
-            The leading tag for the cycle, either ``c`` (preferred) or
-            ``csal`` (legacy).
         rest
             Any trailing part of the version.
 
@@ -348,9 +343,9 @@ class StandaloneRSPTag:
         # Add on the cycle if one is available.
         if cycle is not None:
             if rest:
-                return f"{ctag}{cycle}.{cbuild}_{rest}"
+                return f"c{cycle}.{cbuild}_{rest}"
             else:
-                return f"{ctag}{cycle}.{cbuild}"
+                return f"c{cycle}.{cbuild}"
         else:
             return rest if rest else None
 
