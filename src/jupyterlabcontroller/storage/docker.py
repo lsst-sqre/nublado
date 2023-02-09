@@ -6,7 +6,7 @@ from httpx import AsyncClient, Response
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import DockerRegistryError
-from ..models.domain.docker import DockerCredentials as DC
+from ..models.domain.docker import DockerCredentials
 from ..models.tag import RSPTag, RSPTagList, TagMap
 from ..util import extract_untagged_path_from_image_ref
 
@@ -21,7 +21,7 @@ class DockerStorageClient:
         repository: str,
         recommended_tag: str,
         http_client: AsyncClient,
-        credentials: Optional[DC] = None,
+        credentials: Optional[DockerCredentials] = None,
     ) -> None:
         """Create a new Docker Client.
 
@@ -114,9 +114,7 @@ class DockerStorageClient:
 
         if challenge_type == "basic":
             # Basic auth is used by the Nexus Docker Registry.
-            self.headers[
-                "Authorization"
-            ] = f"Basic {self.credentials.base64_auth}"
+            self.headers["Authorization"] = self.credentials.authorization
             self.logger.info(
                 f"Authenticated with basic auth as {self.credentials.username}"
             )
@@ -129,10 +127,7 @@ class DockerStorageClient:
                 parts[k] = v.replace('"', "")
 
             url = parts["realm"]
-            auth = None
-
-            if self.credentials.username and self.credentials.password:
-                auth = (self.credentials.username, self.credentials.password)
+            auth = (self.credentials.username, self.credentials.password)
 
             self.logger.info(
                 f"Obtaining bearer token for {self.credentials.username}"

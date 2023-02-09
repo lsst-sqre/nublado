@@ -1,3 +1,5 @@
+"""Domain models for talking to the Docker API."""
+
 import base64
 import json
 from dataclasses import dataclass
@@ -10,10 +12,27 @@ from ...constants import DOCKER_SECRETS_PATH
 
 @dataclass
 class DockerCredentials:
+    """Holds the credentials for one Docker API server."""
+
     registry_host: str
+    """Hostname of the server for which these credentials apply."""
+
     username: str
+    """Authentication username."""
+
     password: str
-    base64_auth: str
+    """Authentication password."""
+
+    @property
+    def authorization(self) -> str:
+        """Authentication string for ``Authorization`` header."""
+        return f"Basic {self.credentials}"
+
+    @property
+    def credentials(self) -> str:
+        """Credentials in encoded form suitable for ``Authorization``."""
+        auth_data = f"{self.username}:{self.password}".encode()
+        return base64.b64encode(auth_data).decode()
 
 
 class DockerCredentialsMap:
@@ -45,9 +64,6 @@ class DockerCredentialsMap:
             basic_auth = base64.b64decode(b64auth).decode()
             username, password = basic_auth.split(":", 1)
             self._credentials[host] = DockerCredentials(
-                registry_host=host,
-                username=username,
-                password=password,
-                base64_auth=b64auth,
+                registry_host=host, username=username, password=password
             )
             self.logger.debug(f"Added authentication for '{host}'")

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from base64 import b64encode
 
 import pytest
 import respx
@@ -37,9 +36,6 @@ async def test_api(respx_mock: respx.Router) -> None:
             registry_host="registry.hub.docker.com",
             username=mock.username,
             password=mock.password,
-            base64_auth=b64encode(
-                f"{mock.username}:{mock.password}".encode()
-            ).decode(),
         ),
     )
     assert set(await docker.list_tags()) == tag_names
@@ -68,9 +64,6 @@ async def test_bearer_auth(respx_mock: respx.Router) -> None:
             registry_host="registry.hub.docker.com",
             username=mock.username,
             password=mock.password,
-            base64_auth=b64encode(
-                f"{mock.username}:{mock.password}".encode()
-            ).decode(),
         ),
     )
     assert await docker.list_tags() == ["r23_0_4"]
