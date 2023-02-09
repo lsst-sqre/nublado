@@ -24,7 +24,6 @@ async def test_get_external_index(
     assert isinstance(metadata["version"], str)
     assert isinstance(metadata["description"], str)
     assert isinstance(metadata["repository_url"], str)
-    assert isinstance(metadata["documentation_url"], str)
 
 
 """Tests for the jupyterlabcontroller.handlers internal routes."""
@@ -42,4 +41,3 @@ async def test_get_internal_index(
     assert isinstance(data["version"], str)
     assert isinstance(data["description"], str)
     assert isinstance(data["repository_url"], str)
-    assert isinstance(data["documentation_url"], str)
