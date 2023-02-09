@@ -128,16 +128,25 @@ class Factory:
         async with aclosing(factory):
             yield factory
 
-    def __init__(
-        self,
-        context: ProcessContext,
-        logger: BoundLogger,
-    ) -> None:
+    def __init__(self, context: ProcessContext, logger: BoundLogger) -> None:
         self._context = context
         self.logger = logger
 
     async def aclose(self) -> None:
         await self._context.aclose()
+
+    def create_docker_storage(self) -> DockerStorageClient:
+        """Create a Docker storage client."""
+        return DockerStorageClient(
+            host=self._context.config.images.registry,
+            repository=self._context.config.images.repository,
+            recommended_tag=self._context.config.images.recommended_tag,
+            http_client=self._context.http_client,
+            logger=self.logger,
+            credentials=self._context.docker_credentials.get(
+                self._context.config.images.registry,
+            ),
+        )
 
     def set_logger(self, logger: BoundLogger) -> None:
         self.logger = logger

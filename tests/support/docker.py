@@ -9,7 +9,9 @@ from urllib.parse import parse_qsl
 import respx
 from httpx import Request, Response
 
-__all__ = ["MockDockerRegistry"]
+from jupyterlabcontroller.models.domain.docker import DockerCredentials
+
+__all__ = ["MockDockerRegistry", "mock_docker"]
 
 
 class MockDockerRegistry:
@@ -21,6 +23,8 @@ class MockDockerRegistry:
         Map of tag names to image digests.
     realm
         Realm for authentication challenge.
+    credentials
+        Credentials to expect for authentication.
     require_bearer
         Whether to require bearer token authentication, which requires another
         round trip to exchange the username and password for a bearer token.
@@ -29,18 +33,18 @@ class MockDockerRegistry:
     ----------
     tags
         Map of tag names to image digests.
-    username
-        Username for basic auth.
-    password
-        Password for basic auth.
     """
 
     def __init__(
-        self, tags: dict[str, str], realm: str, require_bearer: bool = False
+        self,
+        tags: dict[str, str],
+        realm: str,
+        credentials: DockerCredentials,
+        require_bearer: bool = False,
     ) -> None:
         self.tags = tags
-        self.username = "user" + os.urandom(8).hex()
-        self.password = "pass" + os.urandom(8).hex()
+        self._username = credentials.username
+        self._password = credentials.password
         self._require_bearer = require_bearer
         self._token = os.urandom(16).hex()
 
@@ -69,10 +73,11 @@ class MockDockerRegistry:
         """
         params = parse_qsl(request.url.query.decode())
         assert sorted(params) == sorted(self._challenge.items())
-        auth = b64encode(f"{self.username}:{self.password}".encode()).decode()
+        auth = f"{self._username}:{self._password}".encode()
+        auth_b64 = b64encode(auth).decode()
         auth_type, auth_data = request.headers["Authorization"].split(None, 1)
         assert auth_type.lower() == "basic"
-        assert auth_data == auth
+        assert auth_data == auth_b64
         return Response(200, json={"token": self._token})
 
     def list_tags(self, request: Request) -> Response:
@@ -138,7 +143,7 @@ class MockDockerRegistry:
             if auth_type.lower() != "basic":
                 return False
             username, password = b64decode(auth_data).decode().split(":", 1)
-            return username == self.username and password == self.password
+            return username == self._username and password == self._password
 
     def _make_auth_challenge(self) -> Response:
         """Construct an authentication challenge."""
@@ -156,6 +161,7 @@ def mock_docker(
     *,
     host: str,
     repository: str,
+    credentials: DockerCredentials,
     tags: dict[str, str],
     require_bearer: bool = False,
 ) -> MockDockerRegistry:
@@ -168,6 +174,8 @@ def mock_docker(
     repository
         The name of the repository (like ``lsstsqre/sciplat-lab``) for which
         to register the mocks.
+    credentials
+        Credentials to expect for authentication.
     tags
         A mapping of tags to image digests that should appear on that
         registry.
@@ -185,7 +193,7 @@ def mock_docker(
     auth_url = f"{base_url}/auth"
     tags_url = f"{base_url}/v2/{repository}/tags/list"
     digest_url = f"{base_url}/v2/{repository}/manifests/(?P<tag>.*)"
-    mock = MockDockerRegistry(tags, auth_url, require_bearer)
+    mock = MockDockerRegistry(tags, auth_url, credentials, require_bearer)
     respx_mock.get(base_url + "/auth").mock(side_effect=mock.authenticate)
     respx_mock.get(tags_url).mock(side_effect=mock.list_tags)
     respx_mock.head(url__regex=digest_url).mock(side_effect=mock.get_digest)

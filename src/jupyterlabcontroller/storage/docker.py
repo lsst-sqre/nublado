@@ -12,15 +12,32 @@ from ..util import extract_untagged_path_from_image_ref
 
 
 class DockerStorageClient:
-    """Simple client for querying Docker registry."""
+    """Client to query the Docker API for image information.
+
+    Parameters
+    ----------
+    host
+        Docker registry API host.
+    repository
+        Image repository to query (for example, ``lsstsqre/sciplat-lab``).
+    recommended_tag
+        The tag indicating the recommended image.
+    http_client
+        Client to use to make requests.
+    logger
+        Logger for log messages.
+    credentials
+        Authentication credentials for the Docker API server.
+    """
 
     def __init__(
         self,
-        logger: BoundLogger,
+        *,
         host: str,
         repository: str,
         recommended_tag: str,
         http_client: AsyncClient,
+        logger: BoundLogger,
         credentials: Optional[DockerCredentials] = None,
     ) -> None:
         """Create a new Docker Client.
