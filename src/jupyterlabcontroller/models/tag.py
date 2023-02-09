@@ -182,7 +182,7 @@ class StandaloneRSPTag:
             match = re.compile(regexp).match(tag)
             if not match:
                 continue
-            display_name, semver, cycle = StandaloneRSPTag.extract_metadata(
+            display_name, semver, cycle = cls.extract_metadata(
                 match=match, tag=tag, tagtype=tagtype
             )
             return cls(
@@ -211,11 +211,9 @@ class StandaloneRSPTag:
         title case."""
         return tag.replace("_", " ").title()
 
-    @staticmethod
+    @classmethod
     def extract_metadata(
-        match: Match,
-        tag: str,
-        tagtype: RSPTagType,
+        cls, match: Match, tag: str, tagtype: RSPTagType
     ) -> Tuple[str, Optional[VersionInfo], Optional[int]]:
         """Return a display name, semantic version (optional), and cycle
         (optional) from match, tag, and type."""
@@ -247,9 +245,7 @@ class StandaloneRSPTag:
                 name = f"Experimental {temp_ptag.display_name}"
         else:
             # Everything else does get an actual semantic version
-            build = StandaloneRSPTag.trailing_parts_to_semver_build_component(
-                cycle, cbuild, ctag, rest
-            )
+            build = cls._build_component(cycle, cbuild, ctag, rest)
             typename = StandaloneRSPTag.prettify_tag(tagtype.name)
             restname = name[2:]
             if (
@@ -316,33 +312,47 @@ class StandaloneRSPTag:
             return None
         return int(n)
 
-    @staticmethod
-    def trailing_parts_to_semver_build_component(
-        cycle: Optional[str],
-        cbuild: Optional[str],
-        ctag: Optional[str],  # if present, either 'c' or 'csal'
+    @classmethod
+    def _build_component(
+        cls,
+        cycle: str | None,
+        cbuild: str | None,
+        ctag: str | None,
         rest: Optional[str] = None,
-    ) -> Optional[str]:
-        """This takes care of massaging the cycle components, and 'rest', into
-        a semver-compatible buildstring, which is dot-separated and can only
-        contain alphanumerics.  See SQR-059 for how it's used.
+    ) -> str | None:
+        """Determine the build component of the semantic version.
+
+        Parameters
+        ----------
+        cycle
+            The cycle number, if any.
+        cbuild
+            The build number within a cycle, if any.
+        ctag
+            The leading tag for the cycle, either ``c`` (preferred) or
+            ``csal`` (legacy).
+        rest
+            Any trailing part of the version.
+
+        Returns
+        -------
+        str or None
+            What to put in the build component of the semantic version.
         """
-        if cycle:
+        # semver build components may only contain periods and alphanumerics,
+        # so replace underscores with periods and then remove all other
+        # characters.
+        if rest:
+            rest = re.sub(r"[^\w.]+", "", rest.replace("_", "."))
+
+        # Add on the cycle if one is available.
+        if cycle is not None:
             if rest:
-                # Cycle must always precede rest
-                rest = f"{ctag}{cycle}.{cbuild}_{rest}"
+                return f"{ctag}{cycle}.{cbuild}_{rest}"
             else:
-                rest = f"{ctag}{cycle}.{cbuild}"
-        # We're done with cycle components now.
-        if not rest:
-            return None
-        rest = rest.replace("_", ".")
-        pat = re.compile(r"[^\w|\.]+")  # Identify all non alphanum, non-dots
-        # Throw away all of those after turning underscores to dots.
-        rest = pat.sub("", rest)
-        if not rest:  # if we are left with an empty string, return None
-            return None
-        return rest
+                return f"{ctag}{cycle}.{cbuild}"
+        else:
+            return rest if rest else None
 
     def compare(self, other: "StandaloneRSPTag") -> int:
         """This is modelled after semver.compare, but raises an exception
