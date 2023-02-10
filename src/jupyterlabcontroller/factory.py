@@ -147,9 +147,6 @@ class Factory:
     def get_k8s_client(self) -> ApiClient:
         return self._context.k8s_client
 
-    def get_docker_credentials(self) -> DockerCredentialStore:
-        return self._context.docker_credentials
-
     def get_user_map(self) -> UserMap:
         return self._context.user_map
 
@@ -192,10 +189,6 @@ class Context:
     @property
     def k8s_api_client(self) -> ApiClient:
         return self._factory.get_k8s_client()
-
-    @property
-    def docker_credentials(self) -> DockerCredentialStore:
-        return self._factory.get_docker_credentials()
 
     @property
     def prepuller_state(self) -> PrepullerState:
@@ -255,14 +248,6 @@ class Context:
         return K8sStorageClient(
             k8s_api=self.k8s_api_client,
             timeout=KUBERNETES_REQUEST_TIMEOUT,
-            logger=self.logger,
-        )
-
-    @property
-    def docker_client(self) -> DockerStorageClient:
-        return DockerStorageClient(
-            credentials=self.docker_credentials,
-            http_client=self.http_client,
             logger=self.logger,
         )
 
