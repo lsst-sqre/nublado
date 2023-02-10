@@ -1,9 +1,11 @@
-"""Constants for jupyterlab-controller
-"""
+"""Global constants."""
+
 import datetime
 from pathlib import Path
 
-CONFIGURATION_PATH = "/etc/nublado/config.yaml"
+CONFIGURATION_PATH = Path("/etc/nublado/config.yaml")
+"""Path to controller configuration."""
+
 DOCKER_SECRETS_PATH = "/etc/secrets/.dockerconfigjson"
 
 ADMIN_SCOPE = "admin:jupyterlab"

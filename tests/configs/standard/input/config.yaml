@@ -235,8 +235,3 @@ images:
   numReleases: 1
   numWeeklies: 2
   numDailies: 3
-# -- Runtime config will be filled in on initialization
-runtime:
-  path: ""
-  namespace: ""
-  instanceUrl: ""

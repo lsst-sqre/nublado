@@ -55,7 +55,7 @@ def obj_factory(std_config_dir: Path) -> TestObjectFactory:
 
 @pytest.fixture(scope="session")
 def config(std_config_dir: Path) -> Configuration:
-    configuration_dependency.set_filename(str(std_config_dir / "config.yaml"))
+    configuration_dependency.set_path(std_config_dir / "config.yaml")
     return configuration_dependency.config
 
 
@@ -92,7 +92,7 @@ async def app(
     events are sent during test execution.
     """
     app = create_app(
-        config_dir=str(std_config_dir), context_dependency=context_dependency
+        config_dir=std_config_dir, context_dependency=context_dependency
     )
     async with LifespanManager(app):
         yield app
