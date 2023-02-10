@@ -16,7 +16,7 @@ from starlette.datastructures import Headers
 from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.dependencies.config import configuration_dependency
 from jupyterlabcontroller.dependencies.context import ContextDependency
-from jupyterlabcontroller.factory import Context
+from jupyterlabcontroller.factory import Context, Factory
 from jupyterlabcontroller.main import create_app
 
 from .settings import TestObjectFactory, test_object_factory
@@ -109,6 +109,13 @@ async def app_client(
         base_url=config.runtime.instance_url,
     ) as client:
         yield client
+
+
+@pytest_asyncio.fixture
+async def factory(config: Configuration) -> AsyncIterator[Factory]:
+    """Create a component factory for tests."""
+    async with Factory.standalone(config) as factory:
+        yield factory
 
 
 def make_request(token: str) -> Request:

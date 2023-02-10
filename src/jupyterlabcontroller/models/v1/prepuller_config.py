@@ -138,30 +138,30 @@ class PrepullerConfiguration(CamelCaseModel):
 
     @property
     def registry(self) -> str:
-        # Return the image registry (hostname and optional port)
-        if self.gar is not None:
+        """The image registry (hostname and optional port)."""
+        if self.gar:
             return self.gar.registry
-        if self.docker is None:
-            # The validator keeps this from happening, but mypy can't tell
-            raise RuntimeError(
-                "Exactly one of 'docker' or 'gar' must be defined"
-            )
-        return self.docker.registry
+        elif self.docker:
+            return self.docker.registry
+        else:
+            # This is impossible due to validation, but mypy doesn't know that.
+            raise RuntimeError("PrepullerConfiguration with no docker or gar")
 
     @property
     def repository(self) -> str:
-        # Return the image repository (docker reference without the host/tag)
-        if self.gar is not None:
-            r = (
-                f"/{self.gar.project_id}/{self.gar.repository}/"
-                f"{self.gar.image}"
+        """The image repository (Docker reference without the host or tag)."""
+        if self.gar:
+            return (
+                f"{self.gar.project_id}/{self.gar.repository}"
+                f"/{self.gar.image}"
             )
+        elif self.docker:
+            return self.docker.repository
         else:
-            if self.docker is not None:
-                r = f"/{self.docker.repository}"
-        return r
+            # This is impossible due to validation, but mypy doesn't know that.
+            raise RuntimeError("PrepullerConfiguration with no docker or gar")
 
     @property
     def path(self) -> str:
         # Return the canonical path to the set of tagged images
-        return f"{self.registry}{self.repository}"
+        return f"{self.registry}/{self.repository}"
