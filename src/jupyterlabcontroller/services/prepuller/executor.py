@@ -33,7 +33,6 @@ class PrepullerExecutor:
         logger: BoundLogger,
         config: PrepullerConfiguration,
         namespace: str,
-        recommended_tag: str,
     ) -> None:
         self.state = state
         self.tag_client = PrepullerTagClient(

@@ -87,7 +87,6 @@ class ProcessContext:
                     config=config.images,
                     logger=logger,
                 ),
-                recommended_tag=config.images.recommended_tag,
             ),
             docker_credentials=docker_credentials,
             user_map=UserMap(),
