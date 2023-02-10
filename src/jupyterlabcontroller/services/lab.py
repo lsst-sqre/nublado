@@ -32,8 +32,8 @@ from structlog.stdlib import BoundLogger
 from ..config import LabConfiguration, LabVolume
 from ..exceptions import LabExistsError, NoUserMapError
 from ..models.domain.lab import LabVolumeContainer
+from ..models.domain.rsptag import RSPImageTag
 from ..models.domain.usermap import UserMap
-from ..models.tag import StandaloneRSPTag
 from ..models.v1.event import Event, EventTypes
 from ..models.v1.lab import (
     LabSize,
@@ -368,7 +368,7 @@ class LabManager:
             gd = i_match.groupdict()
             image_digest = gd["digest"]
             image_tag = gd["tag"]
-        image_descr = StandaloneRSPTag.parse_tag(image_tag).display_name
+        image_descr = RSPImageTag.from_str(image_tag).display_name
         resources = self.get_resources(lab=lab)
         #
         # More of these, eventually, will come from the options form.
