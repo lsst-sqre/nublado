@@ -1,13 +1,8 @@
 """Domain models for talking to the Docker API."""
 
 import base64
-import json
 from dataclasses import dataclass
-from typing import Dict, Optional, Self
-
-from structlog.stdlib import BoundLogger
-
-from ...constants import DOCKER_SECRETS_PATH
+from typing import Self
 
 
 @dataclass
@@ -57,31 +52,15 @@ class DockerCredentials:
         username, password = basic_auth.split(":", 1)
         return cls(registry_host=host, username=username, password=password)
 
+    def to_config(self) -> dict[str, str]:
+        """Convert the credentials to a Docker config entry.
 
-class DockerCredentialsMap:
-    def __init__(
-        self, logger: BoundLogger, filename: str = DOCKER_SECRETS_PATH
-    ) -> None:
-        self.logger = logger
-        self._creds: Dict[str, DockerCredentials] = dict()
-        if filename == "":
-            return
-        try:
-            self.load_file(filename)
-        except FileNotFoundError:
-            self.logger.warning(f"No credentials file at {filename}")
-
-    def get(self, host: str) -> Optional[DockerCredentials]:
-        for h in self._creds:
-            if h == host or host.endswith(f".{h}"):
-                return self._creds[h]
-        return None
-
-    def load_file(self, filename: str) -> None:
-        with open(filename) as f:
-            credstore = json.loads(f.read())
-        self._creds = {}
-        self.logger.debug("Removed existing Docker credentials")
-        for host, config in credstore["auths"].items():
-            self._creds[host] = DockerCredentials.from_config(host, config)
-            self.logger.debug(f"Added authentication for '{host}'")
+        Returns
+        -------
+            Docker config entry for this host.
+        """
+        return {
+            "username": self.username,
+            "password": self.password,
+            "auth": self.credentials,
+        }

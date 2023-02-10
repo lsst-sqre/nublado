@@ -12,11 +12,11 @@ class MockDockerStorageClient(DockerStorageClient):
         self._test_obj = test_obj
         self.recommended_tag = recommended_tag
 
-    async def list_tags(self, authenticate: bool = True) -> List[str]:
+    async def list_tags(self, registry: str, repository: str) -> List[str]:
         return sorted(list(self._test_obj.repocontents.by_tag.keys()))
 
     async def get_image_digest(
-        self, tag: str, authenticate: bool = True
+        self, registry: str, repository: str, tag: str
     ) -> str:
         default_hash: str = "sha256:abcd"
         tm = self._test_obj.repocontents
@@ -26,11 +26,6 @@ class MockDockerStorageClient(DockerStorageClient):
             if tag in [x.tag for x in tag_objs]:
                 return digest
         return default_hash
-
-    @property
-    def ref(self) -> str:
-        labspec = self._test_obj.labspecs[0].options.image
-        return labspec
 
 
 mock_docker_dependency = MockDockerStorageClient(test_obj=test_object_factory)

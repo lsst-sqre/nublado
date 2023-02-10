@@ -1,7 +1,6 @@
 """The main application factory for the jupyterlab-controller service."""
 
 from importlib.metadata import metadata, version
-from pathlib import Path
 from typing import Optional
 
 import structlog
@@ -38,7 +37,6 @@ fake_request = Request(
 
 def create_app(
     *,
-    config_dir: Optional[Path] = None,
     context_dependency: Optional[context.ContextDependency] = None,
 ) -> FastAPI:
     """Create the FastAPI application.
@@ -47,14 +45,6 @@ def create_app(
     typical for FastAPI) because some middleware depends on configuration
     settings and we therefore want to recreate the application between tests.
     """
-    # We need to be able to override the config location for testing
-    # and running locally.
-    #
-    # If config_dir is set, we will assume that it contains the path
-    # to a directory that contains both 'config.yaml' and
-    # 'docker_config.json'.
-    if config_dir is not None:
-        configuration_dependency.set_path(config_dir / "config.yaml")
     config = configuration_dependency.config
 
     # If ProcessContext is supplied, we use it instead of initializing a

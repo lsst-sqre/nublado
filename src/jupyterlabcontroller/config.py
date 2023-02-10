@@ -1,5 +1,8 @@
+"""Global configuration parsing."""
+
 from __future__ import annotations
 
+import os
 from enum import auto
 from pathlib import Path
 from typing import Dict, List, Self, TypeAlias
@@ -9,6 +12,7 @@ from pydantic import BaseSettings, Field
 from safir.logging import LogLevel, Profile
 from safir.pydantic import CamelCaseModel, to_camel_case
 
+from .constants import DOCKER_SECRETS_PATH
 from .models.enums import NubladoEnum
 from .models.v1.lab import LabSize
 from .models.v1.prepuller_config import PrepullerConfiguration
@@ -25,6 +29,9 @@ def _get_namespace_prefix() -> str:
     str
         Namespace prefix to use for namespaces for lab environments.
     """
+    if prefix := os.getenv("USER_NAMESPACE_PREFIX"):
+        return prefix
+
     # Kubernetes puts the running pod namespace here.
     path = Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
     if path.exists():
@@ -218,7 +225,6 @@ class LabConfiguration(CamelCaseModel):
     init_containers: List[LabInitContainer] = Field(default_factory=list)
     namespace_prefix: str = Field(
         default_factory=_get_namespace_prefix,
-        env="USER_NAMESPACE_PREFIX",
         title="Namespace prefix for lab environments",
     )
 
@@ -228,14 +234,6 @@ class LabConfiguration(CamelCaseModel):
 #
 
 # See models.v1.prepuller_config
-
-#
-# Runtime
-# filled in at runtime, obv.
-# If set, will be ignored.
-#
-class RuntimeConfiguration(BaseSettings):
-    path: str = Field(..., title="Path to loaded configuration file")
 
 
 #
@@ -247,13 +245,15 @@ class Configuration(BaseSettings):
     safir: SafirConfiguration
     lab: LabConfiguration
     images: PrepullerConfiguration
-    runtime: RuntimeConfiguration
 
     base_url: str = Field(
         "http://127.0.0.1:8080",
         title="Base URL for Science Platform",
         env="EXTERNAL_INSTANCE_URL",
         description="Injected into the lab pod as EXTERNAL_INSTANCE_URL",
+    )
+    docker_secrets_path: Path = Field(
+        DOCKER_SECRETS_PATH, title="Path to Docker API credentials"
     )
 
     # CamelCaseModel conflicts with BaseSettings, so do this manually.
@@ -265,6 +265,4 @@ class Configuration(BaseSettings):
     def from_file(cls, path: Path) -> Self:
         """Load the controller configuration from a YAML file."""
         with path.open("r") as f:
-            raw_config = yaml.safe_load(f)
-        raw_config["runtime"] = {"path": str(path)}
-        return cls.parse_obj(raw_config)
+            return cls.parse_obj(yaml.safe_load(f))

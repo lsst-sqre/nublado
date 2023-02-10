@@ -33,6 +33,7 @@ class PrepullerExecutor:
         logger: BoundLogger,
         config: PrepullerConfiguration,
         namespace: str,
+        recommended_tag: str,
     ) -> None:
         self.state = state
         self.tag_client = PrepullerTagClient(
@@ -47,7 +48,11 @@ class PrepullerExecutor:
             namespace=namespace,
         )
         self.docker_client = PrepullerDockerClient(
-            state=self.state, docker_client=docker_client, namespace=namespace
+            state=self.state,
+            docker_client=docker_client,
+            namespace=namespace,
+            config=config,
+            logger=logger,
         )
         self.logger = logger
         self.namespace = namespace
