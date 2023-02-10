@@ -104,10 +104,7 @@ async def app_client(
     config: Configuration,
 ) -> AsyncIterator[AsyncClient]:
     """Return an ``httpx.AsyncClient`` configured to talk to the test app."""
-    async with AsyncClient(
-        app=app,
-        base_url=config.runtime.instance_url,
-    ) as client:
+    async with AsyncClient(app=app, base_url=config.base_url) as client:
         yield client
 
 

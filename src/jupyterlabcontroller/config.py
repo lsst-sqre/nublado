@@ -7,7 +7,7 @@ from typing import Dict, List, Self, TypeAlias
 import yaml
 from pydantic import BaseSettings, Field
 from safir.logging import LogLevel, Profile
-from safir.pydantic import CamelCaseModel
+from safir.pydantic import CamelCaseModel, to_camel_case
 
 from .models.enums import NubladoEnum
 from .models.v1.lab import LabSize
@@ -216,6 +216,11 @@ class LabConfiguration(CamelCaseModel):
     files: Dict[str, LabFile] = Field(default_factory=list)
     volumes: List[LabVolume] = Field(default_factory=list)
     init_containers: List[LabInitContainer] = Field(default_factory=list)
+    namespace_prefix: str = Field(
+        default_factory=_get_namespace_prefix,
+        env="USER_NAMESPACE_PREFIX",
+        title="Namespace prefix for lab environments",
+    )
 
 
 #
@@ -231,17 +236,6 @@ class LabConfiguration(CamelCaseModel):
 #
 class RuntimeConfiguration(BaseSettings):
     path: str = Field(..., title="Path to loaded configuration file")
-    namespace_prefix: str = Field(
-        default_factory=_get_namespace_prefix,
-        env="USER_NAMESPACE_PREFIX",
-        title="Namespace prefix for lab environments",
-    )
-    instance_url: str = Field(
-        "http://127.0.0.1:8080",
-        title="URL to JupyterHub",
-        env="EXTERNAL_INSTANCE_URL",
-        description="Injected into the lab pod as EXTERNAL_INSTANCE_URL",
-    )
 
 
 #
@@ -249,11 +243,23 @@ class RuntimeConfiguration(BaseSettings):
 #
 
 
-class Configuration(CamelCaseModel):
+class Configuration(BaseSettings):
     safir: SafirConfiguration
     lab: LabConfiguration
     images: PrepullerConfiguration
     runtime: RuntimeConfiguration
+
+    base_url: str = Field(
+        "http://127.0.0.1:8080",
+        title="Base URL for Science Platform",
+        env="EXTERNAL_INSTANCE_URL",
+        description="Injected into the lab pod as EXTERNAL_INSTANCE_URL",
+    )
+
+    # CamelCaseModel conflicts with BaseSettings, so do this manually.
+    class Config:
+        alias_generator = to_camel_case
+        allow_population_by_field_name = True
 
     @classmethod
     def from_file(cls, path: Path) -> Self:

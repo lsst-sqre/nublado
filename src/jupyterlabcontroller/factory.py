@@ -91,7 +91,7 @@ class ProcessContext:
                 ),
                 logger=logger,
                 config=config.images,
-                namespace=config.runtime.namespace_prefix,
+                namespace=config.lab.namespace_prefix,
                 arbitrator=PrepullerArbitrator(
                     state=prepuller_state,
                     tag_client=PrepullerTagClient(
@@ -253,8 +253,8 @@ class Context:
     @property
     def lab_manager(self) -> LabManager:
         return LabManager(
-            instance_url=self.config.runtime.instance_url,
-            manager_namespace=self.config.runtime.namespace_prefix,
+            instance_url=self.config.base_url,
+            manager_namespace=self.config.lab.namespace_prefix,
             user_map=self.user_map,
             event_manager=self.event_manager,
             logger=self.logger,
@@ -307,7 +307,7 @@ class Context:
 
     async def get_namespace(self) -> str:
         username = await self.get_username()
-        return f"{self.config.runtime.namespace_prefix}-{username}"
+        return f"{self.config.lab.namespace_prefix}-{username}"
 
     def rebind_logger(self, **values: Any) -> None:
         """Add the given values to the logging context."""
