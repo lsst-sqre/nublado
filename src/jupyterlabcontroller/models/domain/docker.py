@@ -9,9 +9,6 @@ from typing import Self
 class DockerCredentials:
     """Holds the credentials for one Docker API server."""
 
-    registry_host: str
-    """Hostname of the server for which these credentials apply."""
-
     username: str
     """Authentication username."""
 
@@ -30,7 +27,7 @@ class DockerCredentials:
         return base64.b64encode(auth_data).decode()
 
     @classmethod
-    def from_config(cls, host: str, config: dict[str, str]) -> Self:
+    def from_config(cls, config: dict[str, str]) -> Self:
         """Create from a Docker config entry (such as a pull secret).
 
         This requires the ``auth`` field be set and ignores the ``username``
@@ -38,8 +35,6 @@ class DockerCredentials:
 
         Parameters
         ----------
-        host
-            The hostname of the server for which these credentials apply.
         config
             The entry for that hostname in the configuration.
 
@@ -50,7 +45,7 @@ class DockerCredentials:
         """
         basic_auth = base64.b64decode(config["auth"].encode()).decode()
         username, password = basic_auth.split(":", 1)
-        return cls(registry_host=host, username=username, password=password)
+        return cls(username=username, password=password)
 
     def to_config(self) -> dict[str, str]:
         """Convert the credentials to a Docker config entry.

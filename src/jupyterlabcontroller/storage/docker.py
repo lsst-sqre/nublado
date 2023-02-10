@@ -32,7 +32,7 @@ class DockerCredentialStore:
             credentials_data = json.load(f)
         credentials = {}
         for host, config in credentials_data["auths"].items():
-            credentials[host] = DockerCredentials.from_config(host, config)
+            credentials[host] = DockerCredentials.from_config(config)
         return cls(credentials)
 
     def __init__(self, credentials: dict[str, DockerCredentials]) -> None:
@@ -62,6 +62,18 @@ class DockerCredentialStore:
             if host.endswith(f".{domain}"):
                 return credentials
         return None
+
+    def set(self, host: str, credentials: DockerCredentials) -> None:
+        """Set credentials for a given host.
+
+        Parameters
+        ----------
+        host
+            The Docker API host.
+        credentials
+            The credentials to use for that host.
+        """
+        self._credentials[host] = credentials
 
     def save(self, path: Path) -> None:
         """Save the credentials store in ``.dockerconfigjson`` format.
