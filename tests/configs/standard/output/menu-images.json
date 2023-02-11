@@ -1,76 +1,30 @@
 {
-  "menu": {
-    "Recommended": {
-      "path": "lighthouse.ceres/library/sketchbook:recommended@sha256:5678",
-      "name": "Recommended",
-      "digest": "sha256:5678",
-      "tags": {
-        "recommended": "Recommended"
-      },
-      "size": null,
-      "prepulled": false
-    },
-    "Daily 2077_10_23": {
-      "path": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
-      "name": "Daily 2077_10_23",
-      "digest": "sha256:1234",
-      "tags": {
-        "d_2077_10_23": "Daily 2077_10_23"
-      },
-      "size": null,
-      "prepulled": false
+  "menu": [
+    {
+      "reference": "lighthouse.ceres/library/sketchbook:recommended@sha256:5678",
+      "name": "Recommended (Weekly 2077_43)"
     }
-  },
-  "all": {
-    "recommended": {
-      "path": "lighthouse.ceres/library/sketchbook:recommended@sha256:5678",
-      "name": "Recommended",
-      "digest": "sha256:5678",
-      "tags": {
-        "recommended": "Recommended"
-      },
-      "size": null,
-      "prepulled": false
+  ],
+  "dropdown": [
+    {
+      "reference": "lighthouse.ceres/library/sketchbook:recommended@sha256:5678",
+      "name": "Recommended (Weekly 2077_43)"
     },
-    "latest_weekly": {
-      "path": "lighthouse.ceres/library/sketchbook:latest_weekly@sha256:5678",
-      "name": "Latest Weekly",
-      "digest": "sha256:5678",
-      "tags": {
-        "latest_weekly": "Latest Weekly"
-      },
-      "size": null,
-      "prepulled": false
+    {
+      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43@sha256:5678",
+      "name": "Weekly 2077_43"
     },
-    "latest_daily": {
-      "path": "lighthouse.ceres/library/sketchbook:latest_daily@sha256:1234",
-      "name": "Latest Daily",
-      "digest": "sha256:1234",
-      "tags": {
-        "latest_daily": "Latest Daily"
-      },
-      "size": null,
-      "prepulled": false
+    {
+      "reference": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
+      "name": "Daily 2077_10_23"
     },
-    "w_2077_43": {
-      "path": "lighthouse.ceres/library/sketchbook:w_2077_43@sha256:5678",
-      "name": "Weekly 2077_43",
-      "digest": "sha256:5678",
-      "tags": {
-        "w_2077_43": "Weekly 2077_43"
-      },
-      "size": null,
-      "prepulled": false
+    {
+      "reference": "lighthouse.ceres/library/sketchbook:latest_weekly",
+      "name": "latest_weekly"
     },
-    "d_2077_10_23": {
-      "path": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
-      "name": "Daily 2077_10_23",
-      "digest": "sha256:1234",
-      "tags": {
-        "d_2077_10_23": "Daily 2077_10_23"
-      },
-      "size": null,
-      "prepulled": false
+    {
+      "reference": "lighthouse.ceres/library/sketchbook:latest_daily",
+      "name": "latest_daily"
     }
-  }
+  ]
 }

@@ -18,11 +18,9 @@ from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .models.domain.usermap import UserMap
 from .services.events import EventManager
 from .services.form import FormManager
+from .services.image import ImageService
 from .services.lab import LabManager
-from .services.prepuller.arbitrator import PrepullerArbitrator
-from .services.prepuller.executor import PrepullerExecutor
-from .services.prepuller.state import PrepullerState
-from .services.prepuller.tag import PrepullerTagClient
+from .services.prepuller import Prepuller
 from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.k8s import K8sStorageClient
@@ -49,11 +47,11 @@ class ProcessContext:
     k8s_client: K8sStorageClient
     """Shared Kubernetes client."""
 
-    prepuller_state: PrepullerState
-    """Global state of the prepuller."""
+    image_service: ImageService
+    """Image service."""
 
-    prepuller_executor: PrepullerExecutor
-    """Prepuller execution manager."""
+    prepuller: Prepuller
+    """Prepuller."""
 
     user_map: UserMap
     """State management for user lab pods."""
@@ -83,7 +81,6 @@ class ProcessContext:
             Shared context for a lab controller process.
         """
         http_client = await http_client_dependency()
-        prepuller_state = PrepullerState()
 
         # This logger is used only by process-global singletons.  Everything
         # else will use a per-request logger that includes more context about
@@ -103,28 +100,23 @@ class ProcessContext:
             http_client=http_client,
             logger=logger,
         )
+        image_service = ImageService(
+            config=config.images,
+            docker=docker_client,
+            kubernetes=k8s_client,
+            logger=logger,
+        )
         return cls(
             config=config,
             http_client=http_client,
             k8s_client=k8s_client,
-            prepuller_state=prepuller_state,
-            prepuller_executor=PrepullerExecutor(
-                state=prepuller_state,
-                k8s_client=k8s_client,
-                docker_client=docker_client,
-                logger=logger,
+            image_service=image_service,
+            prepuller=Prepuller(
                 config=config.images,
                 namespace=config.lab.namespace_prefix,
-                arbitrator=PrepullerArbitrator(
-                    state=prepuller_state,
-                    tag_client=PrepullerTagClient(
-                        state=prepuller_state,
-                        config=config.images,
-                        logger=logger,
-                    ),
-                    config=config.images,
-                    logger=logger,
-                ),
+                image_service=image_service,
+                k8s_client=k8s_client,
+                logger=logger,
             ),
             user_map=UserMap(),
             event_manager=EventManager(logger=logger),
@@ -132,15 +124,17 @@ class ProcessContext:
 
     async def start(self) -> None:
         """Start the background threads running."""
-        await self.prepuller_executor.start()
+        await self.image_service.start()
+        await self.prepuller.start()
 
-    async def aclose(self) -> None:
+    async def stop(self) -> None:
         """Clean up a process context.
 
         Called during shutdown, or before recreating the process context using
         a different configuration.
         """
-        await self.prepuller_executor.stop()
+        await self.prepuller.stop()
+        await self.image_service.stop()
 
 
 class Factory:
@@ -191,6 +185,15 @@ class Factory:
         self._logger = logger
 
     @property
+    def image_service(self) -> ImageService:
+        """Global image service, from the `ProcessContext`.
+
+        Only used by tests; handlers have access to the image service via the
+        request context.
+        """
+        return self._context.image_service
+
+    @property
     def user_map(self) -> UserMap:
         """Current user lab status, from the `ProcessContext`.
 
@@ -205,7 +208,7 @@ class Factory:
         After this method is called, the factory object is no longer valid and
         must not be used.
         """
-        await self._context.aclose()
+        await self._context.stop()
 
     def create_docker_storage(self) -> DockerStorageClient:
         """Create a Docker storage client.
@@ -222,12 +225,10 @@ class Factory:
         )
 
     def create_form_manager(self) -> FormManager:
-        prepuller_arbitrator = self.create_prepuller_arbitrator()
         return FormManager(
-            prepuller_arbitrator=prepuller_arbitrator,
-            logger=self._logger,
-            http_client=self._context.http_client,
+            image_service=self._context.image_service,
             lab_sizes=self._context.config.lab.sizes,
+            logger=self._logger,
         )
 
     def create_gafaelfawr_client(self) -> GafaelfawrStorageClient:
@@ -246,18 +247,6 @@ class Factory:
             logger=self._logger,
             lab_config=self._context.config.lab,
             k8s_client=self._context.k8s_client,
-        )
-
-    def create_prepuller_arbitrator(self) -> PrepullerArbitrator:
-        return PrepullerArbitrator(
-            state=self._context.prepuller_state,
-            tag_client=PrepullerTagClient(
-                state=self._context.prepuller_state,
-                config=self._context.config.images,
-                logger=self._logger,
-            ),
-            config=self._context.config.images,
-            logger=self._logger,
         )
 
     def set_logger(self, logger: BoundLogger) -> None:

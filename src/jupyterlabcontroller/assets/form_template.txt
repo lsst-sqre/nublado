@@ -24,7 +24,7 @@ function selectDropdown() {
   <div class="radio radio-inline">
 {% for i in cached_images -%}
     <input type="radio" name="image_list"
-     id="image{{ loop.index }}" value="{{ i.path }}"
+     id="image{{ loop.index }}" value="{{ i.reference }}"
      {% if loop.first %} checked {%- endif -%}
     >
     <label for="image{{ loop.index }}">{{ i.name }}</label><br />
@@ -39,7 +39,7 @@ function selectDropdown() {
     </label><br />
     <select name="image_dropdown" onclick="selectDropdown()">
 {% for i in all_images -%}
-        <option value="{{ i.path }}">{{ i.name }}</option>
+        <option value="{{ i.reference }}">{{ i.name }}</option>
 {% endfor %}
     </select>
   </div>

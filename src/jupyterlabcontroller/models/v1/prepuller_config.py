@@ -56,22 +56,6 @@ class GARDefinition(CamelCaseModel):
     )
 
 
-class ImagePathAndName(CamelCaseModel):
-    path: str = Field(
-        ...,
-        name="path",
-        example="lighthouse.ceres/library/sketchbook:latest_daily",
-        title="Full Docker registry path for lab image.",
-        description="cf. https://docs.docker.com/registry/introduction/",
-    )
-    name: str = Field(
-        ...,
-        name="name",
-        example="Latest Daily (Daily 2077_10_23)",
-        title="Human-readable representation of image tag",
-    )
-
-
 class PrepullerConfiguration(CamelCaseModel):
     """See https://sqr-059.lsst.io for how this is used."""
 
@@ -105,17 +89,25 @@ class PrepullerConfiguration(CamelCaseModel):
         None,
         name="cycle",
         example=27,
-        title="Cycle number describing XML schema version of this image",
-        description="Currently only used by T&S RSP",
+        title="Limit to this cycle number (XML schema version)",
+        description=(
+            "Telescope and Site images contain software implementing a"
+            " specific XML schema version, and it is not safe to use"
+            " software using a different XML schema version. If this is"
+            " set, only images with a matching cycle will be shown in the"
+            " spawner menu."
+        ),
     )
-    pin: Optional[List[ImagePathAndName]] = Field(
+    pin: Optional[list[str]] = Field(
         None,
         name="pin",
-        example=["lighthouse.ceres/library/sketchbook:d_2077_10_23"],
-        title="List of images to prepull and pin to the menu",
+        example=["d_2077_10_23"],
+        title="List of image tags to prepull and pin to the menu",
         description=(
-            "Forces images to be cached and pinned to the menu "
-            "even when they would not normally be prepulled"
+            "Forces images to be cached and pinned to the menu even when they"
+            " would not normally be prepulled. This is primarily used to force"
+            " prepulling of the image underlying the recommended tag so that"
+            " we can resolve it to a proper display name."
         ),
     )
     alias_tags: List[str] = Field(
@@ -160,8 +152,3 @@ class PrepullerConfiguration(CamelCaseModel):
         else:
             # This is impossible due to validation, but mypy doesn't know that.
             raise RuntimeError("PrepullerConfiguration with no docker or gar")
-
-    @property
-    def path(self) -> str:
-        # Return the canonical path to the set of tagged images
-        return f"{self.registry}/{self.repository}"

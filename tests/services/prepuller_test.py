@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -10,11 +11,10 @@ from jupyterlabcontroller.factory import Factory
 async def test_get_menu_images(factory: Factory, std_result_dir: Path) -> None:
     with (std_result_dir / "menu-images.json").open("r") as f:
         expected = json.load(f)
-    prepuller_arbitrator = factory.create_prepuller_arbitrator()
-    r = prepuller_arbitrator.get_menu_images()
+    images = factory.image_service.menu_images()
     assert {
-        "menu": {k: v.dict() for k, v in r.menu.items()},
-        "all": {k: v.dict() for k, v in r.all.items()},
+        "menu": [asdict(i) for i in images.menu],
+        "dropdown": [asdict(i) for i in images.dropdown],
     } == expected
 
 
@@ -22,6 +22,5 @@ async def test_get_menu_images(factory: Factory, std_result_dir: Path) -> None:
 async def test_get_prepulls(factory: Factory, std_result_dir: Path) -> None:
     with (std_result_dir / "prepulls.json").open("r") as f:
         expected = json.load(f)
-    prepuller_arbitrator = factory.create_prepuller_arbitrator()
-    r = prepuller_arbitrator.get_prepulls()
+    r = factory.image_service.prepull_status()
     assert r.dict() == expected

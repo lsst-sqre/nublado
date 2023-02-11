@@ -36,7 +36,8 @@ from ..exceptions import (
     NSCreationError,
     WaitingForObjectError,
 )
-from ..models.k8s import ContainerImage, K8sPodPhase, NodeContainers, Secret
+from ..models.domain.kubernetes import KubernetesNodeImage
+from ..models.k8s import K8sPodPhase, Secret
 from ..models.v1.lab import UserData, UserResourceQuantum
 from ..util import deslashify
 
@@ -537,17 +538,24 @@ class K8sStorageClient:
                 return  # "Not there to start with" is fine
             raise
 
-    async def get_image_data(self) -> NodeContainers:
-        resp = await self.api.list_node()
-        all_images_by_node: NodeContainers = dict()
-        for n in resp.items:
-            nn = n.metadata.name
-            all_images_by_node[nn] = list()
-            for ci in n.status.images:
-                all_images_by_node[nn].append(
-                    ContainerImage.from_v1_container_image(ci)
-                )
-        return all_images_by_node
+    async def get_image_data(self) -> dict[str, list[KubernetesNodeImage]]:
+        """Get the list of cached images from each node.
+
+        Returns
+        -------
+        dict of str to list
+            Map of nodes to lists of all cached images on that node.
+        """
+        nodes = await self.api.list_node()
+        image_data = {}
+        for node in nodes.items:
+            name = node.metadata.name
+            images = [
+                KubernetesNodeImage.from_container_image(i)
+                for i in node.status.images
+            ]
+            image_data[name] = images
+        return image_data
 
     async def get_observed_user_state(
         self, manager_namespace: str

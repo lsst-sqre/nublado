@@ -31,8 +31,7 @@ async def get_images(
     context: RequestContext = Depends(context_dependency),
 ) -> SpawnerImages:
     """Returns known images and their names."""
-    prepuller_arbitrator = context.factory.create_prepuller_arbitrator()
-    return prepuller_arbitrator.get_spawner_images()
+    return context.image_service.images()
 
 
 @router.get(
@@ -47,5 +46,4 @@ async def get_prepulls(
     context: RequestContext = Depends(context_dependency),
 ) -> PrepullerStatus:
     """Returns the list of known images and their names."""
-    prepuller_arbitrator = context.factory.create_prepuller_arbitrator()
-    return prepuller_arbitrator.get_prepulls()
+    return context.image_service.prepull_status()

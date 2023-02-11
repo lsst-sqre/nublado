@@ -11,4 +11,4 @@ async def test_generate_user_lab_form(
 ) -> None:
     form_manager = factory.create_form_manager()
     r = form_manager.generate_user_lab_form()
-    assert r == (std_result_dir / "lab_form.txt").read_text()
+    assert r == (std_result_dir / "lab_form.txt").read_text().strip()
