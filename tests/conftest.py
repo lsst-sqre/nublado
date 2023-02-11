@@ -55,8 +55,15 @@ def obj_factory(std_config_dir: Path) -> TestObjectFactory:
 
 @pytest.fixture(scope="session")
 def config(std_config_dir: Path) -> Configuration:
-    configuration_dependency.set_filename(str(std_config_dir / "config.yaml"))
-    return configuration_dependency.config
+    """Construct configuration for tests.
+
+    Overwrites the path to Docker secrets in the global configuration object
+    to a value that's valid for all tests.
+    """
+    configuration_dependency.set_path(std_config_dir / "config.yaml")
+    config = configuration_dependency.config
+    config.docker_secrets_path = std_config_dir / "docker_config.json"
+    return config
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -91,9 +98,7 @@ async def app(
     Wraps the application in a lifespan manager so that startup and shutdown
     events are sent during test execution.
     """
-    app = create_app(
-        config_dir=str(std_config_dir), context_dependency=context_dependency
-    )
+    app = create_app(context_dependency=context_dependency)
     async with LifespanManager(app):
         yield app
 
@@ -104,10 +109,7 @@ async def app_client(
     config: Configuration,
 ) -> AsyncIterator[AsyncClient]:
     """Return an ``httpx.AsyncClient`` configured to talk to the test app."""
-    async with AsyncClient(
-        app=app,
-        base_url=config.runtime.instance_url,
-    ) as client:
+    async with AsyncClient(app=app, base_url=config.base_url) as client:
         yield client
 
 

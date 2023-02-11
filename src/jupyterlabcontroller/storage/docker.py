@@ -1,14 +1,93 @@
-"""Docker v2 registry client, based on cachemachine's client."""
-import asyncio
-from typing import List, Optional, cast
+"""Client for the Docker v2 API."""
+
+import json
+from pathlib import Path
+from typing import Self
 
 from httpx import AsyncClient, Response
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import DockerRegistryError
 from ..models.domain.docker import DockerCredentials
-from ..models.tag import RSPTag, RSPTagList, TagMap
-from ..util import extract_untagged_path_from_image_ref
+
+
+class DockerCredentialStore:
+    """Read and write the ``.dockerconfigjson`` syntax used by Kubernetes."""
+
+    @classmethod
+    def from_path(cls, path: Path) -> Self:
+        """Load credentials for Docker API hosts from a file.
+
+        Parameters
+        ----------
+        path
+            Path to file containing credentials.
+
+        Returns
+        -------
+        DockerCredentialStore
+            The resulting credential store.
+        """
+        with path.open("r") as f:
+            credentials_data = json.load(f)
+        credentials = {}
+        for host, config in credentials_data["auths"].items():
+            credentials[host] = DockerCredentials.from_config(config)
+        return cls(credentials)
+
+    def __init__(self, credentials: dict[str, DockerCredentials]) -> None:
+        self._credentials = credentials
+
+    def get(self, host: str) -> DockerCredentials | None:
+        """Get credentials for a given host.
+
+        These may be domain credentials, so if there is no exact match, return
+        the credentials for any parent domain found.
+
+        Parameters
+        ----------
+        host
+            Host to which to authenticate.
+
+        Returns
+        -------
+        jupyterlabcontroller.models.domain.docker.DockerCredentials or None
+            The corresponding credentials or `None` if there are no
+            credentials in the store for that host.
+        """
+        credentials = self._credentials.get(host)
+        if credentials:
+            return credentials
+        for domain, credentials in self._credentials.items():
+            if host.endswith(f".{domain}"):
+                return credentials
+        return None
+
+    def set(self, host: str, credentials: DockerCredentials) -> None:
+        """Set credentials for a given host.
+
+        Parameters
+        ----------
+        host
+            The Docker API host.
+        credentials
+            The credentials to use for that host.
+        """
+        self._credentials[host] = credentials
+
+    def save(self, path: Path) -> None:
+        """Save the credentials store in ``.dockerconfigjson`` format.
+
+        Parameters
+        ----------
+        path
+            Path at which to save the credential store.
+        """
+        data = {
+            "auths": {h: c.to_config() for h, c in self._credentials.items()}
+        }
+        with path.open("w") as f:
+            json.dump(data, f)
 
 
 class DockerStorageClient:
@@ -16,187 +95,219 @@ class DockerStorageClient:
 
     Parameters
     ----------
-    host
-        Docker registry API host.
-    repository
-        Image repository to query (for example, ``lsstsqre/sciplat-lab``).
-    recommended_tag
-        The tag indicating the recommended image.
     http_client
         Client to use to make requests.
     logger
         Logger for log messages.
     credentials
-        Authentication credentials for the Docker API server.
+        Docker credential store to use for authentication.
     """
 
     def __init__(
         self,
         *,
-        host: str,
-        repository: str,
-        recommended_tag: str,
         http_client: AsyncClient,
         logger: BoundLogger,
-        credentials: Optional[DockerCredentials] = None,
+        credentials: DockerCredentialStore,
     ) -> None:
-        """Create a new Docker Client.
+        self._client = http_client
+        self._logger = logger
+        self._credentials = credentials
+        self._authorization: dict[str, str] = {}
+
+    async def list_tags(self, registry: str, repository: str) -> list[str]:
+        """List all the tags for a given registry and repository.
 
         Parameters
         ----------
+        registry
+            Hostname of Docker container registry.
+        repository
+            Repository of images (for example, ``lsstsqre/sciplat-lab``).
+
+        Returns
+        -------
+        list of str
+            All the tags found for that repository.
         """
-        self.host = host
-        self.repository = repository
-        self.http_client = http_client
-        self.logger = logger
-        self.headers = {
-            "Accept": "application/vnd.docker.distribution.manifest.v2+json"
-        }
-        self.credentials = credentials
-        self.recommended_tag = recommended_tag
-
-    @property
-    def ref(self) -> str:
-        return f"{self.host}{self.repository}"
-
-    async def list_tags(self, authenticate: bool = True) -> List[str]:
-        """List all the tags.
-
-        Lists all the tags for the repository this client is used with.
-
-        Parameters
-        ----------
-        authenticate: should we try and authenticate?  Used internally
-          for retrying after successful authentication.
-        """
-        url = f"https://{self.host}/v2/{self.repository}/tags/list"
-        r = await self.http_client.get(url, headers=self.headers)
-        if r.status_code == 200:
-            body = r.json()
-            return body["tags"]
-        elif r.status_code == 401 and authenticate:
-            await self._authenticate(r)
-            return await self.list_tags(authenticate=False)
-        else:
-            msg = f"Unknown error listing tags from <{url}>: {r}"
-            raise DockerRegistryError(msg)
+        url = f"https://{registry}/v2/{repository}/tags/list"
+        r = await self._client.get(url, headers=self._build_headers(registry))
+        if r.status_code == 401:
+            headers = await self._authenticate(registry, r)
+            r = await self._client.get(url, headers=headers)
+        try:
+            r.raise_for_status()
+            return r.json()["tags"]
+        except Exception as e:
+            msg = f"Error listing tags from <{url}>"
+            raise DockerRegistryError(msg) from e
 
     async def get_image_digest(
-        self, tag: str, authenticate: bool = True
+        self, registry: str, repository: str, tag: str
     ) -> str:
-        """Get the digest of a tag.
-
-        Get the digest associated with an image tag.
+        """Get the digest associated with an image tag.
 
         Parameters
         ----------
-        tag: the tag to inspect
-        authenticate: should we to authenticate?  Used internally for
-          retrying after successful authentication.
+        registry
+            Hostname of Docker container registry.
+        repository
+            Repository of images (for example, ``lsstsqre/sciplat-lab``).
+        tag
+            The tag to inspect.
 
-        Returns the digest as a string, such as "sha256:abcdef"
+        Returns
+        -------
+        str
+            The digest, such as ``sha256:abcdef``.
         """
-        url = f"https://{self.host}/v2/{self.repository}/manifests/{tag}"
-        r = await self.http_client.head(url, headers=self.headers)
-        if r.status_code == 200:
+        url = f"https://{registry}/v2/{repository}/manifests/{tag}"
+        r = await self._client.head(url, headers=self._build_headers(registry))
+        if r.status_code == 401:
+            headers = await self._authenticate(registry, r)
+            r = await self._client.head(url, headers=headers)
+        try:
+            r.raise_for_status()
             return r.headers["Docker-Content-Digest"]
-        elif r.status_code == 401 and authenticate:
-            await self._authenticate(r)
-            return await self.get_image_digest(tag, authenticate=False)
-        else:
-            msg = f"Unknown error retrieving digest from <{url}>: {r}"
+        except Exception as e:
+            msg = f"Error retrieving digest from <{url}>"
+            raise DockerRegistryError(msg) from e
+
+    async def _authenticate(
+        self, host: str, response: Response
+    ) -> dict[str, str]:
+        """Authenticate after getting an auth challenge.
+
+        Sets headers to use for subsequent requests.  The caller should then
+        retry the request.
+
+        Parameters
+        ----------
+        host
+            The host to which we're making the request, and the key to find
+            Docker credentials to use for authentication.
+        response
+            The response from the server that includes an auth challenge.
+
+        Returns
+        -------
+        dict of str to str
+            New headers to use for this host.
+
+        Raises
+        ------
+        DockerRegistryError
+            Some failure in talking to the Docker registry API server.
+        """
+        if host in self._authorization:
+            msg = f"Authentication credentials for {host} rejected"
             raise DockerRegistryError(msg)
 
-    async def _authenticate(self, response: Response) -> None:
-        """Internal method to authenticate after getting an auth challenge.
+        credentials = self._credentials.get(host)
+        if not credentials:
+            msg = f"No Docker API credentials available for {host}"
+            raise DockerRegistryError(msg)
 
-        Doesn't return anything but will set additional headers for future
-        requests.
-
-        Parameters
-        ----------
-        response: response that contains an auth challenge.
-        """
         challenge = response.headers.get("WWW-Authenticate")
         if not challenge:
-            raise DockerRegistryError("No authentication challenge")
-
-        (challenge_type, params) = challenge.split(" ", 1)
+            msg = f"Docker API 401 response from {host} contains no challenge"
+            raise DockerRegistryError(msg)
+        challenge_type, params = challenge.split(None, 1)
         challenge_type = challenge_type.lower()
 
-        if self.credentials is None:
-            raise DockerRegistryError(
-                "Cannot authenticate with no credentials"
-            )
-
         if challenge_type == "basic":
-            # Basic auth is used by the Nexus Docker Registry.
-            self.headers["Authorization"] = self.credentials.authorization
-            self.logger.info(
-                f"Authenticated with basic auth as {self.credentials.username}"
+            self._authorization[host] = credentials.authorization
+            self._logger.info(
+                "Authenticated to Docker API with basic auth",
+                registry=host,
+                username=credentials.username,
             )
         elif challenge_type == "bearer":
             # Bearer is used by Docker's official registry.
-            self.logger.debug(f"Parsing challenge params {params}")
-            parts = dict()
-            for p in params.split(","):
-                (k, v) = p.split("=")
-                parts[k] = v.replace('"', "")
-
-            url = parts["realm"]
-            auth = (self.credentials.username, self.credentials.password)
-
-            self.logger.info(
-                f"Obtaining bearer token for {self.credentials.username}"
+            token = await self._get_bearer_token(host, credentials, params)
+            self._authorization[host] = f"Bearer {token}"
+            self._logger.info(
+                "Authenticated to Docker API with bearer token",
+                registry=host,
+                username=credentials.username,
             )
-            r = await self.http_client.get(url, auth=auth, params=parts)
-            if r.status_code == 200:
-                body = r.json()
-                token = body["token"]
-                self.headers["Authorization"] = f"Bearer {token}"
-                self.logger.info("Authenticated with bearer token")
-            else:
-                msg = f"Error getting token from <{url}>: {r}"
-                raise DockerRegistryError(msg)
         else:
-            msg = f"Unknown authentication challenge {challenge}"
+            msg = f"Unknown authentication challenge type {challenge_type}"
             raise DockerRegistryError(msg)
 
-    async def get_tag_map(self) -> TagMap:
-        """This is the only actual repository function we directly perform
-        (since pulls are done by K8s).  We query all the tags for a given
-        repository to get their digests, inflate the tag and digest pairs
-        into RSPTag objects, and return a structure with dicts indexed by
-        tag and by digest.  This in turn will let us easily compare what
-        we have remotely and what we have locally, because it doesn't matter
-        what tag we pulled a given image by, but whether we have an image
-        with the proper digest already on a given node.
+        return self._build_headers(host)
+
+    def _build_headers(self, host: str) -> dict[str, str]:
+        """Construct the headers used for a query to a given host.
+
+        Adds the ``Authorization`` header if we have discovered that this host
+        requires authentication.
+
+        Parameters
+        ----------
+        host
+            Docker registry API host.
+
+        Returns
+        -------
+        dict of str to str
+            Headers to pass to this host.
         """
-        tags = await self.list_tags()
-        tasks: List[asyncio.Task] = list()
-        for tag in tags:
-            # We probably want to rate-limit this ourselves somehow
-            tasks.append(asyncio.create_task(self.get_image_digest(tag)))
-        digests = cast(
-            List[str], await asyncio.gather(*tasks)
-        )  # gather doesn't know it's all strings, but we do.
-        t_to_d = dict(zip(tags, digests))
-        rsp_tags: List[RSPTag] = list()
-        # Inflate each tag/digest pair into an RSPTag
-        untagged_ref = extract_untagged_path_from_image_ref(self.ref)
-        for tag in t_to_d:
-            alias_tags = []
-            if tag == self.recommended_tag:
-                alias_tags = [self.recommended_tag]
-            rsp_tags.append(
-                RSPTag.from_tag(
-                    tag=tag,
-                    digest=t_to_d[tag],
-                    image_ref=f"{untagged_ref}:{tag}",
-                    alias_tags=alias_tags,
-                )
-            )
-        # Put it into a RSPTagList, which will sort the tags and produce
-        # the map.
-        rsp_taglist = RSPTagList(tags=rsp_tags)
-        return rsp_taglist.tag_map
+        headers = {
+            "Accept": "application/vnd.docker.distribution.manifest.v2+json"
+        }
+        if host in self._authorization:
+            headers["Authorization"] = self._authorization[host]
+        return headers
+
+    async def _get_bearer_token(
+        self, host: str, credentials: DockerCredentials, challenge_params: str
+    ) -> str:
+        """Get a bearer token for subsequent API calls.
+
+        Parameters
+        ----------
+        host
+            The host to which we're authenticating.
+        credentials
+            Authentication credentials.
+        challenge_params
+            The parameters it sent in the ``WWW-Authenticate`` header.
+
+        Returns
+        -------
+        str
+            The bearer token to use for subsequent calls to that host.
+
+        Raises
+        ------
+        DockerRegistryError
+            Some failure in talking to the Docker registry API server.
+        """
+        # We need to reflect the challenge parameters back as query
+        # parameters when obtaining our bearer token.
+        self._logger.debug(
+            "Parsing Docker API bearer challenge", params=challenge_params
+        )
+        params = {}
+        for param in challenge_params.split(","):
+            key, value = param.split("=", 1)
+            params[key] = value.replace('"', "")
+
+        # This is hugely unsafe and needs some sort of sanity check.
+        url = params["realm"]
+
+        # Request a bearer token.
+        self._logger.info(
+            "Obtaining Docker API bearer token",
+            registry=host,
+            username=credentials.username,
+        )
+        auth = (credentials.username, credentials.password)
+        r = await self._client.get(url, auth=auth, params=params)
+        try:
+            r.raise_for_status()
+            return r.json()["token"]
+        except Exception as e:
+            msg = f"Error getting bearer token from <{url}>"
+            raise DockerRegistryError(msg) from e

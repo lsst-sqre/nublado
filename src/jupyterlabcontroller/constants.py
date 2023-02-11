@@ -1,10 +1,13 @@
-"""Constants for jupyterlab-controller
-"""
+"""Global constants."""
+
 import datetime
 from pathlib import Path
 
-CONFIGURATION_PATH = "/etc/nublado/config.yaml"
-DOCKER_SECRETS_PATH = "/etc/secrets/.dockerconfigjson"
+CONFIGURATION_PATH = Path("/etc/nublado/config.yaml")
+"""Default path to controller configuration."""
+
+DOCKER_SECRETS_PATH = Path("/etc/secrets/.dockerconfigjson")
+"""Default path to the Docker API secrets."""
 
 ADMIN_SCOPE = "admin:jupyterlab"
 USER_SCOPE = "exec:notebook"

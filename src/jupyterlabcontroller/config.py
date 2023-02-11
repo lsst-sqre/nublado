@@ -1,18 +1,44 @@
+"""Global configuration parsing."""
+
 from __future__ import annotations
 
 import os
 from enum import auto
-from typing import Dict, List, TypeAlias
+from pathlib import Path
+from typing import Dict, List, Self, TypeAlias
 
 import yaml
-from fastapi import Path
-from pydantic import Field
+from pydantic import BaseSettings, Field
 from safir.logging import LogLevel, Profile
-from safir.pydantic import CamelCaseModel
+from safir.pydantic import CamelCaseModel, to_camel_case
 
+from .constants import DOCKER_SECRETS_PATH
 from .models.enums import NubladoEnum
 from .models.v1.lab import LabSize
 from .models.v1.prepuller_config import PrepullerConfiguration
+
+
+def _get_namespace_prefix() -> str:
+    """Determine the prefix to use for namespaces for lab environments.
+
+    Use the namespace of the running pod as the prefix if we can determine
+    what it is, otherwise falls back on ``userlabs``.
+
+    Returns
+    -------
+    str
+        Namespace prefix to use for namespaces for lab environments.
+    """
+    if prefix := os.getenv("USER_NAMESPACE_PREFIX"):
+        return prefix
+
+    # Kubernetes puts the running pod namespace here.
+    path = Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+    if path.exists():
+        return path.read_text().strip()
+    else:
+        return "userlabs"
+
 
 #
 # Safir
@@ -88,7 +114,7 @@ class FileMode(NubladoEnum):
 
 
 class LabVolume(CamelCaseModel):
-    container_path: str = Path(
+    container_path: str = Field(
         ...,
         name="container_path",
         example="/home",
@@ -105,7 +131,7 @@ class LabVolume(CamelCaseModel):
             "type HostPath rather than NFS"
         ),
     )
-    server_path: str = Path(
+    server_path: str = Field(
         ...,
         name="server_path",
         example="/share1/home",
@@ -197,6 +223,10 @@ class LabConfiguration(CamelCaseModel):
     files: Dict[str, LabFile] = Field(default_factory=list)
     volumes: List[LabVolume] = Field(default_factory=list)
     init_containers: List[LabInitContainer] = Field(default_factory=list)
+    namespace_prefix: str = Field(
+        default_factory=_get_namespace_prefix,
+        title="Namespace prefix for lab environments",
+    )
 
 
 #
@@ -205,51 +235,34 @@ class LabConfiguration(CamelCaseModel):
 
 # See models.v1.prepuller_config
 
-#
-# Runtime
-# filled in at runtime, obv.
-# If set, will be ignored.
-#
-class RuntimeConfiguration(CamelCaseModel):
-    path: str = ""
-    namespace_prefix: str = ""
-    instance_url: str = ""
-
-    # FIXME: Don't understand why forcing values in validator isn't working.
-
 
 #
 # Configuration
 #
 
 
-class Configuration(CamelCaseModel):
+class Configuration(BaseSettings):
     safir: SafirConfiguration
     lab: LabConfiguration
     images: PrepullerConfiguration
-    runtime: RuntimeConfiguration
+
+    base_url: str = Field(
+        "http://127.0.0.1:8080",
+        title="Base URL for Science Platform",
+        env="EXTERNAL_INSTANCE_URL",
+        description="Injected into the lab pod as EXTERNAL_INSTANCE_URL",
+    )
+    docker_secrets_path: Path = Field(
+        DOCKER_SECRETS_PATH, title="Path to Docker API credentials"
+    )
+
+    # CamelCaseModel conflicts with BaseSettings, so do this manually.
+    class Config:
+        alias_generator = to_camel_case
+        allow_population_by_field_name = True
 
     @classmethod
-    def from_file(
-        cls,
-        filename: str,
-    ) -> Configuration:
-        with open(filename) as f:
-            r = Configuration.parse_obj(yaml.safe_load(f))
-        ns_prefix = os.getenv("USER_NAMESPACE_PREFIX", "")
-        if not ns_prefix:
-            ns_path = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
-            if os.path.exists(ns_path):
-                with open(ns_path) as f:
-                    ns_prefix = f.read().strip()
-            else:
-                ns_prefix = "userlabs"
-
-        r.runtime = RuntimeConfiguration(
-            path=filename,
-            instance_url=os.getenv(
-                "EXTERNAL_INSTANCE_URL", "http://127.0.0.1:8080"
-            ),
-            namespace_prefix=ns_prefix,
-        )
-        return r
+    def from_file(cls, path: Path) -> Self:
+        """Load the controller configuration from a YAML file."""
+        with path.open("r") as f:
+            return cls.parse_obj(yaml.safe_load(f))

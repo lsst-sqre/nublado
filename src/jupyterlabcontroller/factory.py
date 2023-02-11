@@ -1,6 +1,7 @@
+"""Component factory and global and per-request context management."""
+
 from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, AsyncIterator, List
 
 import structlog
@@ -10,13 +11,8 @@ from safir.dependencies.http_client import http_client_dependency
 from structlog.stdlib import BoundLogger
 
 from .config import Configuration
-from .constants import (
-    CONFIGURATION_PATH,
-    DOCKER_SECRETS_PATH,
-    KUBERNETES_REQUEST_TIMEOUT,
-)
+from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .exceptions import InvalidUserError
-from .models.domain.docker import DockerCredentialsMap
 from .models.domain.usermap import UserMap
 from .models.v1.lab import UserInfo
 from .services.events import EventManager
@@ -27,7 +23,7 @@ from .services.prepuller.executor import PrepullerExecutor
 from .services.prepuller.state import PrepullerState
 from .services.prepuller.tag import PrepullerTagClient
 from .services.size import SizeManager
-from .storage.docker import DockerStorageClient
+from .storage.docker import DockerCredentialStore, DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.k8s import K8sStorageClient
 
@@ -49,7 +45,7 @@ class ProcessContext:
     config: Configuration
     http_client: AsyncClient
     k8s_client: ApiClient
-    docker_credentials: DockerCredentialsMap
+    docker_credentials: DockerCredentialStore
     prepuller_executor: PrepullerExecutor
     user_map: UserMap
     event_manager: EventManager
@@ -59,14 +55,8 @@ class ProcessContext:
         prepuller_state = PrepullerState()
         k8s_api_client = ApiClient()
         logger = structlog.get_logger(config.safir.logger_name)
-        if config.runtime.path == CONFIGURATION_PATH:
-            credentials_file = DOCKER_SECRETS_PATH
-        else:
-            credentials_file = str(
-                Path(config.runtime.path).parent / "docker_config.json"
-            )
-        docker_credentials = DockerCredentialsMap(
-            logger=logger, filename=credentials_file
+        docker_credentials = DockerCredentialStore.from_path(
+            config.docker_secrets_path
         )
         return cls(
             config=config,
@@ -80,18 +70,13 @@ class ProcessContext:
                     logger=logger,
                 ),
                 docker_client=DockerStorageClient(
-                    host=config.images.registry,
-                    repository=config.images.repository,
-                    logger=logger,
+                    credentials=docker_credentials,
                     http_client=await http_client_dependency(),
-                    recommended_tag=config.images.recommended_tag,
-                    credentials=docker_credentials.get(
-                        config.images.registry,
-                    ),
+                    logger=logger,
                 ),
                 logger=logger,
                 config=config.images,
-                namespace=config.runtime.namespace_prefix,
+                namespace=config.lab.namespace_prefix,
                 arbitrator=PrepullerArbitrator(
                     state=prepuller_state,
                     tag_client=PrepullerTagClient(
@@ -138,14 +123,9 @@ class Factory:
     def create_docker_storage(self) -> DockerStorageClient:
         """Create a Docker storage client."""
         return DockerStorageClient(
-            host=self._context.config.images.registry,
-            repository=self._context.config.images.repository,
-            recommended_tag=self._context.config.images.recommended_tag,
+            credentials=self._context.docker_credentials,
             http_client=self._context.http_client,
             logger=self.logger,
-            credentials=self._context.docker_credentials.get(
-                self._context.config.images.registry,
-            ),
         )
 
     def set_logger(self, logger: BoundLogger) -> None:
@@ -165,9 +145,6 @@ class Factory:
 
     def get_k8s_client(self) -> ApiClient:
         return self._context.k8s_client
-
-    def get_docker_credentials(self) -> DockerCredentialsMap:
-        return self._context.docker_credentials
 
     def get_user_map(self) -> UserMap:
         return self._context.user_map
@@ -213,10 +190,6 @@ class Context:
         return self._factory.get_k8s_client()
 
     @property
-    def docker_credentials(self) -> DockerCredentialsMap:
-        return self._factory.get_docker_credentials()
-
-    @property
     def prepuller_state(self) -> PrepullerState:
         return self._factory.get_prepuller_state()
 
@@ -253,8 +226,8 @@ class Context:
     @property
     def lab_manager(self) -> LabManager:
         return LabManager(
-            instance_url=self.config.runtime.instance_url,
-            manager_namespace=self.config.runtime.namespace_prefix,
+            instance_url=self.config.base_url,
+            manager_namespace=self.config.lab.namespace_prefix,
             user_map=self.user_map,
             event_manager=self.event_manager,
             logger=self.logger,
@@ -277,19 +250,6 @@ class Context:
             logger=self.logger,
         )
 
-    @property
-    def docker_client(self) -> DockerStorageClient:
-        return DockerStorageClient(
-            host=self.config.images.registry,
-            repository=self.config.images.repository,
-            logger=self.logger,
-            http_client=self.http_client,
-            credentials=self.docker_credentials.get(
-                self.config.images.registry,
-            ),
-            recommended_tag=self.config.images.recommended_tag,
-        )
-
     async def get_user(self) -> UserInfo:
         if not self.token:
             raise InvalidUserError("Could not determine user from token")
@@ -307,7 +267,7 @@ class Context:
 
     async def get_namespace(self) -> str:
         username = await self.get_username()
-        return f"{self.config.runtime.namespace_prefix}-{username}"
+        return f"{self.config.lab.namespace_prefix}-{username}"
 
     def rebind_logger(self, **values: Any) -> None:
         """Add the given values to the logging context."""

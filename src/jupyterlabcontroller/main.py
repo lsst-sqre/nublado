@@ -1,11 +1,4 @@
-"""The main application factory for the jupyterlab-controller service.
-
-Notes
------
-Be aware that, following the normal pattern for FastAPI services, the app is
-constructed when this module is loaded and is not deferred until a function is
-called.
-"""
+"""The main application factory for the jupyterlab-controller service."""
 
 from importlib.metadata import metadata, version
 from typing import Optional
@@ -44,7 +37,6 @@ fake_request = Request(
 
 def create_app(
     *,
-    config_dir: Optional[str] = None,
     context_dependency: Optional[context.ContextDependency] = None,
 ) -> FastAPI:
     """Create the FastAPI application.
@@ -52,30 +44,17 @@ def create_app(
     This is in a function rather than using a global variable (as is more
     typical for FastAPI) because some middleware depends on configuration
     settings and we therefore want to recreate the application between tests.
-
-    Stolen from Gafaelfawr.
     """
+    config = configuration_dependency.config
 
-    #
-    # We need to be able to override the config location for testing
-    # and running locally.
-    #
-    # If config_dir is set, we will assume that it contains the path
-    # to a directory that contains both 'config.yaml' and
-    # 'docker_config.json'.
-    #
     # If ProcessContext is supplied, we use it instead of initializing a
     # new one.  The only way I can see to make the linkage at app startup
     # work right now is via a process global, which seems hideous.
-
-    if config_dir is not None:
-        configuration_dependency.set_filename(f"{config_dir}/config.yaml")
-    config = configuration_dependency.config
-
     if context_dependency is not None:
         global injected_context_dependency
         injected_context_dependency = context_dependency
 
+    # Configure logging.
     configure_logging(
         profile=config.safir.profile,
         log_level=config.safir.log_level,
@@ -83,6 +62,7 @@ def create_app(
     )
     configure_uvicorn_logging(config.safir.log_level)
 
+    # Create the application object.
     app = FastAPI(
         title=config.safir.name,
         description=metadata("jupyterlab-controller")["Summary"],
@@ -91,8 +71,6 @@ def create_app(
         docs_url=f"/{config.safir.root_endpoint}/docs",
         redoc_url=f"/{config.safir.root_endpoint}/redoc",
     )
-
-    """The main FastAPI application for jupyterlab-controller."""
 
     # Attach the routers.
     app.include_router(indexes.internal_index_router)
@@ -109,6 +87,7 @@ def create_app(
     app.on_event("startup")(startup_event)
     app.on_event("shutdown")(shutdown_event)
 
+    # Register middleware.
     app.add_middleware(XForwardedMiddleware)
 
     return app
