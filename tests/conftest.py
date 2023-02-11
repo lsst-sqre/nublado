@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
+import respx
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI, Request
 from httpx import AsyncClient
@@ -24,8 +24,8 @@ from jupyterlabcontroller.factory import Factory, ProcessContext
 from jupyterlabcontroller.main import create_app
 
 from .settings import TestObjectFactory, test_object_factory
+from .support.gafaelfawr import MockGafaelfawr, register_mock_gafaelfawr
 from .support.mockdocker import MockDockerStorageClient
-from .support.mockgafaelfawr import MockGafaelfawrStorageClient
 from .support.mockk8s import MockK8sStorageClient
 
 _here = Path(__file__).parent
@@ -132,17 +132,17 @@ async def factory(
 
 @pytest.fixture
 def mock_gafaelfawr(
+    config: Configuration,
+    respx_mock: respx.Router,
     obj_factory: TestObjectFactory,
-) -> Iterator[MockGafaelfawrStorageClient]:
-    client = MockGafaelfawrStorageClient(test_obj=obj_factory)
-    with patch("jupyterlabcontroller.factory.GafaelfawrStorageClient") as mock:
-        mock.return_value = client
-        yield client
+) -> MockGafaelfawr:
+    test_users = obj_factory.userinfos
+    return register_mock_gafaelfawr(respx_mock, config.base_url, test_users)
 
 
 @pytest_asyncio.fixture
 async def user_context(
-    mock_gafaelfawr: MockGafaelfawrStorageClient,
+    mock_gafaelfawr: MockGafaelfawr,
     process_context: ProcessContext,
 ) -> AsyncIterator[RequestContext]:
     token = "token-of-affection"

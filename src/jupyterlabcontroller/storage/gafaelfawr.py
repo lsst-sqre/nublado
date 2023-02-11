@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, cast
 
 from httpx import AsyncClient
 
@@ -30,11 +30,3 @@ class GafaelfawrStorageClient:
             obj = await self._fetch("user-info", token)
             self._cache[token].user = UserInfo.parse_obj(obj)
         return cast(UserInfo, self._cache[token].user)
-
-    async def get_scopes(self, token: str) -> List[str]:
-        if self._cache.get(token) is None:
-            self._cache[token] = GafaelfawrCache()
-        if self._cache[token].scopes is None:
-            obj = await self._fetch("token-info", token)
-            self._cache[token].scopes = cast(List[str], obj["scopes"])
-        return cast(List[str], self._cache[token].scopes)

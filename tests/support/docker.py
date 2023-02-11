@@ -169,6 +169,8 @@ def mock_docker(
 
     Parameters
     ----------
+    respx_mock
+        Mock router.
     host
         The hostname on which the mock API should appear to listen.
     repository
@@ -179,8 +181,6 @@ def mock_docker(
     tags
         A mapping of tags to image digests that should appear on that
         registry.
-    respx_mock
-        The mock router.
     require_bearer
         Whether to require bearer token authentication.
 
