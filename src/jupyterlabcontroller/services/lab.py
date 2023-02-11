@@ -44,7 +44,6 @@ from ..models.v1.lab import (
     UserResourceQuantum,
     UserResources,
 )
-from ..storage.gafaelfawr import GafaelfawrStorageClient
 from ..storage.k8s import K8sStorageClient
 from ..util import deslashify
 from .events import EventManager
@@ -64,7 +63,6 @@ class LabManager:
         logger: BoundLogger,
         lab_config: LabConfiguration,
         k8s_client: K8sStorageClient,
-        gafaelfawr_client: GafaelfawrStorageClient,
     ) -> None:
         self.manager_namespace = manager_namespace
         self.instance_url = instance_url
@@ -73,7 +71,6 @@ class LabManager:
         self.logger = logger
         self.lab_config = lab_config
         self.k8s_client = k8s_client
-        self.gafaelfawr_client = gafaelfawr_client
         self._tasks: Set[Task] = set()
 
     def namespace_from_user(self, user: UserInfo) -> str:
@@ -171,9 +168,10 @@ class LabManager:
             # region each time.
             progress = int(progress + ((end - progress) / 3))
 
-    async def create_lab(self, token: str, lab: LabSpecification) -> None:
+    async def create_lab(
+        self, user: UserInfo, token: str, lab: LabSpecification
+    ) -> None:
         """Schedules creation of user lab objects/resources."""
-        user = await self.gafaelfawr_client.get_user(token)
         username = user.username
         namespace = self.namespace_from_user(user)
 

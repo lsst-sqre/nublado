@@ -21,7 +21,7 @@ async def test_lab_manager(
     lm = user_context.factory.create_lab_manager()
     present = lm.check_for_user(username)
     assert present is False  # User map should be empty
-    await lm.create_lab(token=token, lab=lab)
+    await lm.create_lab(user, token, lab)
     present = lm.check_for_user(username)
     assert present is True  # And should now have an entry
     # We couldn't really do this next thing through the handler with a
@@ -46,7 +46,7 @@ async def test_get_active_users(
     lm = user_context.factory.create_lab_manager()
     users = await user_context.user_map.running()
     assert len(users) == 0
-    await lm.create_lab(token=token, lab=lab)
+    await lm.create_lab(user, token, lab)
     await lm.await_pod_spawn(
         namespace=lm.namespace_from_user(user), username=username
     )

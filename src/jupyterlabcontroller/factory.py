@@ -272,7 +272,6 @@ class Factory:
         )
 
     def create_lab_manager(self) -> LabManager:
-        gafaelfawr_client = self.create_gafaelfawr_client()
         return LabManager(
             instance_url=self._context.config.base_url,
             manager_namespace=self._context.config.lab.namespace_prefix,
@@ -281,7 +280,6 @@ class Factory:
             logger=self._logger,
             lab_config=self._context.config.lab,
             k8s_client=self._context.k8s_client,
-            gafaelfawr_client=gafaelfawr_client,
         )
 
     def create_prepuller_arbitrator(self) -> PrepullerArbitrator:

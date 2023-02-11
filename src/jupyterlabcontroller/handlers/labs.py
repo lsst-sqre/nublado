@@ -84,15 +84,13 @@ async def post_new_lab(
         user = await context.get_user()
     except InvalidUserError:
         raise HTTPException(status_code=403, detail="Forbidden")
-    token_username = user.username
-    if token_username != username:
+    if user.username != username:
         raise HTTPException(status_code=403, detail="Forbidden")
     context.logger.debug(f"Received creation request for {username}")
+    lab_spec = lab.to_lab_specification()
     lab_manager = context.factory.create_lab_manager()
     try:
-        await lab_manager.create_lab(
-            token=context.token, lab=lab.to_lab_specification()
-        )
+        await lab_manager.create_lab(user, context.token, lab_spec)
     except LabExistsError:
         raise HTTPException(status_code=409, detail="Conflict")
     return f"{_external_url()}/nublado/spawner/v1/labs/{username}"
