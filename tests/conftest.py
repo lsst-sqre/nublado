@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 import pytest_asyncio
@@ -22,11 +23,11 @@ from jupyterlabcontroller.dependencies.context import (
 )
 from jupyterlabcontroller.factory import Factory, ProcessContext
 from jupyterlabcontroller.main import create_app
+from jupyterlabcontroller.storage.k8s import K8sStorageClient
 
 from .settings import TestObjectFactory, test_object_factory
 from .support.gafaelfawr import MockGafaelfawr, register_mock_gafaelfawr
 from .support.mockdocker import MockDockerStorageClient
-from .support.mockk8s import MockK8sStorageClient
 
 _here = Path(__file__).parent
 
@@ -77,7 +78,14 @@ async def process_context(
     config: Configuration, obj_factory: TestObjectFactory
 ) -> ProcessContext:
     """Create a process context with mock clients."""
-    k8s_client = MockK8sStorageClient(test_obj=obj_factory)
+    k8s_client = Mock(spec=K8sStorageClient)
+
+    async def pod_events(namespace: str, podname: str) -> AsyncIterator[str]:
+        yield "some event"
+
+    k8s_client.get_image_data.return_value = obj_factory.nodecontents
+    k8s_client.get_observed_user_state.return_value = {}
+    k8s_client.reflect_pod_events.side_effect = pod_events
     docker_client = MockDockerStorageClient(test_obj=obj_factory)
     context = await ProcessContext.from_config(
         config, k8s_client, docker_client
