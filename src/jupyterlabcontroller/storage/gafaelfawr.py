@@ -1,32 +1,68 @@
-from typing import Any, Dict, cast
+"""Client for talking to Gafaelfawr."""
 
 from httpx import AsyncClient
+from structlog.stdlib import BoundLogger
 
 from ..config import Configuration
-from ..models.domain.storage import GafaelfawrCache
+from ..exceptions import GafaelfawrError, InvalidUserError
 from ..models.v1.lab import UserInfo
 
 
 class GafaelfawrStorageClient:
+    """Get user information from Gafaelfawr.
+
+    Parameters
+    ----------
+    config
+        Lab controller configuration.
+    http_client
+        Shared HTTP client.
+    logger
+        Logger for messages.
+    """
+
     def __init__(
-        self, http_client: AsyncClient, config: Configuration
+        self,
+        config: Configuration,
+        http_client: AsyncClient,
+        logger: BoundLogger,
     ) -> None:
-        self.http_client = http_client
-        self._api_url = f"{config.base_url}/auth/api/v1"
-        self._cache: Dict[str, GafaelfawrCache] = dict()
+        self._http_client = http_client
+        self._logger = logger
+        self._url = f"{config.base_url}/auth/api/v1/user-info"
 
-    async def _fetch(self, endpoint: str, token: str) -> Any:
-        url = f"{self._api_url}/{endpoint}"
+    async def get_user_info(self, token: str) -> UserInfo:
+        """Get user information for the user identified by a token.
+
+        Parameters
+        ----------
+        token
+            Gafaelfawr token for user.
+
+        Returns
+        -------
+        UserInfo
+            User metadata.
+
+        Raises
+        ------
+        jupyterlabcontroller.exceptions.InvalidUserError
+            Token was invalid.
+        jupyterlabcontroller.exceptions.GafaelfawrError
+            Some other error occurred while talking to Gafaelfawr.
+        """
         headers = {"Authorization": f"bearer {token}"}
-        resp = await self.http_client.get(url, headers=headers)
-        j = resp.json()
-        return j
-
-    async def get_user(self, token: str) -> UserInfo:
-        # defaultdict did not work as I expected.
-        if self._cache.get(token) is None:
-            self._cache[token] = GafaelfawrCache()
-        if self._cache[token].user is None:
-            obj = await self._fetch("user-info", token)
-            self._cache[token].user = UserInfo.parse_obj(obj)
-        return cast(UserInfo, self._cache[token].user)
+        try:
+            r = await self._http_client.get(self._url, headers=headers)
+        except Exception as e:
+            msg = f"Unable to contact Gafaelfawr: {str(e)}"
+            raise GafaelfawrError(msg) from e
+        if r.status_code in (401, 403):
+            self._logger.warning("User token is invalid")
+            raise InvalidUserError("User token is invalid")
+        try:
+            r.raise_for_status()
+            return UserInfo.parse_obj(r.json())
+        except Exception as e:
+            msg = f"Unable to parse reply from Gafaelfawr: {str(e)}"
+            raise GafaelfawrError(msg) from e

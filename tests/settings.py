@@ -156,5 +156,11 @@ class TestObjectFactory:
             self.canonicalize()
         return self.test_objects["repo_contents"]
 
+    def get_user(self) -> tuple[str, UserInfo]:
+        """Get user information and token for a user."""
+        for token, user in self.userinfos.items():
+            return token, user
+        assert False, "No user information records configured"
+
 
 test_object_factory = TestObjectFactory()

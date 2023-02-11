@@ -41,6 +41,12 @@ class NoUserMapError(Exception):
     pass
 
 
+class GafaelfawrError(Exception):
+    """An unexpected error occurred talking to Gafaelfawr."""
+
+    pass
+
+
 class InvalidUserError(Exception):
     """Raised when a user cannot be resolved from a token."""
 

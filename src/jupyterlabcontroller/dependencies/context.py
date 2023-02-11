@@ -9,15 +9,13 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import structlog
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Request
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
 from ..config import Configuration
-from ..exceptions import InvalidUserError
 from ..factory import Factory, ProcessContext
 from ..models.domain.usermap import UserMap
-from ..models.v1.lab import UserInfo
 from ..services.events import EventManager
 
 
@@ -34,9 +32,6 @@ class RequestContext:
     request: Request
     """Incoming request."""
 
-    token: str
-    """Delegated Gafaelfawr token accompanying the request."""
-
     logger: BoundLogger
     """Request logger, rebound with discovered context."""
 
@@ -48,13 +43,6 @@ class RequestContext:
 
     event_manager: EventManager
     """Global manager of user lab spawning events."""
-
-    async def get_user(self) -> UserInfo:
-        gafaelfawr_client = self.factory.create_gafaelfawr_client()
-        try:
-            return await gafaelfawr_client.get_user(self.token)
-        except Exception as exc:
-            raise InvalidUserError(f"{exc}")
 
     def rebind_logger(self, **values: Any) -> None:
         """Add the given values to the logging context.
@@ -85,7 +73,6 @@ class ContextDependency:
         self,
         request: Request,
         logger: BoundLogger = Depends(logger_dependency),
-        x_auth_request_token: str = Header(default=""),
     ) -> RequestContext:
         """Creates a per-request context and returns it."""
         if not self._process_context:
@@ -93,7 +80,6 @@ class ContextDependency:
         factory = Factory(self._process_context, logger)
         return RequestContext(
             request=request,
-            token=x_auth_request_token,
             logger=logger,
             factory=factory,
             user_map=self._process_context.user_map,
