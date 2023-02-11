@@ -2,12 +2,9 @@
 specifically for producing spawner forms"""
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
-from safir.dependencies.logger import logger_dependency
 from safir.models import ErrorModel
-from structlog.stdlib import BoundLogger
 
-from ..dependencies.context import context_dependency
-from ..factory import Context
+from ..dependencies.context import RequestContext, context_dependency
 
 # FastAPI routers
 router = APIRouter()
@@ -33,8 +30,7 @@ internal_router = APIRouter()
 )
 async def get_user_lab_form(
     username: str,
-    context: Context = Depends(context_dependency),
-    logger: BoundLogger = Depends(logger_dependency),
+    context: RequestContext = Depends(context_dependency),
 ) -> str:
     """Get the lab creation form for a particular user."""
     user = await context.get_user()
@@ -43,5 +39,5 @@ async def get_user_lab_form(
     token_username = user.username
     if token_username != username:
         raise HTTPException(status_code=403, detail="Forbidden")
-    form_manager = context.form_manager
+    form_manager = context.factory.create_form_manager()
     return form_manager.generate_user_lab_form()

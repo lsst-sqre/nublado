@@ -8,9 +8,8 @@ from fastapi.responses import RedirectResponse
 from safir.models import ErrorModel
 from sse_starlette import EventSourceResponse
 
-from ..dependencies.context import context_dependency
+from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import InvalidUserError, LabExistsError, NoUserMapError
-from ..factory import Context
 from ..models.v1.lab import LabSpecificationWireProtocol, UserData
 
 
@@ -39,7 +38,7 @@ router = APIRouter()
     summary="List all users with running labs",
 )
 async def get_lab_users(
-    context: Context = Depends(context_dependency),
+    context: RequestContext = Depends(context_dependency),
 ) -> List[str]:
     """Returns a list of all users with running labs."""
     return await context.user_map.running()
@@ -56,7 +55,7 @@ async def get_lab_users(
 )
 async def get_userdata(
     username: str,
-    context: Context = Depends(context_dependency),
+    context: RequestContext = Depends(context_dependency),
 ) -> UserData:
     """Returns status of the lab pod for the given user."""
     userdata = context.user_map.get(username)
@@ -78,7 +77,7 @@ async def get_userdata(
 async def post_new_lab(
     username: str,
     lab: LabSpecificationWireProtocol,
-    context: Context = Depends(context_dependency),
+    context: RequestContext = Depends(context_dependency),
 ) -> str:
     """Create a new Lab pod for a given user"""
     try:
@@ -89,7 +88,7 @@ async def post_new_lab(
     if token_username != username:
         raise HTTPException(status_code=403, detail="Forbidden")
     context.logger.debug(f"Received creation request for {username}")
-    lab_manager = context.lab_manager
+    lab_manager = context.factory.create_lab_manager()
     try:
         await lab_manager.create_lab(
             token=context.token, lab=lab.to_lab_specification()
@@ -110,10 +109,10 @@ async def post_new_lab(
 )
 async def delete_user_lab(
     username: str,
-    context: Context = Depends(context_dependency),
+    context: RequestContext = Depends(context_dependency),
 ) -> None:
     """Stop a running pod."""
-    lab_manager = context.lab_manager
+    lab_manager = context.factory.create_lab_manager()
     try:
         await lab_manager.delete_lab(username)
     except NoUserMapError:
@@ -131,7 +130,7 @@ async def delete_user_lab(
 )
 async def get_user_events(
     username: str,
-    context: Context = Depends(context_dependency),
+    context: RequestContext = Depends(context_dependency),
 ) -> EventSourceResponse:
     """Returns the events for the lab of the given user"""
     try:
@@ -155,7 +154,7 @@ async def get_user_events(
     response_model=UserData,
 )
 async def get_user_status(
-    context: Context = Depends(context_dependency),
+    context: RequestContext = Depends(context_dependency),
 ) -> UserData:
     """Get the pod status for the authenticating user."""
     try:
