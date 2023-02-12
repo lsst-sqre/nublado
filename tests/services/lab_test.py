@@ -6,7 +6,6 @@ import pytest
 from jupyterlabcontroller.factory import Factory
 
 from ..settings import TestObjectFactory
-from ..support.check_file import check_file
 
 
 @pytest.mark.asyncio
@@ -57,7 +56,7 @@ async def test_nss(
     nss = lab_manager.build_nss(user)
     for k in nss:
         dk = k.replace("/", "-")
-        check_file(nss[k], std_result_dir / f"nss{dk}.txt")
+        assert nss[k] == (std_result_dir / f"nss{dk}.txt").read_text()
 
 
 @pytest.mark.asyncio
@@ -66,7 +65,7 @@ async def test_configmap(factory: Factory, std_result_dir: Path) -> None:
     cm = lab_manager.build_file_configmap()
     for k in cm:
         dk = k.replace("/", "-")
-        check_file(cm[k], std_result_dir / f"cm{dk}.txt")
+        assert cm[k] == (std_result_dir / f"cm{dk}.txt").read_text()
 
 
 @pytest.mark.asyncio
@@ -96,7 +95,7 @@ async def test_vols(
 
     vols = lab_manager.build_volumes(user.username)
     vol_str = "\n".join([f"{x}" for x in vols])
-    check_file(vol_str, std_result_dir / "volumes.txt")
+    assert vol_str == (std_result_dir / "volumes.txt").read_text()
 
 
 @pytest.mark.asyncio
@@ -108,4 +107,4 @@ async def test_pod_spec(
     lab_manager = factory.create_lab_manager()
 
     ps = lab_manager.build_pod_spec(user, lab)
-    check_file(str(ps), std_result_dir / "podspec.txt")
+    assert str(ps) == (std_result_dir / "podspec.txt").read_text()
