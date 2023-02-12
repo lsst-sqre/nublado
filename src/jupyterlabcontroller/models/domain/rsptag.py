@@ -363,8 +363,23 @@ class RSPImageTag:
             return NotImplemented
         if self.image_type != other.image_type:
             return NotImplemented
-        if self.version and other.version:
-            return self.version.compare(other.version)
-        if self.tag == other.tag:
+        if not (self.version and other.version):
+            if self.tag == other.tag:
+                return 0
+            return -1 if self.tag < other.tag else 1
+        rank = self.version.compare(other.version)
+        if rank != 0:
+            return rank
+
+        # semver ignores the build for sorting purposes, but we don't want to
+        # since we want newer cycles to sort ahead of older cycles (and newer
+        # cycle builds to sort above older cycle builds) in otherwise matching
+        # tags, and the cycle information is stored in the build.
+        if self.version.build == other.version.build:
             return 0
-        return -1 if self.tag < other.tag else 1
+        elif self.version.build and not other.version.build:
+            return 1
+        elif not self.version.build and other.version.build:
+            return -1
+        else:
+            return -1 if self.version.build < other.version.build else 1
