@@ -129,6 +129,35 @@ class RSPImageTag:
     """Human-readable display name."""
 
     @classmethod
+    def alias(cls, tag: str) -> Self:
+        """Create an alias tag.
+
+        Parameters
+        ----------
+        tag
+            Name of the alias tag.
+
+        Returns
+        -------
+        RSPImageTag
+            The corresponding `RSPImageTag`.
+        """
+        if match := re.match("(?P<tag>.*)" + _CYCLE_ONLY + "$", tag):
+            cycle = int(match.group("cycle"))
+            display_name = match.group("tag").replace("_", " ").title()
+            display_name += f' (SAL Cycle {match.group("cycle")})'
+        else:
+            cycle = None
+            display_name = tag.replace("_", " ").title()
+        return cls(
+            tag=tag,
+            image_type=RSPImageType.ALIAS,
+            version=None,
+            cycle=cycle,
+            display_name=display_name,
+        )
+
+    @classmethod
     def from_str(cls, tag: str) -> Self:
         """Parse a tag into an `RSPImageTag`.
 

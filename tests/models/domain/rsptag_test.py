@@ -41,6 +41,28 @@ def test_tag_ordering() -> None:
     assert exp_one < exp_two
 
 
+def test_alias() -> None:
+    """Test alias constructor for an RSPImageTag."""
+    tag = RSPImageTag.alias("recommended")
+    assert asdict(tag) == {
+        "tag": "recommended",
+        "image_type": RSPImageType.ALIAS,
+        "version": None,
+        "cycle": None,
+        "display_name": "Recommended",
+    }
+
+    # If there is a cycle, we should extract it.
+    tag = RSPImageTag.alias("latest_weekly_c0046")
+    assert asdict(tag) == {
+        "tag": "latest_weekly_c0046",
+        "image_type": RSPImageType.ALIAS,
+        "version": None,
+        "cycle": 46,
+        "display_name": "Latest Weekly (SAL Cycle 0046)",
+    }
+
+
 def test_from_str() -> None:
     """Parse tags into RSPImageTag objects."""
     test_cases = {
