@@ -19,7 +19,6 @@ from jupyterlabcontroller.dependencies.config import configuration_dependency
 from jupyterlabcontroller.dependencies.context import context_dependency
 from jupyterlabcontroller.factory import Factory, ProcessContext
 from jupyterlabcontroller.main import create_app
-from jupyterlabcontroller.storage.docker import DockerCredentialStore
 from jupyterlabcontroller.storage.k8s import K8sStorageClient
 
 from .settings import TestObjectFactory, test_object_factory
@@ -141,14 +140,11 @@ def mock_docker(
     respx_mock: respx.Router,
     obj_factory: TestObjectFactory,
 ) -> MockDockerRegistry:
-    store = DockerCredentialStore.from_path(config.docker_secrets_path)
-    credentials = store.get(config.images.registry)
-    assert credentials
     return register_mock_docker(
         respx_mock,
         host=config.images.registry,
         repository=config.images.repository,
-        credentials=credentials,
+        credentials_path=config.docker_secrets_path,
         tags={n: t.digest for n, t in obj_factory.repocontents.by_tag.items()},
         require_bearer=True,
     )

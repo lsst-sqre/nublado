@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import os
 from base64 import b64decode, b64encode
+from pathlib import Path
 from urllib.parse import parse_qsl
 
 import respx
 from httpx import Request, Response
 
 from jupyterlabcontroller.models.domain.docker import DockerCredentials
+from jupyterlabcontroller.storage.docker import DockerCredentialStore
 
 __all__ = ["MockDockerRegistry", "register_mock_docker"]
 
@@ -161,7 +163,7 @@ def register_mock_docker(
     *,
     host: str,
     repository: str,
-    credentials: DockerCredentials,
+    credentials_path: Path,
     tags: dict[str, str],
     require_bearer: bool = False,
 ) -> MockDockerRegistry:
@@ -176,8 +178,8 @@ def register_mock_docker(
     repository
         The name of the repository (like ``lsstsqre/sciplat-lab``) for which
         to register the mocks.
-    credentials
-        Credentials to expect for authentication.
+    credentials_path
+        Path to a Docker credentials store.
     tags
         A mapping of tags to image digests that should appear on that
         registry.
@@ -193,7 +195,12 @@ def register_mock_docker(
     auth_url = f"{base_url}/auth"
     tags_url = f"{base_url}/v2/{repository}/tags/list"
     digest_url = f"{base_url}/v2/{repository}/manifests/(?P<tag>.*)"
+
+    store = DockerCredentialStore.from_path(credentials_path)
+    credentials = store.get(host)
+    assert credentials
     mock = MockDockerRegistry(tags, auth_url, credentials, require_bearer)
+
     respx_mock.get(base_url + "/auth").mock(side_effect=mock.authenticate)
     respx_mock.get(tags_url).mock(side_effect=mock.list_tags)
     respx_mock.head(url__regex=digest_url).mock(side_effect=mock.get_digest)
