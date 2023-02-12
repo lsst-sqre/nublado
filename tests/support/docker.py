@@ -11,7 +11,7 @@ from httpx import Request, Response
 
 from jupyterlabcontroller.models.domain.docker import DockerCredentials
 
-__all__ = ["MockDockerRegistry", "mock_docker"]
+__all__ = ["MockDockerRegistry", "register_mock_docker"]
 
 
 class MockDockerRegistry:
@@ -156,7 +156,7 @@ class MockDockerRegistry:
         return Response(401, headers={"WWW-Authenticate": challenge})
 
 
-def mock_docker(
+def register_mock_docker(
     respx_mock: respx.Router,
     *,
     host: str,

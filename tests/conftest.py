@@ -19,11 +19,12 @@ from jupyterlabcontroller.dependencies.config import configuration_dependency
 from jupyterlabcontroller.dependencies.context import context_dependency
 from jupyterlabcontroller.factory import Factory, ProcessContext
 from jupyterlabcontroller.main import create_app
+from jupyterlabcontroller.storage.docker import DockerCredentialStore
 from jupyterlabcontroller.storage.k8s import K8sStorageClient
 
 from .settings import TestObjectFactory, test_object_factory
+from .support.docker import MockDockerRegistry, register_mock_docker
 from .support.gafaelfawr import MockGafaelfawr, register_mock_gafaelfawr
-from .support.mockdocker import MockDockerStorageClient
 
 _here = Path(__file__).parent
 
@@ -72,6 +73,7 @@ def config(std_config_dir: Path) -> Configuration:
 @pytest_asyncio.fixture
 async def process_context(
     config: Configuration,
+    mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
     obj_factory: TestObjectFactory,
 ) -> ProcessContext:
@@ -84,10 +86,7 @@ async def process_context(
     k8s_client.get_image_data.return_value = obj_factory.nodecontents
     k8s_client.get_observed_user_state.return_value = {}
     k8s_client.reflect_pod_events.side_effect = pod_events
-    docker_client = MockDockerStorageClient(test_obj=obj_factory)
-    context = await ProcessContext.from_config(
-        config, k8s_client, docker_client
-    )
+    context = await ProcessContext.from_config(config, k8s_client)
     executor = context.prepuller_executor
     executor.state.set_remote_images(obj_factory.repocontents)
     return context
@@ -134,6 +133,25 @@ async def factory(
 
     async with Factory.standalone(config, process_context) as factory:
         yield factory
+
+
+@pytest.fixture
+def mock_docker(
+    config: Configuration,
+    respx_mock: respx.Router,
+    obj_factory: TestObjectFactory,
+) -> MockDockerRegistry:
+    store = DockerCredentialStore.from_path(config.docker_secrets_path)
+    credentials = store.get(config.images.registry)
+    assert credentials
+    return register_mock_docker(
+        respx_mock,
+        host=config.images.registry,
+        repository=config.images.repository,
+        credentials=credentials,
+        tags={n: t.digest for n, t in obj_factory.repocontents.by_tag.items()},
+        require_bearer=True,
+    )
 
 
 @pytest.fixture

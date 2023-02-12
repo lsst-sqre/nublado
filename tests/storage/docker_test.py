@@ -15,7 +15,7 @@ from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.models.domain.docker import DockerCredentials
 from jupyterlabcontroller.storage.docker import DockerCredentialStore
 
-from ..support.docker import mock_docker
+from ..support.docker import register_mock_docker
 
 
 @pytest.mark.asyncio
@@ -29,7 +29,7 @@ async def test_api(
     store = DockerCredentialStore.from_path(config.docker_secrets_path)
     credentials = store.get(registry)
     assert credentials
-    mock_docker(
+    register_mock_docker(
         respx_mock,
         host=registry,
         repository=repository,
@@ -55,7 +55,7 @@ async def test_bearer_auth(
     store = DockerCredentialStore.from_path(config.docker_secrets_path)
     credentials = store.get(registry)
     assert credentials
-    mock_docker(
+    register_mock_docker(
         respx_mock,
         host=registry,
         repository=repository,
