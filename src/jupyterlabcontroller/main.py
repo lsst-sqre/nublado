@@ -2,9 +2,7 @@
 
 from importlib.metadata import metadata, version
 
-import structlog
 from fastapi import FastAPI
-from kubernetes_asyncio.config.config_exception import ConfigException
 from safir.dependencies.http_client import http_client_dependency
 from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
@@ -61,25 +59,9 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def startup_event() -> None:
-        k_str = ""
-        try:
-            await initialize_kubernetes()
-        except ConfigException as exc:
-            # This only happens in GH CI, and it's harmless because we don't
-            # make any actual K8s calls in the test suite--it's all mocked
-            # out.
-            #
-            # But we have to sit on the error until we have something to log
-            # it with.
-            #
-            # If we really don't have K8s configuration, we'll fall apart as
-            # soon as we start the prepuller executor just below.
-            k_str = str(exc)
+        await initialize_kubernetes()
         config = configuration_dependency.config
         await context_dependency.initialize(config)
-        logger = structlog.get_logger(name=config.safir.logger_name)
-        if k_str:
-            logger.warning(k_str)
 
     @app.on_event("shutdown")
     async def shutdown_event() -> None:
