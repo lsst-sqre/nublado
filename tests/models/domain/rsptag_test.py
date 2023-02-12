@@ -188,6 +188,13 @@ def test_from_str() -> None:
             "version": None,
             "cycle": None,
         },
+        "recommended_c0027": {
+            "tag": "recommended_c0027",
+            "image_type": RSPImageType.UNKNOWN,
+            "display_name": "recommended_c0027",
+            "version": None,
+            "cycle": 27,
+        },
         "not_a_normal_format": {
             "tag": "not_a_normal_format",
             "image_type": RSPImageType.UNKNOWN,
