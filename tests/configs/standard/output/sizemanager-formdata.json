@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Small",
+    "cpu": "1.0",
+    "memory": "3Gi"
+  },
+  {
+    "name": "Medium",
+    "cpu": "2.0",
+    "memory": "6Gi"
+  },
+  {
+    "name": "Large",
+    "cpu": "4.0",
+    "memory": "12Gi"
+  }
+]

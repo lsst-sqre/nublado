@@ -5,6 +5,8 @@ but which are handy for internal bookkeeping
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, TypeAlias
 
+from pydantic import BaseModel
+
 from ..k8s import ContainerImage
 from ..tag import RSPTag, RSPTagList
 from ..v1.prepuller import Image, Node
@@ -40,10 +42,9 @@ class NodeTagImage:
         )
 
 
-@dataclass
-class DisplayImages:
-    menu: Dict[str, Image] = field(default_factory=dict)
-    all: Dict[str, Image] = field(default_factory=dict)
+class DisplayImages(BaseModel):
+    menu: Dict[str, Image] = {}
+    all: Dict[str, Image] = {}
 
 
 DigestToNodeTagImages: TypeAlias = Dict[str, NodeTagImage]
