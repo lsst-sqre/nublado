@@ -95,24 +95,29 @@ class DockerStorageClient:
 
     Parameters
     ----------
+    credentials_path
+        Path to a Docker credentials store.
     http_client
         Client to use to make requests.
     logger
         Logger for log messages.
-    credentials
-        Docker credential store to use for authentication.
     """
 
     def __init__(
         self,
         *,
+        credentials_path: Path,
         http_client: AsyncClient,
         logger: BoundLogger,
-        credentials: DockerCredentialStore,
     ) -> None:
         self._client = http_client
         self._logger = logger
-        self._credentials = credentials
+        self._credentials = DockerCredentialStore.from_path(credentials_path)
+
+        # Cached authorization headers by registry. This is populated once we
+        # have had to authenticate to a registry and may contain the HTTP
+        # Basic string or may contain a bearer token that we previously
+        # obtained via API calls.
         self._authorization: dict[str, str] = {}
 
     async def list_tags(self, registry: str, repository: str) -> list[str]:

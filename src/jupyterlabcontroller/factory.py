@@ -23,7 +23,7 @@ from .services.prepuller.arbitrator import PrepullerArbitrator
 from .services.prepuller.executor import PrepullerExecutor
 from .services.prepuller.state import PrepullerState
 from .services.prepuller.tag import PrepullerTagClient
-from .storage.docker import DockerCredentialStore, DockerStorageClient
+from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.k8s import K8sStorageClient
 
@@ -48,9 +48,6 @@ class ProcessContext:
 
     k8s_client: K8sStorageClient
     """Shared Kubernetes client."""
-
-    docker_credentials: DockerCredentialStore
-    """Docker credentials."""
 
     prepuller_state: PrepullerState
     """Global state of the prepuller."""
@@ -87,9 +84,6 @@ class ProcessContext:
         """
         http_client = await http_client_dependency()
         prepuller_state = PrepullerState()
-        docker_credentials = DockerCredentialStore.from_path(
-            config.docker_secrets_path
-        )
 
         # This logger is used only by process-global singletons.  Everything
         # else will use a per-request logger that includes more context about
@@ -105,7 +99,7 @@ class ProcessContext:
             )
 
         docker_client = DockerStorageClient(
-            credentials=docker_credentials,
+            credentials_path=config.docker_secrets_path,
             http_client=http_client,
             logger=logger,
         )
@@ -132,7 +126,6 @@ class ProcessContext:
                     logger=logger,
                 ),
             ),
-            docker_credentials=docker_credentials,
             user_map=UserMap(),
             event_manager=EventManager(logger=logger),
         )
@@ -223,7 +216,7 @@ class Factory:
             Newly-created Docker storage client.
         """
         return DockerStorageClient(
-            credentials=self._context.docker_credentials,
+            credentials_path=self._context.config.docker_secrets_path,
             http_client=self._context.http_client,
             logger=self._logger,
         )
