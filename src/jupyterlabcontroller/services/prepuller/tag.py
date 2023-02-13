@@ -13,7 +13,8 @@ from ...models.domain.prepuller import (
     NodeContainers,
     NodeTagImage,
 )
-from ...models.tag import RSPTag, RSPTagList, RSPTagType, StandaloneRSPTag
+from ...models.domain.rsptag import RSPImageType
+from ...models.tag import RSPTag, RSPTagList
 from ...models.v1.prepuller import PrepullerConfiguration
 from ...storage.k8s import ContainerImage
 from .state import PrepullerState
@@ -96,21 +97,13 @@ class PrepullerTagClient:
             tag = c.split(":")[-1]
             if self.config.alias_tags is None:
                 raise RuntimeError("Alias tags is none")
-            config_aliases = self.config.alias_tags
-            partial = StandaloneRSPTag.parse_tag(tag=tag)
-            if partial.display_name == tag:
-                partial.display_name = StandaloneRSPTag.prettify_tag(tag=tag)
-            tagobj = RSPTag(
+            tagobj = RSPTag.from_tag(
                 tag=tag,
                 image_ref=c,
                 digest=digest,
-                alias_tags=config_aliases,
-                image_type=partial.image_type,
-                display_name=partial.display_name,
-                semantic_version=partial.semantic_version,
-                cycle=partial.cycle,
-                size=ctr.size_bytes,
+                alias_tags=self.config.alias_tags,
                 nodes=[node],
+                size=ctr.size_bytes,
             )
             r.append(tagobj)
         return r
@@ -193,8 +186,8 @@ class PrepullerTagClient:
         primary_tag = ""
         primary_name = ""
         other_names: List[str] = list()
-        best_tag_type: Optional[RSPTagType] = None
-        best_nonalias_tag_type: Optional[RSPTagType] = None
+        best_tag_type: Optional[RSPImageType] = None
+        best_nonalias_tag_type: Optional[RSPImageType] = None
 
         savedigest = ""
         if recommended in img.tags:
@@ -202,7 +195,7 @@ class PrepullerTagClient:
             primary_name = img.tags[recommended]
             img.all_tags.append(recommended)
             img.known_alias_tags.append(recommended)
-            best_tag_type = RSPTagType.ALIAS
+            best_tag_type = RSPImageType.ALIAS
         tag_objs: List[RSPTag] = list()
         for t in img.tags:
             # Turn each text tag into a stripped-down RSPTag...
@@ -231,10 +224,10 @@ class PrepullerTagClient:
                     # The construction loses the fact that recommended is
                     # inherently an alias.  Add that back in.
                     if (
-                        t_obj.image_type == RSPTagType.UNKNOWN
+                        t_obj.image_type == RSPImageType.UNKNOWN
                         and t_obj.tag == recommended
                     ):
-                        t_obj.image_type = RSPTagType.ALIAS
+                        t_obj.image_type = RSPImageType.ALIAS
                     if primary_name == "":
                         primary_name = t_obj.display_name
                         primary_tag = t_obj.tag
@@ -244,7 +237,7 @@ class PrepullerTagClient:
                         best_tag_type = t_obj.image_type
                     if (
                         best_nonalias_tag_type is None
-                        and t_obj.image_type != RSPTagType.ALIAS
+                        and t_obj.image_type != RSPImageType.ALIAS
                     ):
                         best_nonalias_tag_type = t_obj.image_type
             else:

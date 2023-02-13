@@ -6,8 +6,9 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, TypeAlias
 
 from ..k8s import ContainerImage
-from ..tag import RSPTag, RSPTagList, RSPTagType
+from ..tag import RSPTag, RSPTagList
 from ..v1.prepuller import Image, Node
+from .rsptag import RSPImageType
 
 NodeContainers: TypeAlias = Dict[str, List[ContainerImage]]
 
@@ -25,8 +26,8 @@ class NodeTagImage:
     nodes: List[str] = field(default_factory=list)
     known_alias_tags: List[str] = field(default_factory=list)
     tagobjs: RSPTagList = RSPTagList(tags=list())
-    best_tag_type: Optional[RSPTagType] = None
-    best_nonalias_tag_type: Optional[RSPTagType] = None
+    best_tag_type: Optional[RSPImageType] = None
+    best_nonalias_tag_type: Optional[RSPImageType] = None
 
     def to_image(self) -> Image:
         return Image(

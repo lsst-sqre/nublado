@@ -8,7 +8,8 @@ from typing import Dict, List, Optional
 from structlog.stdlib import BoundLogger
 
 from ...models.domain.prepuller import DisplayImages
-from ...models.tag import RSPTag, RSPTagList, RSPTagType
+from ...models.domain.rsptag import RSPImageType
+from ...models.tag import RSPTag, RSPTagList
 from ...models.v1.prepuller import (
     Image,
     Node,
@@ -89,11 +90,11 @@ class PrepullerArbitrator:
             for rsptag in rsp_list:
                 if rsptag.tag == self.config.recommended_tag:
                     recommended = rsptag
-                    rsptag.image_type = RSPTagType.ALIAS
+                    rsptag.image_type = RSPImageType.ALIAS
                     seen[digest] = True
                     continue
                 if (
-                    rsptag.image_type == RSPTagType.RELEASE
+                    rsptag.image_type == RSPImageType.RELEASE
                     and len(release) < r_count
                     and digest not in seen
                 ):
@@ -101,7 +102,7 @@ class PrepullerArbitrator:
                     seen[digest] = True
                     continue
                 if (
-                    rsptag.image_type == RSPTagType.WEEKLY
+                    rsptag.image_type == RSPImageType.WEEKLY
                     and len(weekly) < w_count
                     and digest not in seen
                 ):
@@ -109,7 +110,7 @@ class PrepullerArbitrator:
                     seen[digest] = True
                     continue
                 if (
-                    rsptag.image_type == RSPTagType.DAILY
+                    rsptag.image_type == RSPImageType.DAILY
                     and len(daily) < d_count
                     and digest not in seen
                 ):

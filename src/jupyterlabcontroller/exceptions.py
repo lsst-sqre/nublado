@@ -4,12 +4,6 @@ class DockerRegistryError(Exception):
     pass
 
 
-class IncomparableImageTypesError(Exception):
-    """Image tags can only be sorted within a type."""
-
-    pass
-
-
 class NSCreationError(Exception):
     """Error while attempting namespace creation."""
 
