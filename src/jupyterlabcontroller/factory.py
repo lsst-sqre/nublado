@@ -69,7 +69,6 @@ class ProcessContext:
         cls,
         config: Configuration,
         k8s_client: Optional[K8sStorageClient] = None,
-        docker_client: Optional[DockerStorageClient] = None,
     ) -> Self:
         """Create a new process context from the controller configuration.
 
@@ -79,9 +78,6 @@ class ProcessContext:
             Lab controller configuration.
         k8s_client
             Kubernetes storage object to use. Used by the test suite for
-            dependency injection.
-        docker_client
-            Docker storage object to use. Used by the test suite for
             dependency injection.
 
         Returns
@@ -107,13 +103,12 @@ class ProcessContext:
                 timeout=KUBERNETES_REQUEST_TIMEOUT,
                 logger=logger,
             )
-        if not docker_client:
-            docker_client = DockerStorageClient(
-                credentials=docker_credentials,
-                http_client=http_client,
-                logger=logger,
-            )
 
+        docker_client = DockerStorageClient(
+            credentials=docker_credentials,
+            http_client=http_client,
+            logger=logger,
+        )
         return cls(
             config=config,
             http_client=http_client,
@@ -170,38 +165,6 @@ class Factory:
     """
 
     @classmethod
-    async def create(
-        cls, config: Configuration, context: Optional[ProcessContext] = None
-    ) -> Self:
-        """Create a component factory outside of a request.
-
-        Intended for long-running daemons other than the FastAPI web
-        application or for tests that don't need the full application.
-
-        This class method should only be used in situations where an async
-        context manager cannot be used.  If an async context manager can be
-        used, call `standalone` rather than this method.
-
-        Parameters
-        ----------
-        config
-            Lab controller configuration
-        context
-            Shared process context. If not provided, a new one will be
-            constructed.
-
-        Returns
-        -------
-        Factory
-            Newly-created factory. The caller must call `aclose` on the
-            returned object during shutdown.
-        """
-        logger = structlog.get_logger(config.safir.logger_name)
-        if not context:
-            context = await ProcessContext.from_config(config)
-        return cls(context=context, logger=logger)
-
-    @classmethod
     @asynccontextmanager
     async def standalone(
         cls, config: Configuration, context: Optional[ProcessContext] = None
@@ -223,7 +186,10 @@ class Factory:
         Factory
             Newly-created factory. Must be used as a context manager.
         """
-        factory = await cls.create(config, context)
+        logger = structlog.get_logger(config.safir.logger_name)
+        if not context:
+            context = await ProcessContext.from_config(config)
+        factory = cls(context, logger)
         async with aclosing(factory):
             yield factory
 
@@ -256,10 +222,6 @@ class Factory:
         DockerStorageClient
             Newly-created Docker storage client.
         """
-        # This intentionally doesn't use the shared Docker storage client,
-        # since it's used by tests that want to test mocking at the httpx
-        # layer. Eventually, the shared Docker storage client can go away
-        # since all tests will use mocking.
         return DockerStorageClient(
             credentials=self._context.docker_credentials,
             http_client=self._context.http_client,
