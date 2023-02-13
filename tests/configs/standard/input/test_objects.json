@@ -1,6 +1,6 @@
 {
-  "user_info": [
-    {
+  "user_info": {
+    "token-of-affection": {
       "username": "rachel",
       "name": "Rachel (?)",
       "uid": 1101,
@@ -12,7 +12,7 @@
         {"name": "storytellers", "id": 2021}
       ]
     },
-    {
+    "token-of-authority": {
       "username": "wrench",
       "name": "Wrench",
       "uid": 1102,
@@ -23,7 +23,7 @@
         {"name": "mechanics", "id": 2001}
       ]
     },
-    {
+    "token-of-mystery": {
       "username": "violet",
       "name": "Violet",
       "uid": 1103,
@@ -34,7 +34,7 @@
         {"name": "pirates", "id": 2002}
       ]
     },
-    {
+    "token-of-stories": {
       "username": "ribbon",
       "name": "Ribbon",
       "uid": 1104,
@@ -45,7 +45,7 @@
         {"name": "ninjas", "id": 2003}
       ]
     }
-  ],
+  },
   "resources": [
     {
       "limits": {

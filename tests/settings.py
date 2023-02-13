@@ -94,8 +94,11 @@ class TestObjectFactory:
         self._canonicalized = True
 
     @property
-    def userinfos(self) -> List[UserInfo]:
-        return [UserInfo.parse_obj(x) for x in self.test_objects["user_info"]]
+    def userinfos(self) -> dict[str, UserInfo]:
+        return {
+            t: UserInfo.parse_obj(d)
+            for t, d in self.test_objects["user_info"].items()
+        }
 
     @property
     def labspecs(self) -> List[LabSpecification]:
@@ -122,7 +125,7 @@ class TestObjectFactory:
         userinfos = self.userinfos
         lab_statuses = [x for x in LabStatus]
         pod_states = [x for x in PodState]
-        for idx, v in enumerate(userinfos):
+        for idx, v in enumerate(userinfos.values()):
             userdatas.append(
                 UserData.from_components(
                     status=lab_statuses[idx % len(lab_statuses)],
