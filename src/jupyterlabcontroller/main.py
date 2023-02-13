@@ -1,16 +1,14 @@
 """The main application factory for the jupyterlab-controller service."""
 
 from importlib.metadata import metadata, version
-from typing import Optional
 
 import structlog
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from kubernetes_asyncio.config.config_exception import ConfigException
 from safir.dependencies.http_client import http_client_dependency
 from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
-from starlette.datastructures import Headers
 
 from .dependencies import context
 from .dependencies.config import configuration_dependency
@@ -18,27 +16,8 @@ from .handlers import form, indexes, labs, prepuller, user_status
 
 __all__ = ["create_app"]
 
-# This seems like an awful way to do it.  FIXME?
-injected_context_dependency: Optional[context.ContextDependency] = None
 
-fake_request = Request(
-    {
-        "type": "http",
-        "path": "/",
-        "headers": Headers({"X-Auth-Request-Token": "dummy"}).raw,
-        "http_version": "1.1",
-        "method": "GET",
-        "scheme": "http",
-        "client": {"127.0.0.1", 8080},
-        "server": {"127.0.0.1", 8080},
-    }
-)
-
-
-def create_app(
-    *,
-    context_dependency: Optional[context.ContextDependency] = None,
-) -> FastAPI:
+def create_app() -> FastAPI:
     """Create the FastAPI application.
 
     This is in a function rather than using a global variable (as is more
@@ -46,13 +25,6 @@ def create_app(
     settings and we therefore want to recreate the application between tests.
     """
     config = configuration_dependency.config
-
-    # If ProcessContext is supplied, we use it instead of initializing a
-    # new one.  The only way I can see to make the linkage at app startup
-    # work right now is via a process global, which seems hideous.
-    if context_dependency is not None:
-        global injected_context_dependency
-        injected_context_dependency = context_dependency
 
     # Configure logging.
     configure_logging(
@@ -94,7 +66,6 @@ def create_app(
 
 
 async def startup_event() -> None:
-    global context_dependency
     k_str = ""
     try:
         await initialize_kubernetes()
@@ -108,26 +79,13 @@ async def startup_event() -> None:
         # If we really don't have K8s configuration, we'll fall apart as soon
         # as we start the prepuller executor just below.
         k_str = str(exc)
-    if injected_context_dependency is not None:
-        context.context_dependency = injected_context_dependency
     config = configuration_dependency.config
     await context.context_dependency.initialize(config)
     logger = structlog.get_logger(name=config.safir.logger_name)
     if k_str:
         logger.warning(k_str)
-    ctx = await context.context_dependency(request=fake_request, logger=logger)
-    executor = ctx.prepuller_executor
-    await executor.start()
-    lab_manager = ctx.lab_manager
-    await lab_manager.reconcile_user_map()
 
 
 async def shutdown_event() -> None:
-    config = configuration_dependency.config
-    ctx = await context.context_dependency(
-        request=fake_request,
-        logger=structlog.get_logger(name=config.safir.logger_name),
-    )
-    executor = ctx.prepuller_executor
-    await executor.stop()
+    await context.context_dependency.aclose()
     await http_client_dependency.aclose()

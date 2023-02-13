@@ -3,8 +3,7 @@ specifically for the prepuller."""
 from fastapi import APIRouter, Depends
 from safir.models import ErrorModel
 
-from ..dependencies.context import context_dependency
-from ..factory import Context
+from ..dependencies.context import RequestContext, context_dependency
 from ..models.v1.prepuller import PrepullerStatus, SpawnerImages
 
 # FastAPI routers
@@ -29,10 +28,11 @@ router = APIRouter()
     response_model=SpawnerImages,
 )
 async def get_images(
-    context: Context = Depends(context_dependency),
+    context: RequestContext = Depends(context_dependency),
 ) -> SpawnerImages:
     """Returns known images and their names."""
-    return context.prepuller_arbitrator.get_spawner_images()
+    prepuller_arbitrator = context.factory.create_prepuller_arbitrator()
+    return prepuller_arbitrator.get_spawner_images()
 
 
 @router.get(
@@ -44,7 +44,8 @@ async def get_images(
     response_model=PrepullerStatus,
 )
 async def get_prepulls(
-    context: Context = Depends(context_dependency),
+    context: RequestContext = Depends(context_dependency),
 ) -> PrepullerStatus:
     """Returns the list of known images and their names."""
-    return context.prepuller_arbitrator.get_prepulls()
+    prepuller_arbitrator = context.factory.create_prepuller_arbitrator()
+    return prepuller_arbitrator.get_prepulls()

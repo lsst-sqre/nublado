@@ -4,9 +4,8 @@ from fastapi import APIRouter, Depends
 from safir.models import ErrorModel
 from sse_starlette import EventSourceResponse
 
-from ..dependencies.context import context_dependency
+from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.token import user_token_dependency
-from ..factory import Context
 
 # FastAPI routers
 router = APIRouter()
@@ -25,10 +24,9 @@ router = APIRouter()
 )
 async def get_user_events(
     username: str,
-    context: Context = Depends(context_dependency),
+    context: RequestContext = Depends(context_dependency),
     user_token: str = Depends(user_token_dependency),
 ) -> EventSourceResponse:
     """Returns the events for the lab of the given user"""
-    event_manager = context.event_manager
     # should return EventSourceResponse:
-    return event_manager.publish(username)
+    return context.event_manager.publish(username)

@@ -3,9 +3,8 @@ to determine user status"""
 from fastapi import APIRouter, Depends, HTTPException
 from safir.models import ErrorModel
 
-from ..dependencies.context import context_dependency
+from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import InvalidUserError
-from ..factory import Context
 from ..models.v1.lab import UserData
 
 # FastAPI routers
@@ -31,7 +30,7 @@ router = APIRouter()
     response_model=UserData,
 )
 async def get_user_status(
-    context: Context = Depends(context_dependency),
+    context: RequestContext = Depends(context_dependency),
 ) -> UserData:
     """Get the pod status for the authenticating user."""
     try:

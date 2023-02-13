@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from jupyterlabcontroller.factory import Context
+from jupyterlabcontroller.dependencies.context import RequestContext
 
 from ..settings import TestObjectFactory
 from ..support.check_file import check_file
@@ -11,14 +11,14 @@ from ..support.check_file import check_file
 
 @pytest.mark.asyncio
 async def test_lab_manager(
-    user_context: Context,
+    user_context: RequestContext,
     obj_factory: TestObjectFactory,
 ) -> None:
     user = await user_context.get_user()
     username = user.username
     token = user_context.token
     lab = obj_factory.labspecs[0]
-    lm = user_context.lab_manager
+    lm = user_context.factory.create_lab_manager()
     present = lm.check_for_user(username)
     assert present is False  # User map should be empty
     await lm.create_lab(token=token, lab=lab)
@@ -36,14 +36,14 @@ async def test_lab_manager(
 
 @pytest.mark.asyncio
 async def test_get_active_users(
-    user_context: Context,
+    user_context: RequestContext,
     obj_factory: TestObjectFactory,
 ) -> None:
     user = await user_context.get_user()
     username = user.username
     token = user_context.token
     lab = obj_factory.labspecs[0]
-    lm = user_context.lab_manager
+    lm = user_context.factory.create_lab_manager()
     users = await user_context.user_map.running()
     assert len(users) == 0
     await lm.create_lab(token=token, lab=lab)
@@ -61,11 +61,11 @@ async def test_get_active_users(
 @pytest.mark.asyncio
 async def test_nss(
     obj_factory: TestObjectFactory,
-    user_context: Context,
+    user_context: RequestContext,
     std_result_dir: Path,
 ) -> None:
     user = await user_context.get_user()
-    lm = user_context.lab_manager
+    lm = user_context.factory.create_lab_manager()
     nss = lm.build_nss(user=user)
     for k in nss:
         dk = k.replace("/", "-")
@@ -75,10 +75,10 @@ async def test_nss(
 @pytest.mark.asyncio
 async def test_configmap(
     obj_factory: TestObjectFactory,
-    user_context: Context,
+    user_context: RequestContext,
     std_result_dir: Path,
 ) -> None:
-    lm = user_context.lab_manager
+    lm = user_context.factory.create_lab_manager()
     cm = lm.build_file_configmap()
     for k in cm:
         dk = k.replace("/", "-")
@@ -88,13 +88,13 @@ async def test_configmap(
 @pytest.mark.asyncio
 async def test_env(
     obj_factory: TestObjectFactory,
-    user_context: Context,
+    user_context: RequestContext,
     std_result_dir: Path,
 ) -> None:
     lab = obj_factory.labspecs[0]
     user = await user_context.get_user()
     token = user_context.token
-    lm = user_context.lab_manager
+    lm = user_context.factory.create_lab_manager()
     env = lm.build_env(user=user, lab=lab, token=token)
     env_str = json.dumps(env, sort_keys=True, indent=4)
     check_file(env_str, std_result_dir / "env.json")
@@ -103,12 +103,12 @@ async def test_env(
 @pytest.mark.asyncio
 async def test_vols(
     obj_factory: TestObjectFactory,
-    user_context: Context,
+    user_context: RequestContext,
     std_result_dir: Path,
 ) -> None:
     user = await user_context.get_user()
     username = user.username
-    lm = user_context.lab_manager
+    lm = user_context.factory.create_lab_manager()
     vols = lm.build_volumes(username=username)
     vol_str = "\n".join([f"{x}" for x in vols])
     check_file(vol_str, std_result_dir / "volumes.txt")
@@ -117,12 +117,12 @@ async def test_vols(
 @pytest.mark.asyncio
 async def test_pod_spec(
     obj_factory: TestObjectFactory,
-    user_context: Context,
+    user_context: RequestContext,
     std_result_dir: Path,
 ) -> None:
     lab = obj_factory.labspecs[0]
     user = await user_context.get_user()
-    lm = user_context.lab_manager
+    lm = user_context.factory.create_lab_manager()
     ps = lm.build_pod_spec(user=user, lab=lab)
     ps_str = f"{ps}"
     check_file(ps_str, std_result_dir / "podspec.txt")

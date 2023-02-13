@@ -1,8 +1,11 @@
 """Component factory and global and per-request context management."""
 
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
 from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, List
+from typing import Optional, Self
 
 import structlog
 from httpx import AsyncClient
@@ -12,9 +15,7 @@ from structlog.stdlib import BoundLogger
 
 from .config import Configuration
 from .constants import KUBERNETES_REQUEST_TIMEOUT
-from .exceptions import InvalidUserError
 from .models.domain.usermap import UserMap
-from .models.v1.lab import UserInfo
 from .services.events import EventManager
 from .services.form import FormManager
 from .services.lab import LabManager
@@ -22,58 +23,106 @@ from .services.prepuller.arbitrator import PrepullerArbitrator
 from .services.prepuller.executor import PrepullerExecutor
 from .services.prepuller.state import PrepullerState
 from .services.prepuller.tag import PrepullerTagClient
-from .services.size import SizeManager
 from .storage.docker import DockerCredentialStore, DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.k8s import K8sStorageClient
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class ProcessContext:
-    """This will hold all the per-process singleton items.  This feels a
-    little fragile in that the only singleton enforcement lies here and in
-    how the Context dependency (which contains both this and the Request
-    Context) is structured.
+    """Per-process global application state.
 
-    This should generally not be accessed directly, but via the Factory, and
-    really the Factory itself should be accessed as part of a Request Context
-    (which for brevity, since it's used a great deal) is the class named
-    Context.  And *that* should generally be referenced from the context
-    dependency.
+    This object holds all of the per-process singletons and is managed by
+    `~jupyterlabcontroller.dependencies.context.ContextDependency`. It is used
+    by the `Factory` class as a source of dependencies to inject into created
+    service and storage objects, and by the context dependency as a source of
+    singletons that should also be exposed to route handlers via the request
+    context.
     """
 
     config: Configuration
+    """Lab controller configuration."""
+
     http_client: AsyncClient
-    k8s_client: ApiClient
+    """Shared HTTP client."""
+
+    k8s_client: K8sStorageClient
+    """Shared Kubernetes client."""
+
     docker_credentials: DockerCredentialStore
+    """Docker credentials."""
+
+    prepuller_state: PrepullerState
+    """Global state of the prepuller."""
+
     prepuller_executor: PrepullerExecutor
+    """Prepuller execution manager."""
+
     user_map: UserMap
+    """State management for user lab pods."""
+
     event_manager: EventManager
+    """Manager for lab spawning events."""
 
     @classmethod
-    async def from_config(cls, config: Configuration) -> "ProcessContext":
+    async def from_config(
+        cls,
+        config: Configuration,
+        k8s_client: Optional[K8sStorageClient] = None,
+        docker_client: Optional[DockerStorageClient] = None,
+    ) -> Self:
+        """Create a new process context from the controller configuration.
+
+        Parameters
+        ----------
+        config
+            Lab controller configuration.
+        k8s_client
+            Kubernetes storage object to use. Used by the test suite for
+            dependency injection.
+        docker_client
+            Docker storage object to use. Used by the test suite for
+            dependency injection.
+
+        Returns
+        -------
+        ProcessContext
+            Shared context for a lab controller process.
+        """
+        http_client = await http_client_dependency()
         prepuller_state = PrepullerState()
-        k8s_api_client = ApiClient()
-        logger = structlog.get_logger(config.safir.logger_name)
         docker_credentials = DockerCredentialStore.from_path(
             config.docker_secrets_path
         )
+
+        # This logger is used only by process-global singletons.  Everything
+        # else will use a per-request logger that includes more context about
+        # the request (such as the authenticated username).
+        logger = structlog.get_logger(config.safir.logger_name)
+
+        if not k8s_client:
+            k8s_api_client = ApiClient()
+            k8s_client = K8sStorageClient(
+                k8s_api=k8s_api_client,
+                timeout=KUBERNETES_REQUEST_TIMEOUT,
+                logger=logger,
+            )
+        if not docker_client:
+            docker_client = DockerStorageClient(
+                credentials=docker_credentials,
+                http_client=http_client,
+                logger=logger,
+            )
+
         return cls(
             config=config,
-            http_client=await http_client_dependency(),
-            k8s_client=k8s_api_client,
+            http_client=http_client,
+            k8s_client=k8s_client,
+            prepuller_state=prepuller_state,
             prepuller_executor=PrepullerExecutor(
                 state=prepuller_state,
-                k8s_client=K8sStorageClient(
-                    k8s_api=k8s_api_client,
-                    timeout=KUBERNETES_REQUEST_TIMEOUT,
-                    logger=logger,
-                ),
-                docker_client=DockerStorageClient(
-                    credentials=docker_credentials,
-                    http_client=await http_client_dependency(),
-                    logger=logger,
-                ),
+                k8s_client=k8s_client,
+                docker_client=docker_client,
                 logger=logger,
                 config=config.images,
                 namespace=config.lab.namespace_prefix,
@@ -93,183 +142,169 @@ class ProcessContext:
             event_manager=EventManager(logger=logger),
         )
 
+    async def start(self) -> None:
+        """Start the background threads running."""
+        await self.prepuller_executor.start()
+
     async def aclose(self) -> None:
+        """Clean up a process context.
+
+        Called during shutdown, or before recreating the process context using
+        a different configuration.
+        """
         await self.prepuller_executor.stop()
 
 
 class Factory:
+    """Build lab controller components.
+
+    Uses the contents of a `ProcessContext` to construct the components of the
+    application on demand.
+
+    Parameters
+    ----------
+    context
+        Shared process context.
+    logger
+        Logger to use for messages.
+    """
+
     @classmethod
-    async def create(cls, config: Configuration) -> "Factory":
+    async def create(
+        cls, config: Configuration, context: Optional[ProcessContext] = None
+    ) -> Self:
+        """Create a component factory outside of a request.
+
+        Intended for long-running daemons other than the FastAPI web
+        application or for tests that don't need the full application.
+
+        This class method should only be used in situations where an async
+        context manager cannot be used.  If an async context manager can be
+        used, call `standalone` rather than this method.
+
+        Parameters
+        ----------
+        config
+            Lab controller configuration
+        context
+            Shared process context. If not provided, a new one will be
+            constructed.
+
+        Returns
+        -------
+        Factory
+            Newly-created factory. The caller must call `aclose` on the
+            returned object during shutdown.
+        """
         logger = structlog.get_logger(config.safir.logger_name)
-        context = await ProcessContext.from_config(config)
+        if not context:
+            context = await ProcessContext.from_config(config)
         return cls(context=context, logger=logger)
 
     @classmethod
     @asynccontextmanager
     async def standalone(
-        cls, config: Configuration
-    ) -> AsyncIterator["Factory"]:
-        factory = await cls.create(config)
+        cls, config: Configuration, context: Optional[ProcessContext] = None
+    ) -> AsyncIterator[Self]:
+        """Async context manager for lab controller components.
+
+        Intended for background jobs or the test suite.
+
+        Parameters
+        ----------
+        config
+            Lab controller configuration
+        context
+            Shared process context. If not provided, a new one will be
+            constructed.
+
+        Yields
+        ------
+        Factory
+            Newly-created factory. Must be used as a context manager.
+        """
+        factory = await cls.create(config, context)
         async with aclosing(factory):
             yield factory
 
     def __init__(self, context: ProcessContext, logger: BoundLogger) -> None:
         self._context = context
-        self.logger = logger
+        self._logger = logger
 
     async def aclose(self) -> None:
+        """Shut down the factory.
+
+        After this method is called, the factory object is no longer valid and
+        must not be used.
+        """
         await self._context.aclose()
 
     def create_docker_storage(self) -> DockerStorageClient:
-        """Create a Docker storage client."""
+        """Create a Docker storage client.
+
+        Returns
+        -------
+        DockerStorageClient
+            Newly-created Docker storage client.
+        """
+        # This intentionally doesn't use the shared Docker storage client,
+        # since it's used by tests that want to test mocking at the httpx
+        # layer. Eventually, the shared Docker storage client can go away
+        # since all tests will use mocking.
         return DockerStorageClient(
             credentials=self._context.docker_credentials,
             http_client=self._context.http_client,
-            logger=self.logger,
+            logger=self._logger,
+        )
+
+    def create_form_manager(self) -> FormManager:
+        prepuller_arbitrator = self.create_prepuller_arbitrator()
+        return FormManager(
+            prepuller_arbitrator=prepuller_arbitrator,
+            logger=self._logger,
+            http_client=self._context.http_client,
+            lab_sizes=self._context.config.lab.sizes,
+        )
+
+    def create_gafaelfawr_client(self) -> GafaelfawrStorageClient:
+        return GafaelfawrStorageClient(
+            config=self._context.config, http_client=self._context.http_client
+        )
+
+    def create_lab_manager(self) -> LabManager:
+        gafaelfawr_client = self.create_gafaelfawr_client()
+        return LabManager(
+            instance_url=self._context.config.base_url,
+            manager_namespace=self._context.config.lab.namespace_prefix,
+            user_map=self._context.user_map,
+            event_manager=self._context.event_manager,
+            logger=self._logger,
+            lab_config=self._context.config.lab,
+            k8s_client=self._context.k8s_client,
+            gafaelfawr_client=gafaelfawr_client,
+        )
+
+    def create_prepuller_arbitrator(self) -> PrepullerArbitrator:
+        return PrepullerArbitrator(
+            state=self._context.prepuller_state,
+            tag_client=PrepullerTagClient(
+                state=self._context.prepuller_state,
+                config=self._context.config.images,
+                logger=self._logger,
+            ),
+            config=self._context.config.images,
+            logger=self._logger,
         )
 
     def set_logger(self, logger: BoundLogger) -> None:
-        self.logger = logger
+        """Replace the internal logger.
 
-    def get_config(self) -> Configuration:
-        return self._context.config
+        Used by the context dependency to update the logger for all
+        newly-created components when it's rebound with additional context.
 
-    def get_prepuller_state(self) -> PrepullerState:
-        return self._context.prepuller_executor.state
-
-    def get_prepuller_executor(self) -> PrepullerExecutor:
-        return self._context.prepuller_executor
-
-    def get_http_client(self) -> AsyncClient:
-        return self._context.http_client
-
-    def get_k8s_client(self) -> ApiClient:
-        return self._context.k8s_client
-
-    def get_user_map(self) -> UserMap:
-        return self._context.user_map
-
-    def get_event_manager(self) -> EventManager:
-        return self._context.event_manager
-
-
-@dataclass
-class Context:
-    """This is a RequestContext.  It contains a Factory to return the
-    process singletons (part of a ProcessContext), as well as the
-    token from the HTTP call, which will have a scope, and if it's a user
-    token, be able to be converted to a user record (it may be an admin
-    token, however), and calling details for logging.
-
-    Handlers will generally use this via the Context dependency.
-    """
-
-    logger: BoundLogger
-    token: str
-    ip_address: str
-    _factory: Factory
-
-    @property
-    def config(self) -> Configuration:
-        return self._factory.get_config()
-
-    @property
-    def user_map(self) -> UserMap:
-        return self._factory.get_user_map()
-
-    @property
-    def event_manager(self) -> EventManager:
-        return self._factory.get_event_manager()
-
-    @property
-    def http_client(self) -> AsyncClient:
-        return self._factory.get_http_client()
-
-    @property
-    def k8s_api_client(self) -> ApiClient:
-        return self._factory.get_k8s_client()
-
-    @property
-    def prepuller_state(self) -> PrepullerState:
-        return self._factory.get_prepuller_state()
-
-    @property
-    def prepuller_executor(self) -> PrepullerExecutor:
-        return self._factory.get_prepuller_executor()
-
-    @property
-    def prepuller_arbitrator(self) -> PrepullerArbitrator:
-        return PrepullerArbitrator(
-            state=self.prepuller_state,
-            tag_client=PrepullerTagClient(
-                state=self.prepuller_state,
-                config=self.config.images,
-                logger=self.logger,
-            ),
-            config=self.config.images,
-            logger=self.logger,
-        )
-
-    @property
-    def size_manager(self) -> SizeManager:
-        return SizeManager(sizes=self.config.lab.sizes)
-
-    @property
-    def form_manager(self) -> FormManager:
-        return FormManager(
-            prepuller_arbitrator=self.prepuller_arbitrator,
-            logger=self.logger,
-            http_client=self.http_client,
-            lab_sizes=self.config.lab.sizes,
-        )
-
-    @property
-    def lab_manager(self) -> LabManager:
-        return LabManager(
-            instance_url=self.config.base_url,
-            manager_namespace=self.config.lab.namespace_prefix,
-            user_map=self.user_map,
-            event_manager=self.event_manager,
-            logger=self.logger,
-            lab_config=self.config.lab,
-            k8s_client=self.k8s_client,
-            gafaelfawr_client=self.gafaelfawr_client,
-        )
-
-    @property
-    def gafaelfawr_client(self) -> GafaelfawrStorageClient:
-        return GafaelfawrStorageClient(
-            config=self.config, http_client=self.http_client
-        )
-
-    @property
-    def k8s_client(self) -> K8sStorageClient:
-        return K8sStorageClient(
-            k8s_api=self.k8s_api_client,
-            timeout=KUBERNETES_REQUEST_TIMEOUT,
-            logger=self.logger,
-        )
-
-    async def get_user(self) -> UserInfo:
-        if not self.token:
-            raise InvalidUserError("Could not determine user from token")
-        try:
-            return await self.gafaelfawr_client.get_user(self.token)
-        except Exception as exc:
-            raise InvalidUserError(f"{exc}")
-
-    async def get_token_scopes(self) -> List[str]:
-        return await self.gafaelfawr_client.get_scopes(self.token)
-
-    async def get_username(self) -> str:
-        user = await self.get_user()
-        return user.username
-
-    async def get_namespace(self) -> str:
-        username = await self.get_username()
-        return f"{self.config.lab.namespace_prefix}-{username}"
-
-    def rebind_logger(self, **values: Any) -> None:
-        """Add the given values to the logging context."""
-        self.logger = self.logger.bind(**values)
-        self._factory.set_logger(self.logger)
+        Parameters
+        ----------
+        logger
+            New logger.
+        """
+        self._logger = logger
