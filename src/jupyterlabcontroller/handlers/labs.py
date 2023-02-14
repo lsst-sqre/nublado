@@ -3,7 +3,7 @@ these specifically for lab manipulation"""
 import os
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import RedirectResponse
 from safir.models import ErrorModel
 from sse_starlette import EventSourceResponse
@@ -31,7 +31,7 @@ router = APIRouter()
 
 
 @router.get(
-    "/",
+    "",
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
     },
@@ -84,15 +84,13 @@ async def post_new_lab(
         user = await context.get_user()
     except InvalidUserError:
         raise HTTPException(status_code=403, detail="Forbidden")
-    token_username = user.username
-    if token_username != username:
+    if user.username != username:
         raise HTTPException(status_code=403, detail="Forbidden")
     context.logger.debug(f"Received creation request for {username}")
+    lab_spec = lab.to_lab_specification()
     lab_manager = context.factory.create_lab_manager()
     try:
-        await lab_manager.create_lab(
-            token=context.token, lab=lab.to_lab_specification()
-        )
+        await lab_manager.create_lab(user, context.token, lab_spec)
     except LabExistsError:
         raise HTTPException(status_code=409, detail="Conflict")
     return f"{_external_url()}/nublado/spawner/v1/labs/{username}"
@@ -130,18 +128,13 @@ async def delete_user_lab(
 )
 async def get_user_events(
     username: str,
+    x_auth_request_user: str = Header(...),
     context: RequestContext = Depends(context_dependency),
 ) -> EventSourceResponse:
     """Returns the events for the lab of the given user"""
-    try:
-        user = await context.get_user()
-    except InvalidUserError:
+    if username != x_auth_request_user:
         raise HTTPException(status_code=403, detail="Forbidden")
-    token_username = user.username
-    if token_username != username:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    event_manager = context.event_manager
-    return event_manager.publish(username)
+    return context.event_manager.publish(username)
 
 
 @router.get(
@@ -154,14 +147,11 @@ async def get_user_events(
     response_model=UserData,
 )
 async def get_user_status(
+    x_auth_request_user: str = Header(...),
     context: RequestContext = Depends(context_dependency),
 ) -> UserData:
     """Get the pod status for the authenticating user."""
-    try:
-        user = await context.get_user()
-    except InvalidUserError:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    userdata = context.user_map.get(user.username)
+    userdata = context.user_map.get(x_auth_request_user)
     if userdata is None:
         raise HTTPException(status_code=404, detail="Not found")
     return userdata
