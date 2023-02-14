@@ -5,7 +5,13 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 
-from jupyterlabcontroller.models.domain.kubernetes import KubernetesNodeImage
+from kubernetes_asyncio.client import (
+    V1ContainerImage,
+    V1Node,
+    V1NodeStatus,
+    V1ObjectMeta,
+)
+
 from jupyterlabcontroller.models.domain.usermap import UserMap
 from jupyterlabcontroller.models.v1.lab import (
     LabSpecification,
@@ -51,17 +57,6 @@ class TestObjectFactory:
                     memfld = q[i]["memory"]
                     if type(memfld) is str:
                         q[i]["memory"] = memory_string_to_int(memfld)
-            # Make node contents into the map returned by get_image_data.
-            new_nc = {}
-            for node, data in self.test_objects["node_contents"].items():
-                images = []
-                for entry in data:
-                    image = KubernetesNodeImage(
-                        references=entry["names"], size=entry["sizeBytes"]
-                    )
-                    images.append(image)
-                new_nc[node] = images
-            self.test_objects["node_contents"] = new_nc
         self._canonicalized = True
 
     @property
@@ -116,10 +111,19 @@ class TestObjectFactory:
         return usermap
 
     @property
-    def nodecontents(self) -> dict[str, list[KubernetesNodeImage]]:
-        if not self._canonicalized:
-            self.canonicalize()
-        return self.test_objects["node_contents"]
+    def nodecontents(self) -> list[V1Node]:
+        nodes = []
+        for name, data in self.test_objects["node_contents"].items():
+            images = [
+                V1ContainerImage(names=i["names"], size_bytes=i["sizeBytes"])
+                for i in data
+            ]
+            node = V1Node(
+                metadata=V1ObjectMeta(name=name),
+                status=V1NodeStatus(images=images),
+            )
+            nodes.append(node)
+        return nodes
 
     @property
     def repocontents(self) -> dict[str, str]:

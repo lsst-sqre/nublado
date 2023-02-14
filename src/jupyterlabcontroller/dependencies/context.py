@@ -71,7 +71,6 @@ class ContextDependency:
 
     def __init__(self) -> None:
         self._process_context: Optional[ProcessContext] = None
-        self._overridden = False
 
     async def __call__(
         self,
@@ -103,13 +102,9 @@ class ContextDependency:
         config
             Configuration for the lab controller.
         """
-        if self._overriden:
-            if not self._process_context:
-                raise RuntimeError("Process context went missing")
-        else:
-            if self._process_context:
-                await self._process_context.stop()
-            self._process_context = await ProcessContext.from_config(config)
+        if self._process_context:
+            await self._process_context.stop()
+        self._process_context = await ProcessContext.from_config(config)
         await self._process_context.start()
 
         # This is an ugly hack to do an initial reconciliation of the user
@@ -127,22 +122,6 @@ class ContextDependency:
         if self._process_context:
             await self._process_context.stop()
         self._process_context = None
-
-    def override_process_context(
-        self, process_context: ProcessContext
-    ) -> None:
-        """Force use of the provided process context.
-
-        Only used by the test suite. If this method is called, `initialize`
-        will not recreate the process context.
-
-        Parameters
-        ----------
-        process_context
-            Process context to use for all requests.
-        """
-        self._overriden = True
-        self._process_context = process_context
 
 
 context_dependency = ContextDependency()

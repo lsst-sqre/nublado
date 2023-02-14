@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 from typing import Any
@@ -86,6 +87,10 @@ async def test_get_active_users(
     assert await factory.user_map.running() == [user.username]
 
     await lab_manager.delete_lab(user.username)
+
+    # We have to let the background task run and complete the namespace
+    # deletion.
+    await asyncio.sleep(0.2)
     assert await factory.user_map.running() == []
 
 

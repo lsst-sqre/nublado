@@ -62,6 +62,7 @@ async def test_user_status(
         },
     )
     assert r.status_code == 200
+    expected_resources = size_manager.resources[LabSize(lab.options.size)]
     assert r.json() == {
         "env": lab.env,
         "events": [],
@@ -71,7 +72,7 @@ async def test_user_status(
         "namespaceQuota": None,
         "options": lab.options.dict(),
         "pod": "missing",
-        "resources": size_manager.resources[LabSize(lab.options.size)],
+        "resources": expected_resources.dict(),
         "status": "running",
         "uid": user.uid,
         "username": user.username,

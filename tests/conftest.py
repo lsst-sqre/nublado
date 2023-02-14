@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
 import pytest_asyncio
@@ -12,18 +11,16 @@ import respx
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
-from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 
 from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.dependencies.config import configuration_dependency
-from jupyterlabcontroller.dependencies.context import context_dependency
-from jupyterlabcontroller.factory import Factory, ProcessContext
+from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.main import create_app
-from jupyterlabcontroller.storage.k8s import K8sStorageClient
 
 from .settings import TestObjectFactory, test_object_factory
 from .support.docker import MockDockerRegistry, register_mock_docker
 from .support.gafaelfawr import MockGafaelfawr, register_mock_gafaelfawr
+from .support.kubernetes import MockLabKubernetesApi, patch_kubernetes
 
 _here = Path(__file__).parent
 
@@ -70,33 +67,17 @@ def config(std_config_dir: Path) -> Configuration:
 
 
 @pytest_asyncio.fixture
-async def process_context(
-    config: Configuration,
+async def app(
     mock_docker: MockDockerRegistry,
-    mock_kubernetes: MockKubernetesApi,
+    mock_kubernetes: MockLabKubernetesApi,
     obj_factory: TestObjectFactory,
-) -> ProcessContext:
-    """Create a process context with mock clients."""
-    k8s_client = Mock(spec=K8sStorageClient)
-
-    async def pod_events(namespace: str, podname: str) -> AsyncIterator[str]:
-        yield "some event"
-
-    k8s_client.get_image_data.return_value = obj_factory.nodecontents
-    k8s_client.get_observed_user_state.return_value = {}
-    k8s_client.reflect_pod_events.side_effect = pod_events
-    context = await ProcessContext.from_config(config, k8s_client)
-    return context
-
-
-@pytest_asyncio.fixture
-async def app(process_context: ProcessContext) -> AsyncIterator[FastAPI]:
+) -> AsyncIterator[FastAPI]:
     """Return a configured test application.
 
     Wraps the application in a lifespan manager so that startup and shutdown
     events are sent during test execution.
     """
-    context_dependency.override_process_context(process_context)
+    mock_kubernetes.set_nodes_for_test(obj_factory.nodecontents)
     app = create_app()
     async with LifespanManager(app):
         yield app
@@ -114,17 +95,18 @@ async def app_client(
 
 @pytest_asyncio.fixture
 async def factory(
-    config: Configuration, process_context: ProcessContext
+    config: Configuration,
+    mock_docker: MockDockerRegistry,
+    mock_kubernetes: MockLabKubernetesApi,
+    obj_factory: TestObjectFactory,
 ) -> AsyncIterator[Factory]:
     """Create a component factory for tests."""
-    context_dependency.override_process_context(process_context)
-
-    # Currently, always start background processes since tests expect it.
-    # This is temporary until tests can be refactored to decide whether
-    # they want background processes running.
-    await process_context.start()
-
-    async with Factory.standalone(config, process_context) as factory:
+    mock_kubernetes.set_nodes_for_test(obj_factory.nodecontents)
+    async with Factory.standalone(config) as factory:
+        # Currently, always start background processes since tests expect it.
+        # This is temporary until tests can be refactored to decide whether
+        # they want background processes running.
+        await factory.start_background_services()
         yield factory
 
 
@@ -155,5 +137,5 @@ def mock_gafaelfawr(
 
 
 @pytest.fixture
-def mock_kubernetes() -> Iterator[MockKubernetesApi]:
+def mock_kubernetes() -> Iterator[MockLabKubernetesApi]:
     yield from patch_kubernetes()

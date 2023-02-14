@@ -105,12 +105,7 @@ class LabManager:
     async def completion_event(self, username: str) -> None:
         ev_queue = self.event_manager.get(username)
         cstr = f"Operation complete for {username}"
-        await ev_queue.asend(
-            Event(
-                data=cstr,
-                event=EventTypes.COMPLETE,
-            )
-        )
+        await ev_queue.asend(Event(data=cstr, event=EventTypes.COMPLETE))
         self.logger.info(cstr)
 
     async def failure_event(
