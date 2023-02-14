@@ -31,8 +31,9 @@ from structlog.stdlib import BoundLogger
 
 from ..config import LabConfiguration, LabVolume
 from ..exceptions import LabExistsError, NoUserMapError
+from ..models.domain.docker import DockerReference
 from ..models.domain.lab import LabVolumeContainer
-from ..models.domain.rsptag import RSPImageTag
+from ..models.domain.rspimage import RSPImage
 from ..models.domain.usermap import UserMap
 from ..models.v1.event import Event, EventTypes
 from ..models.v1.lab import (
@@ -47,6 +48,7 @@ from ..models.v1.lab import (
 from ..storage.k8s import K8sStorageClient
 from ..util import deslashify
 from .events import EventManager
+from .image import ImageService
 from .size import SizeManager
 
 #  argh from aiojobs import Scheduler
@@ -56,10 +58,12 @@ from .size import SizeManager
 class LabManager:
     def __init__(
         self,
+        *,
         manager_namespace: str,
         instance_url: str,
         user_map: UserMap,
         event_manager: EventManager,
+        image_service: ImageService,
         logger: BoundLogger,
         lab_config: LabConfiguration,
         k8s_client: K8sStorageClient,
@@ -68,6 +72,7 @@ class LabManager:
         self.instance_url = instance_url
         self.user_map = user_map
         self.event_manager = event_manager
+        self._image_service = image_service
         self.logger = logger
         self.lab_config = lab_config
         self.k8s_client = k8s_client
@@ -171,9 +176,27 @@ class LabManager:
     async def create_lab(
         self, user: UserInfo, token: str, lab: LabSpecification
     ) -> None:
-        """Schedules creation of user lab objects/resources."""
+        """Schedules creation of user lab objects/resources.
+
+        Parameters
+        ----------
+        user
+            User for whom the lab is being created.
+        token
+            Delegated notebook token for that user, which will be injected
+            into the lab.
+        lab
+            Specification for lab to spawn.
+
+        Raises
+        ------
+        jupyterlabcontroller.exceptions.InvalidDockerReferenceError
+            Docker image reference in the lab specification is invalid.
+        """
         username = user.username
         namespace = self.namespace_from_user(user)
+        reference = DockerReference.from_str(lab.options.reference)
+        image = await self._image_service.image_for_reference(reference)
 
         # unclear if we should clear the event queue before this.  Probably not
         # because we don't want to wipe out the existing log, since we will
@@ -203,9 +226,11 @@ class LabManager:
         await self.info_event(username, "Lab creation initiated", 2)
         await self.k8s_client.create_user_namespace(namespace)
         await self.info_event(username, "User namespace created", 5)
-        await self.create_user_lab_objects(user=user, token=token, lab=lab)
+        await self.create_user_lab_objects(
+            user=user, lab=lab, image=image, token=token
+        )
         await self.info_event(username, "Resource objects created", 40)
-        await self.create_user_pod(user=user, lab=lab)
+        await self.create_user_pod(user, image)
         self.user_map.set_status(username, status=LabStatus.STARTING)
         await self.info_event(username, "Pod requested", 45)
         # Create a task to add the completed event when the pod finishes
@@ -227,9 +252,11 @@ class LabManager:
 
     async def create_user_lab_objects(
         self,
+        *,
         user: UserInfo,
-        token: str,
         lab: LabSpecification,
+        image: RSPImage,
+        token: str,
     ) -> None:
         username = user.username
 
@@ -251,7 +278,7 @@ class LabManager:
             await self.info_event(username, "NSS files created", 15)
             await self.create_file_configmap(user=user)
             await self.info_event(username, "Config files created", 20)
-            await self.create_env(user=user, lab=lab, token=token)
+            await self.create_env(user=user, lab=lab, image=image, token=token)
             await self.info_event(username, "Environment created", 25)
             await self.create_network_policy(user=user)
             await self.info_event(username, "Network policy created", 25)
@@ -336,9 +363,14 @@ class LabManager:
         return data
 
     async def create_env(
-        self, user: UserInfo, lab: LabSpecification, token: str
+        self,
+        *,
+        user: UserInfo,
+        lab: LabSpecification,
+        image: RSPImage,
+        token: str,
     ) -> None:
-        data = self.build_env(user=user, lab=lab, token=token)
+        data = self.build_env(user=user, lab=lab, image=image, token=token)
         await self.k8s_client.create_configmap(
             name=f"nb-{user.username}-env",
             namespace=self.namespace_from_user(user),
@@ -346,7 +378,12 @@ class LabManager:
         )
 
     def build_env(
-        self, user: UserInfo, lab: LabSpecification, token: str
+        self,
+        *,
+        user: UserInfo,
+        lab: LabSpecification,
+        image: RSPImage,
+        token: str,
     ) -> Dict[str, str]:
         # Get the static env vars from the lab config
         data = deepcopy(self.lab_config.env)
@@ -356,17 +393,6 @@ class LabManager:
             data["DEBUG"] = "TRUE"
         if options.reset_user_env:
             data["RESET_USER_ENV"] = "TRUE"
-        image = options.image
-        # Remember how we decided to pull the image with the digest and tag?
-        image_re = r".*:(?P<tag>.*)@sha256:(?P<digest>.*)$"
-        image_digest = ""
-        image_tag = ""
-        i_match = re.compile(image_re).match(image)
-        if i_match is not None:
-            gd = i_match.groupdict()
-            image_digest = gd["digest"]
-            image_tag = gd["tag"]
-        image_descr = RSPImageTag.from_str(image_tag).display_name
         resources = self.get_resources(lab=lab)
         #
         # More of these, eventually, will come from the options form.
@@ -374,10 +400,10 @@ class LabManager:
         data.update(
             {
                 # Image data for display frame
-                "JUPYTER_IMAGE": image,
-                "JUPYTER_IMAGE_SPEC": image,
-                "IMAGE_DESCRIPTION": image_descr,
-                "IMAGE_DIGEST": image_digest,
+                "JUPYTER_IMAGE": image.reference_with_digest,
+                "JUPYTER_IMAGE_SPEC": image.reference_with_digest,
+                "IMAGE_DESCRIPTION": image.display_name,
+                "IMAGE_DIGEST": image.digest,
                 # Get resource limits
                 "CPU_LIMIT": str(resources.limits.cpu),
                 "MEM_GUARANTEE": str(resources.requests.memory),
@@ -431,10 +457,8 @@ class LabManager:
     ) -> Optional[UserResourceQuantum]:
         return lab.namespace_quota
 
-    async def create_user_pod(
-        self, user: UserInfo, lab: LabSpecification
-    ) -> None:
-        pod = self.build_pod_spec(user=user, lab=lab)
+    async def create_user_pod(self, user: UserInfo, image: RSPImage) -> None:
+        pod = self.build_pod_spec(user, image)
         snames = [x.secret_name for x in self.lab_config.secrets]
         needs_pull_secret = False
         if "pull-secret" in snames:
@@ -685,9 +709,7 @@ class LabManager:
             init_ctrs.append(ctr)
         return init_ctrs
 
-    def build_pod_spec(
-        self, user: UserInfo, lab: LabSpecification
-    ) -> V1PodSpec:
+    def build_pod_spec(self, user: UserInfo, image: RSPImage) -> V1PodSpec:
         username = user.username
         vol_recs = self.build_volumes(username=username)
         volumes = [x.volume for x in vol_recs]
@@ -715,7 +737,7 @@ class LabManager:
                     )
                 ),
             ],
-            image=lab.options.image,
+            image=image.reference_with_digest,
             image_pull_policy="Always",
             ports=[
                 V1ContainerPort(

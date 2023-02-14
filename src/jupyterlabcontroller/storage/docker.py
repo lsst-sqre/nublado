@@ -165,6 +165,11 @@ class DockerStorageClient:
         -------
         str
             The digest, such as ``sha256:abcdef``.
+
+        Raises
+        ------
+        DockerRegistryError
+            Unable to retrieve the digest from the Docker Registry.
         """
         url = f"https://{registry}/v2/{repository}/manifests/{tag}"
         r = await self._client.head(url, headers=self._build_headers(registry))

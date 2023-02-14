@@ -1,3 +1,9 @@
+class InvalidDockerReferenceError(Exception):
+    """Docker reference is not valid."""
+
+    pass
+
+
 class DockerRegistryError(Exception):
     """Unknown error working with the Docker registry."""
 

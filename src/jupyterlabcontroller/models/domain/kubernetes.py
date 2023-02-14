@@ -2,21 +2,14 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Self
 
 from kubernetes_asyncio.client import V1ContainerImage
 
+from .docker import DockerReference
+
 __all__ = ["KubernetesNodeImage"]
-
-# Regex fragments used for Docker reference parsing.
-_REGISTRY = r"(?P<registry>[^/]+)"
-_REPOSITORY = r"(?P<repository>[^:@]+)"
-_DIGEST = r"@(?P<digest>.*)"
-
-# Regexes to parse the two recognized types of Docker references.
-_DIGEST_REGEX = re.compile(_REGISTRY + _REPOSITORY + _DIGEST + "$")
 
 
 @dataclass
@@ -67,7 +60,10 @@ class KubernetesNodeImage:
             The digest for the image if found, or `None` if not.
         """
         for reference in self.references:
-            match = _DIGEST_REGEX.match(reference)
-            if match:
-                return match.group("digest")
+            try:
+                parsed_reference = DockerReference.from_str(reference)
+            except ValueError:
+                continue
+            if parsed_reference.digest is not None:
+                return parsed_reference.digest
         return None

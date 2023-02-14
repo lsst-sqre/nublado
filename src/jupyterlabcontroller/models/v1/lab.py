@@ -6,11 +6,12 @@ from enum import auto
 from typing import Deque, Dict, List, Optional
 
 from kubernetes_asyncio.client.models import V1Pod
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from safir.pydantic import CamelCaseModel
 
 from ...constants import DROPDOWN_SENTINEL_VALUE
 from ...util import str_to_bool
+from ..domain.docker import DockerReference
 from ..enums import NubladoEnum
 from .event import Event
 
@@ -51,9 +52,8 @@ class UserOptions(CamelCaseModel):
         example=False,
         title="Whether to enable verbose logging in Lab container",
     )
-    image: str = Field(
+    reference: str = Field(
         ...,
-        name="image",
         example="lighthouse.ceres/library/sketchbook:latest_daily",
         title="Full Docker reference for lab image",
     )
@@ -78,6 +78,18 @@ class UserOptions(CamelCaseModel):
             "Actual definition of each size is instance-defined"
         ),
     )
+
+    @validator("reference")
+    def _validate_reference(cls, v: str) -> str:
+        """Check that the reference is valid.
+
+        We require the reference have an explicit tag even though Docker
+        doesn't, since the form we generate should always have tags.
+        """
+        reference = DockerReference.from_str(v)
+        if reference.tag is None:
+            ValueError(f'Docker reference "{v}" has no tag')
+        return v
 
 
 """POST /nublado/spawner/v1/labs/<username>/create"""
@@ -126,7 +138,7 @@ class UserOptionsWireProtocol(BaseModel):
         if image == DROPDOWN_SENTINEL_VALUE:
             image = self.image_dropdown[0]
         return UserOptions(
-            image=image,
+            reference=image,
             size=LabSize(self.size[0].lower()),
             debug=str_to_bool(self.enable_debug[0]),
             reset_user_env=str_to_bool(self.reset_user_env[0]),
@@ -335,12 +347,12 @@ class UserData(UserInfo, LabSpecification):
         cpu_limit = float(lab_env.get("CPU_LIMIT", 1.0))
         cpu_request = float(lab_env.get("CPU_GUARANTEE", cpu_limit / 4))
         opt_debug = str_to_bool(lab_env.get("DEBUG", ""))
-        opt_image = lab_env.get("JUPYTER_IMAGE_SPEC", "unknown")
+        opt_reference = lab_env.get("JUPYTER_IMAGE_SPEC", "unknown")
         opt_reset_user_env = str_to_bool(lab_env.get("RESET_USER_ENV", ""))
         opt_size = LabSize.SMALL  # We could try harder, but...
         opts = UserOptions(
             debug=opt_debug,
-            image=opt_image,
+            image=opt_reference,
             reset_user_env=opt_reset_user_env,
             size=opt_size,
         )
