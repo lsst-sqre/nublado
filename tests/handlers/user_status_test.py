@@ -20,8 +20,7 @@ async def test_user_status(
     mock_gafaelfawr: MockGafaelfawr,
     obj_factory: TestObjectFactory,
 ) -> None:
-    for token, user in obj_factory.userinfos.items():
-        break
+    token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
     size_manager = SizeManager(config.lab.sizes)
 

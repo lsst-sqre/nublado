@@ -77,20 +77,23 @@ async def get_userdata(
 async def post_new_lab(
     username: str,
     lab: LabSpecificationWireProtocol,
+    x_auth_request_token: str = Header(...),
     context: RequestContext = Depends(context_dependency),
 ) -> str:
     """Create a new Lab pod for a given user"""
+    gafaelfawr_client = context.factory.create_gafaelfawr_client()
     try:
-        user = await context.get_user()
+        user = await gafaelfawr_client.get_user_info(x_auth_request_token)
     except InvalidUserError:
         raise HTTPException(status_code=403, detail="Forbidden")
     if user.username != username:
         raise HTTPException(status_code=403, detail="Forbidden")
+
     context.logger.debug(f"Received creation request for {username}")
     lab_spec = lab.to_lab_specification()
     lab_manager = context.factory.create_lab_manager()
     try:
-        await lab_manager.create_lab(user, context.token, lab_spec)
+        await lab_manager.create_lab(user, x_auth_request_token, lab_spec)
     except LabExistsError:
         raise HTTPException(status_code=409, detail="Conflict")
     return f"{_external_url()}/nublado/spawner/v1/labs/{username}"

@@ -10,17 +10,12 @@ import pytest
 import pytest_asyncio
 import respx
 from asgi_lifespan import LifespanManager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from httpx import AsyncClient
-from safir.dependencies.logger import logger_dependency
-from starlette.datastructures import Headers
 
 from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.dependencies.config import configuration_dependency
-from jupyterlabcontroller.dependencies.context import (
-    RequestContext,
-    context_dependency,
-)
+from jupyterlabcontroller.dependencies.context import context_dependency
 from jupyterlabcontroller.factory import Factory, ProcessContext
 from jupyterlabcontroller.main import create_app
 from jupyterlabcontroller.storage.k8s import K8sStorageClient
@@ -146,37 +141,3 @@ def mock_gafaelfawr(
 ) -> MockGafaelfawr:
     test_users = obj_factory.userinfos
     return register_mock_gafaelfawr(respx_mock, config.base_url, test_users)
-
-
-@pytest_asyncio.fixture
-async def user_context(
-    mock_gafaelfawr: MockGafaelfawr,
-    process_context: ProcessContext,
-) -> AsyncIterator[RequestContext]:
-    token = "token-of-affection"
-    request = Request(
-        {
-            "type": "http",
-            "path": "/",
-            "headers": Headers({"Authorization": f"Bearer {token}"}).raw,
-            "http_version": "1.1",
-            "method": "GET",
-            "scheme": "http",
-            "client": {"127.0.0.1", 8080},
-            "server": {"127.0.0.1", 8080},
-        }
-    )
-    context_dependency.override_process_context(process_context)
-
-    # Ensure we've refreshed prepuller state before proceeding.
-    executor = process_context.prepuller_executor
-    await executor.k8s_client.refresh_state_from_k8s()
-    await executor.docker_client.refresh_state_from_docker_repo()
-
-    yield await context_dependency(
-        request=request,
-        logger=await logger_dependency(request),
-        x_auth_request_token=token,
-    )
-
-    await context_dependency.aclose()

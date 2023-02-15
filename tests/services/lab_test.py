@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from jupyterlabcontroller.dependencies.context import RequestContext
+from jupyterlabcontroller.factory import Factory
 
 from ..settings import TestObjectFactory
 from ..support.check_file import check_file
@@ -11,75 +11,59 @@ from ..support.check_file import check_file
 
 @pytest.mark.asyncio
 async def test_lab_manager(
-    user_context: RequestContext,
-    obj_factory: TestObjectFactory,
+    factory: Factory, obj_factory: TestObjectFactory
 ) -> None:
-    user = await user_context.get_user()
-    username = user.username
-    token = user_context.token
+    token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
-    lm = user_context.factory.create_lab_manager()
-    present = lm.check_for_user(username)
-    assert present is False  # User map should be empty
-    await lm.create_lab(user, token, lab)
-    present = lm.check_for_user(username)
-    assert present is True  # And should now have an entry
-    # We couldn't really do this next thing through the handler with a
-    # user token.
-    await lm.delete_lab(username=username)
-    await lm.await_ns_deletion(
-        namespace=lm.namespace_from_user(user), username=username
-    )
-    present = lm.check_for_user(username)  # Deleted again
-    assert present is False
+    lab_manager = factory.create_lab_manager()
+
+    assert not lab_manager.check_for_user(user.username)
+    await lab_manager.create_lab(user, token, lab)
+    assert lab_manager.check_for_user(user.username)
+
+    await lab_manager.delete_lab(user.username)
+    namespace = lab_manager.namespace_from_user(user)
+    await lab_manager.await_ns_deletion(namespace, user.username)
+    assert not lab_manager.check_for_user(user.username)
 
 
 @pytest.mark.asyncio
 async def test_get_active_users(
-    user_context: RequestContext,
+    factory: Factory,
     obj_factory: TestObjectFactory,
 ) -> None:
-    user = await user_context.get_user()
-    username = user.username
-    token = user_context.token
+    token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
-    lm = user_context.factory.create_lab_manager()
-    users = await user_context.user_map.running()
-    assert len(users) == 0
-    await lm.create_lab(user, token, lab)
-    await lm.await_pod_spawn(
-        namespace=lm.namespace_from_user(user), username=username
-    )
-    users = await user_context.user_map.running()
-    assert len(users) == 1
-    assert users[0] == "rachel"
-    await lm.delete_lab(username=username)
-    users = await user_context.user_map.running()
-    assert len(users) == 0
+    lab_manager = factory.create_lab_manager()
+
+    assert await factory.user_map.running() == []
+
+    await lab_manager.create_lab(user, token, lab)
+    namespace = lab_manager.namespace_from_user(user)
+    await lab_manager.await_pod_spawn(namespace, user.username)
+
+    assert await factory.user_map.running() == [user.username]
+
+    await lab_manager.delete_lab(user.username)
+    assert await factory.user_map.running() == []
 
 
 @pytest.mark.asyncio
 async def test_nss(
-    obj_factory: TestObjectFactory,
-    user_context: RequestContext,
-    std_result_dir: Path,
+    factory: Factory, obj_factory: TestObjectFactory, std_result_dir: Path
 ) -> None:
-    user = await user_context.get_user()
-    lm = user_context.factory.create_lab_manager()
-    nss = lm.build_nss(user=user)
+    _, user = obj_factory.get_user()
+    lab_manager = factory.create_lab_manager()
+    nss = lab_manager.build_nss(user)
     for k in nss:
         dk = k.replace("/", "-")
         check_file(nss[k], std_result_dir / f"nss{dk}.txt")
 
 
 @pytest.mark.asyncio
-async def test_configmap(
-    obj_factory: TestObjectFactory,
-    user_context: RequestContext,
-    std_result_dir: Path,
-) -> None:
-    lm = user_context.factory.create_lab_manager()
-    cm = lm.build_file_configmap()
+async def test_configmap(factory: Factory, std_result_dir: Path) -> None:
+    lab_manager = factory.create_lab_manager()
+    cm = lab_manager.build_file_configmap()
     for k in cm:
         dk = k.replace("/", "-")
         check_file(cm[k], std_result_dir / f"cm{dk}.txt")
@@ -87,42 +71,41 @@ async def test_configmap(
 
 @pytest.mark.asyncio
 async def test_env(
+    factory: Factory,
     obj_factory: TestObjectFactory,
-    user_context: RequestContext,
     std_result_dir: Path,
 ) -> None:
+    token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
-    user = await user_context.get_user()
-    token = user_context.token
-    lm = user_context.factory.create_lab_manager()
-    env = lm.build_env(user=user, lab=lab, token=token)
-    env_str = json.dumps(env, sort_keys=True, indent=4)
-    check_file(env_str, std_result_dir / "env.json")
+    lab_manager = factory.create_lab_manager()
+
+    env = lab_manager.build_env(user, lab, token)
+    with (std_result_dir / "env.json").open("r") as f:
+        expected = json.load(f)
+    assert env == expected
 
 
 @pytest.mark.asyncio
 async def test_vols(
+    factory: Factory,
     obj_factory: TestObjectFactory,
-    user_context: RequestContext,
     std_result_dir: Path,
 ) -> None:
-    user = await user_context.get_user()
-    username = user.username
-    lm = user_context.factory.create_lab_manager()
-    vols = lm.build_volumes(username=username)
+    _, user = obj_factory.get_user()
+    lab_manager = factory.create_lab_manager()
+
+    vols = lab_manager.build_volumes(user.username)
     vol_str = "\n".join([f"{x}" for x in vols])
     check_file(vol_str, std_result_dir / "volumes.txt")
 
 
 @pytest.mark.asyncio
 async def test_pod_spec(
-    obj_factory: TestObjectFactory,
-    user_context: RequestContext,
-    std_result_dir: Path,
+    factory: Factory, obj_factory: TestObjectFactory, std_result_dir: Path
 ) -> None:
+    _, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
-    user = await user_context.get_user()
-    lm = user_context.factory.create_lab_manager()
-    ps = lm.build_pod_spec(user=user, lab=lab)
-    ps_str = f"{ps}"
-    check_file(ps_str, std_result_dir / "podspec.txt")
+    lab_manager = factory.create_lab_manager()
+
+    ps = lab_manager.build_pod_spec(user, lab)
+    check_file(str(ps), std_result_dir / "podspec.txt")

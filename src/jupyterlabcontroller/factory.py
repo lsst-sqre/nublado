@@ -231,6 +231,15 @@ class Factory:
         self._context = context
         self._logger = logger
 
+    @property
+    def user_map(self) -> UserMap:
+        """Current user lab status, from the `ProcessContext`.
+
+        Only used by tests; handlers have access to the user map via the
+        request context.
+        """
+        return self._context.user_map
+
     async def aclose(self) -> None:
         """Shut down the factory.
 
@@ -268,7 +277,9 @@ class Factory:
 
     def create_gafaelfawr_client(self) -> GafaelfawrStorageClient:
         return GafaelfawrStorageClient(
-            config=self._context.config, http_client=self._context.http_client
+            config=self._context.config,
+            http_client=self._context.http_client,
+            logger=self._logger,
         )
 
     def create_lab_manager(self) -> LabManager:
