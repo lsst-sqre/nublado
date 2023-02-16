@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -12,6 +12,7 @@ import respx
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
+from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 
 from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.dependencies.config import configuration_dependency
@@ -70,7 +71,9 @@ def config(std_config_dir: Path) -> Configuration:
 
 @pytest_asyncio.fixture
 async def process_context(
-    config: Configuration, obj_factory: TestObjectFactory
+    config: Configuration,
+    mock_kubernetes: MockKubernetesApi,
+    obj_factory: TestObjectFactory,
 ) -> ProcessContext:
     """Create a process context with mock clients."""
     k8s_client = Mock(spec=K8sStorageClient)
@@ -141,3 +144,8 @@ def mock_gafaelfawr(
 ) -> MockGafaelfawr:
     test_users = obj_factory.userinfos
     return register_mock_gafaelfawr(respx_mock, config.base_url, test_users)
+
+
+@pytest.fixture
+def mock_kubernetes() -> Iterator[MockKubernetesApi]:
+    yield from patch_kubernetes()
