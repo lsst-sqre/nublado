@@ -10,7 +10,7 @@ from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
 
 from ..constants import IMAGE_REFRESH_INTERVAL
-from ..exceptions import InvalidDockerReferenceError
+from ..exceptions import InvalidDockerReferenceError, UnknownDockerImageError
 from ..models.domain.docker import DockerReference
 from ..models.domain.form import MenuImage, MenuImages
 from ..models.domain.rspimage import RSPImage, RSPImageCollection
@@ -19,6 +19,7 @@ from ..models.domain.rsptag import (
     RSPImageTagCollection,
     RSPImageType,
 )
+from ..models.v1.lab import ImageClass
 from ..models.v1.prepuller import (
     Node,
     NodeImage,
@@ -99,6 +100,43 @@ class ImageService:
         # missing images that the prepuller needs to pull.
         self._node_images: dict[str, RSPImageCollection] = {}
 
+    def image_for_class(self, image_class: ImageClass) -> RSPImage:
+        """Determine the image by class keyword.
+
+        Parameters
+        ----------
+        image_class
+            Class of image requested.
+
+        Returns
+        -------
+        RSPImage
+            Corresponding image.
+
+        Raises
+        ------
+        UnknownDockerImageError
+            No available image of the requested class.
+        """
+        if image_class == ImageClass.RECOMMENDED:
+            recommended_tag = self._config.recommended_tag
+            image = self._to_prepull.image_for_tag_name(recommended_tag)
+            if not image:
+                raise UnknownDockerImageError("No recommended image found")
+            return image
+
+        if image_class == ImageClass.LATEST_RELEASE:
+            image_type = RSPImageType.RELEASE
+        elif image_class == ImageClass.LATEST_WEEKLY:
+            image_type = RSPImageType.WEEKLY
+        elif image_class == ImageClass.LATEST_DAILY:
+            image_type = RSPImageType.DAILY
+        image = self._to_prepull.latest(image_type)
+        if not image:
+            msg = f"No {image_class.value} image found"
+            raise UnknownDockerImageError(msg)
+        return image
+
     async def image_for_reference(
         self, reference: DockerReference
     ) -> RSPImage:
@@ -131,10 +169,24 @@ class ImageService:
         if reference.tag is None:
             msg = f'Docker reference "{reference}" has no tag'
             raise InvalidDockerReferenceError(msg)
+
+        # If the image was prepulled, we already have an RSPImage for it.
+        image = self._to_prepull.image_for_tag_name(reference.tag)
+        if image:
+            return image
+
+        # Otherwise, retrieve the RSPImageTag for the image to ensure that it
+        # was in the list of available remote images.
         tag = self._remote_tags.tag_for_tag_name(reference.tag)
-        if not tag:
+        if (
+            not tag
+            or reference.registry != self._registry
+            or reference.repository != self._repository
+        ):
             msg = f'Docker reference "{reference}" not found'
             raise InvalidDockerReferenceError(msg)
+
+        # We found the tag and can resolve this reference to an RSPImage.
         if reference.digest:
             digest = reference.digest
         else:
@@ -144,6 +196,42 @@ class ImageService:
         return RSPImage.from_tag(
             registry=reference.registry,
             repository=reference.repository,
+            tag=tag,
+            digest=digest,
+        )
+
+    async def image_for_tag_name(self, tag_name: str) -> RSPImage:
+        """Determine the image corresponding to a tag.
+
+        Assume that the tag is for our configured registry and repository, and
+        construct the corresponding
+        `~jupyterlabcontroller.models.domain.rspimage.RSPImage`.
+
+        Parameters
+        ----------
+        tag_name
+            Tag of the image
+
+        Returns
+        -------
+            Corresponding image.
+
+        Raises
+        ------
+        UnknownDockerImageError
+            The requested tag is not found.
+        DockerRegistryError
+            Unable to retrieve the digest from the Docker Registry.
+        """
+        tag = self._remote_tags.tag_for_tag_name(tag_name)
+        if not tag:
+            raise UnknownDockerImageError(f"Docker tag {tag_name} not found")
+        digest = await self._docker.get_image_digest(
+            self._registry, self._repository, tag_name
+        )
+        return RSPImage.from_tag(
+            registry=self._registry,
+            repository=self._repository,
             tag=tag,
             digest=digest,
         )

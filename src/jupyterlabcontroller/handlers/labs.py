@@ -10,7 +10,7 @@ from sse_starlette import EventSourceResponse
 
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import InvalidUserError, LabExistsError, NoUserMapError
-from ..models.v1.lab import LabSpecificationWireProtocol, UserData
+from ..models.v1.lab import LabSpecification, UserData
 
 
 def _external_url() -> str:
@@ -76,7 +76,7 @@ async def get_userdata(
 )
 async def post_new_lab(
     username: str,
-    lab: LabSpecificationWireProtocol,
+    lab: LabSpecification,
     x_auth_request_token: str = Header(...),
     context: RequestContext = Depends(context_dependency),
 ) -> str:
@@ -90,10 +90,9 @@ async def post_new_lab(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     context.logger.debug(f"Received creation request for {username}")
-    lab_spec = lab.to_lab_specification()
     lab_manager = context.factory.create_lab_manager()
     try:
-        await lab_manager.create_lab(user, x_auth_request_token, lab_spec)
+        await lab_manager.create_lab(user, x_auth_request_token, lab)
     except LabExistsError:
         raise HTTPException(status_code=409, detail="Conflict")
     return f"{_external_url()}/nublado/spawner/v1/labs/{username}"

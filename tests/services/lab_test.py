@@ -123,9 +123,10 @@ async def test_env(
 ) -> None:
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
+    assert lab.options.image_list
     lab_manager = factory.create_lab_manager()
 
-    reference = DockerReference.from_str(lab.options.reference)
+    reference = DockerReference.from_str(lab.options.image_list)
     image = await factory.image_service.image_for_reference(reference)
     env = lab_manager.build_env(user=user, lab=lab, image=image, token=token)
     with (std_result_dir / "env.json").open("r") as f:
@@ -139,9 +140,10 @@ async def test_pod_spec(
 ) -> None:
     _, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
+    assert lab.options.image_list
     lab_manager = factory.create_lab_manager()
 
-    reference = DockerReference.from_str(lab.options.reference)
+    reference = DockerReference.from_str(lab.options.image_list)
     image = await factory.image_service.image_for_reference(reference)
     pod_spec = lab_manager.build_pod_spec(user, image)
     with (std_result_dir / "pod.json").open("r") as f:

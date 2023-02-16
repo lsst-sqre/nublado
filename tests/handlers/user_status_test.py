@@ -39,8 +39,7 @@ async def test_user_status(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={
             "options": {
-                "image_list": [lab.options.reference],
-                "image_dropdown": [lab.options.reference],
+                "image_list": [lab.options.image_list],
                 "size": [lab.options.size],
             },
             "env": lab.env,
@@ -69,7 +68,7 @@ async def test_user_status(
         "gid": user.gid,
         "groups": user.dict()["groups"],
         "name": user.name,
-        "namespaceQuota": None,
+        "namespace_quota": None,
         "options": lab.options.dict(),
         "pod": "missing",
         "resources": expected_resources.dict(),

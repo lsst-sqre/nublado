@@ -4,6 +4,12 @@ class InvalidDockerReferenceError(Exception):
     pass
 
 
+class UnknownDockerImageError(Exception):
+    """Cannot find a Docker image matching the requested parameters."""
+
+    pass
+
+
 class DockerRegistryError(Exception):
     """Unknown error working with the Docker registry."""
 

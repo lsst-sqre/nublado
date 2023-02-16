@@ -25,3 +25,14 @@ LIMIT_TO_REQUEST_RATIO: float = 4.0  # Seems to work well so far.
 SPAWNER_FORM_TEMPLATE = (
     Path(__file__).parent / "assets" / "form_template.txt"
 ).read_text()
+
+# These must be kept in sync with Gafaelfawr until we can import the models
+# from Gafaelfawr directly.
+
+GROUPNAME_REGEX = "^[a-zA-Z][a-zA-Z0-9._-]*$"
+"""Regex matching all valid group names."""
+
+USERNAME_REGEX = (
+    "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*[a-z](?:[a-z0-9]|-[a-z0-9])*$"
+)
+"""Regex matching all valid usernames."""
