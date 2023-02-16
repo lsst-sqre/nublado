@@ -34,6 +34,14 @@ def test_tag_ordering() -> None:
     assert three != four
     assert three < four
 
+    five = RSPImageTag.from_str("d_2023_02_10_c0031.004")
+    assert four != five
+    assert four < five
+
+    six = RSPImageTag.from_str("d_2023_02_10_c0031.005")
+    assert five != six
+    assert five < six
+
     exp_one = RSPImageTag.from_str("exp_20230209")
     exp_two = RSPImageTag.from_str("exp_random")
     assert exp_one == exp_one
