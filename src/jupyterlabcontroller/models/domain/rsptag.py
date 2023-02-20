@@ -1,18 +1,21 @@
-"""Abstract data type for handling RSP image tags."""
+"""Abstract data types for handling RSP image tags."""
 
 from __future__ import annotations
 
 import re
+from collections import defaultdict
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum
 from functools import total_ordering
-from typing import Self
+from typing import Optional, Self
 
 from semver import VersionInfo
 
 __all__ = [
     "DOCKER_DEFAULT_TAG",
     "RSPImageTag",
+    "RSPImageTagCollection",
     "RSPImageType",
 ]
 
@@ -383,3 +386,127 @@ class RSPImageTag:
             return -1
         else:
             return -1 if self.version.build < other.version.build else 1
+
+
+class RSPImageTagCollection:
+    """Hold and perform operations on a set of `RSPImageTag` objects.
+
+    Parameters
+    ----------
+    tags
+        `RSPImageTag` objects to store.
+    """
+
+    @classmethod
+    def from_tag_names(
+        cls,
+        tag_names: list[str],
+        aliases: set[str],
+        cycle: Optional[int] = None,
+    ) -> Self:
+        """Create a collection from tag strings.
+
+        Parameters
+        ----------
+        tag_names
+            Tag strings that should be parsed as tags.
+        aliases
+            Tags by these names, if found, should be treated as aliases.
+        cycle
+            If given, only add tags with a matching cycle.
+
+        Returns
+        -------
+        RSPImageTagCollection
+            The resulting collection of tags.
+        """
+        tags = []
+        for name in tag_names:
+            if name in aliases:
+                tag = RSPImageTag.alias(name)
+            else:
+                tag = RSPImageTag.from_str(name)
+            if cycle is None or tag.cycle == cycle:
+                tags.append(tag)
+        return cls(tags)
+
+    def __init__(self, tags: Iterable[RSPImageTag]) -> None:
+        self._by_tag = {}
+        self._by_type = defaultdict(list)
+        for tag in tags:
+            self._by_tag[tag.tag] = tag
+            self._by_type[tag.image_type].append(tag)
+        for tag_list in self._by_type.values():
+            tag_list.sort(reverse=True)
+
+    def all_tags(self) -> Iterator[RSPImageTag]:
+        """Iterate over all tags.
+
+        Yields
+        ------
+        RSPImageTag
+            Each tag in sorted order.
+        """
+        for image_type in RSPImageType:
+            for tag in self._by_type[image_type]:
+                yield tag
+
+    def tag_for_tag_name(self, tag_name: str) -> RSPImageTag | None:
+        """Look up a tag by tag name.
+
+        Parameters
+        ----------
+        tag_name
+            Tag to search for.
+
+        Returns
+        -------
+        bool
+            The tag if found in the collection, else `None`.
+        """
+        return self._by_tag.get(tag_name)
+
+    def subset(
+        self,
+        *,
+        releases: int = 0,
+        weeklies: int = 0,
+        dailies: int = 0,
+        include: Optional[set[str]] = None,
+    ) -> RSPImageTagCollection:
+        """Return a subset of the tag collection.
+
+        Parameters
+        ----------
+        releases
+            Number of releases to include.
+        weeklies
+            Number of weeklies to include.
+        dailies
+            Number of dailies to include.
+        include
+            Include this list of tags even if they don't meet other criteria.
+
+        Returns
+        -------
+        RSPImageTagCollection
+            The desired subset.
+        """
+        tags = []
+
+        # Extract the desired tag types.
+        if releases and RSPImageType.RELEASE in self._by_type:
+            tags.extend(self._by_type[RSPImageType.RELEASE][0:releases])
+        if weeklies and RSPImageType.WEEKLY in self._by_type:
+            tags.extend(self._by_type[RSPImageType.WEEKLY][0:weeklies])
+        if dailies and RSPImageType.DAILY in self._by_type:
+            tags.extend(self._by_type[RSPImageType.DAILY][0:dailies])
+
+        # Include additional tags if they're present in the collection.
+        if include:
+            for tag in include:
+                if tag in self._by_tag:
+                    tags.append(self._by_tag[tag])
+
+        # Return the results.
+        return RSPImageTagCollection(tags)

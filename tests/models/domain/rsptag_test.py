@@ -1,13 +1,18 @@
-"""Tests of Docker image tag analysis and deduplication."""
+"""Tests of Docker image tag parsing and analysis."""
 
 from __future__ import annotations
 
 from dataclasses import asdict
+from random import SystemRandom
 
 import pytest
 from semver import VersionInfo
 
-from jupyterlabcontroller.models.domain.rsptag import RSPImageTag, RSPImageType
+from jupyterlabcontroller.models.domain.rsptag import (
+    RSPImageTag,
+    RSPImageTagCollection,
+    RSPImageType,
+)
 
 
 def test_tag_ordering() -> None:
@@ -69,6 +74,89 @@ def test_alias() -> None:
         "cycle": 46,
         "display_name": "Latest Weekly (SAL Cycle 0046)",
     }
+
+
+def test_collection() -> None:
+    """Test behavior of an RSPImageTagCollection object."""
+    # This tag list must be kept in expected sorted order.
+    tags = [
+        "r21_0_1",
+        "r20_0_1_c0027.001",
+        "w_2077_46",
+        "w_2077_45",
+        "w_2077_44",
+        "w_2077_43",
+        "w_2077_42",
+        "w_2077_40_c0027.001",
+        "w_2077_40_c0026.001",
+        "d_2077_10_21",
+        "d_2077_10_20",
+        "r22_0_0_rc1",
+        "exp_w_2021_22",
+        "recommended_c0027",
+        "recommended",
+    ]
+    shuffled_tags = list(tags)
+    SystemRandom().shuffle(shuffled_tags)
+
+    collection = RSPImageTagCollection.from_tag_names(shuffled_tags, set())
+    assert [t.tag for t in collection.all_tags()] == tags
+    tag = collection.tag_for_tag_name("w_2077_46")
+    assert tag
+    assert tag.tag == "w_2077_46"
+    assert collection.tag_for_tag_name("w_2080_01") is None
+
+    # Filter by cycle.
+    collection = RSPImageTagCollection.from_tag_names(
+        shuffled_tags, set(), cycle=27
+    )
+    assert [t.tag for t in collection.all_tags()] == [
+        "r20_0_1_c0027.001",
+        "w_2077_40_c0027.001",
+        "recommended_c0027",
+    ]
+
+    # Alias tag identification.
+    unknown = [
+        t.tag
+        for t in collection.all_tags()
+        if t.image_type == RSPImageType.UNKNOWN
+    ]
+    assert unknown == ["recommended_c0027"]
+    recommended = {"recommended", "recommended_c0027"}
+    collection = RSPImageTagCollection.from_tag_names(
+        shuffled_tags, recommended
+    )
+    aliases = {
+        t.tag
+        for t in collection.all_tags()
+        if t.image_type == RSPImageType.ALIAS
+    }
+    assert aliases == recommended
+    assert next(collection.all_tags()).tag == "recommended_c0027"
+
+    # Subsetting.
+    subset = collection.subset(releases=1, weeklies=3, dailies=1)
+    assert [t.tag for t in subset.all_tags()] == [
+        "r21_0_1",
+        "w_2077_46",
+        "w_2077_45",
+        "w_2077_44",
+        "d_2077_10_21",
+    ]
+    subset = collection.subset(
+        releases=1, weeklies=3, dailies=1, include={"recommended"}
+    )
+    assert [t.tag for t in subset.all_tags()] == [
+        "recommended",
+        "r21_0_1",
+        "w_2077_46",
+        "w_2077_45",
+        "w_2077_44",
+        "d_2077_10_21",
+    ]
+    subset = subset.subset(dailies=1)
+    assert [t.tag for t in subset.all_tags()] == ["d_2077_10_21"]
 
 
 def test_from_str() -> None:
