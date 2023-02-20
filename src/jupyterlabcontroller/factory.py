@@ -23,7 +23,7 @@ from .services.prepuller.arbitrator import PrepullerArbitrator
 from .services.prepuller.executor import PrepullerExecutor
 from .services.prepuller.state import PrepullerState
 from .services.prepuller.tag import PrepullerTagClient
-from .storage.docker import DockerCredentialStore, DockerStorageClient
+from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.k8s import K8sStorageClient
 
@@ -49,9 +49,6 @@ class ProcessContext:
     k8s_client: K8sStorageClient
     """Shared Kubernetes client."""
 
-    docker_credentials: DockerCredentialStore
-    """Docker credentials."""
-
     prepuller_state: PrepullerState
     """Global state of the prepuller."""
 
@@ -69,7 +66,6 @@ class ProcessContext:
         cls,
         config: Configuration,
         k8s_client: Optional[K8sStorageClient] = None,
-        docker_client: Optional[DockerStorageClient] = None,
     ) -> Self:
         """Create a new process context from the controller configuration.
 
@@ -80,9 +76,6 @@ class ProcessContext:
         k8s_client
             Kubernetes storage object to use. Used by the test suite for
             dependency injection.
-        docker_client
-            Docker storage object to use. Used by the test suite for
-            dependency injection.
 
         Returns
         -------
@@ -91,9 +84,6 @@ class ProcessContext:
         """
         http_client = await http_client_dependency()
         prepuller_state = PrepullerState()
-        docker_credentials = DockerCredentialStore.from_path(
-            config.docker_secrets_path
-        )
 
         # This logger is used only by process-global singletons.  Everything
         # else will use a per-request logger that includes more context about
@@ -107,13 +97,12 @@ class ProcessContext:
                 timeout=KUBERNETES_REQUEST_TIMEOUT,
                 logger=logger,
             )
-        if not docker_client:
-            docker_client = DockerStorageClient(
-                credentials=docker_credentials,
-                http_client=http_client,
-                logger=logger,
-            )
 
+        docker_client = DockerStorageClient(
+            credentials_path=config.docker_secrets_path,
+            http_client=http_client,
+            logger=logger,
+        )
         return cls(
             config=config,
             http_client=http_client,
@@ -137,7 +126,6 @@ class ProcessContext:
                     logger=logger,
                 ),
             ),
-            docker_credentials=docker_credentials,
             user_map=UserMap(),
             event_manager=EventManager(logger=logger),
         )
@@ -170,38 +158,6 @@ class Factory:
     """
 
     @classmethod
-    async def create(
-        cls, config: Configuration, context: Optional[ProcessContext] = None
-    ) -> Self:
-        """Create a component factory outside of a request.
-
-        Intended for long-running daemons other than the FastAPI web
-        application or for tests that don't need the full application.
-
-        This class method should only be used in situations where an async
-        context manager cannot be used.  If an async context manager can be
-        used, call `standalone` rather than this method.
-
-        Parameters
-        ----------
-        config
-            Lab controller configuration
-        context
-            Shared process context. If not provided, a new one will be
-            constructed.
-
-        Returns
-        -------
-        Factory
-            Newly-created factory. The caller must call `aclose` on the
-            returned object during shutdown.
-        """
-        logger = structlog.get_logger(config.safir.logger_name)
-        if not context:
-            context = await ProcessContext.from_config(config)
-        return cls(context=context, logger=logger)
-
-    @classmethod
     @asynccontextmanager
     async def standalone(
         cls, config: Configuration, context: Optional[ProcessContext] = None
@@ -223,7 +179,10 @@ class Factory:
         Factory
             Newly-created factory. Must be used as a context manager.
         """
-        factory = await cls.create(config, context)
+        logger = structlog.get_logger(config.safir.logger_name)
+        if not context:
+            context = await ProcessContext.from_config(config)
+        factory = cls(context, logger)
         async with aclosing(factory):
             yield factory
 
@@ -256,12 +215,8 @@ class Factory:
         DockerStorageClient
             Newly-created Docker storage client.
         """
-        # This intentionally doesn't use the shared Docker storage client,
-        # since it's used by tests that want to test mocking at the httpx
-        # layer. Eventually, the shared Docker storage client can go away
-        # since all tests will use mocking.
         return DockerStorageClient(
-            credentials=self._context.docker_credentials,
+            credentials_path=self._context.config.docker_secrets_path,
             http_client=self._context.http_client,
             logger=self._logger,
         )

@@ -15,7 +15,7 @@ from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.models.domain.docker import DockerCredentials
 from jupyterlabcontroller.storage.docker import DockerCredentialStore
 
-from ..support.docker import mock_docker
+from ..support.docker import register_mock_docker
 
 
 @pytest.mark.asyncio
@@ -26,14 +26,11 @@ async def test_api(
     tags = {t: "sha256:" + os.urandom(32).hex() for t in tag_names}
     registry = config.images.registry
     repository = config.images.repository
-    store = DockerCredentialStore.from_path(config.docker_secrets_path)
-    credentials = store.get(registry)
-    assert credentials
-    mock_docker(
+    register_mock_docker(
         respx_mock,
         host=registry,
         repository=repository,
-        credentials=credentials,
+        credentials_path=config.docker_secrets_path,
         tags=tags,
     )
     docker = factory.create_docker_storage()
@@ -52,14 +49,11 @@ async def test_bearer_auth(
     tags = {"r23_0_4": "sha256:" + os.urandom(32).hex()}
     registry = config.images.registry
     repository = config.images.repository
-    store = DockerCredentialStore.from_path(config.docker_secrets_path)
-    credentials = store.get(registry)
-    assert credentials
-    mock_docker(
+    register_mock_docker(
         respx_mock,
         host=registry,
         repository=repository,
-        credentials=credentials,
+        credentials_path=config.docker_secrets_path,
         tags=tags,
         require_bearer=True,
     )
