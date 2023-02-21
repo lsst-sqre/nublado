@@ -14,6 +14,7 @@ class Image(BaseModel):
         ...,
         title="Docker reference of image",
         example="lighthouse.ceres/library/sketchbook:latest_daily",
+        description="cf. https://docs.docker.com/registry/introduction/",
     )
     tag: str = Field(..., title="Image tag", example="w_2023_04")
     name: str = Field(
