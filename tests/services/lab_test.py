@@ -1,12 +1,52 @@
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from jupyterlabcontroller.factory import Factory
 
 from ..settings import TestObjectFactory
-from ..support.check_file import check_file
+
+
+def strip_none(model: dict[str, Any]) -> dict[str, Any]:
+    """Strip `None` values from a serialized Kubernetes object.
+
+    Comparing Kubernetes objects against serialized expected output is a bit
+    of a pain, since Kubernetes objects often contain tons of optional
+    parameters and the ``to_dict`` serialization includes every parameter.
+    The naive result is therefore tedious to read or understand.
+
+    This function works around this by taking a serialized Kubernetes object
+    and dropping all of the parameters that are set to `None`. The ``to_dict``
+    form of a Kubernetes object should be passed through it first before
+    comparing to the expected output.
+
+    Parmaters
+    ---------
+    model
+        Kubernetes model serialized with ``to_dict``.
+
+    Returns
+    -------
+    dict
+        Cleaned-up model with `None` parameters removed.
+    """
+    result = {}
+    for key, value in model.items():
+        if value is None:
+            continue
+        if isinstance(value, dict):
+            value = strip_none(value)
+        elif isinstance(value, list):
+            list_result = []
+            for item in value:
+                if isinstance(item, dict):
+                    item = strip_none(item)
+                list_result.append(item)
+            value = list_result
+        result[key] = value
+    return result
 
 
 @pytest.mark.asyncio
@@ -57,7 +97,7 @@ async def test_nss(
     nss = lab_manager.build_nss(user)
     for k in nss:
         dk = k.replace("/", "-")
-        check_file(nss[k], std_result_dir / f"nss{dk}.txt")
+        assert nss[k] == (std_result_dir / f"nss{dk}.txt").read_text()
 
 
 @pytest.mark.asyncio
@@ -66,7 +106,7 @@ async def test_configmap(factory: Factory, std_result_dir: Path) -> None:
     cm = lab_manager.build_file_configmap()
     for k in cm:
         dk = k.replace("/", "-")
-        check_file(cm[k], std_result_dir / f"cm{dk}.txt")
+        assert cm[k] == (std_result_dir / f"cm{dk}.txt").read_text()
 
 
 @pytest.mark.asyncio
@@ -85,27 +125,14 @@ async def test_env(
     assert env == expected
 
 
-@pytest.mark.asyncio
-async def test_vols(
-    factory: Factory,
-    obj_factory: TestObjectFactory,
-    std_result_dir: Path,
-) -> None:
-    _, user = obj_factory.get_user()
-    lab_manager = factory.create_lab_manager()
-
-    vols = lab_manager.build_volumes(user.username)
-    vol_str = "\n".join([f"{x}" for x in vols])
-    check_file(vol_str, std_result_dir / "volumes.txt")
-
-
-@pytest.mark.asyncio
-async def test_pod_spec(
+def test_pod_spec(
     factory: Factory, obj_factory: TestObjectFactory, std_result_dir: Path
 ) -> None:
     _, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
     lab_manager = factory.create_lab_manager()
 
-    ps = lab_manager.build_pod_spec(user, lab)
-    check_file(str(ps), std_result_dir / "podspec.txt")
+    pod_spec = lab_manager.build_pod_spec(user, lab)
+    with (std_result_dir / "pod.json").open("r") as f:
+        expected = json.load(f)
+    assert strip_none(pod_spec.to_dict()) == expected

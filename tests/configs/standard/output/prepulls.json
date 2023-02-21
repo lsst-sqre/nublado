@@ -1,0 +1,83 @@
+{
+  "config": {
+    "docker": {
+      "registry": "lighthouse.ceres",
+      "repository": "library/sketchbook"
+    },
+    "gar": null,
+    "recommendedTag": "recommended",
+    "numReleases": 1,
+    "numWeeklies": 2,
+    "numDailies": 3,
+    "cycle": null,
+    "pin": null,
+    "aliasTags": []
+  },
+  "images": {
+    "prepulled": [
+      {
+        "path": "lighthouse.ceres/library/sketchbook:latest_weekly",
+        "name": "Latest Weekly",
+        "digest": "sha256:5678",
+        "nodes": [
+          "node1",
+          "node2"
+        ],
+        "missing": null
+      }
+    ],
+    "pending": [
+      {
+        "path": "lighthouse.ceres/library/sketchbook:latest_daily",
+        "name": "Latest Daily",
+        "digest": "sha256:1234",
+        "nodes": [
+          "node1"
+        ],
+        "missing": [
+          "node2"
+        ]
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "name": "node1",
+      "eligible": true,
+      "comment": "",
+      "cached": [
+        {
+          "path": "lighthouse.ceres/library/sketchbook:latest_weekly",
+          "name": "Latest Weekly",
+          "digest": "sha256:5678",
+          "tags": {},
+          "size": null,
+          "prepulled": false
+        },
+        {
+          "path": "lighthouse.ceres/library/sketchbook:latest_daily",
+          "name": "Latest Daily",
+          "digest": "sha256:1234",
+          "tags": {},
+          "size": null,
+          "prepulled": false
+        }
+      ]
+    },
+    {
+      "name": "node2",
+      "eligible": true,
+      "comment": "",
+      "cached": [
+        {
+          "path": "lighthouse.ceres/library/sketchbook:latest_weekly",
+          "name": "Latest Weekly",
+          "digest": "sha256:5678",
+          "tags": {},
+          "size": null,
+          "prepulled": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import json
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -5,18 +7,19 @@ import pytest
 from jupyterlabcontroller.config import Configuration
 from jupyterlabcontroller.services.size import SizeManager
 
-from ..support.check_file import check_file
-
 
 @pytest.mark.asyncio
 async def test_resources(config: Configuration, std_result_dir: Path) -> None:
+    with (std_result_dir / "sizemanager-resources.json").open("r") as f:
+        expected = json.load(f)
     size_manager = SizeManager(sizes=config.lab.sizes)
-    szr_str = f"{size_manager.resources}"
-    check_file(szr_str, std_result_dir / "sizemanager-resources.txt")
+    resources = {k: v.dict() for k, v in size_manager.resources.items()}
+    assert resources == expected
 
 
 @pytest.mark.asyncio
 async def test_form(config: Configuration, std_result_dir: Path) -> None:
+    with (std_result_dir / "sizemanager-formdata.json").open("r") as f:
+        expected = json.load(f)
     size_manager = SizeManager(sizes=config.lab.sizes)
-    szf_str = f"{size_manager.formdata}"
-    check_file(szf_str, std_result_dir / "sizemanager-formdata.txt")
+    assert [asdict(d) for d in size_manager.formdata] == expected
