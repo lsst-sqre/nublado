@@ -17,3 +17,5 @@ pytest-asyncio
 pytest-cov
 respx
 types-pyyaml
+respx
+pydantic
