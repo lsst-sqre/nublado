@@ -25,11 +25,7 @@ function selectDropdown() {
 <input type="radio" name="image_list"
      id="image1" value="lighthouse.ceres/library/sketchbook:recommended@sha256:5678"
       checked>
-    <label for="image1">Recommended</label><br />
-<input type="radio" name="image_list"
-     id="image2" value="lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234"
-     >
-    <label for="image2">Daily 2077_10_23</label><br />
+    <label for="image1">Recommended (Weekly 2077_43)</label><br />
 
     <input type="radio" name="image_list"
         id="use_image_from_dropdown"
@@ -39,11 +35,11 @@ function selectDropdown() {
       Select uncached image (slower start):
     </label><br />
     <select name="image_dropdown" onclick="selectDropdown()">
-<option value="lighthouse.ceres/library/sketchbook:recommended@sha256:5678">Recommended</option>
-<option value="lighthouse.ceres/library/sketchbook:latest_weekly@sha256:5678">Latest Weekly</option>
-<option value="lighthouse.ceres/library/sketchbook:latest_daily@sha256:1234">Latest Daily</option>
+<option value="lighthouse.ceres/library/sketchbook:recommended@sha256:5678">Recommended (Weekly 2077_43)</option>
 <option value="lighthouse.ceres/library/sketchbook:w_2077_43@sha256:5678">Weekly 2077_43</option>
 <option value="lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234">Daily 2077_10_23</option>
+<option value="lighthouse.ceres/library/sketchbook:latest_weekly">latest_weekly</option>
+<option value="lighthouse.ceres/library/sketchbook:latest_daily">latest_daily</option>
 
     </select>
   </div>

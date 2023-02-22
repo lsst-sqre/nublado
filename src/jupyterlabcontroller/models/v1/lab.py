@@ -55,8 +55,7 @@ class UserOptions(CamelCaseModel):
         ...,
         name="image",
         example="lighthouse.ceres/library/sketchbook:latest_daily",
-        title="Full Docker registry path for lab image",
-        description="cf. https://docs.docker.com/registry/introduction/",
+        title="Full Docker reference for lab image",
     )
     reset_user_env: bool = Field(
         False,

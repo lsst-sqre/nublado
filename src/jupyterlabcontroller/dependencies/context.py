@@ -17,6 +17,7 @@ from ..config import Configuration
 from ..factory import Factory, ProcessContext
 from ..models.domain.usermap import UserMap
 from ..services.events import EventManager
+from ..services.image import ImageService
 
 
 @dataclass(slots=True)
@@ -37,6 +38,9 @@ class RequestContext:
 
     factory: Factory
     """Component factory."""
+
+    image_service: ImageService
+    """Global image service."""
 
     user_map: UserMap
     """Global user lab state."""
@@ -82,6 +86,7 @@ class ContextDependency:
             request=request,
             logger=logger,
             factory=factory,
+            image_service=self._process_context.image_service,
             user_map=self._process_context.user_map,
             event_manager=self._process_context.event_manager,
         )
@@ -103,7 +108,7 @@ class ContextDependency:
                 raise RuntimeError("Process context went missing")
         else:
             if self._process_context:
-                await self._process_context.aclose()
+                await self._process_context.stop()
             self._process_context = await ProcessContext.from_config(config)
         await self._process_context.start()
 
@@ -120,7 +125,7 @@ class ContextDependency:
     async def aclose(self) -> None:
         """Clean up the per-process configuration."""
         if self._process_context:
-            await self._process_context.aclose()
+            await self._process_context.stop()
         self._process_context = None
 
     def override_process_context(

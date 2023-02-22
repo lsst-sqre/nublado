@@ -86,8 +86,6 @@ async def process_context(
     k8s_client.get_observed_user_state.return_value = {}
     k8s_client.reflect_pod_events.side_effect = pod_events
     context = await ProcessContext.from_config(config, k8s_client)
-    executor = context.prepuller_executor
-    executor.state.set_remote_images(obj_factory.repocontents)
     return context
 
 
@@ -101,10 +99,6 @@ async def app(process_context: ProcessContext) -> AsyncIterator[FastAPI]:
     context_dependency.override_process_context(process_context)
     app = create_app()
     async with LifespanManager(app):
-        # Ensure we've refreshed prepuller state before proceeding.
-        executor = process_context.prepuller_executor
-        await executor.k8s_client.refresh_state_from_k8s()
-        await executor.docker_client.refresh_state_from_docker_repo()
         yield app
 
 
@@ -125,10 +119,10 @@ async def factory(
     """Create a component factory for tests."""
     context_dependency.override_process_context(process_context)
 
-    # Ensure we've refreshed prepuller state before proceeding.
-    executor = process_context.prepuller_executor
-    await executor.k8s_client.refresh_state_from_k8s()
-    await executor.docker_client.refresh_state_from_docker_repo()
+    # Currently, always start background processes since tests expect it.
+    # This is temporary until tests can be refactored to decide whether
+    # they want background processes running.
+    await process_context.start()
 
     async with Factory.standalone(config, process_context) as factory:
         yield factory
@@ -145,7 +139,7 @@ def mock_docker(
         host=config.images.registry,
         repository=config.images.repository,
         credentials_path=config.docker_secrets_path,
-        tags={n: t.digest for n, t in obj_factory.repocontents.by_tag.items()},
+        tags=obj_factory.repocontents,
         require_bearer=True,
     )
 
