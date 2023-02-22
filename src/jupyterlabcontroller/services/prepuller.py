@@ -1,7 +1,7 @@
 """Prepull images to Kubernetes nodes."""
 
 import asyncio
-import os
+import re
 from typing import Optional
 
 from aiojobs import Scheduler
@@ -138,7 +138,7 @@ class Prepuller:
         spec = self._prepull_pod_spec(image, node)
         try:
             self._logger.debug(f"Prepulling {image.tag} on {node}")
-            name = f"prepull-{os.urandom(8).hex()}"
+            name = self._prepull_pod_name(image, node)
             await self._k8s_client.create_pod(name, self._namespace, spec)
             await self._k8s_client.wait_for_pod_creation(
                 podname=name, namespace=self._namespace
@@ -168,3 +168,28 @@ class Prepuller:
             # suite doesn't expect it.
             # self._image_service.mark_prepulled(image, node)
         self._logger.debug(f"Finished prepulls for {node}")
+
+    def _prepull_pod_name(self, image: RSPImage, node: str) -> str:
+        """Create the pod name to use for prepulling an image.
+
+        This embeds some information in the pod name that may be useful for
+        debugging purposes.
+
+        Parameters
+        ----------
+        image
+            Image to prepull.
+        node
+            Node on which to prepull it.
+
+        Returns
+        -------
+        str
+            Pod name to use.
+        """
+        tag_part = image.tag.replace("_", "-")
+        tag_part = re.sub(r"[^\w.-]", "", tag_part, flags=re.ASCII)
+        name = f"prepull-{tag_part}-{node}"
+
+        # Kubernetes object names may be at most 253 characters long.
+        return name[:253]
