@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Optional
 
 from aiojobs import Scheduler
 from safir.datetime import current_datetime
@@ -81,7 +82,7 @@ class ImageService:
         self._repository = self._config.repository
 
         # Background task management.
-        self._scheduler = Scheduler()
+        self._scheduler: Optional[Scheduler] = None
         self._lock = asyncio.Lock()
         self._refreshed = asyncio.Event()
 
@@ -253,11 +254,22 @@ class ImageService:
 
     async def start(self) -> None:
         """Start a periodic refresh as a background task."""
+        if self._scheduler:
+            msg = "Image service already running, cannot start again"
+            self._logger.warning(msg)
+            return
+        self._logger.info("Starting image service")
+        self._scheduler = Scheduler()
         await self._scheduler.spawn(self._refresh_loop())
 
     async def stop(self) -> None:
         """Stop the background refresh task."""
+        if not self._scheduler:
+            self._logger.warning("Prepuller tasks were already stopped")
+            return
+        self._logger.info("Stopping image service")
         await self._scheduler.close()
+        self._scheduler = None
 
     async def prepuller_wait(self) -> None:
         """Wait for a data refresh.

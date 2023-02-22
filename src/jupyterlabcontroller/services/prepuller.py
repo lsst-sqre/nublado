@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+from typing import Optional
 
 from aiojobs import Scheduler
 from kubernetes_asyncio.client import V1Container, V1PodSpec
@@ -49,13 +50,12 @@ class Prepuller:
         self._k8s_client = k8s_client
         self._logger = logger
         self._namespace = namespace
-
-        self._scheduler = Scheduler()
-        self._running = False
+        self._scheduler: Optional[Scheduler] = None
 
     async def start(self) -> None:
-        if self._running:
-            self._logger.info("Prepuller already running, cannot start again")
+        if self._scheduler:
+            msg = "Prepuller already running, cannot start again"
+            self._logger.warning(msg)
             return
         self._logger.info("Starting prepuller tasks")
 
@@ -66,15 +66,17 @@ class Prepuller:
         # populated image data our API is fairly useless. (It also makes life
         # easier for the test suite.)
         await self._image_service.prepuller_wait()
-        await self._scheduler.spawn(self._prepull_loop())
         self._running = True
+        self._scheduler = Scheduler()
+        await self._scheduler.spawn(self._prepull_loop())
 
     async def stop(self) -> None:
-        if not self._running:
-            self._logger.info("Prepuller tasks were already stopped")
+        if not self._scheduler:
+            self._logger.warning("Prepuller tasks were already stopped")
+            return
         self._logger.info("Cancelling prepuller tasks")
         await self._scheduler.close()
-        self._running = False
+        self._scheduler = None
 
     async def _prepull_loop(self) -> None:
         """Continually prepull images in a loop.
