@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
-from typing import Optional, Self
+from typing import Self
 
 import structlog
 from httpx import AsyncClient
@@ -60,20 +60,13 @@ class ProcessContext:
     """Manager for lab spawning events."""
 
     @classmethod
-    async def from_config(
-        cls,
-        config: Configuration,
-        k8s_client: Optional[K8sStorageClient] = None,
-    ) -> Self:
+    async def from_config(cls, config: Configuration) -> Self:
         """Create a new process context from the controller configuration.
 
         Parameters
         ----------
         config
             Lab controller configuration.
-        k8s_client
-            Kubernetes storage object to use. Used by the test suite for
-            dependency injection.
 
         Returns
         -------
@@ -81,20 +74,18 @@ class ProcessContext:
             Shared context for a lab controller process.
         """
         http_client = await http_client_dependency()
+        k8s_api_client = ApiClient()
 
         # This logger is used only by process-global singletons.  Everything
         # else will use a per-request logger that includes more context about
         # the request (such as the authenticated username).
         logger = structlog.get_logger(config.safir.logger_name)
 
-        if not k8s_client:
-            k8s_api_client = ApiClient()
-            k8s_client = K8sStorageClient(
-                k8s_api=k8s_api_client,
-                timeout=KUBERNETES_REQUEST_TIMEOUT,
-                logger=logger,
-            )
-
+        k8s_client = K8sStorageClient(
+            k8s_api=k8s_api_client,
+            timeout=KUBERNETES_REQUEST_TIMEOUT,
+            logger=logger,
+        )
         docker_client = DockerStorageClient(
             credentials_path=config.docker_secrets_path,
             http_client=http_client,
@@ -153,9 +144,7 @@ class Factory:
 
     @classmethod
     @asynccontextmanager
-    async def standalone(
-        cls, config: Configuration, context: Optional[ProcessContext] = None
-    ) -> AsyncIterator[Self]:
+    async def standalone(cls, config: Configuration) -> AsyncIterator[Self]:
         """Async context manager for lab controller components.
 
         Intended for background jobs or the test suite.
@@ -164,9 +153,6 @@ class Factory:
         ----------
         config
             Lab controller configuration
-        context
-            Shared process context. If not provided, a new one will be
-            constructed.
 
         Yields
         ------
@@ -174,8 +160,7 @@ class Factory:
             Newly-created factory. Must be used as a context manager.
         """
         logger = structlog.get_logger(config.safir.logger_name)
-        if not context:
-            context = await ProcessContext.from_config(config)
+        context = await ProcessContext.from_config(config)
         factory = cls(context, logger)
         async with aclosing(factory):
             yield factory
@@ -262,3 +247,14 @@ class Factory:
             New logger.
         """
         self._logger = logger
+
+    async def start_background_services(self) -> None:
+        """Start global background services managed by the process context.
+
+        These are normally started by the context dependency when running as a
+        FastAPI app, but the test suite may want the background processes
+        running while testing with only a factory.
+
+        Only used by the test suite.
+        """
+        await self._context.start()

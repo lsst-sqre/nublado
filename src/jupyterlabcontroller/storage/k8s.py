@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import base64
 from collections.abc import AsyncGenerator
-from functools import partial
 from typing import Dict, List
 
 from kubernetes_asyncio import client, watch
@@ -265,22 +264,13 @@ class K8sStorageClient:
         This is going to yield messages that are reflected from K8s while the
         pod is Pending, and return once pod is Running, Completed, or Failed.
         """
-        api = self.api
         w = watch.Watch()
-        # See the Kubespawner for this, but _preload_content=False makes
-        # the k8s client do a lot less work.  All we care about is the
-        # event text anyway.
-        method = partial(
-            getattr(api, "list_namespaced_event"), _preload_content=False
-        )
+        method = self.api.list_namespaced_event
         watch_args = {
-            "_request_timeout": 30,
-            "timeout_seconds": 30,
             "namespace": namespace,
-            "field_selector": f"involvedObject.name={podname}"
-            # We can probably get away without resource_version, because
-            # we are watching a single namespace's events for a short time
-            # (basically just while it's in Pending phase).
+            "field_selector": f"involvedObject.name={podname}",
+            "timeout_seconds": 30,
+            "_request_timeout": 30,
         }
         stopping = False
         async with w.stream(method, **watch_args) as stream:
@@ -289,7 +279,7 @@ class K8sStorageClient:
                 # Check to see if pod has entered a state (i.e. not Pending or
                 # Unknown) where we can stop watching.
                 try:
-                    pod = await api.read_namespaced_pod_status(
+                    pod = await self.api.read_namespaced_pod_status(
                         name=podname, namespace=namespace
                     )
                 except ApiException as e:
