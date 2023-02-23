@@ -39,8 +39,8 @@ async def test_user_status(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={
             "options": {
-                "image_list": [lab.options.image],
-                "image_dropdown": [lab.options.image],
+                "image_list": [lab.options.reference],
+                "image_dropdown": [lab.options.reference],
                 "size": [lab.options.size],
             },
             "env": lab.env,

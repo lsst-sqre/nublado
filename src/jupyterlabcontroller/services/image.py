@@ -10,6 +10,8 @@ from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
 
 from ..constants import IMAGE_REFRESH_INTERVAL
+from ..exceptions import InvalidDockerReferenceError
+from ..models.domain.docker import DockerReference
 from ..models.domain.form import MenuImage, MenuImages
 from ..models.domain.rspimage import RSPImage, RSPImageCollection
 from ..models.domain.rsptag import (
@@ -96,6 +98,55 @@ class ImageService:
         # members of the set of images we're prepulling. Used to calculate
         # missing images that the prepuller needs to pull.
         self._node_images: dict[str, RSPImageCollection] = {}
+
+    async def image_for_reference(
+        self, reference: DockerReference
+    ) -> RSPImage:
+        """Determine the image corresponding to a Docker reference.
+
+        If the reference doesn't contain a digest, this may require a call to
+        the Docker API to determine the digest. The results are intentionally
+        not cached since references without digests indicate we're pulling an
+        image by tag, and we should therefore always use the latest version.
+
+        Parameters
+        ----------
+        reference
+            Docker reference, which may or may not have a digest.
+
+        Returns
+        -------
+        RSPImage
+            Corresponding image.
+
+        Raises
+        ------
+        InvalidDockerReferenceError
+            The Docker reference doesn't contain a tag. This is a valid
+            reference to Docker, but for our purposes we always want to have a
+            tag to use for debugging, status display inside the lab, etc.
+        DockerRegistryError
+            Unable to retrieve the digest from the Docker Registry.
+        """
+        if reference.tag is None:
+            msg = f'Docker reference "{reference}" has no tag'
+            raise InvalidDockerReferenceError(msg)
+        tag = self._remote_tags.tag_for_tag_name(reference.tag)
+        if not tag:
+            msg = f'Docker reference "{reference}" not found'
+            raise InvalidDockerReferenceError(msg)
+        if reference.digest:
+            digest = reference.digest
+        else:
+            digest = await self._docker.get_image_digest(
+                reference.registry, reference.repository, reference.tag
+            )
+        return RSPImage.from_tag(
+            registry=reference.registry,
+            repository=reference.repository,
+            tag=tag,
+            digest=digest,
+        )
 
     def images(self) -> SpawnerImages:
         """All images available for spawning.

@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 from jupyterlabcontroller.factory import Factory
+from jupyterlabcontroller.models.domain.docker import DockerReference
 
 from ..settings import TestObjectFactory
 
@@ -119,20 +120,25 @@ async def test_env(
     lab = obj_factory.labspecs[0]
     lab_manager = factory.create_lab_manager()
 
-    env = lab_manager.build_env(user, lab, token)
+    reference = DockerReference.from_str(lab.options.reference)
+    image = await factory.image_service.image_for_reference(reference)
+    env = lab_manager.build_env(user=user, lab=lab, image=image, token=token)
     with (std_result_dir / "env.json").open("r") as f:
         expected = json.load(f)
     assert env == expected
 
 
-def test_pod_spec(
+@pytest.mark.asyncio
+async def test_pod_spec(
     factory: Factory, obj_factory: TestObjectFactory, std_result_dir: Path
 ) -> None:
     _, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
     lab_manager = factory.create_lab_manager()
 
-    pod_spec = lab_manager.build_pod_spec(user, lab)
+    reference = DockerReference.from_str(lab.options.reference)
+    image = await factory.image_service.image_for_reference(reference)
+    pod_spec = lab_manager.build_pod_spec(user, image)
     with (std_result_dir / "pod.json").open("r") as f:
         expected = json.load(f)
     assert strip_none(pod_spec.to_dict()) == expected

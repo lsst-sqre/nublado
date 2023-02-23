@@ -12,15 +12,15 @@ from typing import Optional, Self
 
 from semver import VersionInfo
 
+DOCKER_DEFAULT_TAG = "latest"
+"""Implicit tag used by Docker/Kubernetes when no tag is specified."""
+
 __all__ = [
     "DOCKER_DEFAULT_TAG",
     "RSPImageTag",
     "RSPImageTagCollection",
     "RSPImageType",
 ]
-
-DOCKER_DEFAULT_TAG = "latest"
-"""Implicit tag used by Docker/Kubernetes when no tag is specified."""
 
 
 class RSPImageType(Enum):

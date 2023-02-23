@@ -244,6 +244,7 @@ class Factory:
             manager_namespace=self._context.config.lab.namespace_prefix,
             user_map=self._context.user_map,
             event_manager=self._context.event_manager,
+            image_service=self._context.image_service,
             logger=self._logger,
             lab_config=self._context.config.lab,
             k8s_client=self._context.k8s_client,

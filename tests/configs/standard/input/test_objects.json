@@ -66,14 +66,14 @@
   ],
   "user_options": [
     {
-      "image": "lighthouse.ceres/library/sketchbook:latest_daily@sha256:1234",
+      "reference": "lighthouse.ceres/library/sketchbook:latest_daily@sha256:1234",
       "size": "small"
     }
   ],
   "lab_specification": [
     {
       "options": {
-	"image": "lighthouse.ceres/library/sketchbook:latest_daily@sha256:1234",
+	"reference": "lighthouse.ceres/library/sketchbook:latest_daily@sha256:1234",
 	"size": "small"
       },
       "env": {
