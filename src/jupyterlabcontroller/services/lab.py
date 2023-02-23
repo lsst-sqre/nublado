@@ -190,8 +190,16 @@ class LabManager:
         """
         username = user.username
         namespace = self.namespace_from_user(user)
-        reference = DockerReference.from_str(lab.options.reference)
-        image = await self._image_service.image_for_reference(reference)
+        selection = lab.options.image_list or lab.options.image_dropdown
+        if selection:
+            reference = DockerReference.from_str(selection)
+            image = await self._image_service.image_for_reference(reference)
+        elif lab.options.image_class:
+            image_class = lab.options.image_class
+            image = self._image_service.image_for_class(image_class)
+        elif lab.options.image_tag:
+            tag = lab.options.image_tag
+            image = await self._image_service.image_for_tag_name(tag)
 
         # unclear if we should clear the event queue before this.  Probably not
         # because we don't want to wipe out the existing log, since we will
@@ -384,7 +392,7 @@ class LabManager:
         data = deepcopy(self.lab_config.env)
         # Get the stuff from the options form
         options = lab.options
-        if options.debug:
+        if options.enable_debug:
             data["DEBUG"] = "TRUE"
         if options.reset_user_env:
             data["RESET_USER_ENV"] = "TRUE"

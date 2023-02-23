@@ -1,17 +1,19 @@
 """Models for jupyterlab-controller."""
-from __future__ import annotations
 
 from collections import deque
-from enum import auto
-from typing import Deque, Dict, List, Optional
+from enum import Enum, auto
+from typing import Any, Deque, Dict, Optional
 
 from kubernetes_asyncio.client.models import V1Pod
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, root_validator, validator
 from safir.pydantic import CamelCaseModel
 
-from ...constants import DROPDOWN_SENTINEL_VALUE
+from ...constants import (
+    DROPDOWN_SENTINEL_VALUE,
+    GROUPNAME_REGEX,
+    USERNAME_REGEX,
+)
 from ...util import str_to_bool
-from ..domain.docker import DockerReference
 from ..enums import NubladoEnum
 from .event import Event
 
@@ -41,114 +43,144 @@ class PodState(NubladoEnum):
     MISSING = auto()
 
 
-class UserOptions(CamelCaseModel):
-    """The internal representation of the structure we get from the user POST
-    to create a lab.
-    """
-
-    debug: bool = Field(
-        False,
-        name="debug",
-        example=False,
-        title="Whether to enable verbose logging in Lab container",
-    )
-    reference: str = Field(
-        ...,
-        example="lighthouse.ceres/library/sketchbook:latest_daily",
-        title="Full Docker reference for lab image",
-    )
-    reset_user_env: bool = Field(
-        False,
-        name="reset_user_env",
-        example=False,
-        title="Whether to relocate user environment data",
-        description=(
-            "When spawning the lab, move `.cache`, `.local`, and "
-            "`.jupyter` directories aside."
-        ),
-    )
-    size: str = Field(
-        ...,
-        name="size",
-        title="Container size descriptor",
-        description=(
-            "Must be one of the sizes specified at "
-            "https://www.d20srd.org/srd/combat/"
-            "movementPositionAndDistance.htm#bigandLittleCreaturesInCombat\n"
-            "Actual definition of each size is instance-defined"
-        ),
-    )
-
-    @validator("reference")
-    def _validate_reference(cls, v: str) -> str:
-        """Check that the reference is valid.
-
-        We require the reference have an explicit tag even though Docker
-        doesn't, since the form we generate should always have tags.
-        """
-        reference = DockerReference.from_str(v)
-        if reference.tag is None:
-            ValueError(f'Docker reference "{v}" has no tag')
-        return v
-
-
 """POST /nublado/spawner/v1/labs/<username>/create"""
 
 
-class UserOptionsWireProtocol(BaseModel):
-    image_list: List[str] = Field(
-        ...,
-        name="image_list",
-        example=[
-            "lighthouse.ceres/library/sketchbook:latest_daily",
-            "lighthouse.ceres/library/sketchbook:latest_weekly",
-        ],
-        title="Images from selection radio button",
+class ImageClass(Enum):
+    """Supported classes of images.
+
+    These keywords can be passed into the spawn form to spawn whatever image
+    matches this class, as determined by the lab controller. This is primarily
+    used when spawning notebooks for bot users.
+    """
+
+    RECOMMENDED = "recommended"
+    LATEST_RELEASE = "latest-release"
+    LATEST_WEEKLY = "latest-weekly"
+    LATEST_DAILY = "latest-daily"
+
+
+class UserOptions(BaseModel):
+    """User-provided lab configuration options.
+
+    All values to this model can instead be given as lists of length one with
+    boolean values converted to the strings ``true`` or ``false``. This allows
+    JupyterHub to pass its form submission directly to the lab controller
+    without modifications.
+    """
+
+    image_list: Optional[str] = Field(
+        None,
+        example="lighthouse.ceres/library/sketchbook:w_2023_07@sha256:abcd",
+        title="Image from selection radio button",
+        description="If this is set, `image_dropdown` should not be set.",
     )
-    image_dropdown: List[str] = Field(
-        ...,
-        name="image_dropdown",
-        example=[
-            "lighthouse.ceres/library/sketchbook@sha256:1234",
-            "lighthouse.ceres/library/sketchbook@sha256:5678",
-        ],
-        title="Images from dropdown list",
+    image_dropdown: Optional[str] = Field(
+        None,
+        example="lighthouse.ceres/library/sketchbook:w_2022_40",
+        title="Image from dropdown list",
+        description=(
+            "If this is set, `image_list` should be omitted or set to"
+            f" `{DROPDOWN_SENTINEL_VALUE}`."
+        ),
     )
-    size: List[str] = Field(
-        ...,
-        name="size",
-        example=["small", "medium", "large"],
-        title="Image size",
+    image_class: Optional[ImageClass] = Field(
+        None,
+        example=ImageClass.RECOMMENDED,
+        title="Class of image to spawn",
+        description=(
+            "Spawn a class of image determined by the lab controller. Not"
+            " used by the user form, but may be used by bots creating labs."
+            " Only one of `image_class` or `image_tag` may be given, and"
+            " neither `image_list` nor `image_dropdown` should be set when"
+            " using these options."
+        ),
     )
-    enable_debug: List[str] = Field(
-        ["false"],
-        name="enable_debug",
-        example=["false"],
+    image_tag: Optional[str] = Field(
+        None,
+        example="w_2023_07",
+        title="Tag of image to spawn",
+        description=(
+            "Spawn the image with the given tag. Not used by the user form,"
+            " but may be used by bots creating labs. Only one of `image_class`"
+            " `image_tag` may be given, and neither `image_list` nor"
+            " `image_dropdown` should be set when using these options."
+        ),
+    )
+    size: LabSize = Field(..., example=LabSize.MEDIUM, title="Image size")
+    enable_debug: bool = Field(
+        False,
+        example=True,
         title="Enable debugging in spawned Lab",
     )
-    reset_user_env: List[str] = Field(
-        ["false"],
-        name="reset_user_env",
-        example=["false"],
-        title="Relocate user environment (.cache, .jupyter, .local)",
+    reset_user_env: bool = Field(
+        False,
+        example=True,
+        title="Relocate user environment (`.cache`, `.jupyter`, `.local`)",
     )
 
-    def to_user_options(self) -> UserOptions:
-        image = self.image_list[0]
-        if image == DROPDOWN_SENTINEL_VALUE:
-            image = self.image_dropdown[0]
-        return UserOptions(
-            reference=image,
-            size=LabSize(self.size[0].lower()),
-            debug=str_to_bool(self.enable_debug[0]),
-            reset_user_env=str_to_bool(self.reset_user_env[0]),
-        )
+    class Config:
+        # Tell Pydantic's dict() method to convert the size enum to a string.
+        # This doesn't matter for FastAPI responses, since this is always done
+        # for JSON encoding, but it makes test suite construction easier.
+        use_enum_values = True
+
+    @root_validator(pre=True)
+    def _validate_lists(cls, values: dict[str, Any]) -> dict[str, list[Any]]:
+        """Convert from lists of length 1 to values.
+
+        JupyterHub passes the value of the input form directly to the lab
+        controller via this model. This means that each submitted field is a
+        list, due to implementation details of JupyterHub, but in each case
+        the list must have exactly one element and we don't want the list
+        wrapper. Also accept values without the list wrapping for direct calls
+        to the lab controller via the same API.
+        """
+        new_values = {}
+        for key, value in values.items():
+            if value is None:
+                continue
+            if isinstance(value, list):
+                if len(value) != 1:
+                    raise ValueError(f"Too many values for {key}")
+                new_values[key] = value[0]
+            else:
+                new_values[key] = value
+        return new_values
+
+    @root_validator
+    def _validate_one_image(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Ensure that the image is only specified in one way."""
+        values_set = []
+        for k in ("image_list", "image_dropdown", "image_class", "image_tag"):
+            if values.get(k) is not None:
+                if k == "image_list" and values[k] == DROPDOWN_SENTINEL_VALUE:
+                    del values[k]
+                    continue
+                values_set.append(k)
+        if len(values_set) < 1:
+            raise ValueError("No image to spawn specified")
+        elif len(values_set) > 1:
+            keys = ", ".join(values_set)
+            raise ValueError(f"Image specified multiple ways ({keys})")
+        return values
+
+    @validator("enable_debug", "reset_user_env", pre=True)
+    def _validate_booleans(cls, v: bool | str) -> bool:
+        """Convert boolean values from strings."""
+        if isinstance(v, bool):
+            return v
+        elif v == "true":
+            return True
+        elif v == "false":
+            return False
+        else:
+            raise ValueError(f"Invalid boolean value {v}")
 
 
-class UserResourceQuantum(CamelCaseModel):
+class UserResourceQuantum(BaseModel):
     cpu: float = Field(
         ...,
-        name="cpu",
         example=1.5,
         title="Kubernetes CPU resource quantity",
         description=(
@@ -159,29 +191,19 @@ class UserResourceQuantum(CamelCaseModel):
     )
     memory: int = Field(
         ...,
-        name="memory",
         example=1073741824,
         title="Kubernetes memory resource in bytes",
     )
 
 
-class LabSpecification(CamelCaseModel):
-    options: UserOptions
-    env: Dict[str, str]
-    namespace_quota: Optional[UserResourceQuantum]
-
-
-class LabSpecificationWireProtocol(CamelCaseModel):
-    options: UserOptionsWireProtocol
-    env: Dict[str, str]
-    namespace_quota: Optional[UserResourceQuantum]
-
-    def to_lab_specification(self) -> LabSpecification:
-        return LabSpecification(
-            options=self.options.to_user_options(),
-            env=self.env,
-            namespace_quota=self.namespace_quota,
-        )
+class LabSpecification(BaseModel):
+    options: UserOptions = Field(..., title="User-chosen lab options")
+    env: dict[str, str] = Field(
+        ..., title="Environment variables from JupyterHub"
+    )
+    namespace_quota: Optional[UserResourceQuantum] = Field(
+        None, title="Quota for user"
+    )
 
 
 """GET /nublado/spawner/v1/labs/<username>"""
@@ -191,71 +213,61 @@ class LabSpecificationWireProtocol(CamelCaseModel):
 class UserGroup(CamelCaseModel):
     name: str = Field(
         ...,
-        name="name",
         example="ferrymen",
         title="Group to which lab user belongs",
         description="Should follow Unix naming conventions",
-        regex="^[a-z_][a-z0-9_-]*[$]?$",
+        regex=GROUPNAME_REGEX,
     )
-    id: int = Field(
-        ...,
-        name="id",
+    id: Optional[int] = Field(
+        None,
         example=2023,
         title="Numeric GID of the group (POSIX)",
         description="32-bit unsigned integer",
     )
 
 
-class UserInfo(CamelCaseModel):
+class UserInfo(BaseModel):
     username: str = Field(
         ...,
-        name="username",
         example="ribbon",
         title="Username for Lab user",
-        description="Should follow Unix naming conventions",
-        regex="^[a-z_][a-z0-9_-]*[$]?$",
+        regex=USERNAME_REGEX,
     )
     name: str = Field(
         ...,
-        name="name",
         example="Ribbon",
         title="Human-friendly display name for user",
         description=(
-            "May contain spaces and capital letters; should be the "
-            "user's preferred representation of their name to "
-            "other humans"
+            "May contain spaces, capital letters, and non-ASCII characters"
+            " Should be the user's preferred representation of their name to"
+            " other humans."
         ),
     )
     uid: int = Field(
         ...,
-        name="uid",
         example=1104,
         title="Numeric UID for user (POSIX)",
         description="32-bit unsigned integer",
     )
     gid: int = Field(
         ...,
-        name="gid",
         example=1104,
         title="Numeric GID for user's primary group (POSIX)",
         description="32-bit unsigned integer",
     )
-    groups: List[UserGroup]
+    groups: list[UserGroup] = Field([], title="User's group memberships")
 
 
 class UserResources(CamelCaseModel):
-    limits: UserResourceQuantum = Field(
-        ..., name="limits", title="Maximum allowed resources"
-    )
+    limits: UserResourceQuantum = Field(..., title="Maximum allowed resources")
     requests: UserResourceQuantum = Field(
-        ..., name="requests", title="Intially-requested resources"
+        ..., title="Intially-requested resources"
     )
 
 
 class UserData(UserInfo, LabSpecification):
     status: LabStatus = Field(
         ...,
-        name="status",
         example="running",
         title="Status of user container.",
         description=(
@@ -265,15 +277,13 @@ class UserData(UserInfo, LabSpecification):
     )
     pod: PodState = Field(
         ...,
-        name="pod",
         example="present",
         title="User pod state.",
         description="Must be one of `present` or `missing`.",
     )
-    resources: UserResources
+    resources: UserResources = Field(..., title="Resource requests and limits")
     events: Deque[Event] = Field(
         deque(),
-        name="events",
         title="Ordered queue of events for user lab creation/deletion",
     )
 
@@ -285,17 +295,13 @@ class UserData(UserInfo, LabSpecification):
         resources: UserResources,
     ) -> "UserData":
         return cls(
-            username=user.username,
-            name=user.name,
-            uid=user.uid,
-            gid=user.gid,
-            groups=user.groups,
             options=labspec.options,
             env=labspec.env,
             events=deque(),
             status="starting",
             pod="missing",
             resources=resources,
+            **user.dict(),
         )
 
     @classmethod
