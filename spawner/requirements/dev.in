@@ -15,4 +15,5 @@ pre-commit
 pytest
 pytest-asyncio
 pytest-cov
+respx
 types-pyyaml
