@@ -32,7 +32,7 @@ class LabSize(NubladoEnum):
 
 
 class LabStatus(NubladoEnum):
-    STARTING = auto()
+    PENDING = auto()
     RUNNING = auto()
     TERMINATING = auto()
     FAILED = auto()
@@ -271,7 +271,7 @@ class UserData(UserInfo, LabSpecification):
         example="running",
         title="Status of user container.",
         description=(
-            "Must be one of `starting`, "
+            "Must be one of `pending`, "
             "`running`, `terminating`, or `failed`."
         ),
     )
@@ -298,7 +298,7 @@ class UserData(UserInfo, LabSpecification):
             options=labspec.options,
             env=labspec.env,
             events=deque(),
-            status="starting",
+            status="pending",
             pod="missing",
             resources=resources,
             **user.dict(),
