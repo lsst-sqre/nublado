@@ -12,7 +12,7 @@ from httpx import AsyncClient, Headers
 from jupyterhub.spawner import Spawner
 
 from .admin import get_admin_token
-from .constants import LabStatus
+from .constants import DROPDOWN_SENTINEL_VALUE, LabStatus
 from .errors import SpawnerError
 from .http import get_client
 from .util import get_external_instance_url, get_hub_base_url, get_namespace
@@ -165,8 +165,21 @@ class RSPRestSpawner(Spawner):
     def options_from_form(
         self, formdata: Dict[str, List[str]]
     ) -> Dict[str, List[str]]:
-        """All the processing is done in the Lab Controller; this is just a
-        passthrough."""
+        """We want to move the processing we are doing here back into the
+        lab controller in the form of Pydantic validators.
+
+        For some reason I do not understand, this gets called twice on the
+        way to spawning."""
+        if "size" in formdata:
+            formdata["size"] = [x.lower() for x in formdata["size"]]
+        if (
+            "image_list" in formdata
+            and formdata["image_list"][0] == DROPDOWN_SENTINEL_VALUE
+        ):
+            del formdata["image_list"]
+        else:
+            if "image_dropdown" in formdata:
+                del formdata["image_dropdown"]
         return formdata
 
     async def progress(self) -> AsyncGenerator:
