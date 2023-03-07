@@ -31,6 +31,7 @@
         }
       ],
       "security_context": {
+	"run_as_group": 1101,
         "run_as_non_root": true,
         "run_as_user": 1101
       },

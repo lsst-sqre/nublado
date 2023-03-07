@@ -234,7 +234,7 @@ class LabManager:
         )
         await self.info_event(username, "Resource objects created", 40)
         await self.create_user_pod(user, image)
-        self.user_map.set_status(username, status=LabStatus.STARTING)
+        self.user_map.set_status(username, status=LabStatus.PENDING)
         await self.info_event(username, "Pod requested", 45)
         # Create a task to add the completed event when the pod finishes
         # spawning
@@ -751,6 +751,7 @@ class LabManager:
             security_context=V1SecurityContext(
                 run_as_non_root=True,
                 run_as_user=user.uid,
+                run_as_group=user.gid,
             ),
             volume_mounts=vol_mounts,
             working_dir=f"/home/{username}",

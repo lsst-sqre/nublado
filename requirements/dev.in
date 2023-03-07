@@ -10,7 +10,7 @@
 asgi-lifespan
 coverage[toml]
 httpx
-mypy
+mypy==1.0.0  # Pin to avoid https://github.com/pydantic/pydantic/issues/5148
 pre-commit
 pytest
 pytest-asyncio
