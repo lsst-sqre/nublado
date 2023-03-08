@@ -17,3 +17,7 @@ psycopg2
 # Zero-to-JupyterHub unconditionally imports this (even though I'm using
 # a non-KubeSpawner spawner class)
 kubernetes_asyncio
+
+# Required to make GH actions happy
+ruamel-yaml
+ruamel.yaml.clib
