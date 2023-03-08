@@ -26,8 +26,8 @@ class EventGenerator:
     async def __anext__(self) -> Event:
         return await self.queue.get()
 
-    async def asend(self, value: Event) -> None:
-        await self.queue.put(value)
+    async def asend(self, ev: Event) -> None:
+        await self.queue.put(ev)
 
     async def message_generator(self) -> AsyncGenerator:
         try:
