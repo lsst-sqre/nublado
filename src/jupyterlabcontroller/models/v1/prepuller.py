@@ -57,7 +57,9 @@ class NodeImage(Image):
 
 
 class SpawnerImages(BaseModel):
-    recommended: PrepulledImage = Field(..., title="Recommended image")
+    recommended: Optional[PrepulledImage] = Field(
+        None, title="Recommended image"
+    )
     latest_weekly: Optional[PrepulledImage] = Field(
         None, title="Latest weekly"
     )

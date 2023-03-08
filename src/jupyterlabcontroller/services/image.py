@@ -256,9 +256,11 @@ class ImageService:
         for tag in self._remote_tags.all_tags():
             image = self._to_prepull.image_for_tag_name(tag.tag)
             if image:
-                all_images.append(self._convert_image_for_api(image, nodes))
+                api_image = self._convert_image_for_api(image, nodes)
             else:
-                all_images.append(self._convert_tag_for_api(tag))
+                api_image = self._convert_tag_for_api(tag)
+            if api_image:
+                all_images.append(api_image)
 
         return SpawnerImages(
             recommended=self._convert_image_for_api(recommended, nodes),

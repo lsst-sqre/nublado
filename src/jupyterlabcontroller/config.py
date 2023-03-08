@@ -61,9 +61,9 @@ class SafirConfiguration(CamelCaseModel):
         title="Application root HTTP endpoint path",
     )
     profile: Profile = Field(
-        "production",
+        Profile.production,
         name="profile",
-        example="production",
+        example=Profile.production,
         title="Application run profile, either 'production' or 'development'",
     )
     logger_name: str = Field(
@@ -73,9 +73,9 @@ class SafirConfiguration(CamelCaseModel):
         title="Root name of the application's logger",
     )
     log_level: LogLevel = Field(
-        "INFO",
+        LogLevel.INFO,
         name="log_level",
-        example="INFO",
+        example=LogLevel.INFO,
         title="Application log level",
     )
 
@@ -218,11 +218,11 @@ class LabFile(CamelCaseModel):
 
 class LabConfiguration(CamelCaseModel):
     sizes: LabSizeDefinitions
-    env: Dict[str, str] = Field(default_factory=dict)
-    secrets: List[LabSecret] = Field(default_factory=list)
-    files: Dict[str, LabFile] = Field(default_factory=list)
-    volumes: List[LabVolume] = Field(default_factory=list)
-    init_containers: List[LabInitContainer] = Field(default_factory=list)
+    env: Dict[str, str] = {}
+    secrets: List[LabSecret] = []
+    files: Dict[str, LabFile] = {}
+    volumes: List[LabVolume] = []
+    init_containers: List[LabInitContainer] = []
     namespace_prefix: str = Field(
         default_factory=_get_namespace_prefix,
         title="Namespace prefix for lab environments",

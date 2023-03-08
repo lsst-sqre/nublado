@@ -298,8 +298,8 @@ class UserData(UserInfo, LabSpecification):
             options=labspec.options,
             env=labspec.env,
             events=deque(),
-            status="pending",
-            pod="missing",
+            status=LabStatus.PENDING,
+            pod=PodState.MISSING,
             resources=resources,
             **user.dict(),
         )
@@ -348,8 +348,8 @@ class UserData(UserInfo, LabSpecification):
         gid = lab_ctr.security_context.run_as_group or uid
         supp_gids = pod.spec.security_context.supplemental_groups or []
         # Now extract enough to get our options and quotas rebuilt
-        mem_limit = float(lab_env.get("MEM_LIMIT", 3 * 2**20))
-        mem_request = mem_limit / 4
+        mem_limit = int(lab_env.get("MEM_LIMIT", 3 * 2**20))
+        mem_request = int(mem_limit / 4)
         cpu_limit = float(lab_env.get("CPU_LIMIT", 1.0))
         cpu_request = float(lab_env.get("CPU_GUARANTEE", cpu_limit / 4))
         opt_debug = str_to_bool(lab_env.get("DEBUG", ""))
@@ -357,13 +357,13 @@ class UserData(UserInfo, LabSpecification):
         opt_reset_user_env = str_to_bool(lab_env.get("RESET_USER_ENV", ""))
         opt_size = LabSize.SMALL  # We could try harder, but...
         opts = UserOptions(
-            debug=opt_debug,
-            image=opt_reference,
+            enable_debug=opt_debug,
+            image_dropdown=opt_reference,
             reset_user_env=opt_reset_user_env,
             size=opt_size,
         )
         # We can't recover the group names
-        groups = [{"name": f"g{x}", "id": x} for x in supp_gids]
+        groups = [UserGroup(name=f"g{x}", id=x) for x in supp_gids]
         user_info = UserInfo(
             username=username,
             name=username,  # We can't recover the display name

@@ -358,7 +358,6 @@ class K8sStorageClient:
         secret_type: str = "Opaque",
         immutable: bool = True,
     ) -> None:
-
         secret = V1Secret(
             data=data,
             type=secret_type,
