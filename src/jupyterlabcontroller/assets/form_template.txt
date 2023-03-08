@@ -49,7 +49,7 @@ function selectDropdown() {
 {% for s in sizes -%}
     <input type="radio" name="size"
      id="{{ s.name }}" value="{{ s.name }}"
-     {% if loop.first %} checked {%- endif -%}
+     {% if loop.last %} checked {%- endif -%}
     >
     <label for="{{ s.name }}">
       {{ s.name }} ({{ s.cpu }} CPU, {{ s.memory }} RAM)
