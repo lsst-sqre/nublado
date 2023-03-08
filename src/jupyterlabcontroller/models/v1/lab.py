@@ -292,6 +292,11 @@ class UserData(UserInfo, LabSpecification):
         title="User pod state.",
         description="Must be one of `present` or `missing`.",
     )
+    internal_url: Optional[str] = Field(
+        None,
+        example="http://nublado-ribbon.nb-ribbon:8888",
+        title="URL by which the Hub can access the user Pod",
+    )
     resources: UserResources = Field(..., title="Resource requests and limits")
     events: Deque[Event] = Field(
         deque(),
@@ -343,6 +348,7 @@ class UserData(UserInfo, LabSpecification):
         # We use this when reconciling the user map with the observed state
         # of the world at startup.
         podname = pod.metadata.name
+        nsname = pod.metadata.namespace
         username = podname[3:]  # Starts with "nb-"
         status = pod.status.phase.lower()
         # pod_state = PodState.PRESENT
@@ -395,5 +401,6 @@ class UserData(UserInfo, LabSpecification):
             resources=resources,
         )
         ud.status = LabStatus(status)
+        ud.internal_url = f"http://{nsname}/{podname}:8888"
         ud.pod = PodState.PRESENT
         return ud

@@ -137,8 +137,12 @@ class LabManager:
             )
         except Exception:
             self.user_map.set_status(username, status=LabStatus.FAILED)
+            self.user_map.clear_internal_url(username)
             raise
         self.user_map.set_status(username, status=LabStatus.RUNNING)
+        self.user_map.set_internal_url(
+            username, f"http://{namespace}/nb-{username}:8888"
+        )
         await self.completion_event(username)
 
     async def await_ns_deletion(self, namespace: str, username: str) -> None:
@@ -222,7 +226,7 @@ class LabManager:
         self.event_manager.remove(username)
         #
         # This process has three stages: first is the creation or recreation
-        # of the user namespace.  V1Second is all the resources the user Lab
+        # of the user namespace.  Second is all the resources the user Lab
         # pod will need, and the third is the pod itself.
         #
 
@@ -775,7 +779,8 @@ class LabManager:
         user = self.user_map.get(username)
         if user is None:
             raise NoUserMapError(f"Cannot find map for user {username}")
-        user.status = LabStatus.TERMINATING
+        self.user_map.set_status(username, LabStatus.TERMINATING)
+        self.user_map.clear_internal_url(username)
         #
         # Clear user event queue
         #

@@ -21,6 +21,12 @@ class UserMap:
     def set_status(self, key: str, status: LabStatus) -> None:
         self._dict[key].status = status
 
+    def set_internal_url(self, key: str, url: str) -> None:
+        self._dict[key].internal_url = url
+
+    def clear_internal_url(self, key: str) -> None:
+        self._dict[key].internal_url = None
+
     def remove(self, key: str) -> None:
         del self._dict[key]
 
