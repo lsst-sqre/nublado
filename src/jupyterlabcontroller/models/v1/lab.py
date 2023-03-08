@@ -178,6 +178,16 @@ class UserOptions(BaseModel):
         else:
             raise ValueError(f"Invalid boolean value {v}")
 
+    @validator("size", pre=True)
+    def _validate_size(cls, v: Any) -> Any:
+        """Lab sizes may be title-cased, so convert them to lowercase."""
+        if isinstance(v, LabSize):
+            return v
+        elif isinstance(v, str):
+            return v.lower()
+        else:
+            return v
+
 
 class UserResourceQuantum(BaseModel):
     cpu: float = Field(

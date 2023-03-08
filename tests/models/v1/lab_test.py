@@ -67,7 +67,7 @@ def test_user_options() -> None:
             "image_dropdown": [
                 "lighthouse.ceres/library/sketchbook:latest_daily"
             ],
-            "size": "medium",
+            "size": LabSize.MEDIUM,
         }
     )
     assert options.dict(exclude_none=True) == {
@@ -89,7 +89,7 @@ def test_user_options() -> None:
             "image_tag": [],
             "size": ["large"],
             "enable_debug": ["false"],
-            "reset_user_env": ["true"],
+            "reset_user_env": "true",
         }
     )
     assert options.dict(exclude_none=True) == {
@@ -99,9 +99,9 @@ def test_user_options() -> None:
         "reset_user_env": True,
     }
 
-    # Check image_class and image_tag.
+    # Check image_class and image_tag, and also check title-cased sizes.
     options = UserOptions.parse_obj(
-        {"image_class": "recommended", "size": "large", "enable_debug": True}
+        {"image_class": "recommended", "size": "Large", "enable_debug": True}
     )
     assert options.dict(exclude_none=True) == {
         "image_class": ImageClass.RECOMMENDED,
@@ -110,7 +110,7 @@ def test_user_options() -> None:
         "reset_user_env": False,
     }
     options = UserOptions.parse_obj(
-        {"image_tag": "latest_daily", "size": LabSize.LARGE}
+        {"image_tag": "latest_daily", "size": ["Large"]}
     )
     assert options.dict(exclude_none=True) == {
         "image_tag": "latest_daily",
