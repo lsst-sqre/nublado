@@ -10,7 +10,7 @@
 asgi-lifespan
 coverage[toml]
 httpx
-mypy==1.0.0
+mypy<1.1.1
 pre-commit
 pytest
 pytest-asyncio

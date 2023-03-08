@@ -97,9 +97,9 @@ aiosignal==1.3.1 \
     --hash=sha256:54cd96e15e1649b75d6c87526a6ff0b6c1b0dd3459f43d9ca11d48c339b68cfc \
     --hash=sha256:f8376fb07dd1e86a584e4fcdec80b36b7f81aac666ebc724e2c090300dd83b17
     # via aiohttp
-alembic==1.10.1 \
-    --hash=sha256:367370c74ccf4979e658c8404d8c9fac00907313dc8e9225b71eb9b2db77a3ec \
-    --hash=sha256:afd5a30dca731aa92808c081272d05787195b42e04df687e81e8c5a950c68c7f
+alembic==1.10.2 \
+    --hash=sha256:457eafbdc0769d855c2c92cbafe6b7f319f916c80cf4ed02b8f394f38b51b89d \
+    --hash=sha256:8b48368f6533c064b39c024e1daba15ae7f947eac84185c28c06bbe1301a5497
     # via jupyterhub
 anyio==3.6.2 \
     --hash=sha256:25ea0d673ae30af41a0c442f81cf3b38c7e79fdc7b60335a4c14e05eb0947421 \
