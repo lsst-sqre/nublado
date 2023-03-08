@@ -178,9 +178,6 @@ class RSPRestSpawner(Spawner):
         client = await self._configure_client(content_type="text/event-stream")
         timeout = 150.0
         try:
-            self.logger.debug(
-                f"About to check event stream {client} for progress"
-            )
             async with client.stream(
                 "GET", event_endpoint, timeout=timeout
             ) as resp:
@@ -188,7 +185,6 @@ class RSPRestSpawner(Spawner):
                     line = line.strip()
                     if not line:
                         continue
-                    self.logger.debug(f"Received line: {line}")
                     if line.startswith("event: "):
                         e_type = line[7:]
                         continue
