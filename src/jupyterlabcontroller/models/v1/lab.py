@@ -119,12 +119,6 @@ class UserOptions(BaseModel):
         title="Relocate user environment (`.cache`, `.jupyter`, `.local`)",
     )
 
-    class Config:
-        # Tell Pydantic's dict() method to convert the size enum to a string.
-        # This doesn't matter for FastAPI responses, since this is always done
-        # for JSON encoding, but it makes test suite construction easier.
-        use_enum_values = True
-
     @root_validator(pre=True)
     def _validate_lists(cls, values: dict[str, Any]) -> dict[str, list[Any]]:
         """Convert from lists of length 1 to values.
@@ -141,6 +135,8 @@ class UserOptions(BaseModel):
             if value is None:
                 continue
             if isinstance(value, list):
+                if not value:
+                    continue
                 if len(value) != 1:
                     raise ValueError(f"Too many values for {key}")
                 new_values[key] = value[0]
@@ -151,17 +147,22 @@ class UserOptions(BaseModel):
     @root_validator
     def _validate_one_image(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Ensure that the image is only specified in one way."""
-        values_set = []
+        values_set = set()
         for k in ("image_list", "image_dropdown", "image_class", "image_tag"):
             if values.get(k) is not None:
                 if k == "image_list" and values[k] == DROPDOWN_SENTINEL_VALUE:
                     del values[k]
                     continue
-                values_set.append(k)
-        if len(values_set) < 1:
+                values_set.add(k)
+        if values_set == {"image_list", "image_dropdown"}:
+            # image_dropdown will have a spurious value if image_list is set,
+            # due to the form design, so in that case use image_list. (Unless
+            # it has the sentinel value, but that's handled above.)
+            del values["image_dropdown"]
+        elif len(values_set) < 1:
             raise ValueError("No image to spawn specified")
         elif len(values_set) > 1:
-            keys = ", ".join(values_set)
+            keys = ", ".join(sorted(values_set))
             raise ValueError(f"Image specified multiple ways ({keys})")
         return values
 
@@ -176,6 +177,16 @@ class UserOptions(BaseModel):
             return False
         else:
             raise ValueError(f"Invalid boolean value {v}")
+
+    @validator("size", pre=True)
+    def _validate_size(cls, v: Any) -> Any:
+        """Lab sizes may be title-cased, so convert them to lowercase."""
+        if isinstance(v, LabSize):
+            return v
+        elif isinstance(v, str):
+            return v.lower()
+        else:
+            return v
 
 
 class UserResourceQuantum(BaseModel):
