@@ -25,4 +25,4 @@ class Event(CamelCaseModel):
 
     def toSSE(self) -> ServerSentEvent:
         """The ServerSentEvent is the thing actually emitted to the client."""
-        return ServerSentEvent(data=self.data, event=self.event)
+        return ServerSentEvent(data=self.data, event=self.event.value)
