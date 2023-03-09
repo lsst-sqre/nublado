@@ -13,15 +13,10 @@ from httpx import AsyncClient, Headers
 from jupyterhub.spawner import Spawner
 
 from .constants import LabStatus
-from .errors import SpawnerError
+from .errors import MissingFieldError, SpawnerError
 from .event import Event
 from .http import get_client
-from .util import (
-    get_admin_token,
-    get_external_instance_url,
-    get_hub_base_url,
-    get_namespace,
-)
+from .util import get_admin_token, get_external_instance_url, get_hub_base_url
 
 
 class RSPRestSpawner(Spawner):
@@ -31,10 +26,9 @@ class RSPRestSpawner(Spawner):
         self.admin_token = get_admin_token()
         self.external_url = get_external_instance_url()
         self.hub_base_url = get_hub_base_url()
-        namespace = get_namespace()
         self.ctrl_url = os.getenv(
             "JUPYTERLAB_CONTROLLER_URL",
-            f"{self.external_url}/{namespace}/spawner/v1",
+            f"{self.external_url}/nublado/spawner/v1",
         )
 
     async def start(self) -> str:
@@ -65,8 +59,11 @@ class RSPRestSpawner(Spawner):
             # service.  K8s will know how to route to it, so we just return
             # its (in-cluster) DNS name as the hostname, which gets resolved
             # to an IP address by the K8s resolver.
-            user_ns = f"{get_namespace()}-{uname}"
-            return f"http://lab.{user_ns}:8888"
+            r2 = await client.get(f"{self.ctrl_url}/labs/{uname}")
+            obj = r2.json()
+            if "internal_url" in obj:
+                return obj["internal_url"]
+            raise MissingFieldError(f"Response '{obj}' missing 'internal_url'")
         raise SpawnerError(r)
 
     async def stop(self) -> None:
@@ -186,7 +183,7 @@ class RSPRestSpawner(Spawner):
                         prev_progress = progress
                         progress = None
                         yield pm
-                        if ev.type in ("error", "failed"):
+                        if ev.event_type in ("error", "failed"):
                             raise RuntimeError(pm["message"])
         except asyncio.TimeoutError:
             self.log.error(

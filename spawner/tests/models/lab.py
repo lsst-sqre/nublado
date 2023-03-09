@@ -1,11 +1,11 @@
-"""Models for jupyterlab-controller."""
+"""BaseModels for jupyterlab-controller."""
 from __future__ import annotations
 
 from collections import deque
 from enum import Enum
 from typing import Deque, Dict, List, Optional
 
-from pydantic import BaseModel, Field, Model
+from pydantic import BaseModel, Field
 
 from ..support.constants import DROPDOWN_SENTINEL_VALUE
 from ..support.util import str_to_bool
@@ -37,7 +37,7 @@ class PodState(Enum):
     MISSING = "missing"
 
 
-class UserOptions(Model):
+class UserOptions(BaseModel):
     """The internal representation of the structure we get from the user POST
     to create a lab.
     """
@@ -131,7 +131,7 @@ class UserOptionsWireProtocol(BaseModel):
         )
 
 
-class UserResourceQuantum(Model):
+class UserResourceQuantum(BaseModel):
     cpu: float = Field(
         ...,
         name="cpu",
@@ -151,13 +151,13 @@ class UserResourceQuantum(Model):
     )
 
 
-class LabSpecification(Model):
+class LabSpecification(BaseModel):
     options: UserOptions
     env: Dict[str, str]
     namespace_quota: Optional[UserResourceQuantum]
 
 
-class LabSpecificationWireProtocol(Model):
+class LabSpecificationWireProtocol(BaseModel):
     options: UserOptionsWireProtocol
     env: Dict[str, str]
     namespace_quota: Optional[UserResourceQuantum]
@@ -174,7 +174,7 @@ class LabSpecificationWireProtocol(Model):
 """GET /nublado/spawner/v1/user-status"""
 
 
-class UserGroup(Model):
+class UserGroup(BaseModel):
     name: str = Field(
         ...,
         name="name",
@@ -192,7 +192,7 @@ class UserGroup(Model):
     )
 
 
-class UserInfo(Model):
+class UserInfo(BaseModel):
     username: str = Field(
         ...,
         name="username",
@@ -229,7 +229,7 @@ class UserInfo(Model):
     groups: List[UserGroup]
 
 
-class UserResources(Model):
+class UserResources(BaseModel):
     limits: UserResourceQuantum = Field(
         ..., name="limits", title="Maximum allowed resources"
     )

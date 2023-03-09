@@ -1,9 +1,9 @@
-"""Models for prepuller."""
+"""BaseModels for prepuller."""
 from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from pydantic import Field, Model
+from pydantic import BaseModel, Field
 
 from ..support.util import dashify
 from .prepuller_config import PrepullerConfiguration
@@ -11,7 +11,7 @@ from .prepuller_config import PrepullerConfiguration
 TagToNameMap = Dict[str, str]
 
 
-class PartialImage(Model):
+class PartialImage(BaseModel):
     path: str = Field(
         ...,
         name="path",
@@ -66,7 +66,7 @@ class Image(PartialImage):
 """GET /nublado/spawner/v1/images"""
 
 
-class SpawnerImages(Model):
+class SpawnerImages(BaseModel):
     recommended: Optional[Image] = None
     latest_weekly: Optional[Image] = None
     latest_daily: Optional[Image] = None
@@ -89,7 +89,7 @@ class SpawnerImages(Model):
 # "images" section
 
 
-class Node(Model):
+class Node(BaseModel):
     name: str = Field(
         ...,
         name="name",
@@ -128,7 +128,7 @@ class NodeImage(PartialImage):
     )
 
 
-class PrepullerContents(Model):
+class PrepullerContents(BaseModel):
     prepulled: List[NodeImage] = Field(
         default_factory=list,
         name="prepulled",
@@ -145,7 +145,7 @@ class PrepullerContents(Model):
 # It's just a List[Node]
 
 
-class PrepullerStatus(Model):
+class PrepullerStatus(BaseModel):
     config: PrepullerConfiguration
     images: PrepullerContents
     nodes: List[Node]

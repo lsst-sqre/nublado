@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Generator
 from unittest import mock
 
@@ -11,11 +12,15 @@ from .support.mock_jupyterhub import MockHub, MockUser
 
 @pytest.fixture(autouse=True)
 def env_mock() -> Generator:
+    input_files = Path(Path(__file__).parent / "testdata")
     with mock.patch.dict(
         os.environ,
         {
             "EXTERNAL_INSTANCE_URL": "https://rsp.example.org",
-            "ADMIN_TOKEN": "token-of-authority",
+            "RESTSPAWNER_ADMIN_TOKEN_FILE": str(
+                Path(input_files / "admin-token")
+            ),
+            "RESTSPAWNER_CONFIG_FILE": str(Path(input_files / "config.yaml")),
         },
     ):
         yield

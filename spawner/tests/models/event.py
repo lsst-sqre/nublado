@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-from pydantic import Model
+from pydantic import BaseModel
 
 """GET /nublado/spawner/v1/labs/username/events"""
 
@@ -15,7 +15,7 @@ class EventTypes(Enum):
     PROGRESS = "progress"
 
 
-class Event(Model):
+class Event(BaseModel):
     data: str
     event: EventTypes
     sent: bool = False

@@ -3,10 +3,10 @@ and we need to avoid circular imports."""
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, Model, root_validator
+from pydantic import BaseModel, Field, root_validator
 
 
-class DockerDefinition(Model):
+class DockerDefinition(BaseModel):
     registry: str = Field(
         "docker.io",
         name="registry",
@@ -21,7 +21,7 @@ class DockerDefinition(Model):
     )
 
 
-class GARDefinition(Model):
+class GARDefinition(BaseModel):
     repository: str = Field(
         ...,
         name="repository",
@@ -55,7 +55,7 @@ class GARDefinition(Model):
     )
 
 
-class ImagePathAndName(Model):
+class ImagePathAndName(BaseModel):
     path: str = Field(
         ...,
         name="path",
@@ -71,7 +71,7 @@ class ImagePathAndName(Model):
     )
 
 
-class PrepullerConfiguration(Model):
+class PrepullerConfiguration(BaseModel):
     """See https://sqr-059.lsst.io for how this is used."""
 
     docker: Optional[DockerDefinition] = None

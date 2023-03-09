@@ -14,5 +14,9 @@ class SpawnerError(Exception):
         return f"Request for {url}: status code {sc} ({rp}): '{txt}'"
 
 
+class MissingFieldError(Exception):
+    pass
+
+
 class EventError(Exception):
     pass

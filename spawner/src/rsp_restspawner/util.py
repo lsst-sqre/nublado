@@ -51,7 +51,7 @@ def get_external_instance_url() -> str:
     cfg = get_config()
     try:
         ext_url = cfg["global"]["baseUrl"]
-    except KeyError:
+    except (KeyError, TypeError):
         ext_url = os.getenv("EXTERNAL_INSTANCE_URL", "http://localhost:8080/")
     return ext_url
 
@@ -60,6 +60,6 @@ def get_hub_base_url() -> str:
     cfg = get_config()
     try:
         hub_base = cfg["hub"]["baseUrl"]
-    except KeyError:
+    except (KeyError, TypeError):
         hub_base = "/hub"
     return hub_base
