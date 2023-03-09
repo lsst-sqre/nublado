@@ -67,6 +67,7 @@ async def test_user_status(
         "events": [],
         "gid": user.gid,
         "groups": user.dict()["groups"],
+        "internal_url": "http://userlabs-rachel/nb-rachel:8888",
         "name": user.name,
         "namespace_quota": None,
         "options": lab.options.dict(),
