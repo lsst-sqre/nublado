@@ -38,7 +38,7 @@ class RSPRestSpawner(Spawner):
         uname = self.user.name
         lab_specification = {
             "options": formdata,
-            "env": await self.get_env(),  # From superclass
+            "env": self.get_env(),  # From superclass
         }
         client = await self._configure_client()
         r = await client.post(

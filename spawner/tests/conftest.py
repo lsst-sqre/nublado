@@ -30,7 +30,13 @@ def env_mock() -> Generator:
 def restspawner_mock() -> rsp_restspawner.spawner.RSPRestSpawner:
     r = rsp_restspawner.spawner.RSPRestSpawner()
     r.user = MockUser(
-        name="rachel", auth_state={"token": "token-of-affection"}
+        name="rachel",
+        auth_state={"token": "token-of-affection"},
+        url="https://rsp.example.org/hub/user/rachel",
     )
-    r.hub = MockHub(api_url="http://nublado.hub:8081")
+    r.hub = MockHub(
+        api_url="http://nublado.hub:8081",
+        public_host="rsp.example.org",
+        base_url=os.getenv("EXTERNAL_INSTANCE_URL") + "/hub",
+    )
     return r
