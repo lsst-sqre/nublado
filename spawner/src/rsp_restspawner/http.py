@@ -18,5 +18,5 @@ async def get_client(token: str = "") -> AsyncClient:
     This is taken from Nublado v2, except using httpx, not aiohttp."""
     global _client
     if _client is None:
-        _client = AsyncClient(follow_redirects=True)
+        _client = AsyncClient()
     return _client

@@ -56,10 +56,28 @@ def get_external_instance_url() -> str:
     return ext_url
 
 
-def get_hub_base_url() -> str:
+def get_hub_route() -> str:
     cfg = get_config()
     try:
-        hub_base = cfg["hub"]["baseUrl"]
+        hub_route = cfg["hub"]["baseUrl"]
     except (KeyError, TypeError):
-        hub_base = "/hub"
-    return hub_base
+        hub_route = "/hub"
+    return hub_route
+
+
+def get_controller_route() -> str:
+    cfg = get_config()
+    try:
+        controller_route = cfg["safir"]["rootEndpoint"]
+    except (KeyError, TypeError):
+        controller_route = "/nublado"
+    return controller_route
+
+
+def get_application_namespace() -> str:
+    cfg = get_config()
+    try:
+        namespace = cfg["Release"]["Namespace"]
+    except (KeyError, TypeError):
+        namespace = "nublado"
+    return namespace

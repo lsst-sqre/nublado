@@ -1,4 +1,5 @@
 import os
+import urllib
 from pathlib import Path
 from typing import Generator
 from unittest import mock
@@ -7,7 +8,7 @@ import pytest
 
 import rsp_restspawner
 
-from .support.mock_jupyterhub import MockHub, MockUser
+from .support.jupyterhub import MockHub, MockUser
 
 
 @pytest.fixture(autouse=True)
@@ -29,14 +30,19 @@ def env_mock() -> Generator:
 @pytest.fixture
 def restspawner_mock() -> rsp_restspawner.spawner.RSPRestSpawner:
     r = rsp_restspawner.spawner.RSPRestSpawner()
+    username = "rachel"
+    external_url = rsp_restspawner.util.get_external_instance_url()
+    hub_route = rsp_restspawner.util.get_hub_route()
+    hostname = urllib.parse.urlparse(external_url).hostname
+    assert type(hostname) is str
     r.user = MockUser(
-        name="rachel",
+        name=username,
         auth_state={"token": "token-of-affection"},
-        url="https://rsp.example.org/hub/user/rachel",
+        url=(external_url + hub_route + f"/hub/user/{username}"),
     )
     r.hub = MockHub(
-        api_url="http://nublado.hub:8081",
-        public_host="rsp.example.org",
-        base_url=os.getenv("EXTERNAL_INSTANCE_URL") + "/hub",
+        api_url=("f{rsp_restspawner.util.get_namespace()}" + ".hub:8081"),
+        public_host=hostname,
+        base_url=external_url + hub_route + "/hub",
     )
     return r

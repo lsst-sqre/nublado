@@ -12,11 +12,7 @@ class Event:
     # going to support these in this implementation.
 
     @classmethod
-    def from_lines(self, inp: list[str]) -> Optional["Event"]:
-        if not inp:
-            # If we get two blanks in a row, we will send an empty list
-            # as an input.
-            return None
+    def from_lines(self, inp: list[str]) -> "Event":
         current_type = ""
         databuffer = ""
         for line in inp:
