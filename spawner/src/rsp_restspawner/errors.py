@@ -12,3 +12,7 @@ class SpawnerError(Exception):
         txt = r.text
         url = r.url
         return f"Request for {url}: status code {sc} ({rp}): '{txt}'"
+
+
+class EventError(Exception):
+    pass

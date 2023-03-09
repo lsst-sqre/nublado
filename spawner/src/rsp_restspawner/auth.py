@@ -1,18 +1,13 @@
 """Authenticator for the Nublado 3 instantiation of JupyterHub."""
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from httpx import Headers
 from jupyterhub.app import JupyterHub
 from jupyterhub.auth import Authenticator
 from jupyterhub.handlers import BaseHandler, LogoutHandler
 from jupyterhub.user import User
 from jupyterhub.utils import url_path_join
-from tornado import web
 from tornado.httputil import HTTPHeaders
 from tornado.web import RequestHandler
-
-from .http import get_client
-from .util import get_external_instance_url
 
 Route = Tuple[str, Type[BaseHandler]]
 AuthState = Dict[str, Any]
@@ -34,39 +29,21 @@ async def _build_auth_info(headers: HTTPHeaders) -> AuthState:
     This is in a separate method so that it can be unit-tested.
     """
     token = headers.get("X-Auth-Request-Token")
-    if not token:
-        raise web.HTTPError(401, "No request token")  # Shouldn't happen
-    base_url = get_external_instance_url()
-    # Retrieve the token metadata.
-    api_url = url_path_join(base_url, "/auth/api/v1/user-info")
-    client = await get_client()
-    client.headers = Headers(
-        {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        }
-    )
+    username = headers.get("X-Auth-Request-User")
 
-    r = await client.get(api_url)
-    # All of this really shouldn't happen either.  The token has been through
-    # Gafaelfawr in the last few milliseconds, after all.
-    if r.status_code != 200:
-        raise web.HTTPError(
-            500, f"Cannot reach token analysis API: status {r.status_code}"
-        )
-    auth_state = r.json()
-    if "username" not in auth_state:
-        raise web.HTTPError(403, f"Response is invalid: {auth_state}")
-
-    # The spawner wants a user with a name, and we pass the token down into
-    # the spawned environment.
-
-    auth_state["token"] = token
     user_state = {
-        "name": auth_state["username"],
-        "auth_state": auth_state,
+        "name": username,
+        "auth_state": {
+            "token": token,
+        },
     }
     return user_state
+
+
+#
+# The rest of this file ought to ultimately come from a separate python
+# module that we just import.
+#
 
 
 class GafaelfawrAuthenticator(Authenticator):
@@ -165,7 +142,7 @@ class GafaelfawrAuthenticator(Authenticator):
 
     async def refresh_user(
         self, user: User, handler: Optional[RequestHandler] = None
-    ) -> Union[bool, Dict[str, Any]]:
+    ) -> Union[bool, AuthState]:
         """Optionally refresh the user's token."""
         # If running outside of a Tornado handler, we can't refresh the auth
         # state, so assume that it is okay.
@@ -188,13 +165,7 @@ class GafaelfawrAuthenticator(Authenticator):
             # It does match, so it's still fine
             return True
         else:
-            auth_data = await _build_auth_info(handler.request.headers)
-        if type(auth_data) is dict:
-            self.auth_data = auth_data
-            await user.save_auth_state(auth_data["auth_state"])
-        else:
-            raise web.HTTPError(500, f"Couldn't use auth_data -> {auth_data}")
-        return auth_data
+            return await _build_auth_info(handler.request.headers)
 
 
 class GafaelfawrLogoutHandler(LogoutHandler):
