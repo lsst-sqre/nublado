@@ -141,7 +141,7 @@ class LabManager:
             raise
         self.user_map.set_status(username, status=LabStatus.RUNNING)
         self.user_map.set_internal_url(
-            username, f"http://{namespace}/nb-{username}:8888"
+            username, f"http://lab.{namespace}:8888"
         )
         await self.completion_event(username)
 
@@ -239,6 +239,9 @@ class LabManager:
         await self.info_event(username, "Resource objects created", 40)
         await self.create_user_pod(user, image)
         self.user_map.set_status(username, status=LabStatus.PENDING)
+        self.user_map.set_internal_url(
+            username, f"http://lab.{namespace}:8888"
+        )
         await self.info_event(username, "Pod requested", 45)
         # Create a task to add the completed event when the pod finishes
         # spawning
