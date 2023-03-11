@@ -56,8 +56,13 @@ class RSPRestSpawner(Spawner):
         )
         if r.status_code == 409 or r.status_code == 303:
             # For the Conflict we need to check the status ourself.
-            r = await client.get(f"{self.ctrl_url}/labs/{uname}")
-        print(f"***R -> {r}***")
+            # This route requires an admin token
+            r = await client.get(
+                f"{self.ctrl_url}/labs/{uname}",
+                headers=await self._configure_client_headers(
+                    token=self.admin_token
+                ),
+            )
         if r.status_code == 200:
             obj = r.json()
             if "internal_url" in obj:
