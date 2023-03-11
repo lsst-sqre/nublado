@@ -48,7 +48,7 @@ function selectDropdown() {
   <div class="radio radio-inline">
 <input type="radio" name="size"
      id="Large" value="Large"
-     >
+      checked>
     <label for="Large">
       Large (4.0 CPU, 12Gi RAM)
     </label><br />
@@ -60,7 +60,7 @@ function selectDropdown() {
     </label><br />
 <input type="radio" name="size"
      id="Small" value="Small"
-      checked>
+     >
     <label for="Small">
       Small (1.0 CPU, 3Gi RAM)
     </label><br />

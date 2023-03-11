@@ -401,6 +401,6 @@ class UserData(UserInfo, LabSpecification):
             resources=resources,
         )
         ud.status = LabStatus(status)
-        ud.internal_url = f"http://{nsname}/{podname}:8888"
+        ud.internal_url = f"http://lab.{nsname}:8888"
         ud.pod = PodState.PRESENT
         return ud
