@@ -14,12 +14,11 @@ uvicorn[standard]
 safir[kubernetes]>=3.3.0
 
 # jupyterlab-controller-specific deps
-sse-starlette
 aiojobs
 aioredis
 aioredlock
+bitmath
 jinja2
 PyYAML
 semver
-bitmath
-
+sse-starlette
