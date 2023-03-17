@@ -212,9 +212,6 @@ class LabSpecification(BaseModel):
     env: dict[str, str] = Field(
         ..., title="Environment variables from JupyterHub"
     )
-    namespace_quota: Optional[UserResourceQuantum] = Field(
-        None, title="Quota for user"
-    )
 
 
 """GET /nublado/spawner/v1/labs/<username>"""
@@ -237,6 +234,36 @@ class UserGroup(CamelCaseModel):
     )
 
 
+class NotebookQuota(BaseModel):
+    """Notebook Aspect quota information for a user."""
+
+    cpu: float = Field(..., title="CPU equivalents", example=4.0)
+
+    memory: float = Field(..., title="Maximum memory use (GiB)", example=16.0)
+
+
+class UserQuota(BaseModel):
+    """Quota information for a user."""
+
+    api: dict[str, int] = Field(
+        {},
+        title="API quotas",
+        description=(
+            "Mapping of service names to allowed requests per 15 minutes."
+        ),
+        example={
+            "datalinker": 500,
+            "hips": 2000,
+            "tap": 500,
+            "vo-cutouts": 100,
+        },
+    )
+
+    notebook: Optional[NotebookQuota] = Field(
+        None, title="Notebook Aspect quotas"
+    )
+
+
 class UserInfo(BaseModel):
     username: str = Field(
         ...,
@@ -249,7 +276,7 @@ class UserInfo(BaseModel):
         example="Ribbon",
         title="Human-friendly display name for user",
         description=(
-            "May contain spaces, capital letters, and non-ASCII characters"
+            "May contain spaces, capital letters, and non-ASCII characters."
             " Should be the user's preferred representation of their name to"
             " other humans."
         ),
@@ -267,6 +294,7 @@ class UserInfo(BaseModel):
         description="32-bit unsigned integer",
     )
     groups: list[UserGroup] = Field([], title="User's group memberships")
+    quota: Optional[UserQuota] = Field(None, title="User's quotas")
 
 
 class UserResources(CamelCaseModel):
@@ -381,16 +409,20 @@ class UserData(UserInfo, LabSpecification):
         )
         # We can't recover the group names
         groups = [UserGroup(name=f"g{x}", id=x) for x in supp_gids]
+        quota = UserQuota(
+            notebook=NotebookQuota(
+                cpu=cpu_limit, memory=mem_limit / (1024 * 1024 * 1024)
+            )
+        )
         user_info = UserInfo(
             username=username,
             name=username,  # We can't recover the display name
             uid=uid,
             gid=gid,
             groups=groups,
+            quota=quota,
         )
-        lab_spec = LabSpecification(
-            options=opts, env=lab_env, namespace_quota=None
-        )
+        lab_spec = LabSpecification(options=opts, env=lab_env)
         resources = UserResources(
             limits=UserResourceQuantum(memory=mem_limit, cpu=cpu_limit),
             requests=UserResourceQuantum(memory=mem_request, cpu=cpu_request),

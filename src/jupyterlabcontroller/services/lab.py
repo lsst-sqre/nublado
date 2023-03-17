@@ -292,7 +292,7 @@ class LabManager:
             await self.info_event(username, "Environment created", 25)
             await self.create_network_policy(user=user)
             await self.info_event(username, "Network policy created", 25)
-            await self.create_quota(user=user, lab=lab)
+            await self.create_quota(user)
             await self.info_event(username, "Quota created", 30)
             await self.create_lab_service(user=user)
             await self.info_event(username, "Service created", 35)
@@ -451,10 +451,8 @@ class LabManager:
             username=user.username, namespace=self.namespace_from_user(user)
         )
 
-    async def create_quota(
-        self, user: UserInfo, lab: LabSpecification
-    ) -> None:
-        quota = self.build_namespace_quota(lab=lab)
+    async def create_quota(self, user: UserInfo) -> None:
+        quota = self.build_namespace_quota(user)
         if quota is not None:
             await self.k8s_client.create_quota(
                 name=f"nb-{user.username}",
@@ -463,9 +461,15 @@ class LabManager:
             )
 
     def build_namespace_quota(
-        self, lab: LabSpecification
+        self, user: UserInfo
     ) -> Optional[UserResourceQuantum]:
-        return lab.namespace_quota
+        if user.quota and user.quota.notebook:
+            return UserResourceQuantum(
+                cpu=user.quota.notebook.cpu,
+                memory=int(user.quota.notebook.memory * 1024 * 1024 * 1024),
+            )
+        else:
+            return None
 
     async def create_user_pod(self, user: UserInfo, image: RSPImage) -> None:
         pod = self.build_pod_spec(user, image)
