@@ -43,7 +43,6 @@ async def test_user_status(
                 "size": [lab.options.size],
             },
             "env": lab.env,
-            "namespace_quota": lab.namespace_quota,
         },
         headers={
             "X-Auth-Request-Token": token,
@@ -69,8 +68,8 @@ async def test_user_status(
         "groups": user.dict()["groups"],
         "internal_url": "http://lab.userlabs-rachel:8888",
         "name": user.name,
-        "namespace_quota": None,
         "options": lab.options.dict(),
+        "quota": None,
         "pod": "missing",
         "resources": expected_resources.dict(),
         "status": "running",
