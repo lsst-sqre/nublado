@@ -20,3 +20,7 @@ class MissingFieldError(Exception):
 
 class EventError(Exception):
     pass
+
+
+class InvalidAuthStateError(Exception):
+    """The JupyterHub auth state for the user contains no token."""

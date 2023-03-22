@@ -7,27 +7,21 @@ interface described in sqr-066.
 import asyncio
 import os
 from collections.abc import AsyncGenerator
+from pathlib import Path
 from typing import Any, Optional
 
-from httpx import Headers
 from jupyterhub.spawner import Spawner
 
-from .constants import LabStatus
-from .errors import MissingFieldError, SpawnerError
+from .constants import DEFAULT_ADMIN_TOKEN_FILE, LabStatus
+from .errors import InvalidAuthStateError, MissingFieldError, SpawnerError
 from .event import Event
 from .http import get_client
-from .util import (
-    get_admin_token,
-    get_controller_route,
-    get_external_instance_url,
-)
+from .util import get_controller_route, get_external_instance_url
 
 
 class RSPRestSpawner(Spawner):
     def __init__(self, *args: Optional[Any], **kwargs: Optional[Any]) -> None:
         super().__init__(*args, **kwargs)
-        self.pod_name = ""
-        self.admin_token = get_admin_token()
         self.ctrl_url = os.getenv(
             "JUPYTERLAB_CONTROLLER_URL",
             (
@@ -49,7 +43,7 @@ class RSPRestSpawner(Spawner):
         client = await get_client()
         r = await client.post(
             f"{self.ctrl_url}/labs/{uname}/create",
-            headers=await self._configure_client_headers(),
+            headers=await self._user_authorization(),
             json=lab_specification,
             timeout=600.0,
             follow_redirects=False,
@@ -59,9 +53,7 @@ class RSPRestSpawner(Spawner):
             # This route requires an admin token
             r = await client.get(
                 f"{self.ctrl_url}/labs/{uname}",
-                headers=await self._configure_client_headers(
-                    token=self.admin_token
-                ),
+                headers=self._admin_authorization(),
             )
         if r.status_code == 200:
             obj = r.json()
@@ -75,9 +67,7 @@ class RSPRestSpawner(Spawner):
         r = await client.delete(
             f"{self.ctrl_url}/labs/{self.user.name}",
             timeout=300.0,
-            headers=await self._configure_client_headers(
-                token=self.admin_token
-            ),
+            headers=self._admin_authorization(),
         )
         if r.status_code == 202 or r.status_code == 404:
             # We're deleting it, or it wasn't there to start with.
@@ -100,7 +90,7 @@ class RSPRestSpawner(Spawner):
         client = await get_client()
         r = await client.get(
             f"{self.ctrl_url}/labs/{self.user.name}",
-            headers=await self._configure_client_headers(),
+            headers=self._admin_authorization(),
         )
         if r.status_code == 404:
             return 0  # No lab for user.
@@ -117,12 +107,9 @@ class RSPRestSpawner(Spawner):
 
     async def options_form(self, spawner: Spawner) -> str:
         client = await get_client()
-        form_url = f"{self.ctrl_url}/lab-form/{self.user.name}"
         r = await client.get(
-            form_url,
-            headers=await self._configure_client_headers(
-                content_type="text/html"
-            ),
+            f"{self.ctrl_url}/lab-form/{self.user.name}",
+            headers=await self._user_authorization(),
         )
         if r.status_code != 200:
             raise SpawnerError(r)
@@ -135,14 +122,10 @@ class RSPRestSpawner(Spawner):
         event_endpoint = f"{self.ctrl_url}/labs/{self.user.name}/events"
         client = await get_client()
         timeout = 150.0
+        headers = await self._user_authorization()
         try:
             async with client.stream(
-                "GET",
-                event_endpoint,
-                timeout=timeout,
-                headers=await self._configure_client_headers(
-                    content_type="text/event-stream"
-                ),
+                "GET", event_endpoint, timeout=timeout, headers=headers
             ) as resp:
                 lines: list[str] = list()
                 async for line in resp.aiter_lines():
@@ -186,23 +169,38 @@ class RSPRestSpawner(Spawner):
             )
             return
 
-    async def _configure_client_headers(
-        self,
-        token: str = "",
-        content_type: str = "application/json",
-    ) -> Headers:
-        """This returns headers configured with the correct
-        authorization (default: the user token) and content type
-        (default: 'application/json').
+    def _admin_authorization(self) -> dict[str, str]:
+        """Create authorization headers for auth as JupyterHub itself.
+
+        Returns
+        -------
+        dict of str to str
+            Suitable headers for authenticating to the lab controller as the
+            JupyterHub pod.
         """
-        if token == "":
-            auth_state = await self.user.get_auth_state()
-            token = auth_state.get("token", "UNINITIALIZED")
-        auth = f"Bearer {token}"
-        headers = Headers(
-            {
-                "Authorization": auth,
-                "Content-Type": content_type,
-            }
+        path = Path(
+            os.getenv("RESTSPAWNER_ADMIN_TOKEN_FILE", DEFAULT_ADMIN_TOKEN_FILE)
         )
-        return headers
+        token = path.read_text().strip()
+        return {"Authorization": f"Bearer {token}"}
+
+    async def _user_authorization(self) -> dict[str, str]:
+        """Create authorization headers for auth as the user.
+
+        Returns
+        -------
+        dict of str to str
+            Suitable headers for authenticating to the lab controller as the
+            user.
+
+        Raises
+        ------
+        InvalidAuthStateError
+            Raised if there is no ``token`` attribute in the user's
+            authentication state. This should always be provided by
+            `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
+        """
+        auth_state = await self.user.get_auth_state()
+        if "token" not in auth_state:
+            raise InvalidAuthStateError("No token in user auth state")
+        return {"Authorization": "Bearer " + auth_state["token"]}
