@@ -96,8 +96,8 @@ class LabManager:
             )
         ev_queue = self.event_manager.get(username)
         umsg = f"{message} for {username}"
-        await ev_queue.asend(Event(data=umsg, event=EventTypes.INFO))
         await ev_queue.asend(Event(data=str(pct), event=EventTypes.PROGRESS))
+        await ev_queue.asend(Event(data=umsg, event=EventTypes.INFO))
         self.logger.info(f"Event: {umsg}: {pct}% ")
 
     async def completion_event(self, username: str) -> None:
