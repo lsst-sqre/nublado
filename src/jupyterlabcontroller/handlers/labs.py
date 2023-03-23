@@ -105,7 +105,7 @@ async def post_new_lab(
         404: {"description": "Lab not found", "model": ErrorModel},
         403: {"description": "Forbidden", "model": ErrorModel},
     },
-    status_code=202,
+    status_code=204,
 )
 async def delete_user_lab(
     username: str,
