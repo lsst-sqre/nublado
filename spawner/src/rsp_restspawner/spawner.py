@@ -67,16 +67,13 @@ class RSPRestSpawner(Spawner):
     async def start(self) -> str:
         """Returns expected URL of running pod
         (returns before creation completes)."""
-        formdata = self.options_from_form(self.user_options)
-        uname = self.user.name
-        lab_specification = {
-            "options": formdata,
-            "env": self.get_env(),  # From superclass
-        }
         r = await self._client.post(
-            f"{self.ctrl_url}/labs/{uname}/create",
+            f"{self.ctrl_url}/labs/{self.user.name}/create",
             headers=await self._user_authorization(),
-            json=lab_specification,
+            json={
+                "options": self.options_from_form(self.user_options),
+                "env": self.get_env(),
+            },
             timeout=600.0,
             follow_redirects=False,
         )
@@ -84,7 +81,7 @@ class RSPRestSpawner(Spawner):
             # For the Conflict we need to check the status ourself.
             # This route requires an admin token
             r = await self._client.get(
-                f"{self.ctrl_url}/labs/{uname}",
+                f"{self.ctrl_url}/labs/{self.user.name}",
                 headers=self._admin_authorization(),
             )
         if r.status_code == 200:
