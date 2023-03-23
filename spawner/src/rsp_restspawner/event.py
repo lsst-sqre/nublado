@@ -39,7 +39,9 @@ class Event:
                 current_type = value
             elif field == "data":
                 # Accumulate data into buffer
-                databuffer += value + "\n"
+                if databuffer:
+                    databuffer += "\n"
+                databuffer += value
             else:
                 # Ignore the line.  If we were doing a full implementation,
                 # we would use the "id" and "retry" fields.  But we're not.

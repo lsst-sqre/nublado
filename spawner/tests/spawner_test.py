@@ -51,3 +51,18 @@ async def test_poll(
 async def test_options_form(spawner: RSPRestSpawner) -> None:
     expected = f"<p>This is some lab form for {spawner.user.name}</p>"
     assert await spawner.options_form(spawner) == expected
+
+
+@pytest.mark.asyncio
+async def test_progress(spawner: RSPRestSpawner) -> None:
+    await spawner.start()
+    expected = [
+        {"progress": 2, "message": "Lab creation initiated", "ready": False},
+        {"progress": 45, "message": "Pod requested", "ready": False},
+        {"progress": 90, "message": "Lab pod running", "ready": True},
+    ]
+    index = 0
+    async for message in spawner.progress():
+        assert message == expected[index]
+        index += 1
+    assert index == len(expected)

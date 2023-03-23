@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any, Optional
 
@@ -24,7 +24,7 @@ class RSPRestSpawner(Spawner):
     """Spawner class that sends requests to the RSP lab controller.
 
     Rather than having JupyterHub spawn labs directly and therefore need
-    Kuberentes permissions to manage every resource that a user's lab
+    Kubernetes permissions to manage every resource that a user's lab
     environment may need, the Rubin Science Platform manages all labs in a
     separate privileged lab controller process. JupyterHub makes RESTful HTTP
     requests to that service using either its own credentials or the
@@ -41,7 +41,7 @@ class RSPRestSpawner(Spawner):
 
     This client is created on first use and never shut down. To be strictly
     correct, it should be closed properly when the JupyterHub process is
-    existing, but we haven't yet figured out how to hook into the appropriate
+    exiting, but we haven't yet figured out how to hook into the appropriate
     part of the JupyterHub lifecycle to do that.
     """
 
@@ -141,16 +141,14 @@ class RSPRestSpawner(Spawner):
             raise SpawnerError(r)
         return r.text
 
-    async def progress(self) -> AsyncGenerator:
-        progress: Optional[int] = None
-        prev_progress: Optional[int] = None
-        message: Optional[str] = None
-        event_endpoint = f"{self.ctrl_url}/labs/{self.user.name}/events"
+    async def progress(self) -> AsyncIterator[dict[str, bool | int | str]]:
+        progress = 0
+        url = f"{self.ctrl_url}/labs/{self.user.name}/events"
         timeout = 150.0
         headers = await self._user_authorization()
         try:
             async with self._client.stream(
-                "GET", event_endpoint, timeout=timeout, headers=headers
+                "GET", url, timeout=timeout, headers=headers
             ) as resp:
                 lines: list[str] = list()
                 async for line in resp.aiter_lines():
@@ -166,6 +164,7 @@ class RSPRestSpawner(Spawner):
                     else:
                         lines.append(line)
                         continue
+
                     if ev.event_type == "complete":
                         yield {
                             "progress": 90,
@@ -173,21 +172,20 @@ class RSPRestSpawner(Spawner):
                             "ready": True,
                         }
                         return
-                    progress = ev.progress()
+                    elif ev.event_type == "progress":
+                        progress = ev.progress() or progress
+                        continue
+                    elif ev.event_type in ("error", "failed"):
+                        raise RuntimeError(ev.message())
+
                     message = ev.message()
-                    if message:
-                        progress = progress or prev_progress or 50
-                        pm = {
-                            "progress": progress,
-                            "message": message,
-                            "ready": False,
-                        }
-                        message = None
-                        prev_progress = progress
-                        progress = None
-                        yield pm
-                        if ev.event_type in ("error", "failed"):
-                            raise RuntimeError(pm["message"])
+                    if not message:
+                        continue
+                    yield {
+                        "progress": progress,
+                        "message": message,
+                        "ready": False,
+                    }
         except asyncio.TimeoutError:
             self.log.error(
                 f"No update from event stream in {timeout}s; giving up."
