@@ -16,6 +16,7 @@ httpx
 httpx-sse
 pydantic
 PyYAML
+traitlets
 
 # Additional dependencies required by our configuration of JupyterHub.
 jupyterhub-idle-culler
