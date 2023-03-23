@@ -21,6 +21,7 @@ from .services.form import FormManager
 from .services.image import ImageService
 from .services.lab import LabManager
 from .services.prepuller import Prepuller
+from .services.size import SizeManager
 from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.k8s import K8sStorageClient
@@ -224,16 +225,21 @@ class Factory:
         )
 
     def create_lab_manager(self) -> LabManager:
+        size_manager = self.create_size_manager()
         return LabManager(
             instance_url=self._context.config.base_url,
             manager_namespace=self._context.config.lab.namespace_prefix,
             user_map=self._context.user_map,
             event_manager=self._context.event_manager,
             image_service=self._context.image_service,
+            size_manager=size_manager,
             logger=self._logger,
             lab_config=self._context.config.lab,
             k8s_client=self._context.k8s_client,
         )
+
+    def create_size_manager(self) -> SizeManager:
+        return SizeManager(self._context.config.lab.sizes)
 
     def set_logger(self, logger: BoundLogger) -> None:
         """Replace the internal logger.

@@ -140,10 +140,12 @@ async def test_pod_spec(
     lab = obj_factory.labspecs[0]
     assert lab.options.image_list
     lab_manager = factory.create_lab_manager()
+    size_manager = factory.create_size_manager()
 
     reference = DockerReference.from_str(lab.options.image_list)
     image = await factory.image_service.image_for_reference(reference)
-    pod_spec = lab_manager.build_pod_spec(user, image)
+    resources = size_manager.resources(lab.options.size)
+    pod_spec = lab_manager.build_pod_spec(user, resources, image)
     with (std_result_dir / "pod.json").open("r") as f:
         expected = json.load(f)
     assert strip_none(pod_spec.to_dict()) == expected
