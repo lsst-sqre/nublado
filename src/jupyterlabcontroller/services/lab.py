@@ -140,9 +140,6 @@ class LabManager:
             self.user_map.clear_internal_url(username)
             raise
         self.user_map.set_status(username, status=LabStatus.RUNNING)
-        self.user_map.set_internal_url(
-            username, f"http://lab.{namespace}:8888"
-        )
         await self.completion_event(username)
 
     async def await_ns_deletion(self, namespace: str, username: str) -> None:
@@ -239,6 +236,11 @@ class LabManager:
         await self.info_event(username, "Resource objects created", 40)
         await self.create_user_pod(user, image)
         self.user_map.set_status(username, status=LabStatus.PENDING)
+        # We need to set the expected internal URL, because the spawner
+        # start needs to know it, even though it's not accessible yet.
+        # This should be the URL pointing to the lab service we're creating.
+        # The service name (at least until we support multiple simultaneous
+        # labs) is just "lab".
         self.user_map.set_internal_url(
             username, f"http://lab.{namespace}:8888"
         )
