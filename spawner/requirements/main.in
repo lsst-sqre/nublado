@@ -1,3 +1,5 @@
+# -*- conf -*-
+#
 # Editable runtime dependencies (equivalent to install_requires)
 # Add direct runtime dependencies here, as well as implicit dependencies
 # with constrained versions.
@@ -5,19 +7,22 @@
 # After editing, update requirements/main.txt by running:
 #     make update-deps
 
-# Spawner deps
-jupyterhub
-jupyterhub-idle-culler
+# Dependencies used directly by the code added by this package.
 httpx
+jupyterhub
 pydantic
+PyYAML
 
-# Postgres backing store
+# Additional dependencies required by our configuration of JupyterHub.
+jupyterhub-idle-culler
 psycopg2
 
-# Zero-to-JupyterHub unconditionally imports this (even though I'm using
-# a non-KubeSpawner spawner class)
+# Zero-to-JupyterHub unconditionally imports this, so we have to have it
+# installed even though we're using a different spawner class.
 kubernetes_asyncio
 
-# Required to make GH actions happy
-ruamel-yaml
+# These dependencies aren't required in Python 3.11 but are required in 3.10.
+# Pin them so that we can regenerate dependencies with Python 3.11 and still
+# successfully build a Docker image using Python 3.10, which the base
+# JupyterHub image currently uses.
 ruamel.yaml.clib
