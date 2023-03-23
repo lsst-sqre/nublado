@@ -3,15 +3,16 @@
 import asyncio
 import os
 from collections.abc import AsyncIterator
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Optional
 
 from httpx import AsyncClient
+from httpx_sse import ServerSentEvent, aconnect_sse
 from jupyterhub.spawner import Spawner
 
 from .constants import DEFAULT_ADMIN_TOKEN_FILE, LabStatus
 from .errors import InvalidAuthStateError, MissingFieldError, SpawnerError
-from .event import Event
 from .util import get_controller_route, get_external_instance_url
 
 __all__ = ["RSPRestSpawner"]
@@ -143,54 +144,62 @@ class RSPRestSpawner(Spawner):
 
     async def progress(self) -> AsyncIterator[dict[str, bool | int | str]]:
         progress = 0
-        url = f"{self.ctrl_url}/labs/{self.user.name}/events"
-        timeout = 150.0
-        headers = await self._user_authorization()
+        timeout = timedelta(seconds=150)
         try:
-            async with self._client.stream(
-                "GET", url, timeout=timeout, headers=headers
-            ) as resp:
-                lines: list[str] = list()
-                async for line in resp.aiter_lines():
-                    line = line.strip()
-                    ev: Optional[Event] = None
-                    if not line:
-                        if not lines:
-                            # No event to dispatch
-                            continue
-                        # An empty line means "Dispatch the event"
-                        ev = Event.from_lines(lines)
-                        lines = []
-                    else:
-                        lines.append(line)
-                        continue
-
-                    if ev.event_type == "complete":
-                        yield {
-                            "progress": 90,
-                            "message": "Lab pod running",
-                            "ready": True,
-                        }
-                        return
-                    elif ev.event_type == "progress":
-                        progress = ev.progress() or progress
-                        continue
-                    elif ev.event_type in ("error", "failed"):
-                        raise RuntimeError(ev.message())
-
-                    message = ev.message()
-                    if not message:
+            async for sse in self._get_progress_events(timeout):
+                if sse.event == "complete":
+                    yield {
+                        "progress": 90,
+                        "message": sse.data or "Lab pod running",
+                        "ready": True,
+                    }
+                    return
+                elif sse.event == "progress":
+                    try:
+                        progress = int(sse.data)
+                    except ValueError:
+                        msg = "Invalid progress value: {sse.data}"
+                        self.log.error(msg)
+                    continue
+                elif sse.event in ("info", "error", "failed"):
+                    if not sse.data:
                         continue
                     yield {
                         "progress": progress,
-                        "message": message,
+                        "message": sse.data,
                         "ready": False,
                     }
+                    if sse.event == "failed":
+                        return
+                else:
+                    self.log.error(f"Unknown event type {sse.event}")
         except asyncio.TimeoutError:
-            self.log.error(
-                f"No update from event stream in {timeout}s; giving up."
-            )
-            return
+            msg = f"No update from event stream in {timeout}s, giving up"
+            self.log.error(msg)
+
+    async def _get_progress_events(
+        self, timeout: timedelta
+    ) -> AsyncIterator[ServerSentEvent]:
+        """Get server-sent events for the user's pod-spawning status.
+
+        Parameters
+        ----------
+        timeout
+            Timeout for the request.
+
+        Yields
+        ------
+        ServerSentEvent
+            Next event from the lab controller's event stream.
+        """
+        url = f"{self.ctrl_url}/labs/{self.user.name}/events"
+        kwargs = {
+            "timeout": timeout.total_seconds(),
+            "headers": await self._user_authorization(),
+        }
+        async with aconnect_sse(self._client, url, **kwargs) as event_source:
+            async for sse in event_source.aiter_sse():
+                yield sse
 
     def _admin_authorization(self) -> dict[str, str]:
         """Create authorization headers for auth as JupyterHub itself.
