@@ -38,6 +38,11 @@ class MockLabController:
         else:
             return Response(status_code=404)
 
+    def lab_form(self, request: Request, user: str) -> Response:
+        return Response(
+            status_code=200, text=f"<p>This is some lab form for {user}</p>"
+        )
+
     def set_status(self, user: str, status: LabStatus) -> None:
         """Set the lab status for a given user, called by tests."""
         self._lab_status[user] = status
@@ -73,9 +78,11 @@ def register_mock_lab_controller(
     """
     labs_url = f"{base_url}/spawner/v1/labs/(?P<user>[^/]*)"
     create_url = f"{labs_url}/create"
+    lab_form_url = f"{base_url}/spawner/v1/lab-form/(?P<user>[^/]*)"
 
     mock = MockLabController(base_url)
     respx_mock.get(url__regex=labs_url).mock(side_effect=mock.status)
     respx_mock.delete(url__regex=labs_url).mock(side_effect=mock.delete)
     respx_mock.post(url__regex=create_url).mock(side_effect=mock.create)
+    respx_mock.get(url__regex=lab_form_url).mock(side_effect=mock.lab_form)
     return mock

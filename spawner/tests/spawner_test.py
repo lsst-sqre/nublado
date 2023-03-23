@@ -1,5 +1,4 @@
 import pytest
-import respx
 
 from rsp_restspawner.constants import LabStatus
 from rsp_restspawner.spawner import RSPRestSpawner
@@ -8,10 +7,7 @@ from .support.controller import MockLabController
 
 
 @pytest.mark.asyncio
-async def test_start(
-    respx_mock: respx.Router,
-    spawner: RSPRestSpawner,
-) -> None:
+async def test_start(spawner: RSPRestSpawner) -> None:
     user = spawner.user.name
     assert await spawner.start() == f"http://lab.nublado-{user}:8888"
 
@@ -22,7 +18,7 @@ async def test_start(
 
 
 @pytest.mark.asyncio
-async def test_stop(respx_mock: respx.Router, spawner: RSPRestSpawner) -> None:
+async def test_stop(spawner: RSPRestSpawner) -> None:
     user = spawner.user.name
     assert await spawner.start() == f"http://lab.nublado-{user}:8888"
     assert await spawner.poll() is None
@@ -36,9 +32,7 @@ async def test_stop(respx_mock: respx.Router, spawner: RSPRestSpawner) -> None:
 
 @pytest.mark.asyncio
 async def test_poll(
-    respx_mock: respx.Router,
-    spawner: RSPRestSpawner,
-    mock_lab_controller: MockLabController,
+    spawner: RSPRestSpawner, mock_lab_controller: MockLabController
 ) -> None:
     assert await spawner.poll() == 0
     mock_lab_controller.set_status(spawner.user.name, LabStatus.STARTING)
@@ -51,3 +45,9 @@ async def test_poll(
     assert await spawner.poll() == 1
     await spawner.stop()
     assert await spawner.poll() == 0
+
+
+@pytest.mark.asyncio
+async def test_options_form(spawner: RSPRestSpawner) -> None:
+    expected = f"<p>This is some lab form for {spawner.user.name}</p>"
+    assert await spawner.options_form(spawner) == expected
