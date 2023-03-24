@@ -62,6 +62,7 @@ class RSPRestSpawner(Spawner):
 
     admin_token_path = Unicode(
         "/etc/gafaelfawr/token",
+        config=True,
         help="""
         Path to the Gafaelfawr token for JupyterHub itself.
 
@@ -73,6 +74,7 @@ class RSPRestSpawner(Spawner):
 
     controller_url = Unicode(
         "http://localhost:8080/nublado",
+        config=True,
         help="""
         Base URL for the Nublado lab controller.
 
