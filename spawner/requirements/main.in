@@ -7,9 +7,12 @@
 # After editing, update requirements/main.txt by running:
 #     make update-deps
 
+# We want to explicitly control new versions of JupyterHub. Pin this to the
+# same version that Dockerfile uses.
+jupyterhub==3.1.1
+
 # Dependencies used directly by the code added by this package.
 httpx
-jupyterhub
 pydantic
 PyYAML
 
