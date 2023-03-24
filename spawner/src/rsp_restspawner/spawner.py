@@ -10,12 +10,13 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 
-from httpx import AsyncClient
+from httpx import AsyncClient, HTTPError
 from httpx_sse import ServerSentEvent, aconnect_sse
 from jupyterhub.spawner import Spawner
 from traitlets import Unicode, default
 
 from .exceptions import (
+    ControllerWebError,
     InvalidAuthStateError,
     MissingFieldError,
     SpawnFailedError,
@@ -287,7 +288,7 @@ class RSPRestSpawner(Spawner):
             # Return the internal URL of the spawned pod.
             return await self._get_internal_url()
 
-        except Exception:
+        except Exception as e:
             # We see no end of problems caused by stranded half-created pods,
             # so whenever anything goes wrong, try to delete anything we may
             # have left behind before raising the fatal exception.
@@ -300,16 +301,19 @@ class RSPRestSpawner(Spawner):
             self._events.append(event)
             try:
                 await self.stop()
-            except Exception as e:
+            except Exception as nested_exc:
                 self.log.exception("Failed to delete lab after spawn failure")
-                error = f"{type(e).__name__}: {str(e)}"
+                error = f"{type(e).__name__}: {str(nested_exc)}"
                 event = SpawnEvent(
                     progress=progress,
                     message=f"Failed to clean up failed lab: {error}",
                     severity="error",
                 )
                 self._events.append(event)
-            raise
+            if isinstance(e, HTTPError):
+                raise ControllerWebError.from_exception(e) from e
+            else:
+                raise
 
     async def stop(self) -> None:
         """Delete any running pod for the user.
@@ -322,16 +326,19 @@ class RSPRestSpawner(Spawner):
             Raised on failure to talk to the lab controller or a failure
             response from the lab controller.
         """
-        r = await self._client.delete(
-            self._controller_url("labs", self.user.name),
-            timeout=300.0,
-            headers=self._admin_authorization(),
-        )
-        if r.status_code == 404:
-            # Nothing to delete, treat that as success.
-            return
-        else:
-            r.raise_for_status()
+        try:
+            r = await self._client.delete(
+                self._controller_url("labs", self.user.name),
+                timeout=300.0,
+                headers=self._admin_authorization(),
+            )
+            if r.status_code == 404:
+                # Nothing to delete, treat that as success.
+                return
+            else:
+                r.raise_for_status()
+        except HTTPError as e:
+            raise ControllerWebError.from_exception(e) from e
 
     async def poll(self) -> Optional[int]:
         """Check if the pod is running.
@@ -353,15 +360,19 @@ class RSPRestSpawner(Spawner):
         distinguish between a pod that was shut down without error and a pod
         that was stopped, so use an exit status of 0 in both cases.
         """
-        r = await self._client.get(
-            self._controller_url("labs", self.user.name),
-            headers=self._admin_authorization(),
-        )
-        if r.status_code == 404:
-            return 0  # No lab for user.
-        else:
-            r.raise_for_status()
-        result = r.json()
+        try:
+            r = await self._client.get(
+                self._controller_url("labs", self.user.name),
+                headers=self._admin_authorization(),
+            )
+            if r.status_code == 404:
+                return 0
+            else:
+                r.raise_for_status()
+            result = r.json()
+        except HTTPError as e:
+            raise ControllerWebError.from_exception(e) from e
+
         if result["status"] == LabStatus.FAILED:
             return 1
         else:
@@ -386,12 +397,15 @@ class RSPRestSpawner(Spawner):
             authentication state. This should always be provided by
             `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
         """
-        r = await self._client.get(
-            self._controller_url("lab-form", self.user.name),
-            headers=await self._user_authorization(),
-        )
-        r.raise_for_status()
-        return r.text
+        try:
+            r = await self._client.get(
+                self._controller_url("lab-form", self.user.name),
+                headers=await self._user_authorization(),
+            )
+            r.raise_for_status()
+            return r.text
+        except HTTPError as e:
+            raise ControllerWebError.from_exception(e) from e
 
     async def progress(self) -> AsyncIterator[dict[str, int | str]]:
         """Monitor the progress of a spawn.
