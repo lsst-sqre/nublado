@@ -48,7 +48,10 @@ async def test_user_status(
             "X-Auth-Request-User": user.username,
         },
     )
-    assert r.status_code == 303
+    assert r.status_code == 201
+    assert r.headers["Location"] == (
+        f"http://localhost:8080/nublado/spawner/v1/labs/{user.username}"
+    )
 
     # Now the lab should exist and we should be able to get some user status.
     r = await app_client.get(
