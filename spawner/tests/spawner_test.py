@@ -2,11 +2,25 @@
 
 from __future__ import annotations
 
+import asyncio
+from datetime import timedelta
+
 import pytest
 
+from rsp_restspawner.errors import SpawnFailedError
 from rsp_restspawner.spawner import LabStatus, RSPRestSpawner
 
 from .support.controller import MockLabController
+
+
+async def gather_progress(
+    spawner: RSPRestSpawner,
+) -> list[dict[str, int | str]]:
+    """Gather progress from a spawner and return it as a list when done."""
+    result = []
+    async for message in spawner.progress():
+        result.append(message)
+    return result
 
 
 @pytest.mark.asyncio
@@ -73,3 +87,56 @@ async def test_progress(spawner: RSPRestSpawner) -> None:
         assert message == expected[index]
         index += 1
     assert index == len(expected)
+
+
+@pytest.mark.asyncio
+async def test_progress_multiple(
+    spawner: RSPRestSpawner, mock_lab_controller: MockLabController
+) -> None:
+    """Test multiple progress listeners for the same spawn."""
+    mock_lab_controller.delay = timedelta(milliseconds=750)
+    user = spawner.user.name
+    expected = [
+        {"progress": 2, "message": "[info] Lab creation initiated"},
+        {"progress": 45, "message": "[info] Pod requested"},
+        {
+            "progress": 90,
+            "message": f"[info] Pod successfully spawned for {user}",
+        },
+    ]
+
+    results = await asyncio.gather(
+        spawner.start(),
+        gather_progress(spawner),
+        gather_progress(spawner),
+        gather_progress(spawner),
+    )
+    url = results.pop(0)
+    assert url == f"http://lab.nublado-{user}:8888"
+    for events in results:
+        assert events == expected
+
+
+@pytest.mark.asyncio
+async def test_spawn_failure(
+    spawner: RSPRestSpawner, mock_lab_controller: MockLabController
+) -> None:
+    """Test error handling when a spawn fails."""
+    mock_lab_controller.delay = timedelta(milliseconds=750)
+    mock_lab_controller.fail_during_spawn = True
+    user = spawner.user.name
+    expected = [
+        {"progress": 2, "message": "[info] Lab creation initiated"},
+        {"progress": 45, "message": "[info] Pod requested"},
+        {"progress": 45, "message": "[error] Something is going wrong"},
+        {
+            "progress": 45,
+            "message": f"[error] Some random failure for {user}",
+        },
+    ]
+
+    results = await asyncio.gather(
+        spawner.start(), gather_progress(spawner), return_exceptions=True
+    )
+    assert isinstance(results[0], SpawnFailedError)
+    assert results[1] == expected
