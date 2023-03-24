@@ -1,17 +1,21 @@
 """Spawner class that uses a REST API to a separate Kubernetes service."""
 
+from __future__ import annotations
+
+import asyncio
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from httpx import AsyncClient
 from httpx_sse import ServerSentEvent, aconnect_sse
 from jupyterhub.spawner import Spawner
 from traitlets import Unicode, default
 
-from .errors import InvalidAuthStateError, MissingFieldError, SpawnerError
+from .errors import InvalidAuthStateError, MissingFieldError, SpawnFailedError
 
 __all__ = [
     "LabStatus",
@@ -33,6 +37,52 @@ class LabStatus(str, Enum):
     RUNNING = "running"
     TERMINATING = "terminating"
     FAILED = "failed"
+
+
+@dataclass(frozen=True, slots=True)
+class SpawnEvent:
+    """JupyterHub spawning event."""
+
+    progress: int
+    """Percentage of progress, from 0 to 100."""
+
+    message: str
+    """Event description."""
+
+    complete: bool = False
+    """Whether the event indicated spawning is done."""
+
+    failed: bool = False
+    """Whether the event indicated spawning failed."""
+
+    @classmethod
+    def from_sse(cls, sse: ServerSentEvent, progress: int) -> SpawnEvent:
+        """Convert from a server-sent event from the lab controller.
+
+        Parameters
+        ----------
+        sse
+            Event from the lab controller.
+        progress
+            Current progress percentage. Parsing of the progress events that
+            communicate this must be done outside of this class.
+        """
+        if sse.event == "complete":
+            message = "[info] " + (sse.data or "Lab pod successfully spawned")
+            return cls(progress=90, message=message, complete=True)
+        elif sse.event == "info":
+            return cls(progress=progress, message=f"[info] {sse.data}")
+        elif sse.event == "error":
+            return cls(progress=progress, message=f"[error] {sse.data}")
+        elif sse.event == "failed":
+            message = f"[error] {sse.data}"
+            return cls(progress=progress, message=message, failed=True)
+        else:
+            return cls(progress=progress, message=f"[unknown] {sse.data}")
+
+    def to_dict(self) -> dict[str, int | str]:
+        """Convert to the dictionary expected by JupyterHub."""
+        return {"progress": self.progress, "message": self.message}
 
 
 class RSPRestSpawner(Spawner):
@@ -87,6 +137,17 @@ class RSPRestSpawner(Spawner):
     def _env_keep_default(self) -> list[str]:
         return []
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+        # Holds the events from a spawn in progress.
+        self._events: list[SpawnEvent] = []
+
+        # Holds the future representing a spawn in progress, used by the
+        # progress method to know when th spawn is finished and it should
+        # exit.
+        self._start_future: Optional[asyncio.Task] = None
+
     @property
     def _client(self) -> AsyncClient:
         """Shared `httpx.AsyncClient`."""
@@ -95,32 +156,114 @@ class RSPRestSpawner(Spawner):
             _CLIENT = AsyncClient()
         return _CLIENT
 
-    async def start(self) -> str:
-        """Returns expected URL of running pod
-        (returns before creation completes)."""
-        r = await self._client.post(
-            self._controller_url("labs", self.user.name, "create"),
-            headers=await self._user_authorization(),
-            json={
-                "options": self.options_from_form(self.user_options),
-                "env": self.get_env(),
-            },
-            timeout=self.start_timeout,
-            follow_redirects=False,
-        )
-        if r.status_code == 409 or r.status_code == 303:
-            # For the Conflict we need to check the status ourself.
-            # This route requires an admin token
-            r = await self._client.get(
-                self._controller_url("labs", self.user.name),
-                headers=self._admin_authorization(),
+    def start(self) -> asyncio.Task:
+        """Start the user's pod.
+
+        Initiates the pod start operation and then waits for the pod to spawn
+        by watching the event stream, converting those events into the format
+        expected by JupyterHub and returned by `progress`. Returns only when
+        the pod is running and JupyterHub should start waiting for the lab
+        process to start responding.
+
+        Returns
+        -------
+        asyncio.Task
+            Running task monitoring the progress of the spawn. This task will
+            be started before it is returned. When the task is complete, it
+            will return the cluster-internal URL of the running Jupyter lab
+            process.
+
+        Notes
+        -----
+        The actual work is done in `_start`. This is a tiny wrapper to do
+        bookkeeping on the event stream and record the running task so that
+        `progress` can notice when the task is complete and return.
+
+        It is tempting to only initiate the pod spawn here, return
+        immediately, and then let JupyterHub follow progress via the
+        `progress` API. However, this is not what JupyterHub is expecting.
+        The entire spawn process must happen before the `start` method returns
+        for the configured timeouts to work properly; once `start` has
+        returned, JupyterHub only allows a much shorter timeout for the lab to
+        fully start.
+
+        In addition, JupyterHub handles exceptions from `start` and correctly
+        recognizes that the pod has failed to start, but exceptions from
+        `progress` are treated as uncaught exceptions and cause the UI to
+        break. Therefore, `progress` must never fail and all operations that
+        may fail need to be done in `start`.
+        """
+        self._start_future = asyncio.create_task(self._start())
+        return self._start_future
+
+    async def _start(self) -> str:
+        """Spawn the user's lab.
+
+        This is the core of the work of `start`. Ask the lab controller to
+        create the lab and monitor its progress, generating events that are
+        stored in the ``_events`` attribute for `progress`.
+
+        Returns
+        -------
+        str
+            Cluster-internal URL of the running Jupyter lab process.
+
+        Notes
+        -----
+        JupyterHub itself arranges for two spawns for the same spawner object
+        to not be running at the same time, so we ignore that possibility.
+        """
+        self._events = []
+        try:
+            r = await self._client.post(
+                self._controller_url("labs", self.user.name, "create"),
+                headers=await self._user_authorization(),
+                json={
+                    "options": self.options_from_form(self.user_options),
+                    "env": self.get_env(),
+                },
+                timeout=self.start_timeout,
             )
-        if r.status_code == 200:
-            obj = r.json()
-            if "internal_url" in obj:
-                return obj["internal_url"]
-            raise MissingFieldError(f"Response '{obj}' missing 'internal_url'")
-        raise SpawnerError(r)
+
+            # 409 (Conflict) indicates the user already has a running pod. See
+            # if it really is running, and if so, return its URL.
+            if r.status_code == 409:
+                return await self._get_internal_url()
+            else:
+                r.raise_for_status()
+
+            # The spawn is now in progress. Monitor the events endpoint until
+            # we get a completion or failure event.
+            progress = 0
+            timeout = timedelta(seconds=self.start_timeout)
+            async for sse in self._get_progress_events(timeout):
+                if sse.event == "progress":
+                    try:
+                        progress = int(sse.data)
+                    except ValueError:
+                        msg = "Invalid progress value: {sse.data}"
+                        self.log.error(msg)
+                    continue
+                event = SpawnEvent.from_sse(sse, progress)
+                self._events.append(event)
+                if event.complete:
+                    break
+                if event.failed:
+                    raise SpawnFailedError(event.message)
+
+            # Return the internal URL of the spawned pod.
+            return await self._get_internal_url()
+
+        except Exception:
+            # We see no end of problems caused by stranded half-created pods,
+            # so whenever anything goes wrong, try to delete anything we may
+            # have left behind before raising the fatal exception.
+            self.log.warning("Spawn failed, attempting to delete any remnants")
+            try:
+                await self.stop()
+            except Exception:
+                self.log.exception("Failed to delete lab after spawn failure")
+            raise
 
     async def stop(self) -> None:
         r = await self._client.delete(
@@ -128,10 +271,11 @@ class RSPRestSpawner(Spawner):
             timeout=300.0,
             headers=self._admin_authorization(),
         )
-        if r.status_code == 202 or r.status_code == 404:
-            # We're deleting it, or it wasn't there to start with.
+        if r.status_code == 404:
+            # Nothing to delete, treat that as success.
             return
-        raise SpawnerError(r)
+        else:
+            r.raise_for_status()
 
     async def poll(self) -> Optional[int]:
         """
@@ -152,8 +296,8 @@ class RSPRestSpawner(Spawner):
         )
         if r.status_code == 404:
             return 0  # No lab for user.
-        if r.status_code != 200:
-            raise SpawnerError(r)
+        else:
+            r.raise_for_status()
         result = r.json()
         if result["status"] == LabStatus.FAILED:
             return 1
@@ -165,44 +309,74 @@ class RSPRestSpawner(Spawner):
             self._controller_url("lab-form", self.user.name),
             headers=await self._user_authorization(),
         )
-        if r.status_code != 200:
-            raise SpawnerError(r)
+        r.raise_for_status()
         return r.text
 
-    async def progress(self) -> AsyncIterator[dict[str, bool | int | str]]:
-        progress = 0
-        timeout = timedelta(seconds=self.start_timeout)
-        try:
-            async for sse in self._get_progress_events(timeout):
-                if sse.event == "complete":
-                    yield {
-                        "progress": 90,
-                        "message": sse.data or "Lab pod running",
-                        "ready": True,
-                    }
-                    return
-                elif sse.event == "progress":
-                    try:
-                        progress = int(sse.data)
-                    except ValueError:
-                        msg = "Invalid progress value: {sse.data}"
-                        self.log.error(msg)
-                    continue
-                elif sse.event in ("info", "error", "failed"):
-                    if not sse.data:
-                        continue
-                    yield {
-                        "progress": progress,
-                        "message": sse.data,
-                        "ready": False,
-                    }
-                    if sse.event == "failed":
-                        return
-                else:
-                    self.log.error(f"Unknown event type {sse.event}")
-        except TimeoutError:
-            msg = f"No update from event stream in {timeout}s, giving up"
-            self.log.error(msg)
+    async def progress(self) -> AsyncIterator[dict[str, int | str]]:
+        """Monitor the progress of a spawn.
+
+        This method is the internal implementation of the progress API. It
+        provides an iterator of spawn events and then ends when the spawn
+        succeeds or fails.
+
+        Yields
+        ------
+        dict of str to str or int
+            Dictionary representing the event with fields ``progress``,
+            containing an integer completion percentage, and ``message``,
+            containing a human-readable description of the event.
+
+        Notes
+        -----
+        This method must never raise exceptions, since those will be treated
+        as unhandled exceptions by JupyterHub. If anything fails, just stop
+        the iterator. It doesn't do any HTTP calls itself, just monitors the
+        events created by `start`.
+
+        Uses the internal ``_start_future`` attribute to track when the
+        related `start` method has completed.
+        """
+        next_event = 0
+        complete = False
+
+        # Capture the current future and event stream in a local variable so
+        # that we consistently monitor the same invocation of start. If that
+        # one aborts and someone kicks off another one, we want to keep
+        # following the first one until it completes, not switch streams to
+        # the second one.
+        start_future = self._start_future
+        events = self._events
+
+        # We were apparently called before start was called, so there's
+        # nothing to report.
+        if not start_future:
+            return
+
+        while not complete:
+            if start_future.done():
+                # Indicate that we're done, but continue to execute the rest
+                # of the loop. We want to process any events received before
+                # the spawner finishes and report them before ending the
+                # stream.
+                complete = True
+
+            # This logic tries to ensure that we don't repeat events even
+            # though start will be adding more events while we're working.
+            # A new spawn replaces the events array when it starts, so grab a
+            # local reference so that we can finish processing it even if it's
+            # replaced while we work.
+            len_events = len(events)
+            for i in range(next_event, len_events):
+                yield events[i].to_dict()
+            next_event = len_events
+
+            # This delay waiting for new events is obnoxious, and ideally we
+            # would do better with some sort of synchronization primitive, but
+            # there may be multiple invocations of progress watching the same
+            # invocation of start and this has the merits of simplicity. It's
+            # also what Kubespawner does.
+            if not complete:
+                await asyncio.sleep(1)
 
     def _controller_url(self, *components: str) -> str:
         """Build a URL to the Nublado lab controller.
@@ -218,6 +392,19 @@ class RSPRestSpawner(Spawner):
             URL to the lab controller using the configured base URL.
         """
         return self.controller_url + "/spawner/v1/" + "/".join(components)
+
+    async def _get_internal_url(self) -> str:
+        """Get the cluster-internal URL of a user's pod."""
+        r = await self._client.get(
+            self._controller_url("labs", self.user.name),
+            headers=self._admin_authorization(),
+        )
+        r.raise_for_status()
+        url = r.json().get("internal_url")
+        if not url:
+            msg = f"Invalid lab status for {self.user.name}"
+            raise MissingFieldError(msg)
+        return url
 
     async def _get_progress_events(
         self, timeout: timedelta

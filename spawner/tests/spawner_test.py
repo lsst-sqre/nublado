@@ -59,13 +59,13 @@ async def test_options_form(spawner: RSPRestSpawner) -> None:
 @pytest.mark.asyncio
 async def test_progress(spawner: RSPRestSpawner) -> None:
     await spawner.start()
+    user = spawner.user.name
     expected = [
-        {"progress": 2, "message": "Lab creation initiated", "ready": False},
-        {"progress": 45, "message": "Pod requested", "ready": False},
+        {"progress": 2, "message": "[info] Lab creation initiated"},
+        {"progress": 45, "message": "[info] Pod requested"},
         {
             "progress": 90,
-            "message": f"Pod successfully spawned for {spawner.user.name}",
-            "ready": True,
+            "message": f"[info] Pod successfully spawned for {user}",
         },
     ]
     index = 0

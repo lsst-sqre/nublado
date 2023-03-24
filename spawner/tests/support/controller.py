@@ -88,7 +88,7 @@ class MockLabController:
             return Response(status_code=409)
         self._lab_status[user] = LabStatus.RUNNING
         location = f"{self._url}/{user}"
-        return Response(status_code=303, headers={"Location": location})
+        return Response(status_code=201, headers={"Location": location})
 
     def delete(self, request: Request, user: str) -> Response:
         if self._lab_status.get(user):
