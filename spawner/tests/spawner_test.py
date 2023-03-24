@@ -111,9 +111,9 @@ async def test_progress_multiple(
         gather_progress(spawner),
         gather_progress(spawner),
     )
-    url = results.pop(0)
+    url = results[0]
     assert url == f"http://lab.nublado-{user}:8888"
-    for events in results:
+    for events in results[1:]:
         assert events == expected
 
 
@@ -133,6 +133,10 @@ async def test_spawn_failure(
             "progress": 45,
             "message": f"[error] Some random failure for {user}",
         },
+        {
+            "progress": 45,
+            "message": "[warning] Lab creation failed, attempting to clean up",
+        },
     ]
 
     results = await asyncio.gather(
@@ -140,3 +144,8 @@ async def test_spawn_failure(
     )
     assert isinstance(results[0], SpawnFailedError)
     assert results[1] == expected
+
+    # Because the spawn failed, we should have tried to shut down the lab. It
+    # therefore should not exist, rather than hanging around in a failed
+    # state.
+    assert await spawner.poll() == 0

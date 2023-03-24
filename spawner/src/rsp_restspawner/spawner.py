@@ -49,6 +49,9 @@ class SpawnEvent:
     message: str
     """Event description."""
 
+    severity: str
+    """Log message severity."""
+
     complete: bool = False
     """Whether the event indicated spawning is done."""
 
@@ -68,21 +71,29 @@ class SpawnEvent:
             communicate this must be done outside of this class.
         """
         if sse.event == "complete":
-            message = "[info] " + (sse.data or "Lab pod successfully spawned")
-            return cls(progress=90, message=message, complete=True)
+            return cls(
+                progress=90, message=sse.data, severity="info", complete=True
+            )
         elif sse.event == "info":
-            return cls(progress=progress, message=f"[info] {sse.data}")
+            return cls(progress=progress, message=sse.data, severity="info")
         elif sse.event == "error":
-            return cls(progress=progress, message=f"[error] {sse.data}")
+            return cls(progress=progress, message=sse.data, severity="error")
         elif sse.event == "failed":
-            message = f"[error] {sse.data}"
-            return cls(progress=progress, message=message, failed=True)
+            return cls(
+                progress=progress,
+                message=sse.data,
+                severity="error",
+                failed=True,
+            )
         else:
-            return cls(progress=progress, message=f"[unknown] {sse.data}")
+            return cls(progress=progress, message=sse.data, severity="unknown")
 
     def to_dict(self) -> dict[str, int | str]:
         """Convert to the dictionary expected by JupyterHub."""
-        return {"progress": self.progress, "message": self.message}
+        return {
+            "progress": self.progress,
+            "message": f"[{self.severity}] {self.message}",
+        }
 
 
 class RSPRestSpawner(Spawner):
@@ -146,7 +157,7 @@ class RSPRestSpawner(Spawner):
         # Holds the future representing a spawn in progress, used by the
         # progress method to know when th spawn is finished and it should
         # exit.
-        self._start_future: Optional[asyncio.Task] = None
+        self._start_future: Optional[asyncio.Task[str]] = None
 
     @property
     def _client(self) -> AsyncClient:
@@ -156,7 +167,7 @@ class RSPRestSpawner(Spawner):
             _CLIENT = AsyncClient()
         return _CLIENT
 
-    def start(self) -> asyncio.Task:
+    def start(self) -> asyncio.Task[str]:
         """Start the user's pod.
 
         Initiates the pod start operation and then waits for the pod to spawn
@@ -208,12 +219,27 @@ class RSPRestSpawner(Spawner):
         str
             Cluster-internal URL of the running Jupyter lab process.
 
+        Raises
+        ------
+        httpx.HTTPError
+            Raised on failure to talk to the lab controller or a failure
+            response from the lab controller.
+        InvalidAuthStateError
+            Raised if there is no ``token`` attribute in the user's
+            authentication state. This should always be provided by
+            `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
+        MissingFieldError
+            Raised if the response from the lab controller is invalid.
+        SpawnFailedError
+            Raised if the lab controller said that the spawn failed.
+
         Notes
         -----
         JupyterHub itself arranges for two spawns for the same spawner object
         to not be running at the same time, so we ignore that possibility.
         """
         self._events = []
+        progress = 0
         try:
             r = await self._client.post(
                 self._controller_url("labs", self.user.name, "create"),
@@ -228,13 +254,16 @@ class RSPRestSpawner(Spawner):
             # 409 (Conflict) indicates the user already has a running pod. See
             # if it really is running, and if so, return its URL.
             if r.status_code == 409:
+                event = SpawnEvent(
+                    progress=90, message="Lab already running", severity="info"
+                )
+                self._events.append(event)
                 return await self._get_internal_url()
             else:
                 r.raise_for_status()
 
             # The spawn is now in progress. Monitor the events endpoint until
             # we get a completion or failure event.
-            progress = 0
             timeout = timedelta(seconds=self.start_timeout)
             async for sse in self._get_progress_events(timeout):
                 if sse.event == "progress":
@@ -259,13 +288,36 @@ class RSPRestSpawner(Spawner):
             # so whenever anything goes wrong, try to delete anything we may
             # have left behind before raising the fatal exception.
             self.log.warning("Spawn failed, attempting to delete any remnants")
+            event = SpawnEvent(
+                progress=progress,
+                message="Lab creation failed, attempting to clean up",
+                severity="warning",
+            )
+            self._events.append(event)
             try:
                 await self.stop()
-            except Exception:
+            except Exception as e:
                 self.log.exception("Failed to delete lab after spawn failure")
+                error = f"{type(e).__name__}: {str(e)}"
+                event = SpawnEvent(
+                    progress=progress,
+                    message=f"Failed to clean up failed lab: {error}",
+                    severity="error",
+                )
+                self._events.append(event)
             raise
 
     async def stop(self) -> None:
+        """Delete any running pod for the user.
+
+        If the pod does not exist, treat that as success.
+
+        Raises
+        ------
+        httpx.HTTPError
+            Raised on failure to talk to the lab controller or a failure
+            response from the lab controller.
+        """
         r = await self._client.delete(
             self._controller_url("labs", self.user.name),
             timeout=300.0,
@@ -278,17 +330,24 @@ class RSPRestSpawner(Spawner):
             r.raise_for_status()
 
     async def poll(self) -> Optional[int]:
-        """
-        Check if the pod is running.
+        """Check if the pod is running.
 
-        If it is, return None.  If it has exited, return the return code
-        if we know it, or 0 if it exited but we don't know how.
+        Returns
+        -------
+        int or None
+            If the pod is starting, running, or terminating, return `None`.
+            If the pod does not exist, return 0. If the pod exists in a failed
+            state, return 1.
 
-        Because we do not have direct access to the pod's exit code, we
-        are here going to return 0 for "The pod does not exist from the
-        perspective of the lab controller" (which assumes a good or unknown
-        exit status) and 1 for "We tried to start a pod, but it failed," which
-        implies a failure (i.e. non-zero) exit status.
+        Notes
+        -----
+        In theory, this is supposed to be the exit status of the Jupyter lab
+        process. This isn't something we know in the classic sense since the
+        lab is a Kubernetes pod. We only know that something failed if the
+        record of the lab is hanging around in a failed state, so use a simple
+        non-zero exit status for that. Otherwise, we have no way to
+        distinguish between a pod that was shut down without error and a pod
+        that was stopped, so use an exit status of 0 in both cases.
         """
         r = await self._client.get(
             self._controller_url("labs", self.user.name),
@@ -305,6 +364,24 @@ class RSPRestSpawner(Spawner):
             return None
 
     async def options_form(self, spawner: Spawner) -> str:
+        """Retrieve the options form for this user from the lab controller.
+
+        Parameters
+        ----------
+        spawner
+            Another copy of the spawner (not used). It's not clear why
+            JupyterHub passes this into this method.
+
+        Raises
+        ------
+        httpx.HTTPError
+            Raised on failure to talk to the lab controller or a failure
+            response from the lab controller.
+        InvalidAuthStateError
+            Raised if there is no ``token`` attribute in the user's
+            authentication state. This should always be provided by
+            `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
+        """
         r = await self._client.get(
             self._controller_url("lab-form", self.user.name),
             headers=await self._user_authorization(),
@@ -394,7 +471,16 @@ class RSPRestSpawner(Spawner):
         return self.controller_url + "/spawner/v1/" + "/".join(components)
 
     async def _get_internal_url(self) -> str:
-        """Get the cluster-internal URL of a user's pod."""
+        """Get the cluster-internal URL of a user's pod.
+
+        Raises
+        ------
+        httpx.HTTPError
+            Raised on failure to talk to the lab controller or a failure
+            response from the lab controller.
+        MissingFieldError
+            Raised if the response from the lab controller is invalid.
+        """
         r = await self._client.get(
             self._controller_url("labs", self.user.name),
             headers=self._admin_authorization(),
@@ -420,6 +506,16 @@ class RSPRestSpawner(Spawner):
         ------
         ServerSentEvent
             Next event from the lab controller's event stream.
+
+        Raises
+        ------
+        httpx.HTTPError
+            Raised on failure to talk to the lab controller or a failure
+            response from the lab controller.
+        InvalidAuthStateError
+            Raised if there is no ``token`` attribute in the user's
+            authentication state. This should always be provided by
+            `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
         """
         url = self._controller_url("labs", self.user.name, "events")
         kwargs = {
