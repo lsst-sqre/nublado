@@ -15,7 +15,11 @@ from httpx_sse import ServerSentEvent, aconnect_sse
 from jupyterhub.spawner import Spawner
 from traitlets import Unicode, default
 
-from .errors import InvalidAuthStateError, MissingFieldError, SpawnFailedError
+from .exceptions import (
+    InvalidAuthStateError,
+    MissingFieldError,
+    SpawnFailedError,
+)
 
 __all__ = [
     "LabStatus",
