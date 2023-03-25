@@ -112,7 +112,7 @@ class ContextDependency:
         # tons of other dependencies and isn't a global singleton, so we have
         # to create a factory just to create a lab manager to do the initial
         # reconciliation. This needs some rethinking.
-        logger = structlog.get_logger(config.safir.logger_name)
+        logger = structlog.get_logger(__name__)
         factory = Factory(self._process_context, logger)
         lab_manager = factory.create_lab_manager()
         await lab_manager.reconcile_user_map()

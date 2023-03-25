@@ -10,24 +10,15 @@ from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import InvalidUserError, LabExistsError, NoUserMapError
 from ..models.v1.lab import LabSpecification, UserData
 
-# FastAPI routers
 router = APIRouter()
+"""Router to mount into the application."""
 
-
-#
-# User routes
-#
-
-
-# Lab Controller API: https://sqr-066.lsst.io/#lab-controller-rest-api
-# Prefix: /nublado/spawner/v1/labs
+__all__ = ["router"]
 
 
 @router.get(
-    "",
-    responses={
-        403: {"description": "Forbidden", "model": ErrorModel},
-    },
+    "/spawner/v1/labs",
+    responses={403: {"description": "Forbidden", "model": ErrorModel}},
     summary="List all users with running labs",
 )
 async def get_lab_users(
@@ -38,19 +29,18 @@ async def get_lab_users(
 
 
 @router.get(
-    "/{username}",
+    "/spawner/v1/labs/{username}",
     response_model=UserData,
     responses={
-        404: {"description": "Lab not found", "model": ErrorModel},
         403: {"description": "Forbidden", "model": ErrorModel},
+        404: {"description": "Lab not found", "model": ErrorModel},
     },
-    summary="Status of user",
+    summary="Status of user's lab",
 )
 async def get_userdata(
     username: str,
     context: RequestContext = Depends(context_dependency),
 ) -> UserData:
-    """Returns status of the lab pod for the given user."""
     userdata = context.user_map.get(username)
     if userdata is None:
         raise HTTPException(status_code=404, detail="Not found")
@@ -58,7 +48,7 @@ async def get_userdata(
 
 
 @router.post(
-    "/{username}/create",
+    "/spawner/v1/labs/{username}/create",
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
         409: {"description": "Lab exists", "model": ErrorModel},
@@ -73,7 +63,6 @@ async def post_new_lab(
     x_auth_request_token: str = Header(...),
     context: RequestContext = Depends(context_dependency),
 ) -> None:
-    """Create a new Lab pod for a given user"""
     gafaelfawr_client = context.factory.create_gafaelfawr_client()
     try:
         user = await gafaelfawr_client.get_user_info(x_auth_request_token)
@@ -93,11 +82,11 @@ async def post_new_lab(
 
 
 @router.delete(
-    "/{username}",
+    "/spawner/v1/labs/{username}",
     summary="Delete user lab",
     responses={
-        404: {"description": "Lab not found", "model": ErrorModel},
         403: {"description": "Forbidden", "model": ErrorModel},
+        404: {"description": "Lab not found", "model": ErrorModel},
     },
     status_code=204,
 )
@@ -105,7 +94,6 @@ async def delete_user_lab(
     username: str,
     context: RequestContext = Depends(context_dependency),
 ) -> None:
-    """Stop a running pod."""
     lab_manager = context.factory.create_lab_manager()
     try:
         await lab_manager.delete_lab(username)
@@ -115,12 +103,17 @@ async def delete_user_lab(
 
 
 @router.get(
-    "/{username}/events",
-    summary="Get Lab event stream for a user's current operation",
+    "/spawner/v1/labs/{username}/events",
+    summary="Get event stream for user's lab",
+    description=(
+        "Returns a stream of server-sent events representing progress in"
+        " creating the user's lab. The stream ends when the lab creation"
+        " succeeds or fails."
+    ),
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
+        404: {"description": "Lab not found", "model": ErrorModel},
     },
-    # FIXME: Not at all sure how to do response model/class for this
 )
 async def get_user_events(
     username: str,

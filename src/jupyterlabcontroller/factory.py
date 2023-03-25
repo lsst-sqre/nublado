@@ -80,7 +80,7 @@ class ProcessContext:
         # This logger is used only by process-global singletons.  Everything
         # else will use a per-request logger that includes more context about
         # the request (such as the authenticated username).
-        logger = structlog.get_logger(config.safir.logger_name)
+        logger = structlog.get_logger(__name__)
 
         k8s_client = K8sStorageClient(
             k8s_api=k8s_api_client,
@@ -160,7 +160,7 @@ class Factory:
         Factory
             Newly-created factory. Must be used as a context manager.
         """
-        logger = structlog.get_logger(config.safir.logger_name)
+        logger = structlog.get_logger(__name__)
         context = await ProcessContext.from_config(config)
         factory = cls(context, logger)
         async with aclosing(factory):
