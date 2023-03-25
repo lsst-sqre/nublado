@@ -84,7 +84,7 @@ async def app(
 
 
 @pytest_asyncio.fixture
-async def app_client(
+async def client(
     app: FastAPI,
     config: Configuration,
 ) -> AsyncIterator[AsyncClient]:
