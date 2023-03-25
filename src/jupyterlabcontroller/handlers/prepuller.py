@@ -12,7 +12,10 @@ __all__ = ["router"]
 
 
 @router.get(
-    "/spawner/v1/images", summary="Known images", response_model=SpawnerImages
+    "/spawner/v1/images",
+    summary="Known images",
+    response_model=SpawnerImages,
+    response_model_exclude_none=True,
 )
 async def get_images(
     context: RequestContext = Depends(context_dependency),
