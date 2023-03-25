@@ -24,6 +24,7 @@ async def get_images(
     "/spawner/v1/prepulls",
     summary="Status of prepulling",
     response_model=PrepullerStatus,
+    response_model_by_alias=False,
 )
 async def get_prepulls(
     context: RequestContext = Depends(context_dependency),
