@@ -12,9 +12,6 @@ DOCKER_SECRETS_PATH = Path("/etc/secrets/.dockerconfigjson")
 IMAGE_REFRESH_INTERVAL = timedelta(minutes=5)
 """How frequently to refresh the list of remote and cached images."""
 
-ADMIN_SCOPE = "admin:jupyterlab"
-USER_SCOPE = "exec:notebook"
-
 DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 """Used in the lab form for ``image_list`` when ``image_dropdown`` is used."""
 
