@@ -1,3 +1,0 @@
-# No longer used, but preserves compatibility with runlab.sh
-dask_worker.yml: |
-  enabled: false
