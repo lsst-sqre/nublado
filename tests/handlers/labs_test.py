@@ -14,6 +14,7 @@ from jupyterlabcontroller.constants import DROPDOWN_SENTINEL_VALUE
 from jupyterlabcontroller.factory import Factory
 
 from ..settings import TestObjectFactory
+from ..support.constants import TEST_BASE_URL
 from ..support.kubernetes import MockLabKubernetesApi
 
 
@@ -95,7 +96,7 @@ async def test_lab_start_stop(
     )
     assert r.status_code == 201
     assert r.headers["Location"] == (
-        f"http://localhost:8080/nublado/spawner/v1/labs/{user.username}"
+        f"{TEST_BASE_URL}/nublado/spawner/v1/labs/{user.username}"
     )
 
     # Get events for the lab. The mock Kubernetes layer immediately puts the

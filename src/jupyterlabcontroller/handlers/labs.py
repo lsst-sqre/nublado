@@ -1,6 +1,5 @@
-"""User-facing routes, as defined in sqr-066 (https://sqr-066.lsst.io),
-these specifically for lab manipulation"""
-import os
+"""Routes for lab manipulation (start, stop, get status, see events)."""
+
 from typing import List
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
@@ -10,11 +9,6 @@ from sse_starlette import EventSourceResponse
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import InvalidUserError, LabExistsError, NoUserMapError
 from ..models.v1.lab import LabSpecification, UserData
-
-
-def _external_url() -> str:
-    return os.environ.get("EXTERNAL_INSTANCE_URL", "http://localhost:8080")
-
 
 # FastAPI routers
 router = APIRouter()
@@ -94,8 +88,8 @@ async def post_new_lab(
         await lab_manager.create_lab(user, x_auth_request_token, lab)
     except LabExistsError:
         raise HTTPException(status_code=409, detail="Conflict")
-    url = f"{_external_url()}/nublado/spawner/v1/labs/{username}"
-    response.headers["Location"] = url
+    url = context.request.url_for("get_userdata", username=username)
+    response.headers["Location"] = str(url)
 
 
 @router.delete(

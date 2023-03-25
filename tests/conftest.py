@@ -18,27 +18,15 @@ from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.main import create_app
 
 from .settings import TestObjectFactory, test_object_factory
+from .support.constants import TEST_BASE_URL
 from .support.docker import MockDockerRegistry, register_mock_docker
 from .support.gafaelfawr import MockGafaelfawr, register_mock_gafaelfawr
 from .support.kubernetes import MockLabKubernetesApi, patch_kubernetes
 
-_here = Path(__file__).parent
-
-"""Change the test application configuration to point at a file that
-replaces the YAML that would usually be mounted into the container at
-``/etc/nublado/config.yaml``.  For testing and standalone purposes, if
-the filename is not the standard location, we expect the Docker
-credentials (if any) to be in ``docker_config.json`` in the same
-directory as ``config.yaml``, and we expect objects used in testing to
-be in ``test_objects.json`` in that directory.
-"""
-
-# We want the prepuller state to persist across tests.
-
 
 @pytest.fixture(scope="session")
 def std_config_dir() -> Path:
-    return Path(_here / "configs" / "standard" / "input")
+    return Path(Path(__file__).parent / "configs" / "standard" / "input")
 
 
 @pytest.fixture(scope="session")
@@ -90,12 +78,9 @@ async def app(
 
 
 @pytest_asyncio.fixture
-async def client(
-    app: FastAPI,
-    config: Configuration,
-) -> AsyncIterator[AsyncClient]:
+async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
     """Return an ``httpx.AsyncClient`` configured to talk to the test app."""
-    async with AsyncClient(app=app, base_url=config.base_url) as client:
+    async with AsyncClient(app=app, base_url=TEST_BASE_URL) as client:
         yield client
 
 
