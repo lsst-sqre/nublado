@@ -16,6 +16,7 @@ ADMIN_SCOPE = "admin:jupyterlab"
 USER_SCOPE = "exec:notebook"
 
 DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
+"""Used in the lab form for ``image_list`` when ``image_dropdown`` is used."""
 
 # These are in seconds; they're arguments to various functions, not timedeltas.
 KUBERNETES_REQUEST_TIMEOUT = 60
