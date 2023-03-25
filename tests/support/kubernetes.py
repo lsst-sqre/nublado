@@ -22,6 +22,7 @@ from kubernetes_asyncio.client import (
     ApiException,
     CoreV1Event,
     CoreV1EventList,
+    V1ConfigMap,
     V1Namespace,
     V1NamespaceList,
     V1NetworkPolicy,
@@ -93,6 +94,17 @@ class MockLabKubernetesApi(MockKubernetesApi):
             New node list to return.
         """
         self.nodes = V1NodeList(items=nodes)
+
+    # CONFIGMAP API
+
+    async def create_namespaced_config_map(
+        self, namespace: str, body: V1ConfigMap
+    ) -> None:
+        if not body.metadata.namespace:
+            body.metadata.namespace = namespace
+        # Safir used the wrong parameter name, so this fixes that until Safir
+        # can be fixed.
+        await super().create_namespaced_config_map(namespace, body)
 
     # EVENTS API
 
@@ -257,6 +269,8 @@ class MockLabKubernetesApi(MockKubernetesApi):
     async def create_namespaced_secret(
         self, namespace: str, body: V1Secret
     ) -> None:
+        if not body.metadata.namespace:
+            body.metadata.namespace = namespace
         # Safir used the wrong parameter name, so this fixes that until Safir
         # can be fixed.
         await super().create_namespaced_secret(namespace, body)

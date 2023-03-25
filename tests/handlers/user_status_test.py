@@ -5,23 +5,18 @@ from __future__ import annotations
 import pytest
 from httpx import AsyncClient
 
-from jupyterlabcontroller.config import Configuration
-from jupyterlabcontroller.services.size import SizeManager
+from jupyterlabcontroller.factory import Factory
 
 from ..settings import TestObjectFactory
-from ..support.gafaelfawr import MockGafaelfawr
 
 
 @pytest.mark.asyncio
 async def test_user_status(
-    client: AsyncClient,
-    config: Configuration,
-    mock_gafaelfawr: MockGafaelfawr,
-    obj_factory: TestObjectFactory,
+    client: AsyncClient, factory: Factory, obj_factory: TestObjectFactory
 ) -> None:
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
-    size_manager = SizeManager(config.lab.sizes)
+    size_manager = factory.create_size_manager()
 
     # At the start, we shouldn't have any lab.
     r = await client.get(
