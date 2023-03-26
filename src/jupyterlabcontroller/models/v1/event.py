@@ -2,7 +2,7 @@
 
 from enum import auto
 
-from safir.pydantic import CamelCaseModel
+from pydantic import BaseModel
 from sse_starlette import ServerSentEvent
 
 from ..enums import NubladoEnum
@@ -18,7 +18,7 @@ class EventTypes(NubladoEnum):
     PROGRESS = auto()
 
 
-class Event(CamelCaseModel):
+class Event(BaseModel):
     data: str
     event: EventTypes
     sent: bool = False

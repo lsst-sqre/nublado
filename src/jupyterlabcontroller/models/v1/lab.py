@@ -6,7 +6,6 @@ from typing import Any, Optional, Self
 
 from kubernetes_asyncio.client.models import V1Pod
 from pydantic import BaseModel, Field, root_validator, validator
-from safir.pydantic import CamelCaseModel
 
 from ...constants import (
     DROPDOWN_SENTINEL_VALUE,
@@ -218,7 +217,7 @@ class LabSpecification(BaseModel):
 """GET /nublado/spawner/v1/user-status"""
 
 
-class UserGroup(CamelCaseModel):
+class UserGroup(BaseModel):
     name: str = Field(
         ...,
         example="ferrymen",
@@ -297,7 +296,7 @@ class UserInfo(BaseModel):
     quota: Optional[UserQuota] = Field(None, title="User's quotas")
 
 
-class UserResources(CamelCaseModel):
+class UserResources(BaseModel):
     limits: UserResourceQuantum = Field(..., title="Maximum allowed resources")
     requests: UserResourceQuantum = Field(
         ..., title="Intially-requested resources"
