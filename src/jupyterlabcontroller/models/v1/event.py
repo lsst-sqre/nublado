@@ -1,21 +1,21 @@
 """Event model for jupyterlab-controller."""
 
-from enum import auto
+from enum import Enum
 
 from pydantic import BaseModel
 from sse_starlette import ServerSentEvent
 
-from ..enums import NubladoEnum
-
 """GET /nublado/spawner/v1/labs/username/events"""
 
 
-class EventTypes(NubladoEnum):
-    COMPLETE = auto()
-    ERROR = auto()
-    FAILED = auto()
-    INFO = auto()
-    PROGRESS = auto()
+class EventTypes(Enum):
+    """Type of message."""
+
+    COMPLETE = "complete"
+    ERROR = "error"
+    FAILED = "failed"
+    INFO = "info"
+    PROGRESS = "progress"
 
 
 class Event(BaseModel):

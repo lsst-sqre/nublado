@@ -30,7 +30,7 @@ from kubernetes_asyncio.client.models import (
 )
 from structlog.stdlib import BoundLogger
 
-from ..config import LabConfiguration, LabVolume
+from ..config import FileMode, LabConfiguration, LabVolume
 from ..exceptions import LabExistsError, NoUserMapError
 from ..models.domain.docker import DockerReference
 from ..models.domain.lab import LabVolumeContainer
@@ -502,7 +502,7 @@ class LabManager:
         vols = []
         for storage in config:
             ro = False
-            if storage.mode == "ro":
+            if storage.mode == FileMode.RO:
                 ro = True
             vname = storage.container_path.replace("/", "_")[1:]
             if not storage.server:

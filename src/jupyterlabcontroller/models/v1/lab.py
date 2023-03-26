@@ -1,7 +1,7 @@
 """Models for jupyterlab-controller."""
 
 from collections import deque
-from enum import Enum, auto
+from enum import Enum
 from typing import Any, Optional, Self
 
 from kubernetes_asyncio.client.models import V1Pod
@@ -13,33 +13,38 @@ from ...constants import (
     USERNAME_REGEX,
 )
 from ...util import str_to_bool
-from ..enums import NubladoEnum
 from .event import Event
 
 
-class LabSize(NubladoEnum):
+class LabSize(str, Enum):
+    """Allowable names for pod sizes."""
+
     # https://www.d20srd.org/srd/combat/movementPositionAndDistance.htm#bigandLittleCreaturesInCombat
-    FINE = auto()
-    DIMINUTIVE = auto()
-    TINY = auto()
-    SMALL = auto()
-    MEDIUM = auto()
-    LARGE = auto()
-    HUGE = auto()
-    GARGANTUAN = auto()
-    COLOSSAL = auto()
+    FINE = "fine"
+    DIMINUTIVE = "diminutive"
+    TINY = "tiny"
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+    HUGE = "huge"
+    GARGANTUAN = "gargantuan"
+    COLOSSAL = "colossal"
 
 
-class LabStatus(NubladoEnum):
-    PENDING = auto()
-    RUNNING = auto()
-    TERMINATING = auto()
-    FAILED = auto()
+class LabStatus(Enum):
+    """Possible states the user's lab may be in."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    TERMINATING = "terminating"
+    FAILED = "failed"
 
 
-class PodState(NubladoEnum):
-    PRESENT = auto()
-    MISSING = auto()
+class PodState(Enum):
+    """Possible states the user's pod may be in."""
+
+    PRESENT = "present"
+    MISSING = "missing"
 
 
 """POST /nublado/spawner/v1/labs/<username>/create"""

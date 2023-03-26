@@ -85,7 +85,7 @@ async def test_lab_start_stop(
             "options": {
                 "image_list": [DROPDOWN_SENTINEL_VALUE],
                 "image_dropdown": [lab.options.image_list],
-                "size": [lab.options.size],
+                "size": [lab.options.size.value],
             },
             "env": lab.env,
         },

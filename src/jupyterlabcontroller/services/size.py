@@ -24,7 +24,7 @@ class SizeManager:
         for injecting into the user spawner form"""
         return [
             FormSize(
-                name=x.title(),
+                name=x.value.title(),
                 cpu=str((self._sizes[x]).cpu),
                 memory=str((self._sizes[x]).memory),
             )

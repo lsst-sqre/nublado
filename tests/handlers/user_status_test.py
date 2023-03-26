@@ -35,7 +35,7 @@ async def test_user_status(
         json={
             "options": {
                 "image_list": [lab.options.image_list],
-                "size": [lab.options.size],
+                "size": [lab.options.size.value],
             },
             "env": lab.env,
         },

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from enum import auto
+from enum import Enum
 from pathlib import Path
 from typing import Self
 
@@ -13,7 +13,6 @@ from safir.logging import LogLevel, Profile
 from safir.pydantic import CamelCaseModel, to_camel_case
 
 from .constants import DOCKER_SECRETS_PATH
-from .models.enums import NubladoEnum
 from .models.v1.lab import LabSize
 from .models.v1.prepuller_config import PrepullerConfiguration
 
@@ -98,9 +97,11 @@ class LabSizeDefinition(CamelCaseModel):
     )
 
 
-class FileMode(NubladoEnum):
-    RW = auto()
-    RO = auto()
+class FileMode(Enum):
+    """Possible read/write modes with which a file may be mounted."""
+
+    RW = "rw"
+    RO = "ro"
 
 
 class LabVolume(CamelCaseModel):
@@ -129,11 +130,11 @@ class LabVolume(CamelCaseModel):
         regex="^/*",
     )
     mode: FileMode = Field(
-        FileMode("rw"),
+        FileMode.RW,
         name="mode",
-        example="rw",
-        title="File mode: 'rw' is read/write and 'ro' is read-only",
-        regex="^r[ow]$",
+        example="ro",
+        title="File permissions when mounted",
+        description="`rw` is read/write and `ro` is read-only",
     )
 
 

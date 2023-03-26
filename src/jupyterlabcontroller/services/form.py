@@ -35,7 +35,7 @@ class FormManager:
         sz = self._lab_sizes
         szlist = [
             FormSize(
-                name=x.title(),
+                name=x.value.title(),
                 cpu=str((sz[x]).cpu),
                 memory=str((sz[x]).memory),
             )
