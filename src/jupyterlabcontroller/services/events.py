@@ -1,86 +1,136 @@
+"""Record and return spawner events."""
+
+from __future__ import annotations
+
 import asyncio
-from asyncio import Queue, QueueEmpty
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncIterator
 
-from sse_starlette import EventSourceResponse
-from structlog.stdlib import BoundLogger
+from sse_starlette import ServerSentEvent
 
-from ..models.v1.event import Event, EventTypes
-
-
-class EventGenerator:
-    """This is the queue of events for a single user.  It is the thing
-    that will publish the ServerSentEvents used by the Hub for progress
-    reporting.  cf https://github.com/sysid/sse-starlette/issues/42
-    """
-
-    def __init__(self, username: str, logger: BoundLogger) -> None:
-        self.username = username
-        self.logger = logger
-        self.queue: Queue[Event] = Queue()
-
-    def __aiter__(self) -> "EventGenerator":
-        return self
-
-    async def __anext__(self) -> Event:
-        return await self.queue.get()
-
-    async def asend(self, ev: Event) -> None:
-        await self.queue.put(ev)
-
-    async def message_generator(self) -> AsyncGenerator:
-        try:
-            while True:
-                try:
-                    ev = self.queue.get_nowait()
-                except QueueEmpty:
-                    # We're out of events...so poll until a new one arrives?
-                    #
-                    # FIXME really use a semaphore?  Don't have a good mental
-                    # model here.
-                    await asyncio.sleep(1.0)
-                    continue
-                if ev.sent:
-                    continue
-                sse = ev.toSSE()
-                ev.sent = True
-                yield sse
-                if ev.event in (EventTypes.COMPLETE, EventTypes.FAILED):
-                    return  # Close the stream.
-        except asyncio.CancelledError as exc:
-            self.logger.info(
-                f"User event stream disconnected for {self.username}: {exc}"
-            )
-            # Clean up?
+from ..exceptions import UnknownUserError
+from ..models.v1.event import Event, EventType
 
 
 class EventManager:
-    """Event mapper for jupyterlab-controller.  Maps usernames to
-    event streams.  This will be initialized as a per-process global,
-    although the underlying EventMap will eventually be persisted
-    to Redis."""
+    """Manage lab spawn event queues for users.
 
-    def __init__(self, logger: BoundLogger) -> None:
-        self.logger = logger
-        self._dict: dict[str, EventGenerator] = {}
+    This is managed as a per-process global. Eventually, it will use Redis
+    queues instead.
+    """
 
-    def get(self, key: str) -> EventGenerator:
-        if key not in self._dict:
-            self._dict[key] = EventGenerator(username=key, logger=self.logger)
-        return self._dict[key]
+    def __init__(self) -> None:
+        # Mapping of usernames to spawn events for that user.
+        self._events: dict[str, list[Event]] = {}
 
-    def set(self, key: str, item: EventGenerator) -> None:
-        self._dict[key] = item
+        # Triggers per user that we use to notify any listeners of new events.
+        self._triggers: dict[str, list[asyncio.Event]] = {}
 
-    def remove(self, key: str) -> None:
-        try:
-            del self._dict[key]
-        except KeyError:
-            pass
+    def events_for_user(self, username: str) -> AsyncIterator[ServerSentEvent]:
+        """Iterator over the events for a user.
 
-    def publish(
-        self,
-        username: str,
-    ) -> EventSourceResponse:
-        user_events = self.get(username)
-        return EventSourceResponse(user_events.message_generator())
+        Each iterator gets its own `asyncio.Event` to notify it when more
+        events have been added.
+
+        Parameters
+        ----------
+        username
+            Username for which to retrieve events.
+
+        Yields
+        ------
+        Event
+            Events for that user until a completion or failure event is seen.
+        """
+        if username not in self._events:
+            raise UnknownUserError(f"Unknown user {username}")
+
+        events = self._events[username]
+        trigger = asyncio.Event()
+        if events:
+            trigger.set()
+        self._triggers[username].append(trigger)
+
+        async def iterator() -> AsyncIterator[ServerSentEvent]:
+            position = 0
+            try:
+                while True:
+                    trigger.clear()
+                    event_len = len(events)
+                    for event in events[position:event_len]:
+                        yield event.to_sse()
+                        if event.done:
+                            return
+                    position = event_len
+                    await trigger.wait()
+            finally:
+                self._remove_trigger(username, trigger)
+
+        return iterator()
+
+    def publish_event(self, username: str, event: Event) -> None:
+        """Publish an event for the given user.
+
+        Parameters
+        ----------
+        username
+            Username the event is for.
+        event
+            Event to publish.
+        """
+        if username in self._events:
+            self._events[username].append(event)
+            for trigger in self._triggers[username]:
+                trigger.set()
+        else:
+            self._events[username] = [event]
+            self._triggers[username] = []
+
+    def reset_user(self, username: str) -> None:
+        """Reset the event queue for a user.
+
+        Called when we delete the user's lab or otherwise reset the user's
+        state such that old events are no longer of interest.
+
+        Parameters
+        ----------
+        username
+            Username to reset.
+        """
+        if username not in self._events:
+            return
+
+        # Detach the list of events from our data so that no more can be
+        # added. If the final event in the list of events is not a completion
+        # event, add a synthetic completion event. Then notify any listeners.
+        # This ensures all the listeners will complete.
+        events = self._events[username]
+        del self._events[username]
+        if not events or not events[-1].done:
+            event = Event(data="Operation aborted", type=EventType.FAILED)
+            events.append(event)
+        triggers = self._triggers[username]
+        del self._triggers[username]
+        for trigger in triggers:
+            trigger.set()
+
+    def _remove_trigger(self, username: str, trigger: asyncio.Event) -> None:
+        """Called when a generator is complete.
+
+        Does some housekeeping by removing the `asyncio.Event` for that
+        generator. Strictly speaking, this probably isn't necessary; we will
+        release all of the events when the user is reset, and there shouldn't
+        be enough requests for the user's events before that happens for the
+        memory leak to matter. But do this the right way anyway.
+
+        Parameters
+        ----------
+        username
+            User whose generator has completed.
+        trigger
+            Corresponding trigger to remove.
+        """
+        if username not in self._triggers:
+            return
+        self._triggers[username] = [
+            t for t in self._triggers[username] if t != trigger
+        ]

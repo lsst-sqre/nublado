@@ -180,11 +180,14 @@ async def test_lab_start_stop(
     assert r.json() == []
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 404
+
+    # Events should be for lab deletion and should return immediately.
     r = await client.get(
         f"/nublado/spawner/v1/labs/{user.username}/events",
         headers={"X-Auth-Request-User": user.username},
     )
-    assert r.status_code == 404
+    assert r.status_code == 200
+    assert "Deleting user lab and resources" in r.text
 
 
 @pytest.mark.asyncio
@@ -212,8 +215,14 @@ async def test_delayed_spawn(
     assert r.status_code == 200
     assert r.json()["status"] == "pending"
 
-    # Start an event listener to collect pod spawn events.
-    listener = asyncio.create_task(get_lab_events(client, user.username))
+    # Start event listeners to collect pod spawn events. We should be able to
+    # listen for events for the same pod any number of times, and all of the
+    # listeners should see the same events.
+    listeners = [
+        asyncio.create_task(get_lab_events(client, user.username)),
+        asyncio.create_task(get_lab_events(client, user.username)),
+        asyncio.create_task(get_lab_events(client, user.username)),
+    ]
 
     # Add a few events.
     namespace = f"userlabs-{user.username}"
@@ -248,9 +257,9 @@ async def test_delayed_spawn(
     )
     mock_kubernetes.add_event_for_test(namespace, event)
 
-    # The listener should now complete successfully and we should see
+    # The listeners should now complete successfully and we should see
     # appropriate events.
-    events = await listener
+    event_lists = await asyncio.gather(*listeners)
     with (std_result_dir / "pod-events.json").open("r") as f:
         expected_events = json.load(f)
     expected_events = (
@@ -274,12 +283,18 @@ async def test_delayed_spawn(
         ]
         + expected_events[-1:]
     )
-    assert events == expected_events
+    for event_list in event_lists:
+        assert event_list == expected_events
 
     # And the pod should now be running.
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
     assert r.json()["status"] == "running"
+
+    # Retrieving events repeatedly should just keep returning the same event
+    # list and immediately complete.
+    events = await get_lab_events(client, user.username)
+    assert events == expected_events
 
 
 @pytest.mark.asyncio

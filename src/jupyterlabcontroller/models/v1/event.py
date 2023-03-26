@@ -2,13 +2,13 @@
 
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sse_starlette import ServerSentEvent
 
-"""GET /nublado/spawner/v1/labs/username/events"""
+# GET /nublado/spawner/v1/labs/username/events
 
 
-class EventTypes(Enum):
+class EventType(Enum):
     """Type of message."""
 
     COMPLETE = "complete"
@@ -19,10 +19,22 @@ class EventTypes(Enum):
 
 
 class Event(BaseModel):
-    data: str
-    event: EventTypes
-    sent: bool = False
+    """One spawn event for a user."""
 
-    def toSSE(self) -> ServerSentEvent:
-        """The ServerSentEvent is the thing actually emitted to the client."""
-        return ServerSentEvent(data=self.data, event=self.event.value)
+    type: EventType = Field(..., title="Type of the event")
+    data: str = Field(..., title="Content of the event")
+
+    @property
+    def done(self) -> bool:
+        """Whether this event indicates the event stream should stop."""
+        return self.type in (EventType.COMPLETE, EventType.FAILED)
+
+    def to_sse(self) -> ServerSentEvent:
+        """Convert to event suitable for sending to the client.
+
+        Returns
+        -------
+        ServerSentEvent
+            Converted form of the event.
+        """
+        return ServerSentEvent(data=self.data, event=self.type.value)
