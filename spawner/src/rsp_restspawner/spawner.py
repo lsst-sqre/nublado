@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
+from functools import wraps
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TypeVar, cast
 
 from httpx import AsyncClient, HTTPError
 from httpx_sse import ServerSentEvent, aconnect_sse
@@ -21,6 +22,8 @@ from .exceptions import (
     MissingFieldError,
     SpawnFailedError,
 )
+
+F = TypeVar("F", bound=Callable[..., Awaitable[Any]])
 
 __all__ = [
     "LabStatus",
@@ -99,6 +102,19 @@ class SpawnEvent:
             "progress": self.progress,
             "message": f"[{self.severity}] {self.message}",
         }
+
+
+def _convert_exception(f: F) -> F:
+    """Convert ``httpx`` exceptions to `ControllerWebError`."""
+
+    @wraps(f)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return await f(*args, **kwargs)
+        except HTTPError as e:
+            raise ControllerWebError.from_exception(e) from e
+
+    return cast(F, wrapper)
 
 
 class RSPRestSpawner(Spawner):
@@ -212,6 +228,7 @@ class RSPRestSpawner(Spawner):
         self._start_future = asyncio.create_task(self._start())
         return self._start_future
 
+    @_convert_exception
     async def _start(self) -> str:
         """Spawn the user's lab.
 
@@ -226,7 +243,7 @@ class RSPRestSpawner(Spawner):
 
         Raises
         ------
-        httpx.HTTPError
+        ControllerWebError
             Raised on failure to talk to the lab controller or a failure
             response from the lab controller.
         InvalidAuthStateError
@@ -310,11 +327,9 @@ class RSPRestSpawner(Spawner):
                     severity="error",
                 )
                 self._events.append(event)
-            if isinstance(e, HTTPError):
-                raise ControllerWebError.from_exception(e) from e
-            else:
-                raise
+            raise
 
+    @_convert_exception
     async def stop(self) -> None:
         """Delete any running pod for the user.
 
@@ -322,24 +337,22 @@ class RSPRestSpawner(Spawner):
 
         Raises
         ------
-        httpx.HTTPError
+        ControllerWebError
             Raised on failure to talk to the lab controller or a failure
             response from the lab controller.
         """
-        try:
-            r = await self._client.delete(
-                self._controller_url("labs", self.user.name),
-                timeout=300.0,
-                headers=self._admin_authorization(),
-            )
-            if r.status_code == 404:
-                # Nothing to delete, treat that as success.
-                return
-            else:
-                r.raise_for_status()
-        except HTTPError as e:
-            raise ControllerWebError.from_exception(e) from e
+        r = await self._client.delete(
+            self._controller_url("labs", self.user.name),
+            timeout=300.0,
+            headers=self._admin_authorization(),
+        )
+        if r.status_code == 404:
+            # Nothing to delete, treat that as success.
+            return
+        else:
+            r.raise_for_status()
 
+    @_convert_exception
     async def poll(self) -> Optional[int]:
         """Check if the pod is running.
 
@@ -349,6 +362,12 @@ class RSPRestSpawner(Spawner):
             If the pod is starting, running, or terminating, return `None`.
             If the pod does not exist, return 0. If the pod exists in a failed
             state, return 1.
+
+        Raises
+        ------
+        ControllerWebError
+            Raised on failure to talk to the lab controller or a failure
+            response from the lab controller.
 
         Notes
         -----
@@ -360,24 +379,18 @@ class RSPRestSpawner(Spawner):
         distinguish between a pod that was shut down without error and a pod
         that was stopped, so use an exit status of 0 in both cases.
         """
-        try:
-            r = await self._client.get(
-                self._controller_url("labs", self.user.name),
-                headers=self._admin_authorization(),
-            )
-            if r.status_code == 404:
-                return 0
-            else:
-                r.raise_for_status()
-            result = r.json()
-        except HTTPError as e:
-            raise ControllerWebError.from_exception(e) from e
-
-        if result["status"] == LabStatus.FAILED:
-            return 1
+        r = await self._client.get(
+            self._controller_url("labs", self.user.name),
+            headers=self._admin_authorization(),
+        )
+        if r.status_code == 404:
+            return 0
         else:
-            return None
+            r.raise_for_status()
+        result = r.json()
+        return 1 if result["status"] == LabStatus.FAILED else None
 
+    @_convert_exception
     async def options_form(self, spawner: Spawner) -> str:
         """Retrieve the options form for this user from the lab controller.
 
@@ -389,7 +402,7 @@ class RSPRestSpawner(Spawner):
 
         Raises
         ------
-        httpx.HTTPError
+        ControllerWebError
             Raised on failure to talk to the lab controller or a failure
             response from the lab controller.
         InvalidAuthStateError
@@ -397,15 +410,12 @@ class RSPRestSpawner(Spawner):
             authentication state. This should always be provided by
             `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
         """
-        try:
-            r = await self._client.get(
-                self._controller_url("lab-form", self.user.name),
-                headers=await self._user_authorization(),
-            )
-            r.raise_for_status()
-            return r.text
-        except HTTPError as e:
-            raise ControllerWebError.from_exception(e) from e
+        r = await self._client.get(
+            self._controller_url("lab-form", self.user.name),
+            headers=await self._user_authorization(),
+        )
+        r.raise_for_status()
+        return r.text
 
     async def progress(self) -> AsyncIterator[dict[str, int | str]]:
         """Monitor the progress of a spawn.
