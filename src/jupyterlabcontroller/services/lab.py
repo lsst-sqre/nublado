@@ -30,7 +30,7 @@ from kubernetes_asyncio.client.models import (
 )
 from structlog.stdlib import BoundLogger
 
-from ..config import FileMode, LabConfiguration, LabVolume
+from ..config import FileMode, LabConfig, LabVolume
 from ..exceptions import LabExistsError, NoUserMapError
 from ..models.domain.docker import DockerReference
 from ..models.domain.lab import LabVolumeContainer
@@ -66,7 +66,7 @@ class LabManager:
         size_manager: SizeManager,
         image_service: ImageService,
         logger: BoundLogger,
-        lab_config: LabConfiguration,
+        lab_config: LabConfig,
         k8s_client: K8sStorageClient,
     ) -> None:
         self.manager_namespace = manager_namespace

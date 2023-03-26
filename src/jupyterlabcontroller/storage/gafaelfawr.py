@@ -3,7 +3,7 @@
 from httpx import AsyncClient
 from structlog.stdlib import BoundLogger
 
-from ..config import Configuration
+from ..config import Config
 from ..exceptions import GafaelfawrError, InvalidUserError
 from ..models.v1.lab import UserInfo
 
@@ -23,7 +23,7 @@ class GafaelfawrStorageClient:
 
     def __init__(
         self,
-        config: Configuration,
+        config: Config,
         http_client: AsyncClient,
         logger: BoundLogger,
     ) -> None:

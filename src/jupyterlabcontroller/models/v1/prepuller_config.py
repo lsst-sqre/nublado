@@ -1,4 +1,4 @@
-"""This is its own file because it's part of the domain Configuration object,
+"""This is its own file because it's part of the domain Config object,
 and we need to avoid circular imports."""
 
 from typing import Any, Optional
@@ -56,7 +56,7 @@ class GARDefinition(CamelCaseModel):
     )
 
 
-class PrepullerConfiguration(CamelCaseModel):
+class PrepullerConfig(CamelCaseModel):
     """See https://sqr-059.lsst.io for how this is used."""
 
     docker: Optional[DockerDefinition] = None
@@ -137,7 +137,7 @@ class PrepullerConfiguration(CamelCaseModel):
             return self.docker.registry
         else:
             # This is impossible due to validation, but mypy doesn't know that.
-            raise RuntimeError("PrepullerConfiguration with no docker or gar")
+            raise RuntimeError("PrepullerConfig with no docker or gar")
 
     @property
     def repository(self) -> str:
@@ -151,4 +151,4 @@ class PrepullerConfiguration(CamelCaseModel):
             return self.docker.repository
         else:
             # This is impossible due to validation, but mypy doesn't know that.
-            raise RuntimeError("PrepullerConfiguration with no docker or gar")
+            raise RuntimeError("PrepullerConfig with no docker or gar")

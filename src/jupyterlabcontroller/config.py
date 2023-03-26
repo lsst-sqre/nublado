@@ -14,7 +14,7 @@ from safir.pydantic import CamelCaseModel, to_camel_case
 
 from .constants import DOCKER_SECRETS_PATH
 from .models.v1.lab import LabSize
-from .models.v1.prepuller_config import PrepullerConfiguration
+from .models.v1.prepuller_config import PrepullerConfig
 
 
 def _get_namespace_prefix() -> str:
@@ -44,8 +44,8 @@ def _get_namespace_prefix() -> str:
 #
 
 
-class SafirConfiguration(CamelCaseModel):
-    """Configuration common to most Safir-based applications."""
+class SafirConfig(CamelCaseModel):
+    """Config common to most Safir-based applications."""
 
     name: str = Field(
         "nublado",
@@ -207,7 +207,7 @@ class LabFile(CamelCaseModel):
     )
 
 
-class LabConfiguration(CamelCaseModel):
+class LabConfig(CamelCaseModel):
     sizes: dict[LabSize, LabSizeDefinition] = {}
     env: dict[str, str] = {}
     secrets: list[LabSecret] = []
@@ -228,14 +228,14 @@ class LabConfiguration(CamelCaseModel):
 
 
 #
-# Configuration
+# Config
 #
 
 
-class Configuration(BaseSettings):
-    safir: SafirConfiguration
-    lab: LabConfiguration
-    images: PrepullerConfiguration
+class Config(BaseSettings):
+    safir: SafirConfig
+    lab: LabConfig
+    images: PrepullerConfig
 
     base_url: str = Field(
         "http://127.0.0.1:8080",

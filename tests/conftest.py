@@ -12,7 +12,7 @@ from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-from jupyterlabcontroller.config import Configuration
+from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.dependencies.config import configuration_dependency
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.main import create_app
@@ -42,7 +42,7 @@ def obj_factory(std_config_dir: Path) -> TestObjectFactory:
 
 
 @pytest.fixture(scope="session")
-def config(std_config_dir: Path) -> Configuration:
+def config(std_config_dir: Path) -> Config:
     """Construct configuration for tests.
 
     Overwrites the path to Docker secrets in the global configuration object
@@ -56,7 +56,7 @@ def config(std_config_dir: Path) -> Configuration:
 
 @pytest_asyncio.fixture
 async def app(
-    config: Configuration,
+    config: Config,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockLabKubernetesApi,
     mock_gafaelfawr: MockGafaelfawr,
@@ -86,7 +86,7 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
 
 @pytest_asyncio.fixture
 async def factory(
-    config: Configuration,
+    config: Config,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockLabKubernetesApi,
     obj_factory: TestObjectFactory,
@@ -103,7 +103,7 @@ async def factory(
 
 @pytest.fixture
 def mock_docker(
-    config: Configuration,
+    config: Config,
     respx_mock: respx.Router,
     obj_factory: TestObjectFactory,
 ) -> MockDockerRegistry:
@@ -119,7 +119,7 @@ def mock_docker(
 
 @pytest.fixture
 def mock_gafaelfawr(
-    config: Configuration,
+    config: Config,
     respx_mock: respx.Router,
     obj_factory: TestObjectFactory,
 ) -> MockGafaelfawr:

@@ -1,7 +1,7 @@
 """
 ContextDependency is an all-in-one dependency, because managing
 individual dependencies turned out to be a real pain.  It's designed to
-capture the context of any request.  It requires that a Configuration has been
+capture the context of any request.  It requires that a Config has been
 loaded before it can be instantiated.
 """
 
@@ -13,7 +13,7 @@ from fastapi import Depends, Request
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
-from ..config import Configuration
+from ..config import Config
 from ..factory import Factory, ProcessContext
 from ..models.domain.usermap import UserMap
 from ..services.events import EventManager
@@ -90,7 +90,7 @@ class ContextDependency:
             event_manager=self._process_context.event_manager,
         )
 
-    async def initialize(self, config: Configuration) -> None:
+    async def initialize(self, config: Config) -> None:
         """Initialize the process-global shared context.
 
         If the process context was overriden by `override_process_context`,
@@ -100,7 +100,7 @@ class ContextDependency:
         Parameters
         ----------
         config
-            Configuration for the lab controller.
+            Config for the lab controller.
         """
         if self._process_context:
             await self._process_context.stop()

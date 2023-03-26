@@ -6,7 +6,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from .prepuller_config import PrepullerConfiguration
+from .prepuller_config import PrepullerConfig
 
 
 class Image(BaseModel):
@@ -98,9 +98,7 @@ class Node(BaseModel):
 
 
 class PrepullerStatus(BaseModel):
-    config: PrepullerConfiguration = Field(
-        ..., title="Prepuller configuration"
-    )
+    config: PrepullerConfig = Field(..., title="Prepuller configuration")
     images: PrepullerImageStatus = Field(
         ..., title="Prepuller status by image"
     )

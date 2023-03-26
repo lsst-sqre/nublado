@@ -5,13 +5,11 @@ from __future__ import annotations
 import pytest
 from httpx import AsyncClient
 
-from jupyterlabcontroller.config import Configuration
+from jupyterlabcontroller.config import Config
 
 
 @pytest.mark.asyncio
-async def test_get_external_index(
-    client: AsyncClient, config: Configuration
-) -> None:
+async def test_get_external_index(client: AsyncClient, config: Config) -> None:
     response = await client.get("/nublado")
     assert response.status_code == 200
     data = response.json()
@@ -23,9 +21,7 @@ async def test_get_external_index(
 
 
 @pytest.mark.asyncio
-async def test_get_internal_index(
-    client: AsyncClient, config: Configuration
-) -> None:
+async def test_get_internal_index(client: AsyncClient, config: Config) -> None:
     response = await client.get("/")
     assert response.status_code == 200
     data = response.json()
