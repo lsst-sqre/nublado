@@ -2,7 +2,7 @@
 
 from collections import deque
 from enum import Enum, auto
-from typing import Any, Deque, Dict, Optional
+from typing import Any, Optional, Self
 
 from kubernetes_asyncio.client.models import V1Pod
 from pydantic import BaseModel, Field, root_validator, validator
@@ -326,8 +326,8 @@ class UserData(UserInfo, LabSpecification):
         title="URL by which the Hub can access the user Pod",
     )
     resources: UserResources = Field(..., title="Resource requests and limits")
-    events: Deque[Event] = Field(
-        deque(),
+    events: deque[Event] = Field(
+        default_factory=deque,
         title="Ordered queue of events for user lab creation/deletion",
     )
 
@@ -337,7 +337,7 @@ class UserData(UserInfo, LabSpecification):
         user: UserInfo,
         labspec: LabSpecification,
         resources: UserResources,
-    ) -> "UserData":
+    ) -> Self:
         return cls(
             options=labspec.options,
             env=labspec.env,
@@ -356,8 +356,8 @@ class UserData(UserInfo, LabSpecification):
         resources: UserResources,
         status: LabStatus,
         pod: PodState,
-    ) -> "UserData":
-        ud = UserData.new_from_user_resources(
+    ) -> Self:
+        ud = cls.new_from_user_resources(
             user=user,
             labspec=labspec,
             resources=resources,
@@ -367,7 +367,7 @@ class UserData(UserInfo, LabSpecification):
         return ud
 
     @classmethod
-    def from_pod(cls, pod: V1Pod) -> "UserData":
+    def from_pod(cls, pod: V1Pod) -> Self:
         # We will extract everything from the discovered pod that we need
         # to build a UserData entry.  Size and namespace quota may be
         # incorrect, and group name information and user display name will
@@ -386,7 +386,7 @@ class UserData(UserInfo, LabSpecification):
             lab_ctr = pod.spec.containers[0]
             # So this will likely crash in extraction
         lab_env_l = lab_ctr.env
-        lab_env: Dict[str, str] = dict()
+        lab_env = {}
         for ev in lab_env_l:
             lab_env[ev.name] = ev.value or ""  # We will miss reflected vals
         uid = lab_ctr.security_context.run_as_user
@@ -427,7 +427,7 @@ class UserData(UserInfo, LabSpecification):
             limits=UserResourceQuantum(memory=mem_limit, cpu=cpu_limit),
             requests=UserResourceQuantum(memory=mem_request, cpu=cpu_request),
         )
-        ud = UserData.new_from_user_resources(
+        ud = cls.new_from_user_resources(
             user=user_info,
             labspec=lab_spec,
             resources=resources,

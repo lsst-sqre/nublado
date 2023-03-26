@@ -1,11 +1,9 @@
 """Image size service.  It takes the set of lab sizes from the config
 in its constructor."""
 
-from typing import List
-
 import bitmath
 
-from ..config import LabSizeDefinitions
+from ..config import LabSizeDefinition
 from ..constants import LIMIT_TO_REQUEST_RATIO
 from ..models.domain.form import FormSize
 from ..models.v1.lab import LabSize, UserResourceQuantum, UserResources
@@ -18,10 +16,10 @@ def memory_string_to_int(memstr: str) -> int:
 
 
 class SizeManager:
-    def __init__(self, sizes: LabSizeDefinitions) -> None:
+    def __init__(self, sizes: dict[LabSize, LabSizeDefinition]) -> None:
         self._sizes = sizes
 
-    def formdata(self) -> List[FormSize]:
+    def formdata(self) -> list[FormSize]:
         """Return the text representation of our sizes in a format suitable
         for injecting into the user spawner form"""
         return [

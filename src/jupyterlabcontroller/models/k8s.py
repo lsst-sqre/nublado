@@ -1,13 +1,12 @@
 from dataclasses import dataclass
 from enum import auto
-from typing import Dict
 
 from .enums import NubladoEnum, NubladoTitleEnum
 
 
 @dataclass
 class Secret:
-    data: Dict[str, str]
+    data: dict[str, str]
     secret_type: str = "Opaque"
 
 

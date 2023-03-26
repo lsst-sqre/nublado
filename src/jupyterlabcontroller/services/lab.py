@@ -2,7 +2,7 @@ import re
 from asyncio import Task, create_task
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Optional
 
 from kubernetes_asyncio.client.models import (
     V1ConfigMapEnvSource,
@@ -78,7 +78,7 @@ class LabManager:
         self.logger = logger
         self.lab_config = lab_config
         self.k8s_client = k8s_client
-        self._tasks: Set[Task] = set()
+        self._tasks: set[Task] = set()
 
     def namespace_from_user(self, user: UserInfo) -> str:
         """Exposed because the unit tests use it."""
@@ -328,7 +328,7 @@ class LabManager:
             data=data,
         )
 
-    def build_nss(self, user: UserInfo) -> Dict[str, str]:
+    def build_nss(self, user: UserInfo) -> dict[str, str]:
         username = user.username
         pwfile = deepcopy(self.lab_config.files["/etc/passwd"])
         gpfile = deepcopy(self.lab_config.files["/etc/group"])
@@ -344,7 +344,7 @@ class LabManager:
             if grp.id != user.gid:
                 gpfile.contents += user.username
             gpfile.contents += "\n"
-        data: Dict[str, str] = {
+        data = {
             "/etc/passwd": pwfile.contents,
             "/etc/group": gpfile.contents,
         }
@@ -359,9 +359,9 @@ class LabManager:
             data=data,
         )
 
-    def build_file_configmap(self) -> Dict[str, str]:
+    def build_file_configmap(self) -> dict[str, str]:
         files = self.lab_config.files
-        data: Dict[str, str] = dict()
+        data = {}
         for file in files:
             if not files[file].modify:
                 data[file] = files[file].contents
@@ -395,7 +395,7 @@ class LabManager:
         lab: LabSpecification,
         image: RSPImage,
         token: str,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         # Get the static env vars from the lab config
         data = deepcopy(self.lab_config.env)
         # Get the stuff from the options form
@@ -493,13 +493,13 @@ class LabManager:
         )
 
     def build_lab_config_volumes(
-        self, config: List[LabVolume]
-    ) -> List[LabVolumeContainer]:
+        self, config: list[LabVolume]
+    ) -> list[LabVolumeContainer]:
         #
         # Step one: disks specified in config, whether for the lab itself
         # or one of its init containers.
         #
-        vols: List[LabVolumeContainer] = []
+        vols = []
         for storage in config:
             ro = False
             if storage.mode == "ro":
@@ -527,11 +527,11 @@ class LabManager:
             vols.append(LabVolumeContainer(volume=vol, volume_mount=vm))
         return vols
 
-    def build_cm_volumes(self, username: str) -> List[LabVolumeContainer]:
+    def build_cm_volumes(self, username: str) -> list[LabVolumeContainer]:
         #
         # Step three: other configmap files
         #
-        vols: List[LabVolumeContainer] = []
+        vols = []
         for cfile in self.lab_config.files:
             dscfile = deslashify(cfile)
             cmname = f"nb-{username}-configmap"
@@ -639,7 +639,7 @@ class LabManager:
             "limits.memory",
             "requests.memory",
         ]
-        volfiles: List[V1DownwardAPIVolumeFile] = list()
+        volfiles = []
         volfiles.extend(
             [
                 V1DownwardAPIVolumeFile(
@@ -665,12 +665,12 @@ class LabManager:
         )
         return runtime_vol
 
-    def build_volumes(self, username: str) -> List[LabVolumeContainer]:
+    def build_volumes(self, username: str) -> list[LabVolumeContainer]:
         """This stitches together the Volume and VolumeMount definitions
         from each of our sources.
         """
         # Begin with the /tmp empty_dir
-        vols: List[LabVolumeContainer] = []
+        vols = []
         lab_config_vols = self.build_lab_config_volumes(
             self.lab_config.volumes
         )
@@ -689,9 +689,9 @@ class LabManager:
 
     def build_init_ctrs(
         self, username: str, resources: UserResources
-    ) -> List[V1Container]:
-        init_ctrs: List[V1Container] = []
-        ic_volumes: List[LabVolumeContainer] = []
+    ) -> list[V1Container]:
+        init_ctrs = []
+        ic_volumes = []
         for ic in self.lab_config.init_containers:
             if ic.volumes is not None:
                 ic_volumes = self.build_lab_config_volumes(ic.volumes)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from enum import auto
 from pathlib import Path
-from typing import Dict, List, Self, TypeAlias
+from typing import Self
 
 import yaml
 from pydantic import BaseSettings, Field
@@ -98,9 +98,6 @@ class LabSizeDefinition(CamelCaseModel):
     )
 
 
-LabSizeDefinitions: TypeAlias = Dict[LabSize, LabSizeDefinition]
-
-
 class FileMode(NubladoEnum):
     RW = auto()
     RO = auto()
@@ -163,8 +160,8 @@ class LabInitContainer(CamelCaseModel):
             "provision filesystems"
         ),
     )
-    volumes: List[LabVolume] = Field(
-        list(),
+    volumes: list[LabVolume] = Field(
+        [],
         name="volumes",
         title="Volumes mounted by this initContainer",
     )
@@ -210,12 +207,12 @@ class LabFile(CamelCaseModel):
 
 
 class LabConfiguration(CamelCaseModel):
-    sizes: LabSizeDefinitions
-    env: Dict[str, str] = {}
-    secrets: List[LabSecret] = []
-    files: Dict[str, LabFile] = {}
-    volumes: List[LabVolume] = []
-    init_containers: List[LabInitContainer] = []
+    sizes: dict[LabSize, LabSizeDefinition] = {}
+    env: dict[str, str] = {}
+    secrets: list[LabSecret] = []
+    files: dict[str, LabFile] = {}
+    volumes: list[LabVolume] = []
+    init_containers: list[LabInitContainer] = []
     namespace_prefix: str = Field(
         default_factory=_get_namespace_prefix,
         title="Namespace prefix for lab environments",

@@ -1,7 +1,7 @@
 """This is its own file because it's part of the domain Configuration object,
 and we need to avoid circular imports."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import Field, root_validator
 from safir.pydantic import CamelCaseModel
@@ -110,15 +110,15 @@ class PrepullerConfiguration(CamelCaseModel):
             " we can resolve it to a proper display name."
         ),
     )
-    alias_tags: List[str] = Field(
-        default_factory=list,
+    alias_tags: list[str] = Field(
+        [],
         name="alias_tags",
         example=["recommended_cycle0027"],
         title="Additional alias tags for this instance.",
     )
 
     @root_validator
-    def registry_defined(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+    def registry_defined(cls, values: dict[str, Any]) -> dict[str, Any]:
         klist = list(values.keys())
         if (
             "gar" in klist
