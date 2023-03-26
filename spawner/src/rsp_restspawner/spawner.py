@@ -9,7 +9,7 @@ from typing import Optional
 from httpx import AsyncClient
 from httpx_sse import ServerSentEvent, aconnect_sse
 from jupyterhub.spawner import Spawner
-from traitlets import Unicode
+from traitlets import Unicode, default
 
 from .errors import InvalidAuthStateError, MissingFieldError, SpawnerError
 
@@ -80,6 +80,12 @@ class RSPRestSpawner(Spawner):
         relative to this base URL.
         """,
     ).tag(config=True)
+
+    # Do not preserve any of JupyterHub's environment variables in the default
+    # environment for labs.
+    @default("env_keep")
+    def _env_keep_default(self) -> list[str]:
+        return []
 
     @property
     def _client(self) -> AsyncClient:
