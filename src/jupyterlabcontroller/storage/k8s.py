@@ -107,7 +107,11 @@ class K8sStorageClient:
 
     async def _k8s_create_namespace(self, ns_name: str) -> None:
         await self.api.create_namespace(
-            V1Namespace(metadata=self.get_nonamespace_metadata(name=ns_name))
+            V1Namespace(
+                api_version="v1",
+                kind="Namespace",
+                metadata=self.get_nonamespace_metadata(name=ns_name),
+            )
         )
 
     async def create_secrets(

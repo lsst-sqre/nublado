@@ -192,9 +192,11 @@ class MockLabKubernetesApi(MockKubernetesApi):
             Namespace to create.
         """
         self._maybe_error("create_namespace", body)
-        if body.metadata.name in self.objects:
-            msg = f"Namespace {body.metadata.name} already exists"
+        name = body.metadata.name
+        if name in self.objects:
+            msg = f"Namespace {name} already exists"
             raise ApiException(status=409, reason=msg)
+        self._store_object(name, "Namespace", name, body)
 
     async def delete_namespace(self, name: str) -> None:
         self._maybe_error("delete_namespace")
