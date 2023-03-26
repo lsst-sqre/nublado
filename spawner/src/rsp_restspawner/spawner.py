@@ -295,6 +295,9 @@ class RSPRestSpawner(Spawner):
                         msg = "Invalid progress value: {sse.data}"
                         self.log.error(msg)
                     continue
+                elif sse.event == "ping":
+                    # Sent by sse-starlette to keep the connection alive.
+                    continue
                 event = SpawnEvent.from_sse(sse, progress)
                 self._events.append(event)
                 if event.complete:
