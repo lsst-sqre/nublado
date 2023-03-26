@@ -169,6 +169,7 @@ class Factory:
     def __init__(self, context: ProcessContext, logger: BoundLogger) -> None:
         self._context = context
         self._logger = logger
+        self._background_services_started = False
 
     @property
     def image_service(self) -> ImageService:
@@ -194,7 +195,8 @@ class Factory:
         After this method is called, the factory object is no longer valid and
         must not be used.
         """
-        await self._context.stop()
+        if self._background_services_started:
+            await self._context.stop()
 
     def create_docker_storage(self) -> DockerStorageClient:
         """Create a Docker storage client.
@@ -264,3 +266,4 @@ class Factory:
         Only used by the test suite.
         """
         await self._context.start()
+        self._background_services_started = True
