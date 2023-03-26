@@ -62,7 +62,6 @@ class RSPRestSpawner(Spawner):
 
     admin_token_path = Unicode(
         "/etc/gafaelfawr/token",
-        config=True,
         help="""
         Path to the Gafaelfawr token for JupyterHub itself.
 
@@ -70,18 +69,17 @@ class RSPRestSpawner(Spawner):
         that JupyterHub is allowed to call directly such as to get lab status
         and delete a lab.
         """,
-    )
+    ).tag(config=True)
 
     controller_url = Unicode(
         "http://localhost:8080/nublado",
-        config=True,
         help="""
         Base URL for the Nublado lab controller.
 
         All URLs for talking to the Nublado lab controller will be constructed
         relative to this base URL.
         """,
-    )
+    ).tag(config=True)
 
     @property
     def _client(self) -> AsyncClient:
