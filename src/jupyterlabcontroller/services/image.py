@@ -394,7 +394,13 @@ class ImageService:
             self._to_prepull = to_prepull
 
     async def start(self) -> None:
-        """Start a periodic refresh as a background task."""
+        """Start a periodic refresh as a background task.
+
+        Does not return until the background refresh has completed its first
+        run. We don't want to start answering user requests until we have
+        populated our lists of available images; otherwise, we might return
+        bogus information for the spawner form.
+        """
         if self._scheduler:
             msg = "Image service already running, cannot start again"
             self._logger.warning(msg)
@@ -402,6 +408,7 @@ class ImageService:
         self._logger.info("Starting image service")
         self._scheduler = Scheduler()
         await self._scheduler.spawn(self._refresh_loop())
+        await self._refreshed.wait()
 
     async def stop(self) -> None:
         """Stop the background refresh task."""
