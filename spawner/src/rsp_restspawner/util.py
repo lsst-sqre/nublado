@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 import yaml
 
-from .constants import DEFAULT_ADMIN_TOKEN_FILE, DEFAULT_CONFIG_FILE
+from .constants import DEFAULT_CONFIG_FILE
 
 
 def to_camel_case(string: str) -> str:
@@ -35,16 +35,6 @@ def get_config() -> Dict[str, Any]:
     config_file = os.getenv("RESTSPAWNER_CONFIG_FILE", DEFAULT_CONFIG_FILE)
     with open(config_file) as f:
         return yaml.safe_load(f)
-
-
-def get_admin_token() -> str:
-    """Returns the admin token, read from a file (usually mounted as a
-    secret)."""
-    token_file = os.getenv(
-        "RESTSPAWNER_ADMIN_TOKEN_FILE", DEFAULT_ADMIN_TOKEN_FILE
-    )
-    with open(token_file, "r") as f:
-        return f.read().strip()
 
 
 def get_external_instance_url() -> str:
