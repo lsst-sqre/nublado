@@ -80,7 +80,6 @@ class SafirConfig(CamelCaseModel):
 class LabSizeDefinition(CamelCaseModel):
     cpu: float = Field(
         ...,
-        name="cpu",
         title="Number of CPU resource units for container",
         example=0.5,
         description=(
@@ -90,7 +89,6 @@ class LabSizeDefinition(CamelCaseModel):
     )
     memory: str = Field(
         ...,
-        name="memory",
         title="Amount of memory for Lab container.",
         example="1536MiB",
         description="Must be specified as a text string (e.g. '1536MiB')",
@@ -107,14 +105,12 @@ class FileMode(Enum):
 class LabVolume(CamelCaseModel):
     container_path: str = Field(
         ...,
-        name="container_path",
         example="/home",
         title="Absolute path of the volume mounted inside the Lab container",
         regex="^/*",
     )
     server: str = Field(
         ...,
-        name="server",
         example="10.13.105.122",
         title="Name or address of the server providing the volume",
         description=(
@@ -124,14 +120,12 @@ class LabVolume(CamelCaseModel):
     )
     server_path: str = Field(
         ...,
-        name="server_path",
         example="/share1/home",
         title="Absolute path where the volume is exported from the NFS server",
         regex="^/*",
     )
     mode: FileMode = Field(
         FileMode.RW,
-        name="mode",
         example="ro",
         title="File permissions when mounted",
         description="`rw` is read/write and `ro` is read-only",
@@ -141,19 +135,16 @@ class LabVolume(CamelCaseModel):
 class LabInitContainer(CamelCaseModel):
     name: str = Field(
         ...,
-        name="name",
         example="multus-init",
         title="Name of an initContainer run before the user Lab starts",
     )
     image: str = Field(
         ...,
-        name="image",
         example="docker.io/lsstit/ddsnet4u:latest",
         title="Docker registry path to initContainer image",
     )
     privileged: bool = Field(
         False,
-        name="privileged",
         example=False,
         title="Whether the initContainer needs privilege to do its job",
         description=(
@@ -163,7 +154,6 @@ class LabInitContainer(CamelCaseModel):
     )
     volumes: list[LabVolume] = Field(
         [],
-        name="volumes",
         title="Volumes mounted by this initContainer",
     )
 
@@ -171,13 +161,11 @@ class LabInitContainer(CamelCaseModel):
 class LabSecret(CamelCaseModel):
     secret_name: str = Field(
         ...,
-        name="secret_name",
         example="credentials",
         title="Name of source secret in Lab controller namespace",
     )
     secret_key: str = Field(
         ...,
-        name="secret_key",
         example="butler-credentials",
         title="Key of source secret within secret_name",
         description=(
@@ -191,7 +179,6 @@ class LabSecret(CamelCaseModel):
 class LabFile(CamelCaseModel):
     contents: str = Field(
         ...,
-        name="contents",
         example=(
             "root:x:0:0:root:/root:/bin/bash\n"
             "bin:x:1:1:bin:/bin:/sbin/nologin\n",
@@ -201,7 +188,6 @@ class LabFile(CamelCaseModel):
     )
     modify: bool = Field(
         False,
-        name="modify",
         example=False,
         title="Whether to modify this file before injection",
     )
