@@ -163,10 +163,7 @@ class Prepuller:
         self._logger.debug(f"Beginning prepulls for {node}")
         for image in images:
             await self._prepull_image(image, node)
-
-            # Temporarily don't register images as prepulled because the test
-            # suite doesn't expect it.
-            # self._image_service.mark_prepulled(image, node)
+            self._image_service.mark_prepulled(image, node)
         self._logger.debug(f"Finished prepulls for {node}")
 
     def _prepull_pod_name(self, image: RSPImage, node: str) -> str:

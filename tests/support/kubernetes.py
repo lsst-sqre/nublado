@@ -39,7 +39,51 @@ from kubernetes_asyncio.client import (
 from safir.datetime import current_datetime
 from safir.testing.kubernetes import MockKubernetesApi
 
-__all__ = ["MockLabKubernetesApi", "patch_kubernetes"]
+__all__ = [
+    "MockLabKubernetesApi",
+    "patch_kubernetes",
+    "strip_none",
+]
+
+
+def strip_none(model: dict[str, Any]) -> dict[str, Any]:
+    """Strip `None` values from a serialized Kubernetes object.
+
+    Comparing Kubernetes objects against serialized expected output is a bit
+    of a pain, since Kubernetes objects often contain tons of optional
+    parameters and the ``to_dict`` serialization includes every parameter.
+    The naive result is therefore tedious to read or understand.
+
+    This function works around this by taking a serialized Kubernetes object
+    and dropping all of the parameters that are set to `None`. The ``to_dict``
+    form of a Kubernetes object should be passed through it first before
+    comparing to the expected output.
+
+    Parmaters
+    ---------
+    model
+        Kubernetes model serialized with ``to_dict``.
+
+    Returns
+    -------
+    dict
+        Cleaned-up model with `None` parameters removed.
+    """
+    result = {}
+    for key, value in model.items():
+        if value is None:
+            continue
+        if isinstance(value, dict):
+            value = strip_none(value)
+        elif isinstance(value, list):
+            list_result = []
+            for item in value:
+                if isinstance(item, dict):
+                    item = strip_none(item)
+                list_result.append(item)
+            value = list_result
+        result[key] = value
+    return result
 
 
 class MockLabKubernetesApi(MockKubernetesApi):
