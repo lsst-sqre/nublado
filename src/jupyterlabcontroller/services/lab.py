@@ -724,7 +724,11 @@ class LabManager:
                     limits={
                         "cpu": str(resources.limits.cpu),
                         "memory": str(resources.limits.memory),
-                    }
+                    },
+                    requests={
+                        "cpu": str(resources.requests.cpu),
+                        "memory": str(resources.requests.memory),
+                    },
                 ),
                 security_context=ic_sec_ctx,
                 volume_mounts=ic_vol_mounts,
