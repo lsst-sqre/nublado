@@ -801,19 +801,15 @@ class LabManager:
             await self.k8s_client.delete_namespace(
                 self.namespace_from_user(user)
             )
+            await self.await_ns_deletion(
+                namespace=self.namespace_from_user(user),
+                username=user.username,
+            )
         except Exception as e:
             emsg = f"Could not delete lab environment: '{e}'"
             await self.failure_event(username, emsg)
             user.status = LabStatus.FAILED
             raise
-        ns_task = create_task(
-            self.await_ns_deletion(
-                namespace=self.namespace_from_user(user),
-                username=user.username,
-            )
-        )
-        self._tasks.add(ns_task)
-        ns_task.add_done_callback(self._tasks.discard)
 
     async def reconcile_user_map(self) -> None:
         self.logger.debug("Reconciling user map with observed state.")

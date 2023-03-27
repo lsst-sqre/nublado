@@ -64,8 +64,6 @@ async def test_lab_manager(
     assert lab_manager.check_for_user(user.username)
 
     await lab_manager.delete_lab(user.username)
-    namespace = lab_manager.namespace_from_user(user)
-    await lab_manager.await_ns_deletion(namespace, user.username)
     assert not lab_manager.check_for_user(user.username)
 
 
