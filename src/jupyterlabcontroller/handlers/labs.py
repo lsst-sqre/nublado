@@ -3,8 +3,7 @@ these specifically for lab manipulation"""
 import os
 from typing import List
 
-from fastapi import APIRouter, Depends, Header, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from safir.models import ErrorModel
 from sse_starlette import EventSourceResponse
 
@@ -67,19 +66,19 @@ async def get_userdata(
 @router.post(
     "/{username}/create",
     responses={
-        409: {"description": "Lab exists", "model": ErrorModel},
         403: {"description": "Forbidden", "model": ErrorModel},
+        409: {"description": "Lab exists", "model": ErrorModel},
     },
-    response_class=RedirectResponse,
-    status_code=303,
+    status_code=201,
     summary="Create user lab",
 )
 async def post_new_lab(
     username: str,
     lab: LabSpecification,
+    response: Response,
     x_auth_request_token: str = Header(...),
     context: RequestContext = Depends(context_dependency),
-) -> str:
+) -> None:
     """Create a new Lab pod for a given user"""
     gafaelfawr_client = context.factory.create_gafaelfawr_client()
     try:
@@ -95,7 +94,8 @@ async def post_new_lab(
         await lab_manager.create_lab(user, x_auth_request_token, lab)
     except LabExistsError:
         raise HTTPException(status_code=409, detail="Conflict")
-    return f"{_external_url()}/nublado/spawner/v1/labs/{username}"
+    url = f"{_external_url()}/nublado/spawner/v1/labs/{username}"
+    response.headers["Location"] = url
 
 
 @router.delete(
