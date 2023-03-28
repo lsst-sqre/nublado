@@ -1,7 +1,10 @@
+"""Tests for the REST spawner class."""
+
+from __future__ import annotations
+
 import pytest
 
-from rsp_restspawner.constants import LabStatus
-from rsp_restspawner.spawner import RSPRestSpawner
+from rsp_restspawner.spawner import LabStatus, RSPRestSpawner
 
 from .support.controller import MockLabController
 

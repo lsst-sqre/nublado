@@ -1,24 +1,38 @@
 """Spawner class that uses a REST API to a separate Kubernetes service."""
 
-import asyncio
-import os
 from collections.abc import AsyncIterator
 from datetime import timedelta
+from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from httpx import AsyncClient
 from httpx_sse import ServerSentEvent, aconnect_sse
 from jupyterhub.spawner import Spawner
+from traitlets import Unicode, default
 
-from .constants import DEFAULT_ADMIN_TOKEN_FILE, LabStatus
 from .errors import InvalidAuthStateError, MissingFieldError, SpawnerError
-from .util import get_controller_route, get_external_instance_url
 
-__all__ = ["RSPRestSpawner"]
+__all__ = [
+    "LabStatus",
+    "RSPRestSpawner",
+]
 
 _CLIENT: Optional[AsyncClient] = None
 """Cached global HTTP client so that we can share a connection pool."""
+
+
+class LabStatus(str, Enum):
+    """Possible status conditions of a user's pod per the lab controller.
+
+    Keep this in sync with the status values reported by the status endpoint
+    of the lab controller.
+    """
+
+    STARTING = "starting"
+    RUNNING = "running"
+    TERMINATING = "terminating"
+    FAILED = "failed"
 
 
 class RSPRestSpawner(Spawner):
@@ -46,16 +60,32 @@ class RSPRestSpawner(Spawner):
     part of the JupyterHub lifecycle to do that.
     """
 
-    def __init__(self, *args: Optional[Any], **kwargs: Optional[Any]) -> None:
-        super().__init__(*args, **kwargs)
-        self.ctrl_url = os.getenv(
-            "JUPYTERLAB_CONTROLLER_URL",
-            (
-                get_external_instance_url()
-                + get_controller_route()
-                + "/spawner/v1"
-            ),
-        )
+    admin_token_path = Unicode(
+        "/etc/gafaelfawr/token",
+        help="""
+        Path to the Gafaelfawr token for JupyterHub itself.
+
+        This token will be used to authenticate to the lab controller routes
+        that JupyterHub is allowed to call directly such as to get lab status
+        and delete a lab.
+        """,
+    ).tag(config=True)
+
+    controller_url = Unicode(
+        "http://localhost:8080/nublado",
+        help="""
+        Base URL for the Nublado lab controller.
+
+        All URLs for talking to the Nublado lab controller will be constructed
+        relative to this base URL.
+        """,
+    ).tag(config=True)
+
+    # Do not preserve any of JupyterHub's environment variables in the default
+    # environment for labs.
+    @default("env_keep")
+    def _env_keep_default(self) -> list[str]:
+        return []
 
     @property
     def _client(self) -> AsyncClient:
@@ -69,20 +99,20 @@ class RSPRestSpawner(Spawner):
         """Returns expected URL of running pod
         (returns before creation completes)."""
         r = await self._client.post(
-            f"{self.ctrl_url}/labs/{self.user.name}/create",
+            self._controller_url("labs", self.user.name, "create"),
             headers=await self._user_authorization(),
             json={
                 "options": self.options_from_form(self.user_options),
                 "env": self.get_env(),
             },
-            timeout=600.0,
+            timeout=self.start_timeout,
             follow_redirects=False,
         )
         if r.status_code == 409 or r.status_code == 303:
             # For the Conflict we need to check the status ourself.
             # This route requires an admin token
             r = await self._client.get(
-                f"{self.ctrl_url}/labs/{self.user.name}",
+                self._controller_url("labs", self.user.name),
                 headers=self._admin_authorization(),
             )
         if r.status_code == 200:
@@ -94,7 +124,7 @@ class RSPRestSpawner(Spawner):
 
     async def stop(self) -> None:
         r = await self._client.delete(
-            f"{self.ctrl_url}/labs/{self.user.name}",
+            self._controller_url("labs", self.user.name),
             timeout=300.0,
             headers=self._admin_authorization(),
         )
@@ -117,7 +147,7 @@ class RSPRestSpawner(Spawner):
         implies a failure (i.e. non-zero) exit status.
         """
         r = await self._client.get(
-            f"{self.ctrl_url}/labs/{self.user.name}",
+            self._controller_url("labs", self.user.name),
             headers=self._admin_authorization(),
         )
         if r.status_code == 404:
@@ -125,17 +155,14 @@ class RSPRestSpawner(Spawner):
         if r.status_code != 200:
             raise SpawnerError(r)
         result = r.json()
-        if result["status"] in (
-            LabStatus.STARTING,
-            LabStatus.RUNNING,
-            LabStatus.TERMINATING,
-        ):
+        if result["status"] == LabStatus.FAILED:
+            return 1
+        else:
             return None
-        return 1  # Pod failed; we could check 'pod' and 'events' to see why.
 
     async def options_form(self, spawner: Spawner) -> str:
         r = await self._client.get(
-            f"{self.ctrl_url}/lab-form/{self.user.name}",
+            self._controller_url("lab-form", self.user.name),
             headers=await self._user_authorization(),
         )
         if r.status_code != 200:
@@ -144,7 +171,7 @@ class RSPRestSpawner(Spawner):
 
     async def progress(self) -> AsyncIterator[dict[str, bool | int | str]]:
         progress = 0
-        timeout = timedelta(seconds=150)
+        timeout = timedelta(seconds=self.start_timeout)
         try:
             async for sse in self._get_progress_events(timeout):
                 if sse.event == "complete":
@@ -173,9 +200,24 @@ class RSPRestSpawner(Spawner):
                         return
                 else:
                     self.log.error(f"Unknown event type {sse.event}")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             msg = f"No update from event stream in {timeout}s, giving up"
             self.log.error(msg)
+
+    def _controller_url(self, *components: str) -> str:
+        """Build a URL to the Nublado lab controller.
+
+        Parameters
+        ----------
+        *components
+            Path component of the URL.
+
+        Returns
+        -------
+        str
+            URL to the lab controller using the configured base URL.
+        """
+        return self.controller_url + "/spawner/v1/" + "/".join(components)
 
     async def _get_progress_events(
         self, timeout: timedelta
@@ -192,7 +234,7 @@ class RSPRestSpawner(Spawner):
         ServerSentEvent
             Next event from the lab controller's event stream.
         """
-        url = f"{self.ctrl_url}/labs/{self.user.name}/events"
+        url = self._controller_url("labs", self.user.name, "events")
         kwargs = {
             "timeout": timeout.total_seconds(),
             "headers": await self._user_authorization(),
@@ -210,9 +252,7 @@ class RSPRestSpawner(Spawner):
             Suitable headers for authenticating to the lab controller as the
             JupyterHub pod.
         """
-        path = Path(
-            os.getenv("RESTSPAWNER_ADMIN_TOKEN_FILE", DEFAULT_ADMIN_TOKEN_FILE)
-        )
+        path = Path(self.admin_token_path)
         token = path.read_text().strip()
         return {"Authorization": f"Bearer {token}"}
 

@@ -10,7 +10,7 @@ from typing import Optional
 import respx
 from httpx import AsyncByteStream, Request, Response
 
-from rsp_restspawner.constants import LabStatus
+from rsp_restspawner.spawner import LabStatus
 
 __all__ = [
     "MockLabController",
@@ -26,6 +26,8 @@ class MockProgress(AsyncByteStream):
 
     Parameters
     ----------
+    user
+        Name of user for which progress events should be generated.
     delay
         Delay by this long between events.
     """
@@ -65,6 +67,11 @@ class MockLabController:
     This is an extremely simplified version of the lab controller API
     specified in `SQR-066 <https://sqr-066.lsst.io/>`__.
 
+    Attributes
+    ----------
+    base_url
+        Base URL with which the mock was configured.
+
     Parameters
     ----------
     base_url
@@ -72,6 +79,7 @@ class MockLabController:
     """
 
     def __init__(self, base_url: str) -> None:
+        self.base_url = base_url
         self._url = f"{base_url}/spawner/v1"
         self._lab_status: dict[str, LabStatus] = {}
 
