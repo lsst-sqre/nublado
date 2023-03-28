@@ -475,10 +475,8 @@ class K8sStorageClient:
             metadata=self.get_std_metadata(name, namespace=namespace),
             spec=V1ResourceQuotaSpec(
                 hard={
-                    "limits": {
-                        "cpu": str(quota.cpu),
-                        "memory": str(quota.memory),
-                    },
+                    "limits.cpu": str(quota.cpu),
+                    "limits.memory": str(quota.memory),
                 }
             ),
         )

@@ -6,7 +6,6 @@ import pytest
 from httpx import AsyncClient
 
 from jupyterlabcontroller.config import Configuration
-from jupyterlabcontroller.models.v1.lab import LabSize
 from jupyterlabcontroller.services.size import SizeManager
 
 from ..settings import TestObjectFactory
@@ -60,7 +59,7 @@ async def test_user_status(
         },
     )
     assert r.status_code == 200
-    expected_resources = size_manager.resources[LabSize(lab.options.size)]
+    expected_resources = size_manager.resources(lab.options.size)
     assert r.json() == {
         "env": lab.env,
         "events": [],

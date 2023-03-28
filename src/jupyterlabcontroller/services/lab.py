@@ -22,6 +22,7 @@ from kubernetes_asyncio.client.models import (
     V1PodSecurityContext,
     V1PodSpec,
     V1ResourceFieldSelector,
+    V1ResourceRequirements,
     V1SecretVolumeSource,
     V1SecurityContext,
     V1Volume,
@@ -37,7 +38,6 @@ from ..models.domain.rspimage import RSPImage
 from ..models.domain.usermap import UserMap
 from ..models.v1.event import Event, EventTypes
 from ..models.v1.lab import (
-    LabSize,
     LabSpecification,
     LabStatus,
     UserData,
@@ -63,6 +63,7 @@ class LabManager:
         instance_url: str,
         user_map: UserMap,
         event_manager: EventManager,
+        size_manager: SizeManager,
         image_service: ImageService,
         logger: BoundLogger,
         lab_config: LabConfiguration,
@@ -72,6 +73,7 @@ class LabManager:
         self.instance_url = instance_url
         self.user_map = user_map
         self.event_manager = event_manager
+        self._size_manager = size_manager
         self._image_service = image_service
         self.logger = logger
         self.lab_config = lab_config
@@ -81,10 +83,6 @@ class LabManager:
     def namespace_from_user(self, user: UserInfo) -> str:
         """Exposed because the unit tests use it."""
         return f"{self.manager_namespace}-{user.username}"
-
-    def get_resources(self, lab: LabSpecification) -> UserResources:
-        size_manager = SizeManager(self.lab_config.sizes)
-        return size_manager.resources[LabSize(lab.options.size)]
 
     def check_for_user(self, username: str) -> bool:
         """True if there's a lab for the user, otherwise false."""
@@ -214,7 +212,7 @@ class LabManager:
             UserData.new_from_user_resources(
                 user=user,
                 labspec=lab,
-                resources=self.get_resources(lab),
+                resources=self._size_manager.resources(lab.options.size),
             ),
         )
         #
@@ -234,7 +232,8 @@ class LabManager:
             user=user, lab=lab, image=image, token=token
         )
         await self.info_event(username, "Resource objects created", 40)
-        await self.create_user_pod(user, image)
+        resources = self._size_manager.resources(lab.options.size)
+        await self.create_user_pod(user, resources, image)
         self.user_map.set_status(username, status=LabStatus.PENDING)
         # We need to set the expected internal URL, because the spawner
         # start needs to know it, even though it's not accessible yet.
@@ -405,7 +404,7 @@ class LabManager:
             data["DEBUG"] = "TRUE"
         if options.reset_user_env:
             data["RESET_USER_ENV"] = "TRUE"
-        resources = self.get_resources(lab=lab)
+        resources = self._size_manager.resources(lab.options.size)
         #
         # More of these, eventually, will come from the options form.
         #
@@ -473,8 +472,10 @@ class LabManager:
         else:
             return None
 
-    async def create_user_pod(self, user: UserInfo, image: RSPImage) -> None:
-        pod = self.build_pod_spec(user, image)
+    async def create_user_pod(
+        self, user: UserInfo, resources: UserResources, image: RSPImage
+    ) -> None:
+        pod = self.build_pod_spec(user, resources, image)
         snames = [x.secret_name for x in self.lab_config.secrets]
         needs_pull_secret = False
         if "pull-secret" in snames:
@@ -686,27 +687,29 @@ class LabManager:
         vols.append(runtime_vol)
         return vols
 
-    def build_init_ctrs(self, username: str) -> List[V1Container]:
+    def build_init_ctrs(
+        self, username: str, resources: UserResources
+    ) -> List[V1Container]:
         init_ctrs: List[V1Container] = []
         ic_volumes: List[LabVolumeContainer] = []
         for ic in self.lab_config.init_containers:
             if ic.volumes is not None:
                 ic_volumes = self.build_lab_config_volumes(ic.volumes)
             ic_vol_mounts = [x.volume_mount for x in ic_volumes]
-            ic_sec_ctx = (
-                V1SecurityContext(
-                    run_as_non_root=True,
-                    run_as_user=1000,
-                    allow_privilege_escalation=False,
-                ),
-            )
             if ic.privileged:
                 ic_sec_ctx = V1SecurityContext(
                     run_as_non_root=False,
                     run_as_user=0,
                     allow_privilege_escalation=True,
                 )
+            else:
+                ic_sec_ctx = V1SecurityContext(
+                    run_as_non_root=True,
+                    run_as_user=1000,
+                    allow_privilege_escalation=False,
+                )
             ctr = V1Container(
+                name=ic.name,
                 # We use the same environment as the notebook, because it
                 # includes things we need for provisioning.
                 env_from=[
@@ -716,8 +719,17 @@ class LabManager:
                         )
                     ),
                 ],
-                name=ic.name,
                 image=ic.image,
+                resources=V1ResourceRequirements(
+                    limits={
+                        "cpu": str(resources.limits.cpu),
+                        "memory": str(resources.limits.memory),
+                    },
+                    requests={
+                        "cpu": str(resources.requests.cpu),
+                        "memory": str(resources.requests.memory),
+                    },
+                ),
                 security_context=ic_sec_ctx,
                 volume_mounts=ic_vol_mounts,
             )
@@ -725,12 +737,14 @@ class LabManager:
             init_ctrs.append(ctr)
         return init_ctrs
 
-    def build_pod_spec(self, user: UserInfo, image: RSPImage) -> V1PodSpec:
+    def build_pod_spec(
+        self, user: UserInfo, resources: UserResources, image: RSPImage
+    ) -> V1PodSpec:
         username = user.username
         vol_recs = self.build_volumes(username=username)
         volumes = [x.volume for x in vol_recs]
         vol_mounts = [x.volume_mount for x in vol_recs]
-        init_ctrs = self.build_init_ctrs(username)
+        init_ctrs = self.build_init_ctrs(username, resources)
         env = [
             # Because spec.nodeName is not reflected in
             # DownwardAPIVolumeSource:
@@ -761,6 +775,16 @@ class LabManager:
                     name="jupyterlab",
                 ),
             ],
+            resources=V1ResourceRequirements(
+                limits={
+                    "cpu": str(resources.limits.cpu),
+                    "memory": str(resources.limits.memory),
+                },
+                requests={
+                    "cpu": str(resources.requests.cpu),
+                    "memory": str(resources.requests.memory),
+                },
+            ),
             security_context=V1SecurityContext(
                 run_as_non_root=True,
                 run_as_user=user.uid,
