@@ -197,8 +197,8 @@ class RSPRestSpawner(Spawner):
             "timeout": timeout.total_seconds(),
             "headers": await self._user_authorization(),
         }
-        async with aconnect_sse(self._client, url, **kwargs) as event_source:
-            async for sse in event_source.aiter_sse():
+        async with aconnect_sse(self._client, "GET", url, **kwargs) as source:
+            async for sse in source.aiter_sse():
                 yield sse
 
     def _admin_authorization(self) -> dict[str, str]:
