@@ -1,25 +1,50 @@
-"""The Rubin RSP RestSpawner class.
-
-It is designed to talk to the RSP JupyterLab Controller via a simple REST
-interface described in sqr-066.
-"""
+"""Spawner class that uses a REST API to a separate Kubernetes service."""
 
 import asyncio
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any, Optional
 
+from httpx import AsyncClient
 from jupyterhub.spawner import Spawner
 
 from .constants import DEFAULT_ADMIN_TOKEN_FILE, LabStatus
 from .errors import InvalidAuthStateError, MissingFieldError, SpawnerError
 from .event import Event
-from .http import get_client
 from .util import get_controller_route, get_external_instance_url
+
+__all__ = ["RSPRestSpawner"]
+
+_CLIENT: Optional[AsyncClient] = None
+"""Cached global HTTP client so that we can share a connection pool."""
 
 
 class RSPRestSpawner(Spawner):
+    """Spawner class that sends requests to the RSP lab controller.
+
+    Rather than having JupyterHub spawn labs directly and therefore need
+    Kubernetes permissions to manage every resource that a user's lab
+    environment may need, the Rubin Science Platform manages all labs in a
+    separate privileged lab controller process. JupyterHub makes RESTful HTTP
+    requests to that service using either its own credentials or the
+    credentials of the user.
+
+    See `SQR-066 <https://sqr-066.lsst.io/>`__ for the full design.
+
+    Notes
+    -----
+    This class uses a single process-global shared `httpx.AsyncClient` to make
+    all of its HTTP requests, rather than using one per instantiation of the
+    spawner class. Each user gets their own spawner, so this approach allows
+    all requests to share a connection pool.
+
+    This client is created on first use and never shut down. To be strictly
+    correct, it should be closed properly when the JupyterHub process is
+    exiting, but we haven't yet figured out how to hook into the appropriate
+    part of the JupyterHub lifecycle to do that.
+    """
+
     def __init__(self, *args: Optional[Any], **kwargs: Optional[Any]) -> None:
         super().__init__(*args, **kwargs)
         self.ctrl_url = os.getenv(
@@ -31,28 +56,32 @@ class RSPRestSpawner(Spawner):
             ),
         )
 
+    @property
+    def _client(self) -> AsyncClient:
+        """Shared `httpx.AsyncClient`."""
+        global _CLIENT
+        if not _CLIENT:
+            _CLIENT = AsyncClient()
+        return _CLIENT
+
     async def start(self) -> str:
         """Returns expected URL of running pod
         (returns before creation completes)."""
-        formdata = self.options_from_form(self.user_options)
-        uname = self.user.name
-        lab_specification = {
-            "options": formdata,
-            "env": self.get_env(),  # From superclass
-        }
-        client = await get_client()
-        r = await client.post(
-            f"{self.ctrl_url}/labs/{uname}/create",
+        r = await self._client.post(
+            f"{self.ctrl_url}/labs/{self.user.name}/create",
             headers=await self._user_authorization(),
-            json=lab_specification,
+            json={
+                "options": self.options_from_form(self.user_options),
+                "env": self.get_env(),
+            },
             timeout=600.0,
             follow_redirects=False,
         )
         if r.status_code == 409 or r.status_code == 303:
             # For the Conflict we need to check the status ourself.
             # This route requires an admin token
-            r = await client.get(
-                f"{self.ctrl_url}/labs/{uname}",
+            r = await self._client.get(
+                f"{self.ctrl_url}/labs/{self.user.name}",
                 headers=self._admin_authorization(),
             )
         if r.status_code == 200:
@@ -63,8 +92,7 @@ class RSPRestSpawner(Spawner):
         raise SpawnerError(r)
 
     async def stop(self) -> None:
-        client = await get_client()
-        r = await client.delete(
+        r = await self._client.delete(
             f"{self.ctrl_url}/labs/{self.user.name}",
             timeout=300.0,
             headers=self._admin_authorization(),
@@ -87,8 +115,7 @@ class RSPRestSpawner(Spawner):
         exit status) and 1 for "We tried to start a pod, but it failed," which
         implies a failure (i.e. non-zero) exit status.
         """
-        client = await get_client()
-        r = await client.get(
+        r = await self._client.get(
             f"{self.ctrl_url}/labs/{self.user.name}",
             headers=self._admin_authorization(),
         )
@@ -106,8 +133,7 @@ class RSPRestSpawner(Spawner):
         return 1  # Pod failed; we could check 'pod' and 'events' to see why.
 
     async def options_form(self, spawner: Spawner) -> str:
-        client = await get_client()
-        r = await client.get(
+        r = await self._client.get(
             f"{self.ctrl_url}/lab-form/{self.user.name}",
             headers=await self._user_authorization(),
         )
@@ -115,17 +141,14 @@ class RSPRestSpawner(Spawner):
             raise SpawnerError(r)
         return r.text
 
-    async def progress(self) -> AsyncGenerator:
-        progress: Optional[int] = None
-        prev_progress: Optional[int] = None
-        message: Optional[str] = None
-        event_endpoint = f"{self.ctrl_url}/labs/{self.user.name}/events"
-        client = await get_client()
+    async def progress(self) -> AsyncIterator[dict[str, bool | int | str]]:
+        progress = 0
+        url = f"{self.ctrl_url}/labs/{self.user.name}/events"
         timeout = 150.0
         headers = await self._user_authorization()
         try:
-            async with client.stream(
-                "GET", event_endpoint, timeout=timeout, headers=headers
+            async with self._client.stream(
+                "GET", url, timeout=timeout, headers=headers
             ) as resp:
                 lines: list[str] = list()
                 async for line in resp.aiter_lines():
@@ -141,6 +164,7 @@ class RSPRestSpawner(Spawner):
                     else:
                         lines.append(line)
                         continue
+
                     if ev.event_type == "complete":
                         yield {
                             "progress": 90,
@@ -148,21 +172,20 @@ class RSPRestSpawner(Spawner):
                             "ready": True,
                         }
                         return
-                    progress = ev.progress()
+                    elif ev.event_type == "progress":
+                        progress = ev.progress() or progress
+                        continue
+                    elif ev.event_type in ("error", "failed"):
+                        raise RuntimeError(ev.message())
+
                     message = ev.message()
-                    if message:
-                        progress = progress or prev_progress or 50
-                        pm = {
-                            "progress": progress,
-                            "message": message,
-                            "ready": False,
-                        }
-                        message = None
-                        prev_progress = progress
-                        progress = None
-                        yield pm
-                        if ev.event_type in ("error", "failed"):
-                            raise RuntimeError(pm["message"])
+                    if not message:
+                        continue
+                    yield {
+                        "progress": progress,
+                        "message": message,
+                        "ready": False,
+                    }
         except asyncio.TimeoutError:
             self.log.error(
                 f"No update from event stream in {timeout}s; giving up."

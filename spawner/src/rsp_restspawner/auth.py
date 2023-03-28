@@ -30,14 +30,7 @@ async def _build_auth_info(headers: HTTPHeaders) -> AuthState:
     """
     token = headers.get("X-Auth-Request-Token")
     username = headers.get("X-Auth-Request-User")
-
-    user_state = {
-        "name": username,
-        "auth_state": {
-            "token": token,
-        },
-    }
-    return user_state
+    return {"name": username, "auth_state": {"token": token}}
 
 
 #

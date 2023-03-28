@@ -1,13 +1,18 @@
+"""Fixtures for tests of the Nublado JupyterHub."""
+
+from __future__ import annotations
+
 import os
-import urllib
 from pathlib import Path
 from typing import Generator
 from unittest import mock
 
 import pytest
+import respx
 
-import rsp_restspawner
+from rsp_restspawner.spawner import RSPRestSpawner
 
+from .support.controller import MockLabController, register_mock_lab_controller
 from .support.jupyterhub import MockHub, MockUser
 
 
@@ -28,21 +33,19 @@ def env_mock() -> Generator:
 
 
 @pytest.fixture
-def restspawner_mock() -> rsp_restspawner.spawner.RSPRestSpawner:
-    r = rsp_restspawner.spawner.RSPRestSpawner()
-    username = "rachel"
-    external_url = rsp_restspawner.util.get_external_instance_url()
-    hub_route = rsp_restspawner.util.get_hub_route()
-    hostname = urllib.parse.urlparse(external_url).hostname
-    assert type(hostname) is str
-    r.user = MockUser(
-        name=username,
+def mock_lab_controller(respx_mock: respx.Router) -> MockLabController:
+    url = "https://rsp.example.org/nublado"
+    return register_mock_lab_controller(respx_mock, url)
+
+
+@pytest.fixture
+def spawner(mock_lab_controller: MockLabController) -> RSPRestSpawner:
+    """Add spawner state that normally comes from JupyterHub."""
+    result = RSPRestSpawner()
+    result.user = MockUser(
+        name="rachel",
         auth_state={"token": "token-of-affection"},
-        url=(external_url + hub_route + f"/hub/user/{username}"),
+        url="http://lab.nublado-rachel:8888",
     )
-    r.hub = MockHub(
-        api_url=("f{rsp_restspawner.util.get_namespace()}" + ".hub:8081"),
-        public_host=hostname,
-        base_url=external_url + hub_route + "/hub",
-    )
-    return r
+    result.hub = MockHub()
+    return result

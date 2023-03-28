@@ -2,115 +2,147 @@
 
 from __future__ import annotations
 
-import pytest
+import asyncio
+from collections.abc import AsyncIterator
+from datetime import timedelta
+from typing import Optional
+
 import respx
-from httpx import Request, Response
+from httpx import AsyncByteStream, Request, Response
 
-import rsp_restspawner
+from rsp_restspawner.constants import LabStatus
+
+__all__ = [
+    "MockLabController",
+    "register_mock_lab_controller",
+]
 
 
-class MockJupyterLabController:
-    """Mock JupyterLab Controller that returns what we would expect to
-    see when we contact it for start/stop/poll information.
+class MockProgress(AsyncByteStream):
+    """Generator that produces progress events for a lab spawn.
 
-    This is an extremely simplified version of the controller specified at
-    https://sqr-066.lsst.io"""
+    An instantiation of this object is suitable for passing as the stream
+    argument to an `httpx.Response`.
 
-    def __init__(self, base_url: str, app_route: str) -> None:
-        self._url = f"{base_url}/{app_route}/spawner/v1"
-        # The value True for a user means the simulated Lab is running
-        # correctly; False means it is in a failed state.  This is used
-        # in poll
-        self._users: dict[str, bool] = dict()
+    Parameters
+    ----------
+    delay
+        Delay by this long between events.
+    """
 
-    def add_or_update_user(self, user: str, running: bool = True) -> None:
-        self._users[user] = running
+    def __init__(self, user: str, delay: Optional[timedelta] = None) -> None:
+        self._user = user
+        self._delay = delay if delay else timedelta(seconds=0)
 
-    def del_user(self, user: str) -> None:
-        if user in self._users:
-            del self._users[user]
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        yield b"event: progress\r\n"
+        yield b"data: 2\r\n"
+        yield b"\r\n"
+        yield b"event: info\r\n"
+        yield b"data: Lab creation initiated\r\n"
+        yield b"\r\n"
 
-    def create(self, req: Request) -> Response:
-        """Mock user creation.  Returns a 409 if the user already
-        exists, 303 if not."""
-        user = req.url.path.split("/")[-2]  # Post to .../username/create
-        if user in self._users:
+        await asyncio.sleep(self._delay.total_seconds())
+
+        yield b"event: progress\r\n"
+        yield b"data: 45\r\n"
+        yield b"\r\n"
+        yield b"event: info\r\n"
+        yield b"data: Pod requested\r\n"
+        yield b"\r\n"
+
+        await asyncio.sleep(self._delay.total_seconds())
+
+        yield b"event: complete\r\n"
+        msg = "Pod successfully spawned for {user}"
+        yield b"data: " + msg.encode() + b"\r\n"
+        yield b"\r\n"
+
+
+class MockLabController:
+    """Mock Nublado lab controller.
+
+    This is an extremely simplified version of the lab controller API
+    specified in `SQR-066 <https://sqr-066.lsst.io/>`__.
+
+    Parameters
+    ----------
+    base_url
+        Base URL where the mock is installed, used for constructing redirects.
+    """
+
+    def __init__(self, base_url: str) -> None:
+        self._url = f"{base_url}/spawner/v1"
+        self._lab_status: dict[str, LabStatus] = {}
+
+    def create(self, request: Request, user: str) -> Response:
+        if self._lab_status.get(user):
             return Response(status_code=409)
-        self.add_or_update_user(user)
+        self._lab_status[user] = LabStatus.RUNNING
+        location = f"{self._url}/{user}"
+        return Response(status_code=303, headers={"Location": location})
+
+    def delete(self, request: Request, user: str) -> Response:
+        if self._lab_status.get(user):
+            del self._lab_status[user]
+            return Response(status_code=202)
+        else:
+            return Response(status_code=404)
+
+    def events(self, request: Request, user: str) -> Response:
+        if not self._lab_status.get(user):
+            return Response(status_code=404)
+        stream = MockProgress(user)
+        return Response(status_code=200, stream=stream)
+
+    def lab_form(self, request: Request, user: str) -> Response:
         return Response(
-            status_code=303, headers={"Location": self._url + f"/{user}"}
+            status_code=200, text=f"<p>This is some lab form for {user}</p>"
         )
 
-    def delete(self, req: Request) -> Response:
-        """Mock user deletion.  Returns a 202 if the user exists and was
-        deleted, or a 404 if the user did not exist."""
-        user = req.url.path.split("/")[-1]  # it's a delete to .../username
-        if user in self._users:
-            self.del_user(user)
-            return Response(status_code=202)
-        return Response(status_code=404)
+    def set_status(self, user: str, status: LabStatus) -> None:
+        """Set the lab status for a given user, called by tests."""
+        self._lab_status[user] = status
 
-    def status(self, req: Request) -> Response:
-        """Mock user status check.  Returns a 200 if the user exists, and
-        a 404 if it does not.
-
-        For a 200, it will return an "application/json" document, with
-        a "status" field.  This will be set to "running" if the user is
-        healthy, and "failed" otherwise (by way of named constants).
-
-        This is vastly simplified from what the actual controller will
-        return.
-        """
-        user = req.url.path.split("/")[-1]  # it's a get to .../username
-        if user in self._users:
-            status = rsp_restspawner.constants.LabStatus.RUNNING.value
-            if not self._users[user]:
-                status = rsp_restspawner.constants.LabStatus.FAILED.value
-            return Response(
-                status_code=200,
-                headers={"Content-Type": "application/json"},
-                json={
-                    "status": status,
-                    "internal_url": (
-                        "http://lab."
-                        + rsp_restspawner.util.get_application_namespace()
-                        + f"-{user}:8888"
-                    ),
-                },
-            )
-        return Response(status_code=404)
+    def status(self, request: Request, user: str) -> Response:
+        if not self._lab_status.get(user):
+            return Response(status_code=404)
+        return Response(
+            status_code=200,
+            json={
+                "status": self._lab_status[user],
+                "internal_url": f"http://lab.nublado-{user}:8888",
+            },
+        )
 
 
-@pytest.mark.respx(assert_all_called=False)
-def register_mock_controller(
-    respx_mock: respx.Router, *, base_url: str, app_route: str, user: str
-) -> MockJupyterLabController:
-    """Mock out a JupyterLab Controller.
+def register_mock_lab_controller(
+    respx_mock: respx.Router, base_url: str
+) -> MockLabController:
+    """Mock out a Nublado lab controller.
 
     Parameters
     ----------
     respx_mock
         Mock router.
     base_url
-        URL of the RSP instance base
-    app_route
-        Route to the JupyterLab Controller relative to base_url
-    user
-        User to use with the mock controller
+        Base URL for the lab controller.
 
     Returns
     -------
-    MockJupyterLabController
+    MockLabController
         The mock JupyterlabController object.
     """
+    base_labs_url = f"{base_url}/spawner/v1/labs/(?P<user>[^/]*)"
+    lab_url = f"{base_labs_url}$"
+    create_url = f"{base_labs_url}/create$"
+    events_url = f"{base_labs_url}/events$"
+    lab_form_url = f"{base_url}/spawner/v1/lab-form/(?P<user>[^/]*)$"
 
-    ctrl_url = f"{base_url}/{app_route}/spawner/v1"
-    create_url = f"{ctrl_url}/labs/{user}/create"
-    delete_url = f"{ctrl_url}/labs/{user}"
-    status_url = delete_url
-
-    ctrl = MockJupyterLabController(base_url=base_url, app_route=app_route)
-    respx_mock.get(status_url).mock(side_effect=ctrl.status)
-    respx_mock.delete(delete_url).mock(side_effect=ctrl.delete)
-    respx_mock.post(create_url).mock(side_effect=ctrl.create)
-    return ctrl
+    mock = MockLabController(base_url)
+    respx_mock.get(url__regex=lab_url).mock(side_effect=mock.status)
+    respx_mock.delete(url__regex=lab_url).mock(side_effect=mock.delete)
+    respx_mock.post(url__regex=create_url).mock(side_effect=mock.create)
+    respx_mock.get(url__regex=events_url).mock(side_effect=mock.events)
+    respx_mock.get(url__regex=lab_form_url).mock(side_effect=mock.lab_form)
+    return mock
