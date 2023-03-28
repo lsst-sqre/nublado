@@ -59,7 +59,11 @@ async def test_progress(spawner: RSPRestSpawner) -> None:
     expected = [
         {"progress": 2, "message": "Lab creation initiated", "ready": False},
         {"progress": 45, "message": "Pod requested", "ready": False},
-        {"progress": 90, "message": "Lab pod running", "ready": True},
+        {
+            "progress": 90,
+            "message": f"Pod successfully spawned for {spawner.user.name}",
+            "ready": True,
+        },
     ]
     index = 0
     async for message in spawner.progress():

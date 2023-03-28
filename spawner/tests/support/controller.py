@@ -54,7 +54,7 @@ class MockProgress(AsyncByteStream):
         await asyncio.sleep(self._delay.total_seconds())
 
         yield b"event: complete\r\n"
-        msg = "Pod successfully spawned for {user}"
+        msg = f"Pod successfully spawned for {self._user}"
         yield b"data: " + msg.encode() + b"\r\n"
         yield b"\r\n"
 
@@ -93,7 +93,11 @@ class MockLabController:
         if not self._lab_status.get(user):
             return Response(status_code=404)
         stream = MockProgress(user)
-        return Response(status_code=200, stream=stream)
+        return Response(
+            status_code=200,
+            headers={"Content-Type": "text/event-stream"},
+            stream=stream,
+        )
 
     def lab_form(self, request: Request, user: str) -> Response:
         return Response(

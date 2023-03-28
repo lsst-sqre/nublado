@@ -13,6 +13,7 @@ jupyterhub==3.1.1
 
 # Dependencies used directly by the code added by this package.
 httpx
+httpx-sse
 pydantic
 PyYAML
 
