@@ -1,3 +1,4 @@
+from .auth import GafaelfawrAuthenticator
 from .spawner import RSPRestSpawner
 
-__all__ = ["RSPRestSpawner"]
+__all__ = ["GafaelfawrAuthenticator", "RSPRestSpawner"]
