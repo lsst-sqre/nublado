@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from base64 import b64encode
 from typing import Any, Dict, List
 
 from kubernetes_asyncio.client import (
@@ -10,6 +11,7 @@ from kubernetes_asyncio.client import (
     V1Node,
     V1NodeStatus,
     V1ObjectMeta,
+    V1Secret,
 )
 
 from jupyterlabcontroller.models.domain.usermap import UserMap
@@ -128,6 +130,19 @@ class TestObjectFactory:
     @property
     def repocontents(self) -> dict[str, str]:
         return self.test_objects["repo_contents"]
+
+    @property
+    def secrets(self) -> list[V1Secret]:
+        secrets = []
+        for name, data in self.test_objects["secrets"].items():
+            encoded_data = {
+                k: b64encode(v.encode()).decode() for k, v in data.items()
+            }
+            secret = V1Secret(
+                metadata=V1ObjectMeta(name=name), data=encoded_data
+            )
+            secrets.append(secret)
+        return secrets
 
     def get_user(self) -> tuple[str, UserInfo]:
         """Get user information and token for a user."""

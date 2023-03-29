@@ -1,4 +1,4 @@
-"""Test jupyterlabcontroller.handlers"""
+"""Test the routes for the root path both internally and externally."""
 
 from __future__ import annotations
 
@@ -7,16 +7,12 @@ from httpx import AsyncClient
 
 from jupyterlabcontroller.config import Configuration
 
-"""Tests for the jupyterlabcontroller.handlers external routes."""
-
 
 @pytest.mark.asyncio
 async def test_get_external_index(
-    config: Configuration,
-    app_client: AsyncClient,
+    client: AsyncClient, config: Configuration
 ) -> None:
-    """Test ``GET /nublado/``"""
-    response = await app_client.get("/nublado/")
+    response = await client.get("/nublado/")
     assert response.status_code == 200
     data = response.json()
     metadata = data["metadata"]
@@ -26,15 +22,11 @@ async def test_get_external_index(
     assert isinstance(metadata["repository_url"], str)
 
 
-"""Tests for the jupyterlabcontroller.handlers internal routes."""
-
-
 @pytest.mark.asyncio
 async def test_get_internal_index(
-    app_client: AsyncClient, config: Configuration
+    client: AsyncClient, config: Configuration
 ) -> None:
-    """Test ``GET /``"""
-    response = await app_client.get("/")
+    response = await client.get("/")
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == config.safir.name

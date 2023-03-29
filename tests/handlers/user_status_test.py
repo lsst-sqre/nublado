@@ -5,26 +5,21 @@ from __future__ import annotations
 import pytest
 from httpx import AsyncClient
 
-from jupyterlabcontroller.config import Configuration
-from jupyterlabcontroller.services.size import SizeManager
+from jupyterlabcontroller.factory import Factory
 
 from ..settings import TestObjectFactory
-from ..support.gafaelfawr import MockGafaelfawr
 
 
 @pytest.mark.asyncio
 async def test_user_status(
-    app_client: AsyncClient,
-    config: Configuration,
-    mock_gafaelfawr: MockGafaelfawr,
-    obj_factory: TestObjectFactory,
+    client: AsyncClient, factory: Factory, obj_factory: TestObjectFactory
 ) -> None:
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
-    size_manager = SizeManager(config.lab.sizes)
+    size_manager = factory.create_size_manager()
 
     # At the start, we shouldn't have any lab.
-    r = await app_client.get(
+    r = await client.get(
         "/nublado/spawner/v1/user-status",
         headers={
             "X-Auth-Request-Token": token,
@@ -34,7 +29,7 @@ async def test_user_status(
     assert r.status_code == 404
 
     # Create a lab.
-    r = await app_client.post(
+    r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={
             "options": {
@@ -54,7 +49,7 @@ async def test_user_status(
     )
 
     # Now the lab should exist and we should be able to get some user status.
-    r = await app_client.get(
+    r = await client.get(
         "/nublado/spawner/v1/user-status",
         headers={
             "X-Auth-Request-Token": token,

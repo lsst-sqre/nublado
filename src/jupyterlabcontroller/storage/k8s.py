@@ -359,6 +359,8 @@ class K8sStorageClient:
         immutable: bool = True,
     ) -> None:
         secret = V1Secret(
+            api_version="v1",
+            kind="Secret",
             data=data,
             type=secret_type,
             immutable=immutable,
@@ -399,6 +401,8 @@ class K8sStorageClient:
         for k in data:
             mangled_data[deslashify(k)] = data[k]
         configmap = V1ConfigMap(
+            api_version="v1",
+            kind="ConfigMap",
             data=mangled_data,
             immutable=immutable,
             metadata=self.get_std_metadata(name=name, namespace=namespace),
@@ -421,6 +425,8 @@ class K8sStorageClient:
         # and Egress to ... external world, Hub, Portal, Gafaelfawr.  What
         # else?
         policy = V1NetworkPolicy(
+            api_version="networking.k8s.io/v1",
+            kind="NetworkPolicy",
             metadata=self.get_std_metadata(name, namespace=namespace),
             spec=V1NetworkPolicySpec(
                 policy_types=["Ingress"],
@@ -449,6 +455,8 @@ class K8sStorageClient:
     async def create_lab_service(self, username: str, namespace: str) -> None:
         svcname = "lab"
         svc = V1Service(
+            api_version="v1",
+            kind="Service",
             metadata=self.get_std_metadata(svcname, namespace=namespace),
             spec=V1ServiceSpec(
                 ports=[V1ServicePort(port=8888, target_port=8888)],
@@ -472,6 +480,8 @@ class K8sStorageClient:
         quota: UserResourceQuantum,
     ) -> None:
         quota_obj = V1ResourceQuota(
+            api_version="v1",
+            kind="ResourceQuota",
             metadata=self.get_std_metadata(name, namespace=namespace),
             spec=V1ResourceQuotaSpec(
                 hard={
@@ -497,7 +507,9 @@ class K8sStorageClient:
         metadata = self.get_std_metadata(name, namespace=namespace)
         if labels:
             metadata.labels.update(labels)
-        pod_obj = V1Pod(metadata=metadata, spec=pod)
+        pod_obj = V1Pod(
+            api_version="v1", kind="Pod", metadata=metadata, spec=pod
+        )
         try:
             await self.api.create_namespaced_pod(
                 namespace=namespace, body=pod_obj

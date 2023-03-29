@@ -68,8 +68,10 @@ def config(std_config_dir: Path) -> Configuration:
 
 @pytest_asyncio.fixture
 async def app(
+    config: Configuration,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockLabKubernetesApi,
+    mock_gafaelfawr: MockGafaelfawr,
     obj_factory: TestObjectFactory,
 ) -> AsyncIterator[FastAPI]:
     """Return a configured test application.
@@ -78,13 +80,17 @@ async def app(
     events are sent during test execution.
     """
     mock_kubernetes.set_nodes_for_test(obj_factory.nodecontents)
+    for secret in obj_factory.secrets:
+        await mock_kubernetes.create_namespaced_secret(
+            config.lab.namespace_prefix, secret
+        )
     app = create_app()
     async with LifespanManager(app):
         yield app
 
 
 @pytest_asyncio.fixture
-async def app_client(
+async def client(
     app: FastAPI,
     config: Configuration,
 ) -> AsyncIterator[AsyncClient]:
