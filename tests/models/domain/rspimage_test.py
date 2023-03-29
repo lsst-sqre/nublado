@@ -273,7 +273,7 @@ def test_alias_tracking() -> None:
     # all alias each other, with the alias tags pointing to the non-alias tags
     # using the alias_target attribute and the non-alias tags marked as
     # aliased.
-    images = [old_weekly, weekly, recommended, latest_weekly]
+    images = [weekly, old_weekly, recommended, latest_weekly]
     collection = RSPImageCollection(images)
     assert weekly.aliases == {"recommended", "latest_weekly", "w_2077_45"}
     assert weekly.aliased

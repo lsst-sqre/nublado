@@ -185,35 +185,10 @@ class RSPImageCollection:
                 return
 
         # This is a compact version of the same logic as _replace_contents.
-        if image.is_possible_alias and image.digest in self._by_digest:
+        if image.digest in self._by_digest:
             other = self._by_digest[image.digest]
-            for alias in other.aliases:
-                if alias == image.tag or alias not in self._by_tag_name:
-                    continue
-                self._by_tag_name[alias].aliases.add(image.tag)
-            if other.image_type in _ALIAS_TYPES:
-                image.aliases.add(other.tag)
-                other.aliases.add(image.tag)
-                self._unresolved_aliases[image.digest].append(image)
-            else:
-                image.resolve_alias(other)
+            self._resolve_duplicate(image, other)
         else:
-            if image.digest in self._by_digest:
-                other = self._by_digest[image.digest]
-                for alias in other.aliases:
-                    if alias == image.tag or alias not in self._by_tag_name:
-                        continue
-                    alias_image = self._by_tag_name[alias]
-                    if alias_image.alias_target == other.tag:
-                        alias_image.alias_target = image.tag
-                        alias_image.aliases.add(other.tag)
-                        other.aliased = False
-                        image.aliased = True
-                    else:
-                        alias_image.aliases.add(image.tag)
-                    image.aliases.add(alias)
-                other.aliases.add(image.tag)
-                image.aliases.add(other.tag)
             self._by_digest[image.digest] = image
         self._by_tag_name[image.tag] = image
         self._by_type[image.image_type].append(image)
@@ -386,11 +361,10 @@ class RSPImageCollection:
             self._by_tag_name[image.tag] = image
             if image.is_possible_alias:
                 unresolved.append(image)
+            elif image.digest in self._by_digest:
+                other = self._by_digest[image.digest]
+                self._resolve_duplicate(other, image)
             else:
-                if image.digest in self._by_digest:
-                    other = self._by_digest[image.digest]
-                    other.aliases.add(image.tag)
-                    image.aliases.add(other.tag)
                 self._by_digest[image.digest] = image
 
         # Second pass: add the unresolved images now that any images they
@@ -402,21 +376,12 @@ class RSPImageCollection:
         for image in unresolved:
             if image.digest in self._by_digest:
                 other = self._by_digest[image.digest]
-                if other.is_possible_alias:
-                    image.aliases.add(other.tag)
-                    other.aliases.add(image.tag)
-                    self._unresolved_aliases[image.digest].append(image)
-                else:
-                    image.resolve_alias(other)
-                for alias in other.aliases:
-                    if alias == image.tag or alias not in self._by_tag_name:
-                        continue
-                    self._by_tag_name[alias].aliases.add(image.tag)
+                self._resolve_duplicate(image, other)
             else:
                 self._unresolved_aliases[image.digest].append(image)
                 self._by_digest[image.digest] = image
 
-        # Now, all images have been resolved where possible. Take a second
+        # Now, all images have been resolved where possible. Take a third
         # pass and register all images by type.
         for image in images:
             self._by_type[image.image_type].append(image)
@@ -425,3 +390,64 @@ class RSPImageCollection:
         # This allows all_images to return sorted order efficiently.
         for image_list in self._by_type.values():
             image_list.sort(reverse=True)
+
+    def _resolve_duplicate(self, new: RSPImage, old: RSPImage) -> None:
+        """Handle images with the same digest.
+
+        Implements the following logic:
+
+        #. If both images are possible aliases, mark them as aliases of each
+           other and add ``new`` to the list of possible aliases.
+        #. If ``new`` is a possible alias and ``old`` is not, resolve ``new``
+           as an alias of ``old`` and add ``new`` as an alias of all of the
+           aliases of ``old``.
+        #. If neither ``new`` nor ``old`` are possible aliases, replace
+           ``old`` with ``new`` in ``_by_digest``, change any aliases that
+           point to ``old`` to point to ``new`` instead, and add ``new`` as
+           an alias to all of the aliases of ``old``, as well as marking them
+           as aliases of each other.
+
+        The final case, where ``old`` is a possible alias and ``new`` is not,
+        is not possible by construction so is ignored. (In `add`, this case is
+        handled by rebuilding the whole collection, and when building the
+        collection possible aliases are always added second.)
+
+        Parameters
+        ----------
+        new
+            Image that will be returned from `image_for_digest` and should be
+            the alias target for any alias tags.
+        old
+            Image that should be considered "secondary" and be recorded as a
+            regular alias but not the target for alias tags. Must have the
+            same digest as ``new``.
+        """
+        if new.digest != old.digest:
+            raise RuntimeError("Resolving duplicates with differing digests")
+        if new.is_possible_alias:
+            if old.is_possible_alias:
+                new.aliases.add(old.tag)
+                old.aliases.add(new.tag)
+                self._unresolved_aliases[new.digest].append(new)
+            else:
+                new.resolve_alias(old)
+            for alias in old.aliases:
+                if alias == new.tag or alias not in self._by_tag_name:
+                    continue
+                self._by_tag_name[alias].aliases.add(new.tag)
+        else:
+            new.aliases.add(old.tag)
+            for alias in old.aliases:
+                if alias == new.tag or alias not in self._by_tag_name:
+                    continue
+                new.aliases.add(alias)
+                other = self._by_tag_name[alias]
+                if other.alias_target == old.tag:
+                    other.alias_target = new.tag
+                    other.aliases.add(old.tag)
+                    old.aliased = False
+                    new.aliased = True
+                else:
+                    other.aliases.add(new.tag)
+            old.aliases.add(new.tag)
+            self._by_digest[new.digest] = new
