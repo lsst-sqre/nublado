@@ -131,6 +131,9 @@ class RSPImage(RSPImageTag):
         self.image_type = RSPImageType.ALIAS
         self.alias_target = target.tag
         target.aliased = True
+        for alias in target.aliases:
+            if alias != self.tag:
+                self.aliases.add(alias)
         target.aliases.add(self.tag)
         base_display_name = self.tag.replace("_", " ").title()
         self.display_name = f"{base_display_name} ({target.display_name})"
@@ -160,6 +163,10 @@ class RSPImageCollection:
     def add(self, image: RSPImage) -> None:
         """Add an image to the collection.
 
+        If this has the same digest as an image already in the collection, the
+        newly added image will replace the old one for `image_for_digest`
+        purposes.
+
         Parameters
         ----------
         image
@@ -180,19 +187,33 @@ class RSPImageCollection:
         # This is a compact version of the same logic as _replace_contents.
         if image.is_possible_alias and image.digest in self._by_digest:
             other = self._by_digest[image.digest]
+            for alias in other.aliases:
+                if alias == image.tag or alias not in self._by_tag_name:
+                    continue
+                self._by_tag_name[alias].aliases.add(image.tag)
             if other.image_type in _ALIAS_TYPES:
+                image.aliases.add(other.tag)
+                other.aliases.add(image.tag)
                 self._unresolved_aliases[image.digest].append(image)
             else:
-                for alias in other.aliases:
-                    if alias == image.tag:
-                        continue
-                    image.aliases.add(alias)
-                    self._by_tag_name[alias].aliases.add(image.tag)
                 image.resolve_alias(other)
         else:
             if image.digest in self._by_digest:
-                self._by_digest[image.digest].aliases.add(image.tag)
-                image.aliases.add(self._by_digest[image.digest].tag)
+                other = self._by_digest[image.digest]
+                for alias in other.aliases:
+                    if alias == image.tag or alias not in self._by_tag_name:
+                        continue
+                    alias_image = self._by_tag_name[alias]
+                    if alias_image.alias_target == other.tag:
+                        alias_image.alias_target = image.tag
+                        alias_image.aliases.add(other.tag)
+                        other.aliased = False
+                        image.aliased = True
+                    else:
+                        alias_image.aliases.add(image.tag)
+                    image.aliases.add(alias)
+                other.aliases.add(image.tag)
+                image.aliases.add(other.tag)
             self._by_digest[image.digest] = image
         self._by_tag_name[image.tag] = image
         self._by_type[image.image_type].append(image)
@@ -357,8 +378,9 @@ class RSPImageCollection:
 
         # First pass: store all images by tag name, and all images other than
         # unresolved images by digest. If there is a conflict between two
-        # non-alias images, the last one wins. (This is for no particular
-        # reason except that it's easy.)
+        # non-alias images, the first one added wins on the theory that
+        # hopefully the Docker image source API returns the newest images
+        # first.
         unresolved = []
         for image in images:
             self._by_tag_name[image.tag] = image
@@ -366,8 +388,9 @@ class RSPImageCollection:
                 unresolved.append(image)
             else:
                 if image.digest in self._by_digest:
-                    self._by_digest[image.digest].aliases.add(image.tag)
-                    image.aliases.add(self._by_digest[image.digest].tag)
+                    other = self._by_digest[image.digest]
+                    other.aliases.add(image.tag)
+                    image.aliases.add(other.tag)
                 self._by_digest[image.digest] = image
 
         # Second pass: add the unresolved images now that any images they
@@ -388,7 +411,6 @@ class RSPImageCollection:
                 for alias in other.aliases:
                     if alias == image.tag or alias not in self._by_tag_name:
                         continue
-                    image.aliases.add(alias)
                     self._by_tag_name[alias].aliases.add(image.tag)
             else:
                 self._unresolved_aliases[image.digest].append(image)
