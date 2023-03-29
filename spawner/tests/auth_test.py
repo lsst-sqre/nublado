@@ -39,11 +39,11 @@ async def test_authenticator() -> None:
     # No headers, internal call, just return True and let JupyterHub do its
     # normal thing.
     assert await authenticator.refresh_user(MagicMock(), handler) is True
-    user = MagicMock()
-    user.get_auth_state = AsyncMock()
 
     # Token matches, return true.
+    user = MagicMock()
     user.name = "rachel"
+    user.get_auth_state = AsyncMock()
     user.get_auth_state.return_value = {"token": "token-of-affection"}
     assert await authenticator.refresh_user(user, handler) is True
 
