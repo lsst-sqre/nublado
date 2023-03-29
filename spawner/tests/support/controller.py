@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import respx
 from httpx import AsyncByteStream, Request, Response
@@ -49,6 +49,12 @@ class MockProgress(AsyncByteStream):
         yield b"\r\n"
 
         await asyncio.sleep(self._delay.total_seconds())
+
+        # sse-starlette sends these ping events periodically to keep the
+        # connection alive. We should just ignore them.
+        yield b"event: ping\r\n"
+        yield b"data: " + str(datetime.utcnow()).encode() + b"\r\n"
+        yield b"\r\n"
 
         yield b"event: progress\r\n"
         yield b"data: 45\r\n"
