@@ -13,8 +13,8 @@ import pytest
 from tornado import web
 from tornado.httputil import HTTPHeaders
 
+from rsp_restspawner import GafaelfawrAuthenticator
 from rsp_restspawner.auth import (
-    GafaelfawrAuthenticator,
     GafaelfawrLoginHandler,
     GafaelfawrLogoutHandler,
     _build_auth_info,

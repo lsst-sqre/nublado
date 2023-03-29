@@ -3,19 +3,27 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
+from functools import wraps
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TypeVar, cast
 
-from httpx import AsyncClient
+from httpx import AsyncClient, HTTPError
 from httpx_sse import ServerSentEvent, aconnect_sse
 from jupyterhub.spawner import Spawner
 from traitlets import Unicode, default
 
-from .errors import InvalidAuthStateError, MissingFieldError, SpawnFailedError
+from .exceptions import (
+    ControllerWebError,
+    InvalidAuthStateError,
+    MissingFieldError,
+    SpawnFailedError,
+)
+
+F = TypeVar("F", bound=Callable[..., Awaitable[Any]])
 
 __all__ = [
     "LabStatus",
@@ -94,6 +102,19 @@ class SpawnEvent:
             "progress": self.progress,
             "message": f"[{self.severity}] {self.message}",
         }
+
+
+def _convert_exception(f: F) -> F:
+    """Convert ``httpx`` exceptions to `ControllerWebError`."""
+
+    @wraps(f)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return await f(*args, **kwargs)
+        except HTTPError as e:
+            raise ControllerWebError.from_exception(e) from e
+
+    return cast(F, wrapper)
 
 
 class RSPRestSpawner(Spawner):
@@ -207,6 +228,7 @@ class RSPRestSpawner(Spawner):
         self._start_future = asyncio.create_task(self._start())
         return self._start_future
 
+    @_convert_exception
     async def _start(self) -> str:
         """Spawn the user's lab.
 
@@ -221,7 +243,7 @@ class RSPRestSpawner(Spawner):
 
         Raises
         ------
-        httpx.HTTPError
+        ControllerWebError
             Raised on failure to talk to the lab controller or a failure
             response from the lab controller.
         InvalidAuthStateError
@@ -307,6 +329,7 @@ class RSPRestSpawner(Spawner):
                 self._events.append(event)
             raise
 
+    @_convert_exception
     async def stop(self) -> None:
         """Delete any running pod for the user.
 
@@ -314,7 +337,7 @@ class RSPRestSpawner(Spawner):
 
         Raises
         ------
-        httpx.HTTPError
+        ControllerWebError
             Raised on failure to talk to the lab controller or a failure
             response from the lab controller.
         """
@@ -329,6 +352,7 @@ class RSPRestSpawner(Spawner):
         else:
             r.raise_for_status()
 
+    @_convert_exception
     async def poll(self) -> Optional[int]:
         """Check if the pod is running.
 
@@ -338,6 +362,12 @@ class RSPRestSpawner(Spawner):
             If the pod is starting, running, or terminating, return `None`.
             If the pod does not exist, return 0. If the pod exists in a failed
             state, return 1.
+
+        Raises
+        ------
+        ControllerWebError
+            Raised on failure to talk to the lab controller or a failure
+            response from the lab controller.
 
         Notes
         -----
@@ -354,15 +384,13 @@ class RSPRestSpawner(Spawner):
             headers=self._admin_authorization(),
         )
         if r.status_code == 404:
-            return 0  # No lab for user.
+            return 0
         else:
             r.raise_for_status()
         result = r.json()
-        if result["status"] == LabStatus.FAILED:
-            return 1
-        else:
-            return None
+        return 1 if result["status"] == LabStatus.FAILED else None
 
+    @_convert_exception
     async def options_form(self, spawner: Spawner) -> str:
         """Retrieve the options form for this user from the lab controller.
 
@@ -374,7 +402,7 @@ class RSPRestSpawner(Spawner):
 
         Raises
         ------
-        httpx.HTTPError
+        ControllerWebError
             Raised on failure to talk to the lab controller or a failure
             response from the lab controller.
         InvalidAuthStateError

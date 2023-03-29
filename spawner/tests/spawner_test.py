@@ -7,8 +7,9 @@ from datetime import timedelta
 
 import pytest
 
-from rsp_restspawner.errors import SpawnFailedError
-from rsp_restspawner.spawner import LabStatus, RSPRestSpawner
+from rsp_restspawner import RSPRestSpawner
+from rsp_restspawner.exceptions import SpawnFailedError
+from rsp_restspawner.spawner import LabStatus
 
 from .support.controller import MockLabController
 
