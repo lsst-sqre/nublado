@@ -34,6 +34,7 @@ def test_image() -> None:
         "repository": "library/sketchbook",
         "digest": "sha256:1234",
         "size": None,
+        "aliased": False,
         "aliases": set(),
         "alias_target": None,
         "nodes": set(),
@@ -166,6 +167,27 @@ def test_collection() -> None:
         "w_2077_43",
         "d_2077_10_21",
     ]
+
+    # Test subsetting.
+    subset = collection.subset(releases=1, weeklies=3, dailies=1)
+    assert [t.tag for t in subset.all_images()] == [
+        "w_2077_46",
+        "w_2077_45",
+        "w_2077_44",
+        "d_2077_10_21",
+    ]
+    subset = collection.subset(
+        releases=1, weeklies=3, dailies=1, include={"recommended"}
+    )
+    assert [t.tag for t in subset.all_images()] == [
+        "recommended",
+        "w_2077_46",
+        "w_2077_45",
+        "w_2077_44",
+        "d_2077_10_21",
+    ]
+    subset = subset.subset(weeklies=1)
+    assert [t.tag for t in subset.all_images()] == ["w_2077_46"]
 
     # Test subtraction. Note that this only returns one image per digest and
     # prefers the non-alias images.
