@@ -16,7 +16,13 @@ from .support.jupyterhub import MockHub, MockUser
 @pytest.fixture
 def mock_lab_controller(respx_mock: respx.Router) -> MockLabController:
     url = "https://rsp.example.org/nublado"
-    return register_mock_lab_controller(respx_mock, url)
+    admin_token = (Path(__file__).parent / "data" / "admin-token").read_text()
+    return register_mock_lab_controller(
+        respx_mock,
+        url,
+        user_token="token-of-affection",
+        admin_token=admin_token.strip(),
+    )
 
 
 @pytest.fixture

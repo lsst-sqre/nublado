@@ -1,26 +1,18 @@
-from httpx import Response
+"""Exceptions for the RSP REST spawner.
 
-
-class SpawnerError(Exception):
-    def __init__(self, response: Response) -> None:
-        self._response = response
-
-    def __str__(self) -> str:
-        r = self._response
-        sc = r.status_code
-        rp = r.reason_phrase
-        txt = r.text
-        url = r.url
-        return f"Request for {url}: status code {sc} ({rp}): '{txt}'"
-
-
-class MissingFieldError(Exception):
-    pass
-
-
-class EventError(Exception):
-    pass
+JupyterHub catches all exceptions derived from `Exception` and treats them the
+same, so the distinction between exceptions is just for better error reporting
+and improved code readability.
+"""
 
 
 class InvalidAuthStateError(Exception):
     """The JupyterHub auth state for the user contains no token."""
+
+
+class MissingFieldError(Exception):
+    """The reply from the lab controller is missing a required field."""
+
+
+class SpawnFailedError(Exception):
+    """The lab controller reports that the spawn failed."""

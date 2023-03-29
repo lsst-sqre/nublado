@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from datetime import timedelta
-from typing import Optional
 
 import respx
 from httpx import AsyncByteStream, Request, Response
@@ -30,11 +29,16 @@ class MockProgress(AsyncByteStream):
         Name of user for which progress events should be generated.
     delay
         Delay by this long between events.
+    fail_during_spawn
+        Whether to emit a failure message instead of a completion message.
     """
 
-    def __init__(self, user: str, delay: Optional[timedelta] = None) -> None:
+    def __init__(
+        self, user: str, delay: timedelta, fail_during_spawn: bool = False
+    ) -> None:
         self._user = user
-        self._delay = delay if delay else timedelta(seconds=0)
+        self._delay = delay
+        self._fail_during_spawn = fail_during_spawn
 
     async def __aiter__(self) -> AsyncIterator[bytes]:
         yield b"event: progress\r\n"
@@ -55,10 +59,19 @@ class MockProgress(AsyncByteStream):
 
         await asyncio.sleep(self._delay.total_seconds())
 
-        yield b"event: complete\r\n"
-        msg = f"Pod successfully spawned for {self._user}"
-        yield b"data: " + msg.encode() + b"\r\n"
-        yield b"\r\n"
+        if self._fail_during_spawn:
+            yield b"event: error\r\n"
+            yield b"data: Something is going wrong\r\n"
+            yield b"\r\n"
+            yield b"event: failed\r\n"
+            msg = f"Some random failure for {self._user}"
+            yield b"data: " + msg.encode() + b"\r\n"
+            yield b"\r\n"
+        else:
+            yield b"event: complete\r\n"
+            msg = f"Pod successfully spawned for {self._user}"
+            yield b"data: " + msg.encode() + b"\r\n"
+            yield b"\r\n"
 
 
 class MockLabController:
@@ -71,26 +84,43 @@ class MockLabController:
     ----------
     base_url
         Base URL with which the mock was configured.
+    delay
+        Set this to the desired delay between server-sent events.
 
     Parameters
     ----------
     base_url
         Base URL where the mock is installed, used for constructing redirects.
+    user_token
+        User token expected for routes requiring user authentication.
+    admin_token
+        JupyterHub token expected for routes only it can use.
     """
 
-    def __init__(self, base_url: str) -> None:
+    def __init__(
+        self, base_url: str, user_token: str, admin_token: str
+    ) -> None:
         self.base_url = base_url
+        self.delay = timedelta(seconds=0)
+        self.fail_during_spawn = False
+        self._user_token = user_token
+        self._admin_token = admin_token
         self._url = f"{base_url}/spawner/v1"
         self._lab_status: dict[str, LabStatus] = {}
 
     def create(self, request: Request, user: str) -> Response:
+        self._check_authorization(request)
         if self._lab_status.get(user):
             return Response(status_code=409)
-        self._lab_status[user] = LabStatus.RUNNING
+        if self.fail_during_spawn:
+            self._lab_status[user] = LabStatus.FAILED
+        else:
+            self._lab_status[user] = LabStatus.RUNNING
         location = f"{self._url}/{user}"
-        return Response(status_code=303, headers={"Location": location})
+        return Response(status_code=201, headers={"Location": location})
 
     def delete(self, request: Request, user: str) -> Response:
+        self._check_authorization(request, admin=True)
         if self._lab_status.get(user):
             del self._lab_status[user]
             return Response(status_code=202)
@@ -98,9 +128,10 @@ class MockLabController:
             return Response(status_code=404)
 
     def events(self, request: Request, user: str) -> Response:
+        self._check_authorization(request)
         if not self._lab_status.get(user):
             return Response(status_code=404)
-        stream = MockProgress(user)
+        stream = MockProgress(user, self.delay, self.fail_during_spawn)
         return Response(
             status_code=200,
             headers={"Content-Type": "text/event-stream"},
@@ -108,6 +139,7 @@ class MockLabController:
         )
 
     def lab_form(self, request: Request, user: str) -> Response:
+        self._check_authorization(request)
         return Response(
             status_code=200, text=f"<p>This is some lab form for {user}</p>"
         )
@@ -117,6 +149,7 @@ class MockLabController:
         self._lab_status[user] = status
 
     def status(self, request: Request, user: str) -> Response:
+        self._check_authorization(request, admin=True)
         if not self._lab_status.get(user):
             return Response(status_code=404)
         return Response(
@@ -127,9 +160,24 @@ class MockLabController:
             },
         )
 
+    def _check_authorization(
+        self, request: Request, admin: bool = False
+    ) -> None:
+        authorization = request.headers["Authorization"]
+        auth_type, token = authorization.split(None, 1)
+        assert auth_type.lower() == "bearer"
+        if admin:
+            assert token == self._admin_token
+        else:
+            assert token == self._user_token
+
 
 def register_mock_lab_controller(
-    respx_mock: respx.Router, base_url: str
+    respx_mock: respx.Router,
+    base_url: str,
+    *,
+    user_token: str,
+    admin_token: str,
 ) -> MockLabController:
     """Mock out a Nublado lab controller.
 
@@ -139,6 +187,10 @@ def register_mock_lab_controller(
         Mock router.
     base_url
         Base URL for the lab controller.
+    user_token
+        User token expected for routes requiring user authentication.
+    admin_token
+        JupyterHub token expected for routes only it can use.
 
     Returns
     -------
@@ -151,7 +203,7 @@ def register_mock_lab_controller(
     events_url = f"{base_labs_url}/events$"
     lab_form_url = f"{base_url}/spawner/v1/lab-form/(?P<user>[^/]*)$"
 
-    mock = MockLabController(base_url)
+    mock = MockLabController(base_url, user_token, admin_token)
     respx_mock.get(url__regex=lab_url).mock(side_effect=mock.status)
     respx_mock.delete(url__regex=lab_url).mock(side_effect=mock.delete)
     respx_mock.post(url__regex=create_url).mock(side_effect=mock.create)
