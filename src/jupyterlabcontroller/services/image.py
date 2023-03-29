@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Optional
+from abc import ABCMeta, abstractmethod
+from typing import Generic, Optional, TypeVar
 
 from aiojobs import Scheduler
 from safir.datetime import current_datetime
@@ -28,30 +29,43 @@ from ..models.v1.prepuller import (
     PrepullerStatus,
     SpawnerImages,
 )
-from ..models.v1.prepuller_config import PrepullerConfig
+from ..models.v1.prepuller_config import (
+    PrepullerConfigDocker,
+    PrepullerConfigGAR,
+)
 from ..storage.docker import DockerStorageClient
+from ..storage.gar import GARStorageClient
 from ..storage.k8s import K8sStorageClient
 
-__all__ = ["ImageService"]
+T = TypeVar("T", bound=PrepullerConfigDocker | PrepullerConfigGAR)
+
+__all__ = [
+    "DockerImageService",
+    "GARImageService",
+    "ImageService",
+]
 
 
-class ImageService:
-    """Tracks the available images for Jupyter labs.
+class ImageService(Generic[T], metaclass=ABCMeta):
+    """Base service to tracks the available images for Jupyter labs.
 
-    There are two sources of images that can be used to spawn Jupyter labs:
+    This class provides the generic interface and shared code. There are
+    specializations of this object for each possible source of lab images.
 
-    #. The tags in the Docker repository used as an image source. This is the
-       full set of possible images; if it's not on this list, it can't be
-       used. These are called the remote images.
+    There are two places that contain a list of known lab images:
+
+    #. The tags in the registry used as an image source. This is the full set
+       of possible images; if it's not on this list, it can't be used. These
+       are called the remote images.
     #. The images cached on the Kubernetes cluster nodes. This is the
        preferred set of images, since spawning one of these images will be
        fast. These are called the cached images.
 
     The lab controller is configured to prepull certain images to all nodes.
-    That list is based on the Docker repository tags, filtered by the
-    prepuller configuration. This service provides the list of tags that
-    should be prepulled, the ones that have been prepulled, and the full list
-    of available tags. This information is then used by the prepuller to
+    That list is based on the registry tags, filtered by the prepuller
+    configuration. This service provides the list of tags that should be
+    prepulled, the ones that have been prepulled, and the full list of
+    available tags. This information is then used by the prepuller to
     determine what work it needs to do and by the lab controller API to
     determine which images to display in the menu.
 
@@ -60,8 +74,6 @@ class ImageService:
     config
         The prepuller configuration, used to determine the Docker registry and
         repository, and which tags should be prepulled.
-    docker
-        Client to query the Docker API for tags.
     kubernetes
         Client to query the Kubernetes cluster for cached images.
     logger
@@ -70,27 +82,18 @@ class ImageService:
 
     def __init__(
         self,
-        *,
-        config: PrepullerConfig,
-        docker: DockerStorageClient,
+        config: T,
         kubernetes: K8sStorageClient,
         logger: BoundLogger,
     ) -> None:
         self._config = config
-        self._docker = docker
         self._kubernetes = kubernetes
         self._logger = logger
-
-        self._registry = self._config.registry
-        self._repository = self._config.repository
 
         # Background task management.
         self._scheduler: Optional[Scheduler] = None
         self._lock = asyncio.Lock()
         self._refreshed = asyncio.Event()
-
-        # All tags present in the registry and repository per its API.
-        self._remote_tags = RSPImageTagCollection([])
 
         # Images that should be prepulled.
         self._to_prepull = RSPImageCollection([])
@@ -99,6 +102,72 @@ class ImageService:
         # members of the set of images we're prepulling. Used to calculate
         # missing images that the prepuller needs to pull.
         self._node_images: dict[str, RSPImageCollection] = {}
+
+    @abstractmethod
+    def all_images_with_prepulled_status(
+        self, nodes: set[str]
+    ) -> list[PrepulledImage]:
+        """All known images with their prepulled status in the API model.
+
+        Parameters
+        ----------
+        nodes
+            Nodes on which the image must exist to qualify as prepulled.
+
+        Returns
+        -------
+        list of PrepulledImage
+            All known images.
+        """
+
+    @abstractmethod
+    async def get_remote_images(self) -> RSPImageCollection:
+        """Get the collection of images to prepull.
+
+        This will also update the internal understanding of all available
+        remote images. How this is stored depends on the remote image source,
+        and thus is not specified in this base class.
+
+        Returns
+        -------
+        RSPImageCollection
+            Collection of images to prepull.
+        """
+
+    @abstractmethod
+    async def image_for_reference(
+        self, reference: DockerReference
+    ) -> RSPImage:
+        """Determine the image corresponding to a Docker reference.
+
+        Parameters
+        ----------
+        reference
+            Docker reference, which may or may not have a digest.
+
+        Returns
+        -------
+        RSPImage
+            Corresponding image.
+        """
+
+    @abstractmethod
+    async def image_for_tag_name(self, tag_name: str) -> RSPImage:
+        """Determine the image corresponding to a tag.
+
+        Assume that the tag is for our configured registry and repository, and
+        construct the corresponding
+        `~jupyterlabcontroller.models.domain.rspimage.RSPImage`.
+
+        Parameters
+        ----------
+        tag_name
+            Tag of the image
+
+        Returns
+        -------
+            Corresponding image.
+        """
 
     def image_for_class(self, image_class: ImageClass) -> RSPImage:
         """Determine the image by class keyword.
@@ -137,105 +206,6 @@ class ImageService:
             raise UnknownDockerImageError(msg)
         return image
 
-    async def image_for_reference(
-        self, reference: DockerReference
-    ) -> RSPImage:
-        """Determine the image corresponding to a Docker reference.
-
-        If the reference doesn't contain a digest, this may require a call to
-        the Docker API to determine the digest. The results are intentionally
-        not cached since references without digests indicate we're pulling an
-        image by tag, and we should therefore always use the latest version.
-
-        Parameters
-        ----------
-        reference
-            Docker reference, which may or may not have a digest.
-
-        Returns
-        -------
-        RSPImage
-            Corresponding image.
-
-        Raises
-        ------
-        InvalidDockerReferenceError
-            The Docker reference doesn't contain a tag. This is a valid
-            reference to Docker, but for our purposes we always want to have a
-            tag to use for debugging, status display inside the lab, etc.
-        DockerRegistryError
-            Unable to retrieve the digest from the Docker Registry.
-        """
-        if reference.tag is None:
-            msg = f'Docker reference "{reference}" has no tag'
-            raise InvalidDockerReferenceError(msg)
-
-        # If the image was prepulled, we already have an RSPImage for it.
-        image = self._to_prepull.image_for_tag_name(reference.tag)
-        if image:
-            return image
-
-        # Otherwise, retrieve the RSPImageTag for the image to ensure that it
-        # was in the list of available remote images.
-        tag = self._remote_tags.tag_for_tag_name(reference.tag)
-        if (
-            not tag
-            or reference.registry != self._registry
-            or reference.repository != self._repository
-        ):
-            msg = f'Docker reference "{reference}" not found'
-            raise InvalidDockerReferenceError(msg)
-
-        # We found the tag and can resolve this reference to an RSPImage.
-        if reference.digest:
-            digest = reference.digest
-        else:
-            digest = await self._docker.get_image_digest(
-                reference.registry, reference.repository, reference.tag
-            )
-        return RSPImage.from_tag(
-            registry=reference.registry,
-            repository=reference.repository,
-            tag=tag,
-            digest=digest,
-        )
-
-    async def image_for_tag_name(self, tag_name: str) -> RSPImage:
-        """Determine the image corresponding to a tag.
-
-        Assume that the tag is for our configured registry and repository, and
-        construct the corresponding
-        `~jupyterlabcontroller.models.domain.rspimage.RSPImage`.
-
-        Parameters
-        ----------
-        tag_name
-            Tag of the image
-
-        Returns
-        -------
-            Corresponding image.
-
-        Raises
-        ------
-        UnknownDockerImageError
-            The requested tag is not found.
-        DockerRegistryError
-            Unable to retrieve the digest from the Docker Registry.
-        """
-        tag = self._remote_tags.tag_for_tag_name(tag_name)
-        if not tag:
-            raise UnknownDockerImageError(f"Docker tag {tag_name} not found")
-        digest = await self._docker.get_image_digest(
-            self._registry, self._repository, tag_name
-        )
-        return RSPImage.from_tag(
-            registry=self._registry,
-            repository=self._repository,
-            tag=tag,
-            digest=digest,
-        )
-
     def images(self) -> SpawnerImages:
         """All images available for spawning.
 
@@ -246,29 +216,20 @@ class ImageService:
         """
         nodes = set(self._node_images.keys())
 
-        recommended_tag = self._config.recommended_tag
-        recommended = self._to_prepull.image_for_tag_name(recommended_tag)
-        latest_weekly = self._to_prepull.latest(RSPImageType.WEEKLY)
-        latest_daily = self._to_prepull.latest(RSPImageType.DAILY)
-        latest_release = self._to_prepull.latest(RSPImageType.RELEASE)
+        recommended = self._config.recommended_tag
+        images = {
+            "recommended": self._to_prepull.image_for_tag_name(recommended),
+            "latest_weekly": self._to_prepull.latest(RSPImageType.WEEKLY),
+            "latest_daily": self._to_prepull.latest(RSPImageType.DAILY),
+            "latest_release": self._to_prepull.latest(RSPImageType.RELEASE),
+        }
+        all_images = self.all_images_with_prepulled_status(nodes)
 
-        all_images = []
-        for tag in self._remote_tags.all_tags():
-            image = self._to_prepull.image_for_tag_name(tag.tag)
-            if image:
-                api_image = self._convert_image_for_api(image, nodes)
-            else:
-                api_image = self._convert_tag_for_api(tag)
-            if api_image:
-                all_images.append(api_image)
-
-        return SpawnerImages(
-            recommended=self._convert_image_for_api(recommended, nodes),
-            latest_weekly=self._convert_image_for_api(latest_weekly, nodes),
-            latest_daily=self._convert_image_for_api(latest_daily, nodes),
-            latest_release=self._convert_image_for_api(latest_release, nodes),
-            all=all_images,
-        )
+        spawner_images = {
+            k: PrepulledImage.from_rsp_image(v, nodes) if v else None
+            for k, v in images.items()
+        }
+        return SpawnerImages(all=all_images, **spawner_images)
 
     def menu_images(self) -> MenuImages:
         """Images that should appear in the menu.
@@ -298,15 +259,13 @@ class ImageService:
         # overlap with the prepulled images, we will use the nicer information
         # from the prepulled image; otherwise, these pods will be spawned by
         # tag rather than digest.
+        all_images = self.all_images_with_prepulled_status(nodes)
         dropdown = []
-        for tag in self._remote_tags.all_tags():
-            if tag_image := self._to_prepull.image_for_tag_name(tag.tag):
-                reference = tag_image.reference_with_digest
-                entry = MenuImage(reference, tag_image.display_name)
-            else:
-                reference = f"{self._registry}/{self._repository}:{tag.tag}"
-                entry = MenuImage(reference, tag.display_name)
-            dropdown.append(entry)
+        for prepulled_image in all_images:
+            reference = prepulled_image.reference
+            if prepulled_image.digest:
+                reference += "@" + prepulled_image.digest
+            dropdown.append(MenuImage(reference, prepulled_image.name))
 
         # Return the packaged results.
         return MenuImages(menu=menu, dropdown=dropdown)
@@ -330,6 +289,10 @@ class ImageService:
         prepull_image = self._to_prepull.image_for_tag_name(image.tag)
         if prepull_image:
             prepull_image.nodes.add(node)
+            for alias in prepull_image.aliases:
+                alias_image = self._to_prepull.image_for_tag_name(alias)
+                if alias_image:
+                    alias_image.nodes.add(node)
             self._node_images[node].add(image)
 
     def missing_images_by_node(self) -> dict[str, list[RSPImage]]:
@@ -389,8 +352,8 @@ class ImageService:
         exceptions; the caller must do that if desired.
         """
         async with self._lock:
-            to_prepull = await self._get_remote()
-            await self._get_node_images(to_prepull)
+            to_prepull = await self.get_remote_images()
+            self._node_images = await self._get_node_images(to_prepull)
             self._to_prepull = to_prepull
 
     async def start(self) -> None:
@@ -455,123 +418,9 @@ class ImageService:
                 if delay.total_seconds() >= 1:
                     await asyncio.sleep(delay.total_seconds())
 
-    def _convert_image_for_api(
-        self, image: RSPImage | None, nodes: set[str]
-    ) -> PrepulledImage | None:
-        """Convert an image from the domain model to the API model.
-
-        Parameters
-        ----------
-        image
-            Domain model.
-        nodes
-            Eligible nodes. The image has been prepulled if it is present on
-            all of these nodes.
-
-        Returns
-        -------
-        PrepulledImage or None
-            Corresponding API model, or `None` if the image was `None`.
-        """
-        if not image:
-            return None
-        aliases = list(image.aliases)
-        if image.alias_target:
-            aliases.append(image.alias_target)
-        return PrepulledImage(
-            reference=image.reference,
-            tag=image.tag,
-            aliases=aliases,
-            name=image.display_name,
-            digest=image.digest,
-            prepulled=image.nodes >= nodes,
-        )
-
-    def _convert_tag_for_api(self, tag: RSPImageTag) -> PrepulledImage:
-        """Convert from a tag to the API model.
-
-        Parameters
-        ----------
-        tag
-            Domain model of a tag
-
-        Returns
-        -------
-        Image
-            Corresponding API model.
-        """
-        return PrepulledImage(
-            reference=f"{self._registry}/{self._repository}/{tag.tag}",
-            tag=tag.tag,
-            name=tag.display_name,
-            prepulled=False,
-        )
-
-    async def _get_remote(self) -> RSPImageCollection:
-        """Refresh remote tags and images from the Docker registry.
-
-        Some of the tags are also converted to images, meaning that we also
-        retrieve the digest for the image so that we can match it with cached
-        images on nodes and resolve aliases.
-
-        The collection of all remote tags is updated directly since that's
-        safe, but it's not safe to update the collection of images to prepull
-        until we've also checked Kubernetes to see which ones are cached.
-        Otherwise, we'll think the images are missing from every node and do
-        spurious prepulling. It is instead returned so that updating the
-        object data can be deferred until Kubernetes data is also gathered.
-
-        Returns
-        -------
-        jupyterlabcontroller.models.domain.rspimage.RSPImageCollection
-            New collection of images to prepull.
-
-        Notes
-        -----
-        Getting an image for a tag is an expensive operation, requiring a
-        ``HEAD`` call to the Docker API for each image, so we only want to do
-        this for images we care about, namely the images that we're going to
-        prepull.
-
-        The digest is retrieved again on each refresh because it may have
-        changed (Docker registry tags are not immutable).
-        """
-        tags = await self._docker.list_tags(self._registry, self._repository)
-        aliases = {self._config.recommended_tag} | set(self._config.alias_tags)
-        tag_collection = RSPImageTagCollection.from_tag_names(
-            tags, aliases, self._config.cycle
-        )
-
-        # Get digests for the prepulled images in parallel.
-        to_prepull = self._subset_to_prepull(tag_collection)
-        tasks = [
-            asyncio.create_task(
-                self._docker.get_image_digest(
-                    self._registry, self._repository, tag.tag
-                )
-            )
-            for tag in to_prepull.all_tags()
-        ]
-        digests = await asyncio.gather(*tasks)
-
-        # Construct the images.
-        images = []
-        for tag, digest in zip(to_prepull.all_tags(), digests):
-            image = RSPImage.from_tag(
-                registry=self._registry,
-                repository=self._repository,
-                tag=tag,
-                digest=digest,
-            )
-            images.append(image)
-
-        # Turn this into a collection and return the new data. It's safe to
-        # update our knowledge of all remote tags even if the rest of the data
-        # update fails.
-        self._remote_tags = tag_collection
-        return RSPImageCollection(images)
-
-    async def _get_node_images(self, to_prepull: RSPImageCollection) -> None:
+    async def _get_node_images(
+        self, to_prepull: RSPImageCollection
+    ) -> dict[str, RSPImageCollection]:
         """Get the cached images on each Kubernetes node.
 
         Parameters
@@ -579,6 +428,11 @@ class ImageService:
         to_prepull
             Images that should be prepulled, and against which we compare
             cached images.
+
+        Returns
+        -------
+        dict of str to RSPImageCollection
+            Image collections of images found on each node.
         """
         image_data = await self._kubernetes.get_image_data()
 
@@ -595,16 +449,284 @@ class ImageService:
                 if not digest:
                     continue
                 image = to_prepull.image_for_digest(digest)
-                if image:
-                    image.nodes.add(node)
-                    image.size = node_image.size
-                    images.append(image)
+                if not image:
+                    continue
+                image.nodes.add(node)
+                image.size = node_image.size
+                images.append(image)
+                for alias in image.aliases:
+                    alias_image = to_prepull.image_for_tag_name(alias)
+                    if alias_image:
+                        alias_image.nodes.add(node)
+                        alias_image.size = node_image.size
             image_lists[node] = images
 
         # Save the new data, converting the image lists to collections.
-        self._node_images = {
-            n: RSPImageCollection(i) for n, i in image_lists.items()
-        }
+        return {n: RSPImageCollection(i) for n, i in image_lists.items()}
+
+
+class DockerImageService(ImageService):
+    """Specialization of `ImageService` that uses a Docker registry.
+
+    Docker has a very awkward API that makes it expensive to get the hash of
+    an image or to see which tags alias each other. The Docker specialization
+    of the `ImageService` therefore has to juggle both tag collections (all
+    known tags, possibly without hashes) and image collections (images fully
+    resolved with tags).
+
+    Parameters
+    ----------
+    config
+        The prepuller configuration, used to determine the Docker registry and
+        repository, and which tags should be prepulled.
+    docker
+        Client to query the Docker API for tags.
+    kubernetes
+        Client to query the Kubernetes cluster for cached images.
+    logger
+        Logger for messages.
+    """
+
+    def __init__(
+        self,
+        *,
+        config: PrepullerConfigDocker,
+        docker: DockerStorageClient,
+        kubernetes: K8sStorageClient,
+        logger: BoundLogger,
+    ) -> None:
+        super().__init__(config, kubernetes, logger)
+        self._docker = docker
+
+        # All tags present in the registry and repository per its API.
+        self._remote_tags = RSPImageTagCollection([])
+
+    def all_images_with_prepulled_status(
+        self, nodes: set[str]
+    ) -> list[PrepulledImage]:
+        """All known images with their prepulled status in the API model.
+
+        Parameters
+        ----------
+        nodes
+            Nodes on which the image must exist to qualify as prepulled.
+
+        Returns
+        -------
+        list of PrepulledImage
+            All known images.
+        """
+        all_images = []
+        for tag in self._remote_tags.all_tags():
+            image = self._to_prepull.image_for_tag_name(tag.tag)
+            if image:
+                api_image = PrepulledImage.from_rsp_image(image, nodes)
+            else:
+                api_image = self._convert_tag_for_api(tag)
+            if api_image:
+                all_images.append(api_image)
+        return all_images
+
+    async def image_for_reference(
+        self, reference: DockerReference
+    ) -> RSPImage:
+        """Determine the image corresponding to a Docker reference.
+
+        If the reference doesn't contain a digest, this may require a call to
+        the Docker API to determine the digest. The results are intentionally
+        not cached since references without digests indicate we're pulling an
+        image by tag, and we should therefore always use the latest version.
+
+        Parameters
+        ----------
+        reference
+            Docker reference, which may or may not have a digest.
+
+        Returns
+        -------
+        RSPImage
+            Corresponding image.
+
+        Raises
+        ------
+        DockerRegistryError
+            Raised if retrieving the digest from the Docker Registry failed.
+        InvalidDockerReferenceError
+            Raised if the Docker reference doesn't contain a tag or is not one
+            of the remote images we know about. References without a tag are
+            valid references to Docker, but for our purposes we always want to
+            have a tag to use for debugging, status display inside the lab,
+            etc.
+        UnknownDockerImageError
+            Raised if this is not one of the remote images we know about.
+        """
+        if reference.tag is None:
+            msg = f'Docker reference "{reference}" has no tag'
+            raise InvalidDockerReferenceError(msg)
+
+        # If the image was prepulled, we already have an RSPImage for it.
+        image = self._to_prepull.image_for_tag_name(reference.tag)
+        if image:
+            if (
+                reference.registry != image.registry
+                or reference.repository != image.repository
+            ):
+                msg = f'Docker reference "{reference}" not found'
+                raise UnknownDockerImageError(msg)
+            return image
+
+        # Otherwise, retrieve the RSPImageTag for the image to ensure that it
+        # was in the list of available remote images.
+        tag = self._remote_tags.tag_for_tag_name(reference.tag)
+        if (
+            not tag
+            or reference.registry != self._config.docker.registry
+            or reference.repository != self._config.docker.repository
+        ):
+            msg = f'Docker reference "{reference}" not found'
+            raise UnknownDockerImageError(msg)
+
+        # We found the tag and can resolve this reference to an RSPImage.
+        if reference.digest:
+            digest = reference.digest
+        else:
+            digest = await self._docker.get_image_digest(
+                reference.registry, reference.repository, reference.tag
+            )
+        return RSPImage.from_tag(
+            registry=reference.registry,
+            repository=reference.repository,
+            tag=tag,
+            digest=digest,
+        )
+
+    async def image_for_tag_name(self, tag_name: str) -> RSPImage:
+        """Determine the image corresponding to a tag.
+
+        Assume that the tag is for our configured registry and repository, and
+        construct the corresponding
+        `~jupyterlabcontroller.models.domain.rspimage.RSPImage`.
+
+        Parameters
+        ----------
+        tag_name
+            Tag of the image
+
+        Returns
+        -------
+            Corresponding image.
+
+        Raises
+        ------
+        UnknownDockerImageError
+            The requested tag is not found.
+        DockerRegistryError
+            Unable to retrieve the digest from the Docker Registry.
+        """
+        tag = self._remote_tags.tag_for_tag_name(tag_name)
+        if not tag:
+            raise UnknownDockerImageError(f"Docker tag {tag_name} not found")
+        digest = await self._docker.get_image_digest(
+            self._config.docker.registry,
+            self._config.docker.repository,
+            tag_name,
+        )
+        return RSPImage.from_tag(
+            registry=self._config.docker.registry,
+            repository=self._config.docker.repository,
+            tag=tag,
+            digest=digest,
+        )
+
+    async def get_remote_images(self) -> RSPImageCollection:
+        """Refresh remote tags and images from the Docker registry.
+
+        Some of the tags are also converted to images, meaning that we also
+        retrieve the digest for the image so that we can match it with cached
+        images on nodes and resolve aliases.
+
+        The collection of all remote tags is updated directly since that's
+        safe, but it's not safe to update the collection of images to prepull
+        until we've also checked Kubernetes to see which ones are cached.
+        Otherwise, we'll think the images are missing from every node and do
+        spurious prepulling. It is instead returned so that updating the
+        object data can be deferred until Kubernetes data is also gathered.
+
+        Returns
+        -------
+        RSPImageCollection
+            New collection of images to prepull.
+
+        Notes
+        -----
+        Getting an image for a tag is an expensive operation, requiring a
+        ``HEAD`` call to the Docker API for each image, so we only want to do
+        this for images we care about, namely the images that we're going to
+        prepull.
+
+        The digest is retrieved again on each refresh because it may have
+        changed (Docker registry tags are not immutable).
+        """
+        tags = await self._docker.list_tags(
+            self._config.docker.registry, self._config.docker.repository
+        )
+        aliases = {self._config.recommended_tag} | set(self._config.alias_tags)
+        tag_collection = RSPImageTagCollection.from_tag_names(
+            tags, aliases, self._config.cycle
+        )
+
+        # Get digests for the prepulled images in parallel.
+        to_prepull = self._subset_to_prepull(tag_collection)
+        tasks = [
+            asyncio.create_task(
+                self._docker.get_image_digest(
+                    self._config.docker.registry,
+                    self._config.docker.repository,
+                    tag.tag,
+                )
+            )
+            for tag in to_prepull.all_tags()
+        ]
+        digests = await asyncio.gather(*tasks)
+
+        # Construct the images.
+        images = []
+        for tag, digest in zip(to_prepull.all_tags(), digests):
+            image = RSPImage.from_tag(
+                registry=self._config.docker.registry,
+                repository=self._config.docker.repository,
+                tag=tag,
+                digest=digest,
+            )
+            images.append(image)
+
+        # Turn this into a collection and return the new data. It's safe to
+        # update our knowledge of all remote tags even if the rest of the data
+        # update fails.
+        self._remote_tags = tag_collection
+        return RSPImageCollection(images)
+
+    def _convert_tag_for_api(self, tag: RSPImageTag) -> PrepulledImage:
+        """Convert from a tag to the API model.
+
+        Parameters
+        ----------
+        tag
+            Domain model of a tag
+
+        Returns
+        -------
+        Image
+            Corresponding API model.
+        """
+        registry = self._config.docker.registry
+        repository = self._config.docker.repository
+        return PrepulledImage(
+            reference=f"{registry}/{repository}:{tag.tag}",
+            tag=tag.tag,
+            name=tag.display_name,
+            prepulled=False,
+        )
 
     def _subset_to_prepull(
         self, tags: RSPImageTagCollection
@@ -626,6 +748,171 @@ class ImageService:
         if self._config.pin:
             include.update(self._config.pin)
         return tags.subset(
+            releases=self._config.num_releases,
+            weeklies=self._config.num_weeklies,
+            dailies=self._config.num_dailies,
+            include=include,
+        )
+
+
+class GARImageService(ImageService):
+    """Specialization of `ImageService` that uses Google Artifact Registry.
+
+    Google Artifact Registry has a much nicer API that returns all available
+    images with their aliases and hashes in one request. This means we don't
+    have to track as complex of data.
+
+    Parameters
+    ----------
+    config
+        The prepuller configuration, used to determine the Docker registry and
+        repository, and which tags should be prepulled.
+    gar
+        Google Artifact Registry client.
+    kubernetes
+        Client to query the Kubernetes cluster for cached images.
+    logger
+        Logger for messages.
+    """
+
+    def __init__(
+        self,
+        *,
+        config: PrepullerConfigGAR,
+        gar: GARStorageClient,
+        kubernetes: K8sStorageClient,
+        logger: BoundLogger,
+    ) -> None:
+        super().__init__(config, kubernetes, logger)
+        self._gar = gar
+
+        # All available images.
+        self._remote = RSPImageCollection([])
+
+    def all_images_with_prepulled_status(
+        self, nodes: set[str]
+    ) -> list[PrepulledImage]:
+        """All known images with their prepulled status in the API model.
+
+        Parameters
+        ----------
+        nodes
+            Nodes on which the image must exist to qualify as prepulled.
+
+        Returns
+        -------
+        list of PrepulledImage
+            All known images.
+        """
+        return [
+            PrepulledImage.from_rsp_image(i, nodes)
+            for i in self._remote.all_images()
+        ]
+
+    async def image_for_reference(
+        self, reference: DockerReference
+    ) -> RSPImage:
+        """Determine the image corresponding to a Docker reference.
+
+        Parameters
+        ----------
+        reference
+            Docker reference.
+
+        Returns
+        -------
+        RSPImage
+            Corresponding image.
+
+        Raises
+        ------
+        InvalidDockerReferenceError
+            Raised if the Docker reference doesn't contain a tag. References
+            without a tag are valid references to Docker, but for our purposes
+            we always want to have a tag to use for debugging, status display
+            inside the lab, etc.
+        UnknownDockerImageError
+            Raised if this is not one of the remote images we know about.
+        """
+        if reference.tag is None:
+            msg = f'Docker reference "{reference}" has no tag'
+            raise InvalidDockerReferenceError(msg)
+        image = self._remote.image_for_tag_name(reference.tag)
+        if (
+            not image
+            or reference.registry != self._config.gar.registry
+            or reference.repository != self._config.gar.path
+        ):
+            msg = f'Docker reference "{reference}" not found'
+            raise UnknownDockerImageError(msg)
+        return image
+
+    async def image_for_tag_name(self, tag_name: str) -> RSPImage:
+        """Determine the image corresponding to a tag.
+
+        Assume that the tag is for our configured registry and repository, and
+        construct the corresponding
+        `~jupyterlabcontroller.models.domain.rspimage.RSPImage`.
+
+        Parameters
+        ----------
+        tag_name
+            Tag of the image
+
+        Returns
+        -------
+            Corresponding image.
+
+        Raises
+        ------
+        UnknownDockerImageError
+            The requested tag is not found.
+        DockerRegistryError
+            Unable to retrieve the digest from the Docker Registry.
+        """
+        image = self._remote.image_for_tag_name(tag_name)
+        if not image:
+            raise UnknownDockerImageError(f"Docker tag {tag_name} not found")
+        return image
+
+    async def get_remote_images(self) -> RSPImageCollection:
+        """Refresh remote images from the Google Artifact Registry.
+
+        The collection of all remote tags is updated directly since that's
+        safe, but it's not safe to update the collection of images to prepull
+        until we've also checked Kubernetes to see which ones are cached.
+        Otherwise, we'll think the images are missing from every node and do
+        spurious prepulling. It is instead returned so that updating the
+        object data can be deferred until Kubernetes data is also gathered.
+
+        Returns
+        -------
+        RSPImageCollection
+            New collection of images to prepull.
+        """
+        self._remote = await self._gar.list_images(self._config.gar)
+        return self._subset_to_prepull(self._remote)
+
+    def _subset_to_prepull(
+        self, images: RSPImageCollection
+    ) -> RSPImageCollection:
+        """Determine the subset of remote images to prepull.
+
+        Parameters
+        ----------
+        images
+            All remote images.
+
+        Returns
+        -------
+        RSPImageCollection
+            The subset of images that our configuration says we should
+            prepull.
+        """
+        include = {self._config.recommended_tag}
+        if self._config.pin:
+            include.update(self._config.pin)
+        return images.subset(
             releases=self._config.num_releases,
             weeklies=self._config.num_weeklies,
             dailies=self._config.num_dailies,

@@ -14,7 +14,10 @@ from safir.pydantic import CamelCaseModel, to_camel_case
 
 from .constants import DOCKER_SECRETS_PATH
 from .models.v1.lab import LabSize
-from .models.v1.prepuller_config import PrepullerConfig
+from .models.v1.prepuller_config import (
+    PrepullerConfigDocker,
+    PrepullerConfigGAR,
+)
 
 
 def _get_namespace_prefix() -> str:
@@ -221,8 +224,9 @@ class LabConfig(CamelCaseModel):
 class Config(BaseSettings):
     safir: SafirConfig
     lab: LabConfig
-    images: PrepullerConfig
-
+    images: PrepullerConfigDocker | PrepullerConfigGAR = Field(
+        ..., title="Prepuller configuration"
+    )
     base_url: str = Field(
         "http://127.0.0.1:8080",
         title="Base URL for Science Platform",

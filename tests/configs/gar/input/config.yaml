@@ -1,0 +1,23 @@
+safir:
+  profile: development
+  logLevel: DEBUG
+lab:
+  sizes:
+    small:
+      cpu: 1.0
+      memory: 3Gi
+  volumes: []
+  env: {}
+  secrets: []
+  files: {}
+images:
+  docker: {}
+  gar:
+    location: us-central1
+    projectId: rubin-shared-services-71ec
+    repository: sciplat
+    image: sciplat-lab
+  recommendedTag: recommended
+  numReleases: 1
+  numWeeklies: 2
+  numDailies: 3

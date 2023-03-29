@@ -18,6 +18,7 @@ aiojobs
 aioredis
 aioredlock
 bitmath
+google-cloud-artifact-registry
 jinja2
 PyYAML
 semver

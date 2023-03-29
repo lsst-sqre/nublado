@@ -13,14 +13,18 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 
 from jupyterlabcontroller.config import Config
-from jupyterlabcontroller.dependencies.config import configuration_dependency
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.main import create_app
+from jupyterlabcontroller.models.v1.prepuller_config import (
+    PrepullerConfigDocker,
+)
 
 from .settings import TestObjectFactory, test_object_factory
+from .support.config import configure
 from .support.constants import TEST_BASE_URL
 from .support.docker import MockDockerRegistry, register_mock_docker
 from .support.gafaelfawr import MockGafaelfawr, register_mock_gafaelfawr
+from .support.gar import MockArtifactRegistry, patch_artifact_registry
 from .support.kubernetes import MockLabKubernetesApi, patch_kubernetes
 
 
@@ -42,16 +46,9 @@ def obj_factory(std_config_dir: Path) -> TestObjectFactory:
 
 
 @pytest.fixture(scope="session")
-def config(std_config_dir: Path) -> Config:
-    """Construct configuration for tests.
-
-    Overwrites the path to Docker secrets in the global configuration object
-    to a value that's valid for all tests.
-    """
-    configuration_dependency.set_path(std_config_dir / "config.yaml")
-    config = configuration_dependency.config
-    config.docker_secrets_path = std_config_dir / "docker_config.json"
-    return config
+def config() -> Config:
+    """Construct default configuration for tests."""
+    return configure("standard")
 
 
 @pytest_asyncio.fixture
@@ -103,10 +100,11 @@ def mock_docker(
     respx_mock: respx.Router,
     obj_factory: TestObjectFactory,
 ) -> MockDockerRegistry:
+    assert isinstance(config.images, PrepullerConfigDocker)
     return register_mock_docker(
         respx_mock,
-        host=config.images.registry,
-        repository=config.images.repository,
+        host=config.images.docker.registry,
+        repository=config.images.docker.repository,
         credentials_path=config.docker_secrets_path,
         tags=obj_factory.repocontents,
         require_bearer=True,
@@ -121,6 +119,11 @@ def mock_gafaelfawr(
 ) -> MockGafaelfawr:
     test_users = obj_factory.userinfos
     return register_mock_gafaelfawr(respx_mock, config.base_url, test_users)
+
+
+@pytest.fixture
+def mock_gar() -> Iterator[MockArtifactRegistry]:
+    yield from patch_artifact_registry()
 
 
 @pytest.fixture

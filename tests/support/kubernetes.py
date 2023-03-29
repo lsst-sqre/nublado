@@ -100,7 +100,7 @@ class MockLabKubernetesApi(MockKubernetesApi):
     def __init__(self) -> None:
         super().__init__()
         self.initial_pod_status = "Running"
-        self._nodes: list[V1Node] = []
+        self._nodes = V1NodeList(items=[])
         self._events: defaultdict[str, list[CoreV1Event]] = defaultdict(list)
         self._new_events: defaultdict[str, asyncio.Event]
         self._new_events = defaultdict(asyncio.Event)
@@ -111,9 +111,7 @@ class MockLabKubernetesApi(MockKubernetesApi):
         self._events[namespace].append(event)
         self._new_events[namespace].set()
 
-    def get_all_objects_in_namespace_for_test(
-        self, namespace: str
-    ) -> list[Any]:
+    def get_namespace_objects_for_test(self, namespace: str) -> list[Any]:
         """Returns all objects in the given namespace.
 
         Note that due to how objects are stored in the mock, we can't
@@ -278,7 +276,7 @@ class MockLabKubernetesApi(MockKubernetesApi):
 
     # NODE API
 
-    async def list_node(self) -> list[V1Node]:
+    async def list_node(self) -> V1NodeList:
         self._maybe_error("list_node")
         return self._nodes
 

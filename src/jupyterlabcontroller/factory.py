@@ -16,14 +16,19 @@ from structlog.stdlib import BoundLogger
 from .config import Config
 from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .models.domain.usermap import UserMap
+from .models.v1.prepuller_config import (
+    PrepullerConfigDocker,
+    PrepullerConfigGAR,
+)
 from .services.events import EventManager
 from .services.form import FormManager
-from .services.image import ImageService
+from .services.image import DockerImageService, GARImageService, ImageService
 from .services.lab import LabManager
 from .services.prepuller import Prepuller
 from .services.size import SizeManager
 from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
+from .storage.gar import GARStorageClient
 from .storage.k8s import K8sStorageClient
 
 
@@ -90,17 +95,30 @@ class ProcessContext:
             timeout=KUBERNETES_REQUEST_TIMEOUT,
             logger=logger,
         )
-        docker_client = DockerStorageClient(
-            credentials_path=config.docker_secrets_path,
-            http_client=http_client,
-            logger=logger,
-        )
-        image_service = ImageService(
-            config=config.images,
-            docker=docker_client,
-            kubernetes=k8s_client,
-            logger=logger,
-        )
+
+        if isinstance(config.images, PrepullerConfigDocker):
+            docker_client = DockerStorageClient(
+                credentials_path=config.docker_secrets_path,
+                http_client=http_client,
+                logger=logger,
+            )
+            image_service: ImageService = DockerImageService(
+                config=config.images,
+                docker=docker_client,
+                kubernetes=k8s_client,
+                logger=logger,
+            )
+        elif isinstance(config.images, PrepullerConfigGAR):
+            gar_client = GARStorageClient(logger)
+            image_service = GARImageService(
+                config=config.images,
+                gar=gar_client,
+                kubernetes=k8s_client,
+                logger=logger,
+            )
+        else:
+            raise RuntimeError("Unknown prepuller configuration type")
+
         return cls(
             config=config,
             http_client=http_client,
@@ -108,7 +126,6 @@ class ProcessContext:
             k8s_client=k8s_client,
             image_service=image_service,
             prepuller=Prepuller(
-                config=config.images,
                 namespace=config.lab.namespace_prefix,
                 image_service=image_service,
                 k8s_client=k8s_client,

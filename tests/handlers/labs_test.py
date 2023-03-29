@@ -278,7 +278,7 @@ async def test_lab_objects(
     assert r.status_code == 201
 
     namespace = f"{config.lab.namespace_prefix}-{user.username}"
-    objects = mock_kubernetes.get_all_objects_in_namespace_for_test(namespace)
+    objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
     with (std_result_dir / "lab-objects.json").open("r") as f:
         expected = json.load(f)
     assert [strip_none(o.to_dict()) for o in objects] == expected

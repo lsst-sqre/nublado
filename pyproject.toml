@@ -82,6 +82,11 @@ skip = ["docs/conf.py"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
+filterwarnings = [
+    # Google modules call a deprecated pkg_resources API.
+    "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
+    "ignore:.*pkg_resources\\.declare_namespace:DeprecationWarning",
+]
 # The python_files setting is not for test detection (pytest will pick up any
 # test files named *_test.py without this setting) but to enable special
 # assert processing in any non-test supporting files under tests.  We

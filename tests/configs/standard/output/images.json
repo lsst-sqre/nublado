@@ -7,7 +7,7 @@
     "aliases": [
       "w_2077_43"
     ],
-    "prepulled": false
+    "prepulled": true
   },
   "latest_weekly": {
     "reference": "lighthouse.ceres/library/sketchbook:w_2077_43",
@@ -36,7 +36,7 @@
       "aliases": [
         "w_2077_43"
       ],
-      "prepulled": false
+      "prepulled": true
     },
     {
       "reference": "lighthouse.ceres/library/sketchbook:w_2077_43",
@@ -57,14 +57,14 @@
       "prepulled": false
     },
     {
-      "reference": "lighthouse.ceres/library/sketchbook/latest_weekly",
+      "reference": "lighthouse.ceres/library/sketchbook:latest_weekly",
       "tag": "latest_weekly",
       "name": "latest_weekly",
       "aliases": [],
       "prepulled": false
     },
     {
-      "reference": "lighthouse.ceres/library/sketchbook/latest_daily",
+      "reference": "lighthouse.ceres/library/sketchbook:latest_daily",
       "tag": "latest_daily",
       "name": "latest_daily",
       "aliases": [],
