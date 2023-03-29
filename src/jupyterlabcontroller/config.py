@@ -46,35 +46,28 @@ def _get_namespace_prefix() -> str:
 
 
 class SafirConfiguration(CamelCaseModel):
+    """Configuration common to most Safir-based applications."""
+
     name: str = Field(
-        ...,
-        name="name",
-        example="jupyterlab-controller",
-        title=(
-            "Application name (not necessarily the root HTTP endpoint path)"
-        ),
+        "nublado",
+        title="Name of application",
+        env="SAFIR_NAME",
     )
-    root_endpoint: str = Field(
-        ...,
-        name="root_endpoint",
-        example="nublado",
-        title="Application root HTTP endpoint path",
+
+    path_prefix: str = Field(
+        "/nublado",
+        title="URL prefix for application API",
+        env="SAFIR_PATH_PREFIX",
     )
+
     profile: Profile = Field(
         Profile.production,
-        name="profile",
-        example=Profile.production,
-        title="Application run profile, either 'production' or 'development'",
+        title="Application logging profile",
+        env="SAFIR_PROFILE",
     )
-    logger_name: str = Field(
-        ...,
-        name="logger_name",
-        example="jupyterlabcontroller",
-        title="Root name of the application's logger",
-    )
+
     log_level: LogLevel = Field(
         LogLevel.INFO,
-        name="log_level",
         example=LogLevel.INFO,
         title="Application log level",
     )

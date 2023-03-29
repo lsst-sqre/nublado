@@ -8,6 +8,7 @@ from httpx import AsyncClient
 from jupyterlabcontroller.factory import Factory
 
 from ..settings import TestObjectFactory
+from ..support.constants import TEST_BASE_URL
 
 
 @pytest.mark.asyncio
@@ -45,7 +46,7 @@ async def test_user_status(
     )
     assert r.status_code == 201
     assert r.headers["Location"] == (
-        f"http://localhost:8080/nublado/spawner/v1/labs/{user.username}"
+        f"{TEST_BASE_URL}/nublado/spawner/v1/labs/{user.username}"
     )
 
     # Now the lab should exist and we should be able to get some user status.

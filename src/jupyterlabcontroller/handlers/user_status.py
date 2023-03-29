@@ -1,38 +1,27 @@
-"""User-facing routes, as defined in sqr-066 (https://sqr-066.lsst.io),
-to determine user status"""
+"""User-facing routes that otherwise require a JupyterHub token."""
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 from safir.models import ErrorModel
 
 from ..dependencies.context import RequestContext, context_dependency
 from ..models.v1.lab import UserData
 
-# FastAPI routers
 router = APIRouter()
+"""Router to mount into the application."""
 
-
-#
-# User routes
-#
-
-
-# Lab Controller API: https://sqr-066.lsst.io/#lab-controller-rest-api
-# Prefix: /nublado/spawner/v1/user-status
+__all__ = ["router"]
 
 
 @router.get(
-    "",
-    responses={
-        404: {"description": "Lab not found", "model": ErrorModel},
-        403: {"description": "Forbidden", "model": ErrorModel},
-    },
-    summary="Get status for user",
+    "/spawner/v1/user-status",
+    responses={404: {"description": "Lab not found", "model": ErrorModel}},
+    summary="Status of user's lab",
     response_model=UserData,
 )
 async def get_user_status(
     x_auth_request_user: str = Header(...),
     context: RequestContext = Depends(context_dependency),
 ) -> UserData:
-    """Get the pod status for the authenticating user."""
     userdata = context.user_map.get(x_auth_request_user)
     if userdata is None:
         raise HTTPException(status_code=404, detail="Not found")

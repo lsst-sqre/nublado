@@ -12,7 +12,7 @@ from jupyterlabcontroller.config import Configuration
 async def test_get_external_index(
     client: AsyncClient, config: Configuration
 ) -> None:
-    response = await client.get("/nublado/")
+    response = await client.get("/nublado")
     assert response.status_code == 200
     data = response.json()
     metadata = data["metadata"]

@@ -1,6 +1,5 @@
-"""User-facing routes, as defined in sqr-066 (https://sqr-066.lsst.io),
-these specifically for lab manipulation"""
-import os
+"""Routes for lab manipulation (start, stop, get status, see events)."""
+
 from typing import List
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
@@ -11,29 +10,15 @@ from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import InvalidUserError, LabExistsError, NoUserMapError
 from ..models.v1.lab import LabSpecification, UserData
 
-
-def _external_url() -> str:
-    return os.environ.get("EXTERNAL_INSTANCE_URL", "http://localhost:8080")
-
-
-# FastAPI routers
 router = APIRouter()
+"""Router to mount into the application."""
 
-
-#
-# User routes
-#
-
-
-# Lab Controller API: https://sqr-066.lsst.io/#lab-controller-rest-api
-# Prefix: /nublado/spawner/v1/labs
+__all__ = ["router"]
 
 
 @router.get(
-    "",
-    responses={
-        403: {"description": "Forbidden", "model": ErrorModel},
-    },
+    "/spawner/v1/labs",
+    responses={403: {"description": "Forbidden", "model": ErrorModel}},
     summary="List all users with running labs",
 )
 async def get_lab_users(
@@ -44,19 +29,18 @@ async def get_lab_users(
 
 
 @router.get(
-    "/{username}",
+    "/spawner/v1/labs/{username}",
     response_model=UserData,
     responses={
-        404: {"description": "Lab not found", "model": ErrorModel},
         403: {"description": "Forbidden", "model": ErrorModel},
+        404: {"description": "Lab not found", "model": ErrorModel},
     },
-    summary="Status of user",
+    summary="Status of user's lab",
 )
 async def get_userdata(
     username: str,
     context: RequestContext = Depends(context_dependency),
 ) -> UserData:
-    """Returns status of the lab pod for the given user."""
     userdata = context.user_map.get(username)
     if userdata is None:
         raise HTTPException(status_code=404, detail="Not found")
@@ -64,7 +48,7 @@ async def get_userdata(
 
 
 @router.post(
-    "/{username}/create",
+    "/spawner/v1/labs/{username}/create",
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
         409: {"description": "Lab exists", "model": ErrorModel},
@@ -79,7 +63,6 @@ async def post_new_lab(
     x_auth_request_token: str = Header(...),
     context: RequestContext = Depends(context_dependency),
 ) -> None:
-    """Create a new Lab pod for a given user"""
     gafaelfawr_client = context.factory.create_gafaelfawr_client()
     try:
         user = await gafaelfawr_client.get_user_info(x_auth_request_token)
@@ -94,16 +77,16 @@ async def post_new_lab(
         await lab_manager.create_lab(user, x_auth_request_token, lab)
     except LabExistsError:
         raise HTTPException(status_code=409, detail="Conflict")
-    url = f"{_external_url()}/nublado/spawner/v1/labs/{username}"
-    response.headers["Location"] = url
+    url = context.request.url_for("get_userdata", username=username)
+    response.headers["Location"] = str(url)
 
 
 @router.delete(
-    "/{username}",
+    "/spawner/v1/labs/{username}",
     summary="Delete user lab",
     responses={
-        404: {"description": "Lab not found", "model": ErrorModel},
         403: {"description": "Forbidden", "model": ErrorModel},
+        404: {"description": "Lab not found", "model": ErrorModel},
     },
     status_code=204,
 )
@@ -111,7 +94,6 @@ async def delete_user_lab(
     username: str,
     context: RequestContext = Depends(context_dependency),
 ) -> None:
-    """Stop a running pod."""
     lab_manager = context.factory.create_lab_manager()
     try:
         await lab_manager.delete_lab(username)
@@ -121,12 +103,17 @@ async def delete_user_lab(
 
 
 @router.get(
-    "/{username}/events",
-    summary="Get Lab event stream for a user's current operation",
+    "/spawner/v1/labs/{username}/events",
+    summary="Get event stream for user's lab",
+    description=(
+        "Returns a stream of server-sent events representing progress in"
+        " creating the user's lab. The stream ends when the lab creation"
+        " succeeds or fails."
+    ),
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
+        404: {"description": "Lab not found", "model": ErrorModel},
     },
-    # FIXME: Not at all sure how to do response model/class for this
 )
 async def get_user_events(
     username: str,
@@ -144,23 +131,3 @@ async def get_user_events(
         raise HTTPException(status_code=404, detail="Not found")
 
     return context.event_manager.publish(username)
-
-
-@router.get(
-    "/spawner/v1/user-status",
-    responses={
-        404: {"description": "Lab not found", "model": ErrorModel},
-        403: {"description": "Forbidden", "model": ErrorModel},
-    },
-    summary="Get status for user",
-    response_model=UserData,
-)
-async def get_user_status(
-    x_auth_request_user: str = Header(...),
-    context: RequestContext = Depends(context_dependency),
-) -> UserData:
-    """Get the pod status for the authenticating user."""
-    userdata = context.user_map.get(x_auth_request_user)
-    if userdata is None:
-        raise HTTPException(status_code=404, detail="Not found")
-    return userdata

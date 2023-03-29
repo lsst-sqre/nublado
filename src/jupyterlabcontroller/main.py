@@ -10,7 +10,7 @@ from safir.middleware.x_forwarded import XForwardedMiddleware
 
 from .dependencies.config import configuration_dependency
 from .dependencies.context import context_dependency
-from .handlers import form, indexes, labs, prepuller, user_status
+from .handlers import form, index, labs, prepuller, user_status
 
 __all__ = ["create_app"]
 
@@ -27,9 +27,9 @@ def create_app() -> FastAPI:
 
     # Configure logging.
     configure_logging(
+        name="jupyterlabcontroller",
         profile=config.safir.profile,
         log_level=config.safir.log_level,
-        name=config.safir.logger_name,
     )
     configure_uvicorn_logging(config.safir.log_level)
 
@@ -38,21 +38,18 @@ def create_app() -> FastAPI:
         title=config.safir.name,
         description=metadata("jupyterlab-controller")["Summary"],
         version=version("jupyterlab-controller"),
-        openapi_url=f"/{config.safir.root_endpoint}/openapi.json",
-        docs_url=f"/{config.safir.root_endpoint}/docs",
-        redoc_url=f"/{config.safir.root_endpoint}/redoc",
+        openapi_url=f"/{config.safir.path_prefix}/openapi.json",
+        docs_url=f"{config.safir.path_prefix}/docs",
+        redoc_url=f"{config.safir.path_prefix}/redoc",
     )
 
     # Attach the routers.
-    app.include_router(indexes.internal_index_router)
-    app.include_router(
-        indexes.external_index_router, prefix=f"/{config.safir.root_endpoint}"
-    )
-    spawner = f"{config.safir.root_endpoint}/spawner/v1"
-    app.include_router(labs.router, prefix=f"/{spawner}/labs")
-    app.include_router(user_status.router, prefix=f"/{spawner}/user-status")
-    app.include_router(form.router, prefix=f"/{spawner}/lab-form")
-    app.include_router(prepuller.router, prefix=f"/{spawner}")
+    app.include_router(index.internal_router)
+    app.include_router(index.external_router, prefix=config.safir.path_prefix)
+    app.include_router(form.router, prefix=config.safir.path_prefix)
+    app.include_router(labs.router, prefix=config.safir.path_prefix)
+    app.include_router(prepuller.router, prefix=config.safir.path_prefix)
+    app.include_router(user_status.router, prefix=config.safir.path_prefix)
 
     # Register middleware.
     app.add_middleware(XForwardedMiddleware)

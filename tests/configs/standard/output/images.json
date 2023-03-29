@@ -1,0 +1,74 @@
+{
+  "recommended": {
+    "reference": "lighthouse.ceres/library/sketchbook:recommended",
+    "tag": "recommended",
+    "name": "Recommended (Weekly 2077_43)",
+    "digest": "sha256:5678",
+    "aliases": [
+      "w_2077_43"
+    ],
+    "prepulled": false
+  },
+  "latest_weekly": {
+    "reference": "lighthouse.ceres/library/sketchbook:w_2077_43",
+    "tag": "w_2077_43",
+    "name": "Weekly 2077_43",
+    "digest": "sha256:5678",
+    "aliases": [
+      "recommended"
+    ],
+    "prepulled": true
+  },
+  "latest_daily": {
+    "reference": "lighthouse.ceres/library/sketchbook:d_2077_10_23",
+    "tag": "d_2077_10_23",
+    "name": "Daily 2077_10_23",
+    "digest": "sha256:1234",
+    "aliases": [],
+    "prepulled": false
+  },
+  "all": [
+    {
+      "reference": "lighthouse.ceres/library/sketchbook:recommended",
+      "tag": "recommended",
+      "name": "Recommended (Weekly 2077_43)",
+      "digest": "sha256:5678",
+      "aliases": [
+        "w_2077_43"
+      ],
+      "prepulled": false
+    },
+    {
+      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43",
+      "tag": "w_2077_43",
+      "name": "Weekly 2077_43",
+      "digest": "sha256:5678",
+      "aliases": [
+        "recommended"
+      ],
+      "prepulled": true
+    },
+    {
+      "reference": "lighthouse.ceres/library/sketchbook:d_2077_10_23",
+      "tag": "d_2077_10_23",
+      "name": "Daily 2077_10_23",
+      "digest": "sha256:1234",
+      "aliases": [],
+      "prepulled": false
+    },
+    {
+      "reference": "lighthouse.ceres/library/sketchbook/latest_weekly",
+      "tag": "latest_weekly",
+      "name": "latest_weekly",
+      "aliases": [],
+      "prepulled": false
+    },
+    {
+      "reference": "lighthouse.ceres/library/sketchbook/latest_daily",
+      "tag": "latest_daily",
+      "name": "latest_daily",
+      "aliases": [],
+      "prepulled": false
+    }
+  ]
+}
