@@ -13,7 +13,7 @@ from rsp_restspawner.spawner import LabStatus, RSPRestSpawner
 from .support.controller import MockLabController
 
 
-async def gather_progress(
+async def collect_progress(
     spawner: RSPRestSpawner,
 ) -> list[dict[str, int | str]]:
     """Gather progress from a spawner and return it as a list when done."""
@@ -107,9 +107,9 @@ async def test_progress_multiple(
 
     results = await asyncio.gather(
         spawner.start(),
-        gather_progress(spawner),
-        gather_progress(spawner),
-        gather_progress(spawner),
+        collect_progress(spawner),
+        collect_progress(spawner),
+        collect_progress(spawner),
     )
     url = results[0]
     assert url == f"http://lab.nublado-{user}:8888"
@@ -140,7 +140,7 @@ async def test_spawn_failure(
     ]
 
     results = await asyncio.gather(
-        spawner.start(), gather_progress(spawner), return_exceptions=True
+        spawner.start(), collect_progress(spawner), return_exceptions=True
     )
     assert isinstance(results[0], SpawnFailedError)
     assert results[1] == expected
