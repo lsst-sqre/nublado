@@ -136,6 +136,13 @@ async def get_user_events(
     """Returns the events for the lab of the given user"""
     if username != x_auth_request_user:
         raise HTTPException(status_code=403, detail="Forbidden")
+
+    # If the user doesn't exist, publishing events for them will just hang
+    # forever, so return an immediate 404. No one should watch for events
+    # before creating a lab.
+    if not context.user_map.get(username):
+        raise HTTPException(status_code=404, detail="Not found")
+
     return context.event_manager.publish(username)
 
 
