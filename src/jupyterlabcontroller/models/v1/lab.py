@@ -151,7 +151,7 @@ class UserOptions(BaseModel):
         for k in ("image_list", "image_dropdown", "image_class", "image_tag"):
             if values.get(k) is not None:
                 if k == "image_list" and values[k] == DROPDOWN_SENTINEL_VALUE:
-                    del values[k]
+                    values[k] = None
                     continue
                 values_set.add(k)
         if values_set == {"image_list", "image_dropdown"}:
