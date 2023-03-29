@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Start the lab controller application inside the Docker image.
 
