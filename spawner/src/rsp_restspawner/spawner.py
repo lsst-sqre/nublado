@@ -439,19 +439,17 @@ class RSPRestSpawner(Spawner):
 
             # This logic tries to ensure that we don't repeat events even
             # though start will be adding more events while we're working.
-            # A new spawn replaces the events array when it starts, so grab a
-            # local reference so that we can finish processing it even if it's
-            # replaced while we work.
             len_events = len(events)
             for i in range(next_event, len_events):
                 yield events[i].to_dict()
             next_event = len_events
 
             # This delay waiting for new events is obnoxious, and ideally we
-            # would do better with some sort of synchronization primitive, but
-            # there may be multiple invocations of progress watching the same
-            # invocation of start and this has the merits of simplicity. It's
-            # also what Kubespawner does.
+            # would do better with some sort of synchronization primitive.
+            # Using an asyncio.Event per progress invocation would work if
+            # JupyterHub is always asyncio, but I wasn't sure if it used
+            # thread pools and asyncio synchronization primitives are not
+            # thread-safe. The delay approach is what KubeSpawner does.
             if not complete:
                 await asyncio.sleep(1)
 
