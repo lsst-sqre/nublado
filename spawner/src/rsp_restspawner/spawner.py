@@ -305,7 +305,7 @@ class RSPRestSpawner(Spawner):
             # Return the internal URL of the spawned pod.
             return await self._get_internal_url()
 
-        except Exception as e:
+        except Exception:
             # We see no end of problems caused by stranded half-created pods,
             # so whenever anything goes wrong, try to delete anything we may
             # have left behind before raising the fatal exception.
@@ -318,9 +318,9 @@ class RSPRestSpawner(Spawner):
             self._events.append(event)
             try:
                 await self.stop()
-            except Exception as nested_exc:
+            except Exception as e:
                 self.log.exception("Failed to delete lab after spawn failure")
-                error = f"{type(e).__name__}: {str(nested_exc)}"
+                error = f"{type(e).__name__}: {str(e)}"
                 event = SpawnEvent(
                     progress=progress,
                     message=f"Failed to clean up failed lab: {error}",
