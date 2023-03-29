@@ -1,18 +1,16 @@
 """Event model for jupyterlab-controller."""
 
-from typing import Dict, List, Optional
-
 from ..v1.lab import LabStatus, UserData
 
 
 class UserMap:
     def __init__(self) -> None:
-        self._dict: Dict[str, UserData] = dict()
+        self._dict: dict[str, UserData] = {}
 
-    def get(self, key: str) -> Optional[UserData]:
+    def get(self, key: str) -> UserData | None:
         return self._dict.get(key)
 
-    def list_users(self) -> List[str]:
+    def list_users(self) -> list[str]:
         return list(self._dict.keys())
 
     def set(self, key: str, item: UserData) -> None:
@@ -30,7 +28,7 @@ class UserMap:
     def remove(self, key: str) -> None:
         del self._dict[key]
 
-    async def running(self) -> List[str]:
+    async def running(self) -> list[str]:
         return [
             self._dict[k].username
             for k in self._dict.keys()

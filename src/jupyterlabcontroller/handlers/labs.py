@@ -1,7 +1,5 @@
 """Routes for lab manipulation (start, stop, get status, see events)."""
 
-from typing import List
-
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from safir.models import ErrorModel
 from sse_starlette import EventSourceResponse
@@ -23,7 +21,7 @@ __all__ = ["router"]
 )
 async def get_lab_users(
     context: RequestContext = Depends(context_dependency),
-) -> List[str]:
+) -> list[str]:
     """Returns a list of all users with running labs."""
     return await context.user_map.running()
 

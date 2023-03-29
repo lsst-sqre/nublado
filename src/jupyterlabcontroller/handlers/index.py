@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends
 from safir.metadata import Metadata, get_metadata
 
-from ..config import Configuration
+from ..config import Config
 from ..dependencies.config import configuration_dependency
 from ..models.index import Index
 
@@ -23,7 +23,7 @@ __all__ = ["external_router", "internal_router"]
     summary="Application metadata",
 )
 async def get_index(
-    config: Configuration = Depends(configuration_dependency),
+    config: Config = Depends(configuration_dependency),
 ) -> Index:
     metadata = get_metadata(
         package_name="jupyterlab-controller",
@@ -45,7 +45,7 @@ async def get_index(
     summary="Application metadata (internal)",
 )
 async def get_internal_index(
-    config: Configuration = Depends(configuration_dependency),
+    config: Config = Depends(configuration_dependency),
 ) -> Metadata:
     return get_metadata(
         package_name="jupyterlab-controller",

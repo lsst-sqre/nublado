@@ -1,12 +1,11 @@
 """Models for jupyterlab-controller."""
 
 from collections import deque
-from enum import Enum, auto
-from typing import Any, Deque, Dict, Optional
+from enum import Enum
+from typing import Any, Optional, Self
 
 from kubernetes_asyncio.client.models import V1Pod
 from pydantic import BaseModel, Field, root_validator, validator
-from safir.pydantic import CamelCaseModel
 
 from ...constants import (
     DROPDOWN_SENTINEL_VALUE,
@@ -14,33 +13,38 @@ from ...constants import (
     USERNAME_REGEX,
 )
 from ...util import str_to_bool
-from ..enums import NubladoEnum
 from .event import Event
 
 
-class LabSize(NubladoEnum):
+class LabSize(str, Enum):
+    """Allowable names for pod sizes."""
+
     # https://www.d20srd.org/srd/combat/movementPositionAndDistance.htm#bigandLittleCreaturesInCombat
-    FINE = auto()
-    DIMINUTIVE = auto()
-    TINY = auto()
-    SMALL = auto()
-    MEDIUM = auto()
-    LARGE = auto()
-    HUGE = auto()
-    GARGANTUAN = auto()
-    COLOSSAL = auto()
+    FINE = "fine"
+    DIMINUTIVE = "diminutive"
+    TINY = "tiny"
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+    HUGE = "huge"
+    GARGANTUAN = "gargantuan"
+    COLOSSAL = "colossal"
 
 
-class LabStatus(NubladoEnum):
-    PENDING = auto()
-    RUNNING = auto()
-    TERMINATING = auto()
-    FAILED = auto()
+class LabStatus(Enum):
+    """Possible states the user's lab may be in."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    TERMINATING = "terminating"
+    FAILED = "failed"
 
 
-class PodState(NubladoEnum):
-    PRESENT = auto()
-    MISSING = auto()
+class PodState(Enum):
+    """Possible states the user's pod may be in."""
+
+    PRESENT = "present"
+    MISSING = "missing"
 
 
 """POST /nublado/spawner/v1/labs/<username>/create"""
@@ -218,7 +222,7 @@ class LabSpecification(BaseModel):
 """GET /nublado/spawner/v1/user-status"""
 
 
-class UserGroup(CamelCaseModel):
+class UserGroup(BaseModel):
     name: str = Field(
         ...,
         example="ferrymen",
@@ -297,7 +301,7 @@ class UserInfo(BaseModel):
     quota: Optional[UserQuota] = Field(None, title="User's quotas")
 
 
-class UserResources(CamelCaseModel):
+class UserResources(BaseModel):
     limits: UserResourceQuantum = Field(..., title="Maximum allowed resources")
     requests: UserResourceQuantum = Field(
         ..., title="Intially-requested resources"
@@ -326,8 +330,8 @@ class UserData(UserInfo, LabSpecification):
         title="URL by which the Hub can access the user Pod",
     )
     resources: UserResources = Field(..., title="Resource requests and limits")
-    events: Deque[Event] = Field(
-        deque(),
+    events: deque[Event] = Field(
+        default_factory=deque,
         title="Ordered queue of events for user lab creation/deletion",
     )
 
@@ -337,7 +341,7 @@ class UserData(UserInfo, LabSpecification):
         user: UserInfo,
         labspec: LabSpecification,
         resources: UserResources,
-    ) -> "UserData":
+    ) -> Self:
         return cls(
             options=labspec.options,
             env=labspec.env,
@@ -356,8 +360,8 @@ class UserData(UserInfo, LabSpecification):
         resources: UserResources,
         status: LabStatus,
         pod: PodState,
-    ) -> "UserData":
-        ud = UserData.new_from_user_resources(
+    ) -> Self:
+        ud = cls.new_from_user_resources(
             user=user,
             labspec=labspec,
             resources=resources,
@@ -367,7 +371,7 @@ class UserData(UserInfo, LabSpecification):
         return ud
 
     @classmethod
-    def from_pod(cls, pod: V1Pod) -> "UserData":
+    def from_pod(cls, pod: V1Pod) -> Self:
         # We will extract everything from the discovered pod that we need
         # to build a UserData entry.  Size and namespace quota may be
         # incorrect, and group name information and user display name will
@@ -386,7 +390,7 @@ class UserData(UserInfo, LabSpecification):
             lab_ctr = pod.spec.containers[0]
             # So this will likely crash in extraction
         lab_env_l = lab_ctr.env
-        lab_env: Dict[str, str] = dict()
+        lab_env = {}
         for ev in lab_env_l:
             lab_env[ev.name] = ev.value or ""  # We will miss reflected vals
         uid = lab_ctr.security_context.run_as_user
@@ -427,7 +431,7 @@ class UserData(UserInfo, LabSpecification):
             limits=UserResourceQuantum(memory=mem_limit, cpu=cpu_limit),
             requests=UserResourceQuantum(memory=mem_request, cpu=cpu_request),
         )
-        ud = UserData.new_from_user_resources(
+        ud = cls.new_from_user_resources(
             user=user_info,
             labspec=lab_spec,
             resources=resources,

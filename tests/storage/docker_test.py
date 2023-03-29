@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 import respx
 
-from jupyterlabcontroller.config import Configuration
+from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.models.domain.docker import DockerCredentials
 from jupyterlabcontroller.storage.docker import DockerCredentialStore
@@ -20,7 +20,7 @@ from ..support.docker import register_mock_docker
 
 @pytest.mark.asyncio
 async def test_api(
-    config: Configuration, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, respx_mock: respx.Router
 ) -> None:
     tag_names = {"w_2021_21", "w_2021_22", "d_2021_06_14", "d_2021_06_15"}
     tags = {t: "sha256:" + os.urandom(32).hex() for t in tag_names}
@@ -43,7 +43,7 @@ async def test_api(
 
 @pytest.mark.asyncio
 async def test_bearer_auth(
-    config: Configuration, factory: Factory, respx_mock: respx.Router
+    config: Config, factory: Factory, respx_mock: respx.Router
 ) -> None:
     assert config.images.docker
     tags = {"r23_0_4": "sha256:" + os.urandom(32).hex()}

@@ -1,11 +1,10 @@
-from typing import List
-
 from jinja2 import Template
 from structlog.stdlib import BoundLogger
 
-from ..config import LabSizeDefinitions
+from ..config import LabSizeDefinition
 from ..constants import DROPDOWN_SENTINEL_VALUE, SPAWNER_FORM_TEMPLATE
 from ..models.domain.form import FormSize
+from ..models.v1.lab import LabSize
 from .image import ImageService
 
 
@@ -13,7 +12,7 @@ class FormManager:
     def __init__(
         self,
         image_service: ImageService,
-        lab_sizes: LabSizeDefinitions,
+        lab_sizes: dict[LabSize, LabSizeDefinition],
         logger: BoundLogger,
     ):
         self._image_service = image_service
@@ -32,11 +31,11 @@ class FormManager:
         )
         return rendered
 
-    def _extract_sizes(self) -> List[FormSize]:
+    def _extract_sizes(self) -> list[FormSize]:
         sz = self._lab_sizes
         szlist = [
             FormSize(
-                name=x.title(),
+                name=x.value.title(),
                 cpu=str((sz[x]).cpu),
                 memory=str((sz[x]).memory),
             )

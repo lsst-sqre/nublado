@@ -28,7 +28,7 @@ from ..models.v1.prepuller import (
     PrepullerStatus,
     SpawnerImages,
 )
-from ..models.v1.prepuller_config import PrepullerConfiguration
+from ..models.v1.prepuller_config import PrepullerConfig
 from ..storage.docker import DockerStorageClient
 from ..storage.k8s import K8sStorageClient
 
@@ -71,7 +71,7 @@ class ImageService:
     def __init__(
         self,
         *,
-        config: PrepullerConfiguration,
+        config: PrepullerConfig,
         docker: DockerStorageClient,
         kubernetes: K8sStorageClient,
         logger: BoundLogger,

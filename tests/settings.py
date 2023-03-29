@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from base64 import b64encode
-from typing import Any, Dict, List
+from typing import Any
 
 from kubernetes_asyncio.client import (
     V1ContainerImage,
@@ -31,7 +31,7 @@ from jupyterlabcontroller.services.size import memory_string_to_int
 class TestObjectFactory:
     _filename = ""
     _canonicalized = False
-    test_objects: Dict[str, Any] = dict()
+    test_objects: dict[str, Any] = {}
 
     def initialize_from_file(self, filename: str) -> None:
         if filename and filename != self._filename:
@@ -69,7 +69,7 @@ class TestObjectFactory:
         }
 
     @property
-    def labspecs(self) -> List[LabSpecification]:
+    def labspecs(self) -> list[LabSpecification]:
         if not self._canonicalized:
             self.canonicalize()
         return [
@@ -78,7 +78,7 @@ class TestObjectFactory:
         ]
 
     @property
-    def resources(self) -> List[UserResources]:
+    def resources(self) -> list[UserResources]:
         if not self._canonicalized:
             self.canonicalize()
         return [
@@ -86,8 +86,8 @@ class TestObjectFactory:
         ]
 
     @property
-    def userdatas(self) -> List[UserData]:
-        userdatas: List[UserData] = list()
+    def userdatas(self) -> list[UserData]:
+        userdatas = []
         labspecs = self.labspecs
         resources = self.resources
         userinfos = self.userinfos

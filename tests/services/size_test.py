@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from jupyterlabcontroller.config import Configuration
+from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.models.v1.lab import LabSize
 from jupyterlabcontroller.services.size import SizeManager
 
 
 @pytest.mark.asyncio
-async def test_resources(config: Configuration, std_result_dir: Path) -> None:
+async def test_resources(config: Config, std_result_dir: Path) -> None:
     with (std_result_dir / "sizemanager-resources.json").open("r") as f:
         expected = json.load(f)
     size_manager = SizeManager(sizes=config.lab.sizes)
@@ -19,7 +19,7 @@ async def test_resources(config: Configuration, std_result_dir: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_form(config: Configuration, std_result_dir: Path) -> None:
+async def test_form(config: Config, std_result_dir: Path) -> None:
     with (std_result_dir / "sizemanager-formdata.json").open("r") as f:
         expected = json.load(f)
     size_manager = SizeManager(sizes=config.lab.sizes)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 from collections.abc import AsyncGenerator
-from typing import Dict, List
+from typing import Optional
 
 from kubernetes_asyncio import client, watch
 from kubernetes_asyncio.client.api_client import ApiClient
@@ -112,7 +112,7 @@ class K8sStorageClient:
 
     async def create_secrets(
         self,
-        secret_list: List[LabSecret],
+        secret_list: list[LabSecret],
         username: str,
         token: str,
         source_ns: str,
@@ -274,7 +274,7 @@ class K8sStorageClient:
         }
         stopping = False
         async with w.stream(method, **watch_args) as stream:
-            seen_messages: List[str] = []
+            seen_messages = []
             async for event in stream:
                 # Check to see if pod has entered a state (i.e. not Pending or
                 # Unknown) where we can stop watching.
@@ -313,19 +313,19 @@ class K8sStorageClient:
                 w.stop()
                 return
 
-    async def copy_pull_secret(self, source_ns: str) -> Dict[str, str]:
+    async def copy_pull_secret(self, source_ns: str) -> dict[str, str]:
         secret = await self.read_secret(
             name="pull-secret", namespace=source_ns
         )
         return secret.data
 
     async def merge_controller_secrets(
-        self, secret_list: List[LabSecret], token: str, source_ns: str
-    ) -> Dict[str, str]:
+        self, secret_list: list[LabSecret], token: str, source_ns: str
+    ) -> dict[str, str]:
         """Merge the user token with whatever secrets we're injecting
         from the lab controller environment."""
-        secret_names: List[str] = list()
-        secret_keys: List[str] = list()
+        secret_names = []
+        secret_keys = []
         for sec in secret_list:
             secret_names.append(sec.secret_name)
             if sec.secret_key in secret_keys:
@@ -334,7 +334,7 @@ class K8sStorageClient:
         # In theory, we should parallelize the secret reads.  But in practice
         # it makes life a lot more complex, and we probably just have one,
         # the controller secret.  Pull-secret will be handled separately.
-        base64_data: Dict[str, str] = dict()
+        base64_data = {}
         for name in secret_names:
             secret: Secret = await self.read_secret(
                 name=name, namespace=source_ns
@@ -354,7 +354,7 @@ class K8sStorageClient:
         self,
         name: str,
         namespace: str,
-        data: Dict[str, str],
+        data: dict[str, str],
         secret_type: str = "Opaque",
         immutable: bool = True,
     ) -> None:
@@ -394,10 +394,10 @@ class K8sStorageClient:
         self,
         name: str,
         namespace: str,
-        data: Dict[str, str],
+        data: dict[str, str],
         immutable: bool = True,
     ) -> None:
-        mangled_data = dict()
+        mangled_data = {}
         for k in data:
             mangled_data[deslashify(k)] = data[k]
         configmap = V1ConfigMap(
@@ -500,7 +500,7 @@ class K8sStorageClient:
         namespace: str,
         pod: V1PodSpec,
         pull_secret: bool = False,
-        labels: Dict[str, str] = dict(),
+        labels: Optional[dict[str, str]] = None,
     ) -> None:
         if pull_secret:
             pod.image_pull_secrets = [{"name": "pull-secret"}]
@@ -558,8 +558,8 @@ class K8sStorageClient:
 
     async def get_observed_user_state(
         self, manager_namespace: str
-    ) -> Dict[str, UserData]:
-        observed_state = dict()
+    ) -> dict[str, UserData]:
+        observed_state = {}
         api = self.api
         ns_prefix = f"{manager_namespace}-"
         namespaces = await api.list_namespace()

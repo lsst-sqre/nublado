@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import os
-from enum import auto
+from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Self, TypeAlias
+from typing import Self
 
 import yaml
 from pydantic import BaseSettings, Field
@@ -13,9 +13,8 @@ from safir.logging import LogLevel, Profile
 from safir.pydantic import CamelCaseModel, to_camel_case
 
 from .constants import DOCKER_SECRETS_PATH
-from .models.enums import NubladoEnum
 from .models.v1.lab import LabSize
-from .models.v1.prepuller_config import PrepullerConfiguration
+from .models.v1.prepuller_config import PrepullerConfig
 
 
 def _get_namespace_prefix() -> str:
@@ -45,8 +44,8 @@ def _get_namespace_prefix() -> str:
 #
 
 
-class SafirConfiguration(CamelCaseModel):
-    """Configuration common to most Safir-based applications."""
+class SafirConfig(CamelCaseModel):
+    """Config common to most Safir-based applications."""
 
     name: str = Field(
         "nublado",
@@ -98,12 +97,11 @@ class LabSizeDefinition(CamelCaseModel):
     )
 
 
-LabSizeDefinitions: TypeAlias = Dict[LabSize, LabSizeDefinition]
+class FileMode(Enum):
+    """Possible read/write modes with which a file may be mounted."""
 
-
-class FileMode(NubladoEnum):
-    RW = auto()
-    RO = auto()
+    RW = "rw"
+    RO = "ro"
 
 
 class LabVolume(CamelCaseModel):
@@ -132,11 +130,11 @@ class LabVolume(CamelCaseModel):
         regex="^/*",
     )
     mode: FileMode = Field(
-        FileMode("rw"),
+        FileMode.RW,
         name="mode",
-        example="rw",
-        title="File mode: 'rw' is read/write and 'ro' is read-only",
-        regex="^r[ow]$",
+        example="ro",
+        title="File permissions when mounted",
+        description="`rw` is read/write and `ro` is read-only",
     )
 
 
@@ -163,8 +161,8 @@ class LabInitContainer(CamelCaseModel):
             "provision filesystems"
         ),
     )
-    volumes: List[LabVolume] = Field(
-        list(),
+    volumes: list[LabVolume] = Field(
+        [],
         name="volumes",
         title="Volumes mounted by this initContainer",
     )
@@ -209,13 +207,13 @@ class LabFile(CamelCaseModel):
     )
 
 
-class LabConfiguration(CamelCaseModel):
-    sizes: LabSizeDefinitions
-    env: Dict[str, str] = {}
-    secrets: List[LabSecret] = []
-    files: Dict[str, LabFile] = {}
-    volumes: List[LabVolume] = []
-    init_containers: List[LabInitContainer] = []
+class LabConfig(CamelCaseModel):
+    sizes: dict[LabSize, LabSizeDefinition] = {}
+    env: dict[str, str] = {}
+    secrets: list[LabSecret] = []
+    files: dict[str, LabFile] = {}
+    volumes: list[LabVolume] = []
+    init_containers: list[LabInitContainer] = []
     namespace_prefix: str = Field(
         default_factory=_get_namespace_prefix,
         title="Namespace prefix for lab environments",
@@ -230,14 +228,14 @@ class LabConfiguration(CamelCaseModel):
 
 
 #
-# Configuration
+# Config
 #
 
 
-class Configuration(BaseSettings):
-    safir: SafirConfiguration
-    lab: LabConfiguration
-    images: PrepullerConfiguration
+class Config(BaseSettings):
+    safir: SafirConfig
+    lab: LabConfig
+    images: PrepullerConfig
 
     base_url: str = Field(
         "http://127.0.0.1:8080",

@@ -1,7 +1,6 @@
 import asyncio
 from asyncio import Queue, QueueEmpty
 from collections.abc import AsyncGenerator
-from typing import Dict
 
 from sse_starlette import EventSourceResponse
 from structlog.stdlib import BoundLogger
@@ -63,7 +62,7 @@ class EventManager:
 
     def __init__(self, logger: BoundLogger) -> None:
         self.logger = logger
-        self._dict: Dict[str, EventGenerator] = dict()
+        self._dict: dict[str, EventGenerator] = {}
 
     def get(self, key: str) -> EventGenerator:
         if key not in self._dict:

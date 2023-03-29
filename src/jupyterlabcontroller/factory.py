@@ -13,7 +13,7 @@ from kubernetes_asyncio.client.api_client import ApiClient
 from safir.dependencies.http_client import http_client_dependency
 from structlog.stdlib import BoundLogger
 
-from .config import Configuration
+from .config import Config
 from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .models.domain.usermap import UserMap
 from .services.events import EventManager
@@ -39,7 +39,7 @@ class ProcessContext:
     context.
     """
 
-    config: Configuration
+    config: Config
     """Lab controller configuration."""
 
     http_client: AsyncClient
@@ -61,7 +61,7 @@ class ProcessContext:
     """Manager for lab spawning events."""
 
     @classmethod
-    async def from_config(cls, config: Configuration) -> Self:
+    async def from_config(cls, config: Config) -> Self:
         """Create a new process context from the controller configuration.
 
         Parameters
@@ -145,7 +145,7 @@ class Factory:
 
     @classmethod
     @asynccontextmanager
-    async def standalone(cls, config: Configuration) -> AsyncIterator[Self]:
+    async def standalone(cls, config: Config) -> AsyncIterator[Self]:
         """Async context manager for lab controller components.
 
         Intended for background jobs or the test suite.

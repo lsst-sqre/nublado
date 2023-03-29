@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from httpx import AsyncClient
 
-from jupyterlabcontroller.config import Configuration
+from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.constants import DROPDOWN_SENTINEL_VALUE
 from jupyterlabcontroller.factory import Factory
 
@@ -85,7 +85,7 @@ async def test_lab_start_stop(
             "options": {
                 "image_list": [DROPDOWN_SENTINEL_VALUE],
                 "image_dropdown": [lab.options.image_list],
-                "size": [lab.options.size],
+                "size": [lab.options.size.value],
             },
             "env": lab.env,
         },
@@ -156,7 +156,7 @@ async def test_lab_start_stop(
 @pytest.mark.asyncio
 async def test_lab_objects(
     client: AsyncClient,
-    config: Configuration,
+    config: Config,
     mock_kubernetes: MockLabKubernetesApi,
     obj_factory: TestObjectFactory,
     std_result_dir: Path,

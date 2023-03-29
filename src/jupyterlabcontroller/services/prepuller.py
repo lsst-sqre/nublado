@@ -9,7 +9,7 @@ from kubernetes_asyncio.client import V1Container, V1PodSpec
 from structlog.stdlib import BoundLogger
 
 from ..models.domain.rspimage import RSPImage
-from ..models.v1.prepuller_config import PrepullerConfiguration
+from ..models.v1.prepuller_config import PrepullerConfig
 from ..storage.k8s import K8sStorageClient
 from .image import ImageService
 
@@ -25,7 +25,7 @@ class Prepuller:
     Parameters
     ----------
     config
-        Configuration for the prepuller.
+        Config for the prepuller.
     namespace
         Namespace in which to put prepuller pods.
     image_service
@@ -40,7 +40,7 @@ class Prepuller:
     def __init__(
         self,
         *,
-        config: PrepullerConfiguration,
+        config: PrepullerConfig,
         namespace: str,
         image_service: ImageService,
         k8s_client: K8sStorageClient,
