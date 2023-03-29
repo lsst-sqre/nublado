@@ -496,7 +496,7 @@ class K8sStorageClient:
             pod.image_pull_secrets = [{"name": "pull-secret"}]
         metadata = self.get_std_metadata(name, namespace=namespace)
         if labels:
-            metadata.labels = labels
+            metadata.labels.update(labels)
         pod_obj = V1Pod(metadata=metadata, spec=pod)
         try:
             await self.api.create_namespaced_pod(
