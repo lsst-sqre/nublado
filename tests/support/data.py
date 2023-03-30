@@ -52,3 +52,25 @@ def read_output_data(config: str, filename: str) -> Any:
     base_path = Path(__file__).parent.parent / "configs" / config
     with (base_path / "output" / filename).open("r") as f:
         return json.load(f)
+
+
+def write_output_data(config: str, filename: str, data: Any) -> None:
+    """Store output data as JSON.
+
+    This function is not called directly by the test suite. It is provided as
+    a convenience to write the existing output as test data so that a human
+    can review it without having to write it manually.
+
+    Parameters
+    ----------
+    config
+        Configuration to which to write data (the name of one of the
+        directories under ``tests/configs``).
+    filename
+        File to write.
+    data
+        Data to write.
+    """
+    base_path = Path(__file__).parent.parent / "configs" / config
+    with (base_path / "output" / filename).open("w") as f:
+        json.dump(data, f, indent=2)

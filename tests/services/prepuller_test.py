@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -142,6 +143,14 @@ async def test_gar(
         expected = read_output_data("gar", "images-before.json")
         assert images.dict(exclude_none=True) == expected
 
+        menu_images = factory.image_service.menu_images()
+        seen = {
+            "menu": [asdict(e) for e in menu_images.menu],
+            "dropdown": [asdict(e) for e in menu_images.dropdown],
+        }
+        expected = read_output_data("gar", "menu-before.json")
+        assert seen == expected
+
         # There should be two running pods, one for each node.
         namespace = config.lab.namespace_prefix
         objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
@@ -173,3 +182,11 @@ async def test_gar(
         images = factory.image_service.images()
         expected = read_output_data("gar", "images-after.json")
         assert images.dict(exclude_none=True) == expected
+
+        menu_images = factory.image_service.menu_images()
+        seen = {
+            "menu": [asdict(e) for e in menu_images.menu],
+            "dropdown": [asdict(e) for e in menu_images.dropdown],
+        }
+        expected = read_output_data("gar", "menu-after.json")
+        assert seen == expected
