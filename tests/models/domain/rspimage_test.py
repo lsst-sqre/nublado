@@ -359,6 +359,7 @@ def test_alias_tracking() -> None:
 
     # If we add another image with the same digest, it should take over as the
     # primary alias target.
+    assert recommended.display_name == "Recommended (Weekly 2077_46)"
     new_weekly = make_test_image("w_2077_47")
     new_weekly.digest = weekly.digest
     collection.add(new_weekly)
@@ -368,6 +369,7 @@ def test_alias_tracking() -> None:
     assert not new_weekly.alias_target
     assert recommended.aliases == {"latest_weekly", "w_2077_46"}
     assert recommended.alias_target == "w_2077_47"
+    assert recommended.display_name == "Recommended (Weekly 2077_47)"
     assert latest_weekly.aliases == {"recommended", "w_2077_46"}
     assert latest_weekly.alias_target == "w_2077_47"
     assert [i.tag for i in collection.all_images(hide_aliased=True)] == [

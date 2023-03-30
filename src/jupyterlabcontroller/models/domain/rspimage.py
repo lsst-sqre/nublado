@@ -501,7 +501,7 @@ class RSPImageCollection:
                 new.aliases.add(alias)
                 other = self._by_tag_name[alias]
                 if other.alias_target == old.tag:
-                    other.alias_target = new.tag
+                    other.resolve_alias(new)
                     other.aliases.add(old.tag)
                 else:
                     other.aliases.add(new.tag)
