@@ -11,8 +11,8 @@ lab:
   secrets: []
   files: {}
 images:
-  docker: {}
-  gar:
+  source:
+    type: google
     location: us-central1
     projectId: rubin-shared-services-71ec
     repository: sciplat

@@ -7,7 +7,7 @@ from typing import Optional, Self
 from pydantic import BaseModel, Field
 
 from ..domain.rspimage import RSPImage
-from .prepuller_config import PrepullerConfigDocker, PrepullerConfigGAR
+from .prepuller_config import PrepullerConfig
 
 
 class Image(BaseModel):
@@ -127,9 +127,7 @@ class Node(BaseModel):
 
 
 class PrepullerStatus(BaseModel):
-    config: PrepullerConfigDocker | PrepullerConfigGAR = Field(
-        ..., title="Prepuller configuration"
-    )
+    config: PrepullerConfig = Field(..., title="Prepuller configuration")
     images: PrepullerImageStatus = Field(
         ..., title="Prepuller status by image"
     )

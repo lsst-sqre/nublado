@@ -16,16 +16,16 @@ from structlog.stdlib import BoundLogger
 from .config import Config
 from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .models.domain.usermap import UserMap
-from .models.v1.prepuller_config import (
-    PrepullerConfigDocker,
-    PrepullerConfigGAR,
-)
+from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
 from .services.events import EventManager
 from .services.form import FormManager
-from .services.image import DockerImageService, GARImageService, ImageService
+from .services.image import ImageService
 from .services.lab import LabManager
 from .services.prepuller import Prepuller
 from .services.size import SizeManager
+from .services.source.base import ImageSource
+from .services.source.docker import DockerImageSource
+from .services.source.gar import GARImageSource
 from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.gar import GARStorageClient
@@ -96,28 +96,31 @@ class ProcessContext:
             logger=logger,
         )
 
-        if isinstance(config.images, PrepullerConfigDocker):
+        if isinstance(config.images.source, DockerSourceConfig):
             docker_client = DockerStorageClient(
                 credentials_path=config.docker_secrets_path,
                 http_client=http_client,
                 logger=logger,
             )
-            image_service: ImageService = DockerImageService(
-                config=config.images,
+            source: ImageSource = DockerImageSource(
+                config=config.images.source,
                 docker=docker_client,
-                kubernetes=k8s_client,
                 logger=logger,
             )
-        elif isinstance(config.images, PrepullerConfigGAR):
+        elif isinstance(config.images.source, GARSourceConfig):
             gar_client = GARStorageClient(logger)
-            image_service = GARImageService(
-                config=config.images,
-                gar=gar_client,
-                kubernetes=k8s_client,
-                logger=logger,
+            source = GARImageSource(
+                config=config.images.source, gar=gar_client, logger=logger
             )
         else:
             raise RuntimeError("Unknown prepuller configuration type")
+
+        image_service = ImageService(
+            config=config.images,
+            source=source,
+            kubernetes=k8s_client,
+            logger=logger,
+        )
 
         return cls(
             config=config,

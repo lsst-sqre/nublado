@@ -13,9 +13,7 @@ import respx
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.models.domain.docker import DockerCredentials
-from jupyterlabcontroller.models.v1.prepuller_config import (
-    PrepullerConfigDocker,
-)
+from jupyterlabcontroller.models.v1.prepuller_config import DockerSourceConfig
 from jupyterlabcontroller.storage.docker import DockerCredentialStore
 
 from ..support.docker import register_mock_docker
@@ -27,21 +25,19 @@ async def test_api(
 ) -> None:
     tag_names = {"w_2021_21", "w_2021_22", "d_2021_06_14", "d_2021_06_15"}
     tags = {t: "sha256:" + os.urandom(32).hex() for t in tag_names}
-    assert isinstance(config.images, PrepullerConfigDocker)
-    registry = config.images.docker.registry
-    repository = config.images.docker.repository
+    assert isinstance(config.images.source, DockerSourceConfig)
     register_mock_docker(
         respx_mock,
-        host=registry,
-        repository=repository,
+        host=config.images.source.registry,
+        repository=config.images.source.repository,
         credentials_path=config.docker_secrets_path,
         tags=tags,
     )
     docker = factory.create_docker_storage()
-    assert set(await docker.list_tags(registry, repository)) == tag_names
-    digest = await docker.get_image_digest(registry, repository, "w_2021_21")
+    assert set(await docker.list_tags(config.images.source)) == tag_names
+    digest = await docker.get_image_digest(config.images.source, "w_2021_21")
     assert digest == tags["w_2021_21"]
-    digest = await docker.get_image_digest(registry, repository, "w_2021_22")
+    digest = await docker.get_image_digest(config.images.source, "w_2021_22")
     assert digest == tags["w_2021_22"]
 
 
@@ -49,21 +45,19 @@ async def test_api(
 async def test_bearer_auth(
     config: Config, factory: Factory, respx_mock: respx.Router
 ) -> None:
-    assert isinstance(config.images, PrepullerConfigDocker)
+    assert isinstance(config.images.source, DockerSourceConfig)
     tags = {"r23_0_4": "sha256:" + os.urandom(32).hex()}
-    registry = config.images.docker.registry
-    repository = config.images.docker.repository
     register_mock_docker(
         respx_mock,
-        host=registry,
-        repository=repository,
+        host=config.images.source.registry,
+        repository=config.images.source.repository,
         credentials_path=config.docker_secrets_path,
         tags=tags,
         require_bearer=True,
     )
     docker = factory.create_docker_storage()
-    assert await docker.list_tags(registry, repository) == ["r23_0_4"]
-    digest = await docker.get_image_digest(registry, repository, "r23_0_4")
+    assert await docker.list_tags(config.images.source) == ["r23_0_4"]
+    digest = await docker.get_image_digest(config.images.source, "r23_0_4")
     assert digest == tags["r23_0_4"]
 
 

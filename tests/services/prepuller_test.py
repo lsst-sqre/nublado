@@ -20,7 +20,7 @@ from kubernetes_asyncio.client import (
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.models.k8s import K8sPodPhase
-from jupyterlabcontroller.models.v1.prepuller_config import PrepullerConfigGAR
+from jupyterlabcontroller.models.v1.prepuller_config import GARSourceConfig
 
 from ..settings import TestObjectFactory
 from ..support.config import configure
@@ -116,7 +116,7 @@ async def test_gar(
 ) -> None:
     """Test the prepuller service configured to talk to GAR."""
     config = configure("gar")
-    assert isinstance(config.images, PrepullerConfigGAR)
+    assert isinstance(config.images.source, GARSourceConfig)
     known_images = read_input_data("gar", "known-images.json")
     for known_image in known_images:
         image = DockerImage(**known_image)

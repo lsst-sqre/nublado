@@ -15,9 +15,7 @@ from httpx import AsyncClient
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.main import create_app
-from jupyterlabcontroller.models.v1.prepuller_config import (
-    PrepullerConfigDocker,
-)
+from jupyterlabcontroller.models.v1.prepuller_config import DockerSourceConfig
 
 from .settings import TestObjectFactory, test_object_factory
 from .support.config import configure
@@ -100,11 +98,11 @@ def mock_docker(
     respx_mock: respx.Router,
     obj_factory: TestObjectFactory,
 ) -> MockDockerRegistry:
-    assert isinstance(config.images, PrepullerConfigDocker)
+    assert isinstance(config.images.source, DockerSourceConfig)
     return register_mock_docker(
         respx_mock,
-        host=config.images.docker.registry,
-        repository=config.images.docker.repository,
+        host=config.images.source.registry,
+        repository=config.images.source.repository,
         credentials_path=config.docker_secrets_path,
         tags=obj_factory.repocontents,
         require_bearer=True,

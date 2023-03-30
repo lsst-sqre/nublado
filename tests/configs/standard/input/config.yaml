@@ -131,7 +131,8 @@ lab:
         #cacher_dir = /tmp
         cacher_dir = /data/idds
 images:
-  docker:
+  source:
+    type: docker
     registry: lighthouse.ceres
     repository: library/sketchbook
   recommendedTag: recommended

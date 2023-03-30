@@ -9,6 +9,7 @@ from structlog.stdlib import BoundLogger
 
 from ..exceptions import DockerRegistryError
 from ..models.domain.docker import DockerCredentials
+from ..models.v1.prepuller_config import DockerSourceConfig
 
 
 class DockerCredentialStore:
@@ -120,25 +121,24 @@ class DockerStorageClient:
         # obtained via API calls.
         self._authorization: dict[str, str] = {}
 
-    async def list_tags(self, registry: str, repository: str) -> list[str]:
+    async def list_tags(self, config: DockerSourceConfig) -> list[str]:
         """List all the tags for a given registry and repository.
 
         Parameters
         ----------
-        registry
-            Hostname of Docker container registry.
-        repository
-            Repository of images (for example, ``lsstsqre/sciplat-lab``).
+        config
+            Configuration for the registry and repository to use.
 
         Returns
         -------
         list of str
             All the tags found for that repository.
         """
-        url = f"https://{registry}/v2/{repository}/tags/list"
-        r = await self._client.get(url, headers=self._build_headers(registry))
+        url = f"https://{config.registry}/v2/{config.repository}/tags/list"
+        headers = self._build_headers(config.registry)
+        r = await self._client.get(url, headers=headers)
         if r.status_code == 401:
-            headers = await self._authenticate(registry, r)
+            headers = await self._authenticate(config.registry, r)
             r = await self._client.get(url, headers=headers)
         try:
             r.raise_for_status()
@@ -148,16 +148,14 @@ class DockerStorageClient:
             raise DockerRegistryError(msg) from e
 
     async def get_image_digest(
-        self, registry: str, repository: str, tag: str
+        self, config: DockerSourceConfig, tag: str
     ) -> str:
         """Get the digest associated with an image tag.
 
         Parameters
         ----------
-        registry
-            Hostname of Docker container registry.
-        repository
-            Repository of images (for example, ``lsstsqre/sciplat-lab``).
+        config
+            Configuration for the registry and repository to use.
         tag
             The tag to inspect.
 
@@ -171,10 +169,13 @@ class DockerStorageClient:
         DockerRegistryError
             Unable to retrieve the digest from the Docker Registry.
         """
-        url = f"https://{registry}/v2/{repository}/manifests/{tag}"
-        r = await self._client.head(url, headers=self._build_headers(registry))
+        url = (
+            f"https://{config.registry}/v2/{config.repository}/manifests/{tag}"
+        )
+        headers = self._build_headers(config.registry)
+        r = await self._client.head(url, headers=headers)
         if r.status_code == 401:
-            headers = await self._authenticate(registry, r)
+            headers = await self._authenticate(config.registry, r)
             r = await self._client.head(url, headers=headers)
         try:
             r.raise_for_status()

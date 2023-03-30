@@ -8,7 +8,7 @@ from structlog.stdlib import BoundLogger
 
 from ..models.domain.rspimage import RSPImage, RSPImageCollection
 from ..models.domain.rsptag import RSPImageTag
-from ..models.v1.prepuller_config import GARSource
+from ..models.v1.prepuller_config import GARSourceConfig
 
 __all__ = ["GARStorageClient"]
 
@@ -30,7 +30,7 @@ class GARStorageClient:
         self._logger = logger
         self._client = artifactregistry_v1.ArtifactRegistryAsyncClient()
 
-    async def list_images(self, config: GARSource) -> RSPImageCollection:
+    async def list_images(self, config: GARSourceConfig) -> RSPImageCollection:
         """Return all images stored in the remote repository.
 
         Parameters

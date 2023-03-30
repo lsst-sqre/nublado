@@ -7,23 +7,99 @@ so it has to live in its own file separate from the rest of the configuration.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Literal, Optional
 
-from pydantic import Extra, Field, root_validator
+from pydantic import Field
 from safir.pydantic import CamelCaseModel
 
 __all__ = [
-    "DockerSource",
-    "GARSource",
-    "PrepullerConfigBase",
-    "PrepullerConfigDocker",
-    "PrepullerConfigGAR",
+    "DockerSourceConfig",
+    "GARSourceConfig",
+    "PrepullerConfig",
 ]
 
 
-class PrepullerConfigBase(CamelCaseModel):
-    """Base configuration for the prepuller."""
+class DockerSourceConfig(CamelCaseModel):
+    """Docker Registry from which to get images."""
 
+    type: Literal["docker"] = Field(..., title="Type of image source")
+    registry: str = Field(
+        "docker.io",
+        example="lighthouse.ceres",
+        title="hostname (and optional port) of Docker repository",
+    )
+    repository: str = Field(
+        ...,
+        example="library/sketchbook",
+        title="Docker repository path to lab image (no tag or digest)",
+    )
+
+
+class GARSourceConfig(CamelCaseModel):
+    """Google Artifact Registry from which to get images.
+
+    The Google Artifact Repository naming convention is unfortunate. It uses
+    ``repository`` for a specific management level of the Google Artifact
+    Registry within a Google project and without specifying the name of the
+    image, unlike the terminology that is used elsewhere where the registry is
+    the hostname and the repository is everything else except the tag and hash.
+
+    Everywhere else, repository is used in the non-Google sense. In this
+    class, the main class uses the Google terminology to avoid confusion, and
+    uses ``path`` for what everything else calls the repository.
+    """
+
+    type: Literal["google"] = Field(..., title="Type of image source")
+    location: str = Field(
+        ...,
+        example="us-central1",
+        title="Region or multiregion of registry",
+        description=(
+            "This is the same as the hostname of the registry but with the"
+            " ``-docker.pkg.dev`` suffix removed."
+        ),
+    )
+    project_id: str = Field(
+        ...,
+        example="ceres-lighthouse-6ab4",
+        title="Google Cloud Platform project ID of registry",
+    )
+    repository: str = Field(
+        ...,
+        example="library",
+        title="Google Artifact Registry repository name",
+    )
+    image: str = Field(
+        ...,
+        example="sketchbook",
+        title="Google Artifact Registry image name",
+    )
+
+    @property
+    def registry(self) -> str:
+        """Hostname holding the registry."""
+        return f"{self.location}-docker.pkg.dev"
+
+    @property
+    def parent(self) -> str:
+        """Parent string for searches in Google Artifact Repository."""
+        return (
+            f"projects/{self.project_id}/locations/{self.location}"
+            f"/repositories/{self.repository}/dockerImages/{self.image}"
+        )
+
+    @property
+    def path(self) -> str:
+        """What everything else calls a repository."""
+        return f"{self.project_id}/{self.repository}/{self.image}"
+
+
+class PrepullerConfig(CamelCaseModel):
+    """Configuration for the prepuller."""
+
+    source: DockerSourceConfig | GARSourceConfig = Field(
+        ..., title="Source of images"
+    )
     recommended_tag: str = Field(
         "recommended",
         example="recommended",
@@ -97,108 +173,3 @@ class PrepullerConfigBase(CamelCaseModel):
             " human-readable descriptions."
         ),
     )
-
-
-class DockerSource(CamelCaseModel):
-    """Docker Registry from which to get images."""
-
-    registry: str = Field(
-        "docker.io",
-        example="lighthouse.ceres",
-        title="hostname (and optional port) of Docker repository",
-    )
-    repository: str = Field(
-        ...,
-        example="library/sketchbook",
-        title="Docker repository path to lab image (no tag or digest)",
-    )
-
-    class Config:
-        extra = Extra.forbid
-
-
-class GARSource(CamelCaseModel):
-    """Google Artifact Registry from which to get images.
-
-    The Google Artifact Repository naming convention is unfortunate. It uses
-    ``repository`` for a specific management level of the Google Artifact
-    Registry within a Google project and without specifying the name of the
-    image, unlike the terminology that is used elsewhere where the registry is
-    the hostname and the repository is everything else except the tag and hash.
-
-    Everywhere else, repository is used in the non-Google sense. In this
-    class, the main class uses the Google terminology to avoid confusion, and
-    uses ``path`` for what everything else calls the repository.
-    """
-
-    location: str = Field(
-        ...,
-        example="us-central1",
-        title="Region or multiregion of registry",
-        description=(
-            "This is the same as the hostname of the registry but with the"
-            " ``-docker.pkg.dev`` suffix removed."
-        ),
-    )
-    project_id: str = Field(
-        ...,
-        example="ceres-lighthouse-6ab4",
-        title="Google Cloud Platform project ID of registry",
-    )
-    repository: str = Field(
-        ...,
-        example="library",
-        title="Google Artifact Registry repository name",
-    )
-    image: str = Field(
-        ...,
-        example="sketchbook",
-        title="Google Artifact Registry image name",
-    )
-
-    class Config:
-        extra = Extra.forbid
-
-    @property
-    def registry(self) -> str:
-        """Hostname holding the registry."""
-        return f"{self.location}-docker.pkg.dev"
-
-    @property
-    def parent(self) -> str:
-        """Parent string for searches in Google Artifact Repository."""
-        return (
-            f"projects/{self.project_id}/locations/{self.location}"
-            f"/repositories/{self.repository}/dockerImages/{self.image}"
-        )
-
-    @property
-    def path(self) -> str:
-        """What everything else calls a repository."""
-        return f"{self.project_id}/{self.repository}/{self.image}"
-
-
-class PrepullerConfigDocker(PrepullerConfigBase):
-    """Prepuller configuration using Docker."""
-
-    docker: DockerSource = Field(..., title="Docker Registry to use")
-
-    @root_validator(pre=True)
-    def _allow_empty_dict(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Delete empty ``gar`` dict to simplify Helm chart values files."""
-        if "gar" in values and not values["gar"]:
-            del values["gar"]
-        return values
-
-
-class PrepullerConfigGAR(PrepullerConfigBase):
-    """Prepuller configuration using Google Artifact Registry."""
-
-    gar: GARSource = Field(..., title="Google Artifact Registry to use")
-
-    @root_validator(pre=True)
-    def _allow_empty_dict(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Delete empty ``docker`` dict to simplify Helm chart values files."""
-        if "docker" in values and not values["docker"]:
-            del values["docker"]
-        return values
