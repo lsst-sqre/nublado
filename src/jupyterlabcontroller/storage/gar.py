@@ -48,7 +48,7 @@ class GARStorageClient:
 
         images = []
         async for gar_image in image_list:
-            _, digest = gar_image.uri.split("@", 1)
+            _, digest = gar_image.uri.rsplit("@", 1)
             for tag_name in gar_image.tags:
                 tag = RSPImageTag.from_str(tag_name)
                 image = RSPImage.from_tag(
