@@ -241,12 +241,12 @@ class K8sStorageClient:
             phase = pod_status.phase
             if phase == K8sPodPhase.SUCCEEDED:
                 try:
-                    self.logger.info(
+                    self.logger.debug(
                         f"Removing Completed pod {namespace}/{podname}"
                     )
-                    await self.api.delete_namespaced_pod(
-                        name=podname, namespace=namespace
-                    )
+                    await self.api.delete_namespaced_pod(podname, namespace)
+                    msg = f"Removed completed pod {namespace}/{podname}"
+                    self.logger.debug(msg)
                     return
                 except ApiException as e:
                     if e.status == 404:

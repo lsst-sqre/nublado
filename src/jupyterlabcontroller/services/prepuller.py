@@ -156,11 +156,12 @@ class Prepuller:
         after another until we have done them all. It runs in parallel with a
         similar task for each node.
         """
-        self._logger.debug(f"Beginning prepulls for {node}")
+        image_tags = [i.tag for i in images]
+        self._logger.info(f"Beginning prepulls for {node}", images=image_tags)
         for image in images:
             await self._prepull_image(image, node)
             self._image_service.mark_prepulled(image, node)
-        self._logger.debug(f"Finished prepulls for {node}")
+        self._logger.info(f"Finished prepulls for {node}", images=image_tags)
 
     def _prepull_pod_name(self, image: RSPImage, node: str) -> str:
         """Create the pod name to use for prepulling an image.

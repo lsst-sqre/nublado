@@ -304,6 +304,7 @@ class ImageService:
             to_prepull = await self._source.update_images(self._config, cached)
             self._node_images = self._build_node_images(to_prepull, cached)
             self._to_prepull = to_prepull
+            self._logger.info("Refreshed image information")
 
     async def start(self) -> None:
         """Start a periodic refresh as a background task.
