@@ -85,7 +85,7 @@ class GARSourceConfig(CamelCaseModel):
         """Parent string for searches in Google Artifact Repository."""
         return (
             f"projects/{self.project_id}/locations/{self.location}"
-            f"/repositories/{self.repository}/dockerImages/{self.image}"
+            f"/repositories/{self.repository}"
         )
 
     @property

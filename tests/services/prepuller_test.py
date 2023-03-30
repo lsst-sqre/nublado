@@ -120,7 +120,7 @@ async def test_gar(
     known_images = read_input_data("gar", "known-images.json")
     for known_image in known_images:
         image = DockerImage(**known_image)
-        parent, _ = image.name.split("@", 1)
+        parent, _, _ = image.name.split("@", 1)[0].rsplit("/", 2)
         mock_gar.add_image_for_test(parent, image)
     nodes = [
         V1Node(
