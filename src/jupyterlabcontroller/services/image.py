@@ -255,7 +255,9 @@ class ImageService:
         result = {}
         for node, images in self._node_images.items():
             to_pull = self._to_prepull.subtract(images)
-            result[node] = list(to_pull.all_images())
+            to_pull_images = list(to_pull.all_images())
+            if to_pull_images:
+                result[node] = to_pull_images
         return result
 
     def prepull_status(self) -> PrepullerStatus:
