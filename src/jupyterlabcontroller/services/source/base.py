@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
+from typing import Mapping
 
 from structlog.stdlib import BoundLogger
 
 from ...models.domain.docker import DockerReference
 from ...models.domain.form import MenuImage
+from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.v1.prepuller import PrepulledImage
 from ...models.v1.prepuller_config import PrepullerConfig
@@ -40,9 +42,12 @@ class ImageSource(metaclass=ABCMeta):
     ) -> RSPImageCollection:
         """Get the collection of images to prepull.
 
-        This will also update the internal understanding of all available
-        remote images. How this is stored depends on the remote image source,
-        and thus is not specified in this base class.
+        Retrieve the full list of remote images and construct the subset to
+        prepull. This data is cached but not used to answer any other
+        questions (such as `image_by_tag_name`) until `update_image_nodes` is
+        also called, to avoid handing back incorrect information about image
+        caching in the window between when the remote image source is checked
+        and the local Kubernetes cluster is checked for cached images.
 
         Returns
         -------
@@ -86,6 +91,20 @@ class ImageSource(metaclass=ABCMeta):
         """
 
     @abstractmethod
+    def mark_prepulled(self, image: RSPImage, node: str) -> None:
+        """Optimistically mark an image as prepulled to a node.
+
+        Called by the prepuller after the prepull pod succeeded.
+
+        Parameters
+        ----------
+        tag_name
+            Tag of image.
+        node
+            Node to which the image was prepulled.
+        """
+
+    @abstractmethod
     def menu_images(self) -> list[MenuImage]:
         """All known images suitable for display in the spawner menu.
 
@@ -108,4 +127,20 @@ class ImageSource(metaclass=ABCMeta):
         -------
         list of PrepulledImage
             All known images.
+        """
+
+    @abstractmethod
+    def update_image_nodes(
+        self, nodes: Mapping[str, list[KubernetesNodeImage]]
+    ) -> None:
+        """Update images with node presence information.
+
+        The cached images are updated with their node presence information and
+        then the results of the last `get_images_to_prepull` call becomes live
+        and will be used for further questions.
+
+        Parameters
+        ----------
+        nodes
+            Mapping of node names to the list of images seen on that node.
         """

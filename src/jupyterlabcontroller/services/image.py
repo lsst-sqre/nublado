@@ -238,13 +238,8 @@ class ImageService:
         node
             Node to which we prepulled it.
         """
-        prepull_image = self._to_prepull.image_for_tag_name(image.tag)
-        if prepull_image:
-            prepull_image.nodes.add(node)
-            for alias in prepull_image.aliases:
-                alias_image = self._to_prepull.image_for_tag_name(alias)
-                if alias_image:
-                    alias_image.nodes.add(node)
+        if self._to_prepull.image_for_digest(image.digest):
+            self._source.mark_prepulled(image, node)
             self._node_images[node].add(image)
 
     def missing_images_by_node(self) -> dict[str, list[RSPImage]]:
@@ -388,30 +383,19 @@ class ImageService:
         """
         image_data = await self._kubernetes.get_image_data()
 
-        # We only want to know about cached images with the same digest as a
-        # remote image on the prepull list. Cached images with the same tag
-        # but a different digest are out of date and should be ignored for the
-        # purposes of determining which images have been successfully cached.
-        # We can't do anything with cached images with no digest.
-        image_lists = {}
+        # Update the image source information with node presence.
+        self._source.update_image_nodes(image_data)
+
+        # Construct collections of prepulled images on each node.
+        image_collections = {}
         for node, node_images in image_data.items():
             images = []
             for node_image in node_images:
-                digest = node_image.digest
-                if not digest:
+                if not node_image.digest:
                     continue
-                image = to_prepull.image_for_digest(digest)
+                image = to_prepull.image_for_digest(node_image.digest)
                 if not image:
                     continue
-                image.nodes.add(node)
-                image.size = node_image.size
                 images.append(image)
-                for alias in image.aliases:
-                    alias_image = to_prepull.image_for_tag_name(alias)
-                    if alias_image:
-                        alias_image.nodes.add(node)
-                        alias_image.size = node_image.size
-            image_lists[node] = images
-
-        # Save the new data, converting the image lists to collections.
-        return {n: RSPImageCollection(i) for n, i in image_lists.items()}
+            image_collections[node] = RSPImageCollection(images)
+        return image_collections

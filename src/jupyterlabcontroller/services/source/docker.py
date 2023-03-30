@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Mapping
 
 from structlog.stdlib import BoundLogger
 
 from ...exceptions import InvalidDockerReferenceError, UnknownDockerImageError
 from ...models.domain.docker import DockerReference
 from ...models.domain.form import MenuImage
+from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.domain.rsptag import RSPImageTagCollection
 from ...models.v1.prepuller import PrepulledImage
@@ -54,6 +56,10 @@ class DockerImageSource(ImageSource):
         # Tags that have been resolved to images.
         self._images = RSPImageCollection([])
 
+        # Cached new tag and image information that is waiting for a call to
+        # update_node_images to replace self._images.
+        self._pending_images: RSPImageCollection
+
     async def get_images_to_prepull(
         self, prepull: PrepullerConfig
     ) -> RSPImageCollection:
@@ -63,6 +69,12 @@ class DockerImageSource(ImageSource):
         subset that we're prepulling, and convert those to images. For those,
         we also retrieve the digest for the image so that we can match it with
         cached images on nodes and resolve aliases.
+
+        The image data is cached but not used to answer any other questions
+        (such as `prepulled_images`) until `update_image_nodes` is also
+        called, to avoid handing back incorrect information about image
+        caching in the window between when the remote image source is checked
+        and the local Kubernetes cluster is checked for cached images.
 
         Parameters
         ----------
@@ -110,10 +122,12 @@ class DockerImageSource(ImageSource):
                 digest=digest,
             )
             images.append(image)
+        image_collection = RSPImageCollection(images)
 
-        # Turn this into a collection and return the new data.
-        self._images = RSPImageCollection(images)
-        return self._images
+        # This data will go live when update_node_image is called.
+        self._pending_images = image_collection
+
+        return image_collection
 
     async def image_for_reference(
         self, reference: DockerReference
@@ -229,6 +243,20 @@ class DockerImageSource(ImageSource):
             digest=digest,
         )
 
+    def mark_prepulled(self, image: RSPImage, node: str) -> None:
+        """Optimistically mark an image as prepulled to a node.
+
+        Called by the prepuller after the prepull pod succeeded.
+
+        Parameters
+        ----------
+        tag_name
+            Tag of image.
+        node
+            Node to which the image was prepulled.
+        """
+        self._images.mark_image_seen_on_node(image.digest, node)
+
     def menu_images(self) -> list[MenuImage]:
         """All known images suitable for display in the spawner menu.
 
@@ -283,6 +311,30 @@ class DockerImageSource(ImageSource):
                 )
             prepulled_images.append(prepulled_image)
         return prepulled_images
+
+    def update_image_nodes(
+        self, nodes: Mapping[str, list[KubernetesNodeImage]]
+    ) -> None:
+        """Update images with node presence information.
+
+        The cached images are updated with their node presence information and
+        then the results of the last `get_images_to_prepull` call becomes live
+        and will be used for further questions.
+
+        Parameters
+        ----------
+        nodes
+            Mapping of node names to the list of images seen on that node.
+        """
+        for node, node_images in nodes.items():
+            for node_image in node_images:
+                if not node_image.digest:
+                    continue
+                if self._pending_images.image_for_digest(node_image.digest):
+                    self._pending_images.mark_image_seen_on_node(
+                        node_image.digest, node, node_image.size
+                    )
+        self._images = self._pending_images
 
     def _subset_to_prepull(
         self, tags: RSPImageTagCollection, prepull: PrepullerConfig

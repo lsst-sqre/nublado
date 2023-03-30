@@ -38,7 +38,7 @@
       "aliases": [
         "recommended", "w_2077_43"
       ],
-      "prepulled": false
+      "prepulled": true
     },
     {
       "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:w_2077_43",

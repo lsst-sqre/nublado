@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Self
+from typing import Optional, Self
 
 from kubernetes_asyncio.client import V1ContainerImage
 
@@ -31,7 +31,7 @@ class KubernetesNodeImage:
     references: list[str]
     """The Docker references for the image."""
 
-    size: int
+    size: Optional[int] = None
     """Size of the image in bytes."""
 
     @classmethod

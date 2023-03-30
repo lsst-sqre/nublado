@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from typing import Mapping
+
 from structlog.stdlib import BoundLogger
 
 from ...exceptions import InvalidDockerReferenceError, UnknownDockerImageError
 from ...models.domain.docker import DockerReference
 from ...models.domain.form import MenuImage
+from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.v1.prepuller import PrepulledImage
 from ...models.v1.prepuller_config import GARSourceConfig, PrepullerConfig
@@ -46,6 +49,10 @@ class GARImageSource(ImageSource):
         # All available images.
         self._images = RSPImageCollection([])
 
+        # Cached new tag and image information that is waiting for a call to
+        # update_node_images to replace self._images.
+        self._pending_images: RSPImageCollection
+
     async def get_images_to_prepull(
         self, prepull: PrepullerConfig
     ) -> RSPImageCollection:
@@ -56,11 +63,11 @@ class GARImageSource(ImageSource):
         RSPImageCollection
             New collection of images to prepull.
         """
-        self._images = await self._gar.list_images(self._config)
+        self._pending_images = await self._gar.list_images(self._config)
         include = {prepull.recommended_tag}
         if prepull.pin:
             include.update(prepull.pin)
-        return self._images.subset(
+        return self._pending_images.subset(
             releases=prepull.num_releases,
             weeklies=prepull.num_weeklies,
             dailies=prepull.num_dailies,
@@ -133,6 +140,20 @@ class GARImageSource(ImageSource):
             raise UnknownDockerImageError(f"Docker tag {tag_name} not found")
         return image
 
+    def mark_prepulled(self, image: RSPImage, node: str) -> None:
+        """Optimistically mark an image as prepulled to a node.
+
+        Called by the prepuller after the prepull pod succeeded.
+
+        Parameters
+        ----------
+        tag_name
+            Tag of image.
+        node
+            Node to which the image was prepulled.
+        """
+        self._images.mark_image_seen_on_node(image.digest, node)
+
     def menu_images(self) -> list[MenuImage]:
         """All known images suitable for display in the spawner menu.
 
@@ -163,3 +184,27 @@ class GARImageSource(ImageSource):
             PrepulledImage.from_rsp_image(i, nodes)
             for i in self._images.all_images()
         ]
+
+    def update_image_nodes(
+        self, nodes: Mapping[str, list[KubernetesNodeImage]]
+    ) -> None:
+        """Update images with node presence information.
+
+        The cached images are updated with their node presence information and
+        then the results of the last `get_images_to_prepull` call becomes live
+        and will be used for further questions.
+
+        Parameters
+        ----------
+        nodes
+            Mapping of node names to the list of images seen on that node.
+        """
+        for node, node_images in nodes.items():
+            for node_image in node_images:
+                if not node_image.digest:
+                    continue
+                if self._pending_images.image_for_digest(node_image.digest):
+                    self._pending_images.mark_image_seen_on_node(
+                        node_image.digest, node, node_image.size
+                    )
+        self._images = self._pending_images
