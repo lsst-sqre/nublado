@@ -49,31 +49,6 @@ class GARImageSource(ImageSource):
         # All available images.
         self._images = RSPImageCollection([])
 
-        # Cached new tag and image information that is waiting for a call to
-        # update_node_images to replace self._images.
-        self._pending_images: RSPImageCollection
-
-    async def get_images_to_prepull(
-        self, prepull: PrepullerConfig
-    ) -> RSPImageCollection:
-        """Determine the collection of images to prepull.
-
-        Returns
-        -------
-        RSPImageCollection
-            New collection of images to prepull.
-        """
-        self._pending_images = await self._gar.list_images(self._config)
-        include = {prepull.recommended_tag}
-        if prepull.pin:
-            include.update(prepull.pin)
-        return self._pending_images.subset(
-            releases=prepull.num_releases,
-            weeklies=prepull.num_weeklies,
-            dailies=prepull.num_dailies,
-            include=include,
-        )
-
     async def image_for_reference(
         self, reference: DockerReference
     ) -> RSPImage:
@@ -185,26 +160,42 @@ class GARImageSource(ImageSource):
             for i in self._images.all_images()
         ]
 
-    def update_image_nodes(
-        self, nodes: Mapping[str, list[KubernetesNodeImage]]
-    ) -> None:
-        """Update images with node presence information.
-
-        The cached images are updated with their node presence information and
-        then the results of the last `get_images_to_prepull` call becomes live
-        and will be used for further questions.
+    async def update_images(
+        self,
+        prepull: PrepullerConfig,
+        node_cache: Mapping[str, list[KubernetesNodeImage]],
+    ) -> RSPImageCollection:
+        """Update image information and determine what images to prepull.
 
         Parameters
         ----------
-        nodes
-            Mapping of node names to the list of images seen on that node.
+        prepull
+            Configuration of what images to prepull.
+        node_cache
+            Mapping of node names to the list of cached images on that node.
+
+        Returns
+        -------
+        RSPImageCollection
+            New collection of images to prepull.
         """
-        for node, node_images in nodes.items():
+        images = await self._gar.list_images(self._config)
+
+        # Set their node presence information based on node cache data.
+        for node, node_images in node_cache.items():
             for node_image in node_images:
                 if not node_image.digest:
                     continue
-                if self._pending_images.image_for_digest(node_image.digest):
-                    self._pending_images.mark_image_seen_on_node(
-                        node_image.digest, node, node_image.size
-                    )
-        self._images = self._pending_images
+                images.mark_image_seen_on_node(node_image.digest, node)
+        self._images = images
+
+        # Construct the subset to prepull.
+        include = {prepull.recommended_tag}
+        if prepull.pin:
+            include.update(prepull.pin)
+        return images.subset(
+            releases=prepull.num_releases,
+            weeklies=prepull.num_weeklies,
+            dailies=prepull.num_dailies,
+            include=include,
+        )

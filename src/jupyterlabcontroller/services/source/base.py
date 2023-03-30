@@ -37,25 +37,6 @@ class ImageSource(metaclass=ABCMeta):
         self._logger = logger
 
     @abstractmethod
-    async def get_images_to_prepull(
-        self, prepull: PrepullerConfig
-    ) -> RSPImageCollection:
-        """Get the collection of images to prepull.
-
-        Retrieve the full list of remote images and construct the subset to
-        prepull. This data is cached but not used to answer any other
-        questions (such as `image_by_tag_name`) until `update_image_nodes` is
-        also called, to avoid handing back incorrect information about image
-        caching in the window between when the remote image source is checked
-        and the local Kubernetes cluster is checked for cached images.
-
-        Returns
-        -------
-        RSPImageCollection
-            Collection of images to prepull.
-        """
-
-    @abstractmethod
     async def image_for_reference(
         self, reference: DockerReference
     ) -> RSPImage:
@@ -130,17 +111,25 @@ class ImageSource(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def update_image_nodes(
-        self, nodes: Mapping[str, list[KubernetesNodeImage]]
-    ) -> None:
-        """Update images with node presence information.
+    async def update_images(
+        self,
+        prepull: PrepullerConfig,
+        node_cache: Mapping[str, list[KubernetesNodeImage]],
+    ) -> RSPImageCollection:
+        """Update image information and determine what images to prepull.
 
-        The cached images are updated with their node presence information and
-        then the results of the last `get_images_to_prepull` call becomes live
-        and will be used for further questions.
+        Retrieve the full list of remote images, update their node presence
+        information, and construct the subset to prepull.
 
         Parameters
         ----------
-        nodes
-            Mapping of node names to the list of images seen on that node.
+        prepull
+            Configuration of what images to prepull.
+        node_cache
+            Mapping of node names to the list of cached images on that node.
+
+        Returns
+        -------
+        RSPImageCollection
+            Collection of images to prepull.
         """

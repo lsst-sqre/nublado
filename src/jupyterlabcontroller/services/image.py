@@ -13,6 +13,7 @@ from ..constants import IMAGE_REFRESH_INTERVAL
 from ..exceptions import UnknownDockerImageError
 from ..models.domain.docker import DockerReference
 from ..models.domain.form import MenuImage, MenuImages
+from ..models.domain.kubernetes import KubernetesNodeImage
 from ..models.domain.rspimage import RSPImage, RSPImageCollection
 from ..models.domain.rsptag import RSPImageType
 from ..models.v1.lab import ImageClass
@@ -299,8 +300,9 @@ class ImageService:
         exceptions; the caller must do that if desired.
         """
         async with self._lock:
-            to_prepull = await self._source.get_images_to_prepull(self._config)
-            self._node_images = await self._get_node_images(to_prepull)
+            cached = await self._kubernetes.get_image_data()
+            to_prepull = await self._source.update_images(self._config, cached)
+            self._node_images = self._build_node_images(to_prepull, cached)
             self._to_prepull = to_prepull
 
     async def start(self) -> None:
@@ -340,6 +342,39 @@ class ImageService:
         await self._refreshed.wait()
         self._refreshed.clear()
 
+    def _build_node_images(
+        self,
+        to_prepull: RSPImageCollection,
+        node_cache: dict[str, list[KubernetesNodeImage]],
+    ) -> dict[str, RSPImageCollection]:
+        """Construct the collection of images on each node.
+
+        Parameters
+        ----------
+        to_prepull
+            Images that should be prepulled, and against which we compare
+            cached images.
+        node_cache
+            Mapping of node names to the list of cached images on that node.
+
+        Returns
+        -------
+        dict of str to RSPImageCollection
+            Image collections of images found on each node.
+        """
+        image_collections = {}
+        for node, node_images in node_cache.items():
+            images = []
+            for node_image in node_images:
+                if not node_image.digest:
+                    continue
+                image = to_prepull.image_for_digest(node_image.digest)
+                if not image:
+                    continue
+                images.append(image)
+            image_collections[node] = RSPImageCollection(images)
+        return image_collections
+
     async def _refresh_loop(self) -> None:
         """Run in the background by `start`, stopped with `stop`."""
         while True:
@@ -364,38 +399,3 @@ class ImageService:
                 delay = IMAGE_REFRESH_INTERVAL - (current_datetime() - start)
                 if delay.total_seconds() >= 1:
                     await asyncio.sleep(delay.total_seconds())
-
-    async def _get_node_images(
-        self, to_prepull: RSPImageCollection
-    ) -> dict[str, RSPImageCollection]:
-        """Get the cached images on each Kubernetes node.
-
-        Parameters
-        ----------
-        to_prepull
-            Images that should be prepulled, and against which we compare
-            cached images.
-
-        Returns
-        -------
-        dict of str to RSPImageCollection
-            Image collections of images found on each node.
-        """
-        image_data = await self._kubernetes.get_image_data()
-
-        # Update the image source information with node presence.
-        self._source.update_image_nodes(image_data)
-
-        # Construct collections of prepulled images on each node.
-        image_collections = {}
-        for node, node_images in image_data.items():
-            images = []
-            for node_image in node_images:
-                if not node_image.digest:
-                    continue
-                image = to_prepull.image_for_digest(node_image.digest)
-                if not image:
-                    continue
-                images.append(image)
-            image_collections[node] = RSPImageCollection(images)
-        return image_collections

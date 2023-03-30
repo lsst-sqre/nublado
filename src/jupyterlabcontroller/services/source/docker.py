@@ -56,79 +56,6 @@ class DockerImageSource(ImageSource):
         # Tags that have been resolved to images.
         self._images = RSPImageCollection([])
 
-        # Cached new tag and image information that is waiting for a call to
-        # update_node_images to replace self._images.
-        self._pending_images: RSPImageCollection
-
-    async def get_images_to_prepull(
-        self, prepull: PrepullerConfig
-    ) -> RSPImageCollection:
-        """Determine the collection of images to prepull.
-
-        Refresh remote tags and images from the Docker registry, find the
-        subset that we're prepulling, and convert those to images. For those,
-        we also retrieve the digest for the image so that we can match it with
-        cached images on nodes and resolve aliases.
-
-        The image data is cached but not used to answer any other questions
-        (such as `prepulled_images`) until `update_image_nodes` is also
-        called, to avoid handing back incorrect information about image
-        caching in the window between when the remote image source is checked
-        and the local Kubernetes cluster is checked for cached images.
-
-        Parameters
-        ----------
-        prepull
-            Configuration of what images to prepull.
-
-        Returns
-        -------
-        RSPImageCollection
-            New collection of images to prepull.
-
-        Notes
-        -----
-        Getting an image for a tag is an expensive operation, requiring a
-        ``HEAD`` call to the Docker API for each image, so we only want to do
-        this for images we care about, namely the images that we're going to
-        prepull.
-
-        The digest is retrieved again on each refresh because it may have
-        changed (Docker registry tags are not immutable).
-        """
-        tags = await self._docker.list_tags(self._config)
-        aliases = {prepull.recommended_tag} | set(prepull.alias_tags)
-        self._tags = RSPImageTagCollection.from_tag_names(
-            tags, aliases, prepull.cycle
-        )
-
-        # Get digests for the prepulled images in parallel.
-        to_prepull = self._subset_to_prepull(self._tags, prepull)
-        tasks = [
-            asyncio.create_task(
-                self._docker.get_image_digest(self._config, tag.tag)
-            )
-            for tag in to_prepull.all_tags()
-        ]
-        digests = await asyncio.gather(*tasks)
-
-        # Construct the images.
-        images = []
-        for tag, digest in zip(to_prepull.all_tags(), digests):
-            image = RSPImage.from_tag(
-                registry=self._config.registry,
-                repository=self._config.repository,
-                tag=tag,
-                digest=digest,
-            )
-            images.append(image)
-        image_collection = RSPImageCollection(images)
-
-        # This data will go live when update_node_image is called.
-        self._pending_images = image_collection
-
-        return image_collection
-
     async def image_for_reference(
         self, reference: DockerReference
     ) -> RSPImage:
@@ -312,29 +239,80 @@ class DockerImageSource(ImageSource):
             prepulled_images.append(prepulled_image)
         return prepulled_images
 
-    def update_image_nodes(
-        self, nodes: Mapping[str, list[KubernetesNodeImage]]
-    ) -> None:
-        """Update images with node presence information.
+    async def update_images(
+        self,
+        prepull: PrepullerConfig,
+        node_cache: Mapping[str, list[KubernetesNodeImage]],
+    ) -> RSPImageCollection:
+        """Update image information and determine what images to prepull.
 
-        The cached images are updated with their node presence information and
-        then the results of the last `get_images_to_prepull` call becomes live
-        and will be used for further questions.
+        Refresh remote tags and images from the Docker registry, find the
+        subset that we're prepulling, and convert those to images. Resolve
+        aliases and match those with the cached images on nodes to update node
+        presence information.
 
         Parameters
         ----------
-        nodes
-            Mapping of node names to the list of images seen on that node.
+        prepull
+            Configuration of what images to prepull.
+        node_cache
+            Mapping of node names to the list of cached images on that node.
+
+        Returns
+        -------
+        RSPImageCollection
+            New collection of images to prepull.
+
+        Notes
+        -----
+        Getting an image for a tag is an expensive operation, requiring a
+        ``HEAD`` call to the Docker API for each image, so we only want to do
+        this for images we care about, namely the images that we're going to
+        prepull.
+
+        The digest is retrieved again on each refresh because it may have
+        changed (Docker registry tags are not immutable).
         """
-        for node, node_images in nodes.items():
+        tags = await self._docker.list_tags(self._config)
+        aliases = {prepull.recommended_tag} | set(prepull.alias_tags)
+        self._tags = RSPImageTagCollection.from_tag_names(
+            tags, aliases, prepull.cycle
+        )
+
+        # Get digests for the prepulled images in parallel.
+        to_prepull = self._subset_to_prepull(self._tags, prepull)
+        tasks = [
+            asyncio.create_task(
+                self._docker.get_image_digest(self._config, tag.tag)
+            )
+            for tag in to_prepull.all_tags()
+        ]
+        digests = await asyncio.gather(*tasks)
+
+        # Construct the images.
+        images = []
+        for tag, digest in zip(to_prepull.all_tags(), digests):
+            image = RSPImage.from_tag(
+                registry=self._config.registry,
+                repository=self._config.repository,
+                tag=tag,
+                digest=digest,
+            )
+            images.append(image)
+        image_collection = RSPImageCollection(images)
+
+        # Set their node presence information.
+        for node, node_images in node_cache.items():
             for node_image in node_images:
                 if not node_image.digest:
                     continue
-                if self._pending_images.image_for_digest(node_image.digest):
-                    self._pending_images.mark_image_seen_on_node(
-                        node_image.digest, node, node_image.size
-                    )
-        self._images = self._pending_images
+                image_collection.mark_image_seen_on_node(
+                    node_image.digest, node, node_image.size
+                )
+
+        # Store and return the results.
+        self._images = image_collection
+        return image_collection
 
     def _subset_to_prepull(
         self, tags: RSPImageTagCollection, prepull: PrepullerConfig
