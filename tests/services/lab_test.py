@@ -1,7 +1,5 @@
 """Tests for the lab service."""
 
-import asyncio
-
 import pytest
 
 from jupyterlabcontroller.factory import Factory
@@ -16,6 +14,7 @@ async def test_lab_manager(
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
     lab_manager = factory.create_lab_manager()
+    await factory.start_background_services()
 
     assert not lab_manager.check_for_user(user.username)
     await lab_manager.create_lab(user, token, lab)
@@ -33,6 +32,7 @@ async def test_get_active_users(
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
     lab_manager = factory.create_lab_manager()
+    await factory.start_background_services()
 
     assert await factory.user_map.running() == []
 
@@ -43,8 +43,4 @@ async def test_get_active_users(
     assert await factory.user_map.running() == [user.username]
 
     await lab_manager.delete_lab(user.username)
-
-    # We have to let the background task run and complete the namespace
-    # deletion.
-    await asyncio.sleep(0.2)
     assert await factory.user_map.running() == []

@@ -94,10 +94,6 @@ async def factory(
     """Create a component factory for tests."""
     mock_kubernetes.set_nodes_for_test(obj_factory.nodecontents)
     async with Factory.standalone(config) as factory:
-        # Currently, always start background processes since tests expect it.
-        # This is temporary until tests can be refactored to decide whether
-        # they want background processes running.
-        await factory.start_background_services()
         yield factory
 
 
