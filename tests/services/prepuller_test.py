@@ -27,11 +27,11 @@ from ..settings import TestObjectFactory
 from ..support.config import configure
 from ..support.data import read_input_data, read_output_data
 from ..support.gar import MockArtifactRegistry
-from ..support.kubernetes import MockLabKubernetesApi, strip_none
+from ..support.kubernetes import MockKubernetesApi, strip_none
 
 
-def mark_pod_complete(
-    mock_kubernetes: MockLabKubernetesApi, pod: V1Pod
+async def mark_pod_complete(
+    mock_kubernetes: MockKubernetesApi, pod: V1Pod
 ) -> None:
     """Send a completion event for a pod and change its status to complete.
 
@@ -52,14 +52,14 @@ def mark_pod_complete(
         ),
     )
     pod.status.phase = K8sPodPhase.SUCCEEDED.value
-    mock_kubernetes.add_event_for_test(namespace, event)
+    await mock_kubernetes.create_namespaced_event(namespace, event)
 
 
 @pytest.mark.asyncio
 async def test_docker(
     factory: Factory,
     config: Config,
-    mock_kubernetes: MockLabKubernetesApi,
+    mock_kubernetes: MockKubernetesApi,
     obj_factory: TestObjectFactory,
     std_result_dir: Path,
 ) -> None:
@@ -84,20 +84,19 @@ async def test_docker(
     # The default data configures Kubernetes with missing images on some
     # nodes. Check that we created the correct prepuller pods.
     namespace = config.lab.namespace_prefix
-    objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
+    pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
     with (std_result_dir / "prepull-objects.json").open("r") as f:
         expected = json.load(f)
-    assert [strip_none(o.to_dict()) for o in objects] == expected
+    assert [strip_none(o.to_dict()) for o in pod_list.items] == expected
 
     # Update all of the pods to have a status of completed and send an event.
-    for pod in objects:
-        assert isinstance(pod, V1Pod)
-        mark_pod_complete(mock_kubernetes, pod)
+    for pod in pod_list.items:
+        await mark_pod_complete(mock_kubernetes, pod)
 
     # The prepuller should notice the status change and delete the pods.
     await asyncio.sleep(0.2)
-    objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
-    assert objects == []
+    pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
+    assert pod_list.items == []
 
     # And now everything should show as up-to-date because we optimistically
     # update the image service even though it hasn't run again.
@@ -113,7 +112,7 @@ async def test_docker(
 
 @pytest.mark.asyncio
 async def test_gar(
-    mock_gar: MockArtifactRegistry, mock_kubernetes: MockLabKubernetesApi
+    mock_gar: MockArtifactRegistry, mock_kubernetes: MockKubernetesApi
 ) -> None:
     """Test the prepuller service configured to talk to GAR."""
     config = configure("gar")
@@ -153,31 +152,30 @@ async def test_gar(
 
         # There should be two running pods, one for each node.
         namespace = config.lab.namespace_prefix
-        objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
+        pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
         tag = known_images[0]["tags"][0].replace("_", "-")
-        assert [o.metadata.name for o in objects] == [
+        assert [o.metadata.name for o in pod_list.items] == [
             f"prepull-{tag}-node1",
             f"prepull-{tag}-node2",
         ]
 
         # Mark those nodes as complete, and two more should be started.
-        for pod in objects:
-            assert isinstance(pod, V1Pod)
-            mark_pod_complete(mock_kubernetes, pod)
+        for pod in pod_list.items:
+            await mark_pod_complete(mock_kubernetes, pod)
         await asyncio.sleep(0.2)
-        objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
+        pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
         tag = known_images[1]["tags"][0].replace("_", "-")
-        assert [o.metadata.name for o in objects] == [
+        assert [o.metadata.name for o in pod_list.items] == [
             f"prepull-{tag}-node1",
             f"prepull-{tag}-node2",
         ]
 
         # Now, nothing more should be prepulled.
-        for pod in objects:
-            assert isinstance(pod, V1Pod)
-            mark_pod_complete(mock_kubernetes, pod)
+        for pod in pod_list.items:
+            await mark_pod_complete(mock_kubernetes, pod)
         await asyncio.sleep(0.2)
-        mock_kubernetes.get_namespace_objects_for_test(namespace) == []
+        pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
+        assert pod_list.items == []
 
         images = factory.image_service.images()
         expected = read_output_data("gar", "images-after.json")
