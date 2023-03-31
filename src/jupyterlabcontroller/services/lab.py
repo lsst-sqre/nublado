@@ -1,6 +1,10 @@
+"""Service to manage user lab environments."""
+
+from __future__ import annotations
+
 import re
 from asyncio import Task, create_task
-from copy import deepcopy
+from copy import copy, deepcopy
 from pathlib import Path
 from typing import Optional
 
@@ -396,46 +400,63 @@ class LabManager:
         image: RSPImage,
         token: str,
     ) -> dict[str, str]:
-        # Get the static env vars from the lab config
-        data = deepcopy(self.lab_config.env)
-        # Get the stuff from the options form
-        options = lab.options
-        if options.enable_debug:
-            data["DEBUG"] = "TRUE"
-        if options.reset_user_env:
-            data["RESET_USER_ENV"] = "TRUE"
+        """Construct the environment for the user's lab pod.
+
+        Parameters
+        ----------
+        user
+            User identity information.
+        lab
+            Specification for the lab, received from JupyterHub or the user
+            themselves.
+        image
+            Image to spawn.
+        token
+            User's Gafaelfawr token.
+
+        Returns
+        -------
+        dict of str to str
+            User's lab environment, which will be stored in a ``ConfigMap``
+            and projected into their lab pod.
+        """
+        env = copy(lab.env)
+
+        # Add additional environment variables based on user options.
+        if lab.options.enable_debug:
+            env["DEBUG"] = "TRUE"
+        if lab.options.reset_user_env:
+            env["RESET_USER_ENV"] = "TRUE"
+
+        # Add standard environment variables.
         resources = self._size_manager.resources(lab.options.size)
-        #
-        # More of these, eventually, will come from the options form.
-        #
-        data.update(
+        env.update(
             {
-                # Image data for display frame
+                # We would like to deprecate this, following KubeSpawner, but
+                # it's currently used by the lab extensions and by mobu.
                 "JUPYTER_IMAGE": image.reference_with_digest,
+                # Image data for display frame
                 "JUPYTER_IMAGE_SPEC": image.reference_with_digest,
                 "IMAGE_DESCRIPTION": image.display_name,
                 "IMAGE_DIGEST": image.digest,
-                # Get resource limits
+                # Normally set by JupyterHub so keep compatibility
+                "CPU_GUARANTEE": str(resources.requests.cpu),
                 "CPU_LIMIT": str(resources.limits.cpu),
                 "MEM_GUARANTEE": str(resources.requests.memory),
                 "MEM_LIMIT": str(resources.limits.memory),
-                # Get user/group info
-                "EXTERNAL_GID": str(user.gid),
-                "EXTERNAL_GROUPS": ",".join(
-                    [f"{x.name}:{x.id}" for x in user.groups]
-                ),
-                "EXTERNAL_UID": str(user.uid),
                 # Get global instance URL
                 "EXTERNAL_INSTANCE_URL": self.instance_url,
                 # Set access token
                 "ACCESS_TOKEN": token,
             }
         )
-        # Now inject from options form (overwrites existing values).
-        # All JupyterHub config comes in from here.
-        for key in lab.env:
-            data.update({key: lab.env[key]})
-        return data
+
+        # Finally, add any environment variable settings from our
+        # configuration. Anything set here overrides anything the user sends
+        # or anything we add internally.
+        env.update(self.lab_config.env)
+
+        return env
 
     async def create_network_policy(self, user: UserInfo) -> None:
         # No corresponding "build" because the policy is hardcoded in the
