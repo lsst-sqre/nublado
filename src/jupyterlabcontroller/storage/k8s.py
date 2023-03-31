@@ -53,31 +53,11 @@ class K8sStorageClient:
     async def aclose(self) -> None:
         await self.k8s_api.close()
 
-    def get_nonamespace_metadata(self, name: str) -> V1ObjectMeta:
-        return V1ObjectMeta(
-            name=name,
-            labels={"argocd.argoproj.io/instance": "nublado-users"},
-            annotations={
-                "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
-                "argocd.argoproj.io/sync-options": "Prune=false",
-            },
-        )
-
-    def get_std_metadata(self, name: str, namespace: str) -> V1ObjectMeta:
-        return V1ObjectMeta(
-            name=name,
-            namespace=namespace,
-            labels={"argocd.argoproj.io/instance": "nublado-users"},
-            annotations={
-                "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
-                "argocd.argoproj.io/sync-options": "Prune=false",
-            },
-        )
-
     async def create_user_namespace(self, namespace: str) -> None:
         self.logger.info(f"Attempting creation of namespace '{namespace}'")
+        body = V1Namespace(metadata=self._standard_metadata(namespace))
         try:
-            await self._k8s_create_namespace(namespace)
+            await self.api.create_namespace(body)
         except ApiException as e:
             if e.status == 409:
                 self.logger.info(f"Namespace {namespace} already exists")
@@ -104,15 +84,6 @@ class K8sStorageClient:
             estr = f"Failed to create namespace {namespace}: {e}"
             self.logger.exception(estr)
             raise NSCreationError(estr)
-
-    async def _k8s_create_namespace(self, ns_name: str) -> None:
-        await self.api.create_namespace(
-            V1Namespace(
-                api_version="v1",
-                kind="Namespace",
-                metadata=self.get_nonamespace_metadata(name=ns_name),
-            )
-        )
 
     async def create_secrets(
         self,
@@ -369,16 +340,12 @@ class K8sStorageClient:
         immutable: bool = True,
     ) -> None:
         secret = V1Secret(
-            api_version="v1",
-            kind="Secret",
             data=data,
             type=secret_type,
             immutable=immutable,
-            metadata=self.get_std_metadata(name, namespace),
+            metadata=self._standard_metadata(name),
         )
-        await self.api.create_namespaced_secret(
-            namespace=namespace, body=secret
-        )
+        await self.api.create_namespaced_secret(namespace, secret)
         return
 
     async def read_secret(
@@ -387,9 +354,7 @@ class K8sStorageClient:
         namespace: str,
     ) -> Secret:
         try:
-            secret: V1Secret = await self.api.read_namespaced_secret(
-                name, namespace
-            )
+            secret = await self.api.read_namespaced_secret(name, namespace)
         except Exception as exc:
             errstr = (
                 f"Failed to read secret {name} in namespace {namespace}: "
@@ -407,20 +372,13 @@ class K8sStorageClient:
         data: dict[str, str],
         immutable: bool = True,
     ) -> None:
-        mangled_data = {}
-        for k in data:
-            mangled_data[deslashify(k)] = data[k]
         configmap = V1ConfigMap(
-            api_version="v1",
-            kind="ConfigMap",
-            data=mangled_data,
+            data={deslashify(k): v for k, v in data.items()},
             immutable=immutable,
-            metadata=self.get_std_metadata(name=name, namespace=namespace),
+            metadata=self._standard_metadata(name),
         )
         try:
-            await self.api.create_namespaced_config_map(
-                namespace=namespace, body=configmap
-            )
+            await self.api.create_namespaced_config_map(namespace, configmap)
         except Exception as exc:
             self.logger.error(f"Create config_map failed: {exc}")
             raise
@@ -435,9 +393,7 @@ class K8sStorageClient:
         # and Egress to ... external world, Hub, Portal, Gafaelfawr.  What
         # else?
         policy = V1NetworkPolicy(
-            api_version="networking.k8s.io/v1",
-            kind="NetworkPolicy",
-            metadata=self.get_std_metadata(name, namespace=namespace),
+            metadata=self._standard_metadata(name),
             spec=V1NetworkPolicySpec(
                 policy_types=["Ingress"],
                 pod_selector=V1LabelSelector(
@@ -445,40 +401,27 @@ class K8sStorageClient:
                 ),
                 ingress=[
                     V1NetworkPolicyIngressRule(
-                        ports=[
-                            V1NetworkPolicyPort(
-                                port=8888,
-                            ),
-                        ],
+                        ports=[V1NetworkPolicyPort(port=8888)],
                     ),
                 ],
             ),
         )
         try:
-            await api.create_namespaced_network_policy(
-                namespace=namespace, body=policy
-            )
+            await api.create_namespaced_network_policy(namespace, policy)
         except Exception as exc:
             self.logger.error(f"Network policy creation failed: {exc}")
             raise
 
     async def create_lab_service(self, username: str, namespace: str) -> None:
-        svcname = "lab"
-        svc = V1Service(
-            api_version="v1",
-            kind="Service",
-            metadata=self.get_std_metadata(svcname, namespace=namespace),
+        service = V1Service(
+            metadata=self._standard_metadata("lab"),
             spec=V1ServiceSpec(
                 ports=[V1ServicePort(port=8888, target_port=8888)],
-                selector={
-                    "app": "lab",
-                },
+                selector={"app": "lab"},
             ),
         )
         try:
-            await self.api.create_namespaced_service(
-                namespace=namespace, body=svc
-            )
+            await self.api.create_namespaced_service(namespace, service)
         except Exception as exc:
             self.logger.error(f"Service creation failed: {exc}")
             raise
@@ -489,10 +432,8 @@ class K8sStorageClient:
         namespace: str,
         quota: UserResourceQuantum,
     ) -> None:
-        quota_obj = V1ResourceQuota(
-            api_version="v1",
-            kind="ResourceQuota",
-            metadata=self.get_std_metadata(name, namespace=namespace),
+        body = V1ResourceQuota(
+            metadata=self._standard_metadata(name),
             spec=V1ResourceQuotaSpec(
                 hard={
                     "limits.cpu": str(quota.cpu),
@@ -500,30 +441,24 @@ class K8sStorageClient:
                 }
             ),
         )
-        await self.api.create_namespaced_resource_quota(
-            namespace=namespace, body=quota_obj
-        )
+        await self.api.create_namespaced_resource_quota(namespace, body)
 
     async def create_pod(
         self,
         name: str,
         namespace: str,
-        pod: V1PodSpec,
+        pod_spec: V1PodSpec,
         pull_secret: bool = False,
         labels: Optional[dict[str, str]] = None,
     ) -> None:
         if pull_secret:
-            pod.image_pull_secrets = [{"name": "pull-secret"}]
-        metadata = self.get_std_metadata(name, namespace=namespace)
+            pod_spec.image_pull_secrets = [{"name": "pull-secret"}]
+        metadata = self._standard_metadata(name)
         if labels:
             metadata.labels.update(labels)
-        pod_obj = V1Pod(
-            api_version="v1", kind="Pod", metadata=metadata, spec=pod
-        )
+        pod = V1Pod(metadata=metadata, spec=pod_spec)
         try:
-            await self.api.create_namespaced_pod(
-                namespace=namespace, body=pod_obj
-            )
+            await self.api.create_namespaced_pod(namespace, pod)
         except Exception as exc:
             self.logger.error(f"Error creating pod: {exc}")
             raise
@@ -539,8 +474,7 @@ class K8sStorageClient:
         self.logger.debug(f"Deleting namespace {namespace}")
         try:
             await asyncio.wait_for(
-                self.api.delete_namespace(namespace),
-                self.timeout,
+                self.api.delete_namespace(namespace), self.timeout
             )
         except ApiException as exc:
             if exc.status == 404:
@@ -610,3 +544,13 @@ class K8sStorageClient:
         if errorstr:
             raise KubernetesError(errorstr)
         return observed_state
+
+    def _standard_metadata(self, name: str) -> V1ObjectMeta:
+        return V1ObjectMeta(
+            name=name,
+            labels={"argocd.argoproj.io/instance": "nublado-users"},
+            annotations={
+                "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+                "argocd.argoproj.io/sync-options": "Prune=false",
+            },
+        )

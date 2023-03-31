@@ -475,7 +475,7 @@ class LabManager:
     async def create_user_pod(
         self, user: UserInfo, resources: UserResources, image: RSPImage
     ) -> None:
-        pod = self.build_pod_spec(user, resources, image)
+        pod_spec = self.build_pod_spec(user, resources, image)
         snames = [x.secret_name for x in self.lab_config.secrets]
         needs_pull_secret = False
         if "pull-secret" in snames:
@@ -487,7 +487,7 @@ class LabManager:
         await self.k8s_client.create_pod(
             name=f"nb-{user.username}",
             namespace=self.namespace_from_user(user),
-            pod=pod,
+            pod_spec=pod_spec,
             pull_secret=needs_pull_secret,
             labels={"app": "lab"},
         )
