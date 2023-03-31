@@ -111,7 +111,7 @@ class ProcessContext:
                 logger=logger,
             ),
             user_map=UserMap(),
-            event_manager=EventManager(logger=logger),
+            event_manager=EventManager(),
         )
 
     async def start(self) -> None:

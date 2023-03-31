@@ -75,3 +75,7 @@ class StateUpdateError(Exception):
     """Raised when an attempt to update prepuller state fails."""
 
     pass
+
+
+class UnknownUserError(Exception):
+    """No resource has been created for this user."""

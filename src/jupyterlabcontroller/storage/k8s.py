@@ -264,6 +264,7 @@ class K8sStorageClient:
         This is going to yield messages that are reflected from K8s while the
         pod is Pending, and return once pod is Running, Completed, or Failed.
         """
+        logger = self.logger.bind(namespace=namespace, pod=podname)
         w = watch.Watch()
         method = self.api.list_namespaced_event
         watch_args = {
@@ -276,6 +277,12 @@ class K8sStorageClient:
         async with w.stream(method, **watch_args) as stream:
             seen_messages = []
             async for event in stream:
+                raw_event = event["raw_object"]
+                logger.debug(
+                    "Saw Kubernetes event",
+                    object=raw_event.get("involved_object"),
+                    message=raw_event.get("message"),
+                )
                 # Check to see if pod has entered a state (i.e. not Pending or
                 # Unknown) where we can stop watching.
                 try:
@@ -285,12 +292,14 @@ class K8sStorageClient:
                 except ApiException as e:
                     # Dunno why it stopped, but we can stop watching
                     if e.status == 404:
+                        self.logger.error("Pod disappeared while spawning")
                         phase = K8sPodPhase.FAILED  # A guess, but
                         # puts us into stopping state
                     else:
                         self.logger.error(f"API Error: {e}")
-                        raise WaitingForObjectError(str(e))
+                        raise WaitingForObjectError(str(e)) from e
                 phase = pod.status.phase
+                logger.debug(f"Pod phase is now {phase}")
                 if phase in (
                     K8sPodPhase.RUNNING,
                     K8sPodPhase.SUCCEEDED,
@@ -302,7 +311,7 @@ class K8sStorageClient:
                         f"Pod {namespace}/{podname} in Unknown phase."
                     )
                 # Now gather up our events and forward those
-                message = event["raw_object"]["message"]
+                message = raw_event.get("message")
                 if message and message not in seen_messages:
                     seen_messages.append(message)
                     self.logger.debug(f"Watch reporting '{message}'")

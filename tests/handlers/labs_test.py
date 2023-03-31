@@ -2,20 +2,54 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Any
 
 import pytest
 from httpx import AsyncClient
+from httpx_sse import aconnect_sse
+from kubernetes_asyncio.client import (
+    CoreV1Event,
+    V1ObjectMeta,
+    V1ObjectReference,
+)
 
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.constants import DROPDOWN_SENTINEL_VALUE
 from jupyterlabcontroller.factory import Factory
+from jupyterlabcontroller.models.k8s import K8sPodPhase
 
 from ..settings import TestObjectFactory
 from ..support.constants import TEST_BASE_URL
 from ..support.kubernetes import MockLabKubernetesApi
+
+
+async def get_lab_events(
+    client: AsyncClient, username: str
+) -> list[dict[str, str]]:
+    """Listen to a server-sent event stream for lab events.
+
+    Parameters
+    ----------
+    client
+        Client to use to talk to the app.
+    username
+        Username of user for which to get events.
+
+    Returns
+    -------
+    dict of str to str or None
+        Serialized events read from the server.
+    """
+    events = []
+    url = f"/nublado/spawner/v1/labs/{username}/events"
+    headers = {"X-Auth-Request-User": username}
+    async with aconnect_sse(client, "GET", url, headers=headers) as source:
+        async for sse in source.aiter_sse():
+            events.append({"event": sse.event, "data": sse.data})
+    return events
 
 
 def strip_none(model: dict[str, Any]) -> dict[str, Any]:
@@ -146,11 +180,121 @@ async def test_lab_start_stop(
     assert r.json() == []
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 404
+
+    # Events should be for lab deletion and should return immediately.
     r = await client.get(
         f"/nublado/spawner/v1/labs/{user.username}/events",
         headers={"X-Auth-Request-User": user.username},
     )
-    assert r.status_code == 404
+    assert r.status_code == 200
+    assert "Deleting user lab and resources" in r.text
+
+
+@pytest.mark.asyncio
+async def test_delayed_spawn(
+    client: AsyncClient,
+    factory: Factory,
+    mock_kubernetes: MockLabKubernetesApi,
+    obj_factory: TestObjectFactory,
+    std_result_dir: Path,
+) -> None:
+    token, user = obj_factory.get_user()
+    lab = obj_factory.labspecs[0]
+    mock_kubernetes.initial_pod_status = K8sPodPhase.PENDING.value
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.dict(), "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 201
+    r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 200
+    assert r.json()["status"] == "pending"
+
+    # Start event listeners to collect pod spawn events. We should be able to
+    # listen for events for the same pod any number of times, and all of the
+    # listeners should see the same events.
+    listeners = [
+        asyncio.create_task(get_lab_events(client, user.username)),
+        asyncio.create_task(get_lab_events(client, user.username)),
+        asyncio.create_task(get_lab_events(client, user.username)),
+    ]
+
+    # Add a few events.
+    namespace = f"userlabs-{user.username}"
+    name = f"nb-{user.username}"
+    pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
+    event = CoreV1Event(
+        metadata=V1ObjectMeta(name=f"{name}-1", namespace=namespace),
+        message="Autoscaling cluster for reasons",
+        involved_object=V1ObjectReference(
+            kind="Pod", name=name, namespace=namespace
+        ),
+    )
+    mock_kubernetes.add_event_for_test(namespace, event)
+    event = CoreV1Event(
+        metadata=V1ObjectMeta(name=f"{name}-2", namespace=namespace),
+        message="Mounting all the things",
+        involved_object=V1ObjectReference(
+            kind="Pod", name=name, namespace=namespace
+        ),
+    )
+    mock_kubernetes.add_event_for_test(namespace, event)
+
+    # Change the pod status to running and add another event.
+    await asyncio.sleep(0.1)
+    pod.status.phase = K8sPodPhase.RUNNING.value
+    event = CoreV1Event(
+        metadata=V1ObjectMeta(name=f"{name}-start", namespace=namespace),
+        message=f"Pod {name} started",
+        involved_object=V1ObjectReference(
+            kind="Pod", name=name, namespace=namespace
+        ),
+    )
+    mock_kubernetes.add_event_for_test(namespace, event)
+
+    # The listeners should now complete successfully and we should see
+    # appropriate events.
+    event_lists = await asyncio.gather(*listeners)
+    with (std_result_dir / "pod-events.json").open("r") as f:
+        expected_events = json.load(f)
+    expected_events = (
+        expected_events[:-1]
+        + [
+            {"data": "46", "event": "progress"},
+            {
+                "data": f"Autoscaling cluster for reasons for {user.username}",
+                "event": "info",
+            },
+            {"data": "60", "event": "progress"},
+            {
+                "data": f"Mounting all the things for {user.username}",
+                "event": "info",
+            },
+            {"data": "69", "event": "progress"},
+            {
+                "data": f"Pod nb-{user.username} started for {user.username}",
+                "event": "info",
+            },
+        ]
+        + expected_events[-1:]
+    )
+    for event_list in event_lists:
+        assert event_list == expected_events
+
+    # And the pod should now be running.
+    r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 200
+    assert r.json()["status"] == "running"
+
+    # Retrieving events repeatedly should just keep returning the same event
+    # list and immediately complete.
+    events = await get_lab_events(client, user.username)
+    assert events == expected_events
 
 
 @pytest.mark.asyncio

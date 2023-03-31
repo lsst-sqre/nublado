@@ -5,7 +5,12 @@ from safir.models import ErrorModel
 from sse_starlette import EventSourceResponse
 
 from ..dependencies.context import RequestContext, context_dependency
-from ..exceptions import InvalidUserError, LabExistsError, NoUserMapError
+from ..exceptions import (
+    InvalidUserError,
+    LabExistsError,
+    NoUserMapError,
+    UnknownUserError,
+)
 from ..models.v1.lab import LabSpecification, UserData
 
 router = APIRouter()
@@ -121,11 +126,8 @@ async def get_user_events(
     """Returns the events for the lab of the given user"""
     if username != x_auth_request_user:
         raise HTTPException(status_code=403, detail="Forbidden")
-
-    # If the user doesn't exist, publishing events for them will just hang
-    # forever, so return an immediate 404. No one should watch for events
-    # before creating a lab.
-    if not context.user_map.get(username):
+    try:
+        generator = context.event_manager.events_for_user(username)
+        return EventSourceResponse(generator)
+    except UnknownUserError:
         raise HTTPException(status_code=404, detail="Not found")
-
-    return context.event_manager.publish(username)

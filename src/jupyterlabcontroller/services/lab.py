@@ -36,7 +36,7 @@ from ..models.domain.docker import DockerReference
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.rspimage import RSPImage
 from ..models.domain.usermap import UserMap
-from ..models.v1.event import Event, EventTypes
+from ..models.v1.event import Event, EventType
 from ..models.v1.lab import (
     LabSpecification,
     LabStatus,
@@ -94,31 +94,31 @@ class LabManager:
             raise RuntimeError(
                 "% completion must be between 0 and 100 inclusive"
             )
-        ev_queue = self.event_manager.get(username)
+        event = Event(data=str(pct), type=EventType.PROGRESS)
+        self.event_manager.publish_event(username, event)
         umsg = f"{message} for {username}"
-        await ev_queue.asend(Event(data=str(pct), event=EventTypes.PROGRESS))
-        await ev_queue.asend(Event(data=umsg, event=EventTypes.INFO))
-        self.logger.info(f"Event: {umsg}: {pct}% ")
+        event = Event(data=umsg, type=EventType.INFO)
+        self.event_manager.publish_event(username, event)
+        self.logger.info(f"Event: {umsg}: {pct}%")
 
     async def completion_event(self, username: str) -> None:
-        ev_queue = self.event_manager.get(username)
         cstr = f"Operation complete for {username}"
-        await ev_queue.asend(Event(data=cstr, event=EventTypes.COMPLETE))
+        event = Event(data=cstr, type=EventType.COMPLETE)
+        self.event_manager.publish_event(username, event)
         self.logger.info(cstr)
 
     async def failure_event(
         self, username: str, message: str, fatal: bool = True
     ) -> None:
-        ev_queue = self.event_manager.get(username)
         umsg = message + f" for {username}"
-        await ev_queue.asend(Event(data=umsg, event=EventTypes.ERROR))
+        event = Event(data=umsg, type=EventType.ERROR)
+        self.event_manager.publish_event(username, event)
         if fatal:
-            await ev_queue.asend(
-                Event(
-                    data=f"Lab creation failed for {username}",
-                    event=EventTypes.FAILED,
-                )
+            event = Event(
+                data=f"Lab creation failed for {username}",
+                type=EventType.FAILED,
             )
+            self.event_manager.publish_event(username, event)
         estr = f"Event: {umsg}"
         if fatal:
             estr = "Fatal e" + estr[1:]
@@ -218,7 +218,7 @@ class LabManager:
         #
         # Clear user event queue
         #
-        self.event_manager.remove(username)
+        self.event_manager.reset_user(username)
         #
         # This process has three stages: first is the creation or recreation
         # of the user namespace.  Second is all the resources the user Lab
@@ -817,7 +817,7 @@ class LabManager:
         #
         # Clear user event queue
         #
-        self.event_manager.remove(username)
+        self.event_manager.reset_user(username)
         try:
             await self.info_event(
                 username, "Deleting user lab and resources", 25
@@ -860,7 +860,7 @@ class LabManager:
                     self.logger.warning(f"Retaining failed state for {user}")
                 else:
                     self.logger.warning(f"Removing record for user {user}")
-                    self.event_manager.remove(user)
+                    self.event_manager.reset_user(user)
                     user_map.remove(user)
             # User was observed to exist
             else:

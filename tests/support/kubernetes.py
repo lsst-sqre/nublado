@@ -31,6 +31,7 @@ from kubernetes_asyncio.client import (
     V1ObjectMeta,
     V1ObjectReference,
     V1Pod,
+    V1PodStatus,
     V1ResourceQuota,
     V1Secret,
     V1Service,
@@ -42,19 +43,28 @@ __all__ = ["MockLabKubernetesApi", "patch_kubernetes"]
 
 
 class MockLabKubernetesApi(MockKubernetesApi):
-    """Mock Kubernetes API for testing."""
+    """Mock Kubernetes API for testing.
+
+    Attributes
+    ----------
+    initial_pod_status
+        String value to set the status of pods to when created. If this is set
+        to ``Running`` (the default), a pod start event will also be
+        generated when the pod is created.
+    """
 
     def __init__(self) -> None:
         super().__init__()
-        self.nodes: list[V1Node] = []
-        self.events: defaultdict[str, list[CoreV1Event]] = defaultdict(list)
+        self.initial_pod_status = "Running"
+        self._nodes: list[V1Node] = []
+        self._events: defaultdict[str, list[CoreV1Event]] = defaultdict(list)
         self._new_events: defaultdict[str, asyncio.Event]
         self._new_events = defaultdict(asyncio.Event)
 
     def add_event_for_test(self, namespace: str, event: CoreV1Event) -> None:
         """Add an event that will be returned by ``list_namespaced_event``."""
-        event.metadata.resource_version = str(len(self.events[namespace]))
-        self.events[namespace].append(event)
+        event.metadata.resource_version = str(len(self._events[namespace]))
+        self._events[namespace].append(event)
         self._new_events[namespace].set()
 
     def get_all_objects_in_namespace_for_test(
@@ -93,7 +103,7 @@ class MockLabKubernetesApi(MockKubernetesApi):
         nodes
             New node list to return.
         """
-        self.nodes = V1NodeList(items=nodes)
+        self._nodes = V1NodeList(items=nodes)
 
     # CONFIGMAP API
 
@@ -121,7 +131,7 @@ class MockLabKubernetesApi(MockKubernetesApi):
     ) -> CoreV1EventList:
         self._maybe_error("list_namespaced_event", namespace)
         if not watch:
-            return CoreV1EventList(items=self.events[namespace])
+            return CoreV1EventList(items=self._events[namespace])
 
         # All watches must not preload content since we're returning raw JSON.
         # This is done by the Kubernetes API Watch object.
@@ -137,7 +147,7 @@ class MockLabKubernetesApi(MockKubernetesApi):
         async def next_event() -> AsyncIterator[bytes]:
             position = int(resource_version)
             while True:
-                for event in self.events[namespace][position:]:
+                for event in self._events[namespace][position:]:
                     raw = {"type": "ADDED", "object": event.to_dict()}
                     yield json.dumps(raw).encode()
                     position += 1
@@ -224,22 +234,43 @@ class MockLabKubernetesApi(MockKubernetesApi):
 
     async def list_node(self) -> list[V1Node]:
         self._maybe_error("list_node")
-        return self.nodes
+        return self._nodes
 
     # POD API
 
     async def create_namespaced_pod(self, namespace: str, body: V1Pod) -> None:
-        await super().create_namespaced_pod(namespace, body)
-        event = CoreV1Event(
-            metadata=V1ObjectMeta(
-                name=f"{body.metadata.name}-start", namespace=namespace
-            ),
-            message=f"Pod {body.metadata.name} started",
-            involved_object=V1ObjectReference(
-                kind="Pod", name=body.metadata.name, namespace=namespace
-            ),
-        )
-        self.add_event_for_test(namespace, event)
+        """Add a pod to the mock Kubernetes.
+
+        If ``initial_pod_status`` on the mock Kubernetes object is set to
+        ``Running``, sets the state to ``Running`` and generates a startup
+        event. Otherwise, the status is set to whatever ``initial_pod_status``
+        is set to, and no even is generated.
+
+        Parameters
+        ----------
+        namespace
+            Namespace in which to create the pod.
+        body
+            Pod specification.
+        """
+        self._maybe_error("create_namespaced_pod", namespace, body)
+        if not body.metadata.namespace:
+            body.metadata.namespace = namespace
+        else:
+            assert namespace == body.metadata.namespace
+        body.status = V1PodStatus(phase=self.initial_pod_status)
+        self._store_object(namespace, "Pod", body.metadata.name, body)
+        if self.initial_pod_status == "Running":
+            event = CoreV1Event(
+                metadata=V1ObjectMeta(
+                    name=f"{body.metadata.name}-start", namespace=namespace
+                ),
+                message=f"Pod {body.metadata.name} started",
+                involved_object=V1ObjectReference(
+                    kind="Pod", name=body.metadata.name, namespace=namespace
+                ),
+            )
+            self.add_event_for_test(namespace, event)
 
     async def read_namespaced_pod_status(
         self, name: str, namespace: str
