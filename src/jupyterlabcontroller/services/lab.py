@@ -592,10 +592,10 @@ class LabManager:
         #
         # Step four: secret
         #
-        # We are going to introduce a new location for all of these and patch
-        # things into the existing locations with modifications of runlab.sh.
-        # All the secrets will show up in the same directory.  That means
-        # we will need to symlink or the existing butler secret.
+        # All secrets are mounted in the same directory.  Secrets should
+        # preferably be referred to by that path, although we also support
+        # injecting them into environment variables and other paths for ease
+        # of transition.
         sec_vol = LabVolumeContainer(
             volume=V1Volume(
                 name=f"nb-{username}-secrets",
@@ -606,10 +606,38 @@ class LabManager:
             volume_mount=V1VolumeMount(
                 mount_path="/opt/lsst/software/jupyterlab/secrets",
                 name=f"nb-{username}-secrets",
-                read_only=True,  # Likely, but I'm not certain
+                read_only=True,
             ),
         )
         return sec_vol
+
+    def build_extra_secret_volume_mounts(
+        self, username: str
+    ) -> list[V1VolumeMount]:
+        """Build additional mounts of secrets into other paths.
+
+        Parameters
+        ----------
+        username
+            Username whose lab is being constructed.
+
+        Returns
+        -------
+        list of V1VolumeMount
+            Additional locations into which specific secrets are mounted.
+        """
+        mounts = []
+        for spec in self.lab_config.secrets:
+            if not spec.path:
+                continue
+            mount = V1VolumeMount(
+                mount_path=spec.path,
+                name=f"nb-{username}-secrets",
+                read_only=True,
+                sub_path=spec.secret_key,
+            )
+            mounts.append(mount)
+        return mounts
 
     def build_env_volume(self, username: str) -> LabVolumeContainer:
         #
@@ -763,11 +791,28 @@ class LabManager:
     def build_pod_spec(
         self, user: UserInfo, resources: UserResources, image: RSPImage
     ) -> V1PodSpec:
-        username = user.username
-        vol_recs = self.build_volumes(username=username)
-        volumes = [x.volume for x in vol_recs]
-        vol_mounts = [x.volume_mount for x in vol_recs]
-        init_ctrs = self.build_init_ctrs(username, resources)
+        """Construct the pod specification for the user's lab pod.
+
+        Parameters
+        ----------
+        user
+            User identity information.
+        resources
+            User quota restrictions.
+        image
+            Image to spawn.
+
+        Returns
+        -------
+        V1PodSpec
+            Kubernetes pod specification for that user's lab pod.
+        """
+        volume_data = self.build_volumes(user.username)
+        volumes = [v.volume for v in volume_data]
+        mounts = [v.volume_mount for v in volume_data]
+        mounts += self.build_extra_secret_volume_mounts(user.username)
+
+        # Additional environment variables to set, apart from the ConfigMap.
         env = [
             V1EnvVar(
                 name="ACCESS_TOKEN",
@@ -786,14 +831,30 @@ class LabManager:
                 ),
             ),
         ]
-        nb_ctr = V1Container(
+        for spec in self.lab_config.secrets:
+            if not spec.env:
+                continue
+            env_var = V1EnvVar(
+                name=spec.env,
+                value_from=V1EnvVarSource(
+                    secret_key_ref=V1SecretKeySelector(
+                        key=spec.secret_key,
+                        name=f"nb-{user.username}",
+                        optional=False,
+                    )
+                ),
+            )
+            env.append(env_var)
+
+        # Specification for the user's container.
+        container = V1Container(
             name="notebook",
             args=["/opt/lsst/software/jupyterlab/runlab.sh"],
             env=env,
             env_from=[
                 V1EnvFromSource(
                     config_map_ref=V1ConfigMapEnvSource(
-                        name=f"nb-{username}-env"
+                        name=f"nb-{user.username}-env"
                     )
                 ),
             ],
@@ -815,23 +876,25 @@ class LabManager:
                 run_as_user=user.uid,
                 run_as_group=user.gid,
             ),
-            volume_mounts=vol_mounts,
-            working_dir=f"/home/{username}",
+            volume_mounts=mounts,
+            working_dir=f"/home/{user.username}",
         )
-        supp_grps = [x.id for x in user.groups]
+
+        # Build the pod specification itself.
         # FIXME work out tolerations
         pull_secrets = None
         if self.lab_config.pull_secret:
             pull_secrets = [V1LocalObjectReference(name="pull-secret")]
+        init_containers = self.build_init_ctrs(user.username, resources)
         pod = V1PodSpec(
-            init_containers=init_ctrs,
-            containers=[nb_ctr],
+            init_containers=init_containers,
+            containers=[container],
             image_pull_secrets=pull_secrets,
             restart_policy="OnFailure",
             security_context=V1PodSecurityContext(
                 run_as_non_root=True,
                 fs_group=user.gid,
-                supplemental_groups=supp_grps,
+                supplemental_groups=[x.id for x in user.groups],
             ),
             volumes=volumes,
         )

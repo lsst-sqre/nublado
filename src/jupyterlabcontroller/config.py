@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional, Self
 
 import yaml
-from pydantic import BaseSettings, Field
+from pydantic import BaseSettings, Field, validator
 from safir.logging import LogLevel, Profile
 from safir.pydantic import CamelCaseModel, to_camel_case
 
@@ -161,18 +161,32 @@ class LabInitContainer(CamelCaseModel):
 class LabSecret(CamelCaseModel):
     secret_name: str = Field(
         ...,
+        title="Source secret name",
+        description=(
+            "Must name a secret in the same namespace as the lab controller"
+            " pod."
+        ),
         example="credentials",
-        title="Name of source secret in Lab controller namespace",
     )
     secret_key: str = Field(
         ...,
-        example="butler-credentials",
-        title="Key of source secret within secret_name",
+        title="Key of source secret within `secret_name`",
         description=(
-            "Note that it is the values file maintainer's "
-            "responsibility to ensure there is no collision "
-            "between key names"
+            "Each secret key must be unique across all secrets in the list"
+            " of source secrets, since it is also used as the key for the"
+            " entry in the secret created in the user's lab environment."
         ),
+        example="butler-credentials",
+    )
+    env: Optional[str] = Field(
+        None,
+        title="Environment variable to set to secret value",
+        example="BUTLER_CREDENTIALS",
+    )
+    path: Optional[str] = Field(
+        None,
+        title="Path inside lab at which to mount secret",
+        example="/opt/lsst/software/jupyterlab/butler-secret",
     )
 
 
@@ -221,6 +235,19 @@ class LabConfig(CamelCaseModel):
         default_factory=_get_namespace_prefix,
         title="Namespace prefix for lab environments",
     )
+
+    @validator("secrets")
+    def _validate_secrets(cls, v: list[LabSecret]) -> list[LabSecret]:
+        keys = set()
+        for secret in v:
+            if secret.secret_key == "token":
+                msg = 'secret_key "token" is reserved and may not be used'
+                raise ValueError(msg)
+            if secret.secret_key in keys:
+                msg = f"Duplicate secret_key {secret.secret_key}"
+                raise ValueError(msg)
+            keys.add(secret.secret_key)
+        return v
 
 
 #
