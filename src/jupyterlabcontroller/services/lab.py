@@ -795,13 +795,8 @@ class LabManager:
                 ),
             ],
             image=image.reference_with_digest,
-            image_pull_policy="Always",
-            ports=[
-                V1ContainerPort(
-                    container_port=8888,
-                    name="jupyterlab",
-                ),
-            ],
+            image_pull_policy="IfNotPresent",
+            ports=[V1ContainerPort(container_port=8888, name="jupyterlab")],
             resources=V1ResourceRequirements(
                 limits={
                     "cpu": str(resources.limits.cpu),
