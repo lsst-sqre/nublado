@@ -45,9 +45,10 @@ class RSPImage(RSPImageTag):
     """Known aliases for this image.
 
     This may include other alias tags that all resolve to the same underlying
-    image. To determine whether this is a "real" image pointed to by an alias
-    (in other words, an image that is some other alias image's
-    ``alias_target``), use ``aliased``.
+    image, other non-alias tags with the same digest, and aliases that are not
+    present in the same collection. It is intended primarily for the use of
+    `RSPImageCollection`, which contains more sophisticated alias tracking
+    logic that is aware of the contents of the collection.
     """
 
     alias_target: Optional[str] = None
