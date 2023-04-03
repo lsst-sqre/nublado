@@ -1,80 +1,74 @@
-class InvalidDockerReferenceError(Exception):
-    """Docker reference is not valid."""
+"""Exceptions for the Nublado lab controller."""
 
-    pass
+from __future__ import annotations
+
+__all__ = [
+    "DockerRegistryError",
+    "GafaelfawrError",
+    "InvalidDockerReferenceError",
+    "InvalidUserError",
+    "KubernetesError",
+    "LabExistsError",
+    "MissingSecretError",
+    "NoUserMapError",
+    "NSCreationError",
+    "NSDeletionError",
+    "UnknownDockerImageError",
+    "UnknownUserError",
+    "WaitingForObjectError",
+]
+
+
+class InvalidDockerReferenceError(Exception):
+    """Docker reference does not contain a tag.
+
+    This is valid to Docker, but for references without a digest we require a
+    tag for debugging, status display inside the lab, etc.
+    """
 
 
 class UnknownDockerImageError(Exception):
     """Cannot find a Docker image matching the requested parameters."""
 
-    pass
-
 
 class DockerRegistryError(Exception):
-    """Unknown error working with the Docker registry."""
-
-    pass
+    """An API call to a Docker Registry failed."""
 
 
 class NSCreationError(Exception):
     """Error while attempting namespace creation."""
 
-    pass
-
 
 class NSDeletionError(Exception):
     """Error while attempting namespace deletion."""
 
-    pass
-
 
 class WaitingForObjectError(Exception):
-    """Error raised when something goes wrong waiting for object creation/
-    deletion."""
-
-    pass
+    """An error occurred while waiting for object creation or deletion."""
 
 
 class KubernetesError(Exception):
-    """Generic error for something keeling over in the K8s layer."""
-
-    pass
+    """An API call to Kubernetes failed."""
 
 
 class LabExistsError(Exception):
-    """Raised when lab creation is attempted for a user with an active lab."""
-
-    pass
+    """Lab creation was attempted for a user with an active lab."""
 
 
 class NoUserMapError(Exception):
-    """Raised when a user deletion is called for a user without a lab."""
-
-    pass
+    """Lab deletion was attempted for a user without a lab."""
 
 
 class GafaelfawrError(Exception):
-    """An unexpected error occurred talking to Gafaelfawr."""
-
-    pass
+    """An API call to Gafaelfawr failed."""
 
 
 class InvalidUserError(Exception):
-    """Raised when a user cannot be resolved from a token."""
-
-    pass
+    """The delegated user token is invalid."""
 
 
 class MissingSecretError(Exception):
-    """Raised when we try to copy a non-existent secret."""
-
-    pass
-
-
-class StateUpdateError(Exception):
-    """Raised when an attempt to update prepuller state fails."""
-
-    pass
+    """Secret specified in the controller configuration was not found."""
 
 
 class UnknownUserError(Exception):
