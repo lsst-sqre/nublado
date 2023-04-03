@@ -264,6 +264,37 @@ class RSPImageCollection:
         images = self._by_type[image_type]
         return images[0] if images else None
 
+    def mark_image_seen_on_node(
+        self, digest: str, node: str, image_size: Optional[int] = None
+    ) -> None:
+        """Mark an image as seen on a node.
+
+        This is implemented by the image collection so that we can update all
+        of the image's aliases as well.
+
+        Parameters
+        ----------
+        digest
+            Digest of image seen.
+        node
+            Name of the node the image was seen on.
+        image_size
+            If given, the observed image size, used to update the images.
+        """
+        if digest not in self._by_digest:
+            return
+        image = self._by_digest[digest]
+        image.nodes.add(node)
+        if image_size:
+            image.size = image_size
+        for alias in image.aliases:
+            if alias not in self._by_tag_name:
+                continue
+            other = self._by_tag_name[alias]
+            other.nodes.add(node)
+            if image_size:
+                other.size = image_size
+
     def subset(
         self,
         *,

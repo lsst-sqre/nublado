@@ -16,6 +16,16 @@ from jupyterlabcontroller.models.domain.rspimage import (
 from jupyterlabcontroller.models.domain.rsptag import RSPImageTag, RSPImageType
 
 
+def make_test_image(tag: str) -> RSPImage:
+    """Create a test image from a tag with a random digest."""
+    return RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.from_str(tag),
+        digest="sha256:" + os.urandom(32).hex(),
+    )
+
+
 def test_image() -> None:
     """Test RSPImage class."""
     image = RSPImage.from_tag(
@@ -97,16 +107,6 @@ def test_resolve_alias() -> None:
     # Can't resolve some other image type.
     with pytest.raises(ValueError):
         image.resolve_alias(latest_daily)
-
-
-def make_test_image(tag: str) -> RSPImage:
-    """Create a test image from a tag with a random digest."""
-    return RSPImage.from_tag(
-        registry="lighthouse.ceres",
-        repository="library/sketchbook",
-        tag=RSPImageTag.from_str(tag),
-        digest="sha256:" + os.urandom(32).hex(),
-    )
 
 
 def test_collection() -> None:
@@ -395,3 +395,39 @@ def test_alias_tracking() -> None:
     collection.add(latest_weekly)
     assert recommended.aliases == {"latest_daily", "latest_weekly"}
     assert latest_weekly.aliases == {"latest_daily", "recommended"}
+
+
+def test_node_tracking() -> None:
+    """Test node presence tracking inside a collection."""
+    weekly = make_test_image("w_2077_46")
+    weekly.aliases.add("nonexistent_tag")
+    recommended = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.alias("recommended"),
+        digest=weekly.digest,
+    )
+    collection = RSPImageCollection((recommended, weekly))
+    assert weekly.nodes == set()
+    assert weekly.size is None
+    assert recommended.alias_target == "w_2077_46"
+    assert recommended.nodes == set()
+    assert recommended.size is None
+
+    # Marking an image whose digest we've never seen should quietly do
+    # nothing.
+    collection.mark_image_seen_on_node("bogusdigest", "node1", 123456)
+
+    # Marking a known image as seen on a node should update everything.
+    collection.mark_image_seen_on_node(weekly.digest, "node1")
+    assert weekly.nodes == {"node1"}
+    assert weekly.size is None
+    assert recommended.nodes == {"node1"}
+    assert recommended.size is None
+
+    # If we include size information, the size should get updated everywhere.
+    collection.mark_image_seen_on_node(weekly.digest, "node2", 123456)
+    assert weekly.nodes == {"node1", "node2"}
+    assert weekly.size == 123456
+    assert recommended.nodes == {"node1", "node2"}
+    assert recommended.size == 123456
