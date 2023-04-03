@@ -16,6 +16,16 @@ from jupyterlabcontroller.models.domain.rspimage import (
 from jupyterlabcontroller.models.domain.rsptag import RSPImageTag, RSPImageType
 
 
+def make_test_image(tag: str) -> RSPImage:
+    """Create a test image from a tag with a random digest."""
+    return RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.from_str(tag),
+        digest="sha256:" + os.urandom(32).hex(),
+    )
+
+
 def test_image() -> None:
     """Test RSPImage class."""
     image = RSPImage.from_tag(
@@ -89,22 +99,13 @@ def test_resolve_alias() -> None:
     latest_daily.resolve_alias(image)
     assert latest_daily.image_type == RSPImageType.ALIAS
     assert latest_daily.alias_target == "d_2077_10_23_c0045.003"
+    assert latest_daily.aliases == {"recommended"}
     assert image.aliases == {"recommended", "latest_daily"}
     assert latest_daily.display_name == f"Latest Daily ({image.display_name})"
 
     # Can't resolve some other image type.
     with pytest.raises(ValueError):
         image.resolve_alias(latest_daily)
-
-
-def make_test_image(tag: str) -> RSPImage:
-    """Create a test image from a tag with a random digest."""
-    return RSPImage.from_tag(
-        registry="lighthouse.ceres",
-        repository="library/sketchbook",
-        tag=RSPImageTag.from_str(tag),
-        digest="sha256:" + os.urandom(32).hex(),
-    )
 
 
 def test_collection() -> None:
@@ -167,6 +168,27 @@ def test_collection() -> None:
         "d_2077_10_21",
     ]
 
+    # Test subsetting.
+    subset = collection.subset(releases=1, weeklies=3, dailies=1)
+    assert [t.tag for t in subset.all_images()] == [
+        "w_2077_46",
+        "w_2077_45",
+        "w_2077_44",
+        "d_2077_10_21",
+    ]
+    subset = collection.subset(
+        releases=1, weeklies=3, dailies=1, include={"recommended"}
+    )
+    assert [t.tag for t in subset.all_images()] == [
+        "recommended",
+        "w_2077_46",
+        "w_2077_45",
+        "w_2077_44",
+        "d_2077_10_21",
+    ]
+    subset = subset.subset(weeklies=1)
+    assert [t.tag for t in subset.all_images()] == ["w_2077_46"]
+
     # Test subtraction. Note that this only returns one image per digest and
     # prefers the non-alias images.
     other = RSPImageCollection(images[0:2])
@@ -224,3 +246,226 @@ def test_collection() -> None:
     # Note that first has been promoted to an alias and therefore changed its
     # sort location.
     assert list(collection.all_images()) == [first, second, third]
+
+
+def test_alias_tracking() -> None:
+    """Test alias tracking inside an image collection."""
+    weekly = make_test_image("w_2077_46")
+    recommended = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.alias("recommended"),
+        digest=weekly.digest,
+    )
+    latest_weekly = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.from_str("latest_weekly"),
+        digest=weekly.digest,
+    )
+
+    # Make another non-alias image that has the same digest as w_2077_46.
+    old_weekly = make_test_image("w_2077_45")
+    old_weekly.digest = weekly.digest
+
+    # If we put these all into the collection at the same time, they should
+    # all alias each other, with the alias tags pointing to the non-alias tags
+    # using the alias_target attribute and the non-alias tags marked as
+    # aliased.
+    images = [weekly, old_weekly, recommended, latest_weekly]
+    collection = RSPImageCollection(images)
+    assert weekly.aliases == {"recommended", "latest_weekly", "w_2077_45"}
+    assert not weekly.alias_target
+    assert old_weekly.aliases == {"recommended", "latest_weekly", "w_2077_46"}
+    assert not old_weekly.alias_target
+    assert recommended.aliases == {"latest_weekly", "w_2077_45"}
+    assert recommended.alias_target == "w_2077_46"
+    assert latest_weekly.aliases == {"recommended", "w_2077_45"}
+    assert latest_weekly.alias_target == "w_2077_46"
+    assert [i.tag for i in collection.all_images(hide_aliased=True)] == [
+        "recommended",
+        "latest_weekly",
+        "w_2077_45",
+    ]
+
+    # If we add them one at a time, we should reach the same end state.
+    # Recreate the images to ensure that we don't have any left-over alias
+    # information.
+    weekly = make_test_image("w_2077_46")
+    recommended = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.alias("recommended"),
+        digest=weekly.digest,
+    )
+    latest_weekly = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.from_str("latest_weekly"),
+        digest=weekly.digest,
+    )
+    old_weekly = make_test_image("w_2077_45")
+    old_weekly.digest = weekly.digest
+    collection = RSPImageCollection([])
+    for image in (old_weekly, weekly, recommended, latest_weekly):
+        collection.add(image)
+    assert weekly.aliases == {"recommended", "latest_weekly", "w_2077_45"}
+    assert not weekly.alias_target
+    assert old_weekly.aliases == {"recommended", "latest_weekly", "w_2077_46"}
+    assert not old_weekly.alias_target
+    assert recommended.aliases == {"latest_weekly", "w_2077_45"}
+    assert recommended.alias_target == "w_2077_46"
+    assert latest_weekly.aliases == {"recommended", "w_2077_45"}
+    assert latest_weekly.alias_target == "w_2077_46"
+    assert [i.tag for i in collection.all_images(hide_aliased=True)] == [
+        "recommended",
+        "latest_weekly",
+        "w_2077_45",
+    ]
+
+    # If we have two potential alias images with the same digest, and we add
+    # them but not the underlying "real" image, they should alias each other.
+    weekly = make_test_image("w_2077_46")
+    recommended = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.alias("recommended"),
+        digest=weekly.digest,
+    )
+    latest_weekly = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.from_str("latest_weekly"),
+        digest=weekly.digest,
+    )
+    collection = RSPImageCollection([recommended, latest_weekly])
+    assert recommended.aliases == {"latest_weekly"}
+    assert not recommended.alias_target
+    assert latest_weekly.aliases == {"recommended"}
+    assert not latest_weekly.alias_target
+
+    # Then, when the actual image is added, they should both resolve to it.
+    collection.add(weekly)
+    assert weekly.aliases == {"recommended", "latest_weekly"}
+    assert not weekly.alias_target
+    assert recommended.aliases == {"latest_weekly"}
+    assert recommended.alias_target == "w_2077_46"
+    assert latest_weekly.aliases == {"recommended"}
+    assert latest_weekly.alias_target == "w_2077_46"
+    assert [i.tag for i in collection.all_images(hide_aliased=True)] == [
+        "recommended",
+        "latest_weekly",
+    ]
+
+    # If we add another image with the same digest, it should take over as the
+    # primary alias target.
+    assert recommended.display_name == "Recommended (Weekly 2077_46)"
+    new_weekly = make_test_image("w_2077_47")
+    new_weekly.digest = weekly.digest
+    collection.add(new_weekly)
+    assert weekly.aliases == {"recommended", "latest_weekly", "w_2077_47"}
+    assert not weekly.alias_target
+    assert new_weekly.aliases == {"recommended", "latest_weekly", "w_2077_46"}
+    assert not new_weekly.alias_target
+    assert recommended.aliases == {"latest_weekly", "w_2077_46"}
+    assert recommended.alias_target == "w_2077_47"
+    assert recommended.display_name == "Recommended (Weekly 2077_47)"
+    assert latest_weekly.aliases == {"recommended", "w_2077_46"}
+    assert latest_weekly.alias_target == "w_2077_47"
+    assert [i.tag for i in collection.all_images(hide_aliased=True)] == [
+        "recommended",
+        "latest_weekly",
+        "w_2077_46",
+    ]
+
+    # If images alias things that aren't in the collection, we should just
+    # ignore that rather than producing errors.
+    recommended = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.alias("recommended"),
+        digest=weekly.digest,
+    )
+    recommended.aliases.add("latest_daily")
+    latest_weekly = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.alias("latest_weekly"),
+        digest=weekly.digest,
+    )
+    latest_weekly.aliases.add("latest_daily")
+    collection = RSPImageCollection([recommended])
+    collection.add(latest_weekly)
+    assert recommended.aliases == {"latest_daily", "latest_weekly"}
+    assert latest_weekly.aliases == {"latest_daily", "recommended"}
+
+
+def test_node_tracking() -> None:
+    """Test node presence tracking inside a collection."""
+    weekly = make_test_image("w_2077_46")
+    weekly.aliases.add("nonexistent_tag")
+    recommended = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.alias("recommended"),
+        digest=weekly.digest,
+    )
+    collection = RSPImageCollection((recommended, weekly))
+    assert weekly.nodes == set()
+    assert weekly.size is None
+    assert recommended.alias_target == "w_2077_46"
+    assert recommended.nodes == set()
+    assert recommended.size is None
+
+    # Marking an image whose digest we've never seen should quietly do
+    # nothing.
+    collection.mark_image_seen_on_node("bogusdigest", "node1", 123456)
+
+    # Marking a known image as seen on a node should update everything.
+    collection.mark_image_seen_on_node(weekly.digest, "node1")
+    assert weekly.nodes == {"node1"}
+    assert weekly.size is None
+    assert recommended.nodes == {"node1"}
+    assert recommended.size is None
+
+    # If we include size information, the size should get updated everywhere.
+    collection.mark_image_seen_on_node(weekly.digest, "node2", 123456)
+    assert weekly.nodes == {"node1", "node2"}
+    assert weekly.size == 123456
+    assert recommended.nodes == {"node1", "node2"}
+    assert recommended.size == 123456
+
+
+def test_hide_aliased() -> None:
+    """Don't hide an aliased image if the alias is not in the collection.
+
+    We don't want to repeat images in the menu, but when Google Artifact
+    Repository is in use, images on the menu may be aliased by alias tags that
+    aren't in the menu. When hiding aliased images, we therefore want to only
+    hide the image if one of its aliases is in the same collection.
+    """
+    weekly = make_test_image("w_2077_46")
+    weekly.aliases.add("nonexistent_tag")
+    collection = RSPImageCollection([weekly])
+    images = collection.all_images(hide_aliased=True)
+    assert [i.tag for i in images] == ["w_2077_46"]
+
+
+def test_hide_resolved_aliases() -> None:
+    """Don't hide a resolved alias if its target isn't in the collection."""
+    weekly = make_test_image("w_2077_46")
+    recommended = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.alias("recommended"),
+        digest=weekly.digest,
+    )
+    collection = RSPImageCollection((recommended, weekly))
+
+    # This will have resolved the alias. Now recreate the collection with just
+    # the alias tag. Even though it's still marked as resolved, it should not
+    # be hidden.
+    collection = RSPImageCollection([recommended])
+    assert recommended.alias_target == "w_2077_46"
+    images = collection.all_images(hide_resolved_aliases=True)
+    assert [i.tag for i in images] == ["recommended"]
