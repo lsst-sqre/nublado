@@ -7,7 +7,6 @@ import copy
 import json
 import os
 import re
-import uuid
 from collections import defaultdict
 from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import timedelta
@@ -102,11 +101,13 @@ class MockKubernetesApi:
     namespace with `get_namespace_objects_for_test` and one of them will be
     the ``V1Namespace`` object.
 
-    Except for custom objects, objects stored with ``create_*`` or
-    ``replace_*`` methods are **NOT** copied. The object provided will be
-    stored, so changing that object will change the object returned by
-    subsequent API calls. (Sometimes this is the desired behavior, sometimes
-    it isn't; we had to pick one and this is the approach we picked.)
+    Objects stored with ``create_*`` or ``replace_*`` methods are **NOT**
+    copied. The object provided will be stored, so changing that object will
+    change the object returned by subsequent API calls. Likewise, the object
+    returned by ``read_*`` calls will be the same object stored in the mock,
+    and changing it will change the mock's data. (Sometimes this is the
+    desired behavior, sometimes it isn't; we had to pick one and this is the
+    approach we picked.)
 
     Most APIs do not support watches. The only current exception is
     `list_namespaced_event`.
@@ -169,10 +170,6 @@ class MockKubernetesApi:
     def get_namespace_objects_for_test(self, namespace: str) -> list[Any]:
         """Returns all objects in the given namespace.
 
-        Note that due to how objects are stored in the mock, we can't
-        distinguish between a missing namespace and a namespace with no
-        objects. In both cases, the empty list is returned.
-
         Parameters
         ----------
         namespace
@@ -181,8 +178,10 @@ class MockKubernetesApi:
         Returns
         -------
         list of Any
-            All objects found in that namespace, sorted by kind and then
-            name.
+            All objects found in that namespace, sorted by kind and then name.
+            Due to how objects are stored in the mock, we can't distinguish
+            between a missing namespace and a namespace with no objects. In
+            both cases, the empty list is returned.
         """
         if namespace not in self._objects:
             return []
@@ -225,8 +224,7 @@ class MockKubernetesApi:
         plural
             API plural for this custom object.
         body
-            Custom object to create. This will be copied before storing it,
-            and a UUID will be set in ``metadata.uuid``.
+            Custom object to create.
 
         Raises
         ------
@@ -248,9 +246,7 @@ class MockKubernetesApi:
         else:
             self._custom_kinds[body["kind"]] = key
         assert namespace == body["metadata"]["namespace"]
-        obj = copy.deepcopy(body)
-        obj["metadata"]["uid"] = str(uuid.uuid4())
-        self._store_object(namespace, key, body["metadata"]["name"], obj)
+        self._store_object(namespace, key, body["metadata"]["name"], body)
 
     async def get_namespaced_custom_object(
         self,
@@ -401,8 +397,7 @@ class MockKubernetesApi:
         plural
             API plural for this custom object.
         body
-            New contents of custom object. This will **NOT** be copied before
-            storing it, unlike `create_namespaced_custom_object`.
+            New contents of custom object.
 
         Raises
         ------
@@ -532,7 +527,7 @@ class MockKubernetesApi:
 
         Returns
         -------
-        CoreV1EventList
+        CoreV1EventList or Mock
             List of events, when not called as a watch. If called as a watch,
             returns a mock ``aiohttp.Response`` with a ``readline`` method
             that yields the events.
