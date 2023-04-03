@@ -41,9 +41,6 @@ class RSPImage(RSPImageTag):
     size: Optional[int] = None
     """Size of the image in bytes if known."""
 
-    aliased: bool = False
-    """Whether this is the "real" image underlying an alias tag."""
-
     aliases: set[str] = field(default_factory=set)
     """Known aliases for this image.
 
@@ -130,7 +127,6 @@ class RSPImage(RSPImageTag):
             raise ValueError("Can only resolve alias and unknown images")
         self.image_type = RSPImageType.ALIAS
         self.alias_target = target.tag
-        target.aliased = True
         for alias in target.aliases:
             if alias != self.tag:
                 self.aliases.add(alias)
@@ -202,9 +198,14 @@ class RSPImageCollection:
         Parameters
         ----------
         hide_aliased
-            If `True`, hide images for which an alias image exists. This is
-            used for menu generation to suppress a duplicate entry for an
-            image that already appeared earlier in the menu under an alias.
+            If `True`, hide images that are the primary target of an alias
+            tag in the same collection. This is used for menu generation to
+            suppress a duplicate entry for an image that already appeared
+            earlier in the menu under an alias. We do not suppress images
+            with the same digest that are aliased by the alias tag but are
+            not its primary target, on the somewhat tenuous grounds that the
+            description of the alias will not mention that image and it may
+            seem strange for it to go missing.
         hide_resolved_aliases
             If `True`, hide images that are an alias for another image in the
             collection (but keep alias images when we don't have the target).
@@ -218,10 +219,11 @@ class RSPImageCollection:
         """
         for image_type in RSPImageType:
             for image in self._by_type[image_type]:
-                if hide_aliased and image.aliased:
+                if hide_aliased and self._is_image_aliased(image):
                     continue
                 if hide_resolved_aliases and image.alias_target:
-                    continue
+                    if image.alias_target in self._by_tag_name:
+                        continue
                 yield image
 
     def image_for_digest(self, digest: str) -> RSPImage | None:
@@ -366,6 +368,31 @@ class RSPImageCollection:
                 del candidates[image.digest]
         return RSPImageCollection(candidates.values())
 
+    def _is_image_aliased(self, image: RSPImage) -> bool:
+        """Return whether this image is aliased.
+
+        An image is aliased if and only if it is not itself an image of alias
+        type, one of its aliases is an image of alias type, that image is in
+        the same collection, and that image's alias target points to this
+        image.
+
+        Returns
+        -------
+        bool
+            Whether the image is an alias.
+        """
+        if image.image_type == RSPImageType.ALIAS:
+            return False
+        for alias in image.aliases:
+            alias_image = self._by_tag_name.get(alias)
+            if not alias_image:
+                continue
+            if alias_image.image_type != RSPImageType.ALIAS:
+                continue
+            if alias_image.alias_target == image.tag:
+                return True
+        return False
+
     def _replace_contents(self, images: Iterable[RSPImage]) -> None:
         """Replace the contents of the collection with the provided images.
 
@@ -476,8 +503,6 @@ class RSPImageCollection:
                 if other.alias_target == old.tag:
                     other.alias_target = new.tag
                     other.aliases.add(old.tag)
-                    old.aliased = False
-                    new.aliased = True
                 else:
                     other.aliases.add(new.tag)
             old.aliases.add(new.tag)
