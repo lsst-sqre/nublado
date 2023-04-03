@@ -780,7 +780,7 @@ class LabManager:
             # spec.nodeName is not reflected in DownwardAPIVolumeSource:
             # https://github.com/kubernetes/kubernetes/issues/64168
             V1EnvVar(
-                name="K8S_NODE_NAME",
+                name="KUBERNETES_NODE_NAME",
                 value_from=V1EnvVarSource(
                     field_ref=V1ObjectFieldSelector(field_path="spec.nodeName")
                 ),
