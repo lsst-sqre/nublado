@@ -141,6 +141,8 @@ class TestObjectFactory:
             secret = V1Secret(
                 metadata=V1ObjectMeta(name=name), data=encoded_data
             )
+            if ".dockerconfigjson" in data:
+                secret.type = "kubernetes.io/dockerconfigjson"
             secrets.append(secret)
         return secrets
 

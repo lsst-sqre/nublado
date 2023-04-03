@@ -8,7 +8,7 @@ from copy import copy, deepcopy
 from pathlib import Path
 from typing import Optional
 
-from kubernetes_asyncio.client.models import (
+from kubernetes_asyncio.client import (
     V1ConfigMapEnvSource,
     V1ConfigMapVolumeSource,
     V1Container,
@@ -21,6 +21,7 @@ from kubernetes_asyncio.client.models import (
     V1EnvVarSource,
     V1HostPathVolumeSource,
     V1KeyToPath,
+    V1LocalObjectReference,
     V1NFSVolumeSource,
     V1ObjectFieldSelector,
     V1PodSecurityContext,
@@ -316,6 +317,13 @@ class LabManager:
             source_ns=self.manager_namespace,
             target_ns=namespace,
         )
+        if self.lab_config.pull_secret:
+            await self.k8s_client.copy_secret(
+                source_namespace=self.manager_namespace,
+                source_secret=self.lab_config.pull_secret,
+                target_namespace=namespace,
+                target_secret="pull-secret",
+            )
 
     #
     # We are splitting "build": create the in-memory object representing
@@ -496,10 +504,6 @@ class LabManager:
         self, user: UserInfo, resources: UserResources, image: RSPImage
     ) -> None:
         pod_spec = self.build_pod_spec(user, resources, image)
-        snames = [x.secret_name for x in self.lab_config.secrets]
-        needs_pull_secret = False
-        if "pull-secret" in snames:
-            needs_pull_secret = True
         # FIXME
         # Here we should create a K8s pod watch, and then reflect its
         # events into the user queue, removing it when the pod creation
@@ -508,7 +512,6 @@ class LabManager:
             name=f"nb-{user.username}",
             namespace=self.namespace_from_user(user),
             pod_spec=pod_spec,
-            pull_secret=needs_pull_secret,
             labels={"app": "lab"},
         )
 
@@ -817,9 +820,13 @@ class LabManager:
         )
         supp_grps = [x.id for x in user.groups]
         # FIXME work out tolerations
+        pull_secrets = None
+        if self.lab_config.pull_secret:
+            pull_secrets = [V1LocalObjectReference(name="pull-secret")]
         pod = V1PodSpec(
             init_containers=init_ctrs,
             containers=[nb_ctr],
+            image_pull_secrets=pull_secrets,
             restart_policy="OnFailure",
             security_context=V1PodSecurityContext(
                 run_as_non_root=True,

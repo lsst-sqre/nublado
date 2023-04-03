@@ -64,9 +64,7 @@ lab:
     #
     # EXTERNAL_INSTANCE_URL is a special case: it's constant-per-instance, but
     # you can't template values files
-  secrets:
-    - secretName: pull_secret
-      secretKey: ".dockerconfigjson"
+  pullSecret: pull-secret
   files:
     /etc/passwd:
       modify: true

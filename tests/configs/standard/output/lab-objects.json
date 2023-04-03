@@ -262,6 +262,11 @@
           "working_dir": "/home/rachel"
         }
       ],
+      "image_pull_secrets": [
+        {
+          "name": "pull-secret"
+        }
+      ],
       "init_containers": [],
       "restart_policy": "OnFailure",
       "security_context": {
