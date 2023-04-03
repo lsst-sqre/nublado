@@ -27,6 +27,7 @@ from kubernetes_asyncio.client.models import (
     V1PodSpec,
     V1ResourceFieldSelector,
     V1ResourceRequirements,
+    V1SecretKeySelector,
     V1SecretVolumeSource,
     V1SecurityContext,
     V1Volume,
@@ -446,8 +447,6 @@ class LabManager:
                 "MEM_LIMIT": str(resources.limits.memory),
                 # Get global instance URL
                 "EXTERNAL_INSTANCE_URL": self.instance_url,
-                # Set access token
-                "ACCESS_TOKEN": token,
             }
         )
 
@@ -767,8 +766,15 @@ class LabManager:
         vol_mounts = [x.volume_mount for x in vol_recs]
         init_ctrs = self.build_init_ctrs(username, resources)
         env = [
-            # Because spec.nodeName is not reflected in
-            # DownwardAPIVolumeSource:
+            V1EnvVar(
+                name="ACCESS_TOKEN",
+                value_from=V1EnvVarSource(
+                    secret_key_ref=V1SecretKeySelector(
+                        key="token", name=f"nb-{user.username}", optional=False
+                    )
+                ),
+            ),
+            # spec.nodeName is not reflected in DownwardAPIVolumeSource:
             # https://github.com/kubernetes/kubernetes/issues/64168
             V1EnvVar(
                 name="K8S_NODE_NAME",
