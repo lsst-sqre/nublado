@@ -41,11 +41,8 @@ class MockProgress(AsyncByteStream):
         self._fail_during_spawn = fail_during_spawn
 
     async def __aiter__(self) -> AsyncIterator[bytes]:
-        yield b"event: progress\r\n"
-        yield b"data: 2\r\n"
-        yield b"\r\n"
         yield b"event: info\r\n"
-        yield b"data: Lab creation initiated\r\n"
+        yield b'data: {"message": "Lab creation initiated", "progress": 2}\r\n'
         yield b"\r\n"
 
         await asyncio.sleep(self._delay.total_seconds())
@@ -56,27 +53,37 @@ class MockProgress(AsyncByteStream):
         yield b"data: " + str(datetime.utcnow()).encode() + b"\r\n"
         yield b"\r\n"
 
-        yield b"event: progress\r\n"
-        yield b"data: 45\r\n"
-        yield b"\r\n"
         yield b"event: info\r\n"
-        yield b"data: Pod requested\r\n"
+        yield b'data: {"message": "Pod requested", "progress": 45}\r\n'
         yield b"\r\n"
 
         await asyncio.sleep(self._delay.total_seconds())
 
         if self._fail_during_spawn:
-            yield b"event: error\r\n"
-            yield b"data: Something is going wrong\r\n"
+            yield b"event: blahblah\r\n"
+            yield b"data: This is not JSON\r\n"
             yield b"\r\n"
+
+            yield b"event: error\r\n"
+            yield b'data: {"message": "Something is going wrong"}\r\n'
+            yield b"\r\n"
+
+            yield b"event: info\r\n"
+            yield b'data: {"invalid": "value"}\r\n'
+            yield b"\r\n"
+
+            yield b"event: info\r\n"
+            yield b'data: {"message": "Blah", "progress": "Happy!"}\r\n'
+            yield b"\r\n"
+
             yield b"event: failed\r\n"
             msg = f"Some random failure for {self._user}"
-            yield b"data: " + msg.encode() + b"\r\n"
+            yield b'data: {"message": "' + msg.encode() + b'"}\r\n'
             yield b"\r\n"
         else:
             yield b"event: complete\r\n"
             msg = f"Pod successfully spawned for {self._user}"
-            yield b"data: " + msg.encode() + b"\r\n"
+            yield b'data: {"message": "' + msg.encode() + b'"}\r\n'
             yield b"\r\n"
 
 
