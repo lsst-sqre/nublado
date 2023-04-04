@@ -1,7 +1,9 @@
+"""Kubernetes storage layer for the Nublado lab controller."""
+
 from __future__ import annotations
 
 import asyncio
-import base64
+from base64 import b64encode
 from collections.abc import AsyncGenerator
 from typing import Optional
 
@@ -94,13 +96,9 @@ class K8sStorageClient:
         target_ns: str,
     ) -> None:
         data = await self.merge_controller_secrets(
-            secret_list=secret_list, token=token, source_ns=source_ns
+            token, source_ns, secret_list
         )
-        await self.create_secret(
-            name=f"nb-{username}",
-            namespace=target_ns,
-            data=data,
-        )
+        await self.create_secret(f"nb-{username}", target_ns, data)
 
     async def wait_for_namespace_deletion(
         self, namespace: str, interval: float = 0.2
@@ -311,35 +309,49 @@ class K8sStorageClient:
         )
 
     async def merge_controller_secrets(
-        self, secret_list: list[LabSecret], token: str, source_ns: str
+        self, token: str, source_namespace: str, secret_list: list[LabSecret]
     ) -> dict[str, str]:
-        """Merge the user token with whatever secrets we're injecting
-        from the lab controller environment."""
-        secret_names = []
-        secret_keys = []
-        for sec in secret_list:
-            secret_names.append(sec.secret_name)
-            if sec.secret_key in secret_keys:
-                raise RuntimeError("Duplicate secret key {sec.secret_key}")
-            secret_keys.append(sec.secret_key)
-        # In theory, we should parallelize the secret reads.  But in practice
-        # it makes life a lot more complex, and we probably just have one,
-        # the controller secret.  Pull-secret will be handled separately.
-        base64_data = {}
-        for name in secret_names:
-            secret: Secret = await self.read_secret(
-                name=name, namespace=source_ns
-            )
-            # Retrieve matching keys
-            for key in secret.data:
-                if key in secret_keys:
-                    base64_data[key] = secret.data[key]
-        # There's no point in decoding it; all we're gonna do is pass it
-        # down to create a secret as base64 anyway.
-        if "token" in base64_data:
-            raise RuntimeError("'token' must come from the user token")
-        base64_data["token"] = base64.b64encode(token.encode()).decode()
-        return base64_data
+        """Create a user lab secret, merging together multiple data sources.
+
+        Parameters
+        ----------
+        token
+            User's Gafaelfawr token.
+        source_namespace
+            Source namespace for additional secrets.
+        secret_list
+            List of additional secrets to pull from the source namespace.
+
+        Returns
+        -------
+        dict of str to str
+            Base64-encoded secret data suitable for the ``data`` key of a
+            ``V1Secret`` Kubernetes object.
+        """
+        data = {"token": b64encode(token.encode()).decode()}
+
+        # Minor optimization: gather the name of all of our source secrets so
+        # that we only have to read each one once.
+        secret_names = [s.secret_name for s in secret_list]
+        secret_data = {}
+        for secret_name in secret_names:
+            secret = await self.read_secret(secret_name, source_namespace)
+            secret_data[secret_name] = secret.data
+
+        # Now, construct the data for the user's lab secret.
+        for spec in secret_list:
+            key = spec.secret_key
+            if key not in secret_data[spec.secret_name]:
+                name = f"{source_namespace}/{spec.secret_name}"
+                raise MissingSecretError(f"No key {key} in {name}")
+            if key in data:
+                # Should be impossible due to the validator on our
+                # configuration, which should check for conflicts.
+                raise RuntimeError(f"Duplicate secret key {key}")
+            data[key] = secret_data[spec.secret_name][key]
+
+        # Return the results.
+        return data
 
     async def create_secret(
         self,
@@ -356,7 +368,6 @@ class K8sStorageClient:
             metadata=self._standard_metadata(name),
         )
         await self.api.create_namespaced_secret(namespace, secret)
-        return
 
     async def read_secret(
         self,

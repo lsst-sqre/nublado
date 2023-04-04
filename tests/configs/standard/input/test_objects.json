@@ -123,6 +123,13 @@
     "d_2077_10_23": "sha256:1234"
   },
   "secrets": {
+    "extra-secret": {
+      "db-password": "some database password"
+    },
+    "nublado-secret": {
+      "butler-secret": "some butler secret",
+      "other-key": "some other key that isn't used"
+    },
     "pull-secret": {
       ".dockerconfigjson": "someencodedauthstring"
     }

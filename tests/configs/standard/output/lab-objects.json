@@ -165,6 +165,16 @@
                   "field_path": "spec.nodeName"
                 }
               }
+            },
+            {
+              "name": "BUTLER_SECRET",
+              "value_from": {
+                "secret_key_ref": {
+                  "key": "butler-secret",
+                  "name": "nb-rachel",
+                  "optional": false
+                }
+              }
             }
           ],
           "env_from": [
@@ -257,6 +267,12 @@
               "mount_path": "/opt/lsst/software/jupyterlab/runtime",
               "name": "nb-rachel-runtime",
               "read_only": true
+            },
+            {
+              "mount_path": "/opt/lsst/software/jupyterlab/butler-secret",
+              "name": "nb-rachel-secrets",
+              "read_only": true,
+              "sub_path": "butler-secret"
             }
           ],
           "working_dir": "/home/rachel"
@@ -416,6 +432,8 @@
   {
     "api_version": "v1",
     "data": {
+      "butler-secret": "c29tZSBidXRsZXIgc2VjcmV0",
+      "db-password": "c29tZSBkYXRhYmFzZSBwYXNzd29yZA==",
       "token": "dG9rZW4tb2YtYWZmZWN0aW9u"
     },
     "immutable": true,

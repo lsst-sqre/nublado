@@ -64,7 +64,6 @@ lab:
     #
     # EXTERNAL_INSTANCE_URL is a special case: it's constant-per-instance, but
     # you can't template values files
-  pullSecret: pull-secret
   files:
     /etc/passwd:
       modify: true
@@ -148,6 +147,14 @@ lab:
         #url_prefix = /idds
         #cacher_dir = /tmp
         cacher_dir = /data/idds
+  pullSecret: pull-secret
+  secrets:
+    - secretName: nublado-secret
+      secretKey: butler-secret
+      env: BUTLER_SECRET
+      path: /opt/lsst/software/jupyterlab/butler-secret
+    - secretName: extra-secret
+      secretKey: db-password
 images:
   source:
     type: docker
