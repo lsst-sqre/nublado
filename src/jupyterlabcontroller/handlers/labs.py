@@ -1,13 +1,12 @@
 """Routes for lab manipulation (start, stop, get status, see events)."""
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, Depends, Header, Response
 from safir.models import ErrorLocation, ErrorModel
 from sse_starlette import EventSourceResponse
 
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import (
     InvalidDockerReferenceError,
-    InvalidUserError,
     PermissionDeniedError,
     UnknownUserError,
 )
@@ -68,13 +67,11 @@ async def post_new_lab(
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     gafaelfawr_client = context.factory.create_gafaelfawr_client()
-    try:
-        user = await gafaelfawr_client.get_user_info(x_auth_request_token)
-    except InvalidUserError:
-        raise HTTPException(status_code=403, detail="Forbidden")
+    user = await gafaelfawr_client.get_user_info(x_auth_request_token)
     if user.username != username:
         raise PermissionDeniedError("Permission denied")
 
+    # The user is valid. Attempt the lab creation.
     context.logger.debug(f"Received creation request for {username}")
     lab_manager = context.factory.create_lab_manager()
     try:

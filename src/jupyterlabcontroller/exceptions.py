@@ -12,7 +12,7 @@ __all__ = [
     "DockerRegistryError",
     "GafaelfawrError",
     "InvalidDockerReferenceError",
-    "InvalidUserError",
+    "InvalidTokenError",
     "KubernetesError",
     "LabExistsError",
     "MissingSecretError",
@@ -113,6 +113,13 @@ class InvalidDockerReferenceError(ValidationError):
     error = "invalid_docker_reference"
 
 
+class InvalidTokenError(ValidationError):
+    """The delegated user token is invalid."""
+
+    error = "invalid_token"
+    status_code = status.HTTP_401_UNAUTHORIZED
+
+
 class PermissionDeniedError(ValidationError):
     """Attempt to access a resource for another user."""
 
@@ -160,10 +167,6 @@ class KubernetesError(Exception):
 
 class GafaelfawrError(Exception):
     """An API call to Gafaelfawr failed."""
-
-
-class InvalidUserError(Exception):
-    """The delegated user token is invalid."""
 
 
 class MissingSecretError(Exception):

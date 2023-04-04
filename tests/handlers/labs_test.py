@@ -349,6 +349,20 @@ async def test_errors(
         "detail": [{"msg": "Permission denied", "type": "permission_denied"}]
     }
 
+    # Invalid token.
+    r = await client.post(
+        "/nublado/spawner/v1/labs/otheruser/create",
+        json={"options": lab.options.dict(), "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": "some-invalid-token",
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 401
+    assert r.json() == {
+        "detail": [{"msg": "User token is invalid", "type": "invalid_token"}]
+    }
+
     # Test passing a reference with no tag.
     options = lab.options.dict()
     options["image_list"] = "lighthouse.ceres/library/sketchbook"
