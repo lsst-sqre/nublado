@@ -44,6 +44,35 @@ lab:
     S3_ENDPOINT_URL: "https://storage.googleapis.com"
     SODA_ROUTE: /api/image/soda
     TAP_ROUTE: /api/tap
+
+    # Note that other environment variables will be injected by the Lab
+    # controller (to match KubeSpawner's behavior).  These must be calculated
+    # from other Lab-spawn-time values, and include:
+    #
+    # ACCESS_TOKEN
+    # CPU_GUARANTEE
+    # CPU_LIMIT
+    # DEBUG
+    # JPY_API_TOKEN
+    # JUPYTERHUB_ACTIVITY_URL
+    # JUPYTERHUB_CLIENT_ID
+    # JUPYTERHUB_OAUTH_ACCESS_SCOPES
+    # JUPYTERHUB_OAUTH_CALLBACK_URL
+    # JUPYTERHUB_OAUTH_SCOPES  # Alias for JUPYTERHUB_OAUTH_ACCESS_SCOPES
+    # JUPYTERHUB_SERVICE_PREFIX
+    # JUPYTERHUB_SERVICE_URL
+    # JUPYTERHUB_USER
+    # JUPYTER_IMAGE         # Alias for JUPYTER_IMAGE_SPEC
+    # JUPYTER_IMAGE_SPEC
+    # MEM_GUARANTEE  # in bytes
+    # MEM_LIMIT      # in bytes
+    # RESET_USER_ENV
+    #
+    # Additionally, some environment variables will be set from the secrets
+    # below.
+    #
+    # EXTERNAL_INSTANCE_URL is a special case: it's constant-per-instance, but
+    # you can't template values files
   secrets:
     - secretName: pull_secret
       secretKey: ".dockerconfigjson"
