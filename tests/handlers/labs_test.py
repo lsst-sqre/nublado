@@ -22,7 +22,7 @@ from jupyterlabcontroller.models.k8s import K8sPodPhase
 
 from ..settings import TestObjectFactory
 from ..support.constants import TEST_BASE_URL
-from ..support.kubernetes import MockLabKubernetesApi, strip_none
+from ..support.kubernetes import MockKubernetesApi, strip_none
 
 
 async def get_lab_events(
@@ -153,7 +153,7 @@ async def test_lab_start_stop(
 async def test_delayed_spawn(
     client: AsyncClient,
     factory: Factory,
-    mock_kubernetes: MockLabKubernetesApi,
+    mock_kubernetes: MockKubernetesApi,
     obj_factory: TestObjectFactory,
     std_result_dir: Path,
 ) -> None:
@@ -194,7 +194,7 @@ async def test_delayed_spawn(
             kind="Pod", name=name, namespace=namespace
         ),
     )
-    mock_kubernetes.add_event_for_test(namespace, event)
+    await mock_kubernetes.create_namespaced_event(namespace, event)
     event = CoreV1Event(
         metadata=V1ObjectMeta(name=f"{name}-2", namespace=namespace),
         message="Mounting all the things",
@@ -202,7 +202,7 @@ async def test_delayed_spawn(
             kind="Pod", name=name, namespace=namespace
         ),
     )
-    mock_kubernetes.add_event_for_test(namespace, event)
+    await mock_kubernetes.create_namespaced_event(namespace, event)
 
     # Change the pod status to running and add another event.
     await asyncio.sleep(0.1)
@@ -214,7 +214,7 @@ async def test_delayed_spawn(
             kind="Pod", name=name, namespace=namespace
         ),
     )
-    mock_kubernetes.add_event_for_test(namespace, event)
+    await mock_kubernetes.create_namespaced_event(namespace, event)
 
     # The listeners should now complete successfully and we should see
     # appropriate events.
@@ -260,7 +260,7 @@ async def test_delayed_spawn(
 async def test_lab_objects(
     client: AsyncClient,
     config: Config,
-    mock_kubernetes: MockLabKubernetesApi,
+    mock_kubernetes: MockKubernetesApi,
     obj_factory: TestObjectFactory,
     std_result_dir: Path,
 ) -> None:

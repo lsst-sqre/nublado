@@ -23,7 +23,7 @@ from .support.constants import TEST_BASE_URL
 from .support.docker import MockDockerRegistry, register_mock_docker
 from .support.gafaelfawr import MockGafaelfawr, register_mock_gafaelfawr
 from .support.gar import MockArtifactRegistry, patch_artifact_registry
-from .support.kubernetes import MockLabKubernetesApi, patch_kubernetes
+from .support.kubernetes import MockKubernetesApi, patch_kubernetes
 
 
 @pytest.fixture(scope="session")
@@ -53,7 +53,7 @@ def config() -> Config:
 async def app(
     config: Config,
     mock_docker: MockDockerRegistry,
-    mock_kubernetes: MockLabKubernetesApi,
+    mock_kubernetes: MockKubernetesApi,
     mock_gafaelfawr: MockGafaelfawr,
     obj_factory: TestObjectFactory,
 ) -> AsyncIterator[FastAPI]:
@@ -83,7 +83,7 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
 async def factory(
     config: Config,
     mock_docker: MockDockerRegistry,
-    mock_kubernetes: MockLabKubernetesApi,
+    mock_kubernetes: MockKubernetesApi,
     obj_factory: TestObjectFactory,
 ) -> AsyncIterator[Factory]:
     """Create a component factory for tests."""
@@ -125,5 +125,5 @@ def mock_gar() -> Iterator[MockArtifactRegistry]:
 
 
 @pytest.fixture
-def mock_kubernetes() -> Iterator[MockLabKubernetesApi]:
+def mock_kubernetes() -> Iterator[MockKubernetesApi]:
     yield from patch_kubernetes()

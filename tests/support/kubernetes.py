@@ -1,18 +1,14 @@
-"""Mock for the Kubernetes API.
-
-This is a temporary derivative class and copy of a function from Safir to add
-additional support required to test the lab controller. Once this is fleshed
-out and confirmed working with lab controller tests, this functionality will
-be rolled back into Safir.
-"""
+"""Mock Kubernetes API for testing."""
 
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import os
+import re
 from collections import defaultdict
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import timedelta
 from typing import Any, Optional
 from unittest.mock import AsyncMock, Mock, patch
@@ -31,16 +27,17 @@ from kubernetes_asyncio.client import (
     V1ObjectMeta,
     V1ObjectReference,
     V1Pod,
+    V1PodList,
     V1PodStatus,
     V1ResourceQuota,
     V1Secret,
     V1Service,
+    V1Status,
 )
 from safir.datetime import current_datetime
-from safir.testing.kubernetes import MockKubernetesApi
 
 __all__ = [
-    "MockLabKubernetesApi",
+    "MockKubernetesApi",
     "patch_kubernetes",
     "strip_none",
 ]
@@ -86,8 +83,34 @@ def strip_none(model: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-class MockLabKubernetesApi(MockKubernetesApi):
+class MockKubernetesApi:
     """Mock Kubernetes API for testing.
+
+    This object simulates (with almost everything left out) the ``CoreV1Api``,
+    ``CustomObjectApi``, and ``NetworkingV1Api`` client objects while keeping
+    simple internal state. It is intended to be used as a mock inside tests.
+
+    Methods ending with ``_for_test`` are outside of the API and are intended
+    for use by the test suite.
+
+    This mock does not enforce namespace creation before creating objects in a
+    namespace. Creating an object in a namespace will implicitly create that
+    namespace if it doesn't exist. However, it will not store a
+    ``V1Namespace`` object, so to verify that a namespace was properly created
+    (although not the order of creation), retrieve all the objects in the
+    namespace with `get_namespace_objects_for_test` and one of them will be
+    the ``V1Namespace`` object.
+
+    Objects stored with ``create_*`` or ``replace_*`` methods are **NOT**
+    copied. The object provided will be stored, so changing that object will
+    change the object returned by subsequent API calls. Likewise, the object
+    returned by ``read_*`` calls will be the same object stored in the mock,
+    and changing it will change the mock's data. (Sometimes this is the
+    desired behavior, sometimes it isn't; we had to pick one and this is the
+    approach we picked.)
+
+    Most APIs do not support watches. The only current exception is
+    `list_namespaced_event`.
 
     Attributes
     ----------
@@ -95,28 +118,57 @@ class MockLabKubernetesApi(MockKubernetesApi):
         String value to set the status of pods to when created. If this is set
         to ``Running`` (the default), a pod start event will also be
         generated when the pod is created.
+    error_callback
+        If set, called with the method name and any arguments whenever any
+        Kubernetes API method is called and before it takes any acttion. This
+        can be used for fault injection for testing purposes.
+
+    Notes
+    -----
+    This class is normally not instantiated directly. Instead, call the
+    `patch_kubernetes` function from a fixture to set up the mock. This is
+    also why it is configurable by setting attributes rather than constructor
+    arguments; the individual test usually doesn't have control of the
+    constructor.
     """
 
     def __init__(self) -> None:
-        super().__init__()
+        self.error_callback: Optional[Callable[..., None]] = None
         self.initial_pod_status = "Running"
-        self._nodes = V1NodeList(items=[])
+
+        self._custom_kinds: dict[str, str] = {}
         self._events: defaultdict[str, list[CoreV1Event]] = defaultdict(list)
         self._new_events: defaultdict[str, asyncio.Event]
         self._new_events = defaultdict(asyncio.Event)
+        self._nodes = V1NodeList(items=[])
+        self._objects: dict[str, dict[str, dict[str, Any]]] = {}
 
-    def add_event_for_test(self, namespace: str, event: CoreV1Event) -> None:
-        """Add an event that will be returned by ``list_namespaced_event``."""
-        event.metadata.resource_version = str(len(self._events[namespace]))
-        self._events[namespace].append(event)
-        self._new_events[namespace].set()
+    def get_all_objects_for_test(self, kind: str) -> list[Any]:
+        """Return all objects of a given kind sorted by namespace and name.
+
+        Parameters
+        ----------
+        kind
+            The Kubernetes kind, such as ``Secret`` or ``Pod``. This is
+            case-sensitive.
+
+        Returns
+        -------
+        list of Any
+            All objects of that kind found in the mock, sorted by namespace
+            and then name.
+        """
+        key = self._custom_kinds[kind] if kind in self._custom_kinds else kind
+        results = []
+        for namespace in sorted(self._objects.keys()):
+            if key not in self._objects[namespace]:
+                continue
+            for name, obj in sorted(self._objects[namespace][key].items()):
+                results.append(obj)
+        return results
 
     def get_namespace_objects_for_test(self, namespace: str) -> list[Any]:
         """Returns all objects in the given namespace.
-
-        Note that due to how objects are stored in the mock, we can't
-        distinguish between a missing namespace and a namespace with no
-        objects. In both cases, the empty list is returned.
 
         Parameters
         ----------
@@ -126,14 +178,16 @@ class MockLabKubernetesApi(MockKubernetesApi):
         Returns
         -------
         list of Any
-            All objects found in that namespace, sorted by kind and then
-            name.
+            All objects found in that namespace, sorted by kind and then name.
+            Due to how objects are stored in the mock, we can't distinguish
+            between a missing namespace and a namespace with no objects. In
+            both cases, the empty list is returned.
         """
-        if namespace not in self.objects:
+        if namespace not in self._objects:
             return []
         result = []
-        for kind in sorted(self.objects[namespace].keys()):
-            for _, body in sorted(self.objects[namespace][kind].items()):
+        for kind in sorted(self._objects[namespace].keys()):
+            for _, body in sorted(self._objects[namespace][kind].items()):
                 result.append(body)
         return result
 
@@ -147,18 +201,294 @@ class MockLabKubernetesApi(MockKubernetesApi):
         """
         self._nodes = V1NodeList(items=nodes)
 
+    # CUSTOM OBJECT API
+
+    async def create_namespaced_custom_object(
+        self,
+        group: str,
+        version: str,
+        namespace: str,
+        plural: str,
+        body: dict[str, Any],
+    ) -> None:
+        """Create a new custom namespaced object.
+
+        Parameters
+        ----------
+        group
+            API group for this custom object.
+        version
+            API version for this custom object.
+        namespace
+            Namespace in which to create the object.
+        plural
+            API plural for this custom object.
+        body
+            Custom object to create.
+
+        Raises
+        ------
+        ApiException
+            Raised with 409 status if the object already exists.
+        """
+        self._maybe_error(
+            "create_namespaced_custom_object",
+            group,
+            version,
+            namespace,
+            plural,
+            body,
+        )
+        assert body["api_version"] == f"{group}/{version}"
+        key = f"{group}/{version}/{plural}"
+        if body["kind"] in self._custom_kinds:
+            assert key == self._custom_kinds[body["kind"]]
+        else:
+            self._custom_kinds[body["kind"]] = key
+        assert namespace == body["metadata"]["namespace"]
+        self._store_object(namespace, key, body["metadata"]["name"], body)
+
+    async def get_namespaced_custom_object(
+        self,
+        group: str,
+        version: str,
+        namespace: str,
+        plural: str,
+        name: str,
+    ) -> dict[str, Any]:
+        """Retrieve a namespaced custom object.
+
+        Parameters
+        ----------
+        group
+            API group for this custom object.
+        version
+            API version for this custom object.
+        namespace
+            Namespace in which to create the object.
+        plural
+            API plural for this custom object.
+        name
+            Name of the object to retrieve.
+
+        Returns
+        -------
+        dict of str to Any
+            Body of the custom object.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 status if the object does not exist.
+        """
+        self._maybe_error(
+            "get_namespaced_custom_object",
+            group,
+            version,
+            namespace,
+            plural,
+            name,
+        )
+        return self._get_object(namespace, f"{group}/{version}/{plural}", name)
+
+    async def list_cluster_custom_object(
+        self, group: str, version: str, plural: str
+    ) -> dict[str, list[dict[str, Any]]]:
+        """List all custom objects in the cluster.
+
+        Parameters
+        ----------
+        group
+            API group for this custom object.
+        version
+            API version for this custom object.
+        plural
+            API plural for this custom object.
+
+        Returns
+        -------
+        dict
+            Dictionary with one key, ``items``, whose value is a list of all
+            the specified custom objects stored in the cluster.
+        """
+        self._maybe_error("list_cluster_custom_object", group, version, plural)
+        key = f"{group}/{version}/{plural}"
+        results = []
+        for namespace in self._objects.keys():
+            for name, obj in self._objects[namespace].get(key, {}).items():
+                results.append(obj)
+        return {"items": results}
+
+    async def patch_namespaced_custom_object_status(
+        self,
+        group: str,
+        version: str,
+        namespace: str,
+        plural: str,
+        name: str,
+        body: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Patch the status of a namespaced custom object.
+
+        Parameters
+        ----------
+        group
+            API group for this custom object.
+        version
+            API version for this custom object.
+        namespace
+            Namespace in which to create the object.
+        plural
+            API plural for this custom object.
+        name
+            Name of the object to retrieve.
+        body
+            Body of the patch. The only patch supported is one with ``op`` of
+            ``replace`` and ``path`` of ``/status``.
+
+        Returns
+        -------
+        dict of str to Any
+            Modified body of the custom object.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 status if the object does not exist.
+        AssertionError
+            Raised if any other type of patch is provided.
+        """
+        self._maybe_error(
+            "patch_namespaced_custom_object_status",
+            group,
+            version,
+            namespace,
+            plural,
+            body,
+        )
+        key = f"{group}/{version}/{plural}"
+        obj = copy.deepcopy(self._get_object(namespace, key, name))
+        for change in body:
+            assert change["op"] == "replace"
+            assert change["path"] == "/status"
+            obj["status"] = change["value"]
+        self._store_object(namespace, key, name, obj, replace=True)
+        return obj
+
+    async def replace_namespaced_custom_object(
+        self,
+        group: str,
+        version: str,
+        namespace: str,
+        plural: str,
+        name: str,
+        body: dict[str, Any],
+    ) -> None:
+        """Create a new custom namespaced object.
+
+        Parameters
+        ----------
+        group
+            API group for this custom object.
+        version
+            API version for this custom object.
+        namespace
+            Namespace in which to create the object.
+        plural
+            API plural for this custom object.
+        body
+            New contents of custom object.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 if the object does not exist.
+        """
+        self._maybe_error(
+            "replace_namespaced_custom_object",
+            group,
+            version,
+            namespace,
+            plural,
+            name,
+            body,
+        )
+        assert body["api_version"] == f"{group}/{version}"
+        key = f"{group}/{version}/{plural}"
+        assert key == self._custom_kinds[body["kind"]]
+        assert namespace == body["metadata"]["namespace"]
+        self._store_object(namespace, key, name, body, replace=True)
+
     # CONFIGMAP API
 
     async def create_namespaced_config_map(
         self, namespace: str, body: V1ConfigMap
     ) -> None:
-        if not body.metadata.namespace:
-            body.metadata.namespace = namespace
-        # Safir used the wrong parameter name, so this fixes that until Safir
-        # can be fixed.
-        await super().create_namespaced_config_map(namespace, body)
+        """Create a ``ConfigMap`` object.
+
+        Parameters
+        ----------
+        namespace
+            Namespace in which to store the object.
+        body
+            Object to store.
+
+        Raises
+        ------
+        ApiException
+            Raised with 409 status if the object already exists.
+        """
+        self._maybe_error("create_namespaced_config_map", namespace, body)
+        self._update_metadata(body, "v1", "ConfigMap", namespace)
+        name = body.metadata.name
+        self._store_object(namespace, "ConfigMap", name, body)
+
+    async def delete_namespaced_config_map(
+        self, name: str, namespace: str
+    ) -> V1Status:
+        """Delete a ``ConfigMap`` object.
+
+        Parameters
+        ----------
+        name
+            Name of object.
+        namespace
+            Namespace of object.
+
+        Returns
+        -------
+        V1Status
+            Success status if object was deleted.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 status if the object does not exist.
+        """
+        self._maybe_error("delete_namespaced_config_map", name, namespace)
+        return self._delete_object(namespace, "ConfigMap", name)
 
     # EVENTS API
+
+    async def create_namespaced_event(
+        self, namespace: str, body: CoreV1Event
+    ) -> None:
+        """Store a new namespaced event.
+
+        This uses the old core event API, not the new Events API.
+
+        Parameters
+        ----------
+        namespace
+            Namespace of the event.
+        body
+            New event to store.
+        """
+        self._maybe_error("create_namespaced_event", namespace, body)
+        self._update_metadata(body, "v1", "Event", namespace)
+        body.metadata.resource_version = str(len(self._events[namespace]))
+        self._events[namespace].append(body)
+        self._new_events[namespace].set()
 
     async def list_namespaced_event(
         self,
@@ -170,7 +500,38 @@ class MockLabKubernetesApi(MockKubernetesApi):
         watch: bool = False,
         _preload_content: bool = True,
         _request_timeout: Optional[int] = None,
-    ) -> CoreV1EventList:
+    ) -> CoreV1EventList | Mock:
+        """List namespaced events.
+
+        This uses the old core event API, not the new Events API. It does
+        support watches.
+
+        Parameters
+        ----------
+        namespace
+            Namespace to watch for events.
+        field_selector
+            Which events to retrieve when performing a watch. Currently, this
+            is ignored.
+        resource_version
+            Where to start in the event stream when performing a watch.
+        timeout_seconds
+            How long to return events for before exiting when performing a
+            watch.
+        watch
+            Whether to act as a watch.
+        _preload_content
+            Verified to be `False` when performing a watch.
+        _request_timeout
+            Ignored, accepted for compatibility with the watch API.
+
+        Returns
+        -------
+        CoreV1EventList or Mock
+            List of events, when not called as a watch. If called as a watch,
+            returns a mock ``aiohttp.Response`` with a ``readline`` method
+            that yields the events.
+        """
         self._maybe_error("list_namespaced_event", namespace)
         if not watch:
             return CoreV1EventList(items=self._events[namespace])
@@ -226,39 +587,91 @@ class MockLabKubernetesApi(MockKubernetesApi):
 
         The mock doesn't truly track namespaces since it autocreates them when
         an object is created in that namespace (maybe that behavior should be
-        optional). All this method therefore does is detect conflicts.
+        optional). However, this method detects conflicts and stores the
+        ``V1Namespace`` object so that it can be verified.
 
         Parameters
         ----------
         body
             Namespace to create.
+
+        Raises
+        ------
+        ApiException
+            Raised with 409 status if the namespace already exists.
         """
         self._maybe_error("create_namespace", body)
+        self._update_metadata(body, "v1", "Namespace", None)
         name = body.metadata.name
-        if name in self.objects:
+        if name in self._objects:
             msg = f"Namespace {name} already exists"
             raise ApiException(status=409, reason=msg)
         self._store_object(name, "Namespace", name, body)
 
     async def delete_namespace(self, name: str) -> None:
+        """Delete a namespace.
+
+        This also immediately removes all objects in the namespace.
+
+        Parameters
+        ----------
+        name
+            Namespace to delete.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 status if the namespace does not exist.
+        """
         self._maybe_error("delete_namespace")
-        if name not in self.objects:
+        if name not in self._objects:
             raise ApiException(status=404, reason=f"{name} not found")
-        del self.objects[name]
+        del self._objects[name]
 
     async def read_namespace(self, name: str) -> V1Namespace:
+        """Return the namespace object for a namespace.
+
+        Parameters
+        ----------
+        name
+            Name of namespace to retrieve.
+
+        Returns
+        -------
+        V1Namespace
+            Corresponding namespace object. If `create_namespace` has
+            been called, will return the stored object. Otherwise, returns a
+            synthesized ``V1Namespace`` object if the namespace has been
+            implicitly created.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 status if the namespace does not exist.
+        """
         self._maybe_error("read_namespace", name)
-        if name not in self.objects:
+        if name not in self._objects:
             msg = f"Namespace {name} not found"
             raise ApiException(status=404, reason=msg)
-        return V1Namespace(metadata=V1ObjectMeta(name=name))
+        try:
+            return self._get_object(name, "Namespace", name)
+        except ApiException:
+            return V1Namespace(metadata=V1ObjectMeta(name=name))
 
     async def list_namespace(self) -> V1NamespaceList:
+        """List known namespaces.
+
+        Returns
+        -------
+        V1NamespaceList
+            All namespaces, whether implicitly created or not. These will be
+            the actual ``V1Namespace`` objects if one was stored, otherwise
+            synthesized namespace objects.
+        """
         self._maybe_error("list_namespace")
         namespaces = []
-        for namespace in self.objects:
-            metadata = V1ObjectMeta(name=namespace)
-            namespaces.append(V1Namespace(metadata=metadata))
+        for namespace in self._objects:
+            namespaces.append(await self.read_namespace(namespace))
         return V1NamespaceList(items=namespaces)
 
     # NETWORKPOLICY API
@@ -266,29 +679,50 @@ class MockLabKubernetesApi(MockKubernetesApi):
     async def create_namespaced_network_policy(
         self, namespace: str, body: V1NetworkPolicy
     ) -> None:
+        """Create a network policy object.
+
+        Parameters
+        ----------
+        namespace
+            Namespace in which to create the object.
+        body
+            Object to create.
+
+        Raises
+        ------
+        ApiException
+            Raised with 409 status if the object already exists.
+        """
         self._maybe_error("create_namespaced_network_policy", namespace, body)
+        self._update_metadata(
+            body, "networking.k8s.io/v1", "NetworkPolicy", namespace
+        )
         name = body.metadata.name
-        if not body.metadata.namespace:
-            body.metadata.namespace = namespace
-        else:
-            assert namespace == body.metadata.namespace
         self._store_object(namespace, "NetworkPolicy", name, body)
 
     # NODE API
 
     async def list_node(self) -> V1NodeList:
+        """List node information.
+
+        Returns
+        -------
+        V1NodeList
+            The node information previouslyl stored with `set_nodes_for_test`,
+            if any.
+        """
         self._maybe_error("list_node")
         return self._nodes
 
     # POD API
 
     async def create_namespaced_pod(self, namespace: str, body: V1Pod) -> None:
-        """Add a pod to the mock Kubernetes.
+        """Create a pod object.
 
         If ``initial_pod_status`` on the mock Kubernetes object is set to
-        ``Running``, sets the state to ``Running`` and generates a startup
+        ``Running``, set the state to ``Running`` and generate a startup
         event. Otherwise, the status is set to whatever ``initial_pod_status``
-        is set to, and no even is generated.
+        is set to, and no event is generated.
 
         Parameters
         ----------
@@ -296,12 +730,14 @@ class MockLabKubernetesApi(MockKubernetesApi):
             Namespace in which to create the pod.
         body
             Pod specification.
+
+        Raises
+        ------
+        ApiException
+            Raised with 409 status if the pod already exists.
         """
         self._maybe_error("create_namespaced_pod", namespace, body)
-        if not body.metadata.namespace:
-            body.metadata.namespace = namespace
-        else:
-            assert namespace == body.metadata.namespace
+        self._update_metadata(body, "v1", "Pod", namespace)
         body.status = V1PodStatus(phase=self.initial_pod_status)
         self._store_object(namespace, "Pod", body.metadata.name, body)
         if self.initial_pod_status == "Running":
@@ -314,16 +750,125 @@ class MockLabKubernetesApi(MockKubernetesApi):
                     kind="Pod", name=body.metadata.name, namespace=namespace
                 ),
             )
-            self.add_event_for_test(namespace, event)
+            await self.create_namespaced_event(namespace, event)
+
+    async def delete_namespaced_pod(
+        self, name: str, namespace: str
+    ) -> V1Status:
+        """Delete a pod object.
+
+        Parameters
+        ----------
+        name
+            Name of pod to delete.
+        namespace
+            Namespace of pod to delete.
+
+        Returns
+        -------
+        V1Status
+            Success status.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 status if the pod was not found.
+        """
+        self._maybe_error("delete_namespaced_pod", name, namespace)
+        return self._delete_object(namespace, "Pod", name)
+
+    async def list_namespaced_pod(
+        self, namespace: str, *, field_selector: Optional[str] = None
+    ) -> V1PodList:
+        """List pod objects in a namespace.
+
+        Parameters
+        ----------
+        namespace
+            Namespace of pods to list.
+        field_selector
+            Only ``metadata.name=...`` is supported. It is parsed to find the
+            pod name and only pods matching that name will be returned.
+
+        Returns
+        -------
+        V1PodList
+            List of pods in that namespace.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 status if the namespace does not exist.
+        AssertionError
+            Some other ``field_selector`` was provided.
+        """
+        self._maybe_error("list_namespaced_pod", namespace, field_selector)
+        if namespace not in self._objects:
+            msg = f"Namespace {namespace} not found"
+            raise ApiException(status=404, reason=msg)
+        if field_selector:
+            match = re.match(r"metadata\.name=(.*)$", field_selector)
+            assert match and match.group(1)
+            try:
+                pod = self._get_object(namespace, "Pod", match.group(1))
+                return V1PodList(kind="Pod", items=[pod])
+            except ApiException:
+                return V1PodList(kind="Pod", items=[])
+        else:
+            pods = []
+            for obj in self._objects[namespace]["Pod"].values():
+                pods.append(obj)
+            return V1PodList(kind="Pod", items=pods)
+
+    async def read_namespaced_pod(self, name: str, namespace: str) -> V1Pod:
+        """Read a pod object.
+
+        Parameters
+        ----------
+        name
+            Name of the pod.
+        namespace
+            Namespace of the pod.
+
+        Returns
+        -------
+        V1Pod
+            Pod object.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 status if the pod was not found.
+        """
+        self._maybe_error("read_namespaced_pod", name, namespace)
+        return self._get_object(namespace, "Pod", name)
 
     async def read_namespaced_pod_status(
         self, name: str, namespace: str
     ) -> V1Pod:
-        self._maybe_error("read_namespaced_pod_status", name, namespace)
+        """Read the status of a pod.
 
-        # Yes, this API actually returns a V1Pod. Presumably in the actual API
-        # only the status portion is populated, but it shouldn't matter for
-        # testing purposes.
+        Parameters
+        ----------
+        name
+            Name of the pod.
+        namespace
+            Namespace of the pod.
+
+        Returns
+        -------
+        V1Pod
+            Pod object. The Kubernetes API returns a ``V1Pod`` rather than, as
+            expected, a ``V1PodStatus``. Presumably the acutal API populates
+            only the status portion, but we return the whole pod for testing
+            purposes since it shouldn't matter.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 status if the pod was not found.
+        """
+        self._maybe_error("read_namespaced_pod_status", name, namespace)
         return self._get_object(namespace, "Pod", name)
 
     # RESOURCEQUOTA API
@@ -331,12 +876,23 @@ class MockLabKubernetesApi(MockKubernetesApi):
     async def create_namespaced_resource_quota(
         self, namespace: str, body: V1ResourceQuota
     ) -> None:
+        """Create a resource quota object.
+
+        Parameters
+        ----------
+        namespace
+            Namespace in which to create the object.
+        body
+            Object to create.
+
+        Raises
+        ------
+        ApiException
+            Raised with 409 status if the object already exists.
+        """
         self._maybe_error("create_namespaced_resource_quota", namespace, body)
+        self._update_metadata(body, "v1", "ResourceQuota", namespace)
         name = body.metadata.name
-        if not body.metadata.namespace:
-            body.metadata.namespace = namespace
-        else:
-            assert namespace == body.metadata.namespace
         self._store_object(namespace, "ResourceQuota", name, body)
 
     # SECRETS API
@@ -344,39 +900,312 @@ class MockLabKubernetesApi(MockKubernetesApi):
     async def create_namespaced_secret(
         self, namespace: str, body: V1Secret
     ) -> None:
-        if not body.metadata.namespace:
-            body.metadata.namespace = namespace
-        # Safir used the wrong parameter name, so this fixes that until Safir
-        # can be fixed.
-        await super().create_namespaced_secret(namespace, body)
+        """Create a secret object.
+
+        Parameters
+        ----------
+        namespace
+            Namespace in which to create the object.
+        body
+            Object to create.
+
+        Raises
+        ------
+        ApiException
+            Raised with 409 status if the object already exists.
+        """
+        self._maybe_error("create_namespaced_secret", namespace, body)
+        self._update_metadata(body, "v1", "Secret", namespace)
+        self._store_object(namespace, "Secret", body.metadata.name, body)
+
+    async def patch_namespaced_secret(
+        self, name: str, namespace: str, body: list[dict[str, Any]]
+    ) -> V1Secret:
+        """Patch a secret object.
+
+        Parameters
+        ----------
+        name
+            Name of secret object.
+        namespace
+            Namespace of secret object.
+        body
+            Patches to apply. Only patches with ``op`` of ``replace`` are
+            supported, and only with ``path`` of either
+            ``/metadata/annotations`` or ``/metadata/labels``.
+
+        Returns
+        -------
+        V1Secret
+            Patched secret object.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 status if the secret does not exist.
+        AssertionError
+            Raised if any other type of patch was provided.
+        """
+        self._maybe_error("patch_namespaced_secret", name, namespace)
+        obj = copy.deepcopy(self._get_object(namespace, "Secret", name))
+        for change in body:
+            assert change["op"] == "replace"
+            if change["path"] == "/metadata/annotations":
+                obj.metadata.annotations = change["value"]
+            elif change["path"] == "/metadata/labels":
+                obj.metadata.labels = change["value"]
+            else:
+                assert False, f'unsupported path {change["path"]}'
+        self._store_object(namespace, "Secret", name, obj, replace=True)
+
+    async def read_namespaced_secret(
+        self, name: str, namespace: str
+    ) -> V1Secret:
+        """Read a secret.
+
+        Parameters
+        ----------
+        name
+            Name of secret.
+        namespace
+            Namespace of secret.
+
+        Returns
+        -------
+        V1Secret
+            Requested secret.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 status if the secret does not exist.
+        """
+        self._maybe_error("read_namespaced_secret", name, namespace)
+        return self._get_object(namespace, "Secret", name)
+
+    async def replace_namespaced_secret(
+        self, name: str, namespace: str, body: V1Secret
+    ) -> None:
+        """Replace a secret.
+
+        Parameters
+        ----------
+        name
+            Name of secret.
+        namespace
+            Namespace of secret.
+        body
+            New body of secret.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 status if the secret does not exist.
+        """
+        self._maybe_error("replace_namespaced_secret", namespace, body)
+        self._store_object(namespace, "Secret", name, body, replace=True)
 
     # SERVICE API
 
     async def create_namespaced_service(
         self, namespace: str, body: V1Service
     ) -> None:
+        """Create a service object.
+
+        Parameters
+        ----------
+        namespace
+            Namespace in which to create the object.
+        body
+            Object to create.
+
+        Raises
+        ------
+        ApiException
+            Raised with 409 status if the object already exists.
+        """
         self._maybe_error("create_namespaced_service", namespace, body)
-        name = body.metadata.name
-        if not body.metadata.namespace:
-            body.metadata.namespace = namespace
+        self._update_metadata(body, "v1", "Service", namespace)
+        self._store_object(namespace, "Service", body.metadata.name, body)
+
+    # Internal helper functions.
+
+    def _delete_object(self, namespace: str, key: str, name: str) -> V1Status:
+        """Delete an object from internal data structures.
+
+        Returns
+        -------
+        V1Status
+            200 return status if the object was found and deleted.
+
+        Raises
+        ------
+        ApiException
+            Raised with a 404 status if the object is not found.
+        """
+        # Called for the side effect of raising an exception if the object is
+        # not found.
+        self._get_object(namespace, key, name)
+
+        del self._objects[namespace][key][name]
+        return V1Status(code=200)
+
+    def _get_object(self, namespace: str, key: str, name: str) -> Any:
+        """Retrieve an object from internal data structures.
+
+        Returns
+        -------
+        Any
+            Object if found.
+
+        Raises
+        ------
+        ApiException
+            Raised with a 404 status if the object is not found.
+        """
+        if namespace not in self._objects:
+            reason = f"{namespace}/{name} not found"
+            raise ApiException(status=404, reason=reason)
+        if name not in self._objects[namespace].get(key, {}):
+            reason = f"{namespace}/{name} not found"
+            raise ApiException(status=404, reason=reason)
+        return self._objects[namespace][key][name]
+
+    def _maybe_error(self, method: str, *args: Any) -> None:
+        """Helper function to avoid using class method call syntax."""
+        if self.error_callback:
+            callback = self.error_callback
+            callback(method, *args)
+
+    def _store_object(
+        self,
+        namespace: str,
+        key: str,
+        name: str,
+        obj: Any,
+        replace: bool = False,
+    ) -> None:
+        """Store an object in internal data structures.
+
+        Parameters
+        ----------
+        namespace
+            Namespace in which to store the object.
+        key
+            Key under which to store the object (generally the kind).
+        name
+            Name of object.
+        obj
+            Object to store.
+        replace
+            If `True`, the object must already exist, to mirror the Kubernetes
+            replace semantices. If `False`, a conflict error is raised if the
+            object already exists.
+
+        Raises
+        ------
+        ApiException
+            Raised with 404 status if the object does not exist and ``replace``
+            was `True`, and with 409 status if the object does exist and
+            ``replace`` was `False`.
+        """
+        if replace:
+            self._get_object(namespace, key, name)
         else:
-            assert namespace == body.metadata.namespace
-        self._store_object(namespace, "Service", name, body)
+            if namespace not in self._objects:
+                self._objects[namespace] = {}
+            if key not in self._objects[namespace]:
+                self._objects[namespace][key] = {}
+            if name in self._objects[namespace][key]:
+                msg = f"{namespace}/{name} exists"
+                raise ApiException(status=409, reason=msg)
+        self._objects[namespace][key][name] = obj
+
+    def _update_metadata(
+        self, body: Any, api_version: str, kind: str, namespace: str | None
+    ) -> None:
+        """Check and potentially update the metadata of a stored object.
+
+        The Kubernetes API allows the ``api_version``, ``kind``, and
+        ``metadata.namespace`` attributes to be omitted since they can be
+        determined from the method called or its parameters. Implement the
+        same logic, but if they are provided in the object, require that they
+        be correct (match the parameters inferred from the call).
+
+        Parameters
+        ----------
+        body
+            Object being stored. Updated in place with namespace, kind, and
+            API version information.
+        api_version
+            Expected API version of object.
+        kind
+            Expected kind of object.
+        namespace
+            Namespace in which it is being stored, or `None` for objects that
+            are not namespaced.
+
+        Raises
+        ------
+        AssertionError
+            Raised if the namespace, kind, or API version was provided but
+            didn't match the expected value.
+        """
+        if body.api_version:
+            assert body.api_version == api_version
+        else:
+            body.api_version = api_version
+        if body.kind:
+            assert body.kind == kind
+        else:
+            body.kind = kind
+        if body.metadata.namespace:
+            assert body.metadata.namespace == namespace
+        else:
+            body.metadata.namespace = namespace
 
 
-def patch_kubernetes() -> Iterator[MockLabKubernetesApi]:
+def patch_kubernetes() -> Iterator[MockKubernetesApi]:
     """Replace the Kubernetes API with a mock class.
-
-    Copied from `safir.testing.kubernetes.patch_kubernetes` with no changes
-    except the type of the mock class. This is temporary until this support
-    has been merged back into Safir.
 
     Returns
     -------
-    MockLabKubernetesApi
+    MockKubernetesApi
         The mock Kubernetes API object.
+
+    Notes
+    -----
+    This function will mock out the Kuberentes library configuration API in a
+    manner compatible with `safir.kubernetes.initialize_kubernetes`, ensuring
+    that it does nothing during test.  It will replace the Kubernetes
+    ``ApiClient`` object with a `~unittest.mock.MagicMock` and then redirect
+    ``CoreV1Api`` and ``CustomObjectsApi`` to a `MockKubernetesApi` instance.
+
+    To use this mock successfully, you must not import ``ApiClient``,
+    ``CoreV1Api``, or ``CustomObjectsApi`` directly into the local namespace,
+    or they will not be correctly patched.  Instead, use:
+
+    .. code-block:: python
+
+       from kubernetes_asyncio import client
+
+    and then use ``client.ApiClient`` and so forth.
+
+    Examples
+    --------
+    Normally this should be called from a fixture in ``tests/conftest.py``
+    such as the following:
+
+    .. code-block:: python
+
+       from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
+
+
+       @pytest.fixture
+       def mock_kubernetes() -> Iterator[MockKubernetesApi]:
+           yield from patch_kubernetes()
     """
-    mock_api = MockLabKubernetesApi()
+    mock_api = MockKubernetesApi()
     with patch.object(config, "load_incluster_config"):
         patchers = []
         for api in ("CoreV1Api", "CustomObjectsApi", "NetworkingV1Api"):
