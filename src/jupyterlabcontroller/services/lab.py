@@ -96,34 +96,32 @@ class LabManager:
         r = self.user_map.get(username)
         return r is not None
 
-    async def info_event(self, username: str, message: str, pct: int) -> None:
-        umsg = f"{message} for {username}"
-        event = Event(message=umsg, progress=pct, type=EventType.INFO)
+    async def info_event(
+        self, username: str, message: str, progress: int
+    ) -> None:
+        event = Event(message=message, progress=progress, type=EventType.INFO)
         self.event_manager.publish_event(username, event)
-        self.logger.info(f"Event: {umsg}: {pct}%")
+        msg = f"Spawning event: {message}"
+        self.logger.debug(msg, progress=progress, user=username)
 
     async def completion_event(self, username: str) -> None:
-        cstr = f"Operation complete for {username}"
-        event = Event(message=cstr, type=EventType.COMPLETE)
+        event = Event(
+            message=f"Lab Kubernetes pod started for {username}",
+            type=EventType.COMPLETE,
+        )
         self.event_manager.publish_event(username, event)
-        self.logger.info(cstr)
+        self.logger.info("Lab pod started", user=username)
 
     async def failure_event(
         self, username: str, message: str, fatal: bool = True
     ) -> None:
-        umsg = message + f" for {username}"
-        event = Event(message=umsg, type=EventType.ERROR)
+        event = Event(message=message, type=EventType.ERROR)
         self.event_manager.publish_event(username, event)
+        self.logger.error(f"Spawning error: {message}", user=username)
         if fatal:
-            event = Event(
-                message=f"Lab creation failed for {username}",
-                type=EventType.FAILED,
-            )
+            event = Event(message="Lab creation failed", type=EventType.FAILED)
             self.event_manager.publish_event(username, event)
-        estr = f"Event: {umsg}"
-        if fatal:
-            estr = "Fatal e" + estr[1:]
-        self.logger.error(estr)
+            self.logger.error("Lab creation failed", user=username)
 
     async def await_pod_spawn(self, namespace: str, username: str) -> None:
         """This is designed to run as a background task and just wait until
@@ -151,14 +149,19 @@ class LabManager:
         self.user_map.remove(username)
 
     async def inject_pod_events(
-        self, namespace: str, username: str, start: int = 46, end: int = 89
+        self,
+        *,
+        namespace: str,
+        username: str,
+        start_progress: int,
+        end_progress: int,
     ) -> None:
         """This is designed to run as a background task.  When
         Kubernetes starts a pod, it will emit some events as the pod
         startup progresses.  This captures those events and injects them into
         the event queue.
         """
-        progress = start
+        progress = start_progress
         async for evt in self.k8s_client.reflect_pod_events(
             namespace=namespace, podname=f"nb-{username}"
         ):
@@ -166,7 +169,7 @@ class LabManager:
             # As with Kubespawner, we don't know how many of these we will
             # get, so we will just move 1/3 closer to the end of the
             # region each time.
-            progress = int(progress + ((end - progress) / 3))
+            progress = int(progress + ((end_progress - progress) / 3))
 
     async def create_lab(
         self, user: UserInfo, token: str, lab: LabSpecification
@@ -207,7 +210,8 @@ class LabManager:
         if self.check_for_user(username):
             await self.failure_event(username, "Lab already exists")
             raise LabExistsError(f"Lab already exists for {username}")
-        # Add a new usermap entry
+
+        # Add a new usermap entry and clear the user event queue.
         self.user_map.set(
             username,
             UserData.new_from_user_resources(
@@ -216,27 +220,29 @@ class LabManager:
                 resources=self._size_manager.resources(lab.options.size),
             ),
         )
-        #
-        # Clear user event queue
-        #
         self.event_manager.reset_user(username)
-        #
-        # This process has three stages: first is the creation or recreation
-        # of the user namespace.  Second is all the resources the user Lab
-        # pod will need, and the third is the pod itself.
-        #
 
-        await self.info_event(username, "Lab creation initiated", 2)
+        # This process has three stages. First, create or recreate the user's
+        # namespace. Second, create all the supporting resources the lab pod
+        # will need. Finally, create the lab pod and wait for it to start,
+        # reflecting any events back to the events API.
+        await self.info_event(
+            username, f"Starting lab creation for {username}", 2
+        )
         await self.k8s_client.create_user_namespace(namespace)
-        await self.info_event(username, "User namespace created", 5)
+        await self.info_event(username, "Created user namespace", 5)
         await self.create_user_lab_objects(
             user=user, lab=lab, image=image, token=token
         )
-        await self.info_event(username, "Resource objects created", 40)
+        await self.info_event(
+            username, "Created Kubernetes resources for lab", 25
+        )
         resources = self._size_manager.resources(lab.options.size)
         await self.create_user_pod(user, resources, image)
         self.user_map.set_pod_state(username, PodState.PRESENT)
         self.user_map.set_status(username, status=LabStatus.PENDING)
+        await self.info_event(username, "Requested lab Kubernetes pod", 30)
+
         # We need to set the expected internal URL, because the spawner
         # start needs to know it, even though it's not accessible yet.
         # This should be the URL pointing to the lab service we're creating.
@@ -245,23 +251,26 @@ class LabManager:
         self.user_map.set_internal_url(
             username, f"http://lab.{namespace}:8888"
         )
-        await self.info_event(username, "Pod requested", 45)
+
+        # Create a task to monitor and inject pod events during spawn.
+        evt_task = create_task(
+            self.inject_pod_events(
+                namespace=namespace,
+                username=user.username,
+                start_progress=35,
+                end_progress=75,
+            )
+        )
+        self._tasks.add(evt_task)
+        evt_task.add_done_callback(self._tasks.discard)
+
         # Create a task to add the completed event when the pod finishes
-        # spawning
+        # spawning.
         pod_task = create_task(
             self.await_pod_spawn(namespace=namespace, username=user.username)
         )
-        # Create a task to monitor and inject pod events during spawn
-        evt_task = create_task(
-            self.inject_pod_events(
-                namespace=namespace, username=user.username, start=46, end=89
-            )
-        )
-        # Schedule the tasks and their cleanup
         self._tasks.add(pod_task)
         pod_task.add_done_callback(self._tasks.discard)
-        self._tasks.add(evt_task)
-        evt_task.add_done_callback(self._tasks.discard)
 
     async def create_user_lab_objects(
         self,
@@ -286,19 +295,12 @@ class LabManager:
                 namespace=self.namespace_from_user(user),
                 token=token,
             )
-            await self.info_event(username, "Secrets created", 10)
             await self.create_nss(user=user)
-            await self.info_event(username, "NSS files created", 15)
             await self.create_file_configmap(user=user)
-            await self.info_event(username, "Config files created", 20)
             await self.create_env(user=user, lab=lab, image=image, token=token)
-            await self.info_event(username, "Environment created", 25)
             await self.create_network_policy(user=user)
-            await self.info_event(username, "Network policy created", 25)
             await self.create_quota(user)
-            await self.info_event(username, "Quota created", 30)
             await self.create_lab_service(user=user)
-            await self.info_event(username, "Service created", 35)
         except Exception as exc:
             await self.failure_event(username, f"Exception: '{exc}'")
         return
