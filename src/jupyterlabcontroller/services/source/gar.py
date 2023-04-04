@@ -24,7 +24,8 @@ class GARImageSource(ImageSource):
 
     Google Artifact Registry has a much nicer API that returns all available
     images with their aliases and hashes in one request. This means we don't
-    have to track as complex of data.
+    have to track tags and images separately and the logic is much simpler
+    than `~jupyterlabcontroller.services.source.docker.DockerImageSource`.
 
     Parameters
     ----------
