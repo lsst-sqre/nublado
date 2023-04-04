@@ -113,7 +113,7 @@ class GARImageSource(ImageSource):
         """
         image = self._images.image_for_tag_name(tag_name)
         if not image:
-            raise UnknownDockerImageError(f"Docker tag {tag_name} not found")
+            raise UnknownDockerImageError(f'Docker tag "{tag_name}" not found')
         return image
 
     def mark_prepulled(self, image: RSPImage, node: str) -> None:

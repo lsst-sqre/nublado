@@ -37,7 +37,7 @@ from kubernetes_asyncio.client import (
 from structlog.stdlib import BoundLogger
 
 from ..config import FileMode, LabConfig, LabVolume
-from ..exceptions import LabExistsError, NoUserMapError
+from ..exceptions import LabExistsError, UnknownUserError
 from ..models.domain.docker import DockerReference
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.rspimage import RSPImage
@@ -190,7 +190,7 @@ class LabManager:
 
         Raises
         ------
-        jupyterlabcontroller.exceptions.InvalidDockerReferenceError
+        InvalidDockerReferenceError
             Docker image reference in the lab specification is invalid.
         """
         username = user.username
@@ -210,8 +210,8 @@ class LabManager:
         # because we don't want to wipe out the existing log, since we will
         # not be spawning.
         if self.check_for_user(username):
-            await self.failure_event(username, "lab already exists")
-            raise LabExistsError(f"lab already exists for {username}")
+            await self.failure_event(username, "Lab already exists")
+            raise LabExistsError(f"Lab already exists for {username}")
         # Add a new usermap entry
         self.user_map.set(
             username,
@@ -903,7 +903,7 @@ class LabManager:
     async def delete_lab(self, username: str) -> None:
         user = self.user_map.get(username)
         if user is None:
-            raise NoUserMapError(f"Cannot find map for user {username}")
+            raise UnknownUserError(f"Unknown user {username}")
         self.user_map.set_status(username, LabStatus.TERMINATING)
         self.user_map.clear_internal_url(username)
         #

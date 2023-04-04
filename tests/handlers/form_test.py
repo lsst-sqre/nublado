@@ -25,3 +25,15 @@ async def test_lab_form(
 
     expected = (std_result_dir / "lab_form.txt").read_text().strip()
     assert r.text == expected
+
+
+@pytest.mark.asyncio
+async def test_errors(client: AsyncClient) -> None:
+    r = await client.get(
+        "/nublado/spawner/v1/lab-form/someuser",
+        headers={"X-Auth-Request-User": "otheruser"},
+    )
+    assert r.status_code == 403
+    assert r.json() == {
+        "detail": [{"msg": "Permission denied", "type": "permission_denied"}]
+    }

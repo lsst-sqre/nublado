@@ -1,9 +1,10 @@
 """User-facing routes that otherwise require a JupyterHub token."""
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header
 from safir.models import ErrorModel
 
 from ..dependencies.context import RequestContext, context_dependency
+from ..exceptions import UnknownUserError
 from ..models.v1.lab import UserData
 
 router = APIRouter()
@@ -24,5 +25,5 @@ async def get_user_status(
 ) -> UserData:
     userdata = context.user_map.get(x_auth_request_user)
     if userdata is None:
-        raise HTTPException(status_code=404, detail="Not found")
+        raise UnknownUserError(f"Unknown user {x_auth_request_user}")
     return userdata

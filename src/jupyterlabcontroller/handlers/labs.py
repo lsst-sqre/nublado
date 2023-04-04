@@ -1,14 +1,14 @@
 """Routes for lab manipulation (start, stop, get status, see events)."""
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response
-from safir.models import ErrorModel
+from fastapi import APIRouter, Depends, Header, Response
+from safir.models import ErrorLocation, ErrorModel
 from sse_starlette import EventSourceResponse
 
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import (
-    InvalidUserError,
-    LabExistsError,
-    NoUserMapError,
+    InvalidDockerReferenceError,
+    PermissionDeniedError,
+    UnknownDockerImageError,
     UnknownUserError,
 )
 from ..models.v1.lab import LabSpecification, UserData
@@ -46,7 +46,8 @@ async def get_userdata(
 ) -> UserData:
     userdata = context.user_map.get(username)
     if userdata is None:
-        raise HTTPException(status_code=404, detail="Not found")
+        msg = f"Unknown user {username}"
+        raise UnknownUserError(msg, ErrorLocation.path, ["username"])
     return userdata
 
 
@@ -67,19 +68,19 @@ async def post_new_lab(
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     gafaelfawr_client = context.factory.create_gafaelfawr_client()
-    try:
-        user = await gafaelfawr_client.get_user_info(x_auth_request_token)
-    except InvalidUserError:
-        raise HTTPException(status_code=403, detail="Forbidden")
+    user = await gafaelfawr_client.get_user_info(x_auth_request_token)
     if user.username != username:
-        raise HTTPException(status_code=403, detail="Forbidden")
+        raise PermissionDeniedError("Permission denied")
 
+    # The user is valid. Attempt the lab creation.
     context.logger.debug(f"Received creation request for {username}")
     lab_manager = context.factory.create_lab_manager()
     try:
         await lab_manager.create_lab(user, x_auth_request_token, lab)
-    except LabExistsError:
-        raise HTTPException(status_code=409, detail="Conflict")
+    except (InvalidDockerReferenceError, UnknownDockerImageError) as e:
+        e.location = ErrorLocation.body
+        e.field_path = ["options", lab.options.image_attribute]
+        raise
     url = context.request.url_for("get_userdata", username=username)
     response.headers["Location"] = str(url)
 
@@ -100,9 +101,10 @@ async def delete_user_lab(
     lab_manager = context.factory.create_lab_manager()
     try:
         await lab_manager.delete_lab(username)
-    except NoUserMapError:
-        raise HTTPException(status_code=404, detail="Not found")
-    return
+    except UnknownUserError as e:
+        e.location = ErrorLocation.path
+        e.field_path = ["username"]
+        raise
 
 
 @router.get(
@@ -125,9 +127,11 @@ async def get_user_events(
 ) -> EventSourceResponse:
     """Returns the events for the lab of the given user"""
     if username != x_auth_request_user:
-        raise HTTPException(status_code=403, detail="Forbidden")
+        raise PermissionDeniedError("Permission denied")
     try:
         generator = context.event_manager.events_for_user(username)
         return EventSourceResponse(generator)
-    except UnknownUserError:
-        raise HTTPException(status_code=404, detail="Not found")
+    except UnknownUserError as e:
+        e.location = ErrorLocation.path
+        e.field_path = ["username"]
+        raise

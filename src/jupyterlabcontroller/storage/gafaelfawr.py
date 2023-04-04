@@ -4,7 +4,7 @@ from httpx import AsyncClient
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
-from ..exceptions import GafaelfawrError, InvalidUserError
+from ..exceptions import GafaelfawrError, InvalidTokenError
 from ..models.v1.lab import UserInfo
 
 
@@ -46,9 +46,9 @@ class GafaelfawrStorageClient:
 
         Raises
         ------
-        jupyterlabcontroller.exceptions.InvalidUserError
-            Token was invalid.
-        jupyterlabcontroller.exceptions.GafaelfawrError
+        InvalidTokenError
+            Raised if the token was rejected by Gafaelfawr.
+        GafaelfawrError
             Some other error occurred while talking to Gafaelfawr.
         """
         headers = {"Authorization": f"bearer {token}"}
@@ -59,7 +59,7 @@ class GafaelfawrStorageClient:
             raise GafaelfawrError(msg) from e
         if r.status_code in (401, 403):
             self._logger.warning("User token is invalid")
-            raise InvalidUserError("User token is invalid")
+            raise InvalidTokenError("User token is invalid")
         try:
             r.raise_for_status()
             return UserInfo.parse_obj(r.json())

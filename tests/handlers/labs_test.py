@@ -58,6 +58,15 @@ async def test_lab_start_stop(
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
     size_manager = factory.create_size_manager()
+    unknown_user_error = {
+        "detail": [
+            {
+                "loc": ["path", "username"],
+                "msg": f"Unknown user {user.username}",
+                "type": "unknown_user",
+            }
+        ]
+    }
 
     # No users should have running labs.
     r = await client.get("/nublado/spawner/v1/labs")
@@ -65,11 +74,19 @@ async def test_lab_start_stop(
     assert r.json() == []
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 404
+    assert r.json() == unknown_user_error
     r = await client.get(
         f"/nublado/spawner/v1/labs/{user.username}/events",
         headers={"X-Auth-Request-User": user.username},
     )
     assert r.status_code == 404
+    assert r.json() == unknown_user_error
+    r = await client.delete(
+        f"/nublado/spawner/v1/labs/{user.username}",
+        headers={"X-Auth-Request-User": user.username},
+    )
+    assert r.status_code == 404
+    assert r.json() == unknown_user_error
 
     # Create a lab.
     r = await client.post(
@@ -127,6 +144,25 @@ async def test_lab_start_stop(
         "status": "running",
         "uid": user.uid,
         "username": user.username,
+    }
+
+    # Creating the lab again should result in a 409 error.
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.dict(), "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 409
+    assert r.json() == {
+        "detail": [
+            {
+                "msg": f"Lab already exists for {user.username}",
+                "type": "lab_exists",
+            }
+        ]
     }
 
     # Stop the lab.
@@ -282,3 +318,117 @@ async def test_lab_objects(
     with (std_result_dir / "lab-objects.json").open("r") as f:
         expected = json.load(f)
     assert [strip_none(o.to_dict()) for o in objects] == expected
+
+
+@pytest.mark.asyncio
+async def test_errors(
+    client: AsyncClient, obj_factory: TestObjectFactory
+) -> None:
+    token, user = obj_factory.get_user()
+    lab = obj_factory.labspecs[0]
+
+    # Wrong user.
+    r = await client.post(
+        "/nublado/spawner/v1/labs/otheruser/create",
+        json={"options": lab.options.dict(), "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 403
+    assert r.json() == {
+        "detail": [{"msg": "Permission denied", "type": "permission_denied"}]
+    }
+    r = await client.get(
+        "/nublado/spawner/v1/labs/otheruser/events",
+        headers={"X-Auth-Request-User": user.username},
+    )
+    assert r.status_code == 403
+    assert r.json() == {
+        "detail": [{"msg": "Permission denied", "type": "permission_denied"}]
+    }
+
+    # Invalid token.
+    r = await client.post(
+        "/nublado/spawner/v1/labs/otheruser/create",
+        json={"options": lab.options.dict(), "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": "some-invalid-token",
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 401
+    assert r.json() == {
+        "detail": [{"msg": "User token is invalid", "type": "invalid_token"}]
+    }
+
+    # Test passing a reference with no tag.
+    options = lab.options.dict()
+    options["image_list"] = "lighthouse.ceres/library/sketchbook"
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": options, "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 422
+    msg = 'Docker reference "lighthouse.ceres/library/sketchbook" has no tag'
+    assert r.json() == {
+        "detail": [
+            {
+                "loc": ["body", "options", "image_list"],
+                "msg": msg,
+                "type": "invalid_docker_reference",
+            }
+        ]
+    }
+
+    # The same but in image_dropdown.
+    options = lab.options.dict()
+    options["image_list"] = DROPDOWN_SENTINEL_VALUE
+    options["image_dropdown"] = "lighthouse.ceres/library/sketchbook"
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": options, "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 422
+    msg = 'Docker reference "lighthouse.ceres/library/sketchbook" has no tag'
+    assert r.json() == {
+        "detail": [
+            {
+                "loc": ["body", "options", "image_dropdown"],
+                "msg": msg,
+                "type": "invalid_docker_reference",
+            }
+        ]
+    }
+
+    # Test asking for an image that doesn't exist.
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={
+            "options": {"image_tag": "unknown", "size": "small"},
+            "env": lab.env,
+        },
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 400
+    assert r.json() == {
+        "detail": [
+            {
+                "loc": ["body", "options", "image_tag"],
+                "msg": 'Docker tag "unknown" not found',
+                "type": "unknown_image",
+            }
+        ]
+    }

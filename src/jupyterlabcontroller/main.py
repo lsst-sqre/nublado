@@ -2,7 +2,8 @@
 
 from importlib.metadata import metadata, version
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from safir.dependencies.http_client import http_client_dependency
 from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
@@ -10,6 +11,7 @@ from safir.middleware.x_forwarded import XForwardedMiddleware
 
 from .dependencies.config import configuration_dependency
 from .dependencies.context import context_dependency
+from .exceptions import ValidationError
 from .handlers import form, index, labs, prepuller, user_status
 
 __all__ = ["create_app"]
@@ -64,5 +66,13 @@ def create_app() -> FastAPI:
     async def shutdown_event() -> None:
         await context_dependency.aclose()
         await http_client_dependency.aclose()
+
+    @app.exception_handler(ValidationError)
+    async def validation_handler(
+        request: Request, exc: ValidationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code, content={"detail": [exc.to_dict()]}
+        )
 
     return app

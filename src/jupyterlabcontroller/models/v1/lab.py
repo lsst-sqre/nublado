@@ -123,6 +123,22 @@ class UserOptions(BaseModel):
         title="Relocate user environment (`.cache`, `.jupyter`, `.local`)",
     )
 
+    @property
+    def image_attribute(self) -> str:
+        """The name of the image attribute that was set.
+
+        Used for error reporting to know what input attribute to report when
+        the image specification was invalid.
+        """
+        if self.image_list:
+            return "image_list"
+        elif self.image_dropdown:
+            return "image_dropdown"
+        elif self.image_class:
+            return "image_class"
+        else:
+            return "image_tag"
+
     @root_validator(pre=True)
     def _validate_lists(cls, values: dict[str, Any]) -> dict[str, list[Any]]:
         """Convert from lists of length 1 to values.

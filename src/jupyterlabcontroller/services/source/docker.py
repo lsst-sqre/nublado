@@ -161,7 +161,7 @@ class DockerImageSource(ImageSource):
             return image
         tag = self._tags.tag_for_tag_name(tag_name)
         if not tag:
-            raise UnknownDockerImageError(f"Docker tag {tag_name} not found")
+            raise UnknownDockerImageError(f'Docker tag "{tag_name}" not found')
         digest = await self._docker.get_image_digest(self._config, tag_name)
         return RSPImage.from_tag(
             registry=self._config.registry,
