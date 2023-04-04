@@ -57,9 +57,12 @@ class MockArtifactRegistry(Mock):
 
         Notes
         -----
-        Because they're doing lots of class layering, the Google API function
-        is not async but returns an async iterator, which makes this all
-        awkward and annoying.
+        The Google API documentation for this function is wrong. It claims
+        that it's a non-async function returning an async iterator, but the
+        source code confirms that it is an async function that returns an
+        async iterator. (This is an odd construction, but it's done this way
+        because the method call preloads the first page of data, and thus
+        itself has to be async.)
         """
 
         async def iterator() -> AsyncIterator[DockerImage]:
