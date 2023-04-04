@@ -93,27 +93,14 @@ class K8sStorageClient:
         source_ns: str,
         target_ns: str,
     ) -> None:
-        pull_secrets = [
-            x for x in secret_list if x.secret_name == "pull_secret"
-        ]
-        secrets = [x for x in secret_list if x.secret_name != "pull_secret"]
         data = await self.merge_controller_secrets(
-            secret_list=secrets, token=token, source_ns=source_ns
+            secret_list=secret_list, token=token, source_ns=source_ns
         )
         await self.create_secret(
             name=f"nb-{username}",
             namespace=target_ns,
             data=data,
         )
-        if pull_secrets:
-            pull_secret = await self.copy_pull_secret(source_ns=source_ns)
-            await self.create_secret(
-                name="pull-secret",
-                namespace=target_ns,
-                data=pull_secret,
-                secret_type="kubernetes.io/dockerconfigjson",
-            )
-        return
 
     async def wait_for_namespace_deletion(
         self, namespace: str, interval: float = 0.2
@@ -294,11 +281,34 @@ class K8sStorageClient:
                 w.stop()
                 return
 
-    async def copy_pull_secret(self, source_ns: str) -> dict[str, str]:
-        secret = await self.read_secret(
-            name="pull-secret", namespace=source_ns
+    async def copy_secret(
+        self,
+        *,
+        source_namespace: str,
+        source_secret: str,
+        target_namespace: str,
+        target_secret: str,
+    ) -> None:
+        """Copy a Kubernetes secret from one namespace to another.
+
+        Parameters
+        ----------
+        source_namespace
+            Namespace of source secret.
+        source_secret
+            Name of source secret.
+        target_namespace
+            Namespace to which to copy the secret.
+        target_secret
+            Name of secret to create.
+        """
+        secret = await self.read_secret(source_secret, source_namespace)
+        await self.create_secret(
+            name=target_secret,
+            namespace=target_namespace,
+            data=secret.data,
+            secret_type=secret.secret_type,
         )
-        return secret.data
 
     async def merge_controller_secrets(
         self, secret_list: list[LabSecret], token: str, source_ns: str
@@ -448,11 +458,8 @@ class K8sStorageClient:
         name: str,
         namespace: str,
         pod_spec: V1PodSpec,
-        pull_secret: bool = False,
         labels: Optional[dict[str, str]] = None,
     ) -> None:
-        if pull_secret:
-            pod_spec.image_pull_secrets = [{"name": "pull-secret"}]
         metadata = self._standard_metadata(name)
         if labels:
             metadata.labels.update(labels)

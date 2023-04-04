@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Self
+from typing import Optional, Self
 
 import yaml
 from pydantic import BaseSettings, Field
@@ -194,12 +194,29 @@ class LabFile(CamelCaseModel):
 
 
 class LabConfig(CamelCaseModel):
-    sizes: dict[LabSize, LabSizeDefinition] = {}
-    env: dict[str, str] = {}
-    secrets: list[LabSecret] = []
-    files: dict[str, LabFile] = {}
-    volumes: list[LabVolume] = []
-    init_containers: list[LabInitContainer] = []
+    sizes: dict[LabSize, LabSizeDefinition] = Field(
+        {}, title="Lab sizes users may choose from"
+    )
+    env: dict[str, str] = Field(
+        {}, title="Environment variables to set in user lab"
+    )
+    secrets: list[LabSecret] = Field(
+        [], title="Secrets to make available inside lab"
+    )
+    files: dict[str, LabFile] = Field({}, title="Files to mount inside lab")
+    volumes: list[LabVolume] = Field([], title="Volumes to mount inside lab")
+    init_containers: list[LabInitContainer] = Field(
+        [], title="Initialization containers to run before user's lab starts"
+    )
+    pull_secret: Optional[str] = Field(
+        None,
+        title="Pull secret to use for lab pods",
+        description=(
+            "If set, must be the name of a secret in the same namespace as"
+            " the lab controller. This secret is copied to the user's lab"
+            " namespace and referenced as a pull secret in the pod object."
+        ),
+    )
     namespace_prefix: str = Field(
         default_factory=_get_namespace_prefix,
         title="Namespace prefix for lab environments",
