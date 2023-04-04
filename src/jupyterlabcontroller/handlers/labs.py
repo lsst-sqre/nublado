@@ -8,6 +8,7 @@ from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import (
     InvalidDockerReferenceError,
     PermissionDeniedError,
+    UnknownDockerImageError,
     UnknownUserError,
 )
 from ..models.v1.lab import LabSpecification, UserData
@@ -76,10 +77,9 @@ async def post_new_lab(
     lab_manager = context.factory.create_lab_manager()
     try:
         await lab_manager.create_lab(user, x_auth_request_token, lab)
-    except InvalidDockerReferenceError as e:
+    except (InvalidDockerReferenceError, UnknownDockerImageError) as e:
         e.location = ErrorLocation.body
-        field = "image_list" if lab.options.image_list else "image_dropdown"
-        e.field_path = ["options", field]
+        e.field_path = ["options", lab.options.image_attribute]
         raise
     url = context.request.url_for("get_userdata", username=username)
     response.headers["Location"] = str(url)

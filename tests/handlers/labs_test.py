@@ -409,3 +409,26 @@ async def test_errors(
             }
         ]
     }
+
+    # Test asking for an image that doesn't exist.
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={
+            "options": {"image_tag": "unknown", "size": "small"},
+            "env": lab.env,
+        },
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 400
+    assert r.json() == {
+        "detail": [
+            {
+                "loc": ["body", "options", "image_tag"],
+                "msg": 'Docker tag "unknown" not found',
+                "type": "unknown_image",
+            }
+        ]
+    }

@@ -134,15 +134,18 @@ class LabExistsError(ValidationError):
     status_code = status.HTTP_409_CONFLICT
 
 
+class UnknownDockerImageError(ValidationError):
+    """Cannot find a Docker image matching the requested parameters."""
+
+    error = "unknown_image"
+    status_code = status.HTTP_400_BAD_REQUEST
+
+
 class UnknownUserError(ValidationError):
     """No resource has been created for this user."""
 
     error = "unknown_user"
     status_code = status.HTTP_404_NOT_FOUND
-
-
-class UnknownDockerImageError(Exception):
-    """Cannot find a Docker image matching the requested parameters."""
 
 
 class DockerRegistryError(Exception):
