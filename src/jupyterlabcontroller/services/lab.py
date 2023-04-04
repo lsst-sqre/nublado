@@ -46,6 +46,7 @@ from ..models.v1.event import Event, EventType
 from ..models.v1.lab import (
     LabSpecification,
     LabStatus,
+    PodState,
     UserData,
     UserInfo,
     UserResourceQuantum,
@@ -234,6 +235,7 @@ class LabManager:
         await self.info_event(username, "Resource objects created", 40)
         resources = self._size_manager.resources(lab.options.size)
         await self.create_user_pod(user, resources, image)
+        self.user_map.set_pod_state(username, PodState.PRESENT)
         self.user_map.set_status(username, status=LabStatus.PENDING)
         # We need to set the expected internal URL, because the spawner
         # start needs to know it, even though it's not accessible yet.

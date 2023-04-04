@@ -1,6 +1,6 @@
 """Event model for jupyterlab-controller."""
 
-from ..v1.lab import LabStatus, UserData
+from ..v1.lab import LabStatus, PodState, UserData
 
 
 class UserMap:
@@ -15,6 +15,9 @@ class UserMap:
 
     def set(self, key: str, item: UserData) -> None:
         self._dict[key] = item
+
+    def set_pod_state(self, key: str, pod_state: PodState) -> None:
+        self._dict[key].pod = pod_state
 
     def set_status(self, key: str, status: LabStatus) -> None:
         self._dict[key].status = status

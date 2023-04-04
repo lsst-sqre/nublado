@@ -139,7 +139,7 @@ async def test_lab_start_stop(
         "name": user.name,
         "options": expected_options,
         "quota": None,
-        "pod": "missing",
+        "pod": "present",
         "resources": expected_resources.dict(),
         "status": "running",
         "uid": user.uid,
