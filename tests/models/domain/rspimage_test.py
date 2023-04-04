@@ -82,7 +82,9 @@ def test_resolve_alias() -> None:
     assert recommended.image_type == RSPImageType.ALIAS
     assert recommended.alias_target == "d_2077_10_23_c0045.003"
     assert image.aliases == {"recommended"}
-    assert recommended.display_name == f"Recommended ({image.display_name})"
+    assert recommended.display_name == (
+        "Recommended (Daily 2077_10_23, SAL Cycle 0045, Build 003)"
+    )
     assert recommended.cycle == 45
     assert recommended.is_possible_alias
 
@@ -90,18 +92,20 @@ def test_resolve_alias() -> None:
     latest_daily = RSPImage.from_tag(
         registry="lighthouse.ceres",
         repository="library/sketchbook",
-        tag=RSPImageTag.alias("latest_daily"),
+        tag=RSPImageTag.alias("latest_daily_c0045"),
         digest="sha256:1234",
     )
     assert latest_daily.image_type == RSPImageType.ALIAS
-    assert latest_daily.display_name == "Latest Daily"
+    assert latest_daily.display_name == "Latest Daily (SAL Cycle 0045)"
 
     latest_daily.resolve_alias(image)
     assert latest_daily.image_type == RSPImageType.ALIAS
     assert latest_daily.alias_target == "d_2077_10_23_c0045.003"
     assert latest_daily.aliases == {"recommended"}
-    assert image.aliases == {"recommended", "latest_daily"}
-    assert latest_daily.display_name == f"Latest Daily ({image.display_name})"
+    assert image.aliases == {"recommended", "latest_daily_c0045"}
+    assert latest_daily.display_name == (
+        "Latest Daily (Daily 2077_10_23, SAL Cycle 0045, Build 003)"
+    )
 
     # Can't resolve some other image type.
     with pytest.raises(ValueError):

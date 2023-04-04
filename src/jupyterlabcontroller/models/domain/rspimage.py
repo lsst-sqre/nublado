@@ -132,9 +132,28 @@ class RSPImage(RSPImageTag):
             if alias != self.tag:
                 self.aliases.add(alias)
         target.aliases.add(self.tag)
-        base_display_name = self.tag.replace("_", " ").title()
-        self.display_name = f"{base_display_name} ({target.display_name})"
         self.cycle = target.cycle
+
+        # If the tag display name has cycle information, we don't want to keep
+        # that part when adding the description of the target tag since it
+        # will duplicate the cycle information in the target tag. We know how
+        # tag display names are constructed and know we can safely discard the
+        # parenthetical, so do that and otherwise keep the cycle-aware display
+        # name parsing done in the RSPImageTag alias method.
+        if " (" in self.display_name:
+            cutoff = self.display_name.index(" (")
+            base_display_name = self.display_name[:cutoff]
+        else:
+            base_display_name = self.tag.replace("_", " ").title()
+
+        # If the target has a SAL cycle, it already has parentheses in its
+        # description. Nested parentheses are ugly, so convert that to another
+        # comma-separated stanza.
+        if " (" in target.display_name:
+            extra = target.display_name.replace(" (", ", ").replace(")", "")
+        else:
+            extra = target.display_name
+        self.display_name = f"{base_display_name} ({extra})"
 
 
 class RSPImageCollection:

@@ -11,6 +11,7 @@ import pytest
 from google.cloud.artifactregistry_v1 import DockerImage
 from kubernetes_asyncio.client import (
     CoreV1Event,
+    V1ContainerImage,
     V1Node,
     V1NodeStatus,
     V1ObjectMeta,
@@ -26,6 +27,7 @@ from jupyterlabcontroller.models.v1.prepuller_config import GARSourceConfig
 from ..settings import TestObjectFactory
 from ..support.config import configure
 from ..support.data import read_input_data, read_output_data
+from ..support.docker import MockDockerRegistry
 from ..support.gar import MockArtifactRegistry
 from ..support.kubernetes import MockKubernetesApi, strip_none
 
@@ -187,4 +189,43 @@ async def test_gar(
             "dropdown": [asdict(e) for e in menu_images.dropdown],
         }
         expected = read_output_data("gar", "menu-after.json")
+        assert seen == expected
+
+
+@pytest.mark.asyncio
+async def test_cycle(
+    factory: Factory,
+    mock_docker: MockDockerRegistry,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    config = configure("cycle")
+    mock_docker.tags = read_input_data("cycle", "docker-tags.json")
+    node_data = read_input_data("cycle", "nodes.json")
+    nodes = []
+    for name, data in node_data.items():
+        node_images = [
+            V1ContainerImage(names=d["names"], size_bytes=d["sizeBytes"])
+            for d in data
+        ]
+        node = V1Node(
+            metadata=V1ObjectMeta(name=name),
+            status=V1NodeStatus(images=node_images),
+        )
+        nodes.append(node)
+    mock_kubernetes.set_nodes_for_test(nodes)
+
+    async with Factory.standalone(config) as factory:
+        await factory.start_background_services()
+        await asyncio.sleep(0.2)
+
+        images = factory.image_service.images()
+        expected = read_output_data("cycle", "images.json")
+        assert images.dict(exclude_none=True) == expected
+
+        menu_images = factory.image_service.menu_images()
+        seen = {
+            "menu": [asdict(e) for e in menu_images.menu],
+            "dropdown": [asdict(e) for e in menu_images.dropdown],
+        }
+        expected = read_output_data("cycle", "menu.json")
         assert seen == expected
