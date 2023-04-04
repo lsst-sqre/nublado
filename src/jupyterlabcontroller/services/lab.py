@@ -210,8 +210,8 @@ class LabManager:
         # because we don't want to wipe out the existing log, since we will
         # not be spawning.
         if self.check_for_user(username):
-            await self.failure_event(username, "lab already exists")
-            raise LabExistsError(f"lab already exists for {username}")
+            await self.failure_event(username, "Lab already exists")
+            raise LabExistsError(f"Lab already exists for {username}")
         # Add a new usermap entry
         self.user_map.set(
             username,

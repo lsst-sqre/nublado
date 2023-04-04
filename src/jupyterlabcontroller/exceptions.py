@@ -120,6 +120,13 @@ class PermissionDeniedError(ValidationError):
     status_code = status.HTTP_403_FORBIDDEN
 
 
+class LabExistsError(ValidationError):
+    """Lab creation was attempted for a user with an active lab."""
+
+    error = "lab_exists"
+    status_code = status.HTTP_409_CONFLICT
+
+
 class UnknownUserError(ValidationError):
     """No resource has been created for this user."""
 
@@ -149,10 +156,6 @@ class WaitingForObjectError(Exception):
 
 class KubernetesError(Exception):
     """An API call to Kubernetes failed."""
-
-
-class LabExistsError(Exception):
-    """Lab creation was attempted for a user with an active lab."""
 
 
 class GafaelfawrError(Exception):

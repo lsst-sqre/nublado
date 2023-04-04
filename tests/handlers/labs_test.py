@@ -146,6 +146,25 @@ async def test_lab_start_stop(
         "username": user.username,
     }
 
+    # Creating the lab again should result in a 409 error.
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.dict(), "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 409
+    assert r.json() == {
+        "detail": [
+            {
+                "msg": f"Lab already exists for {user.username}",
+                "type": "lab_exists",
+            }
+        ]
+    }
+
     # Stop the lab.
     r = await client.delete(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 204

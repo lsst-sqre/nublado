@@ -8,7 +8,6 @@ from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import (
     InvalidDockerReferenceError,
     InvalidUserError,
-    LabExistsError,
     PermissionDeniedError,
     UnknownUserError,
 )
@@ -85,8 +84,6 @@ async def post_new_lab(
         field = "image_list" if lab.options.image_list else "image_dropdown"
         e.field_path = ["options", field]
         raise
-    except LabExistsError:
-        raise HTTPException(status_code=409, detail="Conflict")
     url = context.request.url_for("get_userdata", username=username)
     response.headers["Location"] = str(url)
 
