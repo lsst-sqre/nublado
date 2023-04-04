@@ -2,29 +2,6 @@ safir:
   profile: development
   logLevel: DEBUG
 lab:
-  sizes:
-    small:
-      cpu: 1.0
-      memory: 3Gi
-    medium:
-      cpu: 2.0
-      memory: 6Gi
-    large:
-      cpu: 4.0
-      memory: 12Gi
-  volumes:
-    - containerPath: /home
-      serverPath: /share1/home
-      server: 10.13.105.122
-      mode: rw
-    - containerPath: /project
-      serverPath: /share1/project
-      server: 10.13.105.122
-      mode: ro
-    - containerPath: /scratch
-      serverPath: /share1/scratch
-      server: 10.13.105.122
-      mode: rw
   env:
     API_ROUTE: /api
     AUTO_REPO_SPECS: "https://github.com/lsst-sqre/system-test@prod"
@@ -147,6 +124,15 @@ lab:
         #url_prefix = /idds
         #cacher_dir = /tmp
         cacher_dir = /data/idds
+  initContainers:
+    - name: initdir
+      image: ghcr.io/lsst-sqre/initdir:0.0.3
+      privileged: true
+      volumes:
+        - containerPath: "/home"
+          serverPath: "/share1/home"
+          server: "10.87.86.26"
+          mode: "rw"
   pullSecret: pull-secret
   secrets:
     - secretName: nublado-secret
@@ -155,6 +141,29 @@ lab:
       path: /opt/lsst/software/jupyterlab/butler-secret
     - secretName: extra-secret
       secretKey: db-password
+  sizes:
+    small:
+      cpu: 1.0
+      memory: 3Gi
+    medium:
+      cpu: 2.0
+      memory: 6Gi
+    large:
+      cpu: 4.0
+      memory: 12Gi
+  volumes:
+    - containerPath: /home
+      serverPath: /share1/home
+      server: 10.13.105.122
+      mode: rw
+    - containerPath: /project
+      serverPath: /share1/project
+      server: 10.13.105.122
+      mode: ro
+    - containerPath: /scratch
+      serverPath: /share1/scratch
+      server: 10.13.105.122
+      mode: rw
 images:
   source:
     type: docker

@@ -283,7 +283,41 @@
           "name": "pull-secret"
         }
       ],
-      "init_containers": [],
+      "init_containers": [
+        {
+          "env_from": [
+            {
+              "config_map_ref": {
+                "name": "nb-rachel-env"
+              }
+            }
+          ],
+          "image": "ghcr.io/lsst-sqre/initdir:0.0.3",
+          "name": "initdir",
+          "resources": {
+            "limits": {
+              "cpu": "1.0",
+              "memory": "3221225472"
+            },
+            "requests": {
+              "cpu": "0.25",
+              "memory": "805306368"
+            }
+          },
+          "security_context": {
+            "allow_privilege_escalation": true,
+            "run_as_non_root": false,
+            "run_as_user": 0
+          },
+          "volume_mounts": [
+            {
+              "mount_path": "/home",
+              "name": "home",
+              "read_only": false
+            }
+          ]
+        }
+      ],
       "restart_policy": "OnFailure",
       "security_context": {
         "fs_group": 1101,
