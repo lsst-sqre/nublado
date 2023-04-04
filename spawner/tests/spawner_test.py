@@ -66,6 +66,13 @@ async def test_poll(
 
 
 @pytest.mark.asyncio
+async def test_get_url(spawner: RSPRestSpawner) -> None:
+    user = spawner.user.name
+    assert await spawner.start() == f"http://lab.nublado-{user}:8888"
+    assert await spawner.get_url() == f"http://lab.nublado-{user}:8888"
+
+
+@pytest.mark.asyncio
 async def test_options_form(spawner: RSPRestSpawner) -> None:
     expected = f"<p>This is some lab form for {spawner.user.name}</p>"
     assert await spawner.options_form(spawner) == expected
