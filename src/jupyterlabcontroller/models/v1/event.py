@@ -1,6 +1,8 @@
 """Event model for jupyterlab-controller."""
 
+import json
 from enum import Enum
+from typing import Optional
 
 from pydantic import BaseModel, Field
 from sse_starlette import ServerSentEvent
@@ -22,7 +24,10 @@ class Event(BaseModel):
     """One spawn event for a user."""
 
     type: EventType = Field(..., title="Type of the event")
-    data: str = Field(..., title="Content of the event")
+    message: str = Field(..., title="Event message")
+    progress: Optional[int] = Field(
+        None, title="Progress percentage", lt=100, gt=0
+    )
 
     @property
     def done(self) -> bool:
@@ -37,4 +42,7 @@ class Event(BaseModel):
         ServerSentEvent
             Converted form of the event.
         """
-        return ServerSentEvent(data=self.data, event=self.type.value)
+        data: dict[str, str | int] = {"message": self.message}
+        if self.progress:
+            data["progress"] = self.progress
+        return ServerSentEvent(data=json.dumps(data), event=self.type.value)
