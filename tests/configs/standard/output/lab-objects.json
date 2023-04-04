@@ -159,7 +159,7 @@
               }
             },
             {
-              "name": "K8S_NODE_NAME",
+              "name": "KUBERNETES_NODE_NAME",
               "value_from": {
                 "field_ref": {
                   "field_path": "spec.nodeName"
