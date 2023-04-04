@@ -10,6 +10,7 @@ from ..exceptions import (
     InvalidUserError,
     LabExistsError,
     NoUserMapError,
+    PermissionDeniedError,
     UnknownUserError,
 )
 from ..models.v1.lab import LabSpecification, UserData
@@ -73,7 +74,7 @@ async def post_new_lab(
     except InvalidUserError:
         raise HTTPException(status_code=403, detail="Forbidden")
     if user.username != username:
-        raise HTTPException(status_code=403, detail="Forbidden")
+        raise PermissionDeniedError("Permission denied")
 
     context.logger.debug(f"Received creation request for {username}")
     lab_manager = context.factory.create_lab_manager()
@@ -131,7 +132,7 @@ async def get_user_events(
 ) -> EventSourceResponse:
     """Returns the events for the lab of the given user"""
     if username != x_auth_request_user:
-        raise HTTPException(status_code=403, detail="Forbidden")
+        raise PermissionDeniedError("Permission denied")
     try:
         generator = context.event_manager.events_for_user(username)
         return EventSourceResponse(generator)

@@ -114,6 +114,13 @@ class InvalidDockerReferenceError(ValidationError):
     error = "invalid_docker_reference"
 
 
+class PermissionDeniedError(ValidationError):
+    """Attempt to access a resource for another user."""
+
+    error = "permission_denied"
+    status_code = status.HTTP_403_FORBIDDEN
+
+
 class UnknownDockerImageError(Exception):
     """Cannot find a Docker image matching the requested parameters."""
 

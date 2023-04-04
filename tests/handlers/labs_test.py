@@ -291,6 +291,28 @@ async def test_errors(
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
 
+    # Wrong user.
+    r = await client.post(
+        "/nublado/spawner/v1/labs/otheruser/create",
+        json={"options": lab.options.dict(), "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 403
+    assert r.json() == {
+        "detail": [{"msg": "Permission denied", "type": "permission_denied"}]
+    }
+    r = await client.get(
+        "/nublado/spawner/v1/labs/otheruser/events",
+        headers={"X-Auth-Request-User": user.username},
+    )
+    assert r.status_code == 403
+    assert r.json() == {
+        "detail": [{"msg": "Permission denied", "type": "permission_denied"}]
+    }
+
     # Test passing a reference with no tag.
     options = lab.options.dict()
     options["image_list"] = "lighthouse.ceres/library/sketchbook"
