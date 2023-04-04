@@ -22,12 +22,14 @@ async def test_user_status(
     # At the start, we shouldn't have any lab.
     r = await client.get(
         "/nublado/spawner/v1/user-status",
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers={"X-Auth-Request-User": user.username},
     )
     assert r.status_code == 404
+    assert r.json() == {
+        "detail": [
+            {"msg": f"Unknown user {user.username}", "type": "unknown_user"}
+        ]
+    }
 
     # Create a lab.
     r = await client.post(
@@ -52,10 +54,7 @@ async def test_user_status(
     # Now the lab should exist and we should be able to get some user status.
     r = await client.get(
         "/nublado/spawner/v1/user-status",
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers={"X-Auth-Request-User": user.username},
     )
     assert r.status_code == 200
     expected_resources = size_manager.resources(lab.options.size)

@@ -65,11 +65,29 @@ async def test_lab_start_stop(
     assert r.json() == []
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 404
+    assert r.json() == {
+        "detail": [
+            {
+                "loc": ["path", "username"],
+                "msg": f"Unknown user {user.username}",
+                "type": "unknown_user",
+            }
+        ]
+    }
     r = await client.get(
         f"/nublado/spawner/v1/labs/{user.username}/events",
         headers={"X-Auth-Request-User": user.username},
     )
     assert r.status_code == 404
+    assert r.json() == {
+        "detail": [
+            {
+                "loc": ["path", "username"],
+                "msg": f"Unknown user {user.username}",
+                "type": "unknown_user",
+            }
+        ]
+    }
 
     # Create a lab.
     r = await client.post(

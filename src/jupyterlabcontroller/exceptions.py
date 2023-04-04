@@ -121,6 +121,13 @@ class PermissionDeniedError(ValidationError):
     status_code = status.HTTP_403_FORBIDDEN
 
 
+class UnknownUserError(ValidationError):
+    """No resource has been created for this user."""
+
+    error = "unknown_user"
+    status_code = status.HTTP_404_NOT_FOUND
+
+
 class UnknownDockerImageError(Exception):
     """Cannot find a Docker image matching the requested parameters."""
 
@@ -163,7 +170,3 @@ class InvalidUserError(Exception):
 
 class MissingSecretError(Exception):
     """Secret specified in the controller configuration was not found."""
-
-
-class UnknownUserError(Exception):
-    """No resource has been created for this user."""

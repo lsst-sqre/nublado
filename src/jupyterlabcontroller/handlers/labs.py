@@ -48,7 +48,8 @@ async def get_userdata(
 ) -> UserData:
     userdata = context.user_map.get(username)
     if userdata is None:
-        raise HTTPException(status_code=404, detail="Not found")
+        msg = f"Unknown user {username}"
+        raise UnknownUserError(msg, ErrorLocation.path, ["username"])
     return userdata
 
 
@@ -136,5 +137,7 @@ async def get_user_events(
     try:
         generator = context.event_manager.events_for_user(username)
         return EventSourceResponse(generator)
-    except UnknownUserError:
-        raise HTTPException(status_code=404, detail="Not found")
+    except UnknownUserError as e:
+        e.location = ErrorLocation.path
+        e.field_path = ["username"]
+        raise
