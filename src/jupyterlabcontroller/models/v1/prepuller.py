@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Self
 
 from pydantic import BaseModel, Field
 
+from ..domain.rspimage import RSPImage
 from .prepuller_config import PrepullerConfig
 
 
@@ -44,6 +45,34 @@ class PrepulledImage(Image):
         example=True,
         title="Whether image is prepulled to all eligible nodes",
     )
+
+    @classmethod
+    def from_rsp_image(cls, image: RSPImage, nodes: set[str]) -> Self:
+        """Convert from an `~jupyterhub.models.domain.RSPImage`.
+
+        Parameters
+        ----------
+        image
+            Source image.
+        nodes
+            Nodes this image must be on to count as prepulled.
+
+        Returns
+        -------
+        PrepulledImage
+            Converted image.
+        """
+        aliases = list(image.aliases)
+        if image.alias_target:
+            aliases.append(image.alias_target)
+        return cls(
+            reference=image.reference,
+            tag=image.tag,
+            aliases=sorted(aliases),
+            name=image.display_name,
+            digest=image.digest,
+            prepulled=image.nodes >= nodes,
+        )
 
 
 class NodeImage(Image):

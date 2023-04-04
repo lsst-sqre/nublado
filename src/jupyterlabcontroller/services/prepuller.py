@@ -9,7 +9,6 @@ from kubernetes_asyncio.client import V1Container, V1PodSpec
 from structlog.stdlib import BoundLogger
 
 from ..models.domain.rspimage import RSPImage
-from ..models.v1.prepuller_config import PrepullerConfig
 from ..storage.k8s import K8sStorageClient
 from .image import ImageService
 
@@ -24,8 +23,6 @@ class Prepuller:
 
     Parameters
     ----------
-    config
-        Config for the prepuller.
     namespace
         Namespace in which to put prepuller pods.
     image_service
@@ -40,7 +37,6 @@ class Prepuller:
     def __init__(
         self,
         *,
-        config: PrepullerConfig,
         namespace: str,
         image_service: ImageService,
         k8s_client: K8sStorageClient,
@@ -160,14 +156,12 @@ class Prepuller:
         after another until we have done them all. It runs in parallel with a
         similar task for each node.
         """
-        self._logger.debug(f"Beginning prepulls for {node}")
+        image_tags = [i.tag for i in images]
+        self._logger.info(f"Beginning prepulls for {node}", images=image_tags)
         for image in images:
             await self._prepull_image(image, node)
-
-            # Temporarily don't register images as prepulled because the test
-            # suite doesn't expect it.
-            # self._image_service.mark_prepulled(image, node)
-        self._logger.debug(f"Finished prepulls for {node}")
+            self._image_service.mark_prepulled(image, node)
+        self._logger.info(f"Finished prepulls for {node}", images=image_tags)
 
     def _prepull_pod_name(self, image: RSPImage, node: str) -> str:
         """Create the pod name to use for prepulling an image.

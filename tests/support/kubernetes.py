@@ -39,7 +39,51 @@ from kubernetes_asyncio.client import (
 from safir.datetime import current_datetime
 from safir.testing.kubernetes import MockKubernetesApi
 
-__all__ = ["MockLabKubernetesApi", "patch_kubernetes"]
+__all__ = [
+    "MockLabKubernetesApi",
+    "patch_kubernetes",
+    "strip_none",
+]
+
+
+def strip_none(model: dict[str, Any]) -> dict[str, Any]:
+    """Strip `None` values from a serialized Kubernetes object.
+
+    Comparing Kubernetes objects against serialized expected output is a bit
+    of a pain, since Kubernetes objects often contain tons of optional
+    parameters and the ``to_dict`` serialization includes every parameter.
+    The naive result is therefore tedious to read or understand.
+
+    This function works around this by taking a serialized Kubernetes object
+    and dropping all of the parameters that are set to `None`. The ``to_dict``
+    form of a Kubernetes object should be passed through it first before
+    comparing to the expected output.
+
+    Parmaters
+    ---------
+    model
+        Kubernetes model serialized with ``to_dict``.
+
+    Returns
+    -------
+    dict
+        Cleaned-up model with `None` parameters removed.
+    """
+    result = {}
+    for key, value in model.items():
+        if value is None:
+            continue
+        if isinstance(value, dict):
+            value = strip_none(value)
+        elif isinstance(value, list):
+            list_result = []
+            for item in value:
+                if isinstance(item, dict):
+                    item = strip_none(item)
+                list_result.append(item)
+            value = list_result
+        result[key] = value
+    return result
 
 
 class MockLabKubernetesApi(MockKubernetesApi):
@@ -56,7 +100,7 @@ class MockLabKubernetesApi(MockKubernetesApi):
     def __init__(self) -> None:
         super().__init__()
         self.initial_pod_status = "Running"
-        self._nodes: list[V1Node] = []
+        self._nodes = V1NodeList(items=[])
         self._events: defaultdict[str, list[CoreV1Event]] = defaultdict(list)
         self._new_events: defaultdict[str, asyncio.Event]
         self._new_events = defaultdict(asyncio.Event)
@@ -67,9 +111,7 @@ class MockLabKubernetesApi(MockKubernetesApi):
         self._events[namespace].append(event)
         self._new_events[namespace].set()
 
-    def get_all_objects_in_namespace_for_test(
-        self, namespace: str
-    ) -> list[Any]:
+    def get_namespace_objects_for_test(self, namespace: str) -> list[Any]:
         """Returns all objects in the given namespace.
 
         Note that due to how objects are stored in the mock, we can't
@@ -234,7 +276,7 @@ class MockLabKubernetesApi(MockKubernetesApi):
 
     # NODE API
 
-    async def list_node(self) -> list[V1Node]:
+    async def list_node(self) -> V1NodeList:
         self._maybe_error("list_node")
         return self._nodes
 

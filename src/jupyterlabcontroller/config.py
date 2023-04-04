@@ -221,8 +221,7 @@ class LabConfig(CamelCaseModel):
 class Config(BaseSettings):
     safir: SafirConfig
     lab: LabConfig
-    images: PrepullerConfig
-
+    images: PrepullerConfig = Field(..., title="Prepuller configuration")
     base_url: str = Field(
         "http://127.0.0.1:8080",
         title="Base URL for Science Platform",

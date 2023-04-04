@@ -1,10 +1,10 @@
 {
   "config": {
-    "docker": {
+    "source": {
       "registry": "lighthouse.ceres",
-      "repository": "library/sketchbook"
+      "repository": "library/sketchbook",
+      "type": "docker"
     },
-    "gar": null,
     "recommended_tag": "recommended",
     "num_releases": 1,
     "num_weeklies": 2,

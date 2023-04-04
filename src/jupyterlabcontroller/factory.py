@@ -16,14 +16,19 @@ from structlog.stdlib import BoundLogger
 from .config import Config
 from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .models.domain.usermap import UserMap
+from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
 from .services.events import EventManager
 from .services.form import FormManager
 from .services.image import ImageService
 from .services.lab import LabManager
 from .services.prepuller import Prepuller
 from .services.size import SizeManager
+from .services.source.base import ImageSource
+from .services.source.docker import DockerImageSource
+from .services.source.gar import GARImageSource
 from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
+from .storage.gar import GARStorageClient
 from .storage.k8s import K8sStorageClient
 
 
@@ -45,8 +50,11 @@ class ProcessContext:
     http_client: AsyncClient
     """Shared HTTP client."""
 
-    k8s_client: K8sStorageClient
+    k8s_api_client: ApiClient
     """Shared Kubernetes client."""
+
+    k8s_client: K8sStorageClient
+    """Shared Kubernetes storage layer."""
 
     image_service: ImageService
     """Image service."""
@@ -87,24 +95,40 @@ class ProcessContext:
             timeout=KUBERNETES_REQUEST_TIMEOUT,
             logger=logger,
         )
-        docker_client = DockerStorageClient(
-            credentials_path=config.docker_secrets_path,
-            http_client=http_client,
-            logger=logger,
-        )
+
+        if isinstance(config.images.source, DockerSourceConfig):
+            docker_client = DockerStorageClient(
+                credentials_path=config.docker_secrets_path,
+                http_client=http_client,
+                logger=logger,
+            )
+            source: ImageSource = DockerImageSource(
+                config=config.images.source,
+                docker=docker_client,
+                logger=logger,
+            )
+        elif isinstance(config.images.source, GARSourceConfig):
+            gar_client = GARStorageClient(logger)
+            source = GARImageSource(
+                config=config.images.source, gar=gar_client, logger=logger
+            )
+        else:
+            raise RuntimeError("Unknown prepuller configuration type")
+
         image_service = ImageService(
             config=config.images,
-            docker=docker_client,
+            source=source,
             kubernetes=k8s_client,
             logger=logger,
         )
+
         return cls(
             config=config,
             http_client=http_client,
+            k8s_api_client=k8s_api_client,
             k8s_client=k8s_client,
             image_service=image_service,
             prepuller=Prepuller(
-                config=config.images,
                 namespace=config.lab.namespace_prefix,
                 image_service=image_service,
                 k8s_client=k8s_client,
@@ -113,6 +137,10 @@ class ProcessContext:
             user_map=UserMap(),
             event_manager=EventManager(),
         )
+
+    async def aclose(self) -> None:
+        """Free allocated resources."""
+        await self.k8s_api_client.close()
 
     async def start(self) -> None:
         """Start the background threads running."""
@@ -181,6 +209,14 @@ class Factory:
         return self._context.image_service
 
     @property
+    def prepuller(self) -> Prepuller:
+        """Global prepuller, from the `ProcessContext`.
+
+        Only used by tests; handlers don't need access to the prepuller.
+        """
+        return self._context.prepuller
+
+    @property
     def user_map(self) -> UserMap:
         """Current user lab status, from the `ProcessContext`.
 
@@ -197,6 +233,7 @@ class Factory:
         """
         if self._background_services_started:
             await self._context.stop()
+        await self._context.aclose()
 
     def create_docker_storage(self) -> DockerStorageClient:
         """Create a Docker storage client.

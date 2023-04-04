@@ -1,13 +1,28 @@
-"""This is its own file because it's part of the domain Config object,
-and we need to avoid circular imports."""
+"""Configuration for the prepuller.
 
-from typing import Any, Optional
+This is both part of the `~juputerlabcontroller.config.Config` object for the
+whole lab controller and information we return via the prepuller status route,
+so it has to live in its own file separate from the rest of the configuration.
+"""
 
-from pydantic import Field, root_validator
+from __future__ import annotations
+
+from typing import Literal, Optional
+
+from pydantic import Field
 from safir.pydantic import CamelCaseModel
 
+__all__ = [
+    "DockerSourceConfig",
+    "GARSourceConfig",
+    "PrepullerConfig",
+]
 
-class DockerDefinition(CamelCaseModel):
+
+class DockerSourceConfig(CamelCaseModel):
+    """Docker Registry from which to get images."""
+
+    type: Literal["docker"] = Field(..., title="Type of image source")
     registry: str = Field(
         "docker.io",
         example="lighthouse.ceres",
@@ -20,60 +35,108 @@ class DockerDefinition(CamelCaseModel):
     )
 
 
-class GARDefinition(CamelCaseModel):
+class GARSourceConfig(CamelCaseModel):
+    """Google Artifact Registry from which to get images.
+
+    The Google Artifact Repository naming convention is unfortunate. It uses
+    ``repository`` for a specific management level of the Google Artifact
+    Registry within a Google project and without specifying the name of the
+    image, unlike the terminology that is used elsewhere where the registry is
+    the hostname and the repository is everything else except the tag and hash.
+
+    Everywhere else, repository is used in the non-Google sense. In this
+    class, the main class uses the Google terminology to avoid confusion, and
+    uses ``path`` for what everything else calls the repository.
+    """
+
+    type: Literal["google"] = Field(..., title="Type of image source")
+    location: str = Field(
+        ...,
+        example="us-central1",
+        title="Region or multiregion of registry",
+        description=(
+            "This is the same as the hostname of the registry but with the"
+            " ``-docker.pkg.dev`` suffix removed."
+        ),
+    )
+    project_id: str = Field(
+        ...,
+        example="ceres-lighthouse-6ab4",
+        title="Google Cloud Platform project ID of registry",
+    )
     repository: str = Field(
         ...,
         example="library",
-        title="Google Artifact Registry 'repository'",
-        description="item between project and image in constructed path",
+        title="Google Artifact Registry repository name",
     )
     image: str = Field(
         ...,
         example="sketchbook",
         title="Google Artifact Registry image name",
     )
-    project_id: str = Field(
-        ...,
-        example="ceres-lighthouse-6ab4",
-        title="GCP Project ID for project containing the Artifact Registry",
-    )
-    registry: str = Field(
-        ...,
-        example="us-central1-docker.pkg.dev",
-        title="Hostname of Google Artifact Registry",
-        description=(
-            "Should be a regional or multiregional identifier prepended "
-            "to '-docker.pkg.dev', e.g. 'us-docker.pkg.dev' or "
-            "'us-central1-docker.pkg.dev'"
-        ),
-        regex=r".*-docker\.pkg\.dev$",
-    )
+
+    @property
+    def registry(self) -> str:
+        """Hostname holding the registry."""
+        return f"{self.location}-docker.pkg.dev"
+
+    @property
+    def parent(self) -> str:
+        """Parent string for searches in Google Artifact Repository."""
+        return (
+            f"projects/{self.project_id}/locations/{self.location}"
+            f"/repositories/{self.repository}"
+        )
+
+    @property
+    def path(self) -> str:
+        """What everything else calls a repository."""
+        return f"{self.project_id}/{self.repository}/{self.image}"
 
 
 class PrepullerConfig(CamelCaseModel):
-    """See https://sqr-059.lsst.io for how this is used."""
+    """Configuration for the prepuller."""
 
-    docker: Optional[DockerDefinition] = None
-    gar: Optional[GARDefinition] = None
+    source: DockerSourceConfig | GARSourceConfig = Field(
+        ..., title="Source of images"
+    )
     recommended_tag: str = Field(
         "recommended",
         example="recommended",
-        title="Image tag to use as `recommended` image",
+        title="Tag of recommended image",
+        description=(
+            "This image will be shown first on the menu as the default choice."
+        ),
     )
     num_releases: int = Field(
         1,
         example=1,
-        title="Number of Release images to prepull and display in menu",
+        title="Number of releases to prepull",
+        description=(
+            "This many releases, starting with the most recent, will be"
+            " prepulled and shown as menu selections."
+        ),
+        ge=0,
     )
     num_weeklies: int = Field(
         2,
         example=2,
-        title="Number of Weekly images to prepull and display in menu",
+        title="Number of weeklies to prepull",
+        description=(
+            "This many weeklies, starting with the most recent, will be"
+            " prepulled and shown as menu selections."
+        ),
+        ge=0,
     )
     num_dailies: int = Field(
         3,
         example=3,
-        title="Number of Daily images to prepull and display in menu",
+        title="Number of dailies to prepull",
+        description=(
+            "This many dailies, starting with the most recent, will be"
+            " prepulled and shown as menu selections."
+        ),
+        ge=0,
     )
     cycle: Optional[int] = Field(
         None,
@@ -93,54 +156,20 @@ class PrepullerConfig(CamelCaseModel):
         title="List of image tags to prepull and pin to the menu",
         description=(
             "Forces images to be cached and pinned to the menu even when they"
-            " would not normally be prepulled. This is primarily used to force"
-            " prepulling of the image underlying the recommended tag so that"
-            " we can resolve it to a proper display name."
+            " would not normally be prepulled (not recommended or within the"
+            " latest dailies, weeklies, or releases). This can be used to add"
+            " additional images to the menu or to force resolution of the"
+            " image underlying the recommended tag when Docker is used as the"
+            " image source so that we can give it a proper display name."
         ),
     )
     alias_tags: list[str] = Field(
         [],
         example=["recommended_cycle0027"],
-        title="Additional alias tags for this instance.",
+        title="Additional alias tags",
+        description=(
+            "These tags will automatically be recognized as alias tags rather"
+            " than unknown, which results in different sorting and better"
+            " human-readable descriptions."
+        ),
     )
-
-    @root_validator(pre=True)
-    def registry_defined(cls, values: dict[str, Any]) -> dict[str, Any]:
-        # Allow for empty dicts and convert them to None. This works better
-        # for Helm chart values files.
-        if "docker" not in values or not values["docker"]:
-            values["docker"] = None
-        if "gar" not in values or not values["gar"]:
-            values["gar"] = None
-
-        # Make sure that exactly one of docker or gar is set.
-        if values["docker"] and values["gar"]:
-            raise ValueError("Both docker and gar image sources set")
-        if not values["docker"] and not values["gar"]:
-            raise ValueError("One of docker or gar must be defined")
-        return values
-
-    @property
-    def registry(self) -> str:
-        """The image registry (hostname and optional port)."""
-        if self.gar:
-            return self.gar.registry
-        elif self.docker:
-            return self.docker.registry
-        else:
-            # This is impossible due to validation, but mypy doesn't know that.
-            raise RuntimeError("PrepullerConfig with no docker or gar")
-
-    @property
-    def repository(self) -> str:
-        """The image repository (Docker reference without the host or tag)."""
-        if self.gar:
-            return (
-                f"{self.gar.project_id}/{self.gar.repository}"
-                f"/{self.gar.image}"
-            )
-        elif self.docker:
-            return self.docker.repository
-        else:
-            # This is impossible due to validation, but mypy doesn't know that.
-            raise RuntimeError("PrepullerConfig with no docker or gar")

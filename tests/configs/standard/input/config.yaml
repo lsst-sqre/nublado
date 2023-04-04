@@ -1,25 +1,7 @@
-# -- safir settings; generically set through environment variables,
-# but we'd rather do it this way and just control all config through
-# the ConfigMap
 safir:
-  # -- The application's name (not necessarily the root HTTP endpoint path)
-  name: jupyterlab-controller
-  # -- The application's root HTTP endpoint path
-  rootEndpoint: nublado
-  # -- Application run profile: "development" or "production"
   profile: development
-  # -- Root name of the application's logger.
-  loggerName: jupyterlabcontroller
-  #
   logLevel: DEBUG
-# -- Settings for the JupyterLab controller
 lab:
-  # These are the maximum CPU/memory allocations for each size
-  # category.
-  # The size names and ordering are taken from:
-  # https://www.d20srd.org/srd/combat/movementPositionAndDistance.htm#bigandLittleCreaturesInCombat
-  # Typically, we support small, medium, and large, but can range up
-  # and down in instance-specific configuration.
   sizes:
     small:
       cpu: 1.0
@@ -30,72 +12,47 @@ lab:
     large:
       cpu: 4.0
       memory: 12Gi
-  # -- List of specifications for containers to run to commission a new user.
-  initcontainers: []
-  # Each member of the list should set a container `name`, `image`, and
-  # `privileged`, and may contain `volumes` (defined immediately below).
-  # If `privileged` is true, the container will run as root with
-  # `allowPrivilegeEscalation` true; otherwise it will (by convention)
-  # run as user 1000.
-  # - name: farthing
-  #   image: lsstsqre/farthing
-  #   privileged: false
-  # - name: provisionator
-  #   image: lsstsqre/provisionator
-  #   privileged: true
-  #   volumes:
-  #   - containerPath: /home
-  #     serverPath: /share1/home
-  #     server: 10.13.105.122
-  #     mode: rw
-  # -- Volumes defined to user lab pods
   volumes:
-  - containerPath: /home
-    serverPath: /share1/home
-    server: 10.13.105.122
-    mode: rw
-  - containerPath: /project
-    serverPath: /share1/project
-    server: 10.13.105.122
-    mode: ro
-  - containerPath: /scratch
-    serverPath: /share1/scratch
-    server: 10.13.105.122
-    mode: rw
-  # -- Environment variables for user lab pods, common to all lab pods
-  # in this RSP instance.
+    - containerPath: /home
+      serverPath: /share1/home
+      server: 10.13.105.122
+      mode: rw
+    - containerPath: /project
+      serverPath: /share1/project
+      server: 10.13.105.122
+      mode: ro
+    - containerPath: /scratch
+      serverPath: /share1/scratch
+      server: 10.13.105.122
+      mode: rw
   env:
     API_ROUTE: /api
-    # AUTO_REPO_BRANCH: "prod"  # No longer needed
     AUTO_REPO_SPECS: "https://github.com/lsst-sqre/system-test@prod,https://github.com/rubin-dp0/tutorial-notebooks@prod"
-    # AUTO_REPO_URLS: "https://github.com/lsst-sqre/system-test,https://github.com/rubin-dp0/tutorial-notebooks"  # No longer needed
-    CULL_KERNEL_IDLE_TIMEOUT: "432000"  # These might be set from group?
+    CULL_KERNEL_IDLE_TIMEOUT: "432000"
     CULL_KERNEL_CONNECTED: "True"
     CULL_KERNEL_INTERVAL: "300"
     DAF_BUTLER_REPOSITORY_INDEX: "s3://butler-us-central1-repo-locations/data-repos.yaml"
     FIREFLY_ROUTE: /portal/app
     HUB_ROUTE: /nb/hub
-    # JS9_ROUTE: /js9  # No longer used?
-    JUPYTERHUB_ADMIN_ACCESS: "1"  # Do we need this?!?
+    JUPYTERHUB_ADMIN_ACCESS: "1"
     JUPYTERHUB_API_URL: http://hub.nublado2:8081/nb/hub/api
     JUPYTERHUB_BASE_URL: /nb/
     JUPYTERHUB_DEFAULT_URL: /lab
-    JUPYTERHUB_OAUTH_CLIENT_ALLOWED_SCOPES: '[]' # needed?
-    NO_ACTIVITY_TIMEOUT: "432000"  # Also from group?
+    JUPYTERHUB_OAUTH_CLIENT_ALLOWED_SCOPES: '[]'
+    NO_ACTIVITY_TIMEOUT: "432000"
     NO_SUDO: "TRUE"
     S3_ENDPOINT_URL: "https://storage.googleapis.com"
     SODA_ROUTE: /api/image/soda
     TAP_ROUTE: /api/tap
-    # WORKFLOW_ROUTE: /wf  # No longer used
-    # Note that other environment variables will be injected by the
-    # Lab controller (to match KubeSpawner's behavior).  These
-    # must be calculated from other Lab-spawn-time values, and
-    # include:
+
+    # Note that other environment variables will be injected by the Lab
+    # controller (to match KubeSpawner's behavior).  These must be calculated
+    # from other Lab-spawn-time values, and include:
+    #
     # ACCESS_TOKEN
+    # CPU_GUARANTEE
     # CPU_LIMIT
     # DEBUG
-    # EXTERNAL_GID
-    # EXTERNAL_GROUPS
     # JPY_API_TOKEN
     # JUPYTERHUB_ACTIVITY_URL
     # JUPYTERHUB_CLIENT_ID
@@ -105,25 +62,20 @@ lab:
     # JUPYTERHUB_SERVICE_PREFIX
     # JUPYTERHUB_SERVICE_URL
     # JUPYTERHUB_USER
-    # JUPYTER_IMAGE
-    # JUPYTER_IMAGE_SPEC  # Alias for JUPYTER_IMAGE
+    # JUPYTER_IMAGE         # Alias for JUPYTER_IMAGE_SPEC
+    # JUPYTER_IMAGE_SPEC
     # MEM_GUARANTEE  # in bytes
     # MEM_LIMIT      # in bytes
     # RESET_USER_ENV
-    # Additionally, some environment variables will be set from the
-    # secrets below.  These will be paths to injected credential
-    # files.
-    # EXTERNAL_INSTANCE_URL is a special case: it's
-    # constant-per-instance, but you can't template values files
+    #
+    # Additionally, some environment variables will be set from the secrets
+    # below.
+    #
+    # EXTERNAL_INSTANCE_URL is a special case: it's constant-per-instance, but
+    # you can't template values files
   secrets:
     - secretName: pull_secret
       secretKey: ".dockerconfigjson"
-  #  secretName: credentials
-  #  secretKey: butler-credentials
-  # -- Files to be mounted as ConfigMaps inside the user lab pod.
-  # Some of these will require modification.  Those are noted with
-  # modify: true, and the file name will be the unique key directing
-  # how the Lab controller is to modify it.
   files:
     /etc/passwd:
       modify: true
@@ -207,28 +159,9 @@ lab:
         #url_prefix = /idds
         #cacher_dir = /tmp
         cacher_dir = /data/idds
-  # # -- Secrets for injection into user lab pods.  The name is again
-  # # the unique key that allows the Lab Controller to create the
-  # # contents.  Since these are stored as secrets, they will be created
-  # # from whole cloth, rather than modified from a base template.
-  # # If 'env' is specified, the mount_path will be stored in that environment
-  # # variable.
-  # secrets:
-  # - name: aws-credentials.ini
-  #   mount_path: /opt/lsst/software/jupyterlab/butler-secret/aws-credentials.ini
-  #   env: AWS_SHARED_CREDENTIALS_FILE
-
-  # - name: butler-gcs-idf-creds.json
-  #   mount_path: /opt/lsst/software/jupyterlab/butler-secret/butler-gcs-idf-creds.json
-  #   env: GOOGLE_APPLICATION_CREDENTIALS
-  # - name: butler-hmac-idf-creds.json
-  #   mount_path: /opt/lsst/software/jupyterlab/butler-secret/butler-hmac-idf-creds.json
-  # - name: postgres-credentials.txt
-  #   mount_path: /opt/lsst/software/jupyterlab/butler-secret/postgres-credentials.txt
-  #   env: PGPASSFILE
 images:
-  # -- config from sqr-066
-  docker:
+  source:
+    type: docker
     registry: lighthouse.ceres
     repository: library/sketchbook
   recommendedTag: recommended

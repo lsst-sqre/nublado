@@ -121,6 +121,7 @@ class ContextDependency:
         """Clean up the per-process configuration."""
         if self._process_context:
             await self._process_context.stop()
+            await self._process_context.aclose()
         self._process_context = None
 
 
