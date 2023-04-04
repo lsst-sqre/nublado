@@ -282,3 +282,58 @@ async def test_lab_objects(
     with (std_result_dir / "lab-objects.json").open("r") as f:
         expected = json.load(f)
     assert [strip_none(o.to_dict()) for o in objects] == expected
+
+
+@pytest.mark.asyncio
+async def test_errors(
+    client: AsyncClient, obj_factory: TestObjectFactory
+) -> None:
+    token, user = obj_factory.get_user()
+    lab = obj_factory.labspecs[0]
+
+    # Test passing a reference with no tag.
+    options = lab.options.dict()
+    options["image_list"] = "lighthouse.ceres/library/sketchbook"
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": options, "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 422
+    msg = 'Docker reference "lighthouse.ceres/library/sketchbook" has no tag'
+    assert r.json() == {
+        "detail": [
+            {
+                "loc": ["body", "options", "image_list"],
+                "msg": msg,
+                "type": "invalid_docker_reference",
+            }
+        ]
+    }
+
+    # The same but in image_dropdown.
+    options = lab.options.dict()
+    options["image_list"] = DROPDOWN_SENTINEL_VALUE
+    options["image_dropdown"] = "lighthouse.ceres/library/sketchbook"
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": options, "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 422
+    msg = 'Docker reference "lighthouse.ceres/library/sketchbook" has no tag'
+    assert r.json() == {
+        "detail": [
+            {
+                "loc": ["body", "options", "image_dropdown"],
+                "msg": msg,
+                "type": "invalid_docker_reference",
+            }
+        ]
+    }

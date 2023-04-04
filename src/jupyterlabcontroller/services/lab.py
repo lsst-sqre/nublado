@@ -190,7 +190,7 @@ class LabManager:
 
         Raises
         ------
-        jupyterlabcontroller.exceptions.InvalidDockerReferenceError
+        InvalidDockerReferenceError
             Docker image reference in the lab specification is invalid.
         """
         username = user.username

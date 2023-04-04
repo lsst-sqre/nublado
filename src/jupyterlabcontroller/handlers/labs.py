@@ -1,11 +1,12 @@
 """Routes for lab manipulation (start, stop, get status, see events)."""
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
-from safir.models import ErrorModel
+from safir.models import ErrorLocation, ErrorModel
 from sse_starlette import EventSourceResponse
 
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import (
+    InvalidDockerReferenceError,
     InvalidUserError,
     LabExistsError,
     NoUserMapError,
@@ -78,6 +79,11 @@ async def post_new_lab(
     lab_manager = context.factory.create_lab_manager()
     try:
         await lab_manager.create_lab(user, x_auth_request_token, lab)
+    except InvalidDockerReferenceError as e:
+        e.location = ErrorLocation.body
+        field = "image_list" if lab.options.image_list else "image_dropdown"
+        e.field_path = ["options", field]
+        raise
     except LabExistsError:
         raise HTTPException(status_code=409, detail="Conflict")
     url = context.request.url_for("get_userdata", username=username)
