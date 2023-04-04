@@ -40,7 +40,6 @@
       "MEM_GUARANTEE": "805306368",
       "MEM_LIMIT": "3221225472",
       "EXTERNAL_INSTANCE_URL": "http://127.0.0.1:8080",
-      "ACCESS_TOKEN": "token-of-affection",
       "HOME": "/home/ceres",
       "SHELL": "/bin/bash"
     },
@@ -149,6 +148,16 @@
             "/opt/lsst/software/jupyterlab/runlab.sh"
           ],
           "env": [
+            {
+              "name": "ACCESS_TOKEN",
+              "value_from": {
+                "secret_key_ref": {
+                  "key": "token",
+                  "name": "nb-rachel",
+                  "optional": false
+                }
+              }
+            },
             {
               "name": "K8S_NODE_NAME",
               "value_from": {
