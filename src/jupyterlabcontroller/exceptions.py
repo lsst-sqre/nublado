@@ -16,7 +16,6 @@ __all__ = [
     "KubernetesError",
     "LabExistsError",
     "MissingSecretError",
-    "NoUserMapError",
     "NSCreationError",
     "NSDeletionError",
     "UnknownDockerImageError",
@@ -154,10 +153,6 @@ class KubernetesError(Exception):
 
 class LabExistsError(Exception):
     """Lab creation was attempted for a user with an active lab."""
-
-
-class NoUserMapError(Exception):
-    """Lab deletion was attempted for a user without a lab."""
 
 
 class GafaelfawrError(Exception):

@@ -58,6 +58,15 @@ async def test_lab_start_stop(
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
     size_manager = factory.create_size_manager()
+    unknown_user_error = {
+        "detail": [
+            {
+                "loc": ["path", "username"],
+                "msg": f"Unknown user {user.username}",
+                "type": "unknown_user",
+            }
+        ]
+    }
 
     # No users should have running labs.
     r = await client.get("/nublado/spawner/v1/labs")
@@ -65,29 +74,19 @@ async def test_lab_start_stop(
     assert r.json() == []
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 404
-    assert r.json() == {
-        "detail": [
-            {
-                "loc": ["path", "username"],
-                "msg": f"Unknown user {user.username}",
-                "type": "unknown_user",
-            }
-        ]
-    }
+    assert r.json() == unknown_user_error
     r = await client.get(
         f"/nublado/spawner/v1/labs/{user.username}/events",
         headers={"X-Auth-Request-User": user.username},
     )
     assert r.status_code == 404
-    assert r.json() == {
-        "detail": [
-            {
-                "loc": ["path", "username"],
-                "msg": f"Unknown user {user.username}",
-                "type": "unknown_user",
-            }
-        ]
-    }
+    assert r.json() == unknown_user_error
+    r = await client.delete(
+        f"/nublado/spawner/v1/labs/{user.username}",
+        headers={"X-Auth-Request-User": user.username},
+    )
+    assert r.status_code == 404
+    assert r.json() == unknown_user_error
 
     # Create a lab.
     r = await client.post(

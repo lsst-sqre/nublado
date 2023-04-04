@@ -37,7 +37,7 @@ from kubernetes_asyncio.client import (
 from structlog.stdlib import BoundLogger
 
 from ..config import FileMode, LabConfig, LabVolume
-from ..exceptions import LabExistsError, NoUserMapError
+from ..exceptions import LabExistsError, UnknownUserError
 from ..models.domain.docker import DockerReference
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.rspimage import RSPImage
@@ -903,7 +903,7 @@ class LabManager:
     async def delete_lab(self, username: str) -> None:
         user = self.user_map.get(username)
         if user is None:
-            raise NoUserMapError(f"Cannot find map for user {username}")
+            raise UnknownUserError(f"Unknown user {username}")
         self.user_map.set_status(username, LabStatus.TERMINATING)
         self.user_map.clear_internal_url(username)
         #

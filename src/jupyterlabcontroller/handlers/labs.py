@@ -9,7 +9,6 @@ from ..exceptions import (
     InvalidDockerReferenceError,
     InvalidUserError,
     LabExistsError,
-    NoUserMapError,
     PermissionDeniedError,
     UnknownUserError,
 )
@@ -108,9 +107,10 @@ async def delete_user_lab(
     lab_manager = context.factory.create_lab_manager()
     try:
         await lab_manager.delete_lab(username)
-    except NoUserMapError:
-        raise HTTPException(status_code=404, detail="Not found")
-    return
+    except UnknownUserError as e:
+        e.location = ErrorLocation.path
+        e.field_path = ["username"]
+        raise
 
 
 @router.get(
