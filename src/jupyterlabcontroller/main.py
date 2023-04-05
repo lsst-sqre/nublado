@@ -11,7 +11,7 @@ from safir.middleware.x_forwarded import XForwardedMiddleware
 
 from .dependencies.config import configuration_dependency
 from .dependencies.context import context_dependency
-from .exceptions import ValidationError
+from .exceptions import ClientRequestError
 from .handlers import form, index, labs, prepuller, user_status
 
 __all__ = ["create_app"]
@@ -67,9 +67,9 @@ def create_app() -> FastAPI:
         await context_dependency.aclose()
         await http_client_dependency.aclose()
 
-    @app.exception_handler(ValidationError)
-    async def validation_handler(
-        request: Request, exc: ValidationError
+    @app.exception_handler(ClientRequestError)
+    async def client_error_handler(
+        request: Request, exc: ClientRequestError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code, content={"detail": [exc.to_dict()]}
