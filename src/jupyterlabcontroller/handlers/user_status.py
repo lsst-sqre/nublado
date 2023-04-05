@@ -20,7 +20,7 @@ __all__ = ["router"]
     response_model=UserData,
 )
 async def get_user_status(
-    x_auth_request_user: str = Header(...),
+    x_auth_request_user: str = Header(..., include_in_schema=False),
     context: RequestContext = Depends(context_dependency),
 ) -> UserData:
     userdata = context.user_map.get(x_auth_request_user)

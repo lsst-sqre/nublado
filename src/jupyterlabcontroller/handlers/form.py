@@ -21,7 +21,7 @@ __all__ = ["router"]
 )
 async def get_user_lab_form(
     username: str,
-    x_auth_request_user: str = Header(...),
+    x_auth_request_user: str = Header(..., include_in_schema=False),
     context: RequestContext = Depends(context_dependency),
 ) -> str:
     if username != x_auth_request_user:
