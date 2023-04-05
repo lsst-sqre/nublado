@@ -965,12 +965,14 @@ class LabManager:
                     else:
                         self.logger.warning("Updating user map")
                         user_map.set_status(user, status=obs_rec.status)
+
         # Second pass: take observed state and create any missing user map
-        # entries
+        # entries. This is the normal case after a restart of the lab
+        # controller.
         for user in obs_users:
             obs_rec = observed_state[user]
             if user not in known_users:
-                self.logger.warning(
+                self.logger.info(
                     f"No entry for observed user '{user}' in user "
                     + "map.  Creating record from observation"
                 )
