@@ -9,6 +9,9 @@ CONFIGURATION_PATH = Path("/etc/nublado/config.yaml")
 DOCKER_SECRETS_PATH = Path("/etc/secrets/.dockerconfigjson")
 """Default path to the Docker API secrets."""
 
+METADATA_PATH = Path("/etc/podinfo")
+"""Default path to injected pod metadata."""
+
 IMAGE_REFRESH_INTERVAL = timedelta(minutes=5)
 """How frequently to refresh the list of remote and cached images."""
 

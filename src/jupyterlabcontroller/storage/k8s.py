@@ -18,6 +18,7 @@ from kubernetes_asyncio.client.models import (
     V1NetworkPolicyPort,
     V1NetworkPolicySpec,
     V1ObjectMeta,
+    V1OwnerReference,
     V1Pod,
     V1PodSpec,
     V1ResourceQuota,
@@ -469,11 +470,15 @@ class K8sStorageClient:
         name: str,
         namespace: str,
         pod_spec: V1PodSpec,
+        *,
         labels: Optional[dict[str, str]] = None,
+        owner: Optional[V1OwnerReference] = None,
     ) -> None:
         metadata = self._standard_metadata(name)
         if labels:
             metadata.labels.update(labels)
+        if owner:
+            metadata.owner_references = [owner]
         pod = V1Pod(metadata=metadata, spec=pod_spec)
         try:
             await self.api.create_namespaced_pod(namespace, pod)

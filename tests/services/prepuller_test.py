@@ -152,7 +152,9 @@ async def test_gar(
         expected = read_output_data("gar", "menu-before.json")
         assert seen == expected
 
-        # There should be two running pods, one for each node.
+        # There should be two running pods, one for each node. Since we didn't
+        # configure any pod metadata, they should also not have owner
+        # references.
         namespace = config.lab.namespace_prefix
         pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
         tag = known_images[0]["tags"][0].replace("_", "-")
@@ -160,6 +162,7 @@ async def test_gar(
             f"prepull-{tag}-node1",
             f"prepull-{tag}-node2",
         ]
+        assert all([not p.metadata.owner_references for p in pod_list.items])
 
         # Mark those nodes as complete, and two more should be started.
         for pod in pod_list.items:

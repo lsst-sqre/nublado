@@ -12,7 +12,7 @@ from pydantic import BaseSettings, Field, validator
 from safir.logging import LogLevel, Profile
 from safir.pydantic import CamelCaseModel, to_camel_case
 
-from .constants import DOCKER_SECRETS_PATH
+from .constants import DOCKER_SECRETS_PATH, METADATA_PATH
 from .models.v1.lab import LabSize
 from .models.v1.prepuller_config import PrepullerConfig
 
@@ -274,6 +274,17 @@ class Config(BaseSettings):
     )
     docker_secrets_path: Path = Field(
         DOCKER_SECRETS_PATH, title="Path to Docker API credentials"
+    )
+    metadata_path: Path = Field(
+        METADATA_PATH,
+        title="Path to injected pod metadata",
+        description=(
+            "This directory should contain files named `name` and `uid`, which"
+            " should contain the name and UUID of the lab controller pod,"
+            " respectively. (Normally this is done via the Kubernetes"
+            " `downwardAPI`.) These are used to set ownership information on"
+            " pods spawned by the prepuller."
+        ),
     )
 
     # CamelCaseModel conflicts with BaseSettings, so do this manually.
