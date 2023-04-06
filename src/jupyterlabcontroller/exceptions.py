@@ -379,7 +379,7 @@ class KubernetesError(SlackException):
             namespace=namespace,
             name=name,
             status=exc.status,
-            body=exc.body,
+            body=exc.body if exc.body else exc.reason,
         )
 
     def __init__(
@@ -393,10 +393,29 @@ class KubernetesError(SlackException):
         body: Optional[str] = None,
     ) -> None:
         super().__init__(message, user)
+        self.message = message
         self.namespace = namespace
         self.name = name
         self.status = status
         self.body = body
+
+    def __str__(self) -> str:
+        result = self.message
+        if self.name or self.status:
+            result += " ("
+            if self.name:
+                if self.namespace:
+                    result += f"{self.namespace}/{self.name}"
+                else:
+                    result += self.name
+                if self.status:
+                    result += ", "
+            if self.status:
+                result += f"status {self.status}"
+            result += ")"
+        if self.body:
+            result += f": {self.body}"
+        return result
 
     def to_slack(self) -> SlackMessage:
         """Convert to a Slack message for Slack alerting.
@@ -417,7 +436,7 @@ class KubernetesError(SlackException):
             field = SlackTextField(heading="Status", text=self.status)
             message.fields.append(field)
         if self.body:
-            block = SlackCodeBlock(heading="Body", code=self.body)
+            block = SlackCodeBlock(heading="Error", code=self.body)
             message.blocks.append(block)
         return message
 
