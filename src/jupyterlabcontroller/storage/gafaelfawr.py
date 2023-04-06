@@ -71,7 +71,9 @@ class GafaelfawrStorageClient:
             raise InvalidTokenError("User token is invalid")
         try:
             r.raise_for_status()
-            return UserInfo.parse_obj(r.json())
+            data = r.json()
+            self._logger.debug("Retrieved user metadata", metadata=data)
+            return UserInfo.parse_obj(data)
         except HTTPError as e:
             raise GafaelfawrWebError.from_exception(e) from e
         except ValidationError as e:

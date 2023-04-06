@@ -111,9 +111,9 @@ class DockerStorageClient:
         http_client: AsyncClient,
         logger: BoundLogger,
     ) -> None:
+        self._credentials = DockerCredentialStore.from_path(credentials_path)
         self._client = http_client
         self._logger = logger
-        self._credentials = DockerCredentialStore.from_path(credentials_path)
 
         # Cached authorization headers by registry. This is populated once we
         # have had to authenticate to a registry and may contain the HTTP
@@ -142,7 +142,14 @@ class DockerStorageClient:
                 headers = await self._authenticate(config.registry, r)
                 r = await self._client.get(url, headers=headers)
             r.raise_for_status()
-            return r.json()["tags"]
+            tags = r.json()["tags"]
+            self._logger.debug(
+                "Listed all image tags",
+                registry=config.registry,
+                repository=config.repository,
+                count=len(tags),
+            )
+            return tags
         except HTTPError as e:
             raise DockerRegistryError.from_exception(e) from e
         except Exception as e:
@@ -182,7 +189,15 @@ class DockerStorageClient:
                 headers = await self._authenticate(config.registry, r)
                 r = await self._client.head(url, headers=headers)
             r.raise_for_status()
-            return r.headers["Docker-Content-Digest"]
+            digest = r.headers["Docker-Content-Digest"]
+            self._logger.debug(
+                "Retrieved image digest for tag",
+                registry=config.registry,
+                repository=config.repository,
+                tag=tag,
+                digest=digest,
+            )
+            return digest
         except HTTPError as e:
             raise DockerRegistryError.from_exception(e) from e
         except Exception as e:
@@ -318,6 +333,7 @@ class DockerStorageClient:
         self._logger.info(
             "Obtaining Docker API bearer token",
             registry=host,
+            url=url,
             username=credentials.username,
         )
         auth = (credentials.username, credentials.password)
