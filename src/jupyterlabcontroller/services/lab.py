@@ -508,24 +508,16 @@ class LabManager:
         )
 
     async def create_quota(self, user: UserInfo) -> None:
-        quota = self.build_namespace_quota(user)
-        if quota is not None:
-            await self.k8s_client.create_quota(
-                name=f"nb-{user.username}",
-                namespace=self.namespace_from_user(user),
-                quota=quota,
-            )
-
-    def build_namespace_quota(
-        self, user: UserInfo
-    ) -> Optional[UserResourceQuantum]:
-        if user.quota and user.quota.notebook:
-            return UserResourceQuantum(
+        if not user.quota or not user.quota.notebook:
+            return
+        await self.k8s_client.create_quota(
+            f"nb-{user.username}",
+            self.namespace_from_user(user),
+            UserResourceQuantum(
                 cpu=user.quota.notebook.cpu,
                 memory=int(user.quota.notebook.memory * 1024 * 1024 * 1024),
-            )
-        else:
-            return None
+            ),
+        )
 
     async def create_user_pod(
         self, user: UserInfo, resources: UserResources, image: RSPImage

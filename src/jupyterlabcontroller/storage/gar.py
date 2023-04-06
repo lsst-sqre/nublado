@@ -66,4 +66,13 @@ class GARStorageClient:
                 image.size = gar_image.image_size_bytes
                 images.append(image)
 
+        self._logger.debug(
+            "Listed all images",
+            location=config.location,
+            project_id=config.project_id,
+            repository=config.repository,
+            image=config.image,
+            count=len(images),
+        )
+
         return RSPImageCollection(images, cycle=cycle)
