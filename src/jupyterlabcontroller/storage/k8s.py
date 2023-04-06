@@ -8,8 +8,9 @@ from collections.abc import AsyncGenerator
 from typing import Optional
 
 from kubernetes_asyncio import client, watch
-from kubernetes_asyncio.client.api_client import ApiClient
-from kubernetes_asyncio.client.models import (
+from kubernetes_asyncio.client import (
+    ApiClient,
+    ApiException,
     V1ConfigMap,
     V1LabelSelector,
     V1Namespace,
@@ -28,20 +29,20 @@ from kubernetes_asyncio.client.models import (
     V1ServicePort,
     V1ServiceSpec,
 )
-from kubernetes_asyncio.client.rest import ApiException
 from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
 from ..exceptions import (
     KubernetesError,
     MissingSecretError,
-    NSCreationError,
     WaitingForObjectError,
 )
 from ..models.domain.kubernetes import KubernetesNodeImage
 from ..models.k8s import K8sPodPhase, Secret
 from ..models.v1.lab import UserData, UserResourceQuantum
 from ..util import deslashify
+
+__all__ = ["K8sStorageClient"]
 
 
 class K8sStorageClient:
@@ -56,37 +57,25 @@ class K8sStorageClient:
     async def aclose(self) -> None:
         await self.k8s_api.close()
 
-    async def create_user_namespace(self, namespace: str) -> None:
-        self.logger.info(f"Attempting creation of namespace '{namespace}'")
-        body = V1Namespace(metadata=self._standard_metadata(namespace))
+    async def create_user_namespace(self, name: str) -> None:
+        """Create the namespace for a user's lab.
+
+        Parameters
+        ----------
+        name
+            Name of the namespace.
+        """
+        self.logger.info(f"Attempting creation of namespace '{name}'")
+        body = V1Namespace(metadata=self._standard_metadata(name))
         try:
             await self.api.create_namespace(body)
         except ApiException as e:
             if e.status == 409:
-                self.logger.info(f"Namespace {namespace} already exists")
-                # ... but we know that we don't have a lab for the user,
-                # because we got this far.  So there's a stranded namespace,
-                # and we should delete it and recreate it.
-                #
-                # The spec actually calls for us to delete the lab and then the
-                # namespace, but let's just remove the namespace, which should
-                # also clean up all its contents.
-                try:
-                    await self.delete_namespace(namespace)
-                except ApiException as e2:
-                    if e2.status == 404:
-                        return  # No such namespace is just fine (but weird).
-                    estr = f"Failed to delete namespace {namespace}: {e2}"
-                    self.logger.exception(estr)
-                    raise NSCreationError(estr)
-                # Wait until it's gone.
-                await self.wait_for_namespace_deletion(namespace)
-                # Just try again, and return *that* one's return value.
-                return await self.create_user_namespace(namespace)
-            # Outer try/except
-            estr = f"Failed to create namespace {namespace}: {e}"
-            self.logger.exception(estr)
-            raise NSCreationError(estr)
+                # The namespace already exists. Presume that it is stranded,
+                # delete it and all of its resources, and recreate it.
+                await self._recreate_user_namespace(name)
+            msg = "Cannot create user namespace"
+            raise KubernetesError.from_exception(msg, e, name=name) from e
 
     async def create_secrets(
         self,
@@ -104,11 +93,12 @@ class K8sStorageClient:
     async def wait_for_namespace_deletion(
         self, namespace: str, interval: float = 0.2
     ) -> None:
-        """Once it's underway, we loop, reading the
-        namespace.  We eventually expect a 404, and when we get it we
-        return.  If it doesn't arrive within the timeout, we raise the
-        timeout exception, and if we get some other error, we repackage that
-        and raise it.
+        """Wait for a namespace to disappear.
+
+        Once it's underway, we loop, reading the namespace. We eventually
+        expect a 404, and when we get it we return. If it doesn't arrive
+        within the timeout, we raise the timeout exception, and if we get some
+        other error, we repackage that and raise it.
         """
         elapsed = 0.0
         while elapsed < self.timeout:
@@ -117,10 +107,12 @@ class K8sStorageClient:
             except ApiException as e:
                 if e.status == 404:
                     return
-                raise WaitingForObjectError(str(e))
+                raise KubernetesError.from_exception(
+                    "Cannot get status of namespace", e, name=namespace
+                ) from e
             await asyncio.sleep(interval)
             elapsed += interval
-        raise WaitingForObjectError("Timed out waiting for ns deletion")
+        raise WaitingForObjectError("Timed out waiting for namespace deletion")
 
     async def wait_for_pod_creation(
         self, podname: str, namespace: str, interval: float = 0.2
@@ -149,8 +141,12 @@ class K8sStorageClient:
                         + f"at {elapsed}s."
                     )
                 else:
-                    self.logger.error(f"API Error: {e}")
-                    raise WaitingForObjectError(str(e))
+                    raise KubernetesError.from_exception(
+                        "Error reading pod status",
+                        e,
+                        namespace=namespace,
+                        name=podname,
+                    ) from e
             phase = pod_status.phase
             if phase == K8sPodPhase.UNKNOWN:
                 unk += 1
@@ -193,18 +189,28 @@ class K8sStorageClient:
                     # Not there to start with is OK.
                     return
                 else:
-                    self.logger.error(f"API Error: {e}")
-                    raise WaitingForObjectError(str(e))
+                    raise KubernetesError.from_exception(
+                        "Error reading pod status of completed pod",
+                        e,
+                        namespace=namespace,
+                        name=podname,
+                    ) from e
             phase = pod_status.phase
             if phase == K8sPodPhase.SUCCEEDED:
                 try:
                     await self.api.delete_namespaced_pod(podname, namespace)
-                    msg = f"Removed completed pod {namespace}/{podname}"
-                    self.logger.debug(msg)
-                    return
                 except ApiException as e:
                     if e.status == 404:
                         return
+                    raise KubernetesError.from_exception(
+                        "Error deleting completed pod",
+                        e,
+                        namespace=namespace,
+                        name=podname,
+                    ) from e
+                msg = f"Removed completed pod {namespace}/{podname}"
+                self.logger.debug(msg)
+                return
             await asyncio.sleep(interval)
             elapsed += interval
         # And if we get this far, it timed out without being created.
@@ -254,8 +260,12 @@ class K8sStorageClient:
                         phase = K8sPodPhase.FAILED  # A guess, but
                         # puts us into stopping state
                     else:
-                        self.logger.error(f"API Error: {e}")
-                        raise WaitingForObjectError(str(e)) from e
+                        raise KubernetesError.from_exception(
+                            "Error reading pod status",
+                            e,
+                            namespace=namespace,
+                            name=podname,
+                        ) from e
                 phase = pod.status.phase
                 logger.debug(f"Pod phase is now {phase}")
                 if phase in (
@@ -368,7 +378,12 @@ class K8sStorageClient:
             immutable=immutable,
             metadata=self._standard_metadata(name),
         )
-        await self.api.create_namespaced_secret(namespace, secret)
+        try:
+            await self.api.create_namespaced_secret(namespace, secret)
+        except ApiException as e:
+            raise KubernetesError.from_exception(
+                "Error creating secret", e, namespace=namespace, name=name
+            ) from e
 
     async def read_secret(
         self,
@@ -377,13 +392,15 @@ class K8sStorageClient:
     ) -> Secret:
         try:
             secret = await self.api.read_namespaced_secret(name, namespace)
-        except Exception as exc:
-            errstr = (
-                f"Failed to read secret {name} in namespace {namespace}: "
-                f"{exc}"
-            )
-            self.logger.error(errstr)
-            raise MissingSecretError(errstr)
+        except ApiException as e:
+            if e.status == 404:
+                errstr = f"Secret {namespace}/{name} does not exist"
+                self.logger.error(errstr)
+                raise MissingSecretError(errstr)
+            else:
+                raise KubernetesError.from_exception(
+                    "Error reading secret", e, namespace=namespace, name=name
+                ) from e
         secret_type = secret.type
         return Secret(data=secret.data, secret_type=secret_type)
 
@@ -401,9 +418,10 @@ class K8sStorageClient:
         )
         try:
             await self.api.create_namespaced_config_map(namespace, configmap)
-        except Exception as exc:
-            self.logger.error(f"Create config_map failed: {exc}")
-            raise
+        except ApiException as e:
+            raise KubernetesError.from_exception(
+                "Error creating config map", e, namespace=namespace, name=name
+            ) from e
 
     async def create_network_policy(
         self,
@@ -430,9 +448,13 @@ class K8sStorageClient:
         )
         try:
             await api.create_namespaced_network_policy(namespace, policy)
-        except Exception as exc:
-            self.logger.error(f"Network policy creation failed: {exc}")
-            raise
+        except ApiException as e:
+            raise KubernetesError.from_exception(
+                "Error creating network policy",
+                e,
+                namespace=namespace,
+                name=name,
+            ) from e
 
     async def create_lab_service(self, username: str, namespace: str) -> None:
         service = V1Service(
@@ -444,9 +466,13 @@ class K8sStorageClient:
         )
         try:
             await self.api.create_namespaced_service(namespace, service)
-        except Exception as exc:
-            self.logger.error(f"Service creation failed: {exc}")
-            raise
+        except ApiException as e:
+            raise KubernetesError.from_exception(
+                "Error creating service",
+                e,
+                namespace=namespace,
+                name="lab",
+            ) from e
 
     async def create_quota(
         self,
@@ -463,7 +489,15 @@ class K8sStorageClient:
                 }
             ),
         )
-        await self.api.create_namespaced_resource_quota(namespace, body)
+        try:
+            await self.api.create_namespaced_resource_quota(namespace, body)
+        except ApiException as e:
+            raise KubernetesError.from_exception(
+                "Error creating resource quota",
+                e,
+                namespace=namespace,
+                name=name,
+            ) from e
 
     async def create_pod(
         self,
@@ -482,27 +516,35 @@ class K8sStorageClient:
         pod = V1Pod(metadata=metadata, spec=pod_spec)
         try:
             await self.api.create_namespaced_pod(namespace, pod)
-        except Exception as exc:
-            self.logger.error(f"Error creating pod: {exc}")
-            raise
+        except ApiException as e:
+            raise KubernetesError.from_exception(
+                "Error creating pod",
+                e,
+                namespace=namespace,
+                name=name,
+            ) from e
         self.logger.debug(f"Created pod {namespace}/{name}")
 
-    async def delete_namespace(
-        self,
-        namespace: str,
-    ) -> None:
-        """Delete the namespace with name ``namespace``.  If it doesn't exist,
+    async def delete_namespace(self, name: str) -> None:
+        """Delete the namespace with name ``name``.  If it doesn't exist,
         that's OK.
         """
-        self.logger.debug(f"Deleting namespace {namespace}")
+        self.logger.debug(f"Deleting namespace {name}")
         try:
             await asyncio.wait_for(
-                self.api.delete_namespace(namespace), self.timeout
+                self.api.delete_namespace(name), self.timeout
             )
-        except ApiException as exc:
-            if exc.status == 404:
-                return  # "Not there to start with" is fine
-            raise
+        except ApiException as e:
+            if e.status == 404:
+                return
+            msg = "Error deleting namespace"
+            raise KubernetesError.from_exception(msg, e, name=name) from e
+        except TimeoutError:
+            msg = (
+                f"Timed out after {self.timeout}s waiting for namespace"
+                f" {name} to be deleted"
+            )
+            raise WaitingForObjectError(msg)
 
     async def get_image_data(self) -> dict[str, list[KubernetesNodeImage]]:
         """Get the list of cached images from each node.
@@ -512,7 +554,11 @@ class K8sStorageClient:
         dict of str to list
             Map of nodes to lists of all cached images on that node.
         """
-        nodes = await self.api.list_node()
+        try:
+            nodes = await self.api.list_node()
+        except ApiException as e:
+            msg = "Error reading node information"
+            raise KubernetesError.from_exception(msg, e)
         image_data = {}
         for node in nodes.items:
             name = node.metadata.name
@@ -534,12 +580,11 @@ class K8sStorageClient:
         user_namespaces = [
             x for x in namespace_list if x.startswith(ns_prefix)
         ]
-        errorstr = ""
         for u_ns in user_namespaces:
             username = u_ns[len(ns_prefix) :]
             podname = f"nb-{username}"
             try:
-                pod = await api.read_namespaced_pod_status(
+                pod = await api.read_namespaced_pod(
                     name=podname, namespace=u_ns
                 )
                 observed_state[username] = UserData.from_pod(pod)
@@ -549,26 +594,60 @@ class K8sStorageClient:
                         f"Found user namespace for {username} but no pod; "
                         + "attempting namespace deletion."
                     )
-                    try:
-                        await self.delete_namespace(u_ns)
-                        await self.wait_for_namespace_deletion(u_ns)
-                    # Accumulate errors
-                    except ApiException as e2:
-                        if not errorstr:
-                            errorstr = str(e2)
-                        else:
-                            errorstr += f", {e2}"
-                else:
-                    if not errorstr:
-                        errorstr = str(e)
-                    else:
-                        errorstr += f", {e}"
-        # If we have accumulated errors, re-raise
-        if errorstr:
-            raise KubernetesError(errorstr)
+                    await self.delete_namespace(u_ns)
+                    await self.wait_for_namespace_deletion(u_ns)
+                raise KubernetesError.from_exception(
+                    "Error reading pod", e, namespace=u_ns, name=podname
+                ) from e
         return observed_state
 
+    async def _recreate_user_namespace(self, name: str) -> None:
+        """Recreate an existing user namespace.
+
+        The namespace for the user already exists. Delete it and recreate it.
+
+        Parameters
+        ----------
+        name
+            Name of the namespace.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if Kubernetes API calls fail unexpectedly.
+        """
+        self.logger.warning(f"Namespace {name} already exists, removing")
+        try:
+            self.api.delete_namespace(name)
+        except ApiException as e:
+            if e.status != 404:
+                msg = "Cannot delete stranded user namespace"
+                raise KubernetesError.from_exception(msg, e, name=name) from e
+        await self.wait_for_namespace_deletion(name)
+
+        # Try to create it again. If it still conflicts, don't catch that
+        # error; something weird is going on.
+        namespace = V1Namespace(metadata=self._standard_metadata(name))
+        try:
+            await self.api.create_namespace(namespace)
+        except ApiException as e:
+            msg = "Cannot create user namespace"
+            raise KubernetesError.from_exception(msg, e, name=name) from e
+
     def _standard_metadata(self, name: str) -> V1ObjectMeta:
+        """Create the standard metadata for an object.
+
+        Parameters
+        ----------
+        name
+            Name of the object.
+
+        Returns
+        -------
+        V1ObjectMeta
+            Metadata for the object. Primarily, this adds the Argo CD
+            annotations to make user labs play somewhat nicely with Argo CD.
+        """
         return V1ObjectMeta(
             name=name,
             labels={"argocd.argoproj.io/instance": "nublado-users"},

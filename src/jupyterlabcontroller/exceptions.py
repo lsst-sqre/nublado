@@ -7,6 +7,7 @@ from typing import ClassVar, Optional, Self
 
 from fastapi import status
 from httpx import HTTPError, HTTPStatusError, RequestError
+from kubernetes_asyncio.client import ApiException
 from pydantic import ValidationError
 from safir.models import ErrorLocation
 from safir.slack.blockkit import (
@@ -27,8 +28,6 @@ __all__ = [
     "KubernetesError",
     "LabExistsError",
     "MissingSecretError",
-    "NSCreationError",
-    "NSDeletionError",
     "SlackWebException",
     "UnknownDockerImageError",
     "UnknownUserError",
@@ -325,20 +324,106 @@ class GafaelfawrParseError(SlackException):
         return message
 
 
-class NSCreationError(Exception):
-    """Error while attempting namespace creation."""
+class KubernetesError(SlackException):
+    """An API call to Kubernetes failed.
 
+    Parameters
+    ----------
+    message
+        Summary of error.
+    user
+        Username on whose behalf the request is being made.
+    namespace
+        Namespace of object being acted on.
+    name
+        Name of object being acted on.
+    status
+        Status code of failure, if any.
+    body
+        Body of failure message, if any.
+    """
 
-class NSDeletionError(Exception):
-    """Error while attempting namespace deletion."""
+    @classmethod
+    def from_exception(
+        cls,
+        message: str,
+        exc: ApiException,
+        *,
+        namespace: Optional[str] = None,
+        name: Optional[str] = None,
+        user: Optional[str] = None,
+    ) -> Self:
+        """Create an exception from a Kubernetes API exception.
+
+        Parameters
+        ----------
+        message
+            Brief explanation of what was being attempted.
+        exc
+            Kubernetes API exception.
+        namespace
+            Namespace of object being acted on.
+        name
+            Name of object being acted on.
+        user
+            User on whose behalf the operation was being performed.
+
+        Returns
+        -------
+        KubernetesError
+            Newly-created exception.
+        """
+        return cls(
+            message,
+            user=user,
+            namespace=namespace,
+            name=name,
+            status=exc.status,
+            body=exc.body,
+        )
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        user: Optional[str] = None,
+        namespace: Optional[str] = None,
+        name: Optional[str] = None,
+        status: Optional[str] = None,
+        body: Optional[str] = None,
+    ) -> None:
+        super().__init__(message, user)
+        self.namespace = namespace
+        self.name = name
+        self.status = status
+        self.body = body
+
+    def to_slack(self) -> SlackMessage:
+        """Convert to a Slack message for Slack alerting.
+
+        Returns
+        -------
+        SlackMessage
+            Slack message suitable for posting as an alert.
+        """
+        message = super().to_slack()
+        if self.name:
+            if self.namespace:
+                obj = f"{self.namespace}/{self.name}"
+            else:
+                obj = self.name
+            message.fields.append(SlackTextField(heading="Object", text=obj))
+        if self.status:
+            field = SlackTextField(heading="Status", text=self.status)
+            message.fields.append(field)
+        if self.body:
+            block = SlackCodeBlock(heading="Body", code=self.body)
+            message.blocks.append(block)
+        return message
 
 
 class WaitingForObjectError(Exception):
     """An error occurred while waiting for object creation or deletion."""
-
-
-class KubernetesError(Exception):
-    """An API call to Kubernetes failed."""
 
 
 class MissingSecretError(Exception):
