@@ -72,9 +72,9 @@ async def post_new_lab(
     user = await gafaelfawr_client.get_user_info(x_auth_request_token)
     if user.username != username:
         raise PermissionDeniedError("Permission denied")
+    context.rebind_logger(user=username)
 
     # The user is valid. Attempt the lab creation.
-    context.logger.debug(f"Received creation request for {username}")
     lab_manager = context.factory.create_lab_manager()
     try:
         await lab_manager.create_lab(user, x_auth_request_token, lab)
@@ -99,6 +99,7 @@ async def delete_user_lab(
     username: str,
     context: RequestContext = Depends(context_dependency),
 ) -> None:
+    context.rebind_logger(user=username)
     lab_manager = context.factory.create_lab_manager()
     try:
         await lab_manager.delete_lab(username)
@@ -129,6 +130,7 @@ async def get_user_events(
     """Returns the events for the lab of the given user"""
     if username != x_auth_request_user:
         raise PermissionDeniedError("Permission denied")
+    context.rebind_logger(user=username)
     try:
         generator = context.event_manager.events_for_user(username)
         return EventSourceResponse(generator)
