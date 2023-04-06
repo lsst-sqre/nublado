@@ -74,7 +74,7 @@ class K8sStorageClient:
                 # The namespace already exists. Presume that it is stranded,
                 # delete it and all of its resources, and recreate it.
                 await self._recreate_user_namespace(name)
-            msg = "Cannot create user namespace"
+            msg = "Error creating user namespace"
             raise KubernetesError.from_exception(msg, e, name=name) from e
 
     async def create_secrets(

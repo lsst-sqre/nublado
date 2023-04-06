@@ -140,8 +140,8 @@ async def test_lab_start_stop(
         "internal_url": f"http://lab.userlabs-{user.username}:8888",
         "name": user.name,
         "options": expected_options,
-        "quota": None,
         "pod": "present",
+        "quota": {"api": {}, "notebook": {"cpu": 9.0, "memory": 27.0}},
         "resources": expected_resources.dict(),
         "status": "running",
         "uid": user.uid,
@@ -464,57 +464,63 @@ async def test_spawn_errors(
 
     mock_kubernetes.error_callback = callback
 
-    # Attempting to create a lab should still succeed even though Kubernetes
-    # is going to fail.
-    r = await client.post(
-        f"/nublado/spawner/v1/labs/{user.username}/create",
-        json={"options": lab.options.dict(), "env": lab.env},
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
-    )
-    assert r.status_code == 201
-
-    # However, the event stream should reveal the failure.
-    events = await get_lab_events(client, user.username)
-    error = (
-        "Error reading secret (userlabs/nublado-secret, status 400):"
-        " Something bad happened"
-    )
-    assert events[-2] == {
-        "data": json.dumps({"message": error}),
-        "event": "error",
-    }
-    assert events[-1] == {
-        "data": json.dumps({"message": "Lab creation failed"}),
-        "event": "failed",
-    }
-
-    # Delete the remnants and attempt the creation again. This time, make it
-    # fail at pod creation.
-    apis_to_fail = {"create_namespaced_pod"}
-    r = await client.delete(f"/nublado/spawner/v1/labs/{user.username}")
-    assert r.status_code == 204
-    r = await client.post(
-        f"/nublado/spawner/v1/labs/{user.username}/create",
-        json={"options": lab.options.dict(), "env": lab.env},
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
-    )
-    assert r.status_code == 201
-    events = await get_lab_events(client, user.username)
-    error = (
-        "Error creating pod (userlabs-rachel/nb-rachel, status 400):"
-        " Something bad happened"
-    )
-    assert events[-2] == {
-        "data": json.dumps({"message": error}),
-        "event": "error",
-    }
-    assert events[-1] == {
-        "data": json.dumps({"message": "Lab creation failed"}),
-        "event": "failed",
-    }
+    # For each of the various Kubernetes calls that might fail, test that the
+    # failure is caught, results in a correct failure event with a correct
+    # message, and leaves the lab in a failed state.
+    possible_errors = [
+        ("create_namespace", "creating user namespace", "userlabs-rachel"),
+        (
+            "read_namespaced_secret",
+            "reading secret",
+            "userlabs/nublado-secret",
+        ),
+        (
+            "create_namespaced_secret",
+            "creating secret",
+            "userlabs-rachel/nb-rachel",
+        ),
+        (
+            "create_namespaced_config_map",
+            "creating config map",
+            "userlabs-rachel/nb-rachel-nss",
+        ),
+        (
+            "create_namespaced_network_policy",
+            "creating network policy",
+            "userlabs-rachel/nb-rachel-env",
+        ),
+        (
+            "create_namespaced_resource_quota",
+            "creating resource quota",
+            "userlabs-rachel/nb-rachel",
+        ),
+        (
+            "create_namespaced_service",
+            "creating service",
+            "userlabs-rachel/lab",
+        ),
+        ("create_namespaced_pod", "creating pod", "userlabs-rachel/nb-rachel"),
+    ]
+    for api, error, obj in possible_errors:
+        apis_to_fail = {api}
+        r = await client.post(
+            f"/nublado/spawner/v1/labs/{user.username}/create",
+            json={"options": lab.options.dict(), "env": lab.env},
+            headers={
+                "X-Auth-Request-Token": token,
+                "X-Auth-Request-User": user.username,
+            },
+        )
+        assert r.status_code == 201
+        events = await get_lab_events(client, user.username)
+        error = f"Error {error} ({obj}, status 400): Something bad happened"
+        assert events[-2] == {
+            "data": json.dumps({"message": error}),
+            "event": "error",
+        }
+        assert events[-1] == {
+            "data": json.dumps({"message": "Lab creation failed"}),
+            "event": "failed",
+        }
+        r = await client.delete(f"/nublado/spawner/v1/labs/{user.username}")
+        assert r.status_code == 204

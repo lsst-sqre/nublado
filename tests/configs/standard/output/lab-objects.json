@@ -475,6 +475,27 @@
   },
   {
     "api_version": "v1",
+    "kind": "ResourceQuota",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "argocd.argoproj.io/instance": "nublado-users"
+      },
+      "name": "nb-rachel",
+      "namespace": "userlabs-rachel"
+    },
+    "spec": {
+      "hard": {
+        "limits.cpu": "9.0",
+        "limits.memory": "28991029248"
+      }
+    }
+  },
+  {
+    "api_version": "v1",
     "data": {
       "butler-secret": "c29tZSBidXRsZXIgc2VjcmV0",
       "db-password": "c29tZSBkYXRhYmFzZSBwYXNzd29yZA==",
