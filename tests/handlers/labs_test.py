@@ -6,6 +6,7 @@ import asyncio
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import ANY
 
 import pytest
 from httpx import AsyncClient
@@ -16,6 +17,7 @@ from kubernetes_asyncio.client import (
     V1ObjectMeta,
     V1ObjectReference,
 )
+from safir.testing.slack import MockSlackWebhook
 
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.constants import DROPDOWN_SENTINEL_VALUE
@@ -453,6 +455,7 @@ async def test_spawn_errors(
     client: AsyncClient,
     obj_factory: TestObjectFactory,
     mock_kubernetes: MockKubernetesApi,
+    mock_slack: MockSlackWebhook,
 ) -> None:
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
@@ -522,5 +525,57 @@ async def test_spawn_errors(
             "data": json.dumps({"message": "Lab creation failed"}),
             "event": "failed",
         }
+        assert mock_slack.messages == [
+            {
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "text": f"Error in Nublado: {error}",
+                            "type": "mrkdwn",
+                            "verbatim": True,
+                        },
+                    },
+                    {
+                        "type": "section",
+                        "fields": [
+                            {
+                                "text": "*Exception type*\nKubernetesError",
+                                "type": "mrkdwn",
+                                "verbatim": True,
+                            },
+                            {"text": ANY, "type": "mrkdwn", "verbatim": True},
+                            {
+                                "text": "*User*\nrachel",
+                                "type": "mrkdwn",
+                                "verbatim": True,
+                            },
+                            {
+                                "text": f"*Object*\n{obj}",
+                                "type": "mrkdwn",
+                                "verbatim": True,
+                            },
+                            {
+                                "text": "*Status*\n400",
+                                "type": "mrkdwn",
+                                "verbatim": True,
+                            },
+                        ],
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "text": (
+                                "*Error*\n```\nSomething bad happened\n```"
+                            ),
+                            "type": "mrkdwn",
+                            "verbatim": True,
+                        },
+                    },
+                    {"type": "divider"},
+                ]
+            },
+        ]
+        mock_slack.messages = []
         r = await client.delete(f"/nublado/spawner/v1/labs/{user.username}")
         assert r.status_code == 204

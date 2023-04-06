@@ -48,7 +48,7 @@ class SafirConfig(CamelCaseModel):
     """Config common to most Safir-based applications."""
 
     name: str = Field(
-        "nublado",
+        "Nublado",
         title="Name of application",
         env="SAFIR_NAME",
     )
