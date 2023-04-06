@@ -11,6 +11,7 @@ from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
+from ..constants import IMAGE_REFRESH_INTERVAL
 from ..models.domain.rspimage import RSPImage
 from ..storage.k8s import K8sStorageClient
 from .image import ImageService
@@ -96,8 +97,16 @@ class Prepuller:
         orphaned pods on startup and clean them up.
         """
         while True:
-            await self.prepull_images()
-            await self._image_service.prepuller_wait()
+            try:
+                await self.prepull_images()
+                await self._image_service.prepuller_wait()
+            except Exception as e:
+                self._logger.exception("Uncaught exception in prepuller")
+                if self._slack_client:
+                    await self._slack_client.post_uncaught_exception(e)
+                pause = IMAGE_REFRESH_INTERVAL.total_seconds()
+                self._logger.warning("Pausing failed prepuller for {pause}s")
+                await asyncio.sleep(pause)
 
     async def prepull_images(self) -> None:
         """Prepull missing images."""
