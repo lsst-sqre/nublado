@@ -2,15 +2,16 @@
 
 from fastapi import APIRouter, Depends
 from safir.metadata import Metadata, get_metadata
+from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..config import Config
 from ..dependencies.config import configuration_dependency
 from ..models.index import Index
 
-internal_router = APIRouter()
+internal_router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount at the root of the application URL space."""
 
-external_router = APIRouter()
+external_router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
 
 __all__ = ["external_router", "internal_router"]

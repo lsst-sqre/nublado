@@ -286,6 +286,11 @@ class Config(BaseSettings):
             " pods spawned by the prepuller."
         ),
     )
+    slack_webhook: Optional[str] = Field(
+        None,
+        title="Slack webhook to which to post alerts",
+        env="NUBLADO_SLACK_WEBHOOK",
+    )
 
     # CamelCaseModel conflicts with BaseSettings, so do this manually.
     class Config:

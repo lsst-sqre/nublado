@@ -1,11 +1,12 @@
 """Routes for prepulling and available image information."""
 
 from fastapi import APIRouter, Depends
+from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..dependencies.context import RequestContext, context_dependency
 from ..models.v1.prepuller import PrepullerStatus, SpawnerImages
 
-router = APIRouter()
+router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
 
 __all__ = ["router"]
