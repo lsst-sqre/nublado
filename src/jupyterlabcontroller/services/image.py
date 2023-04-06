@@ -7,6 +7,7 @@ from typing import Optional
 
 from aiojobs import Scheduler
 from safir.datetime import current_datetime
+from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..constants import IMAGE_REFRESH_INTERVAL
@@ -61,20 +62,25 @@ class ImageService:
         Source of remote images.
     kubernetes
         Client to query the Kubernetes cluster for cached images.
+    slack_client
+        Optional Slack client to use for alerts.
     logger
         Logger for messages.
     """
 
     def __init__(
         self,
+        *,
         config: PrepullerConfig,
         source: ImageSource,
         kubernetes: K8sStorageClient,
+        slack_client: Optional[SlackWebhookClient] = None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._source = source
         self._kubernetes = kubernetes
+        self._slack_client = slack_client
         self._logger = logger
 
         # Background task management.
@@ -385,20 +391,17 @@ class ImageService:
             try:
                 await self.refresh()
                 self._refreshed.set()
-                delay = IMAGE_REFRESH_INTERVAL - (current_datetime() - start)
-                if delay.total_seconds() < 1:
-                    msg = "Image refresh is running continuously"
-                    self._logger.warning(msg)
-                else:
-                    await asyncio.sleep(delay.total_seconds())
-            except asyncio.CancelledError:
-                break
-            except Exception:
+            except Exception as e:
                 # On failure, log the exception and do not indicate we hve
                 # updated our data but otherwise continue as normal, including
                 # the delay. This will provide some time for whatever the
                 # problem was to be resolved.
                 self._logger.exception("Unable to refresh image information")
-                delay = IMAGE_REFRESH_INTERVAL - (current_datetime() - start)
-                if delay.total_seconds() >= 1:
-                    await asyncio.sleep(delay.total_seconds())
+                if self._slack_client:
+                    await self._slack_client.post_uncaught_exception(e)
+            delay = IMAGE_REFRESH_INTERVAL - (current_datetime() - start)
+            if delay.total_seconds() < 1:
+                msg = "Image refresh is running continuously"
+                self._logger.warning(msg)
+            else:
+                await asyncio.sleep(delay.total_seconds())
