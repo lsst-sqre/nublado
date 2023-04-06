@@ -285,6 +285,16 @@
       ],
       "init_containers": [
         {
+          "env": [
+            {
+              "name": "EXTERNAL_GID",
+              "value": "1101"
+            },
+            {
+              "name": "EXTERNAL_UID",
+              "value": "1101"
+            }
+          ],
           "env_from": [
             {
               "config_map_ref": {
