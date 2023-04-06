@@ -271,10 +271,12 @@ class LabManager:
         except Exception as e:
             msg = "Lab creation failed"
             self.logger.exception(msg, user=username)
-            if isinstance(e, SlackException):
-                e.user = username
-                if self._slack_client:
+            if self._slack_client:
+                if isinstance(e, SlackException):
+                    e.user = username
                     await self._slack_client.post_exception(e)
+                else:
+                    await self._slack_client.post_uncaught_exception(e)
             await self.failure_event(username, str(e), fatal=True)
             self.user_map.set_status(username, status=LabStatus.FAILED)
             return

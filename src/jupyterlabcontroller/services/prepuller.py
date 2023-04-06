@@ -7,6 +7,8 @@ from typing import Optional
 
 from aiojobs import Scheduler
 from kubernetes_asyncio.client import V1Container, V1OwnerReference, V1PodSpec
+from safir.slack.blockkit import SlackException
+from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..models.domain.rspimage import RSPImage
@@ -34,6 +36,8 @@ class Prepuller:
         refresh thread of the image service is also managed by this class.
     k8s_client
         Client for talking to Kubernetes.
+    slack_client
+        Optional Slack webhook client for alerts.
     logger
         Logger for messages.
     """
@@ -45,12 +49,14 @@ class Prepuller:
         metadata_path: Path,
         image_service: ImageService,
         k8s_client: K8sStorageClient,
+        slack_client: Optional[SlackWebhookClient] = None,
         logger: BoundLogger,
     ) -> None:
         self._namespace = namespace
         self._metadata_path = metadata_path
         self._image_service = image_service
         self._k8s_client = k8s_client
+        self._slack_client = slack_client
         self._logger = logger
 
         # Scheduler to manage background tasks that prepull images to nodes.
@@ -154,8 +160,13 @@ class Prepuller:
             await self._k8s_client.remove_completed_pod(
                 podname=name, namespace=self._namespace
             )
-        except Exception:
+        except Exception as e:
             self._logger.exception(f"Failed to prepull {image.tag} on {node}")
+            if self._slack_client:
+                if isinstance(e, SlackException):
+                    await self._slack_client.post_exception(e)
+                else:
+                    await self._slack_client.post_uncaught_exception(e)
         else:
             self._logger.info(f"Prepulled {image.tag} on {node}")
 

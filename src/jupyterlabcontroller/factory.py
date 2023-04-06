@@ -116,6 +116,12 @@ class ProcessContext:
         else:
             raise RuntimeError("Unknown prepuller configuration type")
 
+        slack_client = None
+        if config.slack_webhook:
+            slack_client = SlackWebhookClient(
+                config.slack_webhook, config.safir.name, logger
+            )
+
         image_service = ImageService(
             config=config.images,
             source=source,
@@ -134,6 +140,7 @@ class ProcessContext:
                 metadata_path=config.metadata_path,
                 image_service=image_service,
                 k8s_client=k8s_client,
+                slack_client=slack_client,
                 logger=logger,
             ),
             user_map=UserMap(),

@@ -85,6 +85,7 @@ async def factory(
     config: Config,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
+    mock_slack: MockSlackWebhook,
     obj_factory: TestObjectFactory,
 ) -> AsyncIterator[Factory]:
     """Create a component factory for tests."""

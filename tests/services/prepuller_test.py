@@ -6,10 +6,13 @@ import asyncio
 import json
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
+from unittest.mock import ANY
 
 import pytest
 from google.cloud.artifactregistry_v1 import DockerImage
 from kubernetes_asyncio.client import (
+    ApiException,
     CoreV1Event,
     V1ContainerImage,
     V1Node,
@@ -18,6 +21,7 @@ from kubernetes_asyncio.client import (
     V1ObjectReference,
     V1Pod,
 )
+from safir.testing.slack import MockSlackWebhook
 
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
@@ -268,3 +272,66 @@ async def test_gar_cycle(
         }
         expected = read_output_data("gar-cycle", "menu.json")
         assert seen == expected
+
+
+@pytest.mark.asyncio
+async def test_kubernetes_error(
+    factory: Factory,
+    mock_kubernetes: MockKubernetesApi,
+    mock_slack: MockSlackWebhook,
+) -> None:
+    def callback(method: str, *args: Any) -> None:
+        if method == "create_namespaced_pod":
+            raise ApiException(status=400, reason="Some error happened")
+
+    mock_kubernetes.error_callback = callback
+
+    await factory.start_background_services()
+    await asyncio.sleep(0.2)
+
+    obj = "userlabs/prepull-d-2077-10-23-node2"
+    error = f"Error creating pod ({obj}, status 400): Some error happened"
+    assert mock_slack.messages == [
+        {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "text": f"Error in Nublado: {error}",
+                        "type": "mrkdwn",
+                        "verbatim": True,
+                    },
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "text": "*Exception type*\nKubernetesError",
+                            "type": "mrkdwn",
+                            "verbatim": True,
+                        },
+                        {"text": ANY, "type": "mrkdwn", "verbatim": True},
+                        {
+                            "text": f"*Object*\n{obj}",
+                            "type": "mrkdwn",
+                            "verbatim": True,
+                        },
+                        {
+                            "text": "*Status*\n400",
+                            "type": "mrkdwn",
+                            "verbatim": True,
+                        },
+                    ],
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "text": "*Error*\n```\nSome error happened\n```",
+                        "type": "mrkdwn",
+                        "verbatim": True,
+                    },
+                },
+                {"type": "divider"},
+            ]
+        },
+    ]
