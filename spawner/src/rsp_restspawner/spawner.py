@@ -191,6 +191,34 @@ class RSPRestSpawner(Spawner):
             _CLIENT = AsyncClient()
         return _CLIENT
 
+    async def get_url(self) -> str:
+        """Determine the URL of a running lab.
+
+        Returns
+        -------
+        str
+            URL of the lab if we can retrieve it from the lab controller,
+            otherwise the saved URL in the spawner object.
+
+        Notes
+        -----
+        JupyterHub recommends implementing this if the spawner has some
+        independent way to retrieve the lab URL, since it allows JupyterHub to
+        recover if it was killed in the middle of spawning a lab and that
+        spawn finished successfully while JupyterHub was down. This method is
+        only called if `poll` returns `None`.
+
+        JupyterHub does not appear to do any error handling of failures of
+        this method, so it should not raise an exception, just fall back on
+        the stored URL and let the probe fail if that lab does not exist.
+        """
+        try:
+            return await self._get_internal_url()
+        except Exception:
+            msg = f"Unable to get URL of running lab for {self.user.name}"
+            self.log.exception(msg)
+            return await super().get_url()
+
     def start(self) -> asyncio.Task[str]:
         """Start the user's pod.
 
