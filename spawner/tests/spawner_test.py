@@ -122,14 +122,24 @@ async def test_progress_multiple(
 async def test_spawn_failure(
     spawner: RSPRestSpawner, mock_lab_controller: MockLabController
 ) -> None:
-    """Test error handling when a spawn fails."""
+    """Test error handling when a spawn fails.
+
+    Also tests invalid JSON in the event body. In those cases, the raw event
+    body should be treated as the message.
+    """
     mock_lab_controller.delay = timedelta(milliseconds=750)
     mock_lab_controller.fail_during_spawn = True
     user = spawner.user.name
     expected = [
         {"progress": 2, "message": "[info] Lab creation initiated"},
         {"progress": 45, "message": "[info] Pod requested"},
+        {"progress": 45, "message": "[unknown] This is not JSON"},
         {"progress": 45, "message": "[error] Something is going wrong"},
+        {"progress": 45, "message": '[info] {"invalid": "value"}'},
+        {
+            "progress": 45,
+            "message": '[info] {"message": "Blah", "progress": "Happy!"}',
+        },
         {
             "progress": 45,
             "message": f"[error] Some random failure for {user}",

@@ -75,26 +75,29 @@ class SpawnEvent:
         sse
             Event from the lab controller.
         progress
-            Current progress percentage. Parsing of the progress events that
-            communicate this must be done outside of this class.
+            Current progress percentage, if the event doesn't specify one.
         """
+        try:
+            data = sse.json()
+            if not (set(data.keys()) <= {"message", "progress"}):
+                raise ValueError("Invalid key in SSE data")
+            if "progress" in data:
+                progress = int(data["progress"])
+                if progress < 0 or progress > 100:
+                    raise ValueError(f"Invalid progress value {progress}")
+        except Exception:
+            data = {"message": sse.data}
+        data["progress"] = progress
+
         if sse.event == "complete":
-            return cls(
-                progress=90, message=sse.data, severity="info", complete=True
-            )
-        elif sse.event == "info":
-            return cls(progress=progress, message=sse.data, severity="info")
-        elif sse.event == "error":
-            return cls(progress=progress, message=sse.data, severity="error")
+            data["progress"] = 90
+            return cls(**data, severity="info", complete=True)
+        elif sse.event in ("info", "error"):
+            return cls(**data, severity=sse.event)
         elif sse.event == "failed":
-            return cls(
-                progress=progress,
-                message=sse.data,
-                severity="error",
-                failed=True,
-            )
+            return cls(**data, severity="error", failed=True)
         else:
-            return cls(progress=progress, message=sse.data, severity="unknown")
+            return cls(**data, severity="unknown")
 
     def to_dict(self) -> dict[str, int | str]:
         """Convert to the dictionary expected by JupyterHub."""
@@ -288,17 +291,12 @@ class RSPRestSpawner(Spawner):
             # we get a completion or failure event.
             timeout = timedelta(seconds=self.start_timeout)
             async for sse in self._get_progress_events(timeout):
-                if sse.event == "progress":
-                    try:
-                        progress = int(sse.data)
-                    except ValueError:
-                        msg = "Invalid progress value: {sse.data}"
-                        self.log.error(msg)
-                    continue
-                elif sse.event == "ping":
+                if sse.event == "ping":
                     # Sent by sse-starlette to keep the connection alive.
                     continue
                 event = SpawnEvent.from_sse(sse, progress)
+                if event.progress:
+                    progress = event.progress
                 self._events.append(event)
                 if event.complete:
                     break
