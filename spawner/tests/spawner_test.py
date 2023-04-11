@@ -86,7 +86,7 @@ async def test_progress(spawner: RSPRestSpawner) -> None:
         {"progress": 2, "message": "[info] Lab creation initiated"},
         {"progress": 45, "message": "[info] Pod requested"},
         {
-            "progress": 90,
+            "progress": 75,
             "message": f"[info] Pod successfully spawned for {user}",
         },
     ]
@@ -108,7 +108,7 @@ async def test_progress_multiple(
         {"progress": 2, "message": "[info] Lab creation initiated"},
         {"progress": 45, "message": "[info] Pod requested"},
         {
-            "progress": 90,
+            "progress": 75,
             "message": f"[info] Pod successfully spawned for {user}",
         },
     ]
