@@ -219,6 +219,135 @@ class RSPRestSpawner(Spawner):
             self.log.exception(msg)
             return await super().get_url()
 
+    @_convert_exception
+    async def options_form(self, spawner: Spawner) -> str:
+        """Retrieve the options form for this user from the lab controller.
+
+        Parameters
+        ----------
+        spawner
+            Another copy of the spawner (not used). It's not clear why
+            JupyterHub passes this into this method.
+
+        Raises
+        ------
+        ControllerWebError
+            Raised on failure to talk to the lab controller or a failure
+            response from the lab controller.
+        InvalidAuthStateError
+            Raised if there is no ``token`` attribute in the user's
+            authentication state. This should always be provided by
+            `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
+        """
+        r = await self._client.get(
+            self._controller_url("lab-form", self.user.name),
+            headers=await self._user_authorization(),
+        )
+        r.raise_for_status()
+        return r.text
+
+    @_convert_exception
+    async def poll(self) -> Optional[int]:
+        """Check if the pod is running.
+
+        Returns
+        -------
+        int or None
+            If the pod is starting, running, or terminating, return `None`.
+            If the pod does not exist, return 0. If the pod exists in a failed
+            state, return 1.
+
+        Raises
+        ------
+        ControllerWebError
+            Raised on failure to talk to the lab controller or a failure
+            response from the lab controller.
+
+        Notes
+        -----
+        In theory, this is supposed to be the exit status of the Jupyter lab
+        process. This isn't something we know in the classic sense since the
+        lab is a Kubernetes pod. We only know that something failed if the
+        record of the lab is hanging around in a failed state, so use a simple
+        non-zero exit status for that. Otherwise, we have no way to
+        distinguish between a pod that was shut down without error and a pod
+        that was stopped, so use an exit status of 0 in both cases.
+        """
+        r = await self._client.get(
+            self._controller_url("labs", self.user.name),
+            headers=self._admin_authorization(),
+        )
+        if r.status_code == 404:
+            return 0
+        else:
+            r.raise_for_status()
+        result = r.json()
+        return 1 if result["status"] == LabStatus.FAILED else None
+
+    async def progress(self) -> AsyncIterator[dict[str, int | str]]:
+        """Monitor the progress of a spawn.
+
+        This method is the internal implementation of the progress API. It
+        provides an iterator of spawn events and then ends when the spawn
+        succeeds or fails.
+
+        Yields
+        ------
+        dict of str to str or int
+            Dictionary representing the event with fields ``progress``,
+            containing an integer completion percentage, and ``message``,
+            containing a human-readable description of the event.
+
+        Notes
+        -----
+        This method must never raise exceptions, since those will be treated
+        as unhandled exceptions by JupyterHub. If anything fails, just stop
+        the iterator. It doesn't do any HTTP calls itself, just monitors the
+        events created by `start`.
+
+        Uses the internal ``_start_future`` attribute to track when the
+        related `start` method has completed.
+        """
+        next_event = 0
+        complete = False
+
+        # Capture the current future and event stream in a local variable so
+        # that we consistently monitor the same invocation of start. If that
+        # one aborts and someone kicks off another one, we want to keep
+        # following the first one until it completes, not switch streams to
+        # the second one.
+        start_future = self._start_future
+        events = self._events
+
+        # We were apparently called before start was called, so there's
+        # nothing to report.
+        if not start_future:
+            return
+
+        while not complete:
+            if start_future.done():
+                # Indicate that we're done, but continue to execute the rest
+                # of the loop. We want to process any events received before
+                # the spawner finishes and report them before ending the
+                # stream.
+                complete = True
+
+            # This logic tries to ensure that we don't repeat events even
+            # though start will be adding more events while we're working.
+            len_events = len(events)
+            for i in range(next_event, len_events):
+                yield events[i].to_dict()
+            next_event = len_events
+
+            # This delay waiting for new events is obnoxious, and ideally we
+            # would do better with some sort of synchronization primitive.
+            # Using an asyncio.Event per progress invocation would work if
+            # JupyterHub is always asyncio, but I wasn't sure if it used
+            # thread pools and asyncio synchronization primitives are not
+            # thread-safe. The delay approach is what KubeSpawner does.
+            if not complete:
+                await asyncio.sleep(1)
+
     def start(self) -> asyncio.Task[str]:
         """Start the user's pod.
 
@@ -380,135 +509,6 @@ class RSPRestSpawner(Spawner):
             return
         else:
             r.raise_for_status()
-
-    @_convert_exception
-    async def poll(self) -> Optional[int]:
-        """Check if the pod is running.
-
-        Returns
-        -------
-        int or None
-            If the pod is starting, running, or terminating, return `None`.
-            If the pod does not exist, return 0. If the pod exists in a failed
-            state, return 1.
-
-        Raises
-        ------
-        ControllerWebError
-            Raised on failure to talk to the lab controller or a failure
-            response from the lab controller.
-
-        Notes
-        -----
-        In theory, this is supposed to be the exit status of the Jupyter lab
-        process. This isn't something we know in the classic sense since the
-        lab is a Kubernetes pod. We only know that something failed if the
-        record of the lab is hanging around in a failed state, so use a simple
-        non-zero exit status for that. Otherwise, we have no way to
-        distinguish between a pod that was shut down without error and a pod
-        that was stopped, so use an exit status of 0 in both cases.
-        """
-        r = await self._client.get(
-            self._controller_url("labs", self.user.name),
-            headers=self._admin_authorization(),
-        )
-        if r.status_code == 404:
-            return 0
-        else:
-            r.raise_for_status()
-        result = r.json()
-        return 1 if result["status"] == LabStatus.FAILED else None
-
-    @_convert_exception
-    async def options_form(self, spawner: Spawner) -> str:
-        """Retrieve the options form for this user from the lab controller.
-
-        Parameters
-        ----------
-        spawner
-            Another copy of the spawner (not used). It's not clear why
-            JupyterHub passes this into this method.
-
-        Raises
-        ------
-        ControllerWebError
-            Raised on failure to talk to the lab controller or a failure
-            response from the lab controller.
-        InvalidAuthStateError
-            Raised if there is no ``token`` attribute in the user's
-            authentication state. This should always be provided by
-            `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
-        """
-        r = await self._client.get(
-            self._controller_url("lab-form", self.user.name),
-            headers=await self._user_authorization(),
-        )
-        r.raise_for_status()
-        return r.text
-
-    async def progress(self) -> AsyncIterator[dict[str, int | str]]:
-        """Monitor the progress of a spawn.
-
-        This method is the internal implementation of the progress API. It
-        provides an iterator of spawn events and then ends when the spawn
-        succeeds or fails.
-
-        Yields
-        ------
-        dict of str to str or int
-            Dictionary representing the event with fields ``progress``,
-            containing an integer completion percentage, and ``message``,
-            containing a human-readable description of the event.
-
-        Notes
-        -----
-        This method must never raise exceptions, since those will be treated
-        as unhandled exceptions by JupyterHub. If anything fails, just stop
-        the iterator. It doesn't do any HTTP calls itself, just monitors the
-        events created by `start`.
-
-        Uses the internal ``_start_future`` attribute to track when the
-        related `start` method has completed.
-        """
-        next_event = 0
-        complete = False
-
-        # Capture the current future and event stream in a local variable so
-        # that we consistently monitor the same invocation of start. If that
-        # one aborts and someone kicks off another one, we want to keep
-        # following the first one until it completes, not switch streams to
-        # the second one.
-        start_future = self._start_future
-        events = self._events
-
-        # We were apparently called before start was called, so there's
-        # nothing to report.
-        if not start_future:
-            return
-
-        while not complete:
-            if start_future.done():
-                # Indicate that we're done, but continue to execute the rest
-                # of the loop. We want to process any events received before
-                # the spawner finishes and report them before ending the
-                # stream.
-                complete = True
-
-            # This logic tries to ensure that we don't repeat events even
-            # though start will be adding more events while we're working.
-            len_events = len(events)
-            for i in range(next_event, len_events):
-                yield events[i].to_dict()
-            next_event = len_events
-
-            # This delay waiting for new events is obnoxious, and ideally we
-            # would do better with some sort of synchronization primitive.
-            # Using an asyncio.Event per progress invocation would work if
-            # JupyterHub is always asyncio, but I wasn't sure if it used
-            # thread pools and asyncio synchronization primitives are not
-            # thread-safe. The delay approach is what KubeSpawner does.
-            if not complete:
-                await asyncio.sleep(1)
 
     def _controller_url(self, *components: str) -> str:
         """Build a URL to the Nublado lab controller.
