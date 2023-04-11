@@ -53,8 +53,8 @@ _DAILY = r"d_(?P<year>\d+)_(?P<month>\d+)_(?P<day>\d+)"
 _EXPERIMENTAL = r"exp"
 # c0020.002
 _CYCLE = r"_c(?P<cycle>\d+)\.(?P<cbuild>\d+)"
-# c0020 (used for alias tags)
-_CYCLE_ONLY = r"_c(?P<cycle>\d+)"
+# recommended_c0020 (used for alias tags)
+_UNKNOWN_WITH_CYCLE = r"(?P<tag>.*)_c(?P<cycle>\d+)"
 # _whatever_your_little_heart_desires
 _REST = r"_(?P<rest>.*)"
 
@@ -103,7 +103,7 @@ _TAG_REGEXES = [
     # exp_w_2021_05_13_nosudo
     (RSPImageType.EXPERIMENTAL, re.compile(_EXPERIMENTAL + _REST + "$")),
     # recommended_c0029
-    (RSPImageType.UNKNOWN, re.compile(".*" + _CYCLE_ONLY + "$")),
+    (RSPImageType.UNKNOWN, re.compile(_UNKNOWN_WITH_CYCLE + "$")),
 ]
 
 
@@ -145,7 +145,7 @@ class RSPImageTag:
         RSPImageTag
             The corresponding `RSPImageTag`.
         """
-        if match := re.match("(?P<tag>.*)" + _CYCLE_ONLY + "$", tag):
+        if match := re.match(_UNKNOWN_WITH_CYCLE + "$", tag):
             cycle = int(match.group("cycle"))
             display_name = match.group("tag").replace("_", " ").title()
             display_name += f' (SAL Cycle {match.group("cycle")})'
@@ -232,14 +232,18 @@ class RSPImageTag:
         cbuild = data.get("cbuild")
 
         # We can't do very much with unknown tags with a cycle, but we do want
-        # to capture the cycle so that they survive cycle filtering.
+        # to capture the cycle so that they survive cycle filtering. We can
+        # also format the cycle for display purposes.
         if image_type == RSPImageType.UNKNOWN:
+            display_name = data.get("tag", tag)
+            if cycle:
+                display_name += f" (SAL Cycle {cycle})"
             return cls(
                 image_type=image_type,
                 version=None,
                 tag=tag,
                 cycle=int(cycle) if cycle else None,
-                display_name=tag,
+                display_name=display_name,
             )
 
         # Experimental tags are often exp_<legal-tag>, meaning that they are
@@ -261,7 +265,7 @@ class RSPImageTag:
                 image_type=image_type,
                 version=None,
                 tag=tag,
-                cycle=None,
+                cycle=subtag.cycle,
                 display_name=display_name,
             )
 

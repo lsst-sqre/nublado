@@ -306,10 +306,28 @@ def test_from_str() -> None:
             "version": None,
             "cycle": None,
         },
+        "exp_w_2021_22_c0020.001": {
+            "tag": "exp_w_2021_22_c0020.001",
+            "image_type": RSPImageType.EXPERIMENTAL,
+            "display_name": (
+                "Experimental Weekly 2021_22 (SAL Cycle 0020, Build 001)"
+            ),
+            "version": None,
+            "cycle": 20,
+        },
+        "exp_w_2021_22_c0020.001_foo": {
+            "tag": "exp_w_2021_22_c0020.001_foo",
+            "image_type": RSPImageType.EXPERIMENTAL,
+            "display_name": (
+                "Experimental Weekly 2021_22 (SAL Cycle 0020, Build 001) [foo]"
+            ),
+            "version": None,
+            "cycle": 20,
+        },
         "recommended_c0027": {
             "tag": "recommended_c0027",
             "image_type": RSPImageType.UNKNOWN,
-            "display_name": "recommended_c0027",
+            "display_name": "recommended (SAL Cycle 0027)",
             "version": None,
             "cycle": 27,
         },
