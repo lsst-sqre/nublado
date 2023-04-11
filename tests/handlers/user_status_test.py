@@ -67,7 +67,7 @@ async def test_user_status(
         "name": user.name,
         "options": lab.options.dict(),
         "quota": None,
-        "pod": "missing",
+        "pod": "present",
         "resources": expected_resources.dict(),
         "status": "running",
         "uid": user.uid,
