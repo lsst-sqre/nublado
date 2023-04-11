@@ -96,20 +96,14 @@ class LabManager:
         return r is not None
 
     async def info_event(self, username: str, message: str, pct: int) -> None:
-        if pct < 0 or pct > 100:
-            raise RuntimeError(
-                "% completion must be between 0 and 100 inclusive"
-            )
-        event = Event(data=str(pct), type=EventType.PROGRESS)
-        self.event_manager.publish_event(username, event)
         umsg = f"{message} for {username}"
-        event = Event(data=umsg, type=EventType.INFO)
+        event = Event(message=umsg, progress=pct, type=EventType.INFO)
         self.event_manager.publish_event(username, event)
         self.logger.info(f"Event: {umsg}: {pct}%")
 
     async def completion_event(self, username: str) -> None:
         cstr = f"Operation complete for {username}"
-        event = Event(data=cstr, type=EventType.COMPLETE)
+        event = Event(message=cstr, type=EventType.COMPLETE)
         self.event_manager.publish_event(username, event)
         self.logger.info(cstr)
 
@@ -117,11 +111,11 @@ class LabManager:
         self, username: str, message: str, fatal: bool = True
     ) -> None:
         umsg = message + f" for {username}"
-        event = Event(data=umsg, type=EventType.ERROR)
+        event = Event(message=umsg, type=EventType.ERROR)
         self.event_manager.publish_event(username, event)
         if fatal:
             event = Event(
-                data=f"Lab creation failed for {username}",
+                message=f"Lab creation failed for {username}",
                 type=EventType.FAILED,
             )
             self.event_manager.publish_event(username, event)

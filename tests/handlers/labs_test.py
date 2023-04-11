@@ -260,19 +260,39 @@ async def test_delayed_spawn(
     expected_events = (
         expected_events[:-1]
         + [
-            {"data": "46", "event": "progress"},
             {
-                "data": f"Autoscaling cluster for reasons for {user.username}",
+                "data": json.dumps(
+                    {
+                        "message": (
+                            "Autoscaling cluster for reasons for"
+                            f" {user.username}"
+                        ),
+                        "progress": 46,
+                    }
+                ),
                 "event": "info",
             },
-            {"data": "60", "event": "progress"},
             {
-                "data": f"Mounting all the things for {user.username}",
+                "data": json.dumps(
+                    {
+                        "message": (
+                            f"Mounting all the things for {user.username}"
+                        ),
+                        "progress": 60,
+                    }
+                ),
                 "event": "info",
             },
-            {"data": "69", "event": "progress"},
             {
-                "data": f"Pod nb-{user.username} started for {user.username}",
+                "data": json.dumps(
+                    {
+                        "message": (
+                            f"Pod nb-{user.username} started for"
+                            f" {user.username}"
+                        ),
+                        "progress": 69,
+                    }
+                ),
                 "event": "info",
             },
         ]

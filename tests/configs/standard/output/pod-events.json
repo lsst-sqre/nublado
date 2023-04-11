@@ -1,94 +1,50 @@
 [
   {
-    "data": "2",
-    "event": "progress"
-  },
-  {
-    "data": "Lab creation initiated for rachel",
+    "data": "{\"message\": \"Lab creation initiated for rachel\", \"progress\": 2}",
     "event": "info"
   },
   {
-    "data": "5",
-    "event": "progress"
-  },
-  {
-    "data": "User namespace created for rachel",
+    "data": "{\"message\": \"User namespace created for rachel\", \"progress\": 5}",
     "event": "info"
   },
   {
-    "data": "10",
-    "event": "progress"
-  },
-  {
-    "data": "Secrets created for rachel",
+    "data": "{\"message\": \"Secrets created for rachel\", \"progress\": 10}",
     "event": "info"
   },
   {
-    "data": "15",
-    "event": "progress"
-  },
-  {
-    "data": "NSS files created for rachel",
+    "data": "{\"message\": \"NSS files created for rachel\", \"progress\": 15}",
     "event": "info"
   },
   {
-    "data": "20",
-    "event": "progress"
-  },
-  {
-    "data": "Config files created for rachel",
+    "data": "{\"message\": \"Config files created for rachel\", \"progress\": 20}",
     "event": "info"
   },
   {
-    "data": "25",
-    "event": "progress"
-  },
-  {
-    "data": "Environment created for rachel",
+    "data": "{\"message\": \"Environment created for rachel\", \"progress\": 25}",
     "event": "info"
   },
   {
-    "data": "25",
-    "event": "progress"
-  },
-  {
-    "data": "Network policy created for rachel",
+    "data": "{\"message\": \"Network policy created for rachel\", \"progress\": 25}",
     "event": "info"
   },
   {
-    "data": "30",
-    "event": "progress"
-  },
-  {
-    "data": "Quota created for rachel",
+    "data": "{\"message\": \"Quota created for rachel\", \"progress\": 30}",
     "event": "info"
   },
   {
-    "data": "35",
-    "event": "progress"
-  },
-  {
-    "data": "Service created for rachel",
+    "data": "{\"message\": \"Service created for rachel\", \"progress\": 35}",
     "event": "info"
   },
   {
-    "data": "40",
-    "event": "progress"
-  },
-  {
-    "data": "Resource objects created for rachel",
+    "data": "{\"message\": \"Resource objects created for rachel\", \"progress\": 40}",
     "event": "info"
   },
   {
-    "data": "45",
-    "event": "progress"
-  },
-  {
-    "data": "Pod requested for rachel",
+    "data": "{\"message\": \"Pod requested for rachel\", \"progress\": 45}",
     "event": "info"
   },
   {
-    "data": "Operation complete for rachel",
+    "data": "{\"message\": \"Operation complete for rachel\"}",
     "event": "complete"
   }
 ]

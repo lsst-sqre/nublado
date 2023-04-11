@@ -106,7 +106,7 @@ class EventManager:
         events = self._events[username]
         del self._events[username]
         if not events or not events[-1].done:
-            event = Event(data="Operation aborted", type=EventType.FAILED)
+            event = Event(message="Operation aborted", type=EventType.FAILED)
             events.append(event)
         triggers = self._triggers[username]
         del self._triggers[username]
