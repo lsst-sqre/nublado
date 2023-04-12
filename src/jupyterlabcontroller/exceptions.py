@@ -2,16 +2,26 @@
 
 from __future__ import annotations
 
-from typing import ClassVar, Optional
+from datetime import datetime
+from typing import ClassVar, Optional, Self
 
 from fastapi import status
+from httpx import HTTPError, HTTPStatusError, RequestError
+from pydantic import ValidationError
 from safir.models import ErrorLocation
+from safir.slack.blockkit import (
+    SlackCodeBlock,
+    SlackException,
+    SlackMessage,
+    SlackTextField,
+)
 from safir.slack.webhook import SlackIgnoredException
 
 __all__ = [
     "ClientRequestError",
     "DockerRegistryError",
-    "GafaelfawrError",
+    "GafaelfawrParseError",
+    "GafaelfawrWebError",
     "InvalidDockerReferenceError",
     "InvalidTokenError",
     "KubernetesError",
@@ -19,6 +29,7 @@ __all__ = [
     "MissingSecretError",
     "NSCreationError",
     "NSDeletionError",
+    "SlackWebException",
     "UnknownDockerImageError",
     "UnknownUserError",
     "WaitingForObjectError",
@@ -152,8 +163,166 @@ class UnknownUserError(ClientRequestError):
     status_code = status.HTTP_404_NOT_FOUND
 
 
-class DockerRegistryError(Exception):
+class SlackWebException(SlackException):
+    """An HTTP request to a remote service failed.
+
+    Parameters
+    ----------
+    message
+        Exception string value, which is the default Slack message.
+    failed_at
+        When the exception happened. Omit to use the current time.
+    method
+        Method of request.
+    url
+        URL of the request.
+    user
+        Username on whose behalf the request is being made.
+    status
+        Status code of failure, if any.
+    body
+        Body of failure message, if any.
+    """
+
+    @classmethod
+    def from_exception(
+        cls, exc: HTTPError, user: Optional[str] = None
+    ) -> Self:
+        """Create an exception from an httpx exception.
+
+        Parameters
+        ----------
+        exc
+            Exception from httpx.
+        user
+            User on whose behalf the request is being made, if known.
+
+        Returns
+        -------
+        SlackWebException
+            Newly-constructed exception.
+        """
+        if isinstance(exc, HTTPStatusError):
+            status = exc.response.status_code
+            method = exc.request.method
+            message = f"Status {status} from {method} {exc.request.url}"
+            return cls(
+                message,
+                method=exc.request.method,
+                url=str(exc.request.url),
+                user=user,
+                status=status,
+                body=exc.response.text,
+            )
+        else:
+            message = f"{type(exc).__name__}: {str(exc)}"
+            if isinstance(exc, RequestError):
+                return cls(
+                    message,
+                    method=exc.request.method,
+                    url=str(exc.request.url),
+                    user=user,
+                )
+            else:
+                return cls(message, user=user)
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        failed_at: Optional[datetime] = None,
+        method: Optional[str] = None,
+        url: Optional[str] = None,
+        user: Optional[str] = None,
+        status: Optional[int] = None,
+        body: Optional[str] = None,
+    ) -> None:
+        self.message = message
+        self.method = method
+        self.url = url
+        self.status = status
+        self.body = body
+        super().__init__(message, user, failed_at=failed_at)
+
+    def __str__(self) -> str:
+        result = self.message
+        if self.body:
+            result += f"\nBody:\n{self.body}\n"
+        return result
+
+    def to_slack(self) -> SlackMessage:
+        """Convert to a Slack message for Slack alerting.
+
+        Returns
+        -------
+        SlackMessage
+            Slack message suitable for posting as an alert.
+        """
+        message = super().to_slack()
+        if self.url:
+            if self.method:
+                text = f"{self.method} {self.url}"
+            else:
+                text = self.url
+            message.blocks.append(SlackTextField(heading="URL", text=text))
+        if self.body:
+            block = SlackCodeBlock(heading="Response", code=self.body)
+            message.blocks.append(block)
+        return message
+
+
+class DockerRegistryError(SlackWebException):
     """An API call to a Docker Registry failed."""
+
+
+class GafaelfawrWebError(SlackWebException):
+    """An API call to Gafaelfawr failed."""
+
+
+class GafaelfawrParseError(SlackException):
+    """Unable to parse the reply from Gafaelfawr.
+
+    Parameters
+    ----------
+    message
+        Summary error message.
+    error
+        Detailed error message, possibly multi-line.
+    """
+
+    @classmethod
+    def from_exception(cls, exc: ValidationError) -> Self:
+        """Create an exception from a Pydantic parse failure.
+
+        Parameters
+        ----------
+        exc
+            Pydantic exception.
+
+        Returns
+        -------
+        GafaelfawrParseError
+            Constructed exception.
+        """
+        error = f"{type(exc).__name__}: {str(exc)}"
+        return cls("Unable to parse reply from Gafalefawr", error)
+
+    def __init__(self, message: str, error: str) -> None:
+        super().__init__(message)
+        self.error = error
+
+    def to_slack(self) -> SlackMessage:
+        """Convert to a Slack message for Slack alerting.
+
+        Returns
+        -------
+        SlackMessage
+            Slack message suitable for posting as an alert.
+        """
+        message = super().to_slack()
+        block = SlackCodeBlock(heading="Error", code=self.error)
+        message.blocks.append(block)
+        return message
 
 
 class NSCreationError(Exception):
@@ -170,10 +339,6 @@ class WaitingForObjectError(Exception):
 
 class KubernetesError(Exception):
     """An API call to Kubernetes failed."""
-
-
-class GafaelfawrError(Exception):
-    """An API call to Gafaelfawr failed."""
 
 
 class MissingSecretError(Exception):

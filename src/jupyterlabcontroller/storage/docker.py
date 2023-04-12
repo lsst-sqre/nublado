@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Self
 
-from httpx import AsyncClient, Response
+from httpx import AsyncClient, HTTPError, Response
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import DockerRegistryError
@@ -136,16 +136,19 @@ class DockerStorageClient:
         """
         url = f"https://{config.registry}/v2/{config.repository}/tags/list"
         headers = self._build_headers(config.registry)
-        r = await self._client.get(url, headers=headers)
-        if r.status_code == 401:
-            headers = await self._authenticate(config.registry, r)
-            r = await self._client.get(url, headers=headers)
         try:
+            r = await self._client.get(url, headers=headers)
+            if r.status_code == 401:
+                headers = await self._authenticate(config.registry, r)
+                r = await self._client.get(url, headers=headers)
             r.raise_for_status()
             return r.json()["tags"]
+        except HTTPError as e:
+            raise DockerRegistryError.from_exception(e) from e
         except Exception as e:
-            msg = f"Error listing tags from <{url}>"
-            raise DockerRegistryError(msg) from e
+            error = f"{type(e).__name__}: {str(e)}"
+            msg = f"Cannot parse response from Docker registry: {error}"
+            raise DockerRegistryError(msg, method="GET", url=url)
 
     async def get_image_digest(
         self, config: DockerSourceConfig, tag: str
@@ -173,16 +176,19 @@ class DockerStorageClient:
             f"https://{config.registry}/v2/{config.repository}/manifests/{tag}"
         )
         headers = self._build_headers(config.registry)
-        r = await self._client.head(url, headers=headers)
-        if r.status_code == 401:
-            headers = await self._authenticate(config.registry, r)
-            r = await self._client.head(url, headers=headers)
         try:
+            r = await self._client.head(url, headers=headers)
+            if r.status_code == 401:
+                headers = await self._authenticate(config.registry, r)
+                r = await self._client.head(url, headers=headers)
             r.raise_for_status()
             return r.headers["Docker-Content-Digest"]
+        except HTTPError as e:
+            raise DockerRegistryError.from_exception(e) from e
         except Exception as e:
-            msg = f"Error retrieving digest from <{url}>"
-            raise DockerRegistryError(msg) from e
+            error = f"{type(e).__name__}: {str(e)}"
+            msg = f"Cannot get image digest from Docker registry: {error}"
+            raise DockerRegistryError(msg, method="GET", url=url)
 
     async def _authenticate(
         self, host: str, response: Response
@@ -243,7 +249,7 @@ class DockerStorageClient:
                 username=credentials.username,
             )
         else:
-            msg = f"Unknown authentication challenge type {challenge_type}"
+            msg = f'Unknown Docker authentication challenge "{challenge_type}"'
             raise DockerRegistryError(msg)
 
         return self._build_headers(host)
@@ -315,10 +321,13 @@ class DockerStorageClient:
             username=credentials.username,
         )
         auth = (credentials.username, credentials.password)
-        r = await self._client.get(url, auth=auth, params=params)
         try:
+            r = await self._client.get(url, auth=auth, params=params)
             r.raise_for_status()
             return r.json()["token"]
+        except HTTPError as e:
+            raise DockerRegistryError.from_exception(e) from e
         except Exception as e:
-            msg = f"Error getting bearer token from <{url}>"
-            raise DockerRegistryError(msg) from e
+            error = f"{type(e).__name__}: {str(e)}"
+            msg = f"Cannot parse Docker registry login response: {error}"
+            raise DockerRegistryError(msg, method="GET", url=url)

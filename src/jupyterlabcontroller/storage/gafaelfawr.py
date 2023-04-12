@@ -1,11 +1,20 @@
 """Client for talking to Gafaelfawr."""
 
-from httpx import AsyncClient
+from __future__ import annotations
+
+from httpx import AsyncClient, HTTPError
+from pydantic import ValidationError
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
-from ..exceptions import GafaelfawrError, InvalidTokenError
+from ..exceptions import (
+    GafaelfawrParseError,
+    GafaelfawrWebError,
+    InvalidTokenError,
+)
 from ..models.v1.lab import UserInfo
+
+__all__ = ["GafaelfawrStorageClient"]
 
 
 class GafaelfawrStorageClient:
@@ -46,23 +55,24 @@ class GafaelfawrStorageClient:
 
         Raises
         ------
+        GafaelfawrError
+            Raised if some error occurred talking to Gafaelfawr or if the
+            response from Gafaelfawr could not be parsed.
         InvalidTokenError
             Raised if the token was rejected by Gafaelfawr.
-        GafaelfawrError
-            Some other error occurred while talking to Gafaelfawr.
         """
         headers = {"Authorization": f"bearer {token}"}
         try:
             r = await self._http_client.get(self._url, headers=headers)
-        except Exception as e:
-            msg = f"Unable to contact Gafaelfawr: {str(e)}"
-            raise GafaelfawrError(msg) from e
+        except HTTPError as e:
+            raise GafaelfawrWebError.from_exception(e) from e
         if r.status_code in (401, 403):
             self._logger.warning("User token is invalid")
             raise InvalidTokenError("User token is invalid")
         try:
             r.raise_for_status()
             return UserInfo.parse_obj(r.json())
-        except Exception as e:
-            msg = f"Unable to parse reply from Gafaelfawr: {str(e)}"
-            raise GafaelfawrError(msg) from e
+        except HTTPError as e:
+            raise GafaelfawrWebError.from_exception(e) from e
+        except ValidationError as e:
+            raise GafaelfawrParseError.from_exception(e) from e
