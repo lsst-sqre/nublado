@@ -90,7 +90,7 @@ class SpawnEvent:
         data["progress"] = progress
 
         if sse.event == "complete":
-            data["progress"] = 90
+            data["progress"] = 75
             return cls(**data, severity="info", complete=True)
         elif sse.event in ("info", "error"):
             return cls(**data, severity=sse.event)
@@ -437,7 +437,7 @@ class RSPRestSpawner(Spawner):
             # if it really is running, and if so, return its URL.
             if r.status_code == 409:
                 event = SpawnEvent(
-                    progress=90, message="Lab already running", severity="info"
+                    progress=75, message="Lab already running", severity="info"
                 )
                 self._events.append(event)
                 return await self._get_internal_url()
