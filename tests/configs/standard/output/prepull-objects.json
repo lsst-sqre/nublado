@@ -11,7 +11,16 @@
         "argocd.argoproj.io/instance": "nublado-users"
       },
       "name": "prepull-d-2077-10-23-node2",
-      "namespace": "userlabs"
+      "namespace": "userlabs",
+      "owner_references": [
+        {
+          "api_version": "v1",
+          "block_owner_deletion": true,
+          "kind": "Pod",
+          "name": "nublado-controller",
+          "uid": "12720beb-ecae-452e-982e-2f0a0a2fbaf1"
+        }
+      ]
     },
     "spec": {
       "containers": [

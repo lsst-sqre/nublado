@@ -29,4 +29,5 @@ def configure(directory: str) -> Config:
     config = configuration_dependency.config
     if (config_path / "docker_config.json").exists():
         config.docker_secrets_path = config_path / "docker_config.json"
+    config.metadata_path = config_path / "metadata"
     return configuration_dependency.config

@@ -2,10 +2,11 @@
 
 import asyncio
 import re
+from pathlib import Path
 from typing import Optional
 
 from aiojobs import Scheduler
-from kubernetes_asyncio.client import V1Container, V1PodSpec
+from kubernetes_asyncio.client import V1Container, V1OwnerReference, V1PodSpec
 from structlog.stdlib import BoundLogger
 
 from ..models.domain.rspimage import RSPImage
@@ -25,6 +26,9 @@ class Prepuller:
     ----------
     namespace
         Namespace in which to put prepuller pods.
+    metadata_path
+        Path to injected pod metadata used to create the owner reference for
+        prepull pods.
     image_service
         Service to query for image information. Currently, the background
         refresh thread of the image service is also managed by this class.
@@ -38,14 +42,18 @@ class Prepuller:
         self,
         *,
         namespace: str,
+        metadata_path: Path,
         image_service: ImageService,
         k8s_client: K8sStorageClient,
         logger: BoundLogger,
     ) -> None:
+        self._namespace = namespace
+        self._metadata_path = metadata_path
         self._image_service = image_service
         self._k8s_client = k8s_client
         self._logger = logger
-        self._namespace = namespace
+
+        # Scheduler to manage background tasks that prepull images to nodes.
         self._scheduler: Optional[Scheduler] = None
 
     async def start(self) -> None:
@@ -131,11 +139,15 @@ class Prepuller:
         node
             Node on which to prepull it.
         """
-        spec = self._prepull_pod_spec(image, node)
+        name = self._prepull_pod_name(image, node)
+        self._logger.debug(f"Prepulling {image.tag} on {node}")
         try:
-            self._logger.debug(f"Prepulling {image.tag} on {node}")
-            name = self._prepull_pod_name(image, node)
-            await self._k8s_client.create_pod(name, self._namespace, spec)
+            await self._k8s_client.create_pod(
+                name=name,
+                namespace=self._namespace,
+                pod_spec=self._prepull_pod_spec(image, node),
+                owner=self._prepull_pod_owner(),
+            )
             await self._k8s_client.wait_for_pod_creation(
                 podname=name, namespace=self._namespace
             )
@@ -187,3 +199,29 @@ class Prepuller:
 
         # Kubernetes object names may be at most 253 characters long.
         return name[:253]
+
+    def _prepull_pod_owner(self) -> V1OwnerReference | None:
+        """Construct the owner reference to attach to prepuller pods.
+
+        We want all prepuller pods to show as owned by the lab controller,
+        both for clearer display in services such as Argo CD and also so that
+        Kubernetes will delete the pods when the lab controller restarts,
+        avoiding later conflicts.
+
+        Returns
+        -------
+        V1OwnerReference or None
+            Owner reference to use for prepuller pods or `None` if no pod
+            metadata for the lab controller is available.
+        """
+        name_path = self._metadata_path / "name"
+        uid_path = self._metadata_path / "uid"
+        if not (name_path.exists() and uid_path.exists()):
+            return None
+        return V1OwnerReference(
+            api_version="v1",
+            kind="Pod",
+            name=name_path.read_text().strip(),
+            uid=uid_path.read_text().strip(),
+            block_owner_deletion=True,
+        )

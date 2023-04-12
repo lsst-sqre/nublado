@@ -125,11 +125,12 @@ class ProcessContext:
         return cls(
             config=config,
             http_client=http_client,
+            image_service=image_service,
             k8s_api_client=k8s_api_client,
             k8s_client=k8s_client,
-            image_service=image_service,
             prepuller=Prepuller(
                 namespace=config.lab.namespace_prefix,
+                metadata_path=config.metadata_path,
                 image_service=image_service,
                 k8s_client=k8s_client,
                 logger=logger,
@@ -250,6 +251,13 @@ class Factory:
         )
 
     def create_form_manager(self) -> FormManager:
+        """Create service to generate lab spawning forms.
+
+        Returns
+        -------
+        FormManager
+            Newly-created form manager.
+        """
         return FormManager(
             image_service=self._context.image_service,
             lab_sizes=self._context.config.lab.sizes,
@@ -257,6 +265,13 @@ class Factory:
         )
 
     def create_gafaelfawr_client(self) -> GafaelfawrStorageClient:
+        """Create client to look up users in Gafaelfawr.
+
+        Returns
+        -------
+        GafaelfawrStorageClient
+            Newly-created Gafaelfawr client.
+        """
         return GafaelfawrStorageClient(
             config=self._context.config,
             http_client=self._context.http_client,
@@ -264,6 +279,13 @@ class Factory:
         )
 
     def create_lab_manager(self) -> LabManager:
+        """Create service to manage user labs.
+
+        Returns
+        -------
+        LabManager
+            Newly-creted lab manager.
+        """
         size_manager = self.create_size_manager()
         return LabManager(
             instance_url=self._context.config.base_url,
@@ -278,6 +300,13 @@ class Factory:
         )
 
     def create_size_manager(self) -> SizeManager:
+        """Create service to map between named sizes and resource amounts.
+
+        Returns
+        -------
+        SizeManager
+            Newly-created size manager.
+        """
         return SizeManager(self._context.config.lab.sizes)
 
     def set_logger(self, logger: BoundLogger) -> None:
