@@ -9,6 +9,7 @@ from safir.models import ErrorLocation
 from safir.slack.webhook import SlackIgnoredException
 
 __all__ = [
+    "ClientRequestError",
     "DockerRegistryError",
     "GafaelfawrError",
     "InvalidDockerReferenceError",
@@ -20,19 +21,22 @@ __all__ = [
     "NSDeletionError",
     "UnknownDockerImageError",
     "UnknownUserError",
-    "ValidationError",
     "WaitingForObjectError",
 ]
 
 
-class ValidationError(SlackIgnoredException):
+class ClientRequestError(SlackIgnoredException):
     """Represents an input validation error.
 
     There is a global handler for this exception and all exceptions derived
-    from it that returns an HTTP 422 status code with a body that's consistent
-    with the error messages generated internally by FastAPI.  It should be
-    used for input and parameter validation errors that cannot be caught by
-    FastAPI for whatever reason.
+    from it that returns an status code with a body that's consistent with the
+    error messages generated internally by FastAPI.  It should be used for
+    input and parameter validation errors that cannot be caught by FastAPI for
+    whatever reason.
+
+    Exceptions inheriting from this class should set the class variable
+    ``error`` to a unique error code for that error, and the class variable
+    ``status_code`` to the HTTP status code this exception should generate.
 
     Attributes
     ----------
@@ -103,7 +107,7 @@ class ValidationError(SlackIgnoredException):
         return result
 
 
-class InvalidDockerReferenceError(ValidationError):
+class InvalidDockerReferenceError(ClientRequestError):
     """Docker reference does not contain a tag.
 
     This is valid to Docker, but for references without a digest we require a
@@ -113,35 +117,35 @@ class InvalidDockerReferenceError(ValidationError):
     error = "invalid_docker_reference"
 
 
-class InvalidTokenError(ValidationError):
+class InvalidTokenError(ClientRequestError):
     """The delegated user token is invalid."""
 
     error = "invalid_token"
     status_code = status.HTTP_401_UNAUTHORIZED
 
 
-class PermissionDeniedError(ValidationError):
+class PermissionDeniedError(ClientRequestError):
     """Attempt to access a resource for another user."""
 
     error = "permission_denied"
     status_code = status.HTTP_403_FORBIDDEN
 
 
-class LabExistsError(ValidationError):
+class LabExistsError(ClientRequestError):
     """Lab creation was attempted for a user with an active lab."""
 
     error = "lab_exists"
     status_code = status.HTTP_409_CONFLICT
 
 
-class UnknownDockerImageError(ValidationError):
+class UnknownDockerImageError(ClientRequestError):
     """Cannot find a Docker image matching the requested parameters."""
 
     error = "unknown_image"
     status_code = status.HTTP_400_BAD_REQUEST
 
 
-class UnknownUserError(ValidationError):
+class UnknownUserError(ClientRequestError):
     """No resource has been created for this user."""
 
     error = "unknown_user"
