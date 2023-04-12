@@ -1,50 +1,22 @@
 [
   {
-    "data": "{\"message\": \"Lab creation initiated for rachel\", \"progress\": 2}",
+    "data": "{\"message\": \"Starting lab creation for rachel\", \"progress\": 2}",
     "event": "info"
   },
   {
-    "data": "{\"message\": \"User namespace created for rachel\", \"progress\": 5}",
+    "data": "{\"message\": \"Created user namespace\", \"progress\": 5}",
     "event": "info"
   },
   {
-    "data": "{\"message\": \"Secrets created for rachel\", \"progress\": 10}",
+    "data": "{\"message\": \"Created Kubernetes resources for lab\", \"progress\": 25}",
     "event": "info"
   },
   {
-    "data": "{\"message\": \"NSS files created for rachel\", \"progress\": 15}",
+    "data": "{\"message\": \"Requested lab Kubernetes pod\", \"progress\": 30}",
     "event": "info"
   },
   {
-    "data": "{\"message\": \"Config files created for rachel\", \"progress\": 20}",
-    "event": "info"
-  },
-  {
-    "data": "{\"message\": \"Environment created for rachel\", \"progress\": 25}",
-    "event": "info"
-  },
-  {
-    "data": "{\"message\": \"Network policy created for rachel\", \"progress\": 25}",
-    "event": "info"
-  },
-  {
-    "data": "{\"message\": \"Quota created for rachel\", \"progress\": 30}",
-    "event": "info"
-  },
-  {
-    "data": "{\"message\": \"Service created for rachel\", \"progress\": 35}",
-    "event": "info"
-  },
-  {
-    "data": "{\"message\": \"Resource objects created for rachel\", \"progress\": 40}",
-    "event": "info"
-  },
-  {
-    "data": "{\"message\": \"Pod requested for rachel\", \"progress\": 45}",
-    "event": "info"
-  },
-  {
-    "data": "{\"message\": \"Operation complete for rachel\"}",
+    "data": "{\"message\": \"Lab Kubernetes pod started for rachel\"}",
     "event": "complete"
   }
 ]

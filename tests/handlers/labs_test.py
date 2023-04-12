@@ -118,7 +118,7 @@ async def test_lab_start_stop(
         headers={"X-Auth-Request-User": user.username},
     )
     assert r.status_code == 200
-    assert f"Operation complete for {user.username}" in r.text
+    assert "Lab Kubernetes pod started" in r.text
 
     # The user's lab should now be visible.
     r = await client.get("/nublado/spawner/v1/labs")
@@ -263,11 +263,8 @@ async def test_delayed_spawn(
             {
                 "data": json.dumps(
                     {
-                        "message": (
-                            "Autoscaling cluster for reasons for"
-                            f" {user.username}"
-                        ),
-                        "progress": 46,
+                        "message": "Autoscaling cluster for reasons",
+                        "progress": 35,
                     }
                 ),
                 "event": "info",
@@ -275,10 +272,8 @@ async def test_delayed_spawn(
             {
                 "data": json.dumps(
                     {
-                        "message": (
-                            f"Mounting all the things for {user.username}"
-                        ),
-                        "progress": 60,
+                        "message": "Mounting all the things",
+                        "progress": 48,
                     }
                 ),
                 "event": "info",
@@ -286,11 +281,8 @@ async def test_delayed_spawn(
             {
                 "data": json.dumps(
                     {
-                        "message": (
-                            f"Pod nb-{user.username} started for"
-                            f" {user.username}"
-                        ),
-                        "progress": 69,
+                        "message": f"Pod nb-{user.username} started",
+                        "progress": 57,
                     }
                 ),
                 "event": "info",
