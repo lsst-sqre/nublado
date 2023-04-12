@@ -180,7 +180,7 @@ class GARImageSource(ImageSource):
         RSPImageCollection
             New collection of images to prepull.
         """
-        images = await self._gar.list_images(self._config)
+        images = await self._gar.list_images(self._config, prepull.cycle)
 
         # Set their node presence information based on node cache data.
         for node, node_images in node_cache.items():

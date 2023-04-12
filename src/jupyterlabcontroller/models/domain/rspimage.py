@@ -142,7 +142,7 @@ class RSPImage(RSPImageTag):
         # name parsing done in the RSPImageTag alias method.
         if " (" in self.display_name:
             cutoff = self.display_name.index(" (")
-            base_display_name = self.display_name[:cutoff]
+            base_display_name = self.display_name[:cutoff].title()
         else:
             base_display_name = self.tag.replace("_", " ").title()
 
@@ -163,9 +163,13 @@ class RSPImageCollection:
     ----------
     images
         `RSPImage` objects to store.
+    cycle
+        If given, only add images with a matching cycle.
     """
 
-    def __init__(self, images: Iterable[RSPImage]) -> None:
+    def __init__(
+        self, images: Iterable[RSPImage], cycle: Optional[int] = None
+    ) -> None:
         self._by_digest: dict[str, RSPImage]
         self._by_tag_name: dict[str, RSPImage]
         self._by_type: defaultdict[RSPImageType, list[RSPImage]]
@@ -174,7 +178,7 @@ class RSPImageCollection:
         self._unresolved_aliases: defaultdict[str, list[RSPImage]]
 
         # Ingest all images.
-        self._replace_contents(images)
+        self._replace_contents(images, cycle)
 
     def add(self, image: RSPImage) -> None:
         """Add an image to the collection.
@@ -413,7 +417,9 @@ class RSPImageCollection:
                 return True
         return False
 
-    def _replace_contents(self, images: Iterable[RSPImage]) -> None:
+    def _replace_contents(
+        self, images: Iterable[RSPImage], cycle: Optional[int] = None
+    ) -> None:
         """Replace the contents of the collection with the provided images.
 
         This is primarily used by the constructor, but may also be used to
@@ -423,6 +429,8 @@ class RSPImageCollection:
         ----------
         images
             All images in the collection. Existing images will be discarded.
+        cycle
+            If given, only add images with a matching cycle.
         """
         self._by_digest = {}
         self._by_tag_name = {}
@@ -436,6 +444,8 @@ class RSPImageCollection:
         # first.
         unresolved = []
         for image in images:
+            if cycle is not None and image.cycle != cycle:
+                continue
             self._by_tag_name[image.tag] = image
             if image.is_possible_alias:
                 unresolved.append(image)
@@ -462,6 +472,8 @@ class RSPImageCollection:
         # Now, all images have been resolved where possible. Take a third
         # pass and register all images by type.
         for image in images:
+            if cycle is not None and image.cycle != cycle:
+                continue
             self._by_type[image.image_type].append(image)
 
         # Sort all of the images by reverse order so the newest are first.

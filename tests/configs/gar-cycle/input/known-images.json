@@ -1,0 +1,102 @@
+[
+  {
+    "name": "projects/lighthouse-71ec/locations/us-central1/repositories/library/dockerImages/sketchbook@sha256:dd6d876548037ec722252b45795206575e7040eba1ca076cf1732a4a903cadba",
+    "uri": "us-central1-docker.pkg.dev/lighthouse-71ec/library/sketchbook@sha256:dd6d876548037ec722252b45795206575e7040eba1ca076cf1732a4a903cadba",
+    "tags": ["recommended"],
+    "image_size_bytes": 123456,
+    "upload_time": "2023-03-27T13:02:39Z",
+    "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+    "build_time": "2023-03-27T13:02:39Z",
+    "update_time": "2023-03-27T13:02:39Z"
+  },
+  {
+    "name": "projects/lighthouse-71ec/locations/us-central1/repositories/library/dockerImages/sketchbook@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b",
+    "uri": "us-central1-docker.pkg.dev/lighthouse-71ec/library/sketchbook@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b",
+    "tags": ["recommended_c0050", "w_2077_43_c0050.002"],
+    "image_size_bytes": 123456,
+    "upload_time": "2023-03-27T13:02:39Z",
+    "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+    "build_time": "2023-03-27T13:02:39Z",
+    "update_time": "2023-03-27T13:02:39Z"
+  },
+  {
+    "name": "projects/lighthouse-71ec/locations/us-central1/repositories/library/dockerImages/sketchbook@sha256:b14b81ae38caa6c6d919fc02c202b5d2a99dcce0d4c16ee6ad08b3831e814403",
+    "uri": "us-central1-docker.pkg.dev/lighthouse-71ec/library/sketchbook@sha256:b14b81ae38caa6c6d919fc02c202b5d2a99dcce0d4c16ee6ad08b3831e814403",
+    "tags": ["latest_c0050", "w_2077_43_c0050.004"],
+    "image_size_bytes": 123456,
+    "upload_time": "2023-03-27T13:02:39Z",
+    "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+    "build_time": "2023-03-27T13:02:39Z",
+    "update_time": "2023-03-27T13:02:39Z"
+  },
+  {
+    "name": "projects/lighthouse-71ec/locations/us-central1/repositories/library/dockerImages/sketchbook@sha256:ae673b901072c45e646d4af329a63c8742604b77c29523d056c0522ca702f4ce",
+    "uri": "us-central1-docker.pkg.dev/lighthouse-71ec/library/sketchbook@sha256:ae673b901072c45e646d4af329a63c8742604b77c29523d056c0522ca702f4ce",
+    "tags": ["w_2077_44"],
+    "image_size_bytes": 123456,
+    "upload_time": "2023-03-27T13:02:39Z",
+    "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+    "build_time": "2023-03-27T13:02:39Z",
+    "update_time": "2023-03-27T13:02:39Z"
+  },
+  {
+    "name": "projects/lighthouse-71ec/locations/us-central1/repositories/library/dockerImages/sketchbook@sha256:46907aca9d3b972d17220e105a45a44aa0c49bf39c424dd659055ffa2d63c9f0",
+    "uri": "us-central1-docker.pkg.dev/lighthouse-71ec/library/sketchbook@sha256:46907aca9d3b972d17220e105a45a44aa0c49bf39c424dd659055ffa2d63c9f0",
+    "tags": ["w_2077_44_c0051.001"],
+    "image_size_bytes": 123456,
+    "upload_time": "2023-03-27T13:02:39Z",
+    "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+    "build_time": "2023-03-27T13:02:39Z",
+    "update_time": "2023-03-27T13:02:39Z"
+  },
+  {
+    "name": "projects/lighthouse-71ec/locations/us-central1/repositories/library/dockerImages/sketchbook@sha256:9401f5d181180167d2a2b1d111456a4b9b506245bc43da8c4c869a87d512ecda",
+    "uri": "us-central1-docker.pkg.dev/lighthouse-71ec/library/sketchbook@sha256:9401f5d181180167d2a2b1d111456a4b9b506245bc43da8c4c869a87d512ecda",
+    "tags": ["w_2077_43_c0050.003"],
+    "image_size_bytes": 123456,
+    "upload_time": "2023-03-27T13:02:39Z",
+    "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+    "build_time": "2023-03-27T13:02:39Z",
+    "update_time": "2023-03-27T13:02:39Z"
+  },
+  {
+    "name": "projects/lighthouse-71ec/locations/us-central1/repositories/library/dockerImages/sketchbook@sha256:7d890dd00b7677de625d579e7927ff05e0fb009ef54fe66850288b845d33c1f6",
+    "uri": "us-central1-docker.pkg.dev/lighthouse-71ec/library/sketchbook@sha256:7d890dd00b7677de625d579e7927ff05e0fb009ef54fe66850288b845d33c1f6",
+    "tags": ["w_2077_43_c0050.001"],
+    "image_size_bytes": 123456,
+    "upload_time": "2023-03-27T13:02:39Z",
+    "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+    "build_time": "2023-03-27T13:02:39Z",
+    "update_time": "2023-03-27T13:02:39Z"
+  },
+  {
+    "name": "projects/lighthouse-71ec/locations/us-central1/repositories/library/dockerImages/sketchbook@sha256:862d951e25b2e47a6bd85f000ef0fd4b4e95ebaec4d63ea89baaf79f0665cd4b",
+    "uri": "us-central1-docker.pkg.dev/lighthouse-71ec/library/sketchbook@sha256:862d951e25b2e47a6bd85f000ef0fd4b4e95ebaec4d63ea89baaf79f0665cd4b",
+    "tags": ["w_2077_45_c0049.001"],
+    "image_size_bytes": 123456,
+    "upload_time": "2023-03-27T13:02:39Z",
+    "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+    "build_time": "2023-03-27T13:02:39Z",
+    "update_time": "2023-03-27T13:02:39Z"
+  },
+  {
+    "name": "projects/lighthouse-71ec/locations/us-central1/repositories/library/dockerImages/sketchbook@sha256:9c57a60107e99e7a6cfcf395c26ff3bdabd3a92e88dabe3b5f1974326c7e991a",
+    "uri": "us-central1-docker.pkg.dev/lighthouse-71ec/library/sketchbook@sha256:9c57a60107e99e7a6cfcf395c26ff3bdabd3a92e88dabe3b5f1974326c7e991a",
+    "tags": ["exp_w_2077_41_c0050.002_testing"],
+    "image_size_bytes": 123456,
+    "upload_time": "2023-03-27T13:02:39Z",
+    "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+    "build_time": "2023-03-27T13:02:39Z",
+    "update_time": "2023-03-27T13:02:39Z"
+  },
+  {
+    "name": "projects/lighthouse-71ec/locations/us-central1/repositories/library/dockerImages/sketchbook@sha256:737704b79369f336c8c05b4b28fd2da0e3883752fd2889a323bfd97698c58706",
+    "uri": "us-central1-docker.pkg.dev/lighthouse-71ec/library/sketchbook@sha256:737704b79369f336c8c05b4b28fd2da0e3883752fd2889a323bfd97698c58706",
+    "tags": ["exp_w_2077_42_c0049.001_testing"],
+    "image_size_bytes": 123456,
+    "upload_time": "2023-03-27T13:02:39Z",
+    "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+    "build_time": "2023-03-27T13:02:39Z",
+    "update_time": "2023-03-27T13:02:39Z"
+  }
+]
