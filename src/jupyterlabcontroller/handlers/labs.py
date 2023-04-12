@@ -64,7 +64,7 @@ async def post_new_lab(
     username: str,
     lab: LabSpecification,
     response: Response,
-    x_auth_request_token: str = Header(...),
+    x_auth_request_token: str = Header(..., include_in_schema=False),
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     gafaelfawr_client = context.factory.create_gafaelfawr_client()
@@ -122,7 +122,7 @@ async def delete_user_lab(
 )
 async def get_user_events(
     username: str,
-    x_auth_request_user: str = Header(...),
+    x_auth_request_user: str = Header(..., include_in_schema=False),
     context: RequestContext = Depends(context_dependency),
 ) -> EventSourceResponse:
     """Returns the events for the lab of the given user"""
