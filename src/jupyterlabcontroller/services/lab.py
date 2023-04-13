@@ -754,9 +754,10 @@ class LabManager:
         vols.append(runtime_vol)
         return vols
 
-    def build_init_ctrs(
-        self, username: str, resources: UserResources
+    def build_init_containers(
+        self, user: UserInfo, resources: UserResources
     ) -> list[V1Container]:
+        username = user.username
         init_ctrs = []
         ic_volumes = []
         for ic in self.lab_config.init_containers:
@@ -779,6 +780,10 @@ class LabManager:
                 name=ic.name,
                 # We use the same environment as the notebook, because it
                 # includes things we need for provisioning.
+                env=[
+                    V1EnvVar(name="EXTERNAL_GID", value=str(user.gid)),
+                    V1EnvVar(name="EXTERNAL_UID", value=str(user.uid)),
+                ],
                 env_from=[
                     V1EnvFromSource(
                         config_map_ref=V1ConfigMapEnvSource(
@@ -901,7 +906,7 @@ class LabManager:
         pull_secrets = None
         if self.lab_config.pull_secret:
             pull_secrets = [V1LocalObjectReference(name="pull-secret")]
-        init_containers = self.build_init_ctrs(user.username, resources)
+        init_containers = self.build_init_containers(user, resources)
         pod = V1PodSpec(
             init_containers=init_containers,
             containers=[container],
