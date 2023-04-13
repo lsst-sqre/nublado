@@ -11,6 +11,7 @@ import structlog
 from httpx import AsyncClient
 from kubernetes_asyncio.client.api_client import ApiClient
 from safir.dependencies.http_client import http_client_dependency
+from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from .config import Config
@@ -115,6 +116,12 @@ class ProcessContext:
         else:
             raise RuntimeError("Unknown prepuller configuration type")
 
+        slack_client = None
+        if config.slack_webhook:
+            slack_client = SlackWebhookClient(
+                config.slack_webhook, config.safir.name, logger
+            )
+
         image_service = ImageService(
             config=config.images,
             source=source,
@@ -133,6 +140,7 @@ class ProcessContext:
                 metadata_path=config.metadata_path,
                 image_service=image_service,
                 k8s_client=k8s_client,
+                slack_client=slack_client,
                 logger=logger,
             ),
             user_map=UserMap(),
@@ -297,6 +305,7 @@ class Factory:
             logger=self._logger,
             lab_config=self._context.config.lab,
             k8s_client=self._context.k8s_client,
+            slack_client=self.create_slack_client(),
         )
 
     def create_size_manager(self) -> SizeManager:
@@ -308,6 +317,23 @@ class Factory:
             Newly-created size manager.
         """
         return SizeManager(self._context.config.lab.sizes)
+
+    def create_slack_client(self) -> SlackWebhookClient | None:
+        """Create a client for sending messages to Slack.
+
+        Returns
+        -------
+        SlackWebhookClient or None
+            Configured Slack client if a Slack webhook was configured,
+            otherwise `None`.
+        """
+        if not self._context.config.slack_webhook:
+            return None
+        return SlackWebhookClient(
+            self._context.config.slack_webhook,
+            self._context.config.safir.name,
+            self._logger,
+        )
 
     def set_logger(self, logger: BoundLogger) -> None:
         """Replace the internal logger.

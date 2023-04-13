@@ -2,12 +2,14 @@
 
 from importlib.metadata import metadata, version
 
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from safir.dependencies.http_client import http_client_dependency
 from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
+from safir.slack.webhook import SlackRouteErrorHandler
 
 from .dependencies.config import configuration_dependency
 from .dependencies.context import context_dependency
@@ -55,6 +57,13 @@ def create_app() -> FastAPI:
 
     # Register middleware.
     app.add_middleware(XForwardedMiddleware)
+
+    # Configure Slack alerts.
+    logger = structlog.get_logger(__name__)
+    if config.slack_webhook:
+        webhook = config.slack_webhook
+        SlackRouteErrorHandler.initialize(webhook, config.safir.name, logger)
+        logger.debug("Initialized Slack webhook")
 
     @app.on_event("startup")
     async def startup_event() -> None:

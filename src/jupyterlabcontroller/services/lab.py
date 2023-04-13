@@ -35,6 +35,7 @@ from kubernetes_asyncio.client import (
     V1VolumeMount,
 )
 from safir.slack.blockkit import SlackException
+from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..config import FileMode, LabConfig, LabVolume
@@ -76,6 +77,7 @@ class LabManager:
         logger: BoundLogger,
         lab_config: LabConfig,
         k8s_client: K8sStorageClient,
+        slack_client: Optional[SlackWebhookClient] = None,
     ) -> None:
         self.manager_namespace = manager_namespace
         self.instance_url = instance_url
@@ -86,6 +88,7 @@ class LabManager:
         self.logger = logger
         self.lab_config = lab_config
         self.k8s_client = k8s_client
+        self._slack_client = slack_client
         self._tasks: set[Task] = set()
 
     def namespace_from_user(self, user: UserInfo) -> str:
@@ -266,10 +269,14 @@ class LabManager:
             self.user_map.set_status(username, status=LabStatus.PENDING)
             await self.info_event(username, "Requested lab Kubernetes pod", 30)
         except Exception as e:
-            if isinstance(e, SlackException):
-                e.user = username
             msg = "Lab creation failed"
             self.logger.exception(msg, user=username)
+            if self._slack_client:
+                if isinstance(e, SlackException):
+                    e.user = username
+                    await self._slack_client.post_exception(e)
+                else:
+                    await self._slack_client.post_uncaught_exception(e)
             await self.failure_event(username, str(e), fatal=True)
             self.user_map.set_status(username, status=LabStatus.FAILED)
             return

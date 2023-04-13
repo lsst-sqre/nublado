@@ -2,12 +2,13 @@
 
 from fastapi import APIRouter, Depends, Header
 from safir.models import ErrorModel
+from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import UnknownUserError
 from ..models.v1.lab import UserData
 
-router = APIRouter()
+router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
 
 __all__ = ["router"]

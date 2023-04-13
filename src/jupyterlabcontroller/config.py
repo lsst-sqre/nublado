@@ -48,7 +48,7 @@ class SafirConfig(CamelCaseModel):
     """Config common to most Safir-based applications."""
 
     name: str = Field(
-        "nublado",
+        "Nublado",
         title="Name of application",
         env="SAFIR_NAME",
     )
@@ -285,6 +285,11 @@ class Config(BaseSettings):
             " `downwardAPI`.) These are used to set ownership information on"
             " pods spawned by the prepuller."
         ),
+    )
+    slack_webhook: Optional[str] = Field(
+        None,
+        title="Slack webhook to which to post alerts",
+        env="NUBLADO_SLACK_WEBHOOK",
     )
 
     # CamelCaseModel conflicts with BaseSettings, so do this manually.

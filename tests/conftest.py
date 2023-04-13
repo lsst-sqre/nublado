@@ -11,6 +11,7 @@ import respx
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
+from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
@@ -84,6 +85,7 @@ async def factory(
     config: Config,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
+    mock_slack: MockSlackWebhook,
     obj_factory: TestObjectFactory,
 ) -> AsyncIterator[Factory]:
     """Create a component factory for tests."""
@@ -127,3 +129,12 @@ def mock_gar() -> Iterator[MockArtifactRegistry]:
 @pytest.fixture
 def mock_kubernetes() -> Iterator[MockKubernetesApi]:
     yield from patch_kubernetes()
+
+
+@pytest.fixture
+def mock_slack(
+    config: Config, respx_mock: respx.Router
+) -> Iterator[MockSlackWebhook]:
+    config.slack_webhook = "https://slack.example.com/webhook"
+    yield mock_slack_webhook(config.slack_webhook, respx_mock)
+    config.slack_webhook = None

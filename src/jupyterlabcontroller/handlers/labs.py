@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, Header, Response
 from safir.models import ErrorLocation, ErrorModel
+from safir.slack.webhook import SlackRouteErrorHandler
 from sse_starlette import EventSourceResponse
 
 from ..dependencies.context import RequestContext, context_dependency
@@ -13,7 +14,7 @@ from ..exceptions import (
 )
 from ..models.v1.lab import LabSpecification, UserData
 
-router = APIRouter()
+router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
 
 __all__ = ["router"]
