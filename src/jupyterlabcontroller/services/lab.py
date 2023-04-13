@@ -34,6 +34,7 @@ from kubernetes_asyncio.client import (
     V1Volume,
     V1VolumeMount,
 )
+from safir.slack.blockkit import SlackException
 from structlog.stdlib import BoundLogger
 
 from ..config import FileMode, LabConfig, LabVolume
@@ -104,13 +105,9 @@ class LabManager:
         msg = f"Spawning event: {message}"
         self.logger.debug(msg, progress=progress, user=username)
 
-    async def completion_event(self, username: str) -> None:
-        event = Event(
-            message=f"Lab Kubernetes pod started for {username}",
-            type=EventType.COMPLETE,
-        )
+    async def completion_event(self, username: str, message: str) -> None:
+        event = Event(message=message, type=EventType.COMPLETE)
         self.event_manager.publish_event(username, event)
-        self.logger.info("Lab pod started", user=username)
 
     async def failure_event(
         self, username: str, message: str, fatal: bool = True
@@ -132,21 +129,31 @@ class LabManager:
             await self.k8s_client.wait_for_pod_creation(
                 podname=f"nb-{username}", namespace=namespace
             )
-        except Exception:
+        except Exception as e:
+            self.logger.exception("Pod creation failed", user=username)
+            await self.failure_event(username, str(e), fatal=True)
             self.user_map.set_status(username, status=LabStatus.FAILED)
             self.user_map.clear_internal_url(username)
-            raise
-        self.user_map.set_status(username, status=LabStatus.RUNNING)
-        await self.completion_event(username)
+        else:
+            self.user_map.set_status(username, status=LabStatus.RUNNING)
+            message = f"Lab Kubernetes pod started for {username}"
+            await self.completion_event(username, message)
+            self.logger.info("Lab pod started", user=username)
 
     async def await_ns_deletion(self, namespace: str, username: str) -> None:
         """This is designed to run as a background task and just wait until
         the pod has been created and inject a completion event into the
         event queue when it has.
         """
-        await self.k8s_client.wait_for_namespace_deletion(namespace=namespace)
-        await self.completion_event(username)
-        self.user_map.remove(username)
+        try:
+            await self.k8s_client.wait_for_namespace_deletion(namespace)
+        except Exception as e:
+            self.logger.exception("Namespace deletion failed", user=username)
+            await self.failure_event(username, str(e), fatal=True)
+            self.user_map.set_status(username, status=LabStatus.FAILED)
+        else:
+            await self.completion_event(username, "Lab deleted")
+            self.user_map.remove(username)
 
     async def inject_pod_events(
         self,
@@ -191,8 +198,6 @@ class LabManager:
         InvalidDockerReferenceError
             Docker image reference in the lab specification is invalid.
         """
-        username = user.username
-        namespace = self.namespace_from_user(user)
         selection = lab.options.image_list or lab.options.image_dropdown
         if selection:
             reference = DockerReference.from_str(selection)
@@ -207,41 +212,67 @@ class LabManager:
         # unclear if we should clear the event queue before this.  Probably not
         # because we don't want to wipe out the existing log, since we will
         # not be spawning.
-        if self.check_for_user(username):
-            await self.failure_event(username, "Lab already exists")
-            raise LabExistsError(f"Lab already exists for {username}")
+        if self.check_for_user(user.username):
+            await self.failure_event(user.username, "Lab already exists")
+            raise LabExistsError(f"Lab already exists for {user.username}")
 
         # Add a new usermap entry and clear the user event queue.
         self.user_map.set(
-            username,
+            user.username,
             UserData.new_from_user_resources(
                 user=user,
                 labspec=lab,
                 resources=self._size_manager.resources(lab.options.size),
             ),
         )
-        self.event_manager.reset_user(username)
+        self.event_manager.reset_user(user.username)
+
+        # This is all that we should do synchronously in response to the API
+        # call. The rest should be done in the background, reporting status
+        # through the event stream. Kick off the background job.
+        await self.info_event(
+            user.username, f"Starting lab creation for {user.username}", 2
+        )
+        pod_spawn_task = create_task(self._spawn_lab(user, token, lab, image))
+        self._tasks.add(pod_spawn_task)
+        pod_spawn_task.add_done_callback(self._tasks.discard)
+
+    async def _spawn_lab(
+        self,
+        user: UserInfo,
+        token: str,
+        lab: LabSpecification,
+        image: RSPImage,
+    ) -> None:
+        username = user.username
+        namespace = self.namespace_from_user(user)
 
         # This process has three stages. First, create or recreate the user's
         # namespace. Second, create all the supporting resources the lab pod
         # will need. Finally, create the lab pod and wait for it to start,
         # reflecting any events back to the events API.
-        await self.info_event(
-            username, f"Starting lab creation for {username}", 2
-        )
-        await self.k8s_client.create_user_namespace(namespace)
-        await self.info_event(username, "Created user namespace", 5)
-        await self.create_user_lab_objects(
-            user=user, lab=lab, image=image, token=token
-        )
-        await self.info_event(
-            username, "Created Kubernetes resources for lab", 25
-        )
-        resources = self._size_manager.resources(lab.options.size)
-        await self.create_user_pod(user, resources, image)
-        self.user_map.set_pod_state(username, PodState.PRESENT)
-        self.user_map.set_status(username, status=LabStatus.PENDING)
-        await self.info_event(username, "Requested lab Kubernetes pod", 30)
+        try:
+            await self.k8s_client.create_user_namespace(namespace)
+            await self.info_event(username, "Created user namespace", 5)
+            await self.create_user_lab_objects(
+                user=user, lab=lab, image=image, token=token
+            )
+            await self.info_event(
+                username, "Created Kubernetes resources for lab", 25
+            )
+            resources = self._size_manager.resources(lab.options.size)
+            await self.create_user_pod(user, resources, image)
+            self.user_map.set_pod_state(username, PodState.PRESENT)
+            self.user_map.set_status(username, status=LabStatus.PENDING)
+            await self.info_event(username, "Requested lab Kubernetes pod", 30)
+        except Exception as e:
+            if isinstance(e, SlackException):
+                e.user = username
+            msg = "Lab creation failed"
+            self.logger.exception(msg, user=username)
+            await self.failure_event(username, str(e), fatal=True)
+            self.user_map.set_status(username, status=LabStatus.FAILED)
+            return
 
         # We need to set the expected internal URL, because the spawner
         # start needs to know it, even though it's not accessible yet.
@@ -264,13 +295,8 @@ class LabManager:
         self._tasks.add(evt_task)
         evt_task.add_done_callback(self._tasks.discard)
 
-        # Create a task to add the completed event when the pod finishes
-        # spawning.
-        pod_task = create_task(
-            self.await_pod_spawn(namespace=namespace, username=user.username)
-        )
-        self._tasks.add(pod_task)
-        pod_task.add_done_callback(self._tasks.discard)
+        # Now, wait for the pod to spawn.
+        await self.await_pod_spawn(namespace=namespace, username=user.username)
 
     async def create_user_lab_objects(
         self,
@@ -289,21 +315,17 @@ class LabManager:
         # Doing it sequentially doesn't actually wait for resource creation,
         # because it's an async K8s call, and each call completes quickly.
 
-        try:
-            await self.create_secrets(
-                username=username,
-                namespace=self.namespace_from_user(user),
-                token=token,
-            )
-            await self.create_nss(user=user)
-            await self.create_file_configmap(user=user)
-            await self.create_env(user=user, lab=lab, image=image, token=token)
-            await self.create_network_policy(user=user)
-            await self.create_quota(user)
-            await self.create_lab_service(user=user)
-        except Exception as exc:
-            await self.failure_event(username, f"Exception: '{exc}'")
-        return
+        await self.create_secrets(
+            username=username,
+            namespace=self.namespace_from_user(user),
+            token=token,
+        )
+        await self.create_nss(user=user)
+        await self.create_file_configmap(user=user)
+        await self.create_env(user=user, lab=lab, image=image, token=token)
+        await self.create_network_policy(user=user)
+        await self.create_quota(user)
+        await self.create_lab_service(user=user)
 
     async def create_secrets(
         self, username: str, token: str, namespace: str
@@ -502,10 +524,6 @@ class LabManager:
         self, user: UserInfo, resources: UserResources, image: RSPImage
     ) -> None:
         pod_spec = self.build_pod_spec(user, resources, image)
-        # FIXME
-        # Here we should create a K8s pod watch, and then reflect its
-        # events into the user queue, removing it when the pod creation
-        # has completed.
         await self.k8s_client.create_pod(
             name=f"nb-{user.username}",
             namespace=self.namespace_from_user(user),
@@ -920,10 +938,11 @@ class LabManager:
                 username=user.username,
             )
         except Exception as e:
-            emsg = f"Could not delete lab environment: '{e}'"
-            await self.failure_event(username, emsg)
+            if isinstance(e, SlackException):
+                e.user = username
+            self.logger.exception("Error deleting lab environment")
+            await self.failure_event(username, str(e), fatal=True)
             user.status = LabStatus.FAILED
-            raise
 
     async def reconcile_user_map(self) -> None:
         self.logger.debug("Reconciling user map with observed state.")

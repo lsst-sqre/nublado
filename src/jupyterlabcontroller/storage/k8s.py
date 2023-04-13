@@ -147,21 +147,24 @@ class K8sStorageClient:
                         namespace=namespace,
                         name=podname,
                     ) from e
-            phase = pod_status.phase
-            if phase == K8sPodPhase.UNKNOWN:
-                unk += 1
-                if unk > unk_threshold:
-                    raise WaitingForObjectError(
-                        f"Pod {namespace}/{podname} stayed in unknown "
-                        + f"longer than {unk_threshold * interval}s"
+            else:
+                phase = pod_status.phase
+                if phase == K8sPodPhase.UNKNOWN:
+                    unk += 1
+                    if unk > unk_threshold:
+                        raise WaitingForObjectError(
+                            f"Pod {namespace}/{podname} stayed in unknown "
+                            + f"longer than {unk_threshold * interval}s"
+                        )
+                if phase == K8sPodPhase.FAILED:
+                    msg = (
+                        f"Pod {namespace}/{podname} failed:"
+                        f" {pod_status.message}"
                     )
-            if phase == K8sPodPhase.FAILED:
-                raise WaitingForObjectError(
-                    f"Pod {namespace}/{podname} failed: {pod_status.message}"
-                )
-            if phase in (K8sPodPhase.RUNNING, K8sPodPhase.SUCCEEDED):
-                # "Succeeded" would be weird for a Lab pod.
-                return
+                    raise WaitingForObjectError(msg)
+                if phase in (K8sPodPhase.RUNNING, K8sPodPhase.SUCCEEDED):
+                    # "Succeeded" would be weird for a Lab pod.
+                    return
             # If we got this far, it's "Pending" and we just wait a bit
             # and look again.
             unk = 0
