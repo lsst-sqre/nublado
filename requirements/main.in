@@ -11,15 +11,14 @@ starlette
 uvicorn[standard]
 
 # Other dependencies.
-safir[kubernetes]>=3.3.0
-
-# jupyterlab-controller-specific deps
 aiojobs
 aioredis
 aioredlock
 bitmath
 google-cloud-artifact-registry
+httpx
 jinja2
 PyYAML
+safir[kubernetes]>=3.3.0
 semver
 sse-starlette

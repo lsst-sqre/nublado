@@ -10,7 +10,7 @@ from enum import Enum
 from functools import total_ordering
 from typing import Optional, Self
 
-from semver import VersionInfo
+from semver.version import VersionInfo
 
 DOCKER_DEFAULT_TAG = "latest"
 """Implicit tag used by Docker/Kubernetes when no tag is specified."""
@@ -384,12 +384,13 @@ class RSPImageTag:
         # tags, and the cycle information is stored in the build.
         if self.version.build == other.version.build:
             return 0
-        elif self.version.build and not other.version.build:
-            return 1
-        elif not self.version.build and other.version.build:
-            return -1
+        elif self.version.build:
+            if not other.version.build:
+                return 1
+            else:
+                return -1 if self.version.build < other.version.build else 1
         else:
-            return -1 if self.version.build < other.version.build else 1
+            return -1 if other.version.build else 0
 
 
 class RSPImageTagCollection:
