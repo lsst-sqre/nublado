@@ -52,7 +52,7 @@ class K8sStorageClient:
         self.k8s_api = k8s_api
         self.api = client.CoreV1Api(k8s_api)
         self.timeout = timeout
-        self.logger = logger
+        self._logger = logger
 
     async def aclose(self) -> None:
         await self.k8s_api.close()
@@ -65,7 +65,7 @@ class K8sStorageClient:
         name
             Name of the namespace.
         """
-        self.logger.info(f"Attempting creation of namespace '{name}'")
+        self._logger.debug("Creating namespace", name=name)
         body = V1Namespace(metadata=self._standard_metadata(name))
         try:
             await self.api.create_namespace(body)
@@ -100,6 +100,7 @@ class K8sStorageClient:
         within the timeout, we raise the timeout exception, and if we get some
         other error, we repackage that and raise it.
         """
+        self._logger.debug("Waiting for namespace deletion", name=namespace)
         elapsed = 0.0
         while elapsed < self.timeout:
             try:
@@ -124,6 +125,8 @@ class K8sStorageClient:
         into "Running" or "Completed" state in 570 seconds, it raises an
         exception.
         """
+        logger = self._logger.bind(name=podname, namespace=namespace)
+        logger.debug("Waiting for pod creation")
         elapsed = 0.0
         unk = 0
         unk_threshold = 20
@@ -136,10 +139,7 @@ class K8sStorageClient:
                 pod_status = pod.status
             except ApiException as e:
                 if e.status == 404:
-                    self.logger.warning(
-                        f"Pod {namespace}/{podname} does not exist "
-                        + f"at {elapsed}s."
-                    )
+                    logger.warning(f"Pod does not exist ({elapsed}s elapsed)")
                 else:
                     raise KubernetesError.from_exception(
                         "Error reading pod status",
@@ -178,6 +178,8 @@ class K8sStorageClient:
     async def remove_completed_pod(
         self, podname: str, namespace: str, interval: float = 0.2
     ) -> None:
+        logger = self._logger.bind(name=podname, namespace=namespace)
+        logger.debug("Waiting for pod execution to succeed")
         elapsed = 0.0
         pod_timeout = 30  # arbitrary, but the prepuller pod should just sleep
         # 5 seconds and go away.
@@ -200,6 +202,7 @@ class K8sStorageClient:
                     ) from e
             phase = pod_status.phase
             if phase == K8sPodPhase.SUCCEEDED:
+                logger.debug("Removing succeeded pod")
                 try:
                     await self.api.delete_namespaced_pod(podname, namespace)
                 except ApiException as e:
@@ -211,8 +214,6 @@ class K8sStorageClient:
                         namespace=namespace,
                         name=podname,
                     ) from e
-                msg = f"Removed completed pod {namespace}/{podname}"
-                self.logger.debug(msg)
                 return
             await asyncio.sleep(interval)
             elapsed += interval
@@ -231,7 +232,8 @@ class K8sStorageClient:
         This is going to yield messages that are reflected from K8s while the
         pod is Pending, and return once pod is Running, Completed, or Failed.
         """
-        logger = self.logger.bind(namespace=namespace, pod=podname)
+        logger = self._logger.bind(namespace=namespace, pod=podname)
+        logger.debug("Watching for pod events")
         w = watch.Watch()
         method = self.api.list_namespaced_event
         watch_args = {
@@ -259,7 +261,7 @@ class K8sStorageClient:
                 except ApiException as e:
                     # Dunno why it stopped, but we can stop watching
                     if e.status == 404:
-                        self.logger.error("Pod disappeared while spawning")
+                        logger.error("Pod disappeared while spawning")
                         phase = K8sPodPhase.FAILED  # A guess, but
                         # puts us into stopping state
                     else:
@@ -278,14 +280,13 @@ class K8sStorageClient:
                 ):
                     stopping = True
                 if phase == K8sPodPhase.UNKNOWN:
-                    self.logger.warning(
-                        f"Pod {namespace}/{podname} in Unknown phase."
-                    )
+                    logger.warning("Pod phase is Unknown")
+
                 # Now gather up our events and forward those
                 message = raw_event.get("message")
                 if message and message not in seen_messages:
                     seen_messages.append(message)
-                    self.logger.debug(f"Watch reporting '{message}'")
+                    logger.debug("Pod watch reported message", message=message)
                     yield message
                 if stopping:
                     break
@@ -381,6 +382,7 @@ class K8sStorageClient:
             immutable=immutable,
             metadata=self._standard_metadata(name),
         )
+        self._logger.debug("Creating secret", name=name, namespace=namespace)
         try:
             await self.api.create_namespaced_secret(namespace, secret)
         except ApiException as e:
@@ -393,13 +395,15 @@ class K8sStorageClient:
         name: str,
         namespace: str,
     ) -> Secret:
+        logger = self._logger.bind(name=name, namespace=namespace)
+        logger.debug("Reading secret")
         try:
             secret = await self.api.read_namespaced_secret(name, namespace)
         except ApiException as e:
             if e.status == 404:
-                errstr = f"Secret {namespace}/{name} does not exist"
-                self.logger.error(errstr)
-                raise MissingSecretError(errstr)
+                logger.error("Secret does not exist")
+                msg = f"Secret {namespace}/{name} does not exist"
+                raise MissingSecretError(msg)
             else:
                 raise KubernetesError.from_exception(
                     "Error reading secret", e, namespace=namespace, name=name
@@ -414,6 +418,9 @@ class K8sStorageClient:
         data: dict[str, str],
         immutable: bool = True,
     ) -> None:
+        self._logger.debug(
+            "Creating config map", name=name, namespace=namespace
+        )
         configmap = V1ConfigMap(
             data={deslashify(k): v for k, v in data.items()},
             immutable=immutable,
@@ -432,6 +439,9 @@ class K8sStorageClient:
         namespace: str,
     ) -> None:
         api = client.NetworkingV1Api(self.k8s_api)
+        self._logger.debug(
+            "Creating network policy", name=name, namespace=namespace
+        )
         # FIXME we need to further restrict Ingress to the right pods,
         # and Egress to ... external world, Hub, Portal, Gafaelfawr.  What
         # else?
@@ -460,6 +470,7 @@ class K8sStorageClient:
             ) from e
 
     async def create_lab_service(self, username: str, namespace: str) -> None:
+        self._logger.debug("Creating service", name="lab", namespace=namespace)
         service = V1Service(
             metadata=self._standard_metadata("lab"),
             spec=V1ServiceSpec(
@@ -481,19 +492,22 @@ class K8sStorageClient:
         self,
         name: str,
         namespace: str,
-        quota: UserResourceQuantum,
+        resource: UserResourceQuantum,
     ) -> None:
-        body = V1ResourceQuota(
+        self._logger.debug(
+            "Creating resource quota", name=name, namespace=namespace
+        )
+        quota = V1ResourceQuota(
             metadata=self._standard_metadata(name),
             spec=V1ResourceQuotaSpec(
                 hard={
-                    "limits.cpu": str(quota.cpu),
-                    "limits.memory": str(quota.memory),
+                    "limits.cpu": str(resource.cpu),
+                    "limits.memory": str(resource.memory),
                 }
             ),
         )
         try:
-            await self.api.create_namespaced_resource_quota(namespace, body)
+            await self.api.create_namespaced_resource_quota(namespace, quota)
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error creating resource quota",
@@ -511,6 +525,7 @@ class K8sStorageClient:
         labels: Optional[dict[str, str]] = None,
         owner: Optional[V1OwnerReference] = None,
     ) -> None:
+        self._logger.debug("Creating pod", name=name, namespace=namespace)
         metadata = self._standard_metadata(name)
         if labels:
             metadata.labels.update(labels)
@@ -526,13 +541,12 @@ class K8sStorageClient:
                 namespace=namespace,
                 name=name,
             ) from e
-        self.logger.debug(f"Created pod {namespace}/{name}")
 
     async def delete_namespace(self, name: str) -> None:
         """Delete the namespace with name ``name``.  If it doesn't exist,
         that's OK.
         """
-        self.logger.debug(f"Deleting namespace {name}")
+        self._logger.debug("Deleting namespace", name=name)
         try:
             await asyncio.wait_for(
                 self.api.delete_namespace(name), self.timeout
@@ -557,6 +571,7 @@ class K8sStorageClient:
         dict of str to list
             Map of nodes to lists of all cached images on that node.
         """
+        self._logger.debug("Getting node image data")
         try:
             nodes = await self.api.list_node()
         except ApiException as e:
@@ -586,6 +601,9 @@ class K8sStorageClient:
         for u_ns in user_namespaces:
             username = u_ns[len(ns_prefix) :]
             podname = f"nb-{username}"
+            self._logger.debug(
+                "Reading existing user pod", name=podname, namespace=u_ns
+            )
             try:
                 pod = await api.read_namespaced_pod(
                     name=podname, namespace=u_ns
@@ -593,9 +611,9 @@ class K8sStorageClient:
                 observed_state[username] = UserData.from_pod(pod)
             except ApiException as e:
                 if e.status == 404:
-                    self.logger.warning(
+                    self._logger.warning(
                         f"Found user namespace for {username} but no pod; "
-                        + "attempting namespace deletion."
+                        + "attempting namespace deletion"
                     )
                     await self.delete_namespace(u_ns)
                     await self.wait_for_namespace_deletion(u_ns)
@@ -619,7 +637,7 @@ class K8sStorageClient:
         KubernetesError
             Raised if Kubernetes API calls fail unexpectedly.
         """
-        self.logger.warning(f"Namespace {name} already exists, removing")
+        self._logger.warning(f"Namespace {name} already exists, removing")
         try:
             self.api.delete_namespace(name)
         except ApiException as e:

@@ -85,7 +85,7 @@ class LabManager:
         self.event_manager = event_manager
         self._size_manager = size_manager
         self._image_service = image_service
-        self.logger = logger
+        self._logger = logger
         self.lab_config = lab_config
         self.k8s_client = k8s_client
         self._slack_client = slack_client
@@ -106,7 +106,7 @@ class LabManager:
         event = Event(message=message, progress=progress, type=EventType.INFO)
         self.event_manager.publish_event(username, event)
         msg = f"Spawning event: {message}"
-        self.logger.debug(msg, progress=progress, user=username)
+        self._logger.debug(msg, progress=progress)
 
     async def completion_event(self, username: str, message: str) -> None:
         event = Event(message=message, type=EventType.COMPLETE)
@@ -117,11 +117,11 @@ class LabManager:
     ) -> None:
         event = Event(message=message, type=EventType.ERROR)
         self.event_manager.publish_event(username, event)
-        self.logger.error(f"Spawning error: {message}", user=username)
+        self._logger.error(f"Spawning error: {message}")
         if fatal:
             event = Event(message="Lab creation failed", type=EventType.FAILED)
             self.event_manager.publish_event(username, event)
-            self.logger.error("Lab creation failed", user=username)
+            self._logger.error("Lab creation failed")
 
     async def await_pod_spawn(self, namespace: str, username: str) -> None:
         """This is designed to run as a background task and just wait until
@@ -133,7 +133,7 @@ class LabManager:
                 podname=f"nb-{username}", namespace=namespace
             )
         except Exception as e:
-            self.logger.exception("Pod creation failed", user=username)
+            self._logger.exception("Pod creation failed")
             await self.failure_event(username, str(e), fatal=True)
             self.user_map.set_status(username, status=LabStatus.FAILED)
             self.user_map.clear_internal_url(username)
@@ -141,7 +141,7 @@ class LabManager:
             self.user_map.set_status(username, status=LabStatus.RUNNING)
             message = f"Lab Kubernetes pod started for {username}"
             await self.completion_event(username, message)
-            self.logger.info("Lab pod started", user=username)
+            self._logger.info("Lab created")
 
     async def await_ns_deletion(self, namespace: str, username: str) -> None:
         """This is designed to run as a background task and just wait until
@@ -151,12 +151,13 @@ class LabManager:
         try:
             await self.k8s_client.wait_for_namespace_deletion(namespace)
         except Exception as e:
-            self.logger.exception("Namespace deletion failed", user=username)
+            self._logger.exception("Namespace deletion failed")
             await self.failure_event(username, str(e), fatal=True)
             self.user_map.set_status(username, status=LabStatus.FAILED)
         else:
             await self.completion_event(username, "Lab deleted")
             self.user_map.remove(username)
+            self._logger.info("Lab deleted")
 
     async def inject_pod_events(
         self,
@@ -233,6 +234,7 @@ class LabManager:
         # This is all that we should do synchronously in response to the API
         # call. The rest should be done in the background, reporting status
         # through the event stream. Kick off the background job.
+        self._logger.info("Creating new lab")
         await self.info_event(
             user.username, f"Starting lab creation for {user.username}", 2
         )
@@ -269,8 +271,7 @@ class LabManager:
             self.user_map.set_status(username, status=LabStatus.PENDING)
             await self.info_event(username, "Requested lab Kubernetes pod", 30)
         except Exception as e:
-            msg = "Lab creation failed"
-            self.logger.exception(msg, user=username)
+            self._logger.exception("Lab creation failed")
             if self._slack_client:
                 if isinstance(e, SlackException):
                     e.user = username
@@ -508,24 +509,16 @@ class LabManager:
         )
 
     async def create_quota(self, user: UserInfo) -> None:
-        quota = self.build_namespace_quota(user)
-        if quota is not None:
-            await self.k8s_client.create_quota(
-                name=f"nb-{user.username}",
-                namespace=self.namespace_from_user(user),
-                quota=quota,
-            )
-
-    def build_namespace_quota(
-        self, user: UserInfo
-    ) -> Optional[UserResourceQuantum]:
-        if user.quota and user.quota.notebook:
-            return UserResourceQuantum(
+        if not user.quota or not user.quota.notebook:
+            return
+        await self.k8s_client.create_quota(
+            f"nb-{user.username}",
+            self.namespace_from_user(user),
+            UserResourceQuantum(
                 cpu=user.quota.notebook.cpu,
                 memory=int(user.quota.notebook.memory * 1024 * 1024 * 1024),
-            )
-        else:
-            return None
+            ),
+        )
 
     async def create_user_pod(
         self, user: UserInfo, resources: UserResources, image: RSPImage
@@ -812,7 +805,6 @@ class LabManager:
                 security_context=ic_sec_ctx,
                 volume_mounts=ic_vol_mounts,
             )
-            self.logger.debug(f"Added init container {ic.name} ({ic.image})")
             init_ctrs.append(ctr)
         return init_ctrs
 
@@ -952,12 +944,12 @@ class LabManager:
         except Exception as e:
             if isinstance(e, SlackException):
                 e.user = username
-            self.logger.exception("Error deleting lab environment")
+            self._logger.exception("Error deleting lab environment")
             await self.failure_event(username, str(e), fatal=True)
             user.status = LabStatus.FAILED
 
     async def reconcile_user_map(self) -> None:
-        self.logger.debug("Reconciling user map with observed state.")
+        self._logger.info("Reconciling user map with Kubernetes")
         user_map = self.user_map
         observed_state = await self.k8s_client.get_observed_user_state(
             self.manager_namespace
@@ -974,27 +966,28 @@ class LabManager:
             status = u_rec.status
             # User was not found by observation
             if user not in obs_users:
-                self.logger.warning(
-                    f"User {user} not found in observed state."
-                )
+                msg = f"Expected user {user} not found in Kubernetes"
+                self._logger.warning(msg)
                 if status == LabStatus.FAILED:
-                    self.logger.warning(f"Retaining failed state for {user}")
+                    self._logger.debug(f"Retaining failed state for {user}")
                 else:
-                    self.logger.warning(f"Removing record for user {user}")
+                    self._logger.debug(f"Removing record for user {user}")
                     self.event_manager.reset_user(user)
                     user_map.remove(user)
             # User was observed to exist
             else:
                 obs_rec = observed_state[user]
                 if obs_rec.status != status:
-                    self.logger.warning(
-                        f"User map shows status for {user} as {status}, "
-                        + f"but observed is {obs_rec.status}"
+                    self._logger.warning(
+                        f"User map shows status for {user} is {status}, "
+                        + f"but observed status is {obs_rec.status}"
                     )
                     if status == LabStatus.FAILED:
-                        self.logger.error("Not updating failed status")
+                        self._logger.debug(
+                            f"Not updating failed status for {user}"
+                        )
                     else:
-                        self.logger.warning("Updating user map")
+                        self._logger.debug(f"Updating status for {user}")
                         user_map.set_status(user, status=obs_rec.status)
 
         # Second pass: take observed state and create any missing user map
@@ -1003,8 +996,7 @@ class LabManager:
         for user in obs_users:
             obs_rec = observed_state[user]
             if user not in known_users:
-                self.logger.info(
-                    f"No entry for observed user '{user}' in user "
-                    + "map.  Creating record from observation"
+                self._logger.info(
+                    f"Creating record for unknown user {user} from Kubernetes"
                 )
                 user_map.set(user, obs_rec)
