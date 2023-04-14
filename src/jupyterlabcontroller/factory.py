@@ -97,6 +97,12 @@ class ProcessContext:
             logger=logger,
         )
 
+        slack_client = None
+        if config.slack_webhook:
+            slack_client = SlackWebhookClient(
+                config.slack_webhook, config.safir.name, logger
+            )
+
         if isinstance(config.images.source, DockerSourceConfig):
             docker_client = DockerStorageClient(
                 credentials_path=config.docker_secrets_path,
@@ -116,16 +122,11 @@ class ProcessContext:
         else:
             raise RuntimeError("Unknown prepuller configuration type")
 
-        slack_client = None
-        if config.slack_webhook:
-            slack_client = SlackWebhookClient(
-                config.slack_webhook, config.safir.name, logger
-            )
-
         image_service = ImageService(
             config=config.images,
             source=source,
             kubernetes=k8s_client,
+            slack_client=slack_client,
             logger=logger,
         )
 
