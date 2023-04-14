@@ -6,7 +6,7 @@ from dataclasses import asdict
 from random import SystemRandom
 
 import pytest
-from semver import VersionInfo
+from semver.version import VersionInfo
 
 from jupyterlabcontroller.models.domain.rsptag import (
     RSPImageTag,
