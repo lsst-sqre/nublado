@@ -1,6 +1,8 @@
 name: CI
 
 "on":
+  merge_group: {}
+  pull_request: {}
   push:
     branches-ignore:
       # These should always correspond to pull requests, so ignore them for
@@ -13,12 +15,11 @@ name: CI
       - "u/**"
     tags:
       - "*"
-  pull_request: {}
 
 jobs:
   lint:
-
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v3
@@ -32,8 +33,8 @@ jobs:
         uses: pre-commit/action@v3.0.0
 
   test:
-
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     strategy:
       matrix:
@@ -49,10 +50,43 @@ jobs:
           python-version: ${{ matrix.python }}
           tox-envs: "py,coverage-report,typing"
 
-  build:
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # Ensure the documentation gets the right version.
+          fetch-depth: 0
+
+      - name: Run tox
+        uses: lsst-sqre/run-tox@v1
+        with:
+          python-version: "3.11"
+          tox-envs: "docs"
+          cache-key-prefix: "docs"
+
+      # Only attempt documentation uploads for long-lived branches, tagged
+      # releases, and pull requests from ticket branches.  This avoids version
+      # clutter in the docs and failures when a PR doesn't have access to
+      # secrets.
+      - name: Upload to LSST the Docs
+        uses: lsst-sqre/ltd-upload@v1
+        with:
+          project: nublado
+          dir: "docs/_build/html"
+          username: ${{ secrets.LTD_USERNAME }}
+          password: ${{ secrets.LTD_PASSWORD }}
+        if: >
+          github.event_name != 'merge_group'
+          && (github.event_name != 'pull_request'
+              || startsWith(github.head_ref, 'tickets/'))
+
+  build:
     runs-on: ubuntu-latest
     needs: [lint, test]
+    timeout-minutes: 15
 
     # Only do Docker builds of tagged releases and pull requests from ticket
     # branches.  This will still trigger on pull requests from untrusted
