@@ -63,3 +63,11 @@ USERNAME_REGEX = (
     "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*[a-z](?:[a-z0-9]|-[a-z0-9])*$"
 )
 """Regex matching all valid usernames."""
+
+# User file servers
+FILESERVER_NAMESPACE = "fileservers"
+"""Name of namespace that contains user file servers."""
+
+INGRESS_TEMPLATE = (
+    Path(__file__).parent / "assets" / "gafaelfawr_ingress_template.txt"
+).read_text()
