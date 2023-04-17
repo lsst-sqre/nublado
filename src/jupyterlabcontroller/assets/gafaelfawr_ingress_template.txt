@@ -1,0 +1,29 @@
+apiVersion: gafaelfawr.lsst.io/v1alpha1
+kind: GafaelfawrIngress
+metadata:
+  name: {username}-fs
+  namespace: {namespace}
+  labels:
+    app: fileserver
+config:
+  baseUrl: {base_url}
+  scopes:
+    all:
+      - "exec:notebook"
+  loginRedirect: false
+  authType: basic
+template:
+  metadata:
+    name: {username}-fs
+  spec:
+    rules:
+      - host: {host}
+        http:
+          paths:
+            - path: /files/{username}
+              pathType: Prefix
+              backend:
+                service:
+                  name: {username}-fs
+                  port:
+                    number: 8000
