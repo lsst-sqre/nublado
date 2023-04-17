@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from base64 import b64encode
+
 from collections.abc import AsyncIterator
 from datetime import timedelta
 from typing import Any, Optional
+from urllib.parse import urlparse
+
 
 from kubernetes_asyncio import client, watch
 from kubernetes_asyncio.client import (
@@ -59,6 +63,7 @@ class K8sStorageClient:
         self.api = client.CoreV1Api(kubernetes_client)
         self._timeout = timeout
         self._spawn_timeout = spawn_timeout
+        self.custom_api = client.CustomObjectsApi(kubernetes_client)
         self._logger = logger
 
     async def create_user_namespace(self, name: str) -> None:
@@ -943,7 +948,9 @@ class K8sStorageClient:
             msg = "Cannot create user namespace"
             raise KubernetesError.from_exception(msg, e, name=name) from e
 
-    def _standard_metadata(self, name: str) -> V1ObjectMeta:
+    def _standard_metadata(
+        self, name: str, instance: Optional[str] = "nublado-users"
+    ) -> V1ObjectMeta:
         """Create the standard metadata for an object.
 
         Parameters
@@ -959,9 +966,126 @@ class K8sStorageClient:
         """
         return V1ObjectMeta(
             name=name,
-            labels={"argocd.argoproj.io/instance": "nublado-users"},
+            labels={"argocd.argoproj.io/instance": instance},
             annotations={
                 "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
                 "argocd.argoproj.io/sync-options": "Prune=false",
             },
         )
+
+    # Methods for fileserver
+
+    async def create_fileserver_pod(self, pod_spec=V1PodSpec) -> None:
+        pass
+
+    async def delete_fileserver_pod(
+        self, username: str, namespace: Optional[str] = FILESERVER_NAMESPACE
+    ) -> None:
+        pass
+
+    async def create_fileserver_service(
+        self, username: str, namespace: Optional[str] = FILESERVER_NAMESPACE
+    ) -> None:
+        obj_name = f"{username}-fs"
+        self._logger.debug(
+            "Creating fileserver service", name=obj_name, namespace=namespace
+        )
+        service = V1Service(
+            metadata=self._standard_metadata(obj_name, instance="fileservers"),
+            spec=V1ServiceSpec(
+                ports=[V1ServicePort(port=8000, target_port=8000)],
+                selector={"app": "fileserver"},
+            ),
+        )
+        try:
+            await self.api.create_namespaced_service(namespace, service)
+        except ApiException as e:
+            if e.status == 409:
+                # It already exists.  Delete and recreate it
+                self._logger.warning(
+                    "Fileserver service exists.  Deleting and recreating."
+                )
+                await self.delete_fileserver_service(username, namespace)
+                await self.api.create_namespaced_service(namespace, service)
+            raise KubernetesError.from_exception(
+                "Error creating service",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
+
+    async def delete_fileserver_service(
+        self, username: str, namespace: Optional[str] = FILESERVER_NAMESPACE
+    ) -> None:
+        obj_name = f"{username}-fs"
+        try:
+            await self.api.delete_namespaced_service(obj_name, namespace)
+        except ApiException as e:
+            # Can't delete what isn't there.
+            if e.status != 404:
+                raise KubernetesError.from_exception(
+                    "Error creating service",
+                    e,
+                    namespace=namespace,
+                    name=obj_name,
+                ) from e
+
+    async def create_fileserver_gafaelfawringress(
+        self, username: str, namespace: Optional[str] = FILESERVER_NAMESPACE
+    ) -> None:
+        obj_name = f"{username}-fs"
+        crd_group = "gafaelfawr.lsst.io"
+        crd_version = "v1alpha1"
+        plural = "gafaelfawringresses"
+        template = INGRESS_TEMPLATE
+        base_url = os.getenv("EXTERNAL_INSTANCE_URL", "http://localhost")
+        host = urlparse(base_url).hostname
+        spec = template.format(
+            username=username,
+            namespace=namespace,
+            base_url=base_url,
+            host=host,
+        )
+        try:
+            await self.custom_api.create_namespaced_custom_object(
+                crd_group, crd_version, namespace, plural, spec
+            )
+        except ApiException as e:
+            if e.status == 409:
+                # It already exists.  Delete and recreate it
+                self._logger.warning(
+                    "Fileserver ingress exists.  Deleting and recreating."
+                )
+                await self.delete_fileserver_gafaelfawringress(
+                    username, namespace
+                )
+            await self.custom_api.create_namespaced_custom_object(
+                crd_group, crd_version, namespace, plural, spec
+            )
+            raise KubernetesError.from_exception(
+                "Error creating service",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
+
+    async def delete_fileserver_gafaelfawringress(
+        self, username: str, namespace: Optional[str] = FILESERVER_NAMESPACE
+    ) -> None:
+        obj_name = f"{username}-fs"
+        crd_group = "gafaelfawr.lsst.io"
+        crd_version = "v1alpha1"
+        plural = "gafaelfawringresses"
+        try:
+            await self.custom_api.delete_namespaced_custom_object(
+                crd_group, crd_version, namespace, plural, obj_name
+            )
+        except ApiException as e:
+            # Can't delete what isn't there.
+            if e.status != 404:
+                raise KubernetesError.from_exception(
+                    "Error creating gafaelfawringress",
+                    e,
+                    namespace=namespace,
+                    name=obj_name,
+                ) from e
