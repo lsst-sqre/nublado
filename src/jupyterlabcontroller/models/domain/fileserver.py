@@ -2,6 +2,24 @@
 async is that this will eventually be replaced by an implementation in
 Redis."""
 
+from dataclasses import dataclass
+
+from ...exceptions import DuplicateUserError, InvalidUserError
+from ..v1.lab import LabStatus as FileserverPodStatus
+from ..v1.lab import PodState, UserInfo
+
+
+@dataclass
+class FileserverData:
+    pod_state: PodState
+    """State of fileserver pod"""
+
+    pod_status: FileserverPodStatus
+    """Fileserver pod status"""
+
+    user: UserInfo
+    """Fileserver user information"""
+
 
 class FileserverUserMap:
     def __init__(self) -> None:

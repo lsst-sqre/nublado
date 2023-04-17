@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from base64 import b64encode
 from collections.abc import AsyncIterator
 from datetime import timedelta
@@ -871,7 +872,9 @@ class K8sStorageClient:
             msg = "Cannot create user namespace"
             raise KubernetesError.from_exception(msg, e, name=name) from e
 
-    def _standard_metadata(self, name: str) -> V1ObjectMeta:
+    def _standard_metadata(
+        self, name: str, instance: Optional[str] = "nublado-users"
+    ) -> V1ObjectMeta:
         """Create the standard metadata for an object.
 
         Parameters
@@ -887,7 +890,7 @@ class K8sStorageClient:
         """
         return V1ObjectMeta(
             name=name,
-            labels={"argocd.argoproj.io/instance": "nublado-users"},
+            labels={"argocd.argoproj.io/instance": instance},
             annotations={
                 "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
                 "argocd.argoproj.io/sync-options": "Prune=false",
@@ -979,7 +982,6 @@ class K8sStorageClient:
         self._logger.debug("Creating job", name=obj_name, namespace=namespace)
         try:
             await self.batch_api.create_namespaced_job(namespace, job)
-        except ApiException as e:
             if e.status == 409:
                 # It already exists.  Delete and recreate it
                 self._logger.warning(
@@ -1106,8 +1108,8 @@ class K8sStorageClient:
                 name=obj_name,
             ) from e
 
-    async def _delete_fileserver_gafaelfawringress(
-        self, username: str, namespace: str
+    async def delete_fileserver_gafaelfawringress(
+        self, username: str, namespace: Optional[str] = FILESERVER_NAMESPACE
     ) -> None:
         obj_name = f"{username}-fs"
         crd_group = "gafaelfawr.lsst.io"
