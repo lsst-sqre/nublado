@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from base64 import b64encode
 from collections.abc import AsyncIterator
 from datetime import timedelta
@@ -873,7 +872,7 @@ class K8sStorageClient:
             raise KubernetesError.from_exception(msg, e, name=name) from e
 
     def _standard_metadata(
-        self, name: str, instance: Optional[str] = "nublado-users"
+        self, name: str, instance: str = "nublado-users"
     ) -> V1ObjectMeta:
         """Create the standard metadata for an object.
 
@@ -1109,7 +1108,7 @@ class K8sStorageClient:
             ) from e
 
     async def delete_fileserver_gafaelfawringress(
-        self, username: str, namespace: Optional[str] = FILESERVER_NAMESPACE
+        self, username: str, namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
         crd_group = "gafaelfawr.lsst.io"

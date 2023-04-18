@@ -374,11 +374,21 @@ class FileserverManager:
         return {
             "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
             "kind": "GafaelfawrIngress",
-            "config": {
-                "baseUrl": base_url,
-                "scopes": {"all": ["exec:notebook"]},
-                "loginRedirect": False,
-                "authType": "basic",
+
+    def build_fileserver_ingress_spec(self, username: str) -> dict[str, Any]:
+        # The Gafaelfawr Ingress is a CRD, so creating it is a bit different.
+        namespace = self.fs_namespace
+        base_url = self.config.base_url
+        host = urlparse(base_url).hostname
+        obj_name = f"{username}-fs"
+        # I feel like I should apologize for this object I'm returning.
+        return {
+            "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
+            "kind": "GafaelfawrIngress",
+            "metadata": {
+                "name": obj_name,
+                "namespace": namespace,
+                "labels": {"app": obj_name},
             },
             "metadata": self._build_custom_object_metadata(username),
             "template": {
