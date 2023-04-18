@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from base64 import b64encode
 
 from collections.abc import AsyncIterator
@@ -17,6 +16,7 @@ from kubernetes_asyncio.client import (
     ApiClient,
     ApiException,
     V1ConfigMap,
+    V1DeploymentSpec,
     V1LabelSelector,
     V1Namespace,
     V1NetworkPolicy,
@@ -38,11 +38,18 @@ from kubernetes_asyncio.client import (
 from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
+<<<<<<< HEAD
 from ..exceptions import KubernetesError, MissingObjectError
 from ..models.domain.kubernetes import (
     KubernetesNodeImage,
     KubernetesPodEvent,
     KubernetesPodPhase,
+=======
+from ..exceptions import (
+    KubernetesError,
+    MissingSecretError,
+    WaitingForObjectError,
+>>>>>>> 1a69258 (Adding fileserver object manipulation)
 )
 from ..models.v1.lab import UserResourceQuantum
 from ..util import deslashify
@@ -949,7 +956,7 @@ class K8sStorageClient:
             raise KubernetesError.from_exception(msg, e, name=name) from e
 
     def _standard_metadata(
-        self, name: str, instance: Optional[str] = "nublado-users"
+        self, name: str, instance: str = "nublado-users"
     ) -> V1ObjectMeta:
         """Create the standard metadata for an object.
 
@@ -975,77 +982,52 @@ class K8sStorageClient:
 
     # Methods for fileserver
 
-    async def create_fileserver_pod(self, pod_spec=V1PodSpec) -> None:
-        pass
-
-    async def delete_fileserver_pod(
-        self, username: str, namespace: Optional[str] = FILESERVER_NAMESPACE
-    ) -> None:
-        pass
-
-    async def create_fileserver_service(
-        self, username: str, namespace: Optional[str] = FILESERVER_NAMESPACE
+    async def create_fileserver_deployment(
+        self, username: str, namespace: str, deployment_spec=V1DeploymentSpec
     ) -> None:
         obj_name = f"{username}-fs"
-        self._logger.debug(
-            "Creating fileserver service", name=obj_name, namespace=namespace
+        obj_kind = "deployment"
+        await self._fancy_object_creator(
+            obj_kind, obj_name, namespace, deployment_spec, timeout=30
         )
+
+    async def delete_fileserver_deployment(
+        self, username: str, namespace: str
+    ) -> None:
+        obj_name = f"{username}-fs"
+        obj_kind = "deployment"
+        await self._fancy_object_deleter(obj_kind, obj_name, namespace)
+
+    async def create_fileserver_service(
+        self, username: str, namespace: str
+    ) -> None:
+        obj_name = f"{username}-fs"
+        obj_kind = "service"
         service = V1Service(
             metadata=self._standard_metadata(obj_name, instance="fileservers"),
             spec=V1ServiceSpec(
                 ports=[V1ServicePort(port=8000, target_port=8000)],
-                selector={"app": "fileserver"},
+                selector={"app": obj_name},
             ),
         )
-        try:
-            await self.api.create_namespaced_service(namespace, service)
-        except ApiException as e:
-            if e.status == 409:
-                # It already exists.  Delete and recreate it
-                self._logger.warning(
-                    "Fileserver service exists.  Deleting and recreating."
-                )
-                await self.delete_fileserver_service(username, namespace)
-                await self.api.create_namespaced_service(namespace, service)
-            raise KubernetesError.from_exception(
-                "Error creating service",
-                e,
-                namespace=namespace,
-                name=obj_name,
-            ) from e
+        await self._fancy_object_creator(
+            obj_kind, obj_name, namespace, service, timeout=30
+        )
 
     async def delete_fileserver_service(
-        self, username: str, namespace: Optional[str] = FILESERVER_NAMESPACE
+        self, username: str, namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
-        try:
-            await self.api.delete_namespaced_service(obj_name, namespace)
-        except ApiException as e:
-            # Can't delete what isn't there.
-            if e.status != 404:
-                raise KubernetesError.from_exception(
-                    "Error creating service",
-                    e,
-                    namespace=namespace,
-                    name=obj_name,
-                ) from e
+        obj_kind = "service"
+        await self._fancy_object_deleter(obj_kind, obj_name, namespace)
 
     async def create_fileserver_gafaelfawringress(
-        self, username: str, namespace: Optional[str] = FILESERVER_NAMESPACE
+        self, username: str, spec: dict[str, Any], namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
         crd_group = "gafaelfawr.lsst.io"
         crd_version = "v1alpha1"
         plural = "gafaelfawringresses"
-        template = INGRESS_TEMPLATE
-        base_url = os.getenv("EXTERNAL_INSTANCE_URL", "http://localhost")
-        host = urlparse(base_url).hostname
-        spec = template.format(
-            username=username,
-            namespace=namespace,
-            base_url=base_url,
-            host=host,
-        )
         try:
             await self.custom_api.create_namespaced_custom_object(
                 crd_group, crd_version, namespace, plural, spec
@@ -1054,7 +1036,8 @@ class K8sStorageClient:
             if e.status == 409:
                 # It already exists.  Delete and recreate it
                 self._logger.warning(
-                    "Fileserver ingress exists.  Deleting and recreating."
+                    f"Fileserver gafaelfawringress {obj_name} exists. "
+                    + "Deleting and recreating."
                 )
                 await self.delete_fileserver_gafaelfawringress(
                     username, namespace
@@ -1070,7 +1053,7 @@ class K8sStorageClient:
             ) from e
 
     async def delete_fileserver_gafaelfawringress(
-        self, username: str, namespace: Optional[str] = FILESERVER_NAMESPACE
+        self, username: str, namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
         crd_group = "gafaelfawr.lsst.io"
@@ -1089,3 +1072,105 @@ class K8sStorageClient:
                     namespace=namespace,
                     name=obj_name,
                 ) from e
+
+    """These next three methods might be more trouble than simply repeating
+    ourselves.  They rely on the fact that Kubernetes method names and
+    arguments are extremely predictable.
+    """
+
+    async def _fancy_object_creator(
+        self,
+        obj_kind: str,
+        obj_name: str,
+        namespace: str,
+        obj: Any,
+        timeout: Optional[float],
+        recreate: bool = True,
+        interval: float = 5.0,
+    ) -> None:
+        create_method_name = "create_namespaced_" + obj_kind
+        delete_method_name = "delete_namespaced_" + obj_kind
+        api_create_method = getattr(self.api, create_method_name)
+        api_delete_method = getattr(self.api, delete_method_name)
+        self._logger.debug(
+            f"Creating {obj_kind}", name=obj_name, namespace=namespace
+        )
+
+        try:
+            await api_create_method(namespace, obj)
+            return
+        except ApiException as e:
+            if e.status == 409 and recreate:
+                # It already exists.  Delete and recreate it
+                self._logger.warning(
+                    f"K8s object {obj_kind} {obj_name} exists. "
+                    + "Deleting and recreating."
+                )
+                await api_delete_method(obj_name, namespace)
+                await self._wait_for_object_deletion(
+                    obj_name, namespace, obj_kind, interval, timeout
+                )
+                await api_create_method(namespace, obj)
+            raise KubernetesError.from_exception(
+                f"Error creating {obj_kind}",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
+
+    async def _fancy_object_deleter(
+        self,
+        obj_kind: str,
+        obj_name: str,
+        namespace: str,
+        missing_ok: bool = True,
+    ) -> None:
+        delete_method_name = "delete_namespaced_" + obj_kind
+        api_delete_method = getattr(self.api, delete_method_name)
+        self._logger.debug(
+            f"Deleting {obj_kind}", name=obj_name, namespace=namespace
+        )
+        try:
+            await api_delete_method(obj_name, namespace)
+        except ApiException as e:
+            # Can't delete what isn't there.
+            if e.status != 404 or not missing_ok:
+                raise KubernetesError.from_exception(
+                    f"Error deleting {obj_kind}",
+                    e,
+                    namespace=namespace,
+                    name=obj_name,
+                ) from e
+
+    async def _wait_for_object_deletion(
+        self,
+        obj_name: str,
+        namespace: str,
+        obj_kind: str,
+        timeout: Optional[float],
+        interval: float = 1.0,
+    ) -> None:
+        read_method_name = "read_namespaced_" + obj_kind
+        read_method = getattr(self.api, read_method_name)
+
+        self._logger.debug(
+            f"Waiting for {obj_kind} deletion",
+            name=obj_name,
+            namespace=namespace,
+        )
+
+        async with asyncio.timeout(timeout):
+            while True:
+                try:
+                    read_method(obj_name, namespace)
+                except ApiException as e:
+                    if e.status == 404:
+                        return
+                    raise KubernetesError.from_exception(
+                        f"Error waiting for {obj_kind} deletion",
+                        e,
+                        namespace=namespace,
+                        name=obj_name,
+                    ) from e
+
+                await asyncio.sleep(interval)
