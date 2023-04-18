@@ -21,12 +21,10 @@ from safir.slack.webhook import SlackIgnoredException
 __all__ = [
     "ClientRequestError",
     "DockerRegistryError",
-    "DuplicateUserError",
     "GafaelfawrParseError",
     "GafaelfawrWebError",
     "InvalidDockerReferenceError",
     "InvalidTokenError",
-    "InvalidUserError",
     "KubernetesError",
     "LabExistsError",
     "MissingObjectError",
@@ -135,18 +133,6 @@ class InvalidTokenError(ClientRequestError):
 
     error = "invalid_token"
     status_code = status.HTTP_401_UNAUTHORIZED
-
-
-class DuplicateUserError(ClientRequestError):
-    """The fileserver user key already exists."""
-
-    error = "duplicate_user"
-
-
-class InvalidUserError(ClientRequestError):
-    """The fileserver user key does not match user structure."""
-
-    error = "invalid_user"
 
 
 class PermissionDeniedError(ClientRequestError):
