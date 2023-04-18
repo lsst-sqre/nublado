@@ -260,6 +260,35 @@ class LabConfig(CamelCaseModel):
 
 # See models.v1.prepuller_config
 
+#
+# Fileserver
+#
+
+
+class PullPolicy(Enum):
+    ALWAYS = "Always"
+    IFNOTPRESENT = "IfNotPresent"
+    NEVER = "Never"
+
+
+class FileserverConfig(CamelCaseModel):
+    image: str = Field(
+        ...,
+        example="docker.io/lsstsqre/worblehat",
+        title="Docker registry path to fileserver image",
+    )
+    tag: str = Field(
+        "latest", example="0.1.0", title="Tag of fileserver image to use"
+    )
+    pull_policy: PullPolicy = Field(
+        PullPolicy.IFNOTPRESENT,
+        example="Always",
+        title="Pull policy for the fileserver image",
+    )
+    timeout: int = Field(
+        3600, title="Inactivity timeout for the fileserver container (seconds)"
+    )
+
 
 #
 # Config
@@ -269,6 +298,7 @@ class LabConfig(CamelCaseModel):
 class Config(BaseSettings):
     safir: SafirConfig
     lab: LabConfig
+    fileserver: FileserverConfig
     images: PrepullerConfig = Field(..., title="Prepuller configuration")
     base_url: str = Field(
         "http://127.0.0.1:8080",

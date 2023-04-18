@@ -63,7 +63,3 @@ USERNAME_REGEX = (
 # User file servers
 FILESERVER_NAMESPACE = "fileservers"
 """Name of namespace that contains user file servers."""
-
-INGRESS_TEMPLATE = (
-    Path(__file__).parent / "assets" / "gafaelfawr_ingress_template.txt"
-).read_text()
