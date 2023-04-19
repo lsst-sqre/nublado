@@ -13,7 +13,7 @@ from pydantic import BaseSettings, Field, validator
 from safir.logging import LogLevel, Profile
 from safir.pydantic import CamelCaseModel, to_camel_case
 
-from .constants import DOCKER_SECRETS_PATH, METADATA_PATH
+from .constants import DOCKER_SECRETS_PATH, FILESERVER_NAMESPACE, METADATA_PATH
 from .models.v1.lab import LabSize
 from .models.v1.prepuller_config import PrepullerConfig
 
@@ -339,6 +339,10 @@ class FileserverConfig(CamelCaseModel):
     )
     timeout: int = Field(
         3600, title="Inactivity timeout for the fileserver container (seconds)"
+    )
+    namespace: str = Field(
+        FILESERVER_NAMESPACE,
+        title="Namespace for user fileservers",
     )
 
 

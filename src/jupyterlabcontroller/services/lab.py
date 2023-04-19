@@ -68,9 +68,6 @@ from .image import ImageService
 from .size import SizeManager
 from .state import LabStateManager
 
-#  argh from aiojobs import Scheduler
-#  blargh from ..constants import KUBERNETES_REQUEST_TIMEOUT
-
 
 class LabManager:
     def __init__(

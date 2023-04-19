@@ -14,6 +14,8 @@ from structlog.stdlib import BoundLogger
 
 from ..config import Config
 from ..factory import Factory, ProcessContext
+
+from ..models.domain.fileserver import FileserverUserMap
 from ..services.image import ImageService
 from ..services.state import LabStateManager
 
@@ -42,6 +44,15 @@ class RequestContext:
 
     lab_state: LabStateManager
     """User lab state."""
+
+    fileserver_user_map: FileserverUserMap
+    """Global user fileserver state."""
+
+    fileserver_reconciler: FileserverReconciler
+    """Service that keeps user map synchronized to Kubernetes observation"""
+
+    event_manager: EventManager
+    """Global manager of user lab spawning events."""
 
     def rebind_logger(self, **values: Any) -> None:
         """Add the given values to the logging context.
@@ -82,6 +93,8 @@ class ContextDependency:
             factory=factory,
             image_service=self._process_context.image_service,
             lab_state=self._process_context.lab_state,
+            fileserver_user_map=self._process_context.fileserver_user_map,
+            fileserver_reconciler=self._process_context.fileserver_reconciler,
         )
 
     async def initialize(self, config: Config) -> None:
