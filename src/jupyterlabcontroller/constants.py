@@ -66,4 +66,4 @@ USERNAME_REGEX = (
 
 # User file servers
 FILESERVER_NAMESPACE = "fileservers"
-"""Name of namespace that contains user file servers."""
+"""Default name of namespace that contains user file servers."""

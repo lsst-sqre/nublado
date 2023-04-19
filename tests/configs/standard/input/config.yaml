@@ -165,6 +165,10 @@ lab:
       serverPath: /share1/scratch
       server: 10.13.105.122
       mode: rw
+fileserver:
+  image: docker.io/lsstsqre/worblehat
+  tag: ajt-dev
+  timeout: 86400
 images:
   source:
     type: docker
