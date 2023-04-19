@@ -27,6 +27,7 @@ from kubernetes_asyncio.client import (
     V1OwnerReference,
     V1Pod,
     V1PodSpec,
+    V1PodTemplateSpec,
     V1ResourceQuota,
     V1ResourceQuotaSpec,
     V1Secret,
@@ -37,18 +38,11 @@ from kubernetes_asyncio.client import (
 from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
-<<<<<<< HEAD
 from ..exceptions import KubernetesError, MissingObjectError
 from ..models.domain.kubernetes import (
     KubernetesNodeImage,
     KubernetesPodEvent,
     KubernetesPodPhase,
-=======
-from ..exceptions import (
-    KubernetesError,
-    MissingSecretError,
-    WaitingForObjectError,
->>>>>>> 1a69258 (Adding fileserver object manipulation)
 )
 from ..models.v1.lab import UserResourceQuantum
 from ..util import deslashify
@@ -70,6 +64,9 @@ class K8sStorageClient:
         self._timeout = timeout
         self._spawn_timeout = spawn_timeout
         self.custom_api = client.CustomObjectsApi(kubernetes_client)
+        self.custom_api = client.CustomObjectsApi(kubernetes_client)
+        self.apps_api = client.AppsV1Api(kubernetes_client)
+        self.networking_api = client.NetworkingV1Api(kubernetes_client)
         self._logger = logger
 
     async def create_user_namespace(self, name: str) -> None:
@@ -967,12 +964,21 @@ class K8sStorageClient:
     # Methods for fileserver
 
     async def create_fileserver_deployment(
-        self, username: str, namespace: str, deployment_spec=V1DeploymentSpec
+        self, username: str, namespace: str, pod_spec: V1PodSpec
     ) -> None:
         obj_name = f"{username}-fs"
         obj_kind = "deployment"
+        deployment_spec = V1DeploymentSpec(
+            selector=V1LabelSelector(match_labels={"app": obj_name}),
+            template=V1PodTemplateSpec(
+                metadata=self._standard_metadata(
+                    obj_name, instance="fileservers"
+                ),
+                spec=pod_spec,
+            ),
+        )
         await self._fancy_object_creator(
-            obj_kind, obj_name, namespace, deployment_spec, timeout=30
+            obj_kind, obj_name, namespace, deployment_spec, timeout=60
         )
 
     async def delete_fileserver_deployment(
@@ -983,7 +989,9 @@ class K8sStorageClient:
         await self._fancy_object_deleter(obj_kind, obj_name, namespace)
 
     async def create_fileserver_service(
-        self, username: str, namespace: str
+        self,
+        username: str,
+        namespace: str,
     ) -> None:
         obj_name = f"{username}-fs"
         obj_kind = "service"
@@ -1006,7 +1014,7 @@ class K8sStorageClient:
         await self._fancy_object_deleter(obj_kind, obj_name, namespace)
 
     async def create_fileserver_gafaelfawringress(
-        self, username: str, spec: dict[str, Any], namespace: str
+        self, username: str, namespace: str, spec: dict[str, Any]
     ) -> None:
         obj_name = f"{username}-fs"
         crd_group = "gafaelfawr.lsst.io"
@@ -1051,11 +1059,122 @@ class K8sStorageClient:
             # Can't delete what isn't there.
             if e.status != 404:
                 raise KubernetesError.from_exception(
-                    "Error creating gafaelfawringress",
+                    "Error deleting gafaelfawringress",
                     e,
                     namespace=namespace,
                     name=obj_name,
                 ) from e
+
+    async def get_observed_fileserver_state(
+        self, namespace: str
+    ) -> dict[str, bool]:
+        """Reconstruct the fileserver user map with what we can determine
+        from the Kubernetes cluster.
+
+        Objects with the name <username>-fs are presumed to be fileserver
+        objects, where <username> can be assumed to be the name of the
+        owning user.
+
+        It returns a dict mapping strings to the value True, indicating those
+        users who currently have fileservers.
+        """
+        observed_state: dict[str, bool] = {}
+        # Get all deployments
+        all_deployments = self.apps_api.list_namespaced_deployments(namespace)
+        # Filter to plausible candidates
+        users = [
+            x.metadata.name[:-3]
+            for x in all_deployments.items
+            if x.metadata.name.endswith("-fs")
+        ]
+        # For each of these, check whether the fileserver is present
+
+        for user in users:
+            if await self.check_fileserver_present(
+                username=user, namespace=namespace
+            ):
+                observed_state[user] = True
+        return observed_state
+
+    async def check_fileserver_present(
+        self, username: str, namespace: str
+    ) -> bool:
+        """Our determination of whether a user has a fileserver is this:
+
+        We assume all fileserver objects are named <username>-fs, which we
+        can do, since we created them and that's the convention we chose.
+
+        If this user has a Deployment with at least one active replica, and
+        the user has a Service (we don't check any of its properties), and
+        the user has an Ingress with at least one ingress point, then
+        the user's fileserver is active.  Otherwise, it isn't.
+        """
+        obj_name = f"{username}-fs"
+        try:
+            dep = self.apps_api.read_namespaced_deployment(obj_name, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                return False
+            raise KubernetesError.from_exception(
+                "Error reading deployment",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
+        if dep.status is None or dep.status.available_replicas < 1:
+            return False
+        try:
+            ing = self.networking_api.read_namespaced_ingress(
+                obj_name, namespace
+            )
+        except ApiException as e:
+            if e.status == 404:
+                return False
+            raise KubernetesError.from_exception(
+                "Error reading ingress",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
+        if (
+            ing.status is None
+            or ing.status.load_balancer is None
+            or len(ing.status.load_balancer.ingress) < 1
+        ):
+            return False
+        try:
+            self.api.read_namespaced_service(obj_name, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                return False
+            raise KubernetesError.from_exception(
+                "Error reading ingress",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
+        return True
+
+    async def remove_fileserver(self, username: str, namespace: str) -> None:
+        """Remove the set of fileserver objects for a user.  It doesn't
+        return until the objects are no longer present in Kubernetes.
+        """
+        for kind in ["deployment", "service", "gafaelfawringress"]:
+            method = getattr(self, "delete_fileserver_" + kind)
+            await method(username, namespace)
+        obj_name = f"{username}-fs"
+        for thing in [
+            ("deployment", "apps"),
+            ("service", ""),
+            ("ingress", "networking"),
+        ]:
+            await self._wait_for_object_deletion(
+                obj_kind=thing[0],
+                obj_name=obj_name,
+                namespace=namespace,
+                api_type=thing[1],
+                timeout=30.0,
+            )
 
     """These next three methods might be more trouble than simply repeating
     ourselves.  They rely on the fact that Kubernetes method names and
@@ -1092,7 +1211,7 @@ class K8sStorageClient:
                 )
                 await api_delete_method(obj_name, namespace)
                 await self._wait_for_object_deletion(
-                    obj_name, namespace, obj_kind, interval, timeout
+                    obj_name, namespace, obj_kind, timeout, interval=interval
                 )
                 await api_create_method(namespace, obj)
             raise KubernetesError.from_exception(
@@ -1132,10 +1251,18 @@ class K8sStorageClient:
         namespace: str,
         obj_kind: str,
         timeout: Optional[float],
+        api_type: str = "",
         interval: float = 1.0,
     ) -> None:
+        api = self.api
+        if api_type == "apps":
+            api = self.apps_api
+        elif api_type == "networking":
+            api = self.networking_api
+        # We don't support custom APIs here, because the calling conventions
+        # are different.
         read_method_name = "read_namespaced_" + obj_kind
-        read_method = getattr(self.api, read_method_name)
+        read_method = getattr(api, read_method_name)
 
         self._logger.debug(
             f"Waiting for {obj_kind} deletion",
@@ -1156,5 +1283,4 @@ class K8sStorageClient:
                         namespace=namespace,
                         name=obj_name,
                     ) from e
-
                 await asyncio.sleep(interval)

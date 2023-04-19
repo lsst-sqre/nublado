@@ -15,4 +15,10 @@ class FileserverUserMap:
         self._dict[key] = True
 
     def remove(self, key: str) -> None:
-        del self._dict[key]
+        try:
+            del self._dict[key]
+        except KeyError:
+            pass
+
+    def bulk_update(self, new: dict[str, bool]) -> None:
+        self._dict = new

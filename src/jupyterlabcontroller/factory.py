@@ -16,6 +16,8 @@ from structlog.stdlib import BoundLogger
 
 from .config import Config
 from .constants import KUBERNETES_REQUEST_TIMEOUT
+from .models.domain.fileserver import FileserverUserMap
+from .models.domain.usermap import UserMap
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
 from .services.builder import LabBuilder
 from .services.form import FormManager
@@ -62,6 +64,12 @@ class ProcessContext:
 
     lab_state: LabStateManager
     """State management for user lab pods."""
+
+    fileserver_reconciler: FileserverReconciler
+    """Manage reconciliation of user fileservers with observed state."""    
+
+    fileserver_user_map: FileserverUserMap
+    """State management for user fileservers."""
 
     @classmethod
     async def from_config(cls, config: Config) -> Self:
@@ -146,6 +154,9 @@ class ProcessContext:
                 slack_client=slack_client,
                 logger=logger,
             ),
+            user_map=UserMap(),
+            fileserver_user_map=FileserverUserMap(),
+            fileserver_reconciler=FileserverReconciler(),
         )
 
     async def aclose(self) -> None:
@@ -157,6 +168,7 @@ class ProcessContext:
         await self.image_service.start()
         await self.prepuller.start()
         await self.lab_state.start()
+        await self.fileserver_reconciler.start()
 
     async def stop(self) -> None:
         """Clean up a process context.
@@ -164,6 +176,7 @@ class ProcessContext:
         Called during shutdown, or before recreating the process context using
         a different configuration.
         """
+        await self.fileserver_reconciler.stop()
         await self.prepuller.stop()
         await self.image_service.stop()
         await self.lab_state.stop()
@@ -237,6 +250,16 @@ class Factory:
         """
         return self._context.prepuller
 
+
+    @property
+    def fileserver_user_map(self) -> FileserverUserMap:
+        """Current user fileserver status, from the `ProcessContext`.
+
+        Only used by tests; handlers have access to the fileserver user map
+        via the request context.
+        """
+        return self._context.fileserver_user_map
+
     async def aclose(self) -> None:
         """Shut down the factory.
 
@@ -295,7 +318,7 @@ class Factory:
         Returns
         -------
         LabManager
-            Newly-creted lab manager.
+            Newly-created lab manager.
         """
         size_manager = self.create_size_manager()
         k8s_client = K8sStorageClient(
@@ -314,6 +337,23 @@ class Factory:
             logger=self._logger,
             lab_config=self._context.config.lab,
             k8s_client=k8s_client,
+            slack_client=self.create_slack_client(),
+        )
+
+    def create_fileserver_manager(self) -> FileserverManager:
+        """Create service to manage user fileservers.
+
+        Returns
+        -------
+        FileserverManager
+            Newly-created fileserver manager.
+        """
+        return FileserverManager(
+            fs_namespace=self._context.config.fileserver.namespace,
+            user_map=self._context.fileserver_user_map,
+            logger=self._logger,
+            config=self._context.config,
+            k8s_client=self._context.k8s_client,
             slack_client=self.create_slack_client(),
         )
 

@@ -14,7 +14,7 @@ from safir.slack.webhook import SlackRouteErrorHandler
 from .dependencies.config import configuration_dependency
 from .dependencies.context import context_dependency
 from .exceptions import ClientRequestError
-from .handlers import form, index, labs, prepuller, user_status
+from .handlers import fileserver, form, index, labs, prepuller, user_status
 
 __all__ = ["create_app"]
 
@@ -52,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(index.external_router, prefix=config.safir.path_prefix)
     app.include_router(form.router, prefix=config.safir.path_prefix)
     app.include_router(labs.router, prefix=config.safir.path_prefix)
+    app.include_router(fileserver.router, prefix=config.safir.path_prefix)
     app.include_router(prepuller.router, prefix=config.safir.path_prefix)
     app.include_router(user_status.router, prefix=config.safir.path_prefix)
 

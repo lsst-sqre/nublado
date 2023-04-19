@@ -3,7 +3,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+import asyncio
+from typing import Any, Optional, Set
 from urllib.parse import urlparse
 
 from kubernetes_asyncio.client import (
@@ -30,7 +31,7 @@ from ..storage.k8s import K8sStorageClient
 
 
 class FileserverManager:
-    def init(
+    def __init__(
         self,
         *,
         fs_namespace: str,
@@ -41,10 +42,64 @@ class FileserverManager:
         slack_client: Optional[SlackWebhookClient] = None,
     ) -> None:
         self.fs_namespace = fs_namespace
+        self.user_map = user_map
         self._logger = logger
         self.config = config
         self.k8s_client = k8s_client
         self._slack_client = slack_client
+        self._tasks: Set[asyncio.Task] = set()
+
+    async def reconcile_user_map(self) -> None:
+        namespace = self.fs_namespace
+        mapped_users = set(self.user_map.list_users())
+        observed_map = await self.k8s_client.get_observed_fileserver_state(
+            namespace
+        )
+        # Tidy up any no-longer-running users.  They aren't running, but they
+        # might have some objects remaining.
+        observed_users = set(observed_map.keys())
+        missing_users = mapped_users - observed_users
+        for user in missing_users:
+            rmuser_task = asyncio.create_task(
+                self.k8s_client.remove_fileserver(user, namespace)
+            )
+            self._tasks.add(rmuser_task)
+            rmuser_task.add_done_callback(self._tasks.discard)
+        # No need to create anything else for new ones--we know they're
+        # running.
+        self.user_map.bulk_update(observed_map)
+
+    async def create_fileserver(self, user: UserInfo) -> None:
+        """Create a fileserver for the given user.  Wait for it to be
+        operational.
+
+        This is the thing that gets called by the handler when a user comes in
+        through this service's ingress and the user does not already have a
+        running fileserver.
+        """
+        username = user.username
+        namespace = self.fs_namespace
+        timeout = 60.0
+        interval = 4.0
+
+        pod_spec = self.build_fileserver_pod_spec(user)
+        galing_spec = self.build_fileserver_ingress_spec(user.username)
+        await self.k8s_client.create_fileserver_deployment(
+            username, namespace, pod_spec
+        )
+        await self.k8s_client.create_fileserver_service(username, namespace)
+        await self.k8s_client.create_fileserver_gafaelfawringress(
+            username, namespace, spec=galing_spec
+        )
+
+        async with asyncio.timeout(timeout):
+            while True:
+                good = await self.k8s_client.check_fileserver_present(
+                    username, namespace
+                )
+                if good:
+                    return
+                await asyncio.sleep(interval)
 
     def build_fileserver_pod_spec(self, user: UserInfo) -> V1PodSpec:
         """Construct the pod specification for the user's fileserver pod.
@@ -104,7 +159,7 @@ class FileserverManager:
 
         # Build the pod specification itself.
         # FIXME work out tolerations
-        pod = V1PodSpec(
+        podspec = V1PodSpec(
             containers=[container],
             restart_policy="Never",
             security_context=V1PodSecurityContext(
@@ -116,7 +171,7 @@ class FileserverManager:
             ),
             volumes=volumes,
         )
-        return pod
+        return podspec
 
     def build_volumes(self) -> list[VolumeContainer]:
         vconfig = self.config.lab.volumes
