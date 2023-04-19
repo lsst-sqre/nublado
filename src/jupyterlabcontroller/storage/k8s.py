@@ -966,7 +966,7 @@ class K8sStorageClient:
     retries and ignore error-cases-that-are-normal-operation,
     especially since Kubernetes methods are regular in both names and
     argument type and ordering, and we want to do very similar things
-    for many object.s
+    for many objects.
 
     How hard could it be, you think, to use getattr() to pluck the
     right method, and then reuse the guts of creation/retry code?  And
@@ -1163,9 +1163,11 @@ class K8sStorageClient:
         """
         observed_state: dict[str, bool] = {}
         # Get all deployments
+        self._logger.warning("About to blow!")
         all_deployments = await self.apps_api.list_namespaced_deployment(
             namespace
         )
+        self._logger.warning("I blew.")
         # Filter to plausible candidates
         users = [
             x.metadata.name[:-3]
