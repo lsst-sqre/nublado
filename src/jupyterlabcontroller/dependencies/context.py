@@ -14,6 +14,8 @@ from structlog.stdlib import BoundLogger
 
 from ..config import Config
 from ..factory import Factory, ProcessContext
+
+from ..models.domain.fileserver import FileserverUserMap
 from ..services.image import ImageService
 from ..services.state import FileserverStateManager, LabStateManager
 

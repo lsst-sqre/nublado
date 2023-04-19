@@ -25,6 +25,7 @@ from kubernetes_asyncio.client import (
     V1OwnerReference,
     V1Pod,
     V1PodSpec,
+    V1PodTemplateSpec,
     V1ResourceQuota,
     V1ResourceQuotaSpec,
     V1Secret,
@@ -1121,6 +1122,7 @@ class K8sStorageClient:
         except ApiException as e:
             if e.status == 404:
                 return
+
             raise KubernetesError.from_exception(
                 "Error deleting gafaelfawringress",
                 e,
