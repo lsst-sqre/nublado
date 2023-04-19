@@ -977,13 +977,31 @@ class K8sStorageClient:
             },
         )
 
+    """It's really tempting to create generic methods for object
+    creation and deletion, that do some fancy exception handling to do
+    retries and ignore error-cases-that-are-normal-operation,
+    especially since Kubernetes methods are regular in both names and
+    argument type and ordering, and we want to do very similar things
+    for many object.s
+
+    How hard could it be, you think, to use getattr() to pluck the
+    right method, and then reuse the guts of creation/retry code?  And
+    then you realize that you could do this to await the creation of
+    an arbitrary Kubernetes object also.
+
+    I am here to warn you, dear reader, that this turns out to be a
+    terrible idea, because it turns errors you could have caught
+    quickly and easily with the type system into runtime errors deep
+    in the FastAPI event loop, with no obvious way to connect the
+    stack trace back to the place you forgot an "await" or misspelled
+    a method name."""
+
     # Methods for fileserver
 
     async def create_fileserver_deployment(
         self, username: str, namespace: str, pod_spec: V1PodSpec
     ) -> None:
         obj_name = f"{username}-fs"
-        obj_kind = "deployment"
         deployment_spec = V1DeploymentSpec(
             selector=V1LabelSelector(match_labels={"app": obj_name}),
             template=V1PodTemplateSpec(
@@ -993,16 +1011,53 @@ class K8sStorageClient:
                 spec=pod_spec,
             ),
         )
-        await self._fancy_object_creator(
-            obj_kind, obj_name, namespace, deployment_spec, timeout=60
+        self._logger.debug(
+            "Creating deployment", name=obj_name, namespace=namespace
         )
+        try:
+            await self.apps_api.create_namespaced_deployment(
+                namespace, deployment_spec
+            )
+        except ApiException as e:
+            if e.status == 409:
+                # It already exists.  Delete and recreate it
+                self._logger.warning(
+                    "Deployment exists.  Deleting and recreating.",
+                    name=obj_name,
+                    namespace=namespace,
+                )
+                await self.delete_fileserver_deployment(username, namespace)
+                await self.apps_api.create_namespaced_deployment(
+                    namespace, deployment_spec
+                )
+                return
+            raise KubernetesError.from_exception(
+                "Error creating deployment",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
 
     async def delete_fileserver_deployment(
         self, username: str, namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
-        obj_kind = "deployment"
-        await self._fancy_object_deleter(obj_kind, obj_name, namespace)
+        self._logger.debug(
+            "Deleting deployment", name=obj_name, namespace=namespace
+        )
+        try:
+            await self.apps_api.delete_namespaced_deployment(
+                obj_name, namespace
+            )
+        except ApiException as e:
+            if e.status == 404:
+                return
+            raise KubernetesError.from_exception(
+                "Error deleting deployment",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
 
     async def create_fileserver_service(
         self,
@@ -1010,7 +1065,6 @@ class K8sStorageClient:
         namespace: str,
     ) -> None:
         obj_name = f"{username}-fs"
-        obj_kind = "service"
         service = V1Service(
             metadata=self._standard_metadata(obj_name, instance="fileservers"),
             spec=V1ServiceSpec(
@@ -1018,16 +1072,41 @@ class K8sStorageClient:
                 selector={"app": obj_name},
             ),
         )
-        await self._fancy_object_creator(
-            obj_kind, obj_name, namespace, service, timeout=30
-        )
+        try:
+            await self.api.create_namespaced_service(namespace, service)
+        except ApiException as e:
+            if e.status == 409:
+                # It already exists.  Delete and recreate it
+                self._logger.warning(
+                    "Service exists.  Deleting and recreating.",
+                    name=obj_name,
+                    namespace=namespace,
+                )
+                await self.delete_fileserver_service(username, namespace)
+                await self.api.create_namespaced_service(namespace, service)
+                return
+            raise KubernetesError.from_exception(
+                "Error creating service",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
 
     async def delete_fileserver_service(
         self, username: str, namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
-        obj_kind = "service"
-        await self._fancy_object_deleter(obj_kind, obj_name, namespace)
+        try:
+            await self.api.delete_namespaced_service(obj_name, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                return
+            raise KubernetesError.from_exception(
+                "Error deleting service",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
 
     async def create_fileserver_gafaelfawringress(
         self, username: str, namespace: str, spec: dict[str, Any]
@@ -1044,8 +1123,12 @@ class K8sStorageClient:
             if e.status == 409:
                 # It already exists.  Delete and recreate it
                 self._logger.warning(
-                    f"Fileserver gafaelfawringress {obj_name} exists. "
-                    + "Deleting and recreating."
+                    (
+                        "Fileserver gafaelfawringress exists. "
+                        + "Deleting and recreating."
+                    ),
+                    name=obj_name,
+                    namespace=namespace,
                 )
                 await self.delete_fileserver_gafaelfawringress(
                     username, namespace
@@ -1072,14 +1155,14 @@ class K8sStorageClient:
                 crd_group, crd_version, namespace, plural, obj_name
             )
         except ApiException as e:
-            # Can't delete what isn't there.
-            if e.status != 404:
-                raise KubernetesError.from_exception(
-                    "Error deleting gafaelfawringress",
-                    e,
-                    namespace=namespace,
-                    name=obj_name,
-                ) from e
+            if e.status == 404:
+                return
+            raise KubernetesError.from_exception(
+                "Error deleting gafaelfawringress",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
 
     async def get_observed_fileserver_state(
         self, namespace: str
@@ -1096,7 +1179,9 @@ class K8sStorageClient:
         """
         observed_state: dict[str, bool] = {}
         # Get all deployments
-        all_deployments = self.apps_api.list_namespaced_deployments(namespace)
+        all_deployments = await self.apps_api.list_namespaced_deployment(
+            namespace
+        )
         # Filter to plausible candidates
         users = [
             x.metadata.name[:-3]
@@ -1175,113 +1260,47 @@ class K8sStorageClient:
         """Remove the set of fileserver objects for a user.  It doesn't
         return until the objects are no longer present in Kubernetes.
         """
-        for kind in ["deployment", "service", "gafaelfawringress"]:
-            method = getattr(self, "delete_fileserver_" + kind)
-            await method(username, namespace)
+        await self.delete_fileserver_deployment(username, namespace)
+        await self.delete_fileserver_service(username, namespace)
+        await self.delete_fileserver_gafaelfawringress(username, namespace)
+
         obj_name = f"{username}-fs"
-        for thing in [
-            ("deployment", "apps"),
-            ("service", ""),
-            ("ingress", "networking"),
-        ]:
-            await self._wait_for_object_deletion(
-                obj_kind=thing[0],
-                obj_name=obj_name,
-                namespace=namespace,
-                api_type=thing[1],
-                timeout=30.0,
+
+        for kind in ("deployment", "service", "gafaelfawringress"):
+            await self._wait_for_fileserver_object_deletion(
+                obj_name=obj_name, namespace=namespace, kind=kind
             )
 
-    """These next three methods might be more trouble than simply repeating
-    ourselves.  They rely on the fact that Kubernetes method names and
-    arguments are extremely predictable.
-    """
-
-    async def _fancy_object_creator(
-        self,
-        obj_kind: str,
-        obj_name: str,
-        namespace: str,
-        obj: Any,
-        timeout: Optional[float],
-        recreate: bool = True,
-        interval: float = 5.0,
+    async def _wait_for_fileserver_object_deletion(
+        self, obj_name: str, namespace: str, kind: str
     ) -> None:
-        create_method_name = "create_namespaced_" + obj_kind
-        delete_method_name = "delete_namespaced_" + obj_kind
-        api_create_method = getattr(self.api, create_method_name)
-        api_delete_method = getattr(self.api, delete_method_name)
-        self._logger.debug(
-            f"Creating {obj_kind}", name=obj_name, namespace=namespace
-        )
+        """This is as generic as I'm willing to go, and it's probably
+        too generic already."""
+        timeout = 30.0
+        interval = 2.7
 
-        try:
-            await api_create_method(namespace, obj)
-            return
-        except ApiException as e:
-            if e.status == 409 and recreate:
-                # It already exists.  Delete and recreate it
-                self._logger.warning(
-                    f"K8s object {obj_kind} {obj_name} exists. "
-                    + "Deleting and recreating."
-                )
-                await api_delete_method(obj_name, namespace)
-                await self._wait_for_object_deletion(
-                    obj_name, namespace, obj_kind, timeout, interval=interval
-                )
-                await api_create_method(namespace, obj)
-            raise KubernetesError.from_exception(
-                f"Error creating {obj_kind}",
-                e,
-                namespace=namespace,
-                name=obj_name,
-            ) from e
+        # No, I really don't think it's worth making this an enum.
+        ok_kinds = ("deployment", "service", "gafaelfawringress")
+        if kind not in ok_kinds:
+            raise WaitingForObjectError(
+                f"Don't know how to wait for {kind} deletion."
+            )
 
-    async def _fancy_object_deleter(
-        self,
-        obj_kind: str,
-        obj_name: str,
-        namespace: str,
-        missing_ok: bool = True,
-    ) -> None:
-        delete_method_name = "delete_namespaced_" + obj_kind
-        api_delete_method = getattr(self.api, delete_method_name)
-        self._logger.debug(
-            f"Deleting {obj_kind}", name=obj_name, namespace=namespace
-        )
-        try:
-            await api_delete_method(obj_name, namespace)
-        except ApiException as e:
-            # Can't delete what isn't there.
-            if e.status != 404 or not missing_ok:
-                raise KubernetesError.from_exception(
-                    f"Error deleting {obj_kind}",
-                    e,
-                    namespace=namespace,
-                    name=obj_name,
-                ) from e
-
-    async def _wait_for_object_deletion(
-        self,
-        obj_name: str,
-        namespace: str,
-        obj_kind: str,
-        timeout: Optional[float],
-        api_type: str = "",
-        interval: float = 1.0,
-    ) -> None:
-        api = self.api
-        if api_type == "apps":
-            api = self.apps_api
-        elif api_type == "networking":
-            api = self.networking_api
-        # We don't support custom APIs here, because the calling conventions
-        # are different.
-        read_method_name = "read_namespaced_" + obj_kind
-        read_method = getattr(api, read_method_name)
+        coro = self.api.read_namespaced_service(obj_name, namespace)
+        if kind == "deployment":
+            coro = self.apps_api.read_namespaced_deployment(
+                obj_name, namespace
+            )
+        elif kind == "gafaelfawringress":
+            crd_group = "gafaelfawr.lsst.io"
+            crd_version = "v1alpha1"
+            plural = "gafaelfawringresses"
+            coro = self.custom_api.delete_namespaced_custom_object(
+                crd_group, crd_version, namespace, plural, obj_name
+            )
 
         self._logger.debug(
-            f"Waiting for {obj_kind} deletion",
+            f"Waiting for {kind} deletion",
             name=obj_name,
             namespace=namespace,
         )
@@ -1289,12 +1308,12 @@ class K8sStorageClient:
         async with asyncio.timeout(timeout):
             while True:
                 try:
-                    read_method(obj_name, namespace)
+                    await coro
                 except ApiException as e:
                     if e.status == 404:
                         return
                     raise KubernetesError.from_exception(
-                        f"Error waiting for {obj_kind} deletion",
+                        f"Error waiting for {kind} deletion",
                         e,
                         namespace=namespace,
                         name=obj_name,
