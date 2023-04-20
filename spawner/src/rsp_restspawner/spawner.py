@@ -181,6 +181,10 @@ class RSPRestSpawner(Spawner):
         # Holds the events from a spawn in progress.
         self._events: list[SpawnEvent] = []
 
+        # Triggers used to notify listeners of new events. Each listener gets
+        # its own trigger.
+        self._triggers: list[asyncio.Event] = []
+
         # Holds the future representing a spawn in progress, used by the
         # progress method to know when th spawn is finished and it should
         # exit.
@@ -314,6 +318,11 @@ class RSPRestSpawner(Spawner):
         next_event = 0
         complete = False
 
+        # Insert a trigger into the trigger list that will be notified by the
+        # in-progress spawn.
+        trigger = asyncio.Event()
+        self._triggers.append(trigger)
+
         # Capture the current future and event stream in a local variable so
         # that we consistently monitor the same invocation of start. If that
         # one aborts and someone kicks off another one, we want to keep
@@ -328,6 +337,7 @@ class RSPRestSpawner(Spawner):
             return
 
         while not complete:
+            trigger.clear()
             if start_future.done():
                 # Indicate that we're done, but continue to execute the rest
                 # of the loop. We want to process any events received before
@@ -342,14 +352,16 @@ class RSPRestSpawner(Spawner):
                 yield events[i].to_dict()
             next_event = len_events
 
-            # This delay waiting for new events is obnoxious, and ideally we
-            # would do better with some sort of synchronization primitive.
-            # Using an asyncio.Event per progress invocation would work if
-            # JupyterHub is always asyncio, but I wasn't sure if it used
-            # thread pools and asyncio synchronization primitives are not
-            # thread-safe. The delay approach is what KubeSpawner does.
+            # Wait until we're notified that there are new events or we time
+            # out on the spawn. This is not the correct timeout (start_timeout
+            # is a bound on the total time, not each event). It's just an
+            # arbitrary timeout to ensure we don't wait forever, which is
+            # guaranteed to be longer than a spawn can take.
             if not complete:
-                await asyncio.sleep(1)
+                try:
+                    await asyncio.wait_for(trigger.wait(), self.start_timeout)
+                except TimeoutError:
+                    complete = True
 
     def start(self) -> asyncio.Task[str]:
         """Start the user's pod.
@@ -423,8 +435,18 @@ class RSPRestSpawner(Spawner):
         JupyterHub itself arranges for two spawns for the same spawner object
         to not be running at the same time, so we ignore that possibility.
         """
-        self._events = []
         progress = 0
+
+        # Clear the event list (by replacing the previous list so that any
+        # running progress calls see the old list, not the new one), and
+        # notify any existing triggers and then clear the trigger list.
+        self._events = []
+        for trigger in self._triggers:
+            trigger.set()
+        self._triggers = []
+
+        # Ask the Nublado lab controller to do the spawn and monitor its
+        # progress until complete.
         try:
             r = await self._client.post(
                 self._controller_url("labs", self.user.name, "create"),
@@ -458,6 +480,8 @@ class RSPRestSpawner(Spawner):
                 if event.progress:
                     progress = event.progress
                 self._events.append(event)
+                for trigger in self._triggers:
+                    trigger.set()
                 if event.complete:
                     break
                 if event.failed:
@@ -477,6 +501,8 @@ class RSPRestSpawner(Spawner):
                 severity="warning",
             )
             self._events.append(event)
+            for trigger in self._triggers:
+                trigger.set()
             try:
                 await self.stop()
             except Exception as e:
@@ -489,6 +515,12 @@ class RSPRestSpawner(Spawner):
                 )
                 self._events.append(event)
             raise
+
+        finally:
+            # Ensure that we set all the triggers just before we exit so that
+            # none of the progress calls will get stranded waiting for a lock.
+            for trigger in self._triggers:
+                trigger.set()
 
     @_convert_exception
     async def stop(self) -> None:
