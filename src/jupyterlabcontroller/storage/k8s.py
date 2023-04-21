@@ -47,15 +47,12 @@ __all__ = ["K8sStorageClient"]
 
 class K8sStorageClient:
     def __init__(
-        self, k8s_api: ApiClient, timeout: int, logger: BoundLogger
+        self, kubernetes_client: ApiClient, timeout: int, logger: BoundLogger
     ) -> None:
-        self.k8s_api = k8s_api
-        self.api = client.CoreV1Api(k8s_api)
+        self.k8s_api = kubernetes_client
+        self.api = client.CoreV1Api(kubernetes_client)
         self.timeout = timeout
         self._logger = logger
-
-    async def aclose(self) -> None:
-        await self.k8s_api.close()
 
     async def create_user_namespace(self, name: str) -> None:
         """Create the namespace for a user's lab.
