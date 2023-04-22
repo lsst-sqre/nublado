@@ -65,7 +65,7 @@ class Prepuller:
 
     async def start(self) -> None:
         if self._scheduler:
-            msg = "Prepuller already running, cannot start again"
+            msg = "Prepuller already running, cannot start"
             self._logger.warning(msg)
             return
         self._logger.info("Starting prepuller tasks")
@@ -83,9 +83,9 @@ class Prepuller:
 
     async def stop(self) -> None:
         if not self._scheduler:
-            self._logger.warning("Prepuller tasks were already stopped")
+            self._logger.warning("Prepuller was already stopped")
             return
-        self._logger.info("Cancelling prepuller tasks")
+        self._logger.info("Stopping prepuller")
         await self._scheduler.close()
         self._scheduler = None
 

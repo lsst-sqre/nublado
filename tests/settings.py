@@ -14,7 +14,6 @@ from kubernetes_asyncio.client import (
     V1Secret,
 )
 
-from jupyterlabcontroller.models.domain.usermap import UserMap
 from jupyterlabcontroller.models.v1.lab import (
     LabSpecification,
     LabStatus,
@@ -104,13 +103,6 @@ class TestObjectFactory:
                 )
             )
         return userdatas
-
-    @property
-    def usermap(self) -> UserMap:
-        usermap = UserMap()
-        for v in self.userdatas:
-            usermap.set(v.username, v)
-        return usermap
 
     @property
     def nodecontents(self) -> list[V1Node]:

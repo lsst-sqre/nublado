@@ -29,7 +29,7 @@ async def get_lab_users(
     context: RequestContext = Depends(context_dependency),
 ) -> list[str]:
     """Returns a list of all users with running labs."""
-    return await context.user_map.running()
+    return await context.lab_state.list_users(only_running=True)
 
 
 @router.get(
@@ -45,7 +45,7 @@ async def get_userdata(
     username: str,
     context: RequestContext = Depends(context_dependency),
 ) -> UserData:
-    userdata = context.user_map.get(username)
+    userdata = await context.lab_state.get_user(username)
     if userdata is None:
         msg = f"Unknown user {username}"
         raise UnknownUserError(msg, ErrorLocation.path, ["username"])
@@ -132,7 +132,7 @@ async def get_user_events(
         raise PermissionDeniedError("Permission denied")
     context.rebind_logger(user=username)
     try:
-        generator = context.event_manager.events_for_user(username)
+        generator = context.lab_state.events_for_user(username)
         return EventSourceResponse(generator)
     except UnknownUserError as e:
         e.location = ErrorLocation.path

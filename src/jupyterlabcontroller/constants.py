@@ -3,20 +3,42 @@
 from datetime import timedelta
 from pathlib import Path
 
+__all__ = [
+    "CONFIGURATION_PATH",
+    "DOCKER_SECRETS_PATH",
+    "DROPDOWN_SENTINEL_VALUE",
+    "GROUPNAME_REGEX",
+    "IMAGE_REFRESH_INTERVAL",
+    "KUBERNETES_REQUEST_TIMEOUT",
+    "LAB_STATE_REFRESH_INTERVAL",
+    "LIMIT_TO_REQUEST_RATIO",
+    "METADATA_PATH",
+    "SPAWNER_FORM_TEMPLATE",
+    "USERNAME_REGEX",
+]
+
 CONFIGURATION_PATH = Path("/etc/nublado/config.yaml")
 """Default path to controller configuration."""
 
 DOCKER_SECRETS_PATH = Path("/etc/secrets/.dockerconfigjson")
 """Default path to the Docker API secrets."""
 
-METADATA_PATH = Path("/etc/podinfo")
-"""Default path to injected pod metadata."""
+DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
+"""Used in the lab form for ``image_list`` when ``image_dropdown`` is used."""
 
 IMAGE_REFRESH_INTERVAL = timedelta(minutes=5)
 """How frequently to refresh the list of remote and cached images."""
 
-DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
-"""Used in the lab form for ``image_list`` when ``image_dropdown`` is used."""
+LAB_STATE_REFRESH_INTERVAL = timedelta(minutes=60)
+"""How frequently to refresh user lab state from Kubernetes.
+
+This will detect when user labs disappear out from under us without user
+action, such as labs being terminated by Kubernetes node replacements or
+upgrades.
+"""
+
+METADATA_PATH = Path("/etc/podinfo")
+"""Default path to injected pod metadata."""
 
 # These are in seconds; they're arguments to various functions, not timedeltas.
 KUBERNETES_REQUEST_TIMEOUT = 60

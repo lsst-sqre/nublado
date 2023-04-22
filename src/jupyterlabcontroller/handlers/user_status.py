@@ -25,7 +25,7 @@ async def get_user_status(
     context: RequestContext = Depends(context_dependency),
 ) -> UserData:
     context.rebind_logger(user=x_auth_request_user)
-    userdata = context.user_map.get(x_auth_request_user)
+    userdata = await context.lab_state.get_user(x_auth_request_user)
     if userdata is None:
         raise UnknownUserError(f"Unknown user {x_auth_request_user}")
     return userdata

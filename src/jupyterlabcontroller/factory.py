@@ -16,9 +16,7 @@ from structlog.stdlib import BoundLogger
 
 from .config import Config
 from .constants import KUBERNETES_REQUEST_TIMEOUT
-from .models.domain.usermap import UserMap
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
-from .services.events import EventManager
 from .services.form import FormManager
 from .services.image import ImageService
 from .services.lab import LabManager
@@ -27,6 +25,7 @@ from .services.size import SizeManager
 from .services.source.base import ImageSource
 from .services.source.docker import DockerImageSource
 from .services.source.gar import GARImageSource
+from .services.state import LabStateManager
 from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.gar import GARStorageClient
@@ -60,11 +59,8 @@ class ProcessContext:
     prepuller: Prepuller
     """Prepuller."""
 
-    user_map: UserMap
+    lab_state: LabStateManager
     """State management for user lab pods."""
-
-    event_manager: EventManager
-    """Manager for lab spawning events."""
 
     @classmethod
     async def from_config(cls, config: Config) -> Self:
@@ -140,8 +136,12 @@ class ProcessContext:
                 slack_client=slack_client,
                 logger=logger,
             ),
-            user_map=UserMap(),
-            event_manager=EventManager(),
+            lab_state=LabStateManager(
+                namespace_prefix=config.lab.namespace_prefix,
+                kubernetes=k8s_client,
+                slack_client=slack_client,
+                logger=logger,
+            ),
         )
 
     async def aclose(self) -> None:
@@ -152,6 +152,7 @@ class ProcessContext:
         """Start the background threads running."""
         await self.image_service.start()
         await self.prepuller.start()
+        await self.lab_state.start()
 
     async def stop(self) -> None:
         """Clean up a process context.
@@ -161,6 +162,7 @@ class ProcessContext:
         """
         await self.prepuller.stop()
         await self.image_service.stop()
+        await self.lab_state.stop()
 
 
 class Factory:
@@ -221,15 +223,6 @@ class Factory:
         Only used by tests; handlers don't need access to the prepuller.
         """
         return self._context.prepuller
-
-    @property
-    def user_map(self) -> UserMap:
-        """Current user lab status, from the `ProcessContext`.
-
-        Only used by tests; handlers have access to the user map via the
-        request context.
-        """
-        return self._context.user_map
 
     async def aclose(self) -> None:
         """Shut down the factory.
@@ -300,8 +293,7 @@ class Factory:
         return LabManager(
             instance_url=self._context.config.base_url,
             manager_namespace=self._context.config.lab.namespace_prefix,
-            user_map=self._context.user_map,
-            event_manager=self._context.event_manager,
+            lab_state=self._context.lab_state,
             image_service=self._context.image_service,
             size_manager=size_manager,
             logger=self._logger,
