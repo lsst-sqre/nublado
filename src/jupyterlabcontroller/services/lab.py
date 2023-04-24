@@ -45,8 +45,8 @@ from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.rspimage import RSPImage
 from ..models.v1.lab import (
     LabSpecification,
-    UserData,
     UserInfo,
+    UserLabState,
     UserResourceQuantum,
     UserResources,
 )
@@ -198,12 +198,12 @@ class LabManager:
             raise LabExistsError(f"Lab already exists for {user.username}")
 
         # Add a new lab status entry for this user.
-        userdata = UserData.new_from_user_resources(
+        state = UserLabState.new_from_user_resources(
             user=user,
             labspec=lab,
             resources=self._size_manager.resources(lab.options.size),
         )
-        await self._lab_state.create_user(user.username, userdata)
+        await self._lab_state.create_user(user.username, state)
 
         # This is all that we should do synchronously in response to the API
         # call. The rest should be done in the background, reporting status

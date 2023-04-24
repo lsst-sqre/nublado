@@ -15,7 +15,7 @@ from structlog.stdlib import BoundLogger
 from ..constants import LAB_STATE_REFRESH_INTERVAL
 from ..exceptions import UnknownUserError
 from ..models.v1.event import Event, EventType
-from ..models.v1.lab import LabStatus, PodState, UserData
+from ..models.v1.lab import LabStatus, PodState, UserLabState
 from ..storage.k8s import K8sStorageClient
 
 __all__ = ["LabStateManager"]
@@ -60,7 +60,7 @@ class LabStateManager:
         self._scheduler: Optional[Scheduler] = None
 
         # Mapping of usernames to last known lab state.
-        self._labs: dict[str, UserData] = {}
+        self._labs: dict[str, UserLabState] = {}
 
         # Mapping of usernames to spawn events for that user.
         self._events: dict[str, list[Event]] = {}
@@ -68,17 +68,17 @@ class LabStateManager:
         # Triggers per user that we use to notify any listeners of new events.
         self._triggers: dict[str, list[asyncio.Event]] = {}
 
-    async def create_user(self, username: str, userdata: UserData) -> None:
+    async def create_user(self, username: str, state: UserLabState) -> None:
         """Create (or replace) a lab state entry for a user.
 
         Parameters
         ----------
         username
             Username of user.
-        userdata
+        state
             Initial user lab state.
         """
-        self._labs[username] = userdata
+        self._labs[username] = state
         await self.reset_user_events(username)
 
     def events_for_user(self, username: str) -> AsyncIterator[ServerSentEvent]:
@@ -128,7 +128,7 @@ class LabStateManager:
 
         return iterator()
 
-    async def get_user(self, username: str) -> UserData | None:
+    async def get_user(self, username: str) -> UserLabState | None:
         """Get lab state for a user.
 
         Parameters
@@ -138,7 +138,7 @@ class LabStateManager:
 
         Returns
         -------
-        UserData or None
+        UserLabState or None
             Lab state for that user, or `None` if that user is not known.
         """
         return self._labs.get(username)

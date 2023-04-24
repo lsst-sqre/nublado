@@ -39,7 +39,7 @@ from ..exceptions import (
 )
 from ..models.domain.kubernetes import KubernetesNodeImage
 from ..models.k8s import K8sPodPhase, Secret
-from ..models.v1.lab import UserData, UserResourceQuantum
+from ..models.v1.lab import UserLabState, UserResourceQuantum
 from ..util import deslashify
 
 __all__ = ["K8sStorageClient"]
@@ -586,7 +586,7 @@ class K8sStorageClient:
 
     async def get_observed_user_state(
         self, manager_namespace: str
-    ) -> dict[str, UserData]:
+    ) -> dict[str, UserLabState]:
         observed_state = {}
         api = self.api
         ns_prefix = f"{manager_namespace}-"
@@ -605,7 +605,7 @@ class K8sStorageClient:
                 pod = await api.read_namespaced_pod(
                     name=podname, namespace=u_ns
                 )
-                observed_state[username] = UserData.from_pod(pod)
+                observed_state[username] = UserLabState.from_pod(pod)
             except ApiException as e:
                 if e.status == 404:
                     self._logger.warning(

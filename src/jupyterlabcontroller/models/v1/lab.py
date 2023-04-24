@@ -324,7 +324,7 @@ class UserResources(BaseModel):
     )
 
 
-class UserData(UserInfo, LabSpecification):
+class UserLabState(UserInfo, LabSpecification):
     status: LabStatus = Field(
         ...,
         example="running",
@@ -389,7 +389,7 @@ class UserData(UserInfo, LabSpecification):
     @classmethod
     def from_pod(cls, pod: V1Pod) -> Self:
         # We will extract everything from the discovered pod that we need
-        # to build a UserData entry.  Size and namespace quota may be
+        # to build a UserLabState entry.  Size and namespace quota may be
         # incorrect, and group name information and user display name will
         # be lost.
         #

@@ -16,9 +16,6 @@ from kubernetes_asyncio.client import (
 
 from jupyterlabcontroller.models.v1.lab import (
     LabSpecification,
-    LabStatus,
-    PodState,
-    UserData,
     UserInfo,
     UserResources,
 )
@@ -83,26 +80,6 @@ class TestObjectFactory:
         return [
             UserResources.parse_obj(x) for x in self.test_objects["resources"]
         ]
-
-    @property
-    def userdatas(self) -> list[UserData]:
-        userdatas = []
-        labspecs = self.labspecs
-        resources = self.resources
-        userinfos = self.userinfos
-        lab_statuses = [x for x in LabStatus]
-        pod_states = [x for x in PodState]
-        for idx, v in enumerate(userinfos.values()):
-            userdatas.append(
-                UserData.from_components(
-                    status=lab_statuses[idx % len(lab_statuses)],
-                    pod=pod_states[(idx) % len(pod_states)],
-                    user=v,
-                    labspec=labspecs[idx % len(labspecs)],
-                    resources=resources[idx % len(resources)],
-                )
-            )
-        return userdatas
 
     @property
     def nodecontents(self) -> list[V1Node]:

@@ -12,7 +12,7 @@ from ..exceptions import (
     UnknownDockerImageError,
     UnknownUserError,
 )
-from ..models.v1.lab import LabSpecification, UserData
+from ..models.v1.lab import LabSpecification, UserLabState
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
@@ -34,22 +34,22 @@ async def get_lab_users(
 
 @router.get(
     "/spawner/v1/labs/{username}",
-    response_model=UserData,
+    response_model=UserLabState,
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
         404: {"description": "Lab not found", "model": ErrorModel},
     },
     summary="Status of user's lab",
 )
-async def get_userdata(
+async def get_state(
     username: str,
     context: RequestContext = Depends(context_dependency),
-) -> UserData:
-    userdata = await context.lab_state.get_user(username)
-    if userdata is None:
+) -> UserLabState:
+    state = await context.lab_state.get_user(username)
+    if state is None:
         msg = f"Unknown user {username}"
         raise UnknownUserError(msg, ErrorLocation.path, ["username"])
-    return userdata
+    return state
 
 
 @router.post(
@@ -82,7 +82,7 @@ async def post_new_lab(
         e.location = ErrorLocation.body
         e.field_path = ["options", lab.options.image_attribute]
         raise
-    url = context.request.url_for("get_userdata", username=username)
+    url = context.request.url_for("get_state", username=username)
     response.headers["Location"] = str(url)
 
 
