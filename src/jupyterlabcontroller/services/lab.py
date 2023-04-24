@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from asyncio import Task, create_task
 from copy import copy, deepcopy
+from functools import partial
 from pathlib import Path
 from typing import Optional
 
@@ -88,26 +89,6 @@ class LabManager:
         """Exposed because the unit tests use it."""
         return f"{self.manager_namespace}-{username}"
 
-    async def await_pod_spawn(self, namespace: str, username: str) -> None:
-        """This is designed to run as a background task and just wait until
-        the pod has been created and inject a completion event into the
-        event queue when it has.
-        """
-        try:
-            await self.k8s_client.wait_for_pod_creation(
-                podname=f"nb-{username}", namespace=namespace
-            )
-        except Exception as e:
-            self._logger.exception("Pod creation failed")
-            await self._lab_state.publish_error(username, str(e), fatal=True)
-        else:
-            await self._lab_state.publish_completion(
-                username,
-                f"Lab Kubernetes pod started for {username}",
-                f"http://lab.{namespace}:8888",
-            )
-            self._logger.info("Lab created")
-
     async def await_ns_deletion(self, namespace: str, username: str) -> None:
         """This is designed to run as a background task and just wait until
         the pod has been created and inject a completion event into the
@@ -179,27 +160,21 @@ class LabManager:
             tag = lab.options.image_tag
             image = await self._image_service.image_for_tag_name(tag)
 
-        # Set up the lab state and send the initial lab creation event. This
-        # also checks for conflicts and raises an exception if the lab already
-        # exists.
-        #
-        # FIXME: Handle labs in failed state, which should be removed before
-        # starting to create a new lab.
+        # Construct the initial lab state from the route input.
         state = UserLabState.new_from_user_resources(
             user=user,
             labspec=lab,
             resources=self._size_manager.resources(lab.options.size),
         )
-        self._logger.info("Creating new lab")
-        msg = f"Starting lab creation for {user.username}"
-        await self._lab_state.publish_start_creation(user.username, msg, state)
 
-        # This is all that we should do synchronously in response to the API
-        # call. The rest should be done in the background, reporting status
-        # through the event stream. Kick off the background job.
-        pod_spawn_task = create_task(self._spawn_lab(user, token, lab, image))
-        self._tasks.add(pod_spawn_task)
-        pod_spawn_task.add_done_callback(self._tasks.discard)
+        # Start the spawning process. This also checks for conflicts and
+        # raises an exception if the lab already exists.
+        #
+        # FIXME: Handle labs in failed state, which should be removed before
+        # starting to create a new lab.
+        self._logger.info("Creating new lab")
+        spawner = partial(self._spawn_lab, user, token, lab, image)
+        await self._lab_state.start_spawn(user.username, state, spawner)
 
     async def _spawn_lab(
         self,
@@ -207,46 +182,70 @@ class LabManager:
         token: str,
         lab: LabSpecification,
         image: RSPImage,
-    ) -> None:
+    ) -> str:
+        """Do the work of creating a user's lab.
+
+        This method is responsible for creating the Kubernetes objects and
+        telling Kubernetes to start the user's pod. It does not wait for the
+        pod to finish starting. It is run within a background task managed by
+        `~jupyterlabcontroller.services.state.LabStateManager`, which then
+        waits for the lab to start and updates internal state as appropriate.
+
+        Parameters
+        ----------
+        user
+            Identity information for the user spawning the lab.
+        token
+            Gafaelfawr notebook token for the user.
+        lab
+            Specification for the lab environment to create.
+        image
+            Docker image to run as the lab.
+
+        Returns
+        -------
+        str
+            Cluster-internal URL at which the lab will be listening once it
+            has finished starting.
+        """
         username = user.username
         namespace = self.namespace_from_user(username)
 
         # This process has three stages. First, create or recreate the user's
-        # namespace. Second, create all the supporting resources the lab pod
-        # will need. Finally, create the lab pod and wait for it to start,
-        # reflecting any events back to the events API.
-        try:
-            await self.k8s_client.create_user_namespace(namespace)
-            await self._lab_state.publish_event(
-                username, "Created user namespace", 5
-            )
-            await self.create_user_lab_objects(
-                user=user, lab=lab, image=image, token=token
-            )
-            await self._lab_state.publish_event(
-                username, "Created Kubernetes resources for lab", 25
-            )
-            resources = self._size_manager.resources(lab.options.size)
-            await self.create_user_pod(user, resources, image)
-            await self._lab_state.publish_pod_creation(
-                username, "Requested lab Kubernetes pod", 30
-            )
-        except Exception as e:
-            self._logger.exception("Lab creation failed")
-            if self._slack_client:
-                if isinstance(e, SlackException):
-                    e.user = username
-                    await self._slack_client.post_exception(e)
-                else:
-                    await self._slack_client.post_uncaught_exception(e)
-            await self._lab_state.publish_error(username, str(e), fatal=True)
-            return
+        # namespace.
+        await self.k8s_client.create_user_namespace(namespace)
+        await self._lab_state.publish_event(
+            username, "Created user namespace", 5
+        )
+
+        # Second, create all the supporting resources the lab pod will need.
+        await self.create_secrets(
+            username=username,
+            namespace=self.namespace_from_user(username),
+            token=token,
+        )
+        await self.create_nss(user)
+        await self.create_file_configmap(user)
+        await self.create_env(user=user, lab=lab, image=image, token=token)
+        await self.create_network_policy(user)
+        await self.create_quota(user)
+        await self.create_lab_service(user)
+        await self._lab_state.publish_event(
+            username, "Created Kubernetes resources for lab", 25
+        )
+
+        # Finally, create the lab pod.
+        resources = self._size_manager.resources(lab.options.size)
+        await self.create_user_pod(user, resources, image)
+        await self._lab_state.publish_pod_creation(
+            username, "Requested lab Kubernetes pod", 30
+        )
 
         # Create a task to monitor and inject pod events during spawn.
         evt_task = create_task(
             self.inject_pod_events(
                 namespace=namespace,
-                username=user.username,
+                username=username,
                 start_progress=35,
                 end_progress=75,
             )
@@ -254,37 +253,8 @@ class LabManager:
         self._tasks.add(evt_task)
         evt_task.add_done_callback(self._tasks.discard)
 
-        # Now, wait for the pod to spawn.
-        await self.await_pod_spawn(namespace=namespace, username=user.username)
-
-    async def create_user_lab_objects(
-        self,
-        *,
-        user: UserInfo,
-        lab: LabSpecification,
-        image: RSPImage,
-        token: str,
-    ) -> None:
-        username = user.username
-
-        # Doing this in parallel causes a crash, and it's very hard to
-        # debug with aiojobs because we do not have the actual failures
-        # from the control plane.
-
-        # Doing it sequentially doesn't actually wait for resource creation,
-        # because it's an async K8s call, and each call completes quickly.
-
-        await self.create_secrets(
-            username=username,
-            namespace=self.namespace_from_user(username),
-            token=token,
-        )
-        await self.create_nss(user=user)
-        await self.create_file_configmap(user=user)
-        await self.create_env(user=user, lab=lab, image=image, token=token)
-        await self.create_network_policy(user=user)
-        await self.create_quota(user)
-        await self.create_lab_service(user=user)
+        # Return the URL where the lab will be listening after it starts.
+        return f"http://lab.{namespace}:8888"
 
     async def create_secrets(
         self, username: str, token: str, namespace: str

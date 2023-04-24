@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Optional
 
 from aiojobs import Scheduler
 from safir.datetime import current_datetime
+from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from sse_starlette import ServerSentEvent
 from structlog.stdlib import BoundLogger
@@ -68,10 +69,21 @@ class LabStateManager:
         # Triggers per user that we use to notify any listeners of new events.
         self._triggers: dict[str, list[asyncio.Event]] = {}
 
-        # Users whose labs are currently being spawned. These are excluded
-        # from periodic state reconciliation so that we don't race with
-        # ourselves and incorrectly update user lab state.
-        self._in_progress: set[str] = set()
+        # Users whose labs are currently being spawned. The values are the
+        # running background tasks monitoring the spawn progress. These are
+        # excluded from periodic state reconciliation so that we don't race
+        # with ourselves and incorrectly update user lab state.
+        #
+        # These tasks are not wrapped in an aiojobs.Spawner because the
+        # aiojobs.Job abstraction doesn't have a done method, and therefore
+        # these spawner threads must be manually shut down when background
+        # threads are stopped.
+        self._in_progress: dict[str, asyncio.Task[None]] = {}
+
+        # Triggered when any background thread monitoring spawn progress
+        # completes. This has to be triggered manually, so there must be a
+        # top-level exception handler that ensures it is set.
+        self._spawner_done = asyncio.Event()
 
     def events_for_user(self, username: str) -> AsyncIterator[ServerSentEvent]:
         """Iterator over the events for a user.
@@ -166,26 +178,6 @@ class LabStateManager:
         else:
             return list(self._labs.keys())
 
-    async def publish_completion(
-        self, username: str, message: str, internal_url: str
-    ) -> None:
-        """Publish a lab spawn completion event for a user.
-
-        Parameters
-        ----------
-        username
-            User whose lab the event is for.
-        message
-            Event message.
-        internal_url
-            Internal URL of the newly-spawned lab.
-        """
-        event = Event(message=message, type=EventType.COMPLETE)
-        await self._add_event(username, event)
-        self._labs[username].status = LabStatus.RUNNING
-        self._labs[username].internal_url = internal_url
-        self._in_progress.remove(username)
-
     async def publish_deletion(self, username: str, message: str) -> None:
         """Publish a lab deletion completion event for a user.
 
@@ -199,7 +191,6 @@ class LabStateManager:
         event = Event(message=message, type=EventType.COMPLETE)
         await self._add_event(username, event)
         del self._labs[username]
-        self._in_progress.remove(username)
 
     async def publish_error(
         self, username: str, message: str, fatal: bool = False
@@ -224,8 +215,6 @@ class LabStateManager:
             self._logger.error("Lab creation failed")
             self._labs[username].status = LabStatus.FAILED
             self._labs[username].internal_url = None
-            if username in self._in_progress:
-                self._in_progress.remove(username)
 
     async def publish_event(
         self, username: str, message: str, progress: int
@@ -266,34 +255,6 @@ class LabStateManager:
         self._labs[username].pod = PodState.PRESENT
         self._labs[username].status = LabStatus.PENDING
 
-    async def publish_start_creation(
-        self, username: str, message: str, state: UserLabState
-    ) -> None:
-        """Start lab creation for a user.
-
-        Parameters
-        ----------
-        username
-            Username of user.
-        message
-            First progress event message to send.
-        state
-            Initial user lab state.
-
-        Raises
-        ------
-        LabExistsError
-            Raised if this user already has a lab (in any state).
-        """
-        if username in self._labs:
-            msg = "Lab already exists"
-            await self.publish_error(username, msg, fatal=True)
-            raise LabExistsError(f"Lab already exists for {username}")
-        self._labs[username] = state
-        await self.reset_user_events(username)
-        await self.publish_event(username, message, 1)
-        self._in_progress.add(username)
-
     async def publish_start_deletion(
         self, username: str, message: str, progress: int
     ) -> None:
@@ -319,7 +280,6 @@ class LabStateManager:
             raise UnknownUserError(f"Unknown user {username}")
         self._labs[username].status = LabStatus.TERMINATING
         self._labs[username].internal_url = None
-        self._in_progress.add(username)
         await self.publish_event(username, message, progress)
 
     async def reset_user_events(self, username: str) -> None:
@@ -359,23 +319,65 @@ class LabStateManager:
         upgrades, for example.)
         """
         if self._scheduler:
-            msg = "User lab state reconciliation already running, cannot start"
+            msg = "User lab state tasks already running, cannot start again"
             self._logger.warning(msg)
             return
         await self._reconcile_lab_state()
         self._logger.info("Starting user lab state reconciliation")
         self._scheduler = Scheduler()
         await self._scheduler.spawn(self._refresh_loop())
+        self._logger.info("Starting reaper for spawn monitoring tasks")
+        await self._scheduler.spawn(self._reap_spawners())
+
+    async def start_spawn(
+        self,
+        username: str,
+        state: UserLabState,
+        spawner: Callable[[], Awaitable[str]],
+    ) -> None:
+        """Start lab creation for a user in a background thread.
+
+        Parameters
+        ----------
+        username
+            Username of user.
+        state
+            Initial user lab state.
+        spawner
+            Asynchronous callback that will create the Kubernetes objects for
+            the lab and return the URL on which it will listen after it
+            starts.
+
+        Raises
+        ------
+        LabExistsError
+            Raised if this user already has a lab (in any state).
+        """
+        if username in self._labs:
+            msg = "Lab already exists"
+            await self.publish_error(username, msg, fatal=True)
+            raise LabExistsError(f"Lab already exists for {username}")
+        self._labs[username] = state
+        task = asyncio.create_task(self._spawn(username, spawner))
+        self._in_progress[username] = task
 
     async def stop(self) -> None:
         """Stop the background refresh task."""
         if not self._scheduler:
-            msg = "User lab state reconciliation was already stopped"
+            msg = "User lab state background tasks were already stopped"
             self._logger.warning(msg)
             return
-        self._logger.info("Stopping user lab state reconciliation")
+        self._logger.info("Stopping user lab state background tasks")
         await self._scheduler.close()
         self._scheduler = None
+        self._logger.info("Stopping spawning monitor tasks")
+        for spawner in self._in_progress.values():
+            spawner.cancel("Shutting down")
+            try:
+                await spawner
+            except asyncio.CancelledError:
+                pass
+        self._in_progress = {}
 
     async def _add_event(self, username: str, event: Event) -> None:
         """Publish an event for the given user.
@@ -394,6 +396,44 @@ class LabStateManager:
         else:
             self._events[username] = [event]
             self._triggers[username] = []
+
+    async def _reap_spawners(self) -> None:
+        """Wait for spawner tasks to complete and record their status.
+
+        When a user spawns a lab, the lab controller creates a background task
+        to create the Kubernetes objects and then wait for the pod to finish
+        starting. Something needs to await those tasks so that they can be
+        cleanly finalized and to catch any uncaught exceptions. That function
+        is performed by a background task running this method.
+
+        Notes
+        -----
+        There unfortunately doesn't appear to be an API to wait for a group of
+        awaitables or tasks but return as soon as the first one succeeds or
+        fails, instead of waiting for all of them. We therefore need to do the
+        locking and coordination ourselves by having the spawner thread notify
+        the ``_spawner_done`` `asyncio.Event`.
+        """
+        while True:
+            await self._spawner_done.wait()
+            self._spawner_done.clear()
+            finished = []
+            for username, spawner in self._in_progress.items():
+                if spawner.done():
+                    try:
+                        await spawner
+                    except Exception as e:
+                        msg = "Uncaught exception in spawner thread"
+                        self._logger.exception(msg, user=username)
+                        if self._slack:
+                            await self._slack.post_uncaught_exception(e)
+                        if username in self._labs:
+                            self._labs[username].status = LabStatus.FAILED
+                    finally:
+                        finished.append(username)
+            for username in finished:
+                if username in self._in_progress:
+                    del self._in_progress[username]
 
     async def _reconcile_lab_state(self) -> None:
         """Reconcile user lab state with Kubernetes.
@@ -480,3 +520,47 @@ class LabStateManager:
         self._triggers[username] = [
             t for t in self._triggers[username] if t != trigger
         ]
+
+    async def _spawn(
+        self, username: str, spawner: Callable[[], Awaitable[str]]
+    ) -> None:
+        """Spawn a lab and wait for it to start running.
+
+        This is run as a background task to create a user's lab and wait for
+        it to start running, notifing an `asyncio.Event` variable when it
+        completes for any reason.
+
+        Parameters
+        ----------
+        username
+            Username of user whose lab is being spawned.
+        spawner
+            Asynchronous callable that does the work of creating the
+            Kubernetes objects for the lab.
+        """
+        namespace = f"{self._namespace_prefix}-{username}"
+        pod_name = f"nb-{username}"
+        try:
+            await self.reset_user_events(username)
+            msg = f"Starting lab creation for {username}"
+            await self.publish_event(username, msg, 1)
+            internal_url = await spawner()
+            await self._kubernetes.wait_for_pod_creation(pod_name, namespace)
+        except Exception as e:
+            self._logger.exception("Lab creation failed")
+            if self._slack:
+                if isinstance(e, SlackException):
+                    e.user = username
+                    await self._slack.post_exception(e)
+                else:
+                    await self._slack.post_uncaught_exception(e)
+            await self.publish_error(username, str(e), fatal=True)
+        else:
+            msg = f"Lab Kubernetes pod started for {username}"
+            event = Event(message=msg, type=EventType.COMPLETE)
+            await self._add_event(username, event)
+            self._labs[username].status = LabStatus.RUNNING
+            self._labs[username].internal_url = internal_url
+            self._logger.info("Lab created")
+        finally:
+            self._spawner_done.set()

@@ -56,6 +56,7 @@ async def app(
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
     mock_gafaelfawr: MockGafaelfawr,
+    mock_slack: MockSlackWebhook,
     obj_factory: TestObjectFactory,
 ) -> AsyncIterator[FastAPI]:
     """Return a configured test application.
