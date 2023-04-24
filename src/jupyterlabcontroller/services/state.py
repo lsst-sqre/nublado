@@ -128,6 +128,22 @@ class LabStateManager:
 
         return iterator()
 
+    async def is_lab_present(self, username: str) -> bool:
+        """Whether the given user has a running lab.
+
+        Parameters
+        ----------
+        username
+            Username to check.
+
+        Returns
+        -------
+        bool
+            `True` if the user has a lab in any state (including failure),
+            `False` otherwise.
+        """
+        return username in self._labs
+
     async def get_user(self, username: str) -> UserLabState | None:
         """Get lab state for a user.
 

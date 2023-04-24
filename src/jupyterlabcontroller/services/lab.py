@@ -89,18 +89,6 @@ class LabManager:
         """Exposed because the unit tests use it."""
         return f"{self.manager_namespace}-{username}"
 
-    async def check_for_user(self, username: str) -> bool:
-        """Check if a lab already exists for a user.
-
-        Returns
-        -------
-        bool
-            `True` if it does exist (even in an error state), `False`
-            otherwise.
-        """
-        user_state = await self._lab_state.get_user(username)
-        return user_state is not None
-
     async def await_pod_spawn(self, namespace: str, username: str) -> None:
         """This is designed to run as a background task and just wait until
         the pod has been created and inject a completion event into the
@@ -192,7 +180,10 @@ class LabManager:
         # unclear if we should clear the event queue before this.  Probably not
         # because we don't want to wipe out the existing log, since we will
         # not be spawning.
-        if await self.check_for_user(user.username):
+        #
+        # FIXME: Handle labs in failed state, which should be removed before
+        # starting to create a new lab.
+        if await self._lab_state.is_lab_present(user.username):
             msg = "Lab already exists"
             await self._lab_state.publish_error(user.username, msg)
             raise LabExistsError(f"Lab already exists for {user.username}")
