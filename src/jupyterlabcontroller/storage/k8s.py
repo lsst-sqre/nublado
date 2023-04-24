@@ -1207,6 +1207,9 @@ class K8sStorageClient:
         except ApiException as e:
             self._logger.info(f"Job {obj_name} for {username} not found.")
             if e.status == 404:
+                self._logger.debug(
+                    f"Deployment {obj_name} for {username} not found."
+                )
                 return False
             raise KubernetesError.from_exception(
                 "Error reading job",
