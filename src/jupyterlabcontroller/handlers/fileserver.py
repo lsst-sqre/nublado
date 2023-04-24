@@ -1,23 +1,30 @@
 from fastapi import APIRouter, Depends, Header
 from fastapi.responses import RedirectResponse
+from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..dependencies.context import RequestContext, context_dependency
+from ..exceptions import PermissionDeniedError
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
+user_router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
 
-__all__ = ["router"]
+__all__ = ["router", "user_router"]
+
+# This router is really at the top level--there's no safir path prefix.
 
 
-@router.get(
+@user_router.get(
     "/files",
     summary="Allow user to access files, spawning new fileserver if needed.",
+    responses={403: {"description": "Forbidden", "model": ErrorModel}},
     response_class=RedirectResponse,
 )
 async def route_user(
     context: RequestContext = Depends(context_dependency),
     x_auth_request_user: str = Header(..., include_in_schema=False),
+    x_auth_request_token: str = Header(..., include_in_schema=False),
 ) -> str:
     """Note that we don't care what's after /files.
 
@@ -42,5 +49,42 @@ async def route_user(
     to WebDAV with it, so they can't do anything nefarious.
     """
     username = x_auth_request_user
-
+    gafaelfawr_client = context.factory.create_gafaelfawr_client()
+    user = await gafaelfawr_client.get_user_info(x_auth_request_token)
+    if user.username != username:
+        raise PermissionDeniedError("Permission denied")
+    # The user is valid.  Create a fileserver for them (or use an extant
+    # one)
+    context.rebind_logger(user=username)
+    fileserver_manager = context.factory.create_fileserver_manager()
+    await fileserver_manager.create_fileserver_if_needed(user)
     return f"/files/{username}"
+
+
+# The remaining endpoints are for administrative functions and can be
+# tucked under the safir path prefix
+
+
+@router.get(
+    "/fileserver/v1/users",
+    responses={403: {"description": "Forbidden", "model": ErrorModel}},
+    summary="List all users with running fileservers",
+)
+async def get_fileserver_users(
+    context: RequestContext = Depends(context_dependency),
+) -> list[str]:
+    return context.fileserver_user_map.list_users()
+
+
+@router.delete(
+    "/fileserver/v1/{username}",
+    responses={403: {"description": "Forbidden", "model": ErrorModel}},
+    summary="Remove fileserver for user",
+)
+async def remove_fileserver(
+    username: str,
+    context: RequestContext = Depends(context_dependency),
+) -> None:
+    context.rebind_logger(user=username)
+    fileserver_manager = context.factory.create_fileserver_manager()
+    await fileserver_manager.delete_fileserver(username)

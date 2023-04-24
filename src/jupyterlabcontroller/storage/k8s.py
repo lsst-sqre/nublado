@@ -4,18 +4,17 @@ from __future__ import annotations
 
 import asyncio
 from base64 import b64encode
-
 from collections.abc import AsyncIterator
 from datetime import timedelta
-from typing import Any, Optional
+from typing import Any, Coroutine, Optional
 from urllib.parse import urlparse
-
 
 from kubernetes_asyncio import client, watch
 from kubernetes_asyncio.client import (
     ApiClient,
     ApiException,
     V1ConfigMap,
+    V1Deployment,
     V1DeploymentSpec,
     V1LabelSelector,
     V1Namespace,
@@ -986,13 +985,16 @@ class K8sStorageClient:
         self, username: str, namespace: str, pod_spec: V1PodSpec
     ) -> None:
         obj_name = f"{username}-fs"
-        deployment_spec = V1DeploymentSpec(
-            selector=V1LabelSelector(match_labels={"app": obj_name}),
-            template=V1PodTemplateSpec(
-                metadata=self._standard_metadata(
-                    obj_name, instance="fileservers"
+        deployment = V1Deployment(
+            metadata=self._standard_metadata(obj_name, instance="fileservers"),
+            spec=V1DeploymentSpec(
+                selector=V1LabelSelector(match_labels={"app": obj_name}),
+                template=V1PodTemplateSpec(
+                    metadata=self._standard_metadata(
+                        obj_name, instance="fileservers"
+                    ),
+                    spec=pod_spec,
                 ),
-                spec=pod_spec,
             ),
         )
         self._logger.debug(
@@ -1000,7 +1002,7 @@ class K8sStorageClient:
         )
         try:
             await self.apps_api.create_namespaced_deployment(
-                namespace, deployment_spec
+                namespace, deployment
             )
         except ApiException as e:
             if e.status == 409:
@@ -1012,7 +1014,7 @@ class K8sStorageClient:
                 )
                 await self.delete_fileserver_deployment(username, namespace)
                 await self.apps_api.create_namespaced_deployment(
-                    namespace, deployment_spec
+                    namespace, deployment
                 )
                 return
             raise KubernetesError.from_exception(
@@ -1197,10 +1199,16 @@ class K8sStorageClient:
         the user's fileserver is active.  Otherwise, it isn't.
         """
         obj_name = f"{username}-fs"
+        self._logger.debug(f"Checking deployment for {username}")
         try:
-            dep = self.apps_api.read_namespaced_deployment(obj_name, namespace)
+            dep = await self.apps_api.read_namespaced_deployment(
+                obj_name, namespace
+            )
         except ApiException as e:
             if e.status == 404:
+                self._logger.debug(
+                    f"Deployment {obj_name} for {username} not found."
+                )
                 return False
             raise KubernetesError.from_exception(
                 "Error reading deployment",
@@ -1211,7 +1219,7 @@ class K8sStorageClient:
         if dep.status is None or dep.status.available_replicas < 1:
             return False
         try:
-            ing = self.networking_api.read_namespaced_ingress(
+            ing = await self.networking_api.read_namespaced_ingress(
                 obj_name, namespace
             )
         except ApiException as e:
@@ -1230,12 +1238,12 @@ class K8sStorageClient:
         ):
             return False
         try:
-            self.api.read_namespaced_service(obj_name, namespace)
+            await self.api.read_namespaced_service(obj_name, namespace)
         except ApiException as e:
             if e.status == 404:
                 return False
             raise KubernetesError.from_exception(
-                "Error reading ingress",
+                "Error reading service",
                 e,
                 namespace=namespace,
                 name=obj_name,
@@ -1265,14 +1273,7 @@ class K8sStorageClient:
         timeout = 30.0
         interval = 2.7
 
-        # No, I really don't think it's worth making this an enum.
-        ok_kinds = ("deployment", "service", "gafaelfawringress")
-        if kind not in ok_kinds:
-            raise WaitingForObjectError(
-                f"Don't know how to wait for {kind} deletion."
-            )
-
-        coro = self.api.read_namespaced_service(obj_name, namespace)
+        coro: Optional[Coroutine] = None
         if kind == "deployment":
             coro = self.apps_api.read_namespaced_deployment(
                 obj_name, namespace
@@ -1283,6 +1284,12 @@ class K8sStorageClient:
             plural = "gafaelfawringresses"
             coro = self.custom_api.delete_namespaced_custom_object(
                 crd_group, crd_version, namespace, plural, obj_name
+            )
+        elif kind == "service":
+            coro = self.api.read_namespaced_service(obj_name, namespace)
+        if coro is None:
+            raise WaitingForObjectError(
+                f"Don't know how to wait for {kind} deletion."
             )
 
         self._logger.debug(
