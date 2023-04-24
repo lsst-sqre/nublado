@@ -9,6 +9,7 @@ from ..dependencies.config import configuration_dependency
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import FileserverCreationError, PermissionDeniedError
 
+
 router = APIRouter(route_class=SlackRouteErrorHandler)
 user_router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
@@ -84,7 +85,11 @@ async def route_user(
 async def get_fileserver_users(
     context: RequestContext = Depends(context_dependency),
 ) -> list[str]:
+<<<<<<< HEAD
     return await context.fileserver_state.list()
+=======
+    return context.fileserver_user_map.list_users()
+>>>>>>> 2c40d49 (Add more K8s mocks)
 
 
 @router.delete(
@@ -97,4 +102,9 @@ async def remove_fileserver(
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     context.rebind_logger(user=username)
+<<<<<<< HEAD
     await context.fileserver_state.delete(username)
+=======
+    fileserver_manager = context.factory.create_fileserver_manager()
+    await fileserver_manager.delete_fileserver(username)
+>>>>>>> 2c40d49 (Add more K8s mocks)
