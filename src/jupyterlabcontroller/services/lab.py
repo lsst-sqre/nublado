@@ -39,7 +39,6 @@ from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..config import FileMode, LabConfig, LabVolume
-from ..exceptions import LabExistsError
 from ..models.domain.docker import DockerReference
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.rspimage import RSPImage
@@ -164,7 +163,10 @@ class LabManager:
         Raises
         ------
         InvalidDockerReferenceError
-            Docker image reference in the lab specification is invalid.
+            Raised if the Docker image reference in the lab specification is
+            invalid.
+        LabExistsError
+            Raised if this user already has a lab.
         """
         selection = lab.options.image_list or lab.options.image_dropdown
         if selection:
@@ -177,31 +179,24 @@ class LabManager:
             tag = lab.options.image_tag
             image = await self._image_service.image_for_tag_name(tag)
 
-        # unclear if we should clear the event queue before this.  Probably not
-        # because we don't want to wipe out the existing log, since we will
-        # not be spawning.
+        # Set up the lab state and send the initial lab creation event. This
+        # also checks for conflicts and raises an exception if the lab already
+        # exists.
         #
         # FIXME: Handle labs in failed state, which should be removed before
         # starting to create a new lab.
-        if await self._lab_state.is_lab_present(user.username):
-            msg = "Lab already exists"
-            await self._lab_state.publish_error(user.username, msg)
-            raise LabExistsError(f"Lab already exists for {user.username}")
-
-        # Add a new lab status entry for this user.
         state = UserLabState.new_from_user_resources(
             user=user,
             labspec=lab,
             resources=self._size_manager.resources(lab.options.size),
         )
-        await self._lab_state.create_user(user.username, state)
+        self._logger.info("Creating new lab")
+        msg = f"Starting lab creation for {user.username}"
+        await self._lab_state.publish_start_creation(user.username, msg, state)
 
         # This is all that we should do synchronously in response to the API
         # call. The rest should be done in the background, reporting status
         # through the event stream. Kick off the background job.
-        self._logger.info("Creating new lab")
-        msg = f"Starting lab creation for {user.username}"
-        await self._lab_state.publish_event(user.username, msg, 2)
         pod_spawn_task = create_task(self._spawn_lab(user, token, lab, image))
         self._tasks.add(pod_spawn_task)
         pod_spawn_task.add_done_callback(self._tasks.discard)

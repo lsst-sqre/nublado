@@ -13,7 +13,7 @@ from sse_starlette import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
 from ..constants import LAB_STATE_REFRESH_INTERVAL
-from ..exceptions import UnknownUserError
+from ..exceptions import LabExistsError, UnknownUserError
 from ..models.v1.event import Event, EventType
 from ..models.v1.lab import LabStatus, PodState, UserLabState
 from ..storage.k8s import K8sStorageClient
@@ -68,18 +68,10 @@ class LabStateManager:
         # Triggers per user that we use to notify any listeners of new events.
         self._triggers: dict[str, list[asyncio.Event]] = {}
 
-    async def create_user(self, username: str, state: UserLabState) -> None:
-        """Create (or replace) a lab state entry for a user.
-
-        Parameters
-        ----------
-        username
-            Username of user.
-        state
-            Initial user lab state.
-        """
-        self._labs[username] = state
-        await self.reset_user_events(username)
+        # Users whose labs are currently being spawned. These are excluded
+        # from periodic state reconciliation so that we don't race with
+        # ourselves and incorrectly update user lab state.
+        self._in_progress: set[str] = set()
 
     def events_for_user(self, username: str) -> AsyncIterator[ServerSentEvent]:
         """Iterator over the events for a user.
@@ -127,22 +119,6 @@ class LabStateManager:
                 self._remove_trigger(username, trigger)
 
         return iterator()
-
-    async def is_lab_present(self, username: str) -> bool:
-        """Whether the given user has a running lab.
-
-        Parameters
-        ----------
-        username
-            Username to check.
-
-        Returns
-        -------
-        bool
-            `True` if the user has a lab in any state (including failure),
-            `False` otherwise.
-        """
-        return username in self._labs
 
     async def get_lab_state(self, username: str) -> UserLabState:
         """Get lab state for a user.
@@ -206,9 +182,9 @@ class LabStateManager:
         """
         event = Event(message=message, type=EventType.COMPLETE)
         await self._add_event(username, event)
-        if username in self._labs:
-            self._labs[username].status = LabStatus.RUNNING
-            self._labs[username].internal_url = internal_url
+        self._labs[username].status = LabStatus.RUNNING
+        self._labs[username].internal_url = internal_url
+        self._in_progress.remove(username)
 
     async def publish_deletion(self, username: str, message: str) -> None:
         """Publish a lab deletion completion event for a user.
@@ -222,11 +198,11 @@ class LabStateManager:
         """
         event = Event(message=message, type=EventType.COMPLETE)
         await self._add_event(username, event)
-        if username in self._labs:
-            del self._labs[username]
+        del self._labs[username]
+        self._in_progress.remove(username)
 
     async def publish_error(
-        self, username: str, message: str, fatal: bool = True
+        self, username: str, message: str, fatal: bool = False
     ) -> None:
         """Publish a lab spawn or deletion failure event for a user.
 
@@ -246,9 +222,10 @@ class LabStateManager:
             event = Event(message="Lab creation failed", type=EventType.FAILED)
             await self._add_event(username, event)
             self._logger.error("Lab creation failed")
-            if username in self._labs:
-                self._labs[username].status = LabStatus.FAILED
-                self._labs[username].internal_url = None
+            self._labs[username].status = LabStatus.FAILED
+            self._labs[username].internal_url = None
+            if username in self._in_progress:
+                self._in_progress.remove(username)
 
     async def publish_event(
         self, username: str, message: str, progress: int
@@ -286,9 +263,36 @@ class LabStateManager:
             New progress percentage.
         """
         await self.publish_event(username, message, progress)
+        self._labs[username].pod = PodState.PRESENT
+        self._labs[username].status = LabStatus.PENDING
+
+    async def publish_start_creation(
+        self, username: str, message: str, state: UserLabState
+    ) -> None:
+        """Start lab creation for a user.
+
+        Parameters
+        ----------
+        username
+            Username of user.
+        message
+            First progress event message to send.
+        state
+            Initial user lab state.
+
+        Raises
+        ------
+        LabExistsError
+            Raised if this user already has a lab (in any state).
+        """
         if username in self._labs:
-            self._labs[username].pod = PodState.PRESENT
-            self._labs[username].status = LabStatus.PENDING
+            msg = "Lab already exists"
+            await self.publish_error(username, msg, fatal=True)
+            raise LabExistsError(f"Lab already exists for {username}")
+        self._labs[username] = state
+        await self.reset_user_events(username)
+        await self.publish_event(username, message, 1)
+        self._in_progress.add(username)
 
     async def publish_start_deletion(
         self, username: str, message: str, progress: int
@@ -315,6 +319,7 @@ class LabStateManager:
             raise UnknownUserError(f"Unknown user {username}")
         self._labs[username].status = LabStatus.TERMINATING
         self._labs[username].internal_url = None
+        self._in_progress.add(username)
         await self.publish_event(username, message, progress)
 
     async def reset_user_events(self, username: str) -> None:
@@ -407,6 +412,8 @@ class LabStateManager:
         # First pass: check all users already recorded in internal state
         # against Kubernetes and correct them (or remove them) if needed.
         for username in known_users:
+            if username in self._in_progress:
+                continue
             state = self._labs[username]
             if state.status == LabStatus.FAILED:
                 continue
@@ -428,6 +435,8 @@ class LabStateManager:
         # state. This is the normal case after a restart of the lab
         # controller.
         for username in observed.keys():
+            if username in self._in_progress:
+                continue
             if username not in self._labs:
                 msg = f"Creating record for user {username} from Kubernetes"
                 self._logger.info(msg)
