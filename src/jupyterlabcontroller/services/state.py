@@ -144,7 +144,7 @@ class LabStateManager:
         """
         return username in self._labs
 
-    async def get_user(self, username: str) -> UserLabState | None:
+    async def get_lab_state(self, username: str) -> UserLabState:
         """Get lab state for a user.
 
         Parameters
@@ -154,12 +154,20 @@ class LabStateManager:
 
         Returns
         -------
-        UserLabState or None
-            Lab state for that user, or `None` if that user is not known.
-        """
-        return self._labs.get(username)
+        UserLabState
+            Lab state for that user.
 
-    async def list_users(self, only_running: bool = False) -> list[str]:
+        Raises
+        ------
+        UnknownUserError
+            Raised if the given user has no lab state.
+        """
+        if username in self._labs:
+            return self._labs[username]
+        else:
+            raise UnknownUserError(f"Unknown user {username}")
+
+    async def list_lab_users(self, only_running: bool = False) -> list[str]:
         """List all users with labs.
 
         Parameters

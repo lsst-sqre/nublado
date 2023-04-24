@@ -5,7 +5,6 @@ from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..dependencies.context import RequestContext, context_dependency
-from ..exceptions import UnknownUserError
 from ..models.v1.lab import UserLabState
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -25,7 +24,4 @@ async def get_user_state(
     context: RequestContext = Depends(context_dependency),
 ) -> UserLabState:
     context.rebind_logger(user=x_auth_request_user)
-    state = await context.lab_state.get_user(x_auth_request_user)
-    if state is None:
-        raise UnknownUserError(f"Unknown user {x_auth_request_user}")
-    return state
+    return await context.lab_state.get_lab_state(x_auth_request_user)

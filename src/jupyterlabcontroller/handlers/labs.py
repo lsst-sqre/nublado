@@ -29,7 +29,7 @@ async def get_lab_users(
     context: RequestContext = Depends(context_dependency),
 ) -> list[str]:
     """Returns a list of all users with running labs."""
-    return await context.lab_state.list_users(only_running=True)
+    return await context.lab_state.list_lab_users(only_running=True)
 
 
 @router.get(
@@ -45,11 +45,12 @@ async def get_state(
     username: str,
     context: RequestContext = Depends(context_dependency),
 ) -> UserLabState:
-    state = await context.lab_state.get_user(username)
-    if state is None:
-        msg = f"Unknown user {username}"
-        raise UnknownUserError(msg, ErrorLocation.path, ["username"])
-    return state
+    try:
+        return await context.lab_state.get_lab_state(username)
+    except UnknownUserError as e:
+        e.location = ErrorLocation.path
+        e.field_path = ["username"]
+        raise
 
 
 @router.post(
@@ -122,7 +123,7 @@ async def delete_user_lab(
         404: {"description": "Lab not found", "model": ErrorModel},
     },
 )
-async def get_user_events(
+async def get_lab_events(
     username: str,
     x_auth_request_user: str = Header(..., include_in_schema=False),
     context: RequestContext = Depends(context_dependency),
