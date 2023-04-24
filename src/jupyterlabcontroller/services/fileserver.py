@@ -49,7 +49,11 @@ class FileserverManager:
         self._slack_client = slack_client
         self._tasks: Set[asyncio.Task] = set()
 
+    def list_users(self) -> list[str]:
+        return self.user_map.list_users()
+
     async def reconcile_user_map(self) -> None:
+        self._logger.debug("Reconciling fileserver user map.")
         namespace = self.fs_namespace
         mapped_users = set(self.user_map.list_users())
         observed_map = await self.k8s_client.get_observed_fileserver_state(
@@ -69,29 +73,42 @@ class FileserverManager:
         # running.
         self.user_map.bulk_update(observed_map)
 
+    async def create_fileserver_if_needed(self, user: UserInfo) -> None:
+        """If the user doesn't have a fileserver, create it.  If the user
+        already has a fileserver, just return.
+
+        This gets called by the handler when a user comes in through the
+        /file ingress.
+        """
+        username = user.username
+        if username not in self.list_users():
+            await self.create_fileserver(user)
+            self.user_map.set(username)
+
     async def create_fileserver(self, user: UserInfo) -> None:
         """Create a fileserver for the given user.  Wait for it to be
         operational.
 
-        This is the thing that gets called by the handler when a user comes in
-        through this service's ingress and the user does not already have a
-        running fileserver.
         """
         username = user.username
+        self._logger.debug(f"Creating new fileserver for {username}")
         namespace = self.fs_namespace
         timeout = 60.0
         interval = 4.0
 
         pod_spec = self.build_fileserver_pod_spec(user)
         galing_spec = self.build_fileserver_ingress_spec(user.username)
+        self._logger.debug(f"...creating new deployment for {username}")
         await self.k8s_client.create_fileserver_deployment(
             username, namespace, pod_spec
         )
+        self._logger.debug(f"...creating new service for {username}")
         await self.k8s_client.create_fileserver_service(username, namespace)
+        self._logger.debug(f"...creating new gfingress for {username}")
         await self.k8s_client.create_fileserver_gafaelfawringress(
             username, namespace, spec=galing_spec
         )
-
+        self._logger.debug(f"...polling until objects appear for {username}")
         async with asyncio.timeout(timeout):
             while True:
                 good = await self.k8s_client.check_fileserver_present(
@@ -119,7 +136,7 @@ class FileserverManager:
         mounts = [v.volume_mount for v in volume_data]
 
         username = user.username
-        # Additional environment variables to set, apart from the ConfigMap.
+        # Additional environment variables to set.
         env = [
             V1EnvVar(name="WORBLEHAT_BASE_HREF", value=f"/files/{username}"),
             V1EnvVar(
@@ -211,7 +228,7 @@ class FileserverManager:
         obj_name = f"{username}-fs"
         # I feel like I should apologize for this object I'm returning.
         return {
-            "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
+            "api_version": "gafaelfawr.lsst.io/v1alpha1",
             "kind": "GafaelfawrIngress",
             "metadata": {
                 "name": obj_name,
@@ -219,10 +236,10 @@ class FileserverManager:
                 "labels": {"app": obj_name},
             },
             "config": {
-                "baseUrl": base_url,
+                "base_url": base_url,
                 "scopes": {"all": ["exec:notebook"]},
-                "loginRedirect": False,
-                "authType": "basic",
+                "login_redirect": False,
+                "auth_type": "basic",
             },
             "template": {
                 "metadata": {"name": obj_name},
@@ -234,7 +251,7 @@ class FileserverManager:
                                 "paths": [
                                     {
                                         "path": f"/files/{username}",
-                                        "pathType": "Prefix",
+                                        "path_type": "Prefix",
                                         "backend": {
                                             "service": {
                                                 "name": obj_name,
@@ -249,3 +266,7 @@ class FileserverManager:
                 },
             },
         }
+
+    async def delete_fileserver(self, username: str) -> None:
+        await self.k8s_client.remove_fileserver(username, self.fs_namespace)
+        self.user_map.remove(username)
