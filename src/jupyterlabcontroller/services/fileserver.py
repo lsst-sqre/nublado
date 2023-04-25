@@ -24,37 +24,64 @@ from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..config import Config, FileMode
+from ..constants import FILESERVER_RECONCILIATION_INTERVAL
 from ..models.domain.fileserver import FileserverUserMap
 from ..models.domain.lab import LabVolumeContainer as VolumeContainer
 from ..models.v1.lab import UserInfo
 from ..storage.k8s import K8sStorageClient
 
 
-class FileserverManager:
+class FileserverReconciler:
     def __init__(
         self,
         *,
-        fs_namespace: str,
+        config: Config,
         user_map: FileserverUserMap,
         logger: BoundLogger,
-        config: Config,
         k8s_client: K8sStorageClient,
-        slack_client: Optional[SlackWebhookClient] = None,
     ) -> None:
-        self.fs_namespace = fs_namespace
+        self.fs_namespace = config.fileserver.namespace
         self.user_map = user_map
-        self._logger = logger
-        self.config = config
         self.k8s_client = k8s_client
-        self._slack_client = slack_client
+        self._logger = logger
         self._tasks: Set[asyncio.Task] = set()
+        self._started = False
 
-    def list_users(self) -> list[str]:
-        return self.user_map.list_users()
+    async def start(self) -> None:
+        if not await self.k8s_client.check_namespace(self.fs_namespace):
+            self._logger.warning(
+                "No namespace '{self.fs_namespace}'; cannot start"
+            )
+            return
+        if self._started:
+            msg = "Fileserver reconciliation already running; cannot restart"
+            self._logger.warning(msg)
+            return
+        self._started = True
+        self._logger.info("Starting fileserver reconciliation")
+        while self._started:
+            await self.reconcile_user_map()
+            await asyncio.sleep(
+                FILESERVER_RECONCILIATION_INTERVAL.total_seconds()
+            )
+
+    async def stop(self) -> None:
+        if not self._started:
+            msg = "Fileserver reconciliation already stopped"
+            self._logger.warning(msg)
+            return
+        self._started = False
+        for tsk in self._tasks:
+            tsk.cancel()
 
     async def reconcile_user_map(self) -> None:
-        self._logger.debug("Reconciling fileserver user map.")
+        self._logger.debug("Reconciling fileserver user map")
         namespace = self.fs_namespace
+        if not await self.k8s_client.check_namespace(namespace):
+            self._logger.warning(
+                f"No fileserver namespace '{namespace}'; no fileserver users"
+            )
+            return
         mapped_users = set(self.user_map.list_users())
         observed_map = await self.k8s_client.get_observed_fileserver_state(
             namespace
@@ -73,7 +100,28 @@ class FileserverManager:
         # running.
         self.user_map.bulk_update(observed_map)
 
-    async def create_fileserver_if_needed(self, user: UserInfo) -> None:
+
+class FileserverManager:
+    def __init__(
+        self,
+        *,
+        user_map: FileserverUserMap,
+        logger: BoundLogger,
+        config: Config,
+        k8s_client: K8sStorageClient,
+        slack_client: Optional[SlackWebhookClient] = None,
+    ) -> None:
+        self.fs_namespace = config.fileserver.namespace
+        self.user_map = user_map
+        self._logger = logger
+        self.config = config
+        self.k8s_client = k8s_client
+        self._tasks: Set[asyncio.Task] = set()
+
+    def list_users(self) -> list[str]:
+        return self.user_map.list_users()
+
+    async def create_fileserver_if_needed(self, user: UserInfo) -> bool:
         """If the user doesn't have a fileserver, create it.  If the user
         already has a fileserver, just return.
 
@@ -82,17 +130,21 @@ class FileserverManager:
         """
         username = user.username
         if username not in self.list_users():
-            await self.create_fileserver(user)
+            if not await self.create_fileserver(user):
+                return False
             self.user_map.set(username)
+        return True
 
-    async def create_fileserver(self, user: UserInfo) -> None:
+    async def create_fileserver(self, user: UserInfo) -> bool:
         """Create a fileserver for the given user.  Wait for it to be
-        operational.
-
+        operational.  If we can't build it, return False.
         """
         username = user.username
         self._logger.debug(f"Creating new fileserver for {username}")
         namespace = self.fs_namespace
+        if not await self.k8s_client.check_namespace(namespace):
+            self._logger.warning("No fileserver namespace '{namespace}'")
+            return False
         timeout = 60.0
         interval = 4.0
 
@@ -109,14 +161,18 @@ class FileserverManager:
             username, namespace, spec=galing_spec
         )
         self._logger.debug(f"...polling until objects appear for {username}")
-        async with asyncio.timeout(timeout):
-            while True:
-                good = await self.k8s_client.check_fileserver_present(
-                    username, namespace
-                )
-                if good:
-                    return
-                await asyncio.sleep(interval)
+        try:
+            async with asyncio.timeout(timeout):
+                while True:
+                    good = await self.k8s_client.check_fileserver_present(
+                        username, namespace
+                    )
+                    if good:
+                        return True
+                    await asyncio.sleep(interval)
+        except asyncio.TimeoutError:
+            self._logger.error(f"Fileserver for {username} did not appear.")
+            return False
 
     def build_fileserver_pod_spec(self, user: UserInfo) -> V1PodSpec:
         """Construct the pod specification for the user's fileserver pod.
@@ -268,5 +324,7 @@ class FileserverManager:
         }
 
     async def delete_fileserver(self, username: str) -> None:
+        if not await self.k8s_client.check_namespace(self.fs_namespace):
+            return
         await self.k8s_client.remove_fileserver(username, self.fs_namespace)
         self.user_map.remove(username)

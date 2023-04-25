@@ -71,6 +71,9 @@ class ProcessContext:
     fileserver_user_map: FileserverUserMap
     """State management for user fileservers."""
 
+    fileserver_reconciler: FileserverReconciler
+    """Service to reconcile user fileserver map with Kubernetes."""
+
     @classmethod
     async def from_config(cls, config: Config) -> Self:
         """Create a new process context from the controller configuration.
@@ -133,6 +136,8 @@ class ProcessContext:
             logger=logger,
         )
 
+        fileserver_user_map = FileserverUserMap()
+
         return cls(
             config=config,
             http_client=http_client,
@@ -155,8 +160,14 @@ class ProcessContext:
                 logger=logger,
             ),
             user_map=UserMap(),
-            fileserver_user_map=FileserverUserMap(),
-            fileserver_reconciler=FileserverReconciler(),
+            fileserver_user_map=fileserver_user_map,
+            fileserver_reconciler=FileserverReconciler(
+                config=config,
+                user_map=fileserver_user_map,
+                k8s_client=k8s_client,
+                logger=logger,
+            ),
+            event_manager=EventManager(),
         )
 
     async def aclose(self) -> None:
@@ -349,7 +360,6 @@ class Factory:
             Newly-created fileserver manager.
         """
         return FileserverManager(
-            fs_namespace=self._context.config.fileserver.namespace,
             user_map=self._context.fileserver_user_map,
             logger=self._logger,
             config=self._context.config,

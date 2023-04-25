@@ -981,6 +981,20 @@ class K8sStorageClient:
 
     # Methods for fileserver
 
+    async def check_namespace(self, namespace: str) -> bool:
+        """Check to see if namespace is present; return True if it is,
+        False if it is not."""
+        try:
+            await self.api.read_namespace(namespace)
+            return True
+        except ApiException as e:
+            if e.status != 404:
+                msg = f"Cannot read namespace {namespace}"
+                raise KubernetesError.from_exception(
+                    msg, e, namespace=namespace
+                ) from e
+            return False
+
     async def create_fileserver_deployment(
         self, username: str, namespace: str, pod_spec: V1PodSpec
     ) -> None:
@@ -1162,14 +1176,33 @@ class K8sStorageClient:
 
         It returns a dict mapping strings to the value True, indicating those
         users who currently have fileservers.
+
+        If the fileserver namespace does not exist, create it before moving
+        ahead.
         """
         observed_state: dict[str, bool] = {}
         # Get all deployments
-        self._logger.warning("About to blow!")
+        try:
+            await self.api.read_namespace(namespace)
+        except ApiException as e:
+            if e.status == 404:
+                self._logger.info(
+                    f"Creating fileserver namespace '{namespace}'"
+                )
+                await self.api.create_namespace(
+                    body=V1Namespace(
+                        metadata=self._standard_metadata(namespace)
+                    )
+                )
+            else:
+                raise KubernetesError.from_exception(
+                    "Error reading namespace",
+                    e,
+                    namespace=namespace,
+                ) from e
         all_deployments = await self.apps_api.list_namespaced_deployment(
             namespace
         )
-        self._logger.warning("I blew.")
         # Filter to plausible candidates
         users = [
             x.metadata.name[:-3]
