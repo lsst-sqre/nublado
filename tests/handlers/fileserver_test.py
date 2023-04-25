@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from httpx import AsyncClient
-from kubernetes_asyncio.client import V1Ingress, V1ObjectMeta
+from kubernetes_asyncio.client import V1Ingress, V1Namespace, V1ObjectMeta
 
 from jupyterlabcontroller.factory import Factory
 
@@ -13,7 +13,7 @@ from ..support.kubernetes import MockKubernetesApi
 
 
 @pytest.mark.asyncio
-async def test_fileserver_start(
+async def test_fileserver(
     client: AsyncClient,
     factory: Factory,
     obj_factory: TestObjectFactory,
@@ -22,6 +22,14 @@ async def test_fileserver_start(
     token, user = obj_factory.get_user()
     name = user.username
     namespace = "fileservers"
+    #
+    # Create a namespace for fileserver objects.  This actually gets done
+    # implicitly by the create_namespaced_ingress() below anyway, but let's
+    # make it explicit.
+    #
+    await mock_kubernetes.create_namespace(
+        V1Namespace(metadata=V1ObjectMeta(name=namespace))
+    )
     r = await client.get("/nublado/fileserver/v1/users")
     # No fileservers yet.
     assert r.json() == []
@@ -44,10 +52,10 @@ async def test_fileserver_start(
     )
     assert r.status_code == 307
     assert r.headers.get("location") == f"/files/{user.username}"
-    # Check that it has showed up.
+    # Check that it has showed up, via an admin route.
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == [user.username]
-    # Now remove it
+    # Now remove it, again via an admin route
     r = await client.delete(f"/nublado/fileserver/v1/{user.username}")
     # And remove (by hand) the Ingress (again done automagically in real life)
     await mock_kubernetes.delete_namespaced_ingress(
