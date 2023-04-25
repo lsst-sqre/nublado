@@ -41,7 +41,7 @@ async def get_lab_users(
     },
     summary="Status of user's lab",
 )
-async def get_state(
+async def get_lab_state(
     username: str,
     context: RequestContext = Depends(context_dependency),
 ) -> UserLabState:
@@ -83,7 +83,7 @@ async def post_new_lab(
         e.location = ErrorLocation.body
         e.field_path = ["options", lab.options.image_attribute]
         raise
-    url = context.request.url_for("get_state", username=username)
+    url = context.request.url_for("get_lab_state", username=username)
     response.headers["Location"] = str(url)
 
 

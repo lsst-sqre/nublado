@@ -843,7 +843,6 @@ class LabManager:
         return pod
 
     async def delete_lab(self, username: str) -> None:
-        await self._lab_state.reset_user_events(username)
         await self._lab_state.publish_start_deletion(
             username, "Deleting user lab and resources", 25
         )

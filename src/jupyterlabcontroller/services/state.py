@@ -15,6 +15,7 @@ from structlog.stdlib import BoundLogger
 
 from ..constants import LAB_STATE_REFRESH_INTERVAL
 from ..exceptions import LabExistsError, UnknownUserError
+from ..models.domain.lab import UserLab
 from ..models.v1.event import Event, EventType
 from ..models.v1.lab import LabStatus, PodState, UserLabState
 from ..storage.k8s import K8sStorageClient
@@ -60,29 +61,14 @@ class LabStateManager:
         # Background task management.
         self._scheduler: Optional[Scheduler] = None
 
-        # Mapping of usernames to last known lab state.
-        self._labs: dict[str, UserLabState] = {}
-
-        # Mapping of usernames to spawn events for that user.
-        self._events: dict[str, list[Event]] = {}
-
-        # Triggers per user that we use to notify any listeners of new events.
-        self._triggers: dict[str, list[asyncio.Event]] = {}
-
-        # Users whose labs are currently being spawned. The values are the
-        # running background tasks monitoring the spawn progress. These are
-        # excluded from periodic state reconciliation so that we don't race
-        # with ourselves and incorrectly update user lab state.
-        #
-        # These tasks are not wrapped in an aiojobs.Spawner because the
-        # aiojobs.Job abstraction doesn't have a done method, and therefore
-        # these spawner threads must be manually shut down when background
-        # threads are stopped.
-        self._in_progress: dict[str, asyncio.Task[None]] = {}
+        # Mapping of usernames to internal lab state.
+        self._labs: dict[str, UserLab] = {}
 
         # Triggered when any background thread monitoring spawn progress
         # completes. This has to be triggered manually, so there must be a
-        # top-level exception handler that ensures it is set.
+        # top-level exception handler for each spawner task that ensures it is
+        # set when the spawner task exits for any reason. Otherwise, the
+        # reaper task may never realize a spawner has finished and wake up.
         self._spawner_done = asyncio.Event()
 
     def events_for_user(self, username: str) -> AsyncIterator[ServerSentEvent]:
@@ -106,15 +92,23 @@ class LabStateManager:
         UnknownUserError
             Raised if there is no event stream for this user.
         """
-        if username not in self._events:
+        if username not in self._labs:
             raise UnknownUserError(f"Unknown user {username}")
 
-        events = self._events[username]
+        # Get the event list and add our trigger to it. We grab a separate
+        # reference to the event list, rather than using self._labs inside the
+        # iterator, so that if the event list is cleared (via replacement with
+        # an empty list) while we are listening, we will only see the old
+        # list.
+        events = self._labs[username].events
         trigger = asyncio.Event()
         if events:
             trigger.set()
-        self._triggers[username].append(trigger)
+        self._labs[username].triggers.append(trigger)
 
+        # The iterator waits for the trigger and returns any new events,
+        # calling _remove_trigger after it sees an event that indicates the
+        # operation has completed.
         async def iterator() -> AsyncIterator[ServerSentEvent]:
             position = 0
             try:
@@ -138,7 +132,7 @@ class LabStateManager:
         Parameters
         ----------
         username
-            Username to retrieve state for.
+            Username to retrieve lab state for.
 
         Returns
         -------
@@ -148,10 +142,10 @@ class LabStateManager:
         Raises
         ------
         UnknownUserError
-            Raised if the given user has no lab state.
+            Raised if the given user has no lab.
         """
         if username in self._labs:
-            return self._labs[username]
+            return self._labs[username].state
         else:
             raise UnknownUserError(f"Unknown user {username}")
 
@@ -173,13 +167,16 @@ class LabStateManager:
             return [
                 u
                 for u, s in self._labs.items()
-                if s.status == LabStatus.RUNNING
+                if s.state.status == LabStatus.RUNNING
             ]
         else:
             return list(self._labs.keys())
 
     async def publish_deletion(self, username: str, message: str) -> None:
         """Publish a lab deletion completion event for a user.
+
+        Notifies any current listeners to the event stream that the operation
+        is complete before deleting the recorded user state entirely.
 
         Parameters
         ----------
@@ -190,7 +187,9 @@ class LabStateManager:
         """
         event = Event(message=message, type=EventType.COMPLETE)
         await self._add_event(username, event)
+        lab = self._labs[username]
         del self._labs[username]
+        await self._clear_events(lab)
 
     async def publish_error(
         self, username: str, message: str, fatal: bool = False
@@ -212,9 +211,9 @@ class LabStateManager:
         if fatal:
             event = Event(message="Lab creation failed", type=EventType.FAILED)
             await self._add_event(username, event)
-            self._logger.error("Lab creation failed")
-            self._labs[username].status = LabStatus.FAILED
-            self._labs[username].internal_url = None
+            self._logger.error("Lab creation failed", user=username)
+            self._labs[username].state.status = LabStatus.FAILED
+            self._labs[username].state.internal_url = None
 
     async def publish_event(
         self, username: str, message: str, progress: int
@@ -233,7 +232,7 @@ class LabStateManager:
         event = Event(message=message, progress=progress, type=EventType.INFO)
         await self._add_event(username, event)
         msg = f"Spawning event: {message}"
-        self._logger.debug(msg, username=username, progress=progress)
+        self._logger.debug(msg, user=username, progress=progress)
 
     async def publish_pod_creation(
         self, username: str, message: str, progress: int
@@ -252,8 +251,8 @@ class LabStateManager:
             New progress percentage.
         """
         await self.publish_event(username, message, progress)
-        self._labs[username].pod = PodState.PRESENT
-        self._labs[username].status = LabStatus.PENDING
+        self._labs[username].state.pod = PodState.PRESENT
+        self._labs[username].state.status = LabStatus.PENDING
 
     async def publish_start_deletion(
         self, username: str, message: str, progress: int
@@ -278,37 +277,11 @@ class LabStateManager:
         """
         if username not in self._labs:
             raise UnknownUserError(f"Unknown user {username}")
-        self._labs[username].status = LabStatus.TERMINATING
-        self._labs[username].internal_url = None
+        lab = self._labs[username]
+        await self._clear_events(lab)
+        lab.state.status = LabStatus.TERMINATING
+        lab.state.internal_url = None
         await self.publish_event(username, message, progress)
-
-    async def reset_user_events(self, username: str) -> None:
-        """Reset the event queue for a user.
-
-        Called when we delete the user's lab or otherwise reset the user's
-        state such that old events are no longer of interest.
-
-        Parameters
-        ----------
-        username
-            Username to reset.
-        """
-        if username not in self._events:
-            return
-
-        # Detach the list of events from our data so that no more can be
-        # added. If the final event in the list of events is not a completion
-        # event, add a synthetic completion event. Then notify any listeners.
-        # This ensures all the listeners will complete.
-        events = self._events[username]
-        del self._events[username]
-        if not events or not events[-1].done:
-            event = Event(message="Operation aborted", type=EventType.FAILED)
-            events.append(event)
-        triggers = self._triggers[username]
-        del self._triggers[username]
-        for trigger in triggers:
-            trigger.set()
 
     async def start(self) -> None:
         """Synchronize with Kubernetes and start a background refresh task.
@@ -357,9 +330,9 @@ class LabStateManager:
             msg = "Lab already exists"
             await self.publish_error(username, msg, fatal=True)
             raise LabExistsError(f"Lab already exists for {username}")
-        self._labs[username] = state
+        self._labs[username] = UserLab(state=state)
         task = asyncio.create_task(self._spawn(username, spawner))
-        self._in_progress[username] = task
+        self._labs[username].spawner = task
 
     async def stop(self) -> None:
         """Stop the background refresh task."""
@@ -371,13 +344,15 @@ class LabStateManager:
         await self._scheduler.close()
         self._scheduler = None
         self._logger.info("Stopping spawning monitor tasks")
-        for spawner in self._in_progress.values():
-            spawner.cancel("Shutting down")
-            try:
-                await spawner
-            except asyncio.CancelledError:
-                pass
-        self._in_progress = {}
+        for state in self._labs.values():
+            if state.spawner:
+                spawner = state.spawner
+                state.spawner = None
+                spawner.cancel("Shutting down")
+                try:
+                    await spawner
+                except asyncio.CancelledError:
+                    pass
 
     async def _add_event(self, username: str, event: Event) -> None:
         """Publish an event for the given user.
@@ -389,13 +364,36 @@ class LabStateManager:
         event
             Event to publish.
         """
-        if username in self._events:
-            self._events[username].append(event)
-            for trigger in self._triggers[username]:
-                trigger.set()
-        else:
-            self._events[username] = [event]
-            self._triggers[username] = []
+        self._labs[username].events.append(event)
+        for trigger in self._labs[username].triggers:
+            trigger.set()
+
+    async def _clear_events(self, lab: UserLab) -> None:
+        """Safely clear the event list for a user.
+
+        If the record for the user is about to be deleted, remove it from
+        ``self._labs`` before calling this method to ensure that nothing
+        starts adding new events and triggers while the deletion is in
+        progress.
+
+        Parameters
+        ----------
+        lab
+            User lab data holding the event stream to clear.
+        """
+        events = lab.events
+        triggers = lab.triggers
+        lab.events = []
+        lab.triggers = []
+
+        # If the final event in the list of events is not a completion
+        # event, add a synthetic completion event. Then notify any listeners.
+        # This ensures all the listeners will complete.
+        if not events or not events[-1].done:
+            event = Event(message="Operation aborted", type=EventType.FAILED)
+            events.append(event)
+        for trigger in triggers:
+            trigger.set()
 
     async def _reap_spawners(self) -> None:
         """Wait for spawner tasks to complete and record their status.
@@ -417,9 +415,10 @@ class LabStateManager:
         while True:
             await self._spawner_done.wait()
             self._spawner_done.clear()
-            finished = []
-            for username, spawner in self._in_progress.items():
-                if spawner.done():
+            for username, state in self._labs.items():
+                if state.spawner and state.spawner.done():
+                    spawner = state.spawner
+                    state.spawner = None
                     try:
                         await spawner
                     except Exception as e:
@@ -427,13 +426,7 @@ class LabStateManager:
                         self._logger.exception(msg, user=username)
                         if self._slack:
                             await self._slack.post_uncaught_exception(e)
-                        if username in self._labs:
-                            self._labs[username].status = LabStatus.FAILED
-                    finally:
-                        finished.append(username)
-            for username in finished:
-                if username in self._in_progress:
-                    del self._in_progress[username]
+                        state.state.status = LabStatus.FAILED
 
     async def _reconcile_lab_state(self) -> None:
         """Reconcile user lab state with Kubernetes.
@@ -444,43 +437,49 @@ class LabStateManager:
         recreate the internal state from the contents of Kubernetes.
         """
         self._logger.info("Reconciling user lab state with Kubernetes")
+        known_users = set(self._labs.keys())
         observed = await self._kubernetes.get_observed_user_state(
             self._namespace_prefix
         )
-        known_users = set(self._labs.keys())
+
+        # If the set of users we expected to see changed during
+        # reconciliation, we may be running into all sorts of race
+        # conditions. Just skip this background update; we'll catch any
+        # inconsistencies the next time around.
+        if set(self._labs.keys()) != known_users:
+            msg = "Known users changed during reconciliation, skipping"
+            self._logger.info(msg)
+            return
 
         # First pass: check all users already recorded in internal state
         # against Kubernetes and correct them (or remove them) if needed.
-        for username in known_users:
-            if username in self._in_progress:
+        for username, lab in list(self._labs.items()):
+            if lab.spawner is not None:
                 continue
-            state = self._labs[username]
-            if state.status == LabStatus.FAILED:
+            if lab.state.status == LabStatus.FAILED:
                 continue
             if username not in observed:
                 msg = f"Expected user {username} not found in Kubernetes"
                 self._logger.warning(msg)
-                await self.reset_user_events(username)
-                del self._labs[username]
+                await self.publish_deletion(username, "Lab pod disappeared")
             else:
                 observed_state = observed[username]
-                if observed_state.status != state.status:
+                if observed_state.status != lab.state.status:
                     self._logger.warning(
-                        f"Expected status for {username} is {state.status},"
-                        f" but observed status is {observed_state.status}"
+                        f"Expected status for {username} is"
+                        f" {lab.state.status}, but observed status is"
+                        f" {observed_state.status}"
                     )
-                    state.status = observed_state.status
+                    lab.state.status = observed_state.status
 
         # Second pass: take observed state and create any missing internal
         # state. This is the normal case after a restart of the lab
         # controller.
-        for username in observed.keys():
-            if username in self._in_progress:
-                continue
+        for username in set(observed.keys()) - known_users:
             if username not in self._labs:
                 msg = f"Creating record for user {username} from Kubernetes"
                 self._logger.info(msg)
-                self._labs[username] = observed[username]
+                self._labs[username] = UserLab(state=observed[username])
 
     async def _refresh_loop(self) -> None:
         """Run in the background by `start`, stopped with `stop`."""
@@ -515,10 +514,10 @@ class LabStateManager:
         trigger
             Corresponding trigger to remove.
         """
-        if username not in self._triggers:
+        if username not in self._labs:
             return
-        self._triggers[username] = [
-            t for t in self._triggers[username] if t != trigger
+        self._labs[username].triggers = [
+            t for t in self._labs[username].triggers if t != trigger
         ]
 
     async def _spawn(
@@ -541,7 +540,7 @@ class LabStateManager:
         namespace = f"{self._namespace_prefix}-{username}"
         pod_name = f"nb-{username}"
         try:
-            await self.reset_user_events(username)
+            await self._clear_events(self._labs[username])
             msg = f"Starting lab creation for {username}"
             await self.publish_event(username, msg, 1)
             internal_url = await spawner()
@@ -559,8 +558,8 @@ class LabStateManager:
             msg = f"Lab Kubernetes pod started for {username}"
             event = Event(message=msg, type=EventType.COMPLETE)
             await self._add_event(username, event)
-            self._labs[username].status = LabStatus.RUNNING
-            self._labs[username].internal_url = internal_url
+            self._labs[username].state.status = LabStatus.RUNNING
+            self._labs[username].state.internal_url = internal_url
             self._logger.info("Lab created")
         finally:
             self._spawner_done.set()

@@ -16,7 +16,7 @@ __all__ = ["router"]
 @router.get(
     "/spawner/v1/user-status",
     responses={404: {"description": "Lab not found", "model": ErrorModel}},
-    summary="Status of user's lab",
+    summary="State of user's lab",
     response_model=UserLabState,
 )
 async def get_user_state(
