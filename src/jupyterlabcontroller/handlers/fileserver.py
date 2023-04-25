@@ -57,8 +57,10 @@ async def route_user(
     # one)
     context.rebind_logger(user=username)
     fileserver_manager = context.factory.create_fileserver_manager()
-    await fileserver_manager.create_fileserver_if_needed(user)
-    return f"/files/{username}"
+    result = await fileserver_manager.create_fileserver_if_needed(user)
+    if result:
+        return f"/files/{username}"
+    raise PermissionDeniedError("Permission denied")
 
 
 # The remaining endpoints are for administrative functions and can be
