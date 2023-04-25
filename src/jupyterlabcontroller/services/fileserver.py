@@ -10,13 +10,21 @@ from urllib.parse import urlparse
 from kubernetes_asyncio.client import (
     V1Container,
     V1ContainerPort,
+    V1Deployment,
+    V1DeploymentSpec,
     V1EnvVar,
     V1HostPathVolumeSource,
+    V1LabelSelector,
     V1NFSVolumeSource,
+    V1ObjectMeta,
     V1PodSecurityContext,
     V1PodSpec,
+    V1PodTemplateSpec,
     V1ResourceRequirements,
     V1SecurityContext,
+    V1Service,
+    V1ServicePort,
+    V1ServiceSpec,
     V1Volume,
     V1VolumeMount,
 )
@@ -154,17 +162,20 @@ class FileserverManager:
         timeout = 60.0
         interval = 4.0
 
-        pod_spec = self.build_fileserver_pod_spec(user)
-        galing_spec = self.build_fileserver_ingress_spec(user.username)
+        deployment = self.build_fileserver_deployment(user)
+        galingress = self.build_fileserver_ingress(user.username)
+        service = self.build_fileserver_service(user.username)
         self._logger.debug(f"...creating new deployment for {username}")
         await self.k8s_client.create_fileserver_deployment(
-            username, namespace, pod_spec
+            username, namespace, deployment
         )
-        self._logger.debug(f"...creating new service for {username}")
-        await self.k8s_client.create_fileserver_service(username, namespace)
         self._logger.debug(f"...creating new gfingress for {username}")
         await self.k8s_client.create_fileserver_gafaelfawringress(
-            username, namespace, spec=galing_spec
+            username, namespace, spec=galingress
+        )
+        self._logger.debug(f"...creating new service for {username}")
+        await self.k8s_client.create_fileserver_service(
+            username, namespace, spec=service
         )
         self._logger.debug(f"...polling until objects appear for {username}")
         try:
@@ -180,6 +191,67 @@ class FileserverManager:
             self._logger.error(f"Fileserver for {username} did not appear.")
             return False
 
+    def build_fileserver_metadata(self, username: str) -> V1ObjectMeta:
+        """Construct metadata for the user's fileserver objects.
+
+        Parameters
+        ----------
+        username
+            User name
+
+        Returns
+        -------
+        V1ObjectMeta
+            Kubernetes metadata specification for that user's fileserver
+            objects.
+        """
+        obj_name = f"{username}-fs"
+        return V1ObjectMeta(
+            name=obj_name,
+            namespace=self.fs_namespace,
+            labels={
+                "argocd.argoproj.io/instance": "fileservers",
+                "lsst.io/category": obj_name,
+            },
+            annotations={
+                "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+                "argocd.argoproj.io/sync-options": "Prune=false",
+            },
+        )
+
+    def build_fileserver_deployment(self, user: UserInfo) -> V1Deployment:
+        """Construct the deployment specification for the user's fileserver
+        deployment.
+
+        Parameters
+        ----------
+        user
+            User identity information.
+
+        Returns
+        -------
+        V1Deployment
+            Kubernetes deployment object for that user's fileserver
+            deployment.
+        """
+        username = user.username
+        obj_name = f"{username}-fs"
+        pod_spec = self.build_fileserver_pod_spec(user)
+        deployment_spec = V1DeploymentSpec(
+            selector=V1LabelSelector(
+                match_labels={"lsst.io/category": obj_name}
+            ),
+            template=V1PodTemplateSpec(
+                spec=pod_spec,
+                metadata=self.build_fileserver_metadata(username),
+            ),
+        )
+        deployment = V1Deployment(
+            metadata=self.build_fileserver_metadata(username),
+            spec=deployment_spec,
+        )
+        return deployment
+
     def build_fileserver_pod_spec(self, user: UserInfo) -> V1PodSpec:
         """Construct the pod specification for the user's fileserver pod.
 
@@ -191,7 +263,7 @@ class FileserverManager:
         Returns
         -------
         V1PodSpec
-            Kubernetes pod specification for that user's lab pod.
+            Kubernetes pod specification for that user's fileserver pod.
         """
         volume_data = self.build_volumes()
         volumes = [v.volume for v in volume_data]
@@ -213,7 +285,7 @@ class FileserverManager:
             name="fileserver",
             env=env,
             image=image,
-            image_pull_policy=self.config.fileserver.pull_policy,
+            image_pull_policy=self.config.fileserver.pull_policy.value,
             ports=[V1ContainerPort(container_port=8000, name="http")],
             # This is a guess.  Large file transfer is quite slow at
             # these settings, but we really don't intend to allow the RSP
@@ -238,9 +310,14 @@ class FileserverManager:
 
         # Build the pod specification itself.
         # FIXME work out tolerations
+        #
+        # restart_policy="Never",  # k8s is claiming only "Always" is OK.
+        # https://github.com/kubernetes/kubernetes/issues/24725
+        #  versus
+        # https://kubernetes.io/docs/concepts/workloads/pods/
+        #  pod-lifecycle/#restart-policy
         podspec = V1PodSpec(
             containers=[container],
-            restart_policy="Never",
             security_context=V1PodSecurityContext(
                 run_as_user=user.uid,
                 run_as_group=user.gid,
@@ -282,29 +359,38 @@ class FileserverManager:
             vols.append(VolumeContainer(volume=vol, volume_mount=vm))
         return vols
 
-    def build_fileserver_ingress_spec(self, username: str) -> dict[str, Any]:
+    def build_fileserver_ingress(self, username: str) -> dict[str, Any]:
         # The Gafaelfawr Ingress is a CRD, so creating it is a bit different.
         namespace = self.fs_namespace
         base_url = self.config.base_url
         host = urlparse(base_url).hostname
         obj_name = f"{username}-fs"
+        apj = "argocd.argoproj.io"
+        md_obj = {
+            "name": obj_name,
+            "namespace": namespace,
+            "labels": {
+                f"{apj}/instance": "fileservers",
+                "lsst.io/category": obj_name,
+            },
+            "annotations": {
+                f"{apj}/compare-options": "IgnoreExtraneous",
+                f"{apj}/sync-options": "Prune=false",
+            },
+        }
         # I feel like I should apologize for this object I'm returning.
         return {
             "api_version": "gafaelfawr.lsst.io/v1alpha1",
             "kind": "GafaelfawrIngress",
-            "metadata": {
-                "name": obj_name,
-                "namespace": namespace,
-                "labels": {"app": obj_name},
-            },
             "config": {
                 "base_url": base_url,
                 "scopes": {"all": ["exec:notebook"]},
                 "login_redirect": False,
                 "auth_type": "basic",
             },
+            "metadata": md_obj,
             "template": {
-                "metadata": {"name": obj_name},
+                "metadata": md_obj,
                 "spec": {
                     "rules": [
                         {
@@ -328,6 +414,17 @@ class FileserverManager:
                 },
             },
         }
+
+    def build_fileserver_service(self, username: str) -> V1Service:
+        obj_name = f"{username}-fs"
+        service = V1Service(
+            metadata=self.build_fileserver_metadata(username),
+            spec=V1ServiceSpec(
+                ports=[V1ServicePort(port=8000, target_port=8000)],
+                selector={"lsst.io/category": obj_name},
+            ),
+        )
+        return service
 
     async def delete_fileserver(self, username: str) -> None:
         if not await self.k8s_client.check_namespace(self.fs_namespace):
