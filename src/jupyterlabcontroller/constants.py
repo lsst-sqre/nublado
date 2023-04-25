@@ -40,6 +40,9 @@ upgrades.
 METADATA_PATH = Path("/etc/podinfo")
 """Default path to injected pod metadata."""
 
+FILESERVER_RECONCILIATION_INTERVAL = timedelta(minutes=2)
+"""How frequently to refresh the fileserver map against Kubernetes."""
+
 # These are in seconds; they're arguments to various functions, not timedeltas.
 KUBERNETES_REQUEST_TIMEOUT = 60
 
