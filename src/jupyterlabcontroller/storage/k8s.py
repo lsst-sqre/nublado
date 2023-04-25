@@ -15,7 +15,6 @@ from kubernetes_asyncio.client import (
     ApiException,
     V1ConfigMap,
     V1Deployment,
-    V1DeploymentSpec,
     V1LabelSelector,
     V1Namespace,
     V1NetworkPolicy,
@@ -27,7 +26,6 @@ from kubernetes_asyncio.client import (
     V1PersistentVolumeClaim,
     V1Pod,
     V1PodSpec,
-    V1PodTemplateSpec,
     V1ResourceQuota,
     V1ResourceQuotaSpec,
     V1Secret,
@@ -951,9 +949,7 @@ class K8sStorageClient:
             msg = "Cannot create user namespace"
             raise KubernetesError.from_exception(msg, e, name=name) from e
 
-    def _standard_metadata(
-        self, name: str, instance: str = "nublado-users"
-    ) -> V1ObjectMeta:
+    def _standard_metadata(self, name: str) -> V1ObjectMeta:
         """Create the standard metadata for an object.
 
         Parameters
@@ -969,7 +965,7 @@ class K8sStorageClient:
         """
         return V1ObjectMeta(
             name=name,
-            labels={"argocd.argoproj.io/instance": instance},
+            labels={"argocd.argoproj.io/instance": "nublado-users"},
             annotations={
                 "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
                 "argocd.argoproj.io/sync-options": "Prune=false",
@@ -1012,21 +1008,9 @@ class K8sStorageClient:
             return False
 
     async def create_fileserver_deployment(
-        self, username: str, namespace: str, pod_spec: V1PodSpec
+        self, username: str, namespace: str, deployment: V1Deployment
     ) -> None:
         obj_name = f"{username}-fs"
-        deployment = V1Deployment(
-            metadata=self._standard_metadata(obj_name, instance="fileservers"),
-            spec=V1DeploymentSpec(
-                selector=V1LabelSelector(match_labels={"app": obj_name}),
-                template=V1PodTemplateSpec(
-                    metadata=self._standard_metadata(
-                        obj_name, instance="fileservers"
-                    ),
-                    spec=pod_spec,
-                ),
-            ),
-        )
         self._logger.debug(
             "Creating deployment", name=obj_name, namespace=namespace
         )
@@ -1076,20 +1060,11 @@ class K8sStorageClient:
             ) from e
 
     async def create_fileserver_service(
-        self,
-        username: str,
-        namespace: str,
+        self, username: str, namespace: str, spec: V1Service
     ) -> None:
         obj_name = f"{username}-fs"
-        service = V1Service(
-            metadata=self._standard_metadata(obj_name, instance="fileservers"),
-            spec=V1ServiceSpec(
-                ports=[V1ServicePort(port=8000, target_port=8000)],
-                selector={"app": obj_name},
-            ),
-        )
         try:
-            await self.api.create_namespaced_service(namespace, service)
+            await self.api.create_namespaced_service(namespace, spec)
         except ApiException as e:
             if e.status == 409:
                 # It already exists.  Delete and recreate it
@@ -1099,7 +1074,7 @@ class K8sStorageClient:
                     namespace=namespace,
                 )
                 await self.delete_fileserver_service(username, namespace)
-                await self.api.create_namespaced_service(namespace, service)
+                await self.api.create_namespaced_service(namespace, spec)
                 return
             raise KubernetesError.from_exception(
                 "Error creating service",
