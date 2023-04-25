@@ -1142,9 +1142,11 @@ class K8sStorageClient:
 
         It returns a dict mapping strings to the value True, indicating those
         users who currently have fileservers.
+
+        If the fileserver namespace does not exist, create it before moving
+        ahead.
         """
         observed_state: dict[str, bool] = {}
-        # Create fileserver namespace if necessary.
         try:
             await self.api.read_namespace(namespace)
         except ApiException as e:
