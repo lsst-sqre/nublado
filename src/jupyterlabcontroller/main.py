@@ -42,7 +42,7 @@ def create_app() -> FastAPI:
         title=config.safir.name,
         description=metadata("jupyterlab-controller")["Summary"],
         version=version("jupyterlab-controller"),
-        openapi_url=f"/{config.safir.path_prefix}/openapi.json",
+        openapi_url=f"{config.safir.path_prefix}/openapi.json",
         docs_url=f"{config.safir.path_prefix}/docs",
         redoc_url=f"{config.safir.path_prefix}/redoc",
     )
