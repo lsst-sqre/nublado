@@ -54,11 +54,16 @@ class FileserverReconciler:
             )
             return
         if self._started:
-            msg = "Fileserver reconciliation already running; cannot restart"
+            msg = "Fileserver reconciliation already running; cannot start"
             self._logger.warning(msg)
             return
         self._started = True
         self._logger.info("Starting fileserver reconciliation")
+        reconciliation_task = asyncio.create_task(self._reconciliation_loop())
+        self._tasks.add(reconciliation_task)
+        reconciliation_task.add_done_callback(self._tasks.discard)
+
+    async def _reconciliation_loop(self) -> None:
         while self._started:
             await self.reconcile_user_map()
             await asyncio.sleep(
@@ -99,6 +104,7 @@ class FileserverReconciler:
         # No need to create anything else for new ones--we know they're
         # running.
         self.user_map.bulk_update(observed_map)
+        self._logger.debug("Filserver user map reconciliation complete")
 
 
 class FileserverManager:
