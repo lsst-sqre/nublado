@@ -10,10 +10,10 @@ from urllib.parse import urlparse
 from kubernetes_asyncio.client import (
     V1Container,
     V1ContainerPort,
-    V1Deployment,
-    V1DeploymentSpec,
     V1EnvVar,
     V1HostPathVolumeSource,
+    V1Job,
+    V1JobSpec,
     V1LabelSelector,
     V1NFSVolumeSource,
     V1ObjectMeta,
@@ -162,13 +162,11 @@ class FileserverManager:
         timeout = 60.0
         interval = 4.0
 
-        deployment = self.build_fileserver_deployment(user)
+        job = self.build_fileserver_job(user)
         galingress = self.build_fileserver_ingress(user.username)
         service = self.build_fileserver_service(user.username)
-        self._logger.debug(f"...creating new deployment for {username}")
-        await self.k8s_client.create_fileserver_deployment(
-            username, namespace, deployment
-        )
+        self._logger.debug(f"...creating new job for {username}")
+        await self.k8s_client.create_fileserver_job(username, namespace, job)
         self._logger.debug(f"...creating new gfingress for {username}")
         await self.k8s_client.create_fileserver_gafaelfawringress(
             username, namespace, spec=galingress
@@ -219,9 +217,9 @@ class FileserverManager:
             },
         )
 
-    def build_fileserver_deployment(self, user: UserInfo) -> V1Deployment:
-        """Construct the deployment specification for the user's fileserver
-        deployment.
+    def build_fileserver_job(self, user: UserInfo) -> V1Job:
+        """Construct the job specification for the user's fileserver
+        environment.
 
         Parameters
         ----------
@@ -230,14 +228,13 @@ class FileserverManager:
 
         Returns
         -------
-        V1Deployment
-            Kubernetes deployment object for that user's fileserver
-            deployment.
+        V1Job
+            Kubernetes job object for that user's fileserver environment.
         """
         username = user.username
         obj_name = f"{username}-fs"
         pod_spec = self.build_fileserver_pod_spec(user)
-        deployment_spec = V1DeploymentSpec(
+        job_spec = V1JobSpec(
             selector=V1LabelSelector(
                 match_labels={"lsst.io/category": obj_name}
             ),
@@ -246,11 +243,11 @@ class FileserverManager:
                 metadata=self.build_fileserver_metadata(username),
             ),
         )
-        deployment = V1Deployment(
+        job = V1Job(
             metadata=self.build_fileserver_metadata(username),
-            spec=deployment_spec,
+            spec=job_spec,
         )
-        return deployment
+        return job
 
     def build_fileserver_pod_spec(self, user: UserInfo) -> V1PodSpec:
         """Construct the pod specification for the user's fileserver pod.
@@ -311,13 +308,9 @@ class FileserverManager:
         # Build the pod specification itself.
         # FIXME work out tolerations
         #
-        # restart_policy="Never",  # k8s is claiming only "Always" is OK.
-        # https://github.com/kubernetes/kubernetes/issues/24725
-        #  versus
-        # https://kubernetes.io/docs/concepts/workloads/pods/
-        #  pod-lifecycle/#restart-policy
         podspec = V1PodSpec(
             containers=[container],
+            restart_policy="Never",
             security_context=V1PodSecurityContext(
                 run_as_user=user.uid,
                 run_as_group=user.gid,
