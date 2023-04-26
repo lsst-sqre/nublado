@@ -347,16 +347,12 @@ class FileserverManager:
             vols.append(VolumeContainer(volume=vol, volume_mount=vm))
         return vols
 
-    def build_fileserver_ingress(self, username: str) -> dict[str, Any]:
-        # The Gafaelfawr Ingress is a CRD, so creating it is a bit different.
-        namespace = self.fs_namespace
-        base_url = self.config.base_url
-        host = urlparse(base_url).hostname
+    def build_custom_object_metadata(self, username: str) -> dict[str, Any]:
         obj_name = f"{username}-fs"
         apj = "argocd.argoproj.io"
         md_obj = {
             "name": obj_name,
-            "namespace": namespace,
+            "namespace": self.fs_namespace,
             "labels": {
                 f"{apj}/instance": "fileservers",
                 "lsst.io/category": obj_name,
@@ -366,6 +362,12 @@ class FileserverManager:
                 f"{apj}/sync-options": "Prune=false",
             },
         }
+        return md_obj
+
+    def build_fileserver_ingress(self, username: str) -> dict[str, Any]:
+        # The Gafaelfawr Ingress is a CRD, so creating it is a bit different.
+        base_url = self.config.base_url
+        host = urlparse(base_url).hostname
         # I feel like I should apologize for this object I'm returning.
         return {
             "api_version": "gafaelfawr.lsst.io/v1alpha1",
@@ -376,9 +378,9 @@ class FileserverManager:
                 "login_redirect": False,
                 "auth_type": "basic",
             },
-            "metadata": md_obj,
+            "metadata": self.build_custom_object_metadata(username),
             "template": {
-                "metadata": md_obj,
+                "metadata": self.build_custom_object_metadata(username),
                 "spec": {
                     "rules": [
                         {
@@ -390,7 +392,7 @@ class FileserverManager:
                                         "path_type": "Prefix",
                                         "backend": {
                                             "service": {
-                                                "name": obj_name,
+                                                "name": f"{username}-fs",
                                                 "port": {"number": 8000},
                                             }
                                         },

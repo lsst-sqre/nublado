@@ -1023,7 +1023,7 @@ class K8sStorageClient:
                     namespace=namespace,
                 )
                 await self.delete_fileserver_job(username, namespace)
-                await self.apps_api.create_namespaced_job(namespace, job)
+                await self.batch_api.create_namespaced_job(namespace, job)
                 return
             raise KubernetesError.from_exception(
                 "Error creating job",
@@ -1038,7 +1038,7 @@ class K8sStorageClient:
         obj_name = f"{username}-fs"
         self._logger.debug("Deleting job", name=obj_name, namespace=namespace)
         try:
-            await self.apps_api.delete_namespaced_job(obj_name, namespace)
+            await self.batch_api.delete_namespaced_job(obj_name, namespace)
         except ApiException as e:
             if e.status == 404:
                 return
@@ -1096,11 +1096,13 @@ class K8sStorageClient:
         crd_group = "gafaelfawr.lsst.io"
         crd_version = "v1alpha1"
         plural = "gafaelfawringresses"
+        self._logger.info("GFI spec: {spec}")
         try:
             await self.custom_api.create_namespaced_custom_object(
                 crd_group, crd_version, namespace, plural, spec
             )
         except ApiException as e:
+            self._logger.info("GFI -> Exception: {e}")
             if e.status == 409:
                 # It already exists.  Delete and recreate it
                 self._logger.warning(
@@ -1114,9 +1116,9 @@ class K8sStorageClient:
                 await self.delete_fileserver_gafaelfawringress(
                     username, namespace
                 )
-            await self.custom_api.create_namespaced_custom_object(
-                crd_group, crd_version, namespace, plural, spec
-            )
+                await self.custom_api.create_namespaced_custom_object(
+                    crd_group, crd_version, namespace, plural, spec
+                )
             raise KubernetesError.from_exception(
                 "Error creating service",
                 e,
@@ -1162,7 +1164,7 @@ class K8sStorageClient:
         ahead.
         """
         observed_state: dict[str, bool] = {}
-        # Get all jobs
+        # Create fileserver namespace if necessary.
         try:
             await self.api.read_namespace(namespace)
         except ApiException as e:
@@ -1181,17 +1183,17 @@ class K8sStorageClient:
                     e,
                     namespace=namespace,
                 ) from e
-        all_deployments = await self.apps_api.list_namespaced_deployment(
-            namespace
-        )
-        # Filter to plausible candidates
+        # Get all jobs
+        all_jobs = await self.batch_api.list_namespaced_job(namespace)
+        # Filter to those with the right label
         users = [
             x.metadata.name[:-3]
-            for x in all_deployments.items
-            if x.metadata.name.endswith("-fs")
+            for x in all_jobs.items
+            if x.metadata.name.labels.get("lsst.op/category", "").endswith(
+                "-fs"
+            )
         ]
         # For each of these, check whether the fileserver is present
-
         for user in users:
             if await self.check_fileserver_present(
                 username=user, namespace=namespace
