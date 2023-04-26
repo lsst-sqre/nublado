@@ -14,7 +14,7 @@ from kubernetes_asyncio.client import (
     ApiClient,
     ApiException,
     V1ConfigMap,
-    V1Deployment,
+    V1Job,
     V1LabelSelector,
     V1Namespace,
     V1NetworkPolicy,
@@ -60,7 +60,7 @@ class K8sStorageClient:
         self.api = client.CoreV1Api(kubernetes_client)
         self._timeout = timeout
         self._spawn_timeout = spawn_timeout
-        self.custom_api = client.CustomObjectsApi(kubernetes_client)
+        self.batch_api = client.BatchV1Api(kubernetes_client)        
         self.custom_api = client.CustomObjectsApi(kubernetes_client)
         self.apps_api = client.AppsV1Api(kubernetes_client)
         self.networking_api = client.NetworkingV1Api(kubernetes_client)
@@ -991,53 +991,43 @@ class K8sStorageClient:
                 ) from e
             return False
 
-    async def create_fileserver_deployment(
-        self, username: str, namespace: str, deployment: V1Deployment
+    async def create_fileserver_job(
+        self, username: str, namespace: str, job: V1Job
     ) -> None:
         obj_name = f"{username}-fs"
-        self._logger.debug(
-            "Creating deployment", name=obj_name, namespace=namespace
-        )
+        self._logger.debug("Creating job", name=obj_name, namespace=namespace)
         try:
-            await self.apps_api.create_namespaced_deployment(
-                namespace, deployment
-            )
+            await self.batch_api.create_namespaced_job(namespace, job)
         except ApiException as e:
             if e.status == 409:
                 # It already exists.  Delete and recreate it
                 self._logger.warning(
-                    "Deployment exists.  Deleting and recreating.",
+                    "Job exists.  Deleting and recreating.",
                     name=obj_name,
                     namespace=namespace,
                 )
-                await self.delete_fileserver_deployment(username, namespace)
-                await self.apps_api.create_namespaced_deployment(
-                    namespace, deployment
-                )
+                await self.delete_fileserver_job(username, namespace)
+                await self.apps_api.create_namespaced_job(namespace, job)
                 return
             raise KubernetesError.from_exception(
-                "Error creating deployment",
+                "Error creating job",
                 e,
                 namespace=namespace,
                 name=obj_name,
             ) from e
 
-    async def delete_fileserver_deployment(
+    async def delete_fileserver_job(
         self, username: str, namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
-        self._logger.debug(
-            "Deleting deployment", name=obj_name, namespace=namespace
-        )
+        self._logger.debug("Deleting job", name=obj_name, namespace=namespace)
         try:
-            await self.apps_api.delete_namespaced_deployment(
-                obj_name, namespace
-            )
+            await self.apps_api.delete_namespaced_job(obj_name, namespace)
         except ApiException as e:
             if e.status == 404:
                 return
             raise KubernetesError.from_exception(
-                "Error deleting deployment",
+                "Error deleting job",
                 e,
                 namespace=namespace,
                 name=obj_name,
@@ -1156,7 +1146,7 @@ class K8sStorageClient:
         ahead.
         """
         observed_state: dict[str, bool] = {}
-        # Get all deployments
+        # Get all jobs
         try:
             await self.api.read_namespace(namespace)
         except ApiException as e:
@@ -1201,7 +1191,7 @@ class K8sStorageClient:
         We assume all fileserver objects are named <username>-fs, which we
         can do, since we created them and that's the convention we chose.
 
-        If this user has a Deployment with at least one active replica, and
+        If this user has a Job with at least one active pod, and
         the user has a Service (we don't check any of its properties), and
         the user has an Ingress with at least one ingress point, then
         the user's fileserver is active.  Otherwise, it isn't.
@@ -1209,22 +1199,18 @@ class K8sStorageClient:
         obj_name = f"{username}-fs"
         self._logger.debug(f"Checking deployment for {username}")
         try:
-            dep = await self.apps_api.read_namespaced_deployment(
-                obj_name, namespace
-            )
+            dep = await self.apps_api.read_namespaced_job(obj_name, namespace)
         except ApiException as e:
             if e.status == 404:
-                self._logger.debug(
-                    f"Deployment {obj_name} for {username} not found."
-                )
+                self._logger.debug(f"Job {obj_name} for {username} not found.")
                 return False
             raise KubernetesError.from_exception(
-                "Error reading deployment",
+                "Error reading job",
                 e,
                 namespace=namespace,
                 name=obj_name,
             ) from e
-        if dep.status is None or dep.status.available_replicas < 1:
+        if dep.status is None or dep.status.active < 1:
             return False
         try:
             ing = await self.networking_api.read_namespaced_ingress(
@@ -1262,13 +1248,13 @@ class K8sStorageClient:
         """Remove the set of fileserver objects for a user.  It doesn't
         return until the objects are no longer present in Kubernetes.
         """
-        await self.delete_fileserver_deployment(username, namespace)
+        await self.delete_fileserver_job(username, namespace)
         await self.delete_fileserver_service(username, namespace)
         await self.delete_fileserver_gafaelfawringress(username, namespace)
 
         obj_name = f"{username}-fs"
 
-        for kind in ("deployment", "service", "gafaelfawringress"):
+        for kind in ("gafaelfawringress", "job", "service"):
             await self._wait_for_fileserver_object_deletion(
                 obj_name=obj_name, namespace=namespace, kind=kind
             )
@@ -1282,10 +1268,8 @@ class K8sStorageClient:
         interval = 2.7
 
         coro: Optional[Coroutine] = None
-        if kind == "deployment":
-            coro = self.apps_api.read_namespaced_deployment(
-                obj_name, namespace
-            )
+        if kind == "job":
+            coro = self.apps_api.read_namespaced_job(obj_name, namespace)
         elif kind == "gafaelfawringress":
             crd_group = "gafaelfawr.lsst.io"
             crd_version = "v1alpha1"
