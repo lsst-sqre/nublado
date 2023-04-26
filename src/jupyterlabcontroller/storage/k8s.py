@@ -1023,6 +1023,9 @@ class K8sStorageClient:
                     namespace=namespace,
                 )
                 await self.delete_fileserver_job(username, namespace)
+                await self._wait_for_fileserver_object_deletion(
+                    obj_name=obj_name, namespace=namespace, kind="job"
+                )
                 await self.batch_api.create_namespaced_job(namespace, job)
                 return
             raise KubernetesError.from_exception(
@@ -1038,7 +1041,9 @@ class K8sStorageClient:
         obj_name = f"{username}-fs"
         self._logger.debug("Deleting job", name=obj_name, namespace=namespace)
         try:
-            await self.batch_api.delete_namespaced_job(obj_name, namespace)
+            await self.batch_api.delete_namespaced_job(
+                obj_name, namespace, propagation_policy="Foreground"
+            )
         except ApiException as e:
             if e.status == 404:
                 return
@@ -1064,6 +1069,9 @@ class K8sStorageClient:
                     namespace=namespace,
                 )
                 await self.delete_fileserver_service(username, namespace)
+                await self._wait_for_fileserver_object_deletion(
+                    obj_name=obj_name, namespace=namespace, kind="service"
+                )
                 await self.api.create_namespaced_service(namespace, spec)
                 return
             raise KubernetesError.from_exception(
@@ -1096,13 +1104,15 @@ class K8sStorageClient:
         crd_group = "gafaelfawr.lsst.io"
         crd_version = "v1alpha1"
         plural = "gafaelfawringresses"
-        self._logger.info("GFI spec: {spec}")
         try:
             await self.custom_api.create_namespaced_custom_object(
-                crd_group, crd_version, namespace, plural, spec
+                body=spec,
+                group=crd_group,
+                version=crd_version,
+                namespace=namespace,
+                plural=plural,
             )
         except ApiException as e:
-            self._logger.info("GFI -> Exception: {e}")
             if e.status == 409:
                 # It already exists.  Delete and recreate it
                 self._logger.warning(
@@ -1116,11 +1126,16 @@ class K8sStorageClient:
                 await self.delete_fileserver_gafaelfawringress(
                     username, namespace
                 )
+                await self._wait_for_fileserver_object_deletion(
+                    obj_name=obj_name,
+                    namespace=namespace,
+                    kind="gafaelfawringress",
+                )
                 await self.custom_api.create_namespaced_custom_object(
                     crd_group, crd_version, namespace, plural, spec
                 )
             raise KubernetesError.from_exception(
-                "Error creating service",
+                "Error creating gafaelfawringress",
                 e,
                 namespace=namespace,
                 name=obj_name,
@@ -1159,9 +1174,6 @@ class K8sStorageClient:
 
         It returns a dict mapping strings to the value True, indicating those
         users who currently have fileservers.
-
-        If the fileserver namespace does not exist, create it before moving
-        ahead.
         """
         observed_state: dict[str, bool] = {}
         # Create fileserver namespace if necessary.
@@ -1169,14 +1181,8 @@ class K8sStorageClient:
             await self.api.read_namespace(namespace)
         except ApiException as e:
             if e.status == 404:
-                self._logger.info(
-                    f"Creating fileserver namespace '{namespace}'"
-                )
-                await self.api.create_namespace(
-                    body=V1Namespace(
-                        metadata=self._standard_metadata(namespace)
-                    )
-                )
+                self._logger.warning(f"No fileserver namespace '{namespace}'")
+                return observed_state
             else:
                 raise KubernetesError.from_exception(
                     "Error reading namespace",
@@ -1189,9 +1195,7 @@ class K8sStorageClient:
         users = [
             x.metadata.name[:-3]
             for x in all_jobs.items
-            if x.metadata.name.labels.get("lsst.op/category", "").endswith(
-                "-fs"
-            )
+            if x.metadata.labels.get("lsst.op/category", "").endswith("-fs")
         ]
         # For each of these, check whether the fileserver is present
         for user in users:
@@ -1209,18 +1213,21 @@ class K8sStorageClient:
         We assume all fileserver objects are named <username>-fs, which we
         can do, since we created them and that's the convention we chose.
 
-        If this user has a Job with at least one active pod, and
-        the user has a Service (we don't check any of its properties), and
-        the user has an Ingress with at least one ingress point, then
-        the user's fileserver is active.  Otherwise, it isn't.
+        If this user has a Job with at least one active pod, then the user's
+        fileserver is active.
+
+        In a perfect world, we would check the Service, the GafaelfawrIngress,
+        and maybe the created Ingress and Pods, but this is quick, dirty,
+        and probably good enough.
         """
         obj_name = f"{username}-fs"
-        self._logger.debug(f"Checking deployment for {username}")
+        self._logger.info(f"Checking whether {username} has fileserver")
+        self._logger.debug(f"Checking job for {username}")
         try:
-            dep = await self.apps_api.read_namespaced_job(obj_name, namespace)
+            dep = await self.batch_api.read_namespaced_job(obj_name, namespace)
         except ApiException as e:
+            self._logger.info(f"Job {obj_name} for {username} not found.")
             if e.status == 404:
-                self._logger.debug(f"Job {obj_name} for {username} not found.")
                 return False
             raise KubernetesError.from_exception(
                 "Error reading job",
@@ -1230,36 +1237,6 @@ class K8sStorageClient:
             ) from e
         if dep.status is None or dep.status.active < 1:
             return False
-        try:
-            ing = await self.networking_api.read_namespaced_ingress(
-                obj_name, namespace
-            )
-        except ApiException as e:
-            if e.status == 404:
-                return False
-            raise KubernetesError.from_exception(
-                "Error reading ingress",
-                e,
-                namespace=namespace,
-                name=obj_name,
-            ) from e
-        if (
-            ing.status is None
-            or ing.status.load_balancer is None
-            or len(ing.status.load_balancer.ingress) < 1
-        ):
-            return False
-        try:
-            await self.api.read_namespaced_service(obj_name, namespace)
-        except ApiException as e:
-            if e.status == 404:
-                return False
-            raise KubernetesError.from_exception(
-                "Error reading service",
-                e,
-                namespace=namespace,
-                name=obj_name,
-            ) from e
         return True
 
     async def remove_fileserver(self, username: str, namespace: str) -> None:
@@ -1272,10 +1249,33 @@ class K8sStorageClient:
 
         obj_name = f"{username}-fs"
 
-        for kind in ("gafaelfawringress", "job", "service"):
+        for kind in ("gafaelfawringress", "job", "service", "ingress"):
             await self._wait_for_fileserver_object_deletion(
                 obj_name=obj_name, namespace=namespace, kind=kind
             )
+
+    def _get_deletion_read_coro(
+        self, obj_name: str, namespace: str, kind: str
+    ) -> Coroutine[Any, Any, Any]:
+        if kind == "job":
+            return self.batch_api.read_namespaced_job(obj_name, namespace)
+        elif kind == "gafaelfawringress":
+            crd_group = "gafaelfawr.lsst.io"
+            crd_version = "v1alpha1"
+            plural = "gafaelfawringresses"
+            # Note method name inconsistency
+            return self.custom_api.get_namespaced_custom_object(
+                crd_group, crd_version, namespace, plural, obj_name
+            )
+        elif kind == "service":
+            return self.api.read_namespaced_service(obj_name, namespace)
+        elif kind == "ingress":
+            return self.networking_api.read_namespaced_ingress(
+                obj_name, namespace
+            )
+        raise WaitingForObjectError(
+            f"Don't know how to check for {kind} presence."
+        )
 
     async def _wait_for_fileserver_object_deletion(
         self, obj_name: str, namespace: str, kind: str
@@ -1284,34 +1284,17 @@ class K8sStorageClient:
         too generic already."""
         timeout = 30.0
         interval = 2.7
-
-        coro: Optional[Coroutine] = None
-        if kind == "job":
-            coro = self.apps_api.read_namespaced_job(obj_name, namespace)
-        elif kind == "gafaelfawringress":
-            crd_group = "gafaelfawr.lsst.io"
-            crd_version = "v1alpha1"
-            plural = "gafaelfawringresses"
-            coro = self.custom_api.delete_namespaced_custom_object(
-                crd_group, crd_version, namespace, plural, obj_name
-            )
-        elif kind == "service":
-            coro = self.api.read_namespaced_service(obj_name, namespace)
-        if coro is None:
-            raise WaitingForObjectError(
-                f"Don't know how to wait for {kind} deletion."
-            )
-
         self._logger.debug(
             f"Waiting for {kind} deletion",
             name=obj_name,
             namespace=namespace,
         )
-
         async with asyncio.timeout(timeout):
             while True:
                 try:
-                    await coro
+                    await self._get_deletion_read_coro(
+                        obj_name, namespace, kind
+                    )
                 except ApiException as e:
                     if e.status == 404:
                         return
@@ -1321,4 +1304,8 @@ class K8sStorageClient:
                         namespace=namespace,
                         name=obj_name,
                     ) from e
+                self._logger.debug(
+                    f"{kind} still present; waiting {interval}s "
+                    + "then rechecking."
+                )
                 await asyncio.sleep(interval)

@@ -32,6 +32,7 @@ from structlog.stdlib import BoundLogger
 
 from ..config import Config, FileMode
 from ..constants import FILESERVER_RECONCILIATION_INTERVAL
+from ..exceptions import KubernetesError
 from ..models.domain.fileserver import FileserverUserMap
 from ..models.domain.lab import LabVolumeContainer as VolumeContainer
 from ..models.v1.lab import UserInfo
@@ -102,6 +103,10 @@ class FileserverReconciler:
         # might have some objects remaining.
         observed_users = set(observed_map.keys())
         missing_users = mapped_users - observed_users
+        if missing_users:
+            self._logger.info(
+                f"Users {missing_users} have broken fileservers; removing."
+            )
         for user in missing_users:
             rmuser_task = asyncio.create_task(
                 self.k8s_client.remove_fileserver(user, namespace)
@@ -112,6 +117,7 @@ class FileserverReconciler:
         # running.
         self.user_map.bulk_update(observed_map)
         self._logger.debug("Filserver user map reconciliation complete")
+        self._logger.debug(f"Users with fileservers: {observed_users}")
 
 
 class FileserverManager:
@@ -131,9 +137,6 @@ class FileserverManager:
         self.k8s_client = k8s_client
         self._tasks: Set[asyncio.Task] = set()
 
-    def list_users(self) -> list[str]:
-        return self.user_map.list_users()
-
     async def create_fileserver_if_needed(self, user: UserInfo) -> bool:
         """If the user doesn't have a fileserver, create it.  If the user
         already has a fileserver, just return.
@@ -142,9 +145,18 @@ class FileserverManager:
         /file ingress.
         """
         username = user.username
-        if username not in self.list_users():
-            if not await self.create_fileserver(user):
-                return False
+        self._logger.info(f"Fileserver requested for {username}")
+        if not self.user_map.get(username):
+            try:
+                if not await self.create_fileserver(user):
+                    return False
+            except KubernetesError:
+                self._logger.error(
+                    f"Fileserver creation for {username} failed: deleting "
+                    + "fileserver objects."
+                )
+                await self.delete_fileserver(username)
+                raise
             self.user_map.set(username)
         return True
 
@@ -153,26 +165,26 @@ class FileserverManager:
         operational.  If we can't build it, return False.
         """
         username = user.username
-        self._logger.debug(f"Creating new fileserver for {username}")
+        self._logger.info(f"Creating new fileserver for {username}")
         namespace = self.fs_namespace
         if not await self.k8s_client.check_namespace(namespace):
             self._logger.warning("No fileserver namespace '{namespace}'")
             return False
         timeout = 60.0
-        interval = 4.0
+        interval = 3.9
 
         job = self.build_fileserver_job(user)
         galingress = self.build_fileserver_ingress(user.username)
         service = self.build_fileserver_service(user.username)
         self._logger.debug(f"...creating new job for {username}")
         await self.k8s_client.create_fileserver_job(username, namespace, job)
-        self._logger.debug(f"...creating new gfingress for {username}")
-        await self.k8s_client.create_fileserver_gafaelfawringress(
-            username, namespace, spec=galingress
-        )
         self._logger.debug(f"...creating new service for {username}")
         await self.k8s_client.create_fileserver_service(
             username, namespace, spec=service
+        )
+        self._logger.debug(f"...creating new gfingress for {username}")
+        await self.k8s_client.create_fileserver_gafaelfawringress(
+            username, namespace, spec=galingress
         )
         self._logger.debug(f"...polling until objects appear for {username}")
         try:
@@ -182,6 +194,7 @@ class FileserverManager:
                         username, namespace
                     )
                     if good:
+                        self._logger.info(f"Fileserver created for {username}")
                         return True
                     await asyncio.sleep(interval)
         except asyncio.TimeoutError:
@@ -369,14 +382,15 @@ class FileserverManager:
         base_url = self.config.base_url
         host = urlparse(base_url).hostname
         # I feel like I should apologize for this object I'm returning.
+        # Note: camelCase, not snake_case
         return {
-            "api_version": "gafaelfawr.lsst.io/v1alpha1",
+            "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
             "kind": "GafaelfawrIngress",
             "config": {
-                "base_url": base_url,
+                "baseUrl": base_url,
                 "scopes": {"all": ["exec:notebook"]},
-                "login_redirect": False,
-                "auth_type": "basic",
+                "loginRedirect": False,
+                "authType": "basic",
             },
             "metadata": self.build_custom_object_metadata(username),
             "template": {
@@ -389,7 +403,7 @@ class FileserverManager:
                                 "paths": [
                                     {
                                         "path": f"/files/{username}",
-                                        "path_type": "Prefix",
+                                        "pathType": "Prefix",
                                         "backend": {
                                             "service": {
                                                 "name": f"{username}-fs",

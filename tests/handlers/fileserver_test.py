@@ -55,12 +55,12 @@ async def test_fileserver(
     # Check that it has showed up, via an admin route.
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == [user.username]
-    # Now remove it, again via an admin route
-    r = await client.delete(f"/nublado/fileserver/v1/{user.username}")
-    # And remove (by hand) the Ingress (again done automagically in real life)
+    # Remove (by hand) the Ingress (again done automagically in real life)
     await mock_kubernetes.delete_namespaced_ingress(
         name=f"{name}-fs", namespace=namespace
     )
+    # Now remove it, again via an admin route
+    r = await client.delete(f"/nublado/fileserver/v1/{user.username}")
     # Check that it's gone.
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == []
