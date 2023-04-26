@@ -14,6 +14,7 @@ from kubernetes_asyncio.client import (
     V1HostPathVolumeSource,
     V1Job,
     V1JobSpec,
+    V1LabelSelector,
     V1NFSVolumeSource,
     V1ObjectMeta,
     V1PodSecurityContext,
@@ -236,11 +237,14 @@ class FileserverManager:
         timeout = 60.0
         interval = 4.0
 
-        pod_spec = self.build_fileserver_pod_spec(user)
-        galing_spec = self.build_fileserver_ingress_spec(user.username)
-        self._logger.debug(f"...creating new deployment for {username}")
-        await self.k8s_client.create_fileserver_deployment(
-            username, namespace, pod_spec
+        job = self.build_fileserver_job(user)
+        galingress = self.build_fileserver_ingress(user.username)
+        service = self.build_fileserver_service(user.username)
+        self._logger.debug(f"...creating new job for {username}")
+        await self.k8s_client.create_fileserver_job(username, namespace, job)
+        self._logger.debug(f"...creating new gfingress for {username}")
+        await self.k8s_client.create_fileserver_gafaelfawringress(
+            username, namespace, spec=galingress
         )
         self._logger.debug(f"...creating new service for {username}")
         await self.k8s_client.create_fileserver_service(username, namespace)

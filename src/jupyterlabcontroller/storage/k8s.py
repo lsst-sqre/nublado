@@ -998,6 +998,7 @@ class K8sStorageClient:
         self._logger.debug("Creating job", name=obj_name, namespace=namespace)
         try:
             await self.batch_api.create_namespaced_job(namespace, job)
+        except ApiException as e:
             if e.status == 409:
                 # It already exists.  Delete and recreate it
                 self._logger.warning(
@@ -1225,9 +1226,7 @@ class K8sStorageClient:
         except ApiException as e:
             self._logger.info(f"Job {obj_name} for {username} not found.")
             if e.status == 404:
-                self._logger.debug(
-                    f"Deployment {obj_name} for {username} not found."
-                )
+                self._logger.debug(f"Job {obj_name} for {username} not found.")
                 return False
             raise KubernetesError.from_exception(
                 "Error reading job",
