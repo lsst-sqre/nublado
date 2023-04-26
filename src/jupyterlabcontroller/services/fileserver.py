@@ -14,7 +14,6 @@ from kubernetes_asyncio.client import (
     V1HostPathVolumeSource,
     V1Job,
     V1JobSpec,
-    V1LabelSelector,
     V1NFSVolumeSource,
     V1ObjectMeta,
     V1PodSecurityContext,
@@ -232,12 +231,8 @@ class FileserverManager:
             Kubernetes job object for that user's fileserver environment.
         """
         username = user.username
-        obj_name = f"{username}-fs"
         pod_spec = self.build_fileserver_pod_spec(user)
         job_spec = V1JobSpec(
-            selector=V1LabelSelector(
-                match_labels={"lsst.io/category": obj_name}
-            ),
             template=V1PodTemplateSpec(
                 spec=pod_spec,
                 metadata=self.build_fileserver_metadata(username),
