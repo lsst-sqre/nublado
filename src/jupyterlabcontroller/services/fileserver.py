@@ -170,36 +170,17 @@ class FileserverManager:
         if not await self.k8s_client.check_namespace(namespace):
             self._logger.warning("No fileserver namespace '{namespace}'")
             return False
-        timeout = 60.0
-        interval = 3.9
-
         job = self.build_fileserver_job(user)
-        galingress = self.build_fileserver_ingress(user.username)
+        gf_ingress = self.build_fileserver_ingress(user.username)
         service = self.build_fileserver_service(user.username)
-        self._logger.debug(f"...creating new job for {username}")
-        await self.k8s_client.create_fileserver_job(username, namespace, job)
-        self._logger.debug(f"...creating new service for {username}")
-        await self.k8s_client.create_fileserver_service(
-            username, namespace, spec=service
+        # We put this all in k8s_client so it can manage its own lock
+        return await self.k8s_client.create_fileserver(
+            username=username,
+            namespace=namespace,
+            job=job,
+            service=service,
+            gf_ingress=gf_ingress,
         )
-        self._logger.debug(f"...creating new gfingress for {username}")
-        await self.k8s_client.create_fileserver_gafaelfawringress(
-            username, namespace, spec=galingress
-        )
-        self._logger.debug(f"...polling until objects appear for {username}")
-        try:
-            async with asyncio.timeout(timeout):
-                while True:
-                    good = await self.k8s_client.check_fileserver_present(
-                        username, namespace
-                    )
-                    if good:
-                        self._logger.info(f"Fileserver created for {username}")
-                        return True
-                    await asyncio.sleep(interval)
-        except asyncio.TimeoutError:
-            self._logger.error(f"Fileserver for {username} did not appear.")
-            return False
 
     def build_fileserver_metadata(self, username: str) -> V1ObjectMeta:
         """Construct metadata for the user's fileserver objects.
@@ -221,7 +202,8 @@ class FileserverManager:
             namespace=self.fs_namespace,
             labels={
                 "argocd.argoproj.io/instance": "fileservers",
-                "lsst.io/category": obj_name,
+                "lsst.io/category": "fileserver",
+                "lsst.io/user": username,
             },
             annotations={
                 "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
@@ -368,7 +350,8 @@ class FileserverManager:
             "namespace": self.fs_namespace,
             "labels": {
                 f"{apj}/instance": "fileservers",
-                "lsst.io/category": obj_name,
+                "lsst.io/category": "fileserver",
+                "lsst.io/user": username,
             },
             "annotations": {
                 f"{apj}/compare-options": "IgnoreExtraneous",
@@ -420,12 +403,14 @@ class FileserverManager:
         }
 
     def build_fileserver_service(self, username: str) -> V1Service:
-        obj_name = f"{username}-fs"
         service = V1Service(
             metadata=self.build_fileserver_metadata(username),
             spec=V1ServiceSpec(
                 ports=[V1ServicePort(port=8000, target_port=8000)],
-                selector={"lsst.io/category": obj_name},
+                selector={
+                    "lsst.io/category": "fileserver",
+                    "lsst.io/user": username,
+                },
             ),
         )
         return service
