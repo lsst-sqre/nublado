@@ -359,11 +359,16 @@ class Factory:
         FileserverManager
             Newly-created fileserver manager.
         """
+        k8s_client = K8sStorageClient(
+            kubernetes_client=self._context.kubernetes_client,
+            timeout=KUBERNETES_REQUEST_TIMEOUT,
+            logger=self._logger,
+        )
         return FileserverManager(
             user_map=self._context.fileserver_user_map,
             logger=self._logger,
             config=self._context.config,
-            k8s_client=self._context.k8s_client,
+            k8s_client=k8s_client,
             slack_client=self.create_slack_client(),
         )
 
