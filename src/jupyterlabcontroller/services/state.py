@@ -15,7 +15,8 @@ from structlog.stdlib import BoundLogger
 
 from ..config import LabConfig
 from ..constants import LAB_STATE_REFRESH_INTERVAL
-from ..exceptions import LabExistsError, UnknownUserError
+from ..exceptions import KubernetesError, LabExistsError, UnknownUserError
+from ..models.domain.kubernetes import KubernetesPodPhase
 from ..models.domain.lab import UserLab
 from ..models.v1.event import Event, EventType
 from ..models.v1.lab import LabStatus, PodState, UserLabState
@@ -145,10 +146,45 @@ class LabStateManager:
         UnknownUserError
             Raised if the given user has no lab.
         """
-        if username in self._labs:
-            return self._labs[username].state
-        else:
+        if username not in self._labs:
             raise UnknownUserError(f"Unknown user {username}")
+        lab = self._labs[username]
+
+        # Ask Kubernetes for the current state so that we catch pods that have
+        # been evicted or shut down behind our back by the Kubernetes cluster.
+        pod = f"nb-{username}"
+        namespace = f"{self._config.namespace_prefix}-{username}"
+        try:
+            phase = await self._kubernetes.get_pod_phase(pod, namespace)
+        except KubernetesError as e:
+            self._logger.exception(
+                "Cannot get pod status",
+                user=username,
+                name=pod,
+                namespace=namespace,
+            )
+            if self._slack:
+                e.user = username
+                await self._slack.post_exception(e)
+
+            # Two options here: pessimistically assume the lab is in a failed
+            # state, or optimistically assume that our current in-memory data
+            # is correct. Given that we refresh state in the background
+            # continuously, go with optimism; we'll update with pessimism if
+            # we can ever reach Kubernetes, and telling JupyterHub to go ahead
+            # and try to send the user to the lab seems like the right move.
+            return lab.state
+
+        # If the pod is missing, set the state to failed. Also set the state
+        # to failed if we thought the pod was running but it's in some other
+        # state. Otherwise, go with our current state.
+        if phase is None:
+            lab.state.status = LabStatus.FAILED
+            lab.state.pod = PodState.MISSING
+        elif lab.state.status == LabStatus.RUNNING:
+            if phase != KubernetesPodPhase.RUNNING:
+                lab.state.status = LabStatus.FAILED
+        return lab.state
 
     async def list_lab_users(self, only_running: bool = False) -> list[str]:
         """List all users with labs.
@@ -268,8 +304,9 @@ class LabStateManager:
             Raised if this user already has a lab (in any state).
         """
         if username in self._labs:
-            msg = "Lab already exists"
-            await self.publish_error(username, msg, fatal=True)
+            msg = f"Lab for {username} already exists"
+            completion_event = Event(message=msg, type=EventType.COMPLETE)
+            await self._add_event(username, completion_event)
             raise LabExistsError(f"Lab already exists for {username}")
         self._labs[username] = UserLab(state=state)
         task = asyncio.create_task(

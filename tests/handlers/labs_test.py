@@ -57,7 +57,10 @@ async def get_lab_events(
 
 @pytest.mark.asyncio
 async def test_lab_start_stop(
-    client: AsyncClient, factory: Factory, obj_factory: TestObjectFactory
+    client: AsyncClient,
+    factory: Factory,
+    obj_factory: TestObjectFactory,
+    mock_kubernetes: MockKubernetesApi,
 ) -> None:
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
@@ -134,7 +137,7 @@ async def test_lab_start_stop(
     expected_options = lab.options.dict()
     expected_options["image_dropdown"] = expected_options["image_list"]
     expected_options["image_list"] = None
-    assert r.json() == {
+    expected = {
         "env": lab.env,
         "gid": user.gid,
         "groups": user.dict()["groups"],
@@ -148,6 +151,7 @@ async def test_lab_start_stop(
         "uid": user.uid,
         "username": user.username,
     }
+    assert r.json() == expected
 
     # Creating the lab again should result in a 409 error.
     r = await client.post(
@@ -167,6 +171,24 @@ async def test_lab_start_stop(
             }
         ]
     }
+
+    # Change the pod phase. This should throw the lab into a failed state.
+    name = f"nb-{user.username}"
+    namespace = f"userlabs-{user.username}"
+    pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
+    pod.status.phase = KubernetesPodPhase.FAILED.value
+    r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 200
+    expected["status"] = "failed"
+    assert r.json() == expected
+
+    # Delete the pod out from under the controller. This should also change
+    # the pod status.
+    await mock_kubernetes.delete_namespaced_pod(name, namespace)
+    r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 200
+    expected["pod"] = "missing"
+    assert r.json() == expected
 
     # Stop the lab.
     r = await client.delete(f"/nublado/spawner/v1/labs/{user.username}")
