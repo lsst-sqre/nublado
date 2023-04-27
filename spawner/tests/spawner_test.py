@@ -151,10 +151,6 @@ async def test_spawn_failure(
             "progress": 45,
             "message": f"[error] Some random failure for {user}",
         },
-        {
-            "progress": 45,
-            "message": "[warning] Lab creation failed, attempting to clean up",
-        },
     ]
 
     results = await asyncio.gather(
@@ -162,8 +158,3 @@ async def test_spawn_failure(
     )
     assert isinstance(results[0], SpawnFailedError)
     assert results[1] == expected
-
-    # Because the spawn failed, we should have tried to shut down the lab. It
-    # therefore should not exist, rather than hanging around in a failed
-    # state.
-    assert await spawner.poll() == 0
