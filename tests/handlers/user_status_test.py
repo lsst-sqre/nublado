@@ -11,6 +11,7 @@ from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
 
 from ..settings import TestObjectFactory
 from ..support.constants import TEST_BASE_URL
+from ..support.kubernetes import MockKubernetesApi
 
 
 @pytest.mark.asyncio

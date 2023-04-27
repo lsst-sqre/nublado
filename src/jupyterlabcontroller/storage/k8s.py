@@ -856,6 +856,43 @@ class K8sStorageClient:
             msg = "Error listing namespaces"
             raise KubernetesError.from_exception(msg, e) from e
 
+    async def get_pod_phase(
+        self, name: str, namespace: str
+    ) -> KubernetesPodPhase | None:
+        """Get the phase of a currently running pod.
+
+        Called whenever JupyterHub wants to check the status of running pods,
+        so this will be called frequently and should be fairly quick.
+
+        Parameters
+        ----------
+        name
+            Name of the pod.
+        namespace
+            Namespace of the pod
+
+        Returns
+        -------
+        KubernetesPodPhase or None
+            Phase of the pod or `None` if the pod does not exist.
+
+        Raises
+        ------
+        KubernetesError
+            Raised on failure to talk to Kubernetes.
+        """
+        msg = "Getting pod status"
+        self._logger.debug(msg, name=name, namespace=namespace)
+        try:
+            pod = await self.api.read_namespaced_pod_status(name, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                return None
+            raise KubernetesError.from_exception(
+                "Error reading pod status", e, namespace=namespace, name=name
+            ) from e
+        return pod.status.phase
+
     async def _recreate_user_namespace(self, name: str) -> None:
         """Recreate an existing user namespace.
 
