@@ -47,6 +47,8 @@ from ..util import deslashify
 
 __all__ = ["K8sStorageClient"]
 
+FILESERVER_LOCK = asyncio.Lock()
+
 
 class K8sStorageClient:
     def __init__(
@@ -993,6 +995,49 @@ class K8sStorageClient:
 
     # Methods for fileserver
 
+    async def create_fileserver(
+        self,
+        username: str,
+        namespace: str,
+        job: V1Job,
+        service: V1Service,
+        gf_ingress: dict[str, Any],
+    ) -> bool:
+        with FILESERVER_LOCK:
+            self._logger.info(f"Creating new fileserver for {username}...")
+            self._logger.debug(f"...creating new job for {username}")
+            await self._create_fileserver_job(username, namespace, job)
+            self._logger.debug(f"...creating new service for {username}")
+            await self._create_fileserver_service(
+                username, namespace, spec=service
+            )
+            self._logger.debug(f"...creating new gfingress for {username}")
+            await self._create_fileserver_gafaelfawringress(
+                username, namespace, spec=gf_ingress
+            )
+            self._logger.debug(
+                f"...polling until objects appear for {username}"
+            )
+            timeout = 60.0
+            interval = 3.9
+            try:
+                async with asyncio.timeout(timeout):
+                    while True:
+                        good = await self.check_fileserver_present(
+                            username, namespace
+                        )
+                        if good:
+                            self._logger.info(
+                                f"Fileserver created for {username}"
+                            )
+                            return True
+                        await asyncio.sleep(interval)
+            except asyncio.TimeoutError:
+                self._logger.error(
+                    f"Fileserver for {username} did not appear."
+                )
+                return False
+
     async def check_namespace(self, namespace: str) -> bool:
         """Check to see if namespace is present; return True if it is,
         False if it is not."""
@@ -1007,7 +1052,7 @@ class K8sStorageClient:
                 ) from e
             return False
 
-    async def create_fileserver_job(
+    async def _create_fileserver_job(
         self, username: str, namespace: str, job: V1Job
     ) -> None:
         obj_name = f"{username}-fs"
@@ -1022,7 +1067,7 @@ class K8sStorageClient:
                     name=obj_name,
                     namespace=namespace,
                 )
-                await self.delete_fileserver_job(username, namespace)
+                await self._delete_fileserver_job(username, namespace)
                 await self._wait_for_fileserver_object_deletion(
                     obj_name=obj_name, namespace=namespace, kind="job"
                 )
@@ -1035,7 +1080,7 @@ class K8sStorageClient:
                 name=obj_name,
             ) from e
 
-    async def delete_fileserver_job(
+    async def _delete_fileserver_job(
         self, username: str, namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
@@ -1054,7 +1099,7 @@ class K8sStorageClient:
                 name=obj_name,
             ) from e
 
-    async def create_fileserver_service(
+    async def _create_fileserver_service(
         self, username: str, namespace: str, spec: V1Service
     ) -> None:
         obj_name = f"{username}-fs"
@@ -1068,7 +1113,7 @@ class K8sStorageClient:
                     name=obj_name,
                     namespace=namespace,
                 )
-                await self.delete_fileserver_service(username, namespace)
+                await self._delete_fileserver_service(username, namespace)
                 await self._wait_for_fileserver_object_deletion(
                     obj_name=obj_name, namespace=namespace, kind="service"
                 )
@@ -1081,7 +1126,7 @@ class K8sStorageClient:
                 name=obj_name,
             ) from e
 
-    async def delete_fileserver_service(
+    async def _delete_fileserver_service(
         self, username: str, namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
@@ -1097,7 +1142,7 @@ class K8sStorageClient:
                 name=obj_name,
             ) from e
 
-    async def create_fileserver_gafaelfawringress(
+    async def _create_fileserver_gafaelfawringress(
         self, username: str, namespace: str, spec: dict[str, Any]
     ) -> None:
         obj_name = f"{username}-fs"
@@ -1123,7 +1168,7 @@ class K8sStorageClient:
                     name=obj_name,
                     namespace=namespace,
                 )
-                await self.delete_fileserver_gafaelfawringress(
+                await self._delete_fileserver_gafaelfawringress(
                     username, namespace
                 )
                 await self._wait_for_fileserver_object_deletion(
@@ -1141,7 +1186,7 @@ class K8sStorageClient:
                 name=obj_name,
             ) from e
 
-    async def delete_fileserver_gafaelfawringress(
+    async def _delete_fileserver_gafaelfawringress(
         self, username: str, namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
@@ -1193,15 +1238,18 @@ class K8sStorageClient:
         all_jobs = await self.batch_api.list_namespaced_job(namespace)
         # Filter to those with the right label
         users = [
-            x.metadata.name[:-3]
+            x.metadata.labels.get("lsst.io/user")
             for x in all_jobs.items
-            if x.metadata.labels.get("lsst.op/category", "").endswith("-fs")
+            if x.metadata.labels.get("lsst.io/category", "") == "fileserver"
         ]
         # For each of these, check whether the fileserver is present
         for user in users:
-            if await self.check_fileserver_present(
+            self._logger.debug(f"Checking user {user}")
+            good = await self.check_fileserver_present(
                 username=user, namespace=namespace
-            ):
+            )
+            self._logger.debug(f"{user} fileserver good?  {good}")
+            if good:
                 observed_state[user] = True
         return observed_state
 
@@ -1213,18 +1261,26 @@ class K8sStorageClient:
         We assume all fileserver objects are named <username>-fs, which we
         can do, since we created them and that's the convention we chose.
 
-        If this user has a Job with at least one active pod, then the user's
-        fileserver is active.
+        A fileserver is working if:
 
-        In a perfect world, we would check the Service, the GafaelfawrIngress,
-        and maybe the created Ingress and Pods, but this is quick, dirty,
-        and probably good enough.
+        1) it has a Job with at least one active Pod
+        2) it has a Service (properties not checked)
+        3) it has an Ingress (properties not checked)
+
+        We do not check the GafaelfawrIngress, because the Custom API is
+        clumsy, and the created Ingress is a good proxy.
+
+        If we find a broken fileserver, we delete all its objects.  In
+        steady-state operations, this will happen when a fileserver Pod has
+        seen no operations for its timeout period; the Pod will exit and
+        the reconciliation task will note that the Job has no active Pods
+        and take action to clean it up.
         """
         obj_name = f"{username}-fs"
-        self._logger.info(f"Checking whether {username} has fileserver")
-        self._logger.debug(f"Checking job for {username}")
+        self._logger.debug(f"Checking whether {username} has fileserver")
         try:
-            dep = await self.batch_api.read_namespaced_job(obj_name, namespace)
+            self._logger.debug(f"Checking job for {username}")
+            job = await self.batch_api.read_namespaced_job(obj_name, namespace)
         except ApiException as e:
             self._logger.info(f"Job {obj_name} for {username} not found.")
             if e.status == 404:
@@ -1235,24 +1291,59 @@ class K8sStorageClient:
                 namespace=namespace,
                 name=obj_name,
             ) from e
-        if dep.status is None or dep.status.active < 1:
+        if job.status is None or job.status.active < 1:
+            self._logger.info(
+                f"Job {obj_name} has no active pods; "
+                + f"terminating fileserver for {username}"
+            )
             return False
+        try:
+            self._logger.debug(f"Checking service for {username}")
+            job = await self.api.read_namespaced_service(obj_name, namespace)
+        except ApiException as e:
+            self._logger.info(f"Service {obj_name} for {username} not found.")
+            if e.status == 404:
+                return False
+            raise KubernetesError.from_exception(
+                "Error reading service",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
+        try:
+            self._logger.debug(f"Checking ingress for {username}")
+            await self.networking_api.read_namespaced_ingress(
+                obj_name, namespace
+            )
+        except ApiException as e:
+            self._logger.info(f"Ingress {obj_name} for {username} not found.")
+            if e.status == 404:
+                return False
+            raise KubernetesError.from_exception(
+                "Error reading service",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
         return True
 
     async def remove_fileserver(self, username: str, namespace: str) -> None:
         """Remove the set of fileserver objects for a user.  It doesn't
         return until the objects are no longer present in Kubernetes.
         """
-        await self.delete_fileserver_job(username, namespace)
-        await self.delete_fileserver_service(username, namespace)
-        await self.delete_fileserver_gafaelfawringress(username, namespace)
-
-        obj_name = f"{username}-fs"
-
-        for kind in ("gafaelfawringress", "job", "service", "ingress"):
-            await self._wait_for_fileserver_object_deletion(
-                obj_name=obj_name, namespace=namespace, kind=kind
+        with FILESERVER_LOCK:
+            await self._delete_fileserver_job(username, namespace)
+            await self._delete_fileserver_service(username, namespace)
+            await self._delete_fileserver_gafaelfawringress(
+                username, namespace
             )
+
+            obj_name = f"{username}-fs"
+
+            for kind in ("gafaelfawringress", "job", "service", "ingress"):
+                await self._wait_for_fileserver_object_deletion(
+                    obj_name=obj_name, namespace=namespace, kind=kind
+                )
 
     def _get_deletion_read_coro(
         self, obj_name: str, namespace: str, kind: str
