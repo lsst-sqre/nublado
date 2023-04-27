@@ -51,11 +51,8 @@ class ProcessContext:
     http_client: AsyncClient
     """Shared HTTP client."""
 
-    k8s_api_client: ApiClient
+    kubernetes_client: ApiClient
     """Shared Kubernetes client."""
-
-    k8s_client: K8sStorageClient
-    """Shared Kubernetes storage layer."""
 
     image_service: ImageService
     """Image service."""
@@ -84,7 +81,7 @@ class ProcessContext:
             Shared context for a lab controller process.
         """
         http_client = await http_client_dependency()
-        k8s_api_client = ApiClient()
+        kubernetes_client = ApiClient()
 
         # This logger is used only by process-global singletons.  Everything
         # else will use a per-request logger that includes more context about
@@ -92,7 +89,7 @@ class ProcessContext:
         logger = structlog.get_logger(__name__)
 
         k8s_client = K8sStorageClient(
-            k8s_api=k8s_api_client,
+            kubernetes_client=kubernetes_client,
             timeout=KUBERNETES_REQUEST_TIMEOUT,
             logger=logger,
         )
@@ -134,8 +131,7 @@ class ProcessContext:
             config=config,
             http_client=http_client,
             image_service=image_service,
-            k8s_api_client=k8s_api_client,
-            k8s_client=k8s_client,
+            kubernetes_client=kubernetes_client,
             prepuller=Prepuller(
                 namespace=config.lab.namespace_prefix,
                 metadata_path=config.metadata_path,
@@ -150,7 +146,7 @@ class ProcessContext:
 
     async def aclose(self) -> None:
         """Free allocated resources."""
-        await self.k8s_api_client.close()
+        await self.kubernetes_client.close()
 
     async def start(self) -> None:
         """Start the background threads running."""
@@ -296,6 +292,11 @@ class Factory:
             Newly-creted lab manager.
         """
         size_manager = self.create_size_manager()
+        k8s_client = K8sStorageClient(
+            kubernetes_client=self._context.kubernetes_client,
+            timeout=KUBERNETES_REQUEST_TIMEOUT,
+            logger=self._logger,
+        )
         return LabManager(
             instance_url=self._context.config.base_url,
             manager_namespace=self._context.config.lab.namespace_prefix,
@@ -305,7 +306,7 @@ class Factory:
             size_manager=size_manager,
             logger=self._logger,
             lab_config=self._context.config.lab,
-            k8s_client=self._context.k8s_client,
+            k8s_client=k8s_client,
             slack_client=self.create_slack_client(),
         )
 
