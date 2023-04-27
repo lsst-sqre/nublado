@@ -22,7 +22,7 @@ from safir.testing.slack import MockSlackWebhook
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.constants import DROPDOWN_SENTINEL_VALUE
 from jupyterlabcontroller.factory import Factory
-from jupyterlabcontroller.models.k8s import K8sPodPhase
+from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
 
 from ..settings import TestObjectFactory
 from ..support.constants import TEST_BASE_URL
@@ -190,7 +190,7 @@ async def test_delayed_spawn(
 ) -> None:
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
-    mock_kubernetes.initial_pod_status = K8sPodPhase.PENDING.value
+    mock_kubernetes.initial_pod_status = KubernetesPodPhase.PENDING.value
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -237,7 +237,7 @@ async def test_delayed_spawn(
 
     # Change the pod status to running and add another event.
     await asyncio.sleep(0.1)
-    pod.status.phase = K8sPodPhase.RUNNING.value
+    pod.status.phase = KubernetesPodPhase.RUNNING.value
     event = CoreV1Event(
         metadata=V1ObjectMeta(name=f"{name}-start", namespace=namespace),
         message=f"Pod {name} started",

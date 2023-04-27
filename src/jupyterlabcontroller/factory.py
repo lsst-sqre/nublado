@@ -87,6 +87,7 @@ class ProcessContext:
         k8s_client = K8sStorageClient(
             kubernetes_client=kubernetes_client,
             timeout=KUBERNETES_REQUEST_TIMEOUT,
+            spawn_timeout=config.lab.spawn_timeout,
             logger=logger,
         )
 
@@ -137,7 +138,7 @@ class ProcessContext:
                 logger=logger,
             ),
             lab_state=LabStateManager(
-                namespace_prefix=config.lab.namespace_prefix,
+                config=config.lab,
                 kubernetes=k8s_client,
                 slack_client=slack_client,
                 logger=logger,
@@ -288,6 +289,7 @@ class Factory:
         k8s_client = K8sStorageClient(
             kubernetes_client=self._context.kubernetes_client,
             timeout=KUBERNETES_REQUEST_TIMEOUT,
+            spawn_timeout=self._context.config.lab.spawn_timeout,
             logger=self._logger,
         )
         return LabManager(

@@ -11,11 +11,3 @@ class Secret:
 class ObjectOperation(Enum):
     CREATION = "creation"
     DELETION = "deletion"
-
-
-class K8sPodPhase(str, Enum):
-    PENDING = "Pending"
-    RUNNING = "Running"
-    SUCCEEDED = "Succeeded"
-    FAILED = "Failed"
-    UNKNOWN = "Unknown"

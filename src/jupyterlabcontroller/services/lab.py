@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from asyncio import Task, create_task
 from copy import copy, deepcopy
 from functools import partial
 from pathlib import Path
@@ -83,7 +82,6 @@ class LabManager:
         self.lab_config = lab_config
         self.k8s_client = k8s_client
         self._slack_client = slack_client
-        self._tasks: set[Task] = set()
 
     def namespace_from_user(self, username: str) -> str:
         """Exposed because the unit tests use it."""
@@ -102,29 +100,6 @@ class LabManager:
         else:
             await self._lab_state.publish_deletion(username, "Lab deleted")
             self._logger.info("Lab deleted")
-
-    async def inject_pod_events(
-        self,
-        *,
-        namespace: str,
-        username: str,
-        start_progress: int,
-        end_progress: int,
-    ) -> None:
-        """This is designed to run as a background task.  When
-        Kubernetes starts a pod, it will emit some events as the pod
-        startup progresses.  This captures those events and injects them into
-        the event queue.
-        """
-        progress = start_progress
-        async for evt in self.k8s_client.reflect_pod_events(
-            namespace=namespace, podname=f"nb-{username}"
-        ):
-            await self._lab_state.publish_event(username, evt, progress)
-            # As with Kubespawner, we don't know how many of these we will
-            # get, so we will just move 1/3 closer to the end of the
-            # region each time.
-            progress = int(progress + ((end_progress - progress) / 3))
 
     async def create_lab(
         self, user: UserInfo, token: str, lab: LabSpecification
@@ -160,21 +135,26 @@ class LabManager:
             tag = lab.options.image_tag
             image = await self._image_service.image_for_tag_name(tag)
 
-        # Construct the initial lab state from the route input.
-        state = UserLabState.new_from_user_resources(
-            user=user,
-            labspec=lab,
-            resources=self._size_manager.resources(lab.options.size),
-        )
-
         # Start the spawning process. This also checks for conflicts and
-        # raises an exception if the lab already exists.
+        # raises an exception if the lab already exists. A LabManager is
+        # per-request, so the management of the background task that does the
+        # lab spawning (which outlasts the request that kicks it off) is
+        # handed off to LabStateManager here.
         #
         # FIXME: Handle labs in failed state, which should be removed before
         # starting to create a new lab.
         self._logger.info("Creating new lab")
-        spawner = partial(self._spawn_lab, user, token, lab, image)
-        await self._lab_state.start_spawn(user.username, state, spawner)
+        await self._lab_state.start_spawn(
+            username=user.username,
+            state=UserLabState.new_from_user_resources(
+                user=user,
+                labspec=lab,
+                resources=self._size_manager.resources(lab.options.size),
+            ),
+            spawner=partial(self._spawn_lab, user, token, lab, image),
+            start_progress=35,
+            end_progress=75,
+        )
 
     async def _spawn_lab(
         self,
@@ -240,18 +220,6 @@ class LabManager:
         await self._lab_state.publish_pod_creation(
             username, "Requested lab Kubernetes pod", 30
         )
-
-        # Create a task to monitor and inject pod events during spawn.
-        evt_task = create_task(
-            self.inject_pod_events(
-                namespace=namespace,
-                username=username,
-                start_progress=35,
-                end_progress=75,
-            )
-        )
-        self._tasks.add(evt_task)
-        evt_task.add_done_callback(self._tasks.discard)
 
         # Return the URL where the lab will be listening after it starts.
         return f"http://lab.{namespace}:8888"
