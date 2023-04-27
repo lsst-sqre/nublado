@@ -238,7 +238,7 @@ class FileserverManager:
         interval = 4.0
 
         job = self.build_fileserver_job(user)
-        galingress = self.build_fileserver_ingress(user.username)
+        gf_ingress = self.build_fileserver_ingress(user.username)
         service = self.build_fileserver_service(user.username)
         self._logger.debug(f"...creating new job for {username}")
         await self.k8s_client.create_fileserver_job(username, namespace, job)

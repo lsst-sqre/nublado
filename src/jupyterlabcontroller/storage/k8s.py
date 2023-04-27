@@ -1109,7 +1109,7 @@ class K8sStorageClient:
                 name=obj_name,
             ) from e
 
-    async def delete_fileserver_gafaelfawringress(
+    async def _delete_fileserver_gafaelfawringress(
         self, username: str, namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
