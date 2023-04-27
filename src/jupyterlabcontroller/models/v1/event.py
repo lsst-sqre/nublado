@@ -26,7 +26,7 @@ class Event(BaseModel):
     type: EventType = Field(..., title="Type of the event")
     message: str = Field(..., title="Event message")
     progress: Optional[int] = Field(
-        None, title="Progress percentage", lt=100, gt=0
+        None, title="Progress percentage", le=100, gt=0
     )
 
     @property

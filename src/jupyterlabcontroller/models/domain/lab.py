@@ -36,7 +36,7 @@ class UserLab:
     triggers: list[asyncio.Event] = field(default_factory=list)
     """Triggers used to notify event stream listeners of new events."""
 
-    spawner: Optional[asyncio.Task[None]] = None
+    task: Optional[asyncio.Task[None]] = None
     """Background task monitoring the progress of a lab operation.
 
     These tasks are not wrapped in an `aiojobs.Spawner` because the

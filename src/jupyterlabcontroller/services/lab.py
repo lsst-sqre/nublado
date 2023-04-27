@@ -34,7 +34,6 @@ from kubernetes_asyncio.client import (
     V1Volume,
     V1VolumeMount,
 )
-from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
@@ -87,20 +86,6 @@ class LabManager:
         """Exposed because the unit tests use it."""
         return f"{self.manager_namespace}-{username}"
 
-    async def await_ns_deletion(self, namespace: str, username: str) -> None:
-        """This is designed to run as a background task and just wait until
-        the pod has been created and inject a completion event into the
-        event queue when it has.
-        """
-        try:
-            await self.k8s_client.wait_for_namespace_deletion(namespace)
-        except Exception as e:
-            self._logger.exception("Namespace deletion failed")
-            await self._lab_state.publish_error(username, str(e), fatal=True)
-        else:
-            await self._lab_state.publish_deletion(username, "Lab deleted")
-            self._logger.info("Lab deleted")
-
     async def create_lab(
         self, user: UserInfo, token: str, lab: LabSpecification
     ) -> None:
@@ -144,7 +129,7 @@ class LabManager:
         # FIXME: Handle labs in failed state, which should be removed before
         # starting to create a new lab.
         self._logger.info("Creating new lab")
-        await self._lab_state.start_spawn(
+        await self._lab_state.start_lab(
             username=user.username,
             state=UserLabState.new_from_user_resources(
                 user=user,
@@ -811,19 +796,41 @@ class LabManager:
         return pod
 
     async def delete_lab(self, username: str) -> None:
-        await self._lab_state.publish_start_deletion(
-            username, "Deleting user lab and resources", 25
-        )
-        try:
-            await self.k8s_client.delete_namespace(
-                self.namespace_from_user(username)
-            )
-            await self.await_ns_deletion(
-                namespace=self.namespace_from_user(username),
-                username=username,
-            )
-        except Exception as e:
-            if isinstance(e, SlackException):
-                e.user = username
-            self._logger.exception("Error deleting lab environment")
-            await self._lab_state.publish_error(username, str(e), fatal=True)
+        """Delete the lab environment for the given user.
+
+        Parameters
+        ----------
+        username
+            Username whose environment should be deleted.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if a Kubernetes error prevented lab deletion.
+        UnknownUserError
+            Raised if no lab currently exists for this user.
+        """
+        callback = partial(self._delete_lab_and_namespace, username)
+        await self._lab_state.stop_lab(username, callback)
+
+    async def _delete_lab_and_namespace(self, username: str) -> None:
+        """Delete the user's lab and namespace.
+
+        Currently, this just deletes the namespace and lets that delete the
+        pod. This results in an ungraceful shutdown, so in the future it will
+        be changed to gracefully shut down the pod first and then delete the
+        namespace.
+
+        Parameters
+        ----------
+        username
+            Username of lab to delete.
+        """
+        namespace = self.namespace_from_user(username)
+        message = f"Deleting namespace for {username}"
+        await self._lab_state.publish_event(username, message, 25)
+        await self.k8s_client.delete_namespace(namespace)
+        await self.k8s_client.wait_for_namespace_deletion(namespace)
+        message = f"Lab for {username} deleted"
+        await self._lab_state.publish_event(username, message, 100)
+        self._logger.info("Lab deleted")

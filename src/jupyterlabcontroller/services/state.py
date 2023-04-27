@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from typing import Optional
 
 from aiojobs import Scheduler
@@ -173,25 +173,6 @@ class LabStateManager:
         else:
             return list(self._labs.keys())
 
-    async def publish_deletion(self, username: str, message: str) -> None:
-        """Publish a lab deletion completion event for a user.
-
-        Notifies any current listeners to the event stream that the operation
-        is complete before deleting the recorded user state entirely.
-
-        Parameters
-        ----------
-        username
-            User whose lab the event is for.
-        message
-            Event message.
-        """
-        event = Event(message=message, type=EventType.COMPLETE)
-        await self._add_event(username, event)
-        lab = self._labs[username]
-        del self._labs[username]
-        await self._clear_events(lab)
-
     async def publish_error(
         self, username: str, message: str, fatal: bool = False
     ) -> None:
@@ -255,55 +236,7 @@ class LabStateManager:
         self._labs[username].state.pod = PodState.PRESENT
         self._labs[username].state.status = LabStatus.PENDING
 
-    async def publish_start_deletion(
-        self, username: str, message: str, progress: int
-    ) -> None:
-        """Publish the beginning of deleting a lab environment.
-
-        This also updates the user lab state accordingly.
-
-        Parameters
-        ----------
-        username
-            User whose lab the event is for.
-        message
-            Event message.
-        progress
-            New progress percentage.
-
-        Raises
-        ------
-        UnknownUserError
-            Raised if no lab currently exists for this user.
-        """
-        if username not in self._labs:
-            raise UnknownUserError(f"Unknown user {username}")
-        lab = self._labs[username]
-        await self._clear_events(lab)
-        lab.state.status = LabStatus.TERMINATING
-        lab.state.internal_url = None
-        await self.publish_event(username, message, progress)
-
-    async def start(self) -> None:
-        """Synchronize with Kubernetes and start a background refresh task.
-
-        Examine Kubernetes for current user lab state, update our internal
-        data structures accordingly, and then start a background refresh task
-        that does this periodically. (Labs may be destroyed by Kubernetes node
-        upgrades, for example.)
-        """
-        if self._scheduler:
-            msg = "User lab state tasks already running, cannot start again"
-            self._logger.warning(msg)
-            return
-        await self._reconcile_lab_state()
-        self._logger.info("Starting user lab state reconciliation")
-        self._scheduler = Scheduler()
-        await self._scheduler.spawn(self._refresh_loop())
-        self._logger.info("Starting reaper for spawn monitoring tasks")
-        await self._scheduler.spawn(self._reap_spawners())
-
-    async def start_spawn(
+    async def start_lab(
         self,
         *,
         username: str,
@@ -342,7 +275,83 @@ class LabStateManager:
         task = asyncio.create_task(
             self._spawn(username, spawner, start_progress, end_progress)
         )
-        self._labs[username].spawner = task
+        self._labs[username].task = task
+
+    async def stop_lab(
+        self, username: str, deleter: Callable[[], Coroutine[None, None, None]]
+    ) -> None:
+        """Stop the lab for a user.
+
+        Unlike spawning, this is done in the foreground since JupyterHub also
+        expects lab shutdown to happen in the foreground. However, we use the
+        same task structure since we use the presence of a running task to
+        indicate that we're in the middle of an operation on that user's lab.
+
+        Parameters
+        ----------
+        username
+            Username of user.
+        deleter
+            Callback that does the work of deleting the lab.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if a Kubernetes error prevented lab deletion.
+        UnknownUserError
+            Raised if no lab currently exists for this user.
+        """
+        if username not in self._labs:
+            raise UnknownUserError(f"Unknown user {username}")
+        logger = self._logger.bind(user=username)
+        lab = self._labs[username]
+        await self._clear_events(lab)
+        lab.state.status = LabStatus.TERMINATING
+        lab.state.internal_url = None
+        lab.task = asyncio.create_task(deleter())
+        try:
+            await lab.task
+        except Exception as e:
+            logger.exception("Lab deletion failed")
+            if self._slack:
+                if isinstance(e, SlackException):
+                    e.user = username
+                    await self._slack.post_exception(e)
+                else:
+                    await self._slack.post_uncaught_exception(e)
+            event = Event(message=str(e), type=EventType.ERROR)
+            await self._add_event(username, event)
+            event = Event(message="Lab deletion failed", type=EventType.FAILED)
+            await self._add_event(username, event)
+            self._labs[username].state.status = LabStatus.FAILED
+            self._labs[username].state.internal_url = None
+            raise
+        else:
+            msg = f"Lab for {username} deleted"
+            completion_event = Event(message=msg, type=EventType.COMPLETE)
+            await self._add_event(username, completion_event)
+            await self._clear_events(lab)
+            del self._labs[username]
+            logger.info(msg)
+
+    async def start(self) -> None:
+        """Synchronize with Kubernetes and start a background refresh task.
+
+        Examine Kubernetes for current user lab state, update our internal
+        data structures accordingly, and then start a background refresh task
+        that does this periodically. (Labs may be destroyed by Kubernetes node
+        upgrades, for example.)
+        """
+        if self._scheduler:
+            msg = "User lab state tasks already running, cannot start again"
+            self._logger.warning(msg)
+            return
+        await self._reconcile_lab_state()
+        self._logger.info("Starting user lab state reconciliation")
+        self._scheduler = Scheduler()
+        await self._scheduler.spawn(self._refresh_loop())
+        self._logger.info("Starting reaper for spawn monitoring tasks")
+        await self._scheduler.spawn(self._reap_spawners())
 
     async def stop(self) -> None:
         """Stop the background refresh task."""
@@ -355,9 +364,9 @@ class LabStateManager:
         self._scheduler = None
         self._logger.info("Stopping spawning monitor tasks")
         for state in self._labs.values():
-            if state.spawner:
-                spawner = state.spawner
-                state.spawner = None
+            if state.task:
+                spawner = state.task
+                state.task = None
                 spawner.cancel("Shutting down")
                 try:
                     await spawner
@@ -426,9 +435,9 @@ class LabStateManager:
             await self._spawner_done.wait()
             self._spawner_done.clear()
             for username, state in self._labs.items():
-                if state.spawner and state.spawner.done():
-                    spawner = state.spawner
-                    state.spawner = None
+                if state.task and state.task.done():
+                    spawner = state.task
+                    state.task = None
                     try:
                         await spawner
                     except Exception as e:
@@ -464,14 +473,14 @@ class LabStateManager:
         # First pass: check all users already recorded in internal state
         # against Kubernetes and correct them (or remove them) if needed.
         for username, lab in list(self._labs.items()):
-            if lab.spawner is not None:
+            if lab.task is not None:
                 continue
             if lab.state.status == LabStatus.FAILED:
                 continue
             if username not in observed:
                 msg = f"Expected user {username} not found in Kubernetes"
                 self._logger.warning(msg)
-                await self.publish_deletion(username, "Lab pod disappeared")
+                self._labs[username].state.status = LabStatus.FAILED
             else:
                 observed_state = observed[username]
                 if observed_state.status != lab.state.status:
