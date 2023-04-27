@@ -16,12 +16,7 @@ from safir.slack.webhook import SlackWebhookClient
 from sse_starlette import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
-<<<<<<< HEAD
-from ..config import LabConfig, Config
-
-=======
 from ..config import Config, LabConfig
->>>>>>> d22a721 (Merge waiting for pod with event monitoring)
 from ..constants import LAB_STATE_REFRESH_INTERVAL
 from ..exceptions import KubernetesError, LabExistsError, UnknownUserError
 from ..models.domain.kubernetes import KubernetesPodPhase
@@ -212,26 +207,6 @@ class LabStateManager:
             if phase != KubernetesPodPhase.RUNNING:
                 lab.state.status = LabStatus.FAILED
         return lab.state
-
-    async def get_lab_status(self, username: str) -> LabStatus | None:
-        """Get lab status for a user.
-
-        Parameters
-        ----------
-        username
-            Username to retrieve lab status for.
-
-        Returns
-        -------
-        LabStatus or None
-            Status of lab for that user, or `None` if that user doesn't have a
-            lab.
-        """
-        try:
-            state = await self.get_lab_state(username)
-            return state.status
-        except UnknownUserError:
-            return None
 
     async def list_lab_users(self, only_running: bool = False) -> list[str]:
         """List all users with labs.
@@ -459,8 +434,6 @@ class LabStateManager:
         self._logger.info("Starting reaper for spawn monitoring tasks")
         await self._scheduler.spawn(self._reap_spawners())
 
-<<<<<<< HEAD
-=======
     async def start_spawn(
         self,
         *,
@@ -502,7 +475,7 @@ class LabStateManager:
         )
         self._labs[username].spawner = task
 
->>>>>>> d22a721 (Merge waiting for pod with event monitoring)
+
     async def stop(self) -> None:
         """Stop the background refresh task."""
         if not self._scheduler:
@@ -893,7 +866,6 @@ class LabStateManager:
         """
         self._logger.info("Reconciling user lab state with Kubernetes")
         known_users = set(self._labs.keys())
-<<<<<<< HEAD
         prefix = self._config.namespace_prefix
         to_monitor = []
 
@@ -912,12 +884,6 @@ class LabStateManager:
                 msg = f"Deleting incomplete namespace {namespace}"
                 self._logger.warning(msg, user=username)
                 await self._kubernetes.delete_namespace(namespace)
-=======
-        observed = await self._kubernetes.get_observed_user_state(
-            self._config.namespace_prefix
-        )
->>>>>>> d22a721 (Merge waiting for pod with event monitoring)
-
         # If the set of users we expected to see changed during
         # reconciliation, we may be running into all sorts of race conditions.
         # Just skip this background update; we'll catch any inconsistencies
