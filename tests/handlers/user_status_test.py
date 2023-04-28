@@ -67,7 +67,7 @@ async def test_user_status(
         "env": lab.env,
         "gid": user.gid,
         "groups": user.dict()["groups"],
-        "internal_url": "http://lab.userlabs-rachel:8888",
+        "internal_url": "http://lab.userlabs-rachel:8888/nb/user/rachel/",
         "name": user.name,
         "options": lab.options.dict(),
         "pod": "present",

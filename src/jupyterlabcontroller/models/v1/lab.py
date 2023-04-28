@@ -242,10 +242,27 @@ class UserResourceQuantum(BaseModel):
 
 
 class LabSpecification(BaseModel):
-    options: UserOptions = Field(..., title="User-chosen lab options")
-    env: dict[str, str] = Field(
-        ..., title="Environment variables from JupyterHub"
+    """Specification of lab to spawn, sent by the JupyterHub spawner."""
+
+    options: UserOptions = Field(
+        ...,
+        title="User-chosen lab options",
+        description="Represents the choices made on the spawner form",
     )
+    env: dict[str, str] = Field(
+        ...,
+        title="Environment variables",
+        description=(
+            "Environment variables from JupyterHub. JUPYTERHUB_SERVICE_PREFIX"
+            " must be set"
+        ),
+    )
+
+    @validator("env")
+    def _validate_env(cls, v: dict[str, str]) -> dict[str, str]:
+        if "JUPYTERHUB_SERVICE_PREFIX" not in v:
+            raise ValueError("JUPYTERHUB_SERVICE_PREFIX must be set")
+        return v
 
 
 """GET /nublado/spawner/v1/labs/<username>"""
