@@ -323,7 +323,7 @@ class ImageService:
         bogus information for the spawner form.
         """
         if self._scheduler:
-            msg = "Image service already running, cannot start again"
+            msg = "Image service already running, cannot start"
             self._logger.warning(msg)
             return
         self._logger.info("Starting image service")
@@ -334,7 +334,7 @@ class ImageService:
     async def stop(self) -> None:
         """Stop the background refresh task."""
         if not self._scheduler:
-            self._logger.warning("Prepuller tasks were already stopped")
+            self._logger.warning("Image service was already stopped")
             return
         self._logger.info("Stopping image service")
         await self._scheduler.close()

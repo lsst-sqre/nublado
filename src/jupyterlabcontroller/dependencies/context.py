@@ -8,16 +8,14 @@ loaded before it can be instantiated.
 from dataclasses import dataclass
 from typing import Any, Optional
 
-import structlog
 from fastapi import Depends, Request
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
 from ..factory import Factory, ProcessContext
-from ..models.domain.usermap import UserMap
-from ..services.events import EventManager
 from ..services.image import ImageService
+from ..services.state import LabStateManager
 
 
 @dataclass(slots=True)
@@ -42,11 +40,8 @@ class RequestContext:
     image_service: ImageService
     """Global image service."""
 
-    user_map: UserMap
-    """Global user lab state."""
-
-    event_manager: EventManager
-    """Global manager of user lab spawning events."""
+    lab_state: LabStateManager
+    """User lab state."""
 
     def rebind_logger(self, **values: Any) -> None:
         """Add the given values to the logging context.
@@ -86,8 +81,7 @@ class ContextDependency:
             logger=logger,
             factory=factory,
             image_service=self._process_context.image_service,
-            user_map=self._process_context.user_map,
-            event_manager=self._process_context.event_manager,
+            lab_state=self._process_context.lab_state,
         )
 
     async def initialize(self, config: Config) -> None:
@@ -106,16 +100,6 @@ class ContextDependency:
             await self._process_context.stop()
         self._process_context = await ProcessContext.from_config(config)
         await self._process_context.start()
-
-        # This is an ugly hack to do an initial reconciliation of the user
-        # map. That functionality is currently in the lab manager, which has
-        # tons of other dependencies and isn't a global singleton, so we have
-        # to create a factory just to create a lab manager to do the initial
-        # reconciliation. This needs some rethinking.
-        logger = structlog.get_logger(__name__)
-        factory = Factory(self._process_context, logger)
-        lab_manager = factory.create_lab_manager()
-        await lab_manager.reconcile_user_map()
 
     async def aclose(self) -> None:
         """Clean up the per-process configuration."""

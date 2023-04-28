@@ -12,7 +12,7 @@ from ..exceptions import (
     UnknownDockerImageError,
     UnknownUserError,
 )
-from ..models.v1.lab import LabSpecification, UserData
+from ..models.v1.lab import LabSpecification, UserLabState
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
@@ -29,27 +29,28 @@ async def get_lab_users(
     context: RequestContext = Depends(context_dependency),
 ) -> list[str]:
     """Returns a list of all users with running labs."""
-    return await context.user_map.running()
+    return await context.lab_state.list_lab_users(only_running=True)
 
 
 @router.get(
     "/spawner/v1/labs/{username}",
-    response_model=UserData,
+    response_model=UserLabState,
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
         404: {"description": "Lab not found", "model": ErrorModel},
     },
     summary="Status of user's lab",
 )
-async def get_userdata(
+async def get_state(
     username: str,
     context: RequestContext = Depends(context_dependency),
-) -> UserData:
-    userdata = context.user_map.get(username)
-    if userdata is None:
-        msg = f"Unknown user {username}"
-        raise UnknownUserError(msg, ErrorLocation.path, ["username"])
-    return userdata
+) -> UserLabState:
+    try:
+        return await context.lab_state.get_lab_state(username)
+    except UnknownUserError as e:
+        e.location = ErrorLocation.path
+        e.field_path = ["username"]
+        raise
 
 
 @router.post(
@@ -82,7 +83,7 @@ async def post_new_lab(
         e.location = ErrorLocation.body
         e.field_path = ["options", lab.options.image_attribute]
         raise
-    url = context.request.url_for("get_userdata", username=username)
+    url = context.request.url_for("get_state", username=username)
     response.headers["Location"] = str(url)
 
 
@@ -122,7 +123,7 @@ async def delete_user_lab(
         404: {"description": "Lab not found", "model": ErrorModel},
     },
 )
-async def get_user_events(
+async def get_lab_events(
     username: str,
     x_auth_request_user: str = Header(..., include_in_schema=False),
     context: RequestContext = Depends(context_dependency),
@@ -132,7 +133,7 @@ async def get_user_events(
         raise PermissionDeniedError("Permission denied")
     context.rebind_logger(user=username)
     try:
-        generator = context.event_manager.events_for_user(username)
+        generator = context.lab_state.events_for_user(username)
         return EventSourceResponse(generator)
     except UnknownUserError as e:
         e.location = ErrorLocation.path
