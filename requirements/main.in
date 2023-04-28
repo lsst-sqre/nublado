@@ -19,6 +19,10 @@ google-cloud-artifact-registry
 httpx
 jinja2
 PyYAML
-safir[kubernetes]>=4.0.0
+#safir[kubernetes]>=4.0.0
 semver
 sse-starlette
+
+# Uncomment this, change the branch, comment out safir above, and run make
+# update-deps-no-hashes to test against an unreleased version of Safir.
+safir[kubernetes] @ git+https://github.com/lsst-sqre/safir@tickets/DM-38795
