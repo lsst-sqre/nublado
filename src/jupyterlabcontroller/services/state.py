@@ -208,6 +208,26 @@ class LabStateManager:
                 lab.state.status = LabStatus.FAILED
         return lab.state
 
+    async def get_lab_status(self, username: str) -> LabStatus | None:
+        """Get lab status for a user.
+
+        Parameters
+        ----------
+        username
+            Username to retrieve lab status for.
+
+        Returns
+        -------
+        LabStatus or None
+            Status of lab for that user, or `None` if that user doesn't have a
+            lab.
+        """
+        try:
+            state = await self.get_lab_state(username)
+            return state.status
+        except UnknownUserError:
+            return None
+
     async def list_lab_users(self, only_running: bool = False) -> list[str]:
         """List all users with labs.
 
