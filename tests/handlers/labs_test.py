@@ -17,6 +17,7 @@ from kubernetes_asyncio.client import (
     V1ObjectMeta,
     V1ObjectReference,
 )
+from safir.testing.kubernetes import MockKubernetesApi, strip_none
 from safir.testing.slack import MockSlackWebhook
 
 from jupyterlabcontroller.config import Config
@@ -26,7 +27,6 @@ from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
 
 from ..settings import TestObjectFactory
 from ..support.constants import TEST_BASE_URL
-from ..support.kubernetes import MockKubernetesApi, strip_none
 
 
 async def get_lab_events(
@@ -274,7 +274,7 @@ async def test_delayed_spawn(
 ) -> None:
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
-    mock_kubernetes.initial_pod_status = KubernetesPodPhase.PENDING.value
+    mock_kubernetes.initial_pod_phase = KubernetesPodPhase.PENDING.value
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",

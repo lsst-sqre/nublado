@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 from httpx import AsyncClient
+from safir.testing.kubernetes import MockKubernetesApi
 
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
 
 from ..settings import TestObjectFactory
 from ..support.constants import TEST_BASE_URL
-from ..support.kubernetes import MockKubernetesApi
 
 
 @pytest.mark.asyncio
