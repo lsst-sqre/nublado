@@ -203,6 +203,66 @@ async def test_lab_start_stop(
 
 
 @pytest.mark.asyncio
+async def test_spawn_after_failure(
+    client: AsyncClient,
+    factory: Factory,
+    obj_factory: TestObjectFactory,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    token, user = obj_factory.get_user()
+    lab = obj_factory.labspecs[0]
+
+    # Create a lab.
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.dict(), "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 201
+    assert r.headers["Location"] == (
+        f"{TEST_BASE_URL}/nublado/spawner/v1/labs/{user.username}"
+    )
+
+    # Change the pod phase. This should throw the lab into a failed state.
+    name = f"nb-{user.username}"
+    namespace = f"userlabs-{user.username}"
+    pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
+    pod.status.phase = KubernetesPodPhase.FAILED.value
+    r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 200
+    assert r.json()["status"] == "failed"
+
+    # Create the lab again. This should not fail with a conflict; instead, it
+    # should delete the old lab and then create a new one.
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.dict(), "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 201
+    assert r.headers["Location"] == (
+        f"{TEST_BASE_URL}/nublado/spawner/v1/labs/{user.username}"
+    )
+    pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
+    assert pod.status.phase == KubernetesPodPhase.RUNNING.value
+
+    # Get the events and look for the lab recreation events.
+    r = await client.get(
+        f"/nublado/spawner/v1/labs/{user.username}/events",
+        headers={"X-Auth-Request-User": user.username},
+    )
+    assert r.status_code == 200
+    assert f"Deleting existing failed lab for {user.username}" in r.text
+    assert f"Deleting namespace for {user.username}" in r.text
+
+
+@pytest.mark.asyncio
 async def test_delayed_spawn(
     client: AsyncClient,
     factory: Factory,
