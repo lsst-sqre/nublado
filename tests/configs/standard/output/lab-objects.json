@@ -131,7 +131,9 @@
     "metadata": {
       "annotations": {
         "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
-        "argocd.argoproj.io/sync-options": "Prune=false"
+        "argocd.argoproj.io/sync-options": "Prune=false",
+        "nublado.lsst.io/user-groups": "[{\"name\": \"rachel\", \"id\": 1101}, {\"name\": \"lunatics\", \"id\": 2028}, {\"name\": \"mechanics\", \"id\": 2001}, {\"name\": \"storytellers\", \"id\": 2021}]",
+        "nublado.lsst.io/user-name": "Rachel (?)"
       },
       "labels": {
         "argocd.argoproj.io/instance": "nublado-users",

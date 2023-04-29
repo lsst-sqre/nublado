@@ -44,7 +44,7 @@ from ..models.domain.kubernetes import (
     KubernetesPodPhase,
 )
 from ..models.k8s import Secret
-from ..models.v1.lab import UserLabState, UserResourceQuantum
+from ..models.v1.lab import UserResourceQuantum
 from ..util import deslashify
 
 __all__ = ["K8sStorageClient"]
@@ -532,12 +532,15 @@ class K8sStorageClient:
         pod_spec: V1PodSpec,
         *,
         labels: Optional[dict[str, str]] = None,
+        annotations: Optional[dict[str, str]] = None,
         owner: Optional[V1OwnerReference] = None,
     ) -> None:
         self._logger.debug("Creating pod", name=name, namespace=namespace)
         metadata = self._standard_metadata(name)
         if labels:
             metadata.labels.update(labels)
+        if annotations:
+            metadata.annotations.update(annotations)
         if owner:
             metadata.owner_references = [owner]
         pod = V1Pod(metadata=metadata, spec=pod_spec)
@@ -596,40 +599,65 @@ class K8sStorageClient:
             image_data[name] = images
         return image_data
 
-    async def get_observed_user_state(
-        self, manager_namespace: str
-    ) -> dict[str, UserLabState]:
-        observed_state = {}
-        api = self.api
-        ns_prefix = f"{manager_namespace}-"
-        namespaces = await api.list_namespace()
-        namespace_list = [x.metadata.name for x in namespaces.items]
-        user_namespaces = [
-            x for x in namespace_list if x.startswith(ns_prefix)
-        ]
-        for u_ns in user_namespaces:
-            username = u_ns[len(ns_prefix) :]
-            podname = f"nb-{username}"
-            self._logger.debug(
-                "Reading existing user pod", name=podname, namespace=u_ns
-            )
-            try:
-                pod = await api.read_namespaced_pod(
-                    name=podname, namespace=u_ns
-                )
-                observed_state[username] = UserLabState.from_pod(pod)
-            except ApiException as e:
-                if e.status == 404:
-                    self._logger.warning(
-                        f"Found user namespace for {username} but no pod; "
-                        + "attempting namespace deletion"
-                    )
-                    await self.delete_namespace(u_ns)
-                    await self.wait_for_namespace_deletion(u_ns)
-                raise KubernetesError.from_exception(
-                    "Error reading pod", e, namespace=u_ns, name=podname
-                ) from e
-        return observed_state
+    async def get_config_map(
+        self, name: str, namespace: str
+    ) -> V1ConfigMap | None:
+        """Read a ``ConfigMap`` object from Kubernetes.
+
+        Parameters
+        ----------
+        name
+            Name of the config map.
+        namespace
+            Namespace of the config map.
+
+        Returns
+        -------
+        kubernetes_asyncio.client.V1ConfigMap or None
+            The ``ConfigMap`` object, or `None` if it does not exist.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if a Kubernetes API call fails.
+        """
+        try:
+            return await self.api.read_namespaced_config_map(name, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                return None
+            raise KubernetesError.from_exception(
+                "Error reading config map", e, namespace=namespace, name=name
+            ) from e
+
+    async def get_pod(self, name: str, namespace: str) -> V1Pod | None:
+        """Read a ``Pod`` object from Kubernetes.
+
+        Parameters
+        ----------
+        name
+            Name of the pod.
+        namespace
+            Namespace of the pod.
+
+        Returns
+        -------
+        kubernetes_asyncio.client.V1Pod or None
+            The ``Pod`` object, or `None` if it does not exist.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if a Kubernetes API call fails.
+        """
+        try:
+            return await self.api.read_namespaced_pod(name, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                return None
+            raise KubernetesError.from_exception(
+                "Error reading pod", e, namespace=namespace, name=name
+            ) from e
 
     async def get_pod_phase(
         self, name: str, namespace: str
@@ -667,6 +695,70 @@ class K8sStorageClient:
                 "Error reading pod status", e, namespace=namespace, name=name
             ) from e
         return pod.status.phase
+
+    async def get_quota(
+        self, name: str, namespace: str
+    ) -> V1ResourceQuota | None:
+        """Read a ``ResourceQuota`` object from Kubernetes.
+
+        Parameters
+        ----------
+        name
+            Name of the resource quota.
+        namespace
+            Namespace of the resource quota.
+
+        Returns
+        -------
+        kubernetes_asyncio.client.V1ResourceQuota or None
+            The ``ResourceQuota`` object, or `None` if it does not exist.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if a Kubernetes API call fails.
+        """
+        api = self.api
+        try:
+            return await api.read_namespaced_resource_quota(name, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                return None
+            raise KubernetesError.from_exception(
+                "Error reading resource quota",
+                e,
+                namespace=namespace,
+                name=name,
+            ) from e
+
+    async def list_namespaces(self, prefix: str) -> list[str]:
+        """List namespaces with the given prefix.
+
+        Parameters
+        ----------
+        prefix
+            Prefix of namespaces of interest. A dash (``-``) will be added.
+
+        Returns
+        -------
+        list of str
+            List of namespaces whose names start with that prefix.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if a Kubernetes API call fails.
+        """
+        try:
+            namespaces = await self.api.list_namespace()
+            return [
+                n.metadata.name
+                for n in namespaces.items
+                if n.metadata.name.startswith(f"{prefix}-")
+            ]
+        except KubernetesError as e:
+            msg = "Error listing namespaces"
+            raise KubernetesError.from_exception(msg, e) from e
 
     async def _recreate_user_namespace(self, name: str) -> None:
         """Recreate an existing user namespace.

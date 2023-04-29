@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from copy import copy, deepcopy
 from functools import partial
@@ -51,6 +52,7 @@ from ..models.v1.lab import (
 )
 from ..storage.k8s import K8sStorageClient
 from ..util import deslashify
+from .builder import LabBuilder
 from .image import ImageService
 from .size import SizeManager
 from .state import LabStateManager
@@ -66,6 +68,7 @@ class LabManager:
         manager_namespace: str,
         instance_url: str,
         lab_state: LabStateManager,
+        lab_builder: LabBuilder,
         size_manager: SizeManager,
         image_service: ImageService,
         logger: BoundLogger,
@@ -76,16 +79,13 @@ class LabManager:
         self.manager_namespace = manager_namespace
         self.instance_url = instance_url
         self._lab_state = lab_state
+        self._builder = lab_builder
         self._size_manager = size_manager
         self._image_service = image_service
         self._logger = logger
         self.lab_config = lab_config
         self.k8s_client = k8s_client
         self._slack_client = slack_client
-
-    def namespace_from_user(self, username: str) -> str:
-        """Exposed because the unit tests use it."""
-        return f"{self.manager_namespace}-{username}"
 
     async def create_lab(
         self, user: UserInfo, token: str, lab: LabSpecification
@@ -189,7 +189,6 @@ class LabManager:
             has finished starting.
         """
         username = user.username
-        namespace = self.namespace_from_user(username)
 
         # Delete an existing failed lab first if needed.
         if delete_first:
@@ -201,17 +200,13 @@ class LabManager:
 
         # This process has three stages. First, create the user's namespace.
         self._logger.info("Creating new lab")
-        await self.k8s_client.create_user_namespace(namespace)
+        await self.create_namespace(user)
         await self._lab_state.publish_event(
             username, "Created user namespace", 10
         )
 
         # Second, create all the supporting resources the lab pod will need.
-        await self.create_secrets(
-            username=username,
-            namespace=self.namespace_from_user(username),
-            token=token,
-        )
+        await self.create_secrets(user, token)
         await self.create_nss(user)
         await self.create_file_configmap(user)
         await self.create_env(user=user, lab=lab, image=image, token=token)
@@ -230,14 +225,50 @@ class LabManager:
         )
 
         # Return the URL where the lab will be listening after it starts.
-        return self._get_lab_url(user.username, lab)
+        return self._builder.build_internal_url(user.username, lab.env)
 
-    async def create_secrets(
-        self, username: str, token: str, namespace: str
-    ) -> None:
+    async def create_namespace(self, user: UserInfo) -> None:
+        """Create the namespace for a user's lab environment.
+
+        Parameters
+        ----------
+        username
+            Username for which to create a namespace.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if the Kubernetes API call fails.
+        """
+        namespace = self._builder.namespace_for_user(user.username)
+        await self.k8s_client.create_user_namespace(namespace)
+
+    async def create_secrets(self, user: UserInfo, token: str) -> None:
+        """Create the secrets for the user's lab environment.
+
+        There will at least be a secret with the user's token and any
+        additional secrets specified in the lab configuration, and there may
+        also be a Docker pull secret.
+
+        Parameters
+        ----------
+        user
+            User for which to create secrets.
+        token
+            User's notebook token.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if a Kubernetes API call fails.
+        MissingSecretError
+            Raised if one of the specified source secrets could not be found
+            in Kubernetes.
+        """
+        namespace = self._builder.namespace_for_user(user.username)
         await self.k8s_client.create_secrets(
             secret_list=self.lab_config.secrets,
-            username=username,
+            username=user.username,
             token=token,
             source_ns=self.manager_namespace,
             target_ns=namespace,
@@ -258,7 +289,7 @@ class LabManager:
     #
 
     async def create_nss(self, user: UserInfo) -> None:
-        namespace = self.namespace_from_user(user.username)
+        namespace = self._builder.namespace_for_user(user.username)
         data = self.build_nss(user=user)
         await self.k8s_client.create_configmap(
             name=f"nb-{user.username}-nss",
@@ -289,7 +320,7 @@ class LabManager:
         return data
 
     async def create_file_configmap(self, user: UserInfo) -> None:
-        namespace = self.namespace_from_user(user.username)
+        namespace = self._builder.namespace_for_user(user.username)
         data = self.build_file_configmap()
         await self.k8s_client.create_configmap(
             name=f"nb-{user.username}-configmap",
@@ -322,7 +353,7 @@ class LabManager:
         data = self.build_env(user=user, lab=lab, image=image, token=token)
         await self.k8s_client.create_configmap(
             name=f"nb-{user.username}-env",
-            namespace=self.namespace_from_user(user.username),
+            namespace=self._builder.namespace_for_user(user.username),
             data=data,
         )
 
@@ -395,7 +426,7 @@ class LabManager:
         # storage driver.
         await self.k8s_client.create_network_policy(
             name=f"nb-{user.username}-env",
-            namespace=self.namespace_from_user(user.username),
+            namespace=self._builder.namespace_for_user(user.username),
         )
 
     async def create_lab_service(self, user: UserInfo) -> None:
@@ -403,7 +434,7 @@ class LabManager:
         # storage driver.
         await self.k8s_client.create_lab_service(
             username=user.username,
-            namespace=self.namespace_from_user(user.username),
+            namespace=self._builder.namespace_for_user(user.username),
         )
 
     async def create_quota(self, user: UserInfo) -> None:
@@ -411,7 +442,7 @@ class LabManager:
             return
         await self.k8s_client.create_quota(
             f"nb-{user.username}",
-            self.namespace_from_user(user.username),
+            self._builder.namespace_for_user(user.username),
             UserResourceQuantum(
                 cpu=user.quota.notebook.cpu,
                 memory=int(user.quota.notebook.memory * 1024 * 1024 * 1024),
@@ -422,10 +453,15 @@ class LabManager:
         self, user: UserInfo, resources: UserResources, image: RSPImage
     ) -> None:
         pod_spec = self.build_pod_spec(user, resources, image)
+        serialized_groups = json.dumps([g.dict() for g in user.groups])
         await self.k8s_client.create_pod(
             name=f"nb-{user.username}",
-            namespace=self.namespace_from_user(user.username),
+            namespace=self._builder.namespace_for_user(user.username),
             pod_spec=pod_spec,
+            annotations={
+                "nublado.lsst.io/user-name": user.name,
+                "nublado.lsst.io/user-groups": serialized_groups,
+            },
             labels={"app": "lab"},
         )
 
@@ -855,7 +891,7 @@ class LabManager:
         end_progress
             Final progress percentage.
         """
-        namespace = self.namespace_from_user(username)
+        namespace = self._builder.namespace_for_user(username)
         message = f"Deleting namespace for {username}"
         await self._lab_state.publish_event(username, message, start_progress)
         await self.k8s_client.delete_namespace(namespace)
@@ -863,26 +899,3 @@ class LabManager:
         message = f"Lab for {username} deleted"
         await self._lab_state.publish_event(username, message, end_progress)
         self._logger.info("Lab deleted")
-
-    def _get_lab_url(self, username: str, lab: LabSpecification) -> str:
-        """Determine the URL of a newly-spawned lab.
-
-        The hostname and port are fixed to match the Kubernetes ``Service`` we
-        create, but the local part is normally determined by an environment
-        variable passed from JupyterHub.
-
-        Parameters
-        ----------
-        username
-            Username of lab user.
-        lab
-            Lab specification from JupyterHub.
-
-        Returns
-        -------
-        str
-            URL of the newly-spawned lab.
-        """
-        namespace = self.namespace_from_user(username)
-        path = lab.env["JUPYTERHUB_SERVICE_PREFIX"]
-        return f"http://lab.{namespace}:8888" + path
