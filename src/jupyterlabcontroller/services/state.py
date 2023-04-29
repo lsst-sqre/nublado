@@ -23,12 +23,13 @@ from ..models.domain.kubernetes import KubernetesPodPhase
 from ..models.domain.lab import UserLab
 from ..models.domain.fileserver import FileserverUserMap
 from ..models.v1.event import Event, EventType
+from .fileserver import FileserverManager, FileserverReconciler
 from ..models.v1.lab import (
     LabStatus,
     NotebookQuota,
     PodState,
     UserGroup,
-    UserInfo
+    UserInfo,
     UserLabState,
     UserOptions,
     UserQuota,
@@ -38,7 +39,6 @@ from ..models.v1.lab import (
 from ..storage.k8s import K8sStorageClient
 from .builder import LabBuilder
 from .size import SizeManager
-from .fileserver import FileserverManager, FileserverReconciler
 
 __all__ = ["LabStateManager", "FileserverStateManager"]
 
@@ -1032,7 +1032,7 @@ class LabStateManager:
             Progress percentage to stop at when the spawn is complete.
         """
         pod = f"nb-{username}"
-        namespace = f"{self._config.namespace_prefix}-{username}"
+        namespace = self._builder.namespace_for_user(username)
         progress = start_progress
         try:
             await self._clear_events(self._labs[username])
