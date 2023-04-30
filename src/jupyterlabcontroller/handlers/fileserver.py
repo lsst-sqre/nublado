@@ -99,3 +99,4 @@ async def remove_fileserver(
 ) -> None:
     context.rebind_logger(user=username)
     await context.fileserver_state.delete(username)
+
