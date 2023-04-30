@@ -56,7 +56,7 @@ async def route_user(
     # The user is valid.  Create a fileserver for them (or use an extant
     # one)
     context.rebind_logger(user=username)
-    fileserver_manager = context.factory.create_fileserver_manager()
+    fileserver_manager = context.fileserver_manager
     result = await fileserver_manager.create_fileserver_if_needed(user)
     if result:
         return f"/files/{username}"
@@ -88,5 +88,5 @@ async def remove_fileserver(
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     context.rebind_logger(user=username)
-    fileserver_manager = context.factory.create_fileserver_manager()
+    fileserver_manager = context.fileserver_manager
     await fileserver_manager.delete_fileserver(username)
