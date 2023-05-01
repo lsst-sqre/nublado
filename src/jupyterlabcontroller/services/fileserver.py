@@ -95,7 +95,7 @@ class FileserverReconciler:
                 f"No fileserver namespace '{namespace}'; no fileserver users"
             )
             return
-        mapped_users = set(self.user_map.list_users())
+        mapped_users = set(await self.user_map.list_users())
         observed_map = await self.k8s_client.get_observed_fileserver_state(
             namespace
         )
@@ -115,7 +115,7 @@ class FileserverReconciler:
             rmuser_task.add_done_callback(self._tasks.discard)
         # No need to create anything else for new ones--we know they're
         # running.
-        self.user_map.bulk_update(observed_map)
+        await self.user_map.bulk_update(observed_map)
         self._logger.debug("Filserver user map reconciliation complete")
         self._logger.debug(f"Users with fileservers: {observed_users}")
 
@@ -146,9 +146,14 @@ class FileserverManager:
         """
         username = user.username
         self._logger.info(f"Fileserver requested for {username}")
-        if not self.user_map.get(username):
+        if not (
+            await self.user_map.get(username)
+            and await self.k8s_client.check_fileserver_present(
+                username, self.fs_namespace
+            )
+        ):
             try:
-                if not await self.create_fileserver(user):
+                if not await self._create_fileserver(user):
                     return False
             except KubernetesError:
                 self._logger.error(
@@ -157,10 +162,10 @@ class FileserverManager:
                 )
                 await self.delete_fileserver(username)
                 raise
-            self.user_map.set(username)
+            await self.user_map.set(username)
         return True
 
-    async def create_fileserver(self, user: UserInfo) -> bool:
+    async def _create_fileserver(self, user: UserInfo) -> bool:
         """Create a fileserver for the given user.  Wait for it to be
         operational.  If we can't build it, return False.
         """
@@ -170,9 +175,9 @@ class FileserverManager:
         if not await self.k8s_client.check_namespace(namespace):
             self._logger.warning("No fileserver namespace '{namespace}'")
             return False
-        job = self.build_fileserver_job(user)
-        gf_ingress = self.build_fileserver_ingress(user.username)
-        service = self.build_fileserver_service(user.username)
+        job = self._build_fileserver_job(user)
+        gf_ingress = self._build_fileserver_ingress(user.username)
+        service = self._build_fileserver_service(user.username)
         # We put this all in k8s_client so it can manage its own lock
         return await self.k8s_client.create_fileserver(
             username=username,
@@ -182,7 +187,7 @@ class FileserverManager:
             gf_ingress=gf_ingress,
         )
 
-    def build_fileserver_metadata(self, username: str) -> V1ObjectMeta:
+    def _build_fileserver_metadata(self, username: str) -> V1ObjectMeta:
         """Construct metadata for the user's fileserver objects.
 
         Parameters
@@ -211,7 +216,7 @@ class FileserverManager:
             },
         )
 
-    def build_fileserver_job(self, user: UserInfo) -> V1Job:
+    def _build_fileserver_job(self, user: UserInfo) -> V1Job:
         """Construct the job specification for the user's fileserver
         environment.
 
@@ -226,20 +231,20 @@ class FileserverManager:
             Kubernetes job object for that user's fileserver environment.
         """
         username = user.username
-        pod_spec = self.build_fileserver_pod_spec(user)
+        pod_spec = self._build_fileserver_pod_spec(user)
         job_spec = V1JobSpec(
             template=V1PodTemplateSpec(
                 spec=pod_spec,
-                metadata=self.build_fileserver_metadata(username),
+                metadata=self._build_fileserver_metadata(username),
             ),
         )
         job = V1Job(
-            metadata=self.build_fileserver_metadata(username),
+            metadata=self._build_fileserver_metadata(username),
             spec=job_spec,
         )
         return job
 
-    def build_fileserver_pod_spec(self, user: UserInfo) -> V1PodSpec:
+    def _build_fileserver_pod_spec(self, user: UserInfo) -> V1PodSpec:
         """Construct the pod specification for the user's fileserver pod.
 
         Parameters
@@ -252,7 +257,7 @@ class FileserverManager:
         V1PodSpec
             Kubernetes pod specification for that user's fileserver pod.
         """
-        volume_data = self.build_volumes()
+        volume_data = self._build_volumes()
         volumes = [v.volume for v in volume_data]
         mounts = [v.volume_mount for v in volume_data]
 
@@ -295,7 +300,7 @@ class FileserverManager:
             volume_mounts=mounts,
         )
 
-        # Build the pod specification itself.
+        # _Build the pod specification itself.
         # FIXME work out tolerations
         #
         podspec = V1PodSpec(
@@ -312,7 +317,7 @@ class FileserverManager:
         )
         return podspec
 
-    def build_volumes(self) -> list[VolumeContainer]:
+    def _build_volumes(self) -> list[VolumeContainer]:
         vconfig = self.config.lab.volumes
         vols = []
         for storage in vconfig:
@@ -342,7 +347,7 @@ class FileserverManager:
             vols.append(VolumeContainer(volume=vol, volume_mount=vm))
         return vols
 
-    def build_custom_object_metadata(self, username: str) -> dict[str, Any]:
+    def _build_custom_object_metadata(self, username: str) -> dict[str, Any]:
         obj_name = f"{username}-fs"
         apj = "argocd.argoproj.io"
         md_obj = {
@@ -360,7 +365,7 @@ class FileserverManager:
         }
         return md_obj
 
-    def build_fileserver_ingress(self, username: str) -> dict[str, Any]:
+    def _build_fileserver_ingress(self, username: str) -> dict[str, Any]:
         # The Gafaelfawr Ingress is a CRD, so creating it is a bit different.
         base_url = self.config.base_url
         host = urlparse(base_url).hostname
@@ -375,9 +380,9 @@ class FileserverManager:
                 "loginRedirect": False,
                 "authType": "basic",
             },
-            "metadata": self.build_custom_object_metadata(username),
+            "metadata": self._build_custom_object_metadata(username),
             "template": {
-                "metadata": self.build_custom_object_metadata(username),
+                "metadata": self._build_custom_object_metadata(username),
                 "spec": {
                     "rules": [
                         {
@@ -402,9 +407,9 @@ class FileserverManager:
             },
         }
 
-    def build_fileserver_service(self, username: str) -> V1Service:
+    def _build_fileserver_service(self, username: str) -> V1Service:
         service = V1Service(
-            metadata=self.build_fileserver_metadata(username),
+            metadata=self._build_fileserver_metadata(username),
             spec=V1ServiceSpec(
                 ports=[V1ServicePort(port=8000, target_port=8000)],
                 selector={
@@ -418,5 +423,5 @@ class FileserverManager:
     async def delete_fileserver(self, username: str) -> None:
         if not await self.k8s_client.check_namespace(self.fs_namespace):
             return
+        await self.user_map.remove(username)
         await self.k8s_client.remove_fileserver(username, self.fs_namespace)
-        self.user_map.remove(username)

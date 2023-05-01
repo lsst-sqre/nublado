@@ -1,4 +1,5 @@
-"""Maintain and answer questions about user lab state and events."""
+"""Maintain and answer questions about user lab state and events, and
+user fileserver state"""
 
 from __future__ import annotations
 
@@ -15,17 +16,20 @@ from safir.slack.webhook import SlackWebhookClient
 from sse_starlette import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
-from ..config import LabConfig
+from ..config import LabConfig, Config
+
 from ..constants import LAB_STATE_REFRESH_INTERVAL
 from ..exceptions import KubernetesError, LabExistsError, UnknownUserError
 from ..models.domain.kubernetes import KubernetesPodPhase
 from ..models.domain.lab import UserLab
+from ..models.domain.fileserver import FileserverUserMap
 from ..models.v1.event import Event, EventType
 from ..models.v1.lab import (
     LabStatus,
     NotebookQuota,
     PodState,
     UserGroup,
+    UserInfo
     UserLabState,
     UserOptions,
     UserQuota,
@@ -35,8 +39,9 @@ from ..models.v1.lab import (
 from ..storage.k8s import K8sStorageClient
 from .builder import LabBuilder
 from .size import SizeManager
+from .fileserver import FileserverManager, FileserverReconciler
 
-__all__ = ["LabStateManager"]
+__all__ = ["LabStateManager", "FileserverStateManager"]
 
 
 class LabStateManager:
@@ -960,3 +965,107 @@ class LabStateManager:
         self._labs[username].triggers = [
             t for t in self._labs[username].triggers if t != trigger
         ]
+
+    async def _spawn(
+        self, username: str, spawner: Callable[[], Awaitable[str]]
+    ) -> None:
+        """Spawn a lab and wait for it to start running.
+
+        This is run as a background task to create a user's lab and wait for
+        it to start running, notifing an `asyncio.Event` variable when it
+        completes for any reason.
+
+        Parameters
+        ----------
+        username
+            Username of user whose lab is being spawned.
+        spawner
+            Asynchronous callable that does the work of creating the
+            Kubernetes objects for the lab.
+        """
+        namespace = f"{self._namespace_prefix}-{username}"
+        pod_name = f"nb-{username}"
+        try:
+            await self._clear_events(self._labs[username])
+            msg = f"Starting lab creation for {username}"
+            await self.publish_event(username, msg, 1)
+            internal_url = await spawner()
+            await self._kubernetes.wait_for_pod_creation(pod_name, namespace)
+        except Exception as e:
+            self._logger.exception("Lab creation failed")
+            if self._slack:
+                if isinstance(e, SlackException):
+                    e.user = username
+                    await self._slack.post_exception(e)
+                else:
+                    await self._slack.post_uncaught_exception(e)
+            await self.publish_error(username, str(e), fatal=True)
+        else:
+            msg = f"Lab Kubernetes pod started for {username}"
+            event = Event(message=msg, type=EventType.COMPLETE)
+            await self._add_event(username, event)
+            self._labs[username].state.status = LabStatus.RUNNING
+            self._labs[username].state.internal_url = internal_url
+            self._logger.info("Lab created")
+        finally:
+            self._spawner_done.set()
+
+class FileserverStateManager:
+    """Manage the record of user fileserver state.
+
+    This is currently managed as a per-process global. Eventually, it will use
+    Redis queues instead.
+
+    Parameters
+    ----------
+    kubernetes
+        Kubernetes storage.
+    config
+        Global Config
+    logger
+        Logger to use.
+
+    Notes
+    -----
+    This is just a container holding the three fileserver objects to make
+    the external API a little cleaner.
+    """
+
+    def __init__(
+        self,
+        *,
+        config: Config,
+        kubernetes: K8sStorageClient,
+        slack_client: SlackWebhookClient | None,
+        logger: BoundLogger,
+    ) -> None:
+        self.user_map = FileserverUserMap()
+        self.reconciler = FileserverReconciler(
+            config=config,
+            user_map=self.user_map,
+            logger=logger,
+            k8s_client=kubernetes,
+        )
+        self.manager = FileserverManager(
+            config=config,
+            user_map=self.user_map,
+            logger=logger,
+            k8s_client=kubernetes,
+            slack_client=slack_client,
+        )
+
+    async def start(self) -> None:
+        await self.reconciler.start()
+
+    async def stop(self) -> None:
+        await self.reconciler.stop()
+
+    async def create(self, user: UserInfo) -> bool:
+        return await self.manager.create_fileserver_if_needed(user)
+
+    async def delete(self, username: str) -> None:
+        await self.manager.delete_fileserver(username)
+
+    async def list(self) -> list[str]:
+        return await self.user_map.list_users()
+
