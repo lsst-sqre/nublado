@@ -7,11 +7,11 @@ from pathlib import Path
 import pytest
 from httpx import AsyncClient
 from kubernetes_asyncio.client import V1Ingress, V1Namespace, V1ObjectMeta
+from safir.testing.kubernetes import MockKubernetesApi
 
 from jupyterlabcontroller.factory import Factory
 
 from ..settings import TestObjectFactory
-from ..support.kubernetes import MockKubernetesApi
 
 
 @pytest.mark.asyncio
