@@ -16,7 +16,6 @@ from structlog.stdlib import BoundLogger
 
 from .config import Config
 from .constants import KUBERNETES_REQUEST_TIMEOUT
-from .models.domain.fileserver import FileserverUserMap
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
 from .services.builder import LabBuilder
 from .services.form import FormManager
@@ -27,7 +26,7 @@ from .services.size import SizeManager
 from .services.source.base import ImageSource
 from .services.source.docker import DockerImageSource
 from .services.source.gar import GARImageSource
-from .services.state import LabStateManager
+from .services.state import FileserverStateManager, LabStateManager
 from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.gar import GARStorageClient
@@ -64,14 +63,8 @@ class ProcessContext:
     lab_state: LabStateManager
     """State management for user lab pods."""
 
-    fileserver_reconciler: FileserverReconciler
-    """Manage reconciliation of user fileservers with observed state."""
-
-    fileserver_user_map: FileserverUserMap
+    fileserver_state: FileserverStateManager
     """State management for user fileservers."""
-
-    fileserver_manager: FileserverManager
-    """Service to create/destroy user fileservers."""
 
     @classmethod
     async def from_config(cls, config: Config) -> Self:
@@ -134,15 +127,6 @@ class ProcessContext:
             slack_client=slack_client,
             logger=logger,
         )
-
-        fileserver_user_map = FileserverUserMap()
-        fileserver_manager = FileserverManager(
-            user_map=fileserver_user_map,
-            logger=logger,
-            config=config,
-            k8s_client=k8s_client,
-            slack_client=slack_client,
-        )
         return cls(
             config=config,
             http_client=http_client,
@@ -164,13 +148,11 @@ class ProcessContext:
                 slack_client=slack_client,
                 logger=logger,
             ),
-            fileserver_user_map=fileserver_user_map,
-            fileserver_manager=fileserver_manager,
-            fileserver_reconciler=FileserverReconciler(
-                config=config,
-                user_map=fileserver_user_map,
-                k8s_client=k8s_client,
+            fileserver_state=FileserverStateManager(
                 logger=logger,
+                config=config,
+                kubernetes=k8s_client,
+                slack_client=slack_client,
             ),
         )
 
@@ -183,7 +165,7 @@ class ProcessContext:
         await self.image_service.start()
         await self.prepuller.start()
         await self.lab_state.start()
-        await self.fileserver_reconciler.start()
+        await self.fileserver_state.start()
 
     async def stop(self) -> None:
         """Clean up a process context.
@@ -191,7 +173,7 @@ class ProcessContext:
         Called during shutdown, or before recreating the process context using
         a different configuration.
         """
-        await self.fileserver_reconciler.stop()
+        await self.fileserver_state.stop()
         await self.prepuller.stop()
         await self.image_service.stop()
         await self.lab_state.stop()
@@ -264,15 +246,6 @@ class Factory:
         Only used by tests; handlers don't need access to the prepuller.
         """
         return self._context.prepuller
-
-    @property
-    def fileserver_user_map(self) -> FileserverUserMap:
-        """Current user fileserver status, from the `ProcessContext`.
-
-        Only used by tests; handlers have access to the fileserver user map
-        via the request context.
-        """
-        return self._context.fileserver_user_map
 
     async def aclose(self) -> None:
         """Shut down the factory.

@@ -500,3 +500,9 @@ class MissingObjectError(SlackException):
 class MissingSecretError(Exception):
     """Secret specified in the controller configuration was not found."""
 
+
+class FileserverCreationError(ClientRequestError):
+    """An error occured while trying to create a user fileserver."""
+
+    error = "fileserver_creation_failed"
+    status_code = status.HTTP_400_BAD_REQUEST

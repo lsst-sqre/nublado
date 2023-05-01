@@ -4,7 +4,7 @@ from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..dependencies.context import RequestContext, context_dependency
-from ..exceptions import PermissionDeniedError
+from ..exceptions import FileserverCreationError, PermissionDeniedError
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 user_router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -41,7 +41,7 @@ async def route_user(
     themselves have a fileserver and create it if it doesn't exist.
 
     In all these cases, we provide a redirect to their own fileserver
-    endpoint.
+    endpoint.  FIXME bad idea, it turns out.
 
     Finally, if they go to "/files/<someone-else>" and there already
     is an ingress then they will go there (and we will never see the
@@ -56,11 +56,12 @@ async def route_user(
     # The user is valid.  Create a fileserver for them (or use an extant
     # one)
     context.rebind_logger(user=username)
-    fileserver_manager = context.fileserver_manager
-    result = await fileserver_manager.create_fileserver_if_needed(user)
+    fileserver_state = context.fileserver_state
+    result = await fileserver_state.create(user)
     if result:
+        # FIXME: the redirect is a dumb idea.
         return f"/files/{username}"
-    raise PermissionDeniedError("Permission denied")
+    raise FileserverCreationError("Error creating fileserver")
 
 
 # The remaining endpoints are for administrative functions and can be
@@ -75,7 +76,7 @@ async def route_user(
 async def get_fileserver_users(
     context: RequestContext = Depends(context_dependency),
 ) -> list[str]:
-    return context.fileserver_user_map.list_users()
+    return await context.fileserver_state.list()
 
 
 @router.delete(
@@ -88,5 +89,4 @@ async def remove_fileserver(
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     context.rebind_logger(user=username)
-    fileserver_manager = context.fileserver_manager
-    await fileserver_manager.delete_fileserver(username)
+    await context.fileserver_state.delete(username)
