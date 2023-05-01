@@ -16,10 +16,7 @@ from structlog.stdlib import BoundLogger
 
 from .config import Config
 from .constants import KUBERNETES_REQUEST_TIMEOUT
-from .models.domain.fileserver import FileserverUserMap
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
-from .services.builder import LabBuilder
-from .services.fileserver import FileserverManager, FileserverReconciler
 from .services.form import FormManager
 from .services.image import ImageService
 from .services.lab import LabManager
@@ -67,9 +64,6 @@ class ProcessContext:
 
     fileserver_state: FileserverStateManager
     """State management for user fileservers."""
-
-    fileserver_manager: FileserverManager
-    """Service to create/destroy user fileservers."""
 
     @classmethod
     async def from_config(cls, config: Config) -> Self:
@@ -251,15 +245,6 @@ class Factory:
         Only used by tests; handlers don't need access to the prepuller.
         """
         return self._context.prepuller
-
-    @property
-    def fileserver_user_map(self) -> FileserverUserMap:
-        """Current user fileserver status, from the `ProcessContext`.
-
-        Only used by tests; handlers have access to the fileserver user map
-        via the request context.
-        """
-        return self._context.fileserver_user_map
 
     async def aclose(self) -> None:
         """Shut down the factory.
