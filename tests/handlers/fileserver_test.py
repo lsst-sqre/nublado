@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from httpx import AsyncClient
 from kubernetes_asyncio.client import V1Ingress, V1Namespace, V1ObjectMeta
@@ -15,6 +17,7 @@ from ..support.kubernetes import MockKubernetesApi
 @pytest.mark.asyncio
 async def test_fileserver(
     client: AsyncClient,
+    std_result_dir: Path,
     factory: Factory,
     obj_factory: TestObjectFactory,
     mock_kubernetes: MockKubernetesApi,
@@ -50,8 +53,9 @@ async def test_fileserver(
             "X-Auth-Request-Token": token,
         },
     )
-    assert r.status_code == 307
-    assert r.headers.get("location") == f"/files/{user.username}"
+    assert r.status_code == 200
+    expected = (std_result_dir / "fileserver.txt").read_text()
+    assert r.text == expected
     # Check that it has showed up, via an admin route.
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == [user.username]
