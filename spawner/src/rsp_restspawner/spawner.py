@@ -411,6 +411,9 @@ class RSPRestSpawner(Spawner):
         create the lab and monitor its progress, generating events that are
         stored in the ``_events`` attribute for `progress`.
 
+        JupyterHub will automatically call stop on failed spawns, so we don't
+        need to do that ourselves.
+
         Returns
         -------
         str
@@ -480,8 +483,6 @@ class RSPRestSpawner(Spawner):
                 if event.progress:
                     progress = event.progress
                 self._events.append(event)
-                for trigger in self._triggers:
-                    trigger.set()
                 if event.complete:
                     break
                 if event.failed:
@@ -489,32 +490,6 @@ class RSPRestSpawner(Spawner):
 
             # Return the internal URL of the spawned pod.
             return await self._get_internal_url()
-
-        except Exception:
-            # We see no end of problems caused by stranded half-created pods,
-            # so whenever anything goes wrong, try to delete anything we may
-            # have left behind before raising the fatal exception.
-            self.log.warning("Spawn failed, attempting to delete any remnants")
-            event = SpawnEvent(
-                progress=progress,
-                message="Lab creation failed, attempting to clean up",
-                severity="warning",
-            )
-            self._events.append(event)
-            for trigger in self._triggers:
-                trigger.set()
-            try:
-                await self.stop()
-            except Exception as e:
-                self.log.exception("Failed to delete lab after spawn failure")
-                error = f"{type(e).__name__}: {str(e)}"
-                event = SpawnEvent(
-                    progress=progress,
-                    message=f"Failed to clean up failed lab: {error}",
-                    severity="error",
-                )
-                self._events.append(event)
-            raise
 
         finally:
             # Ensure that we set all the triggers just before we exit so that
