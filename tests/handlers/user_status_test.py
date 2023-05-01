@@ -6,14 +6,19 @@ import pytest
 from httpx import AsyncClient
 
 from jupyterlabcontroller.factory import Factory
+from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
 
 from ..settings import TestObjectFactory
 from ..support.constants import TEST_BASE_URL
+from ..support.kubernetes import MockKubernetesApi
 
 
 @pytest.mark.asyncio
 async def test_user_status(
-    client: AsyncClient, factory: Factory, obj_factory: TestObjectFactory
+    client: AsyncClient,
+    factory: Factory,
+    obj_factory: TestObjectFactory,
+    mock_kubernetes: MockKubernetesApi,
 ) -> None:
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
@@ -58,7 +63,7 @@ async def test_user_status(
     )
     assert r.status_code == 200
     expected_resources = size_manager.resources(lab.options.size)
-    assert r.json() == {
+    expected = {
         "env": lab.env,
         "gid": user.gid,
         "groups": user.dict()["groups"],
@@ -72,3 +77,28 @@ async def test_user_status(
         "uid": user.uid,
         "username": user.username,
     }
+    assert r.json() == expected
+
+    # Change the pod phase. This should throw the lab into a failed state.
+    name = f"nb-{user.username}"
+    namespace = f"userlabs-{user.username}"
+    pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
+    pod.status.phase = KubernetesPodPhase.FAILED.value
+    r = await client.get(
+        "/nublado/spawner/v1/user-status",
+        headers={"X-Auth-Request-User": user.username},
+    )
+    assert r.status_code == 200
+    expected["status"] = "failed"
+    assert r.json() == expected
+
+    # Delete the pod out from under the controller. This should also change
+    # the pod status.
+    await mock_kubernetes.delete_namespaced_pod(name, namespace)
+    r = await client.get(
+        "/nublado/spawner/v1/user-status",
+        headers={"X-Auth-Request-User": user.username},
+    )
+    assert r.status_code == 200
+    expected["pod"] = "missing"
+    assert r.json() == expected
