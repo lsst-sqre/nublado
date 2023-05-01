@@ -496,3 +496,7 @@ class MissingObjectError(SlackException):
                 obj = f"{self.kind} {self.name}"
             message.blocks.append(SlackTextField(heading="Object", text=obj))
         return message
+
+class MissingSecretError(Exception):
+    """Secret specified in the controller configuration was not found."""
+
