@@ -375,10 +375,10 @@ class FileserverManager:
             "kind": "GafaelfawrIngress",
             "metadata": self._build_custom_object_metadata(username),
             "config": {
-                "base_url": base_url,
+                "baseUrl": base_url,
                 "scopes": {"all": ["exec:notebook"]},
-                "login_redirect": False,
-                "auth_type": "basic",
+                "loginRedirect": False,
+                "authType": "basic",
             },
             "template": {
                 "metadata": self._build_custom_object_metadata(username),
@@ -390,7 +390,7 @@ class FileserverManager:
                                 "paths": [
                                     {
                                         "path": f"/files/{username}",
-                                        "path_type": "Prefix",
+                                        "pathType": "Prefix",
                                         "backend": {
                                             "service": {
                                                 "name": f"{username}-fs",
