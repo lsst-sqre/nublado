@@ -742,16 +742,18 @@ class K8sStorageClient:
         KubernetesError
             Raised on failure to talk to Kubernetes.
         """
-        msg = "Getting pod status"
-        self._logger.debug(msg, name=name, namespace=namespace)
         try:
             pod = await self.api.read_namespaced_pod_status(name, namespace)
         except ApiException as e:
             if e.status == 404:
+                msg = "Pod does not exist when checking phase"
+                self._logger.debug(msg, name=name, namespace=namespace)
                 return None
             raise KubernetesError.from_exception(
                 "Error reading pod status", e, namespace=namespace, name=name
             ) from e
+        msg = f"Pod status is {pod.status.phase}"
+        self._logger.debug(msg, name=name, namespace=namespace)
         return pod.status.phase
 
     async def get_quota(
