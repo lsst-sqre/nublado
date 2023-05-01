@@ -1,7 +1,6 @@
 """Models for the fileserver state.  Note that the reason these are
 async is that this will eventually be replaced by an implementation in
 Redis."""
-
 from dataclasses import dataclass
 
 from ...exceptions import DuplicateUserError, InvalidUserError

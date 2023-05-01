@@ -568,3 +568,4 @@ class FileserverManager:
         if not await self.k8s_client.check_namespace(self.fs_namespace):
             return
         await self.user_map.remove(username)
+        await self.k8s_client.remove_fileserver(username, self.fs_namespace)

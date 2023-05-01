@@ -9,7 +9,6 @@ from ..dependencies.config import configuration_dependency
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import FileserverCreationError, PermissionDeniedError
 
-
 router = APIRouter(route_class=SlackRouteErrorHandler)
 user_router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
@@ -99,4 +98,3 @@ async def remove_fileserver(
 ) -> None:
     context.rebind_logger(user=username)
     await context.fileserver_state.delete(username)
-

@@ -39,6 +39,8 @@ from ..models.v1.lab import (
 from ..storage.k8s import K8sStorageClient
 from .builder import LabBuilder
 from .size import SizeManager
+from ..storage.k8s import K8sStorageClient
+from .fileserver import FileserverManager, FileserverReconciler
 
 __all__ = ["LabStateManager", "FileserverStateManager"]
 
