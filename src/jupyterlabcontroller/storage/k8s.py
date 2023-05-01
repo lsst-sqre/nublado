@@ -277,11 +277,7 @@ class K8sStorageClient:
             404 for a missing pod, which is treated as a spawn failure).
         """
         message = raw_event.get("message")
-        logger.debug(
-            "Saw Kubernetes event",
-            object=raw_event.get("involved_object"),
-            message=message,
-        )
+        logger.debug("Saw Kubernetes event", message=message)
         if not message:
             return None
 
@@ -304,7 +300,7 @@ class K8sStorageClient:
         if phase == KubernetesPodPhase.UNKNOWN:
             error = "Pod phase is Unknown, assuming it failed"
             logger.error(error)
-        else:
+        elif phase != KubernetesPodPhase.PENDING:
             logger.debug(f"Pod phase is now {phase}")
         return KubernetesPodEvent(message=message, phase=phase, error=error)
 
