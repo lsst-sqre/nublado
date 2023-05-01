@@ -136,7 +136,6 @@ async def test_lab_start_stop(
     expected_options["image_list"] = None
     assert r.json() == {
         "env": lab.env,
-        "events": [],
         "gid": user.gid,
         "groups": user.dict()["groups"],
         "internal_url": f"http://lab.userlabs-{user.username}:8888",
@@ -179,14 +178,6 @@ async def test_lab_start_stop(
     assert r.json() == []
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 404
-
-    # Events should be for lab deletion and should return immediately.
-    r = await client.get(
-        f"/nublado/spawner/v1/labs/{user.username}/events",
-        headers={"X-Auth-Request-User": user.username},
-    )
-    assert r.status_code == 200
-    assert "Deleting user lab and resources" in r.text
 
 
 @pytest.mark.asyncio

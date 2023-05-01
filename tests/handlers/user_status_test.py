@@ -60,7 +60,6 @@ async def test_user_status(
     expected_resources = size_manager.resources(lab.options.size)
     assert r.json() == {
         "env": lab.env,
-        "events": [],
         "gid": user.gid,
         "groups": user.dict()["groups"],
         "internal_url": "http://lab.userlabs-rachel:8888",

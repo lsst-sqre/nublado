@@ -1,6 +1,5 @@
 """Models for jupyterlab-controller."""
 
-from collections import deque
 from enum import Enum
 from typing import Any, Optional, Self
 
@@ -13,7 +12,22 @@ from ...constants import (
     USERNAME_REGEX,
 )
 from ...util import str_to_bool
-from .event import Event
+
+__all__ = [
+    "ImageClass",
+    "LabSize",
+    "LabSpecification",
+    "LabStatus",
+    "NotebookQuota",
+    "PodState",
+    "UserGroup",
+    "UserInfo",
+    "UserLabState",
+    "UserOptions",
+    "UserQuota",
+    "UserResourceQuantum",
+    "UserResources",
+]
 
 
 class LabSize(str, Enum):
@@ -325,6 +339,8 @@ class UserResources(BaseModel):
 
 
 class UserLabState(UserInfo, LabSpecification):
+    """Current state of the user's lab."""
+
     status: LabStatus = Field(
         ...,
         example="running",
@@ -346,10 +362,6 @@ class UserLabState(UserInfo, LabSpecification):
         title="URL by which the Hub can access the user Pod",
     )
     resources: UserResources = Field(..., title="Resource requests and limits")
-    events: deque[Event] = Field(
-        default_factory=deque,
-        title="Ordered queue of events for user lab creation/deletion",
-    )
 
     @classmethod
     def new_from_user_resources(
@@ -361,7 +373,6 @@ class UserLabState(UserInfo, LabSpecification):
         return cls(
             options=labspec.options,
             env=labspec.env,
-            events=deque(),
             status=LabStatus.PENDING,
             pod=PodState.MISSING,
             resources=resources,
