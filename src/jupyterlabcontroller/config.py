@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Self
@@ -208,6 +209,9 @@ class LabFile(CamelCaseModel):
 
 
 class LabConfig(CamelCaseModel):
+    spawn_timeout: timedelta = Field(
+        timedelta(minutes=10), title="Timeout for lab spawning"
+    )
     sizes: dict[LabSize, LabSizeDefinition] = Field(
         {}, title="Lab sizes users may choose from"
     )

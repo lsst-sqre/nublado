@@ -13,6 +13,7 @@ from safir.slack.webhook import SlackWebhookClient
 from sse_starlette import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
+from ..config import LabConfig
 from ..constants import LAB_STATE_REFRESH_INTERVAL
 from ..exceptions import LabExistsError, UnknownUserError
 from ..models.domain.lab import UserLab
@@ -48,12 +49,12 @@ class LabStateManager:
     def __init__(
         self,
         *,
-        namespace_prefix: str,
+        config: LabConfig,
         kubernetes: K8sStorageClient,
         slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
     ) -> None:
-        self._namespace_prefix = namespace_prefix
+        self._config = config
         self._kubernetes = kubernetes
         self._slack = slack_client
         self._logger = logger
@@ -304,9 +305,12 @@ class LabStateManager:
 
     async def start_spawn(
         self,
+        *,
         username: str,
         state: UserLabState,
         spawner: Callable[[], Awaitable[str]],
+        start_progress: int,
+        end_progress: int,
     ) -> None:
         """Start lab creation for a user in a background thread.
 
@@ -320,6 +324,10 @@ class LabStateManager:
             Asynchronous callback that will create the Kubernetes objects for
             the lab and return the URL on which it will listen after it
             starts.
+        start_progress
+            Progress percentage to start at when watching pod startup events.
+        end_progress
+            Progress percentage to stop at when the spawn is complete.
 
         Raises
         ------
@@ -331,7 +339,9 @@ class LabStateManager:
             await self.publish_error(username, msg, fatal=True)
             raise LabExistsError(f"Lab already exists for {username}")
         self._labs[username] = UserLab(state=state)
-        task = asyncio.create_task(self._spawn(username, spawner))
+        task = asyncio.create_task(
+            self._spawn(username, spawner, start_progress, end_progress)
+        )
         self._labs[username].spawner = task
 
     async def stop(self) -> None:
@@ -439,7 +449,7 @@ class LabStateManager:
         self._logger.info("Reconciling user lab state with Kubernetes")
         known_users = set(self._labs.keys())
         observed = await self._kubernetes.get_observed_user_state(
-            self._namespace_prefix
+            self._config.namespace_prefix
         )
 
         # If the set of users we expected to see changed during
@@ -521,7 +531,11 @@ class LabStateManager:
         ]
 
     async def _spawn(
-        self, username: str, spawner: Callable[[], Awaitable[str]]
+        self,
+        username: str,
+        spawner: Callable[[], Awaitable[str]],
+        start_progress: int,
+        end_progress: int,
     ) -> None:
         """Spawn a lab and wait for it to start running.
 
@@ -536,15 +550,28 @@ class LabStateManager:
         spawner
             Asynchronous callable that does the work of creating the
             Kubernetes objects for the lab.
+        start_progress
+            Progress percentage to start at when watching pod startup events.
+        end_progress
+            Progress percentage to stop at when the spawn is complete.
         """
-        namespace = f"{self._namespace_prefix}-{username}"
-        pod_name = f"nb-{username}"
+        pod = f"nb-{username}"
+        namespace = f"{self._config.namespace_prefix}-{username}"
+        progress = start_progress
         try:
             await self._clear_events(self._labs[username])
             msg = f"Starting lab creation for {username}"
             await self.publish_event(username, msg, 1)
             internal_url = await spawner()
-            await self._kubernetes.wait_for_pod_creation(pod_name, namespace)
+            async for event in self._kubernetes.wait_for_pod(pod, namespace):
+                await self.publish_event(username, event.message, progress)
+                if event.error:
+                    await self.publish_error(username, event.error, event.done)
+
+                # We don't know how many startup events we'll see, so we will
+                # do the same thing Kubespawner does and move one-third closer
+                # to the end of the percentage region each time.
+                progress = int(progress + (end_progress - progress) / 3)
         except Exception as e:
             self._logger.exception("Lab creation failed")
             if self._slack:
@@ -556,8 +583,8 @@ class LabStateManager:
             await self.publish_error(username, str(e), fatal=True)
         else:
             msg = f"Lab Kubernetes pod started for {username}"
-            event = Event(message=msg, type=EventType.COMPLETE)
-            await self._add_event(username, event)
+            completion_event = Event(message=msg, type=EventType.COMPLETE)
+            await self._add_event(username, completion_event)
             self._labs[username].state.status = LabStatus.RUNNING
             self._labs[username].state.internal_url = internal_url
             self._logger.info("Lab created")

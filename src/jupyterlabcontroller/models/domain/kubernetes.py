@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Self
+from enum import Enum
+from typing import Optional, Self
 
 from kubernetes_asyncio.client import V1ContainerImage
 
 from .docker import DockerReference
 
-__all__ = ["KubernetesNodeImage"]
+__all__ = [
+    "KubernetesNodeImage",
+    "KubernetesPodEvent",
+    "KubernetesPodPhase",
+]
 
 
 @dataclass
@@ -67,3 +72,39 @@ class KubernetesNodeImage:
             if parsed_reference.digest is not None:
                 return parsed_reference.digest
         return None
+
+
+class KubernetesPodPhase(str, Enum):
+    """One of the valid phases reported in the status section of a Pod."""
+
+    PENDING = "Pending"
+    RUNNING = "Running"
+    SUCCEEDED = "Succeeded"
+    FAILED = "Failed"
+    UNKNOWN = "Unknown"
+
+
+@dataclass
+class KubernetesPodEvent:
+    """Represents an event seen while waiting for pod startup."""
+
+    message: str
+    """Message in the Kubernetes event."""
+
+    phase: KubernetesPodPhase
+    """Current phase of the pod."""
+
+    error: Optional[str] = None
+    """Additional error accompanying this event (usually from the pod)."""
+
+    @property
+    def done(self) -> bool:
+        """`True` if the pod has started or definitively failed to start.
+
+        An unknown phase is considered a failure. The Kubernetes documentation
+        says that this can happen when the node on which the pod is supposed
+        to be running cannot be contacted, which is a sufficiently broken
+        state that we should consider the spawn a failure rather than waiting
+        to hope it will fix itself.
+        """
+        return self.phase != KubernetesPodPhase.PENDING

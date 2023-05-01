@@ -155,20 +155,21 @@ class Prepuller:
             Node on which to prepull it.
         """
         name = self._prepull_pod_name(image, node)
-        self._logger.debug(f"Prepulling {image.tag} on {node}")
+        namespace = self._namespace
+        logger = self._logger.bind(pod=name, namespace=namespace)
+        logger.debug(f"Prepulling {image.tag} on {node}")
         try:
             await self._k8s_client.create_pod(
                 name=name,
-                namespace=self._namespace,
+                namespace=namespace,
                 pod_spec=self._prepull_pod_spec(image, node),
                 owner=self._prepull_pod_owner(),
             )
-            await self._k8s_client.wait_for_pod_creation(
-                podname=name, namespace=self._namespace
-            )
-            await self._k8s_client.remove_completed_pod(
-                podname=name, namespace=self._namespace
-            )
+            async for event in self._k8s_client.wait_for_pod(name, namespace):
+                logger.debug(f"Saw pod event: {event.message}")
+                if event.error:
+                    logger.error(f"Error in prepuller pod: {event.error}")
+            await self._k8s_client.remove_completed_pod(name, namespace)
         except Exception as e:
             self._logger.exception(f"Failed to prepull {image.tag} on {node}")
             if self._slack_client:

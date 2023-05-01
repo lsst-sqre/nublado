@@ -25,7 +25,7 @@ from safir.testing.slack import MockSlackWebhook
 
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
-from jupyterlabcontroller.models.k8s import K8sPodPhase
+from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
 from jupyterlabcontroller.models.v1.prepuller_config import GARSourceConfig
 
 from ..settings import TestObjectFactory
@@ -61,7 +61,7 @@ async def mark_pod_complete(
             kind="Pod", name=name, namespace=namespace
         ),
     )
-    pod.status.phase = K8sPodPhase.SUCCEEDED.value
+    pod.status.phase = KubernetesPodPhase.SUCCEEDED.value
     await mock_kubernetes.create_namespaced_event(namespace, event)
 
 
