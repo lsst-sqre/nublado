@@ -5,10 +5,10 @@
 update-deps:
 	pip install --upgrade pip-tools pip setuptools
 	pip-compile --upgrade --resolver=backtracking --build-isolation \
-	    --allow-unsafe                                              \
+	    --allow-unsafe --generate-hashes                            \
 	    --output-file requirements/main.txt requirements/main.in
 	pip-compile --upgrade --resolver=backtracking --build-isolation \
-	    --allow-unsafe                				\
+	    --allow-unsafe --generate-hashes 				\
 	    --output-file requirements/dev.txt requirements/dev.in
 
 # Useful for testing against a Git version of Safir.
