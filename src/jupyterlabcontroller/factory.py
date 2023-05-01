@@ -17,6 +17,7 @@ from structlog.stdlib import BoundLogger
 from .config import Config
 from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
+from .services.builder import LabBuilder
 from .services.form import FormManager
 from .services.image import ImageService
 from .services.lab import LabManager
