@@ -3,7 +3,6 @@ async is that this will eventually be replaced by an implementation in
 Redis."""
 from dataclasses import dataclass
 
-from ...exceptions import DuplicateUserError, InvalidUserError
 from ..v1.lab import LabStatus as FileserverPodStatus
 from ..v1.lab import PodState, UserInfo
 

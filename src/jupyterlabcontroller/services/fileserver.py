@@ -14,7 +14,6 @@ from kubernetes_asyncio.client import (
     V1HostPathVolumeSource,
     V1Job,
     V1JobSpec,
-    V1LabelSelector,
     V1NFSVolumeSource,
     V1ObjectMeta,
     V1PodSecurityContext,
@@ -127,75 +126,6 @@ class FileserverManager:
         *,
         user_map: FileserverUserMap,
         logger: BoundLogger,
-        k8s_client: K8sStorageClient,
-    ) -> None:
-        self.fs_namespace = config.fileserver.namespace
-        self.user_map = user_map
-        self.k8s_client = k8s_client
-        self._logger = logger
-        self._tasks: Set[asyncio.Task] = set()
-        self._started = False
-
-    async def start(self) -> None:
-        if not await self.k8s_client.check_namespace(self.fs_namespace):
-            self._logger.warning(
-                "No namespace '{self.fs_namespace}'; cannot start"
-            )
-            return
-        if self._started:
-            msg = "Fileserver reconciliation already running; cannot restart"
-            self._logger.warning(msg)
-            return
-        self._started = True
-        self._logger.info("Starting fileserver reconciliation")
-        while self._started:
-            await self.reconcile_user_map()
-            await asyncio.sleep(
-                FILESERVER_RECONCILIATION_INTERVAL.total_seconds()
-            )
-
-    async def stop(self) -> None:
-        if not self._started:
-            msg = "Fileserver reconciliation already stopped"
-            self._logger.warning(msg)
-            return
-        self._started = False
-        for tsk in self._tasks:
-            tsk.cancel()
-
-    async def reconcile_user_map(self) -> None:
-        self._logger.debug("Reconciling fileserver user map")
-        namespace = self.fs_namespace
-        if not await self.k8s_client.check_namespace(namespace):
-            self._logger.warning(
-                f"No fileserver namespace '{namespace}'; no fileserver users"
-            )
-            return
-        mapped_users = set(self.user_map.list_users())
-        observed_map = await self.k8s_client.get_observed_fileserver_state(
-            namespace
-        )
-        # Tidy up any no-longer-running users.  They aren't running, but they
-        # might have some objects remaining.
-        observed_users = set(observed_map.keys())
-        missing_users = mapped_users - observed_users
-        for user in missing_users:
-            rmuser_task = asyncio.create_task(
-                self.k8s_client.remove_fileserver(user, namespace)
-            )
-            self._tasks.add(rmuser_task)
-            rmuser_task.add_done_callback(self._tasks.discard)
-        # No need to create anything else for new ones--we know they're
-        # running.
-        self.user_map.bulk_update(observed_map)
-
-
-class FileserverManager:
-    def __init__(
-        self,
-        *,
-        user_map: FileserverUserMap,
-        logger: BoundLogger,
         config: Config,
         k8s_client: K8sStorageClient,
         slack_client: Optional[SlackWebhookClient] = None,
@@ -206,65 +136,6 @@ class FileserverManager:
         self.config = config
         self.k8s_client = k8s_client
         self._tasks: Set[asyncio.Task] = set()
-
-    def list_users(self) -> list[str]:
-        return self.user_map.list_users()
-
-    async def create_fileserver_if_needed(self, user: UserInfo) -> bool:
-        """If the user doesn't have a fileserver, create it.  If the user
-        already has a fileserver, just return.
-
-        This gets called by the handler when a user comes in through the
-        /file ingress.
-        """
-        username = user.username
-        if username not in self.list_users():
-            if not await self.create_fileserver(user):
-                return False
-            self.user_map.set(username)
-        return True
-
-    async def create_fileserver(self, user: UserInfo) -> bool:
-        """Create a fileserver for the given user.  Wait for it to be
-        operational.  If we can't build it, return False.
-        """
-        username = user.username
-        self._logger.debug(f"Creating new fileserver for {username}")
-        namespace = self.fs_namespace
-        if not await self.k8s_client.check_namespace(namespace):
-            self._logger.warning("No fileserver namespace '{namespace}'")
-            return False
-        timeout = 60.0
-        interval = 4.0
-
-        job = self.build_fileserver_job(user)
-        gf_ingress = self.build_fileserver_ingress(user.username)
-        service = self.build_fileserver_service(user.username)
-        self._logger.debug(f"...creating new job for {username}")
-        await self.k8s_client.create_fileserver_job(username, namespace, job)
-        self._logger.debug(f"...creating new gfingress for {username}")
-        await self.k8s_client.create_fileserver_gafaelfawringress(
-            username, namespace, spec=galingress
-        )
-        self._logger.debug(f"...creating new service for {username}")
-        await self.k8s_client.create_fileserver_service(username, namespace)
-        self._logger.debug(f"...creating new gfingress for {username}")
-        await self.k8s_client.create_fileserver_gafaelfawringress(
-            username, namespace, spec=galing_spec
-        )
-        self._logger.debug(f"...polling until objects appear for {username}")
-        try:
-            async with asyncio.timeout(timeout):
-                while True:
-                    good = await self.k8s_client.check_fileserver_present(
-                        username, namespace
-                    )
-                    if good:
-                        return True
-                    await asyncio.sleep(interval)
-        except asyncio.TimeoutError:
-            self._logger.error(f"Fileserver for {username} did not appear.")
-            return False
 
     async def create_fileserver_if_needed(self, user: UserInfo) -> bool:
         """If the user doesn't have a fileserver, create it.  If the user
@@ -502,22 +373,6 @@ class FileserverManager:
         return {
             "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
             "kind": "GafaelfawrIngress",
-
-    def build_fileserver_ingress_spec(self, username: str) -> dict[str, Any]:
-        # The Gafaelfawr Ingress is a CRD, so creating it is a bit different.
-        namespace = self.fs_namespace
-        base_url = self.config.base_url
-        host = urlparse(base_url).hostname
-        obj_name = f"{username}-fs"
-        # I feel like I should apologize for this object I'm returning.
-        return {
-            "api_version": "gafaelfawr.lsst.io/v1alpha1",
-            "kind": "GafaelfawrIngress",
-            "metadata": {
-                "name": obj_name,
-                "namespace": namespace,
-                "labels": {"app": obj_name},
-            },
             "metadata": self._build_custom_object_metadata(username),
             "config": {
                 "base_url": base_url,
