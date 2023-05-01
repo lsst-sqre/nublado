@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, Header
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 
+from ..config import Config
+from ..constants import FILESERVER_TEMPLATE
+from ..dependencies.config import configuration_dependency
 from ..dependencies.context import RequestContext, context_dependency
 from ..exceptions import FileserverCreationError, PermissionDeniedError
 
@@ -19,10 +22,11 @@ __all__ = ["router", "user_router"]
     "/files",
     summary="Allow user to access files, spawning new fileserver if needed.",
     responses={403: {"description": "Forbidden", "model": ErrorModel}},
-    response_class=RedirectResponse,
+    response_class=HTMLResponse,
 )
 async def route_user(
     context: RequestContext = Depends(context_dependency),
+    config: Config = Depends(configuration_dependency),
     x_auth_request_user: str = Header(..., include_in_schema=False),
     x_auth_request_token: str = Header(..., include_in_schema=False),
 ) -> str:
@@ -40,8 +44,9 @@ async def route_user(
     <someone-else>.  In the last case, we determine whether they
     themselves have a fileserver and create it if it doesn't exist.
 
-    In all these cases, we provide a redirect to their own fileserver
-    endpoint.  FIXME bad idea, it turns out.
+    In all these cases, we provide documentation of how to use the created
+    fileserver.  This should eventually move into SquareOne and be nicely
+    styled.
 
     Finally, if they go to "/files/<someone-else>" and there already
     is an ingress then they will go there (and we will never see the
@@ -57,10 +62,13 @@ async def route_user(
     # one)
     context.rebind_logger(user=username)
     fileserver_state = context.fileserver_state
+    timeout = config.fileserver.timeout
+    base_url = config.base_url
     result = await fileserver_state.create(user)
     if result:
-        # FIXME: the redirect is a dumb idea.
-        return f"/files/{username}"
+        return FILESERVER_TEMPLATE.format(
+            username=user.username, base_url=base_url, timeout=timeout
+        )
     raise FileserverCreationError("Error creating fileserver")
 
 
