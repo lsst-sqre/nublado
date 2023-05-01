@@ -206,12 +206,13 @@ class K8sStorageClient:
         logger.debug("Watching pod events")
         w = watch.Watch()
         method = self.api.list_namespaced_event
+        timeout = int(self._spawn_timeout.total_seconds())
         watch_args = {
             "namespace": namespace,
             "field_selector": f"involvedObject.name={pod_name}",
             "resource_version": "0",
-            "timeout_seconds": int(self._spawn_timeout.total_seconds()),
-            "_request_timeout": self._timeout,
+            "timeout_seconds": timeout,
+            "_request_timeout": timeout,
         }
         try:
             async with w.stream(method, **watch_args) as stream:
