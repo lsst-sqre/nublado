@@ -39,7 +39,6 @@ from ..models.domain.kubernetes import (
     KubernetesPodEvent,
     KubernetesPodPhase,
 )
-from ..models.k8s import Secret
 from ..models.v1.lab import UserResourceQuantum
 from ..util import deslashify
 
@@ -334,7 +333,7 @@ class K8sStorageClient:
             name=target_secret,
             namespace=target_namespace,
             data=secret.data,
-            secret_type=secret.secret_type,
+            secret_type=secret.type,
         )
 
     async def merge_controller_secrets(
@@ -408,11 +407,11 @@ class K8sStorageClient:
         self,
         name: str,
         namespace: str,
-    ) -> Secret:
+    ) -> V1Secret:
         logger = self._logger.bind(name=name, namespace=namespace)
         logger.debug("Reading secret")
         try:
-            secret = await self.api.read_namespaced_secret(name, namespace)
+            return await self.api.read_namespaced_secret(name, namespace)
         except ApiException as e:
             if e.status == 404:
                 logger.error("Secret does not exist")
@@ -422,8 +421,6 @@ class K8sStorageClient:
                 raise KubernetesError.from_exception(
                     "Error reading secret", e, namespace=namespace, name=name
                 ) from e
-        secret_type = secret.type
-        return Secret(data=secret.data, secret_type=secret_type)
 
     async def create_configmap(
         self,
