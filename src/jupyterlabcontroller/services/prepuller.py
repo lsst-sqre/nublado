@@ -164,6 +164,7 @@ class Prepuller:
                 namespace=namespace,
                 pod_spec=self._prepull_pod_spec(image, node),
                 owner=self._prepull_pod_owner(),
+                remove_on_conflict=True,
             )
             async for event in self._k8s_client.wait_for_pod(name, namespace):
                 logger.debug(f"Saw pod event: {event.message}")
