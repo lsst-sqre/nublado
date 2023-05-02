@@ -599,9 +599,8 @@ class K8sStorageClient:
         """
         self._logger.debug("Deleting namespace", name=name)
         try:
-            await asyncio.wait_for(
-                self.api.delete_namespace(name), self._timeout
-            )
+            async with asyncio.timeout(self._timeout):
+                await self.api.delete_namespace(name)
         except ApiException as e:
             if e.status == 404:
                 return
