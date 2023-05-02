@@ -1,5 +1,4 @@
-"""Maintain and answer questions about user lab state and events, and
-user fileserver state"""
+"""Maintain and answer questions about user lab state and events."""
 
 from __future__ import annotations
 
@@ -19,11 +18,10 @@ from structlog.stdlib import BoundLogger
 from ..config import Config, LabConfig
 from ..constants import LAB_STATE_REFRESH_INTERVAL
 from ..exceptions import KubernetesError, LabExistsError, UnknownUserError
+from ..models.domain.fileserver import FileserverUserMap
 from ..models.domain.kubernetes import KubernetesPodPhase
 from ..models.domain.lab import UserLab
-from ..models.domain.fileserver import FileserverUserMap
 from ..models.v1.event import Event, EventType
-from .fileserver import FileserverManager, FileserverReconciler
 from ..models.v1.lab import (
     LabStatus,
     NotebookQuota,
@@ -38,11 +36,10 @@ from ..models.v1.lab import (
 )
 from ..storage.k8s import K8sStorageClient
 from .builder import LabBuilder
-from .size import SizeManager
-from ..storage.k8s import K8sStorageClient
 from .fileserver import FileserverManager, FileserverReconciler
+from .size import SizeManager
 
-__all__ = ["LabStateManager", "FileserverStateManager"]
+__all__ = ["LabStateManager"]
 
 
 class LabStateManager:
@@ -456,48 +453,6 @@ class LabStateManager:
         self._logger.info("Starting reaper for spawn monitoring tasks")
         await self._scheduler.spawn(self._reap_spawners())
 
-    async def start_spawn(
-        self,
-        *,
-        username: str,
-        state: UserLabState,
-        spawner: Callable[[], Awaitable[str]],
-        start_progress: int,
-        end_progress: int,
-    ) -> None:
-        """Start lab creation for a user in a background thread.
-
-        Parameters
-        ----------
-        username
-            Username of user.
-        state
-            Initial user lab state.
-        spawner
-            Asynchronous callback that will create the Kubernetes objects for
-            the lab and return the URL on which it will listen after it
-            starts.
-        start_progress
-            Progress percentage to start at when watching pod startup events.
-        end_progress
-            Progress percentage to stop at when the spawn is complete.
-
-        Raises
-        ------
-        LabExistsError
-            Raised if this user already has a lab (in any state).
-        """
-        if username in self._labs:
-            msg = "Lab already exists"
-            await self.publish_error(username, msg, fatal=True)
-            raise LabExistsError(f"Lab already exists for {username}")
-        self._labs[username] = UserLab(state=state)
-        task = asyncio.create_task(
-            self._spawn(username, spawner, start_progress, end_progress)
-        )
-        self._labs[username].spawner = task
-
-
     async def stop(self) -> None:
         """Stop the background refresh task."""
         if not self._scheduler:
@@ -906,6 +861,7 @@ class LabStateManager:
                 msg = f"Deleting incomplete namespace {namespace}"
                 self._logger.warning(msg, user=username)
                 await self._kubernetes.delete_namespace(namespace)
+
         # If the set of users we expected to see changed during
         # reconciliation, we may be running into all sorts of race conditions.
         # Just skip this background update; we'll catch any inconsistencies
@@ -1008,66 +964,6 @@ class LabStateManager:
             t for t in self._labs[username].triggers if t != trigger
         ]
 
-    async def _spawn(
-        self,
-        username: str,
-        spawner: Callable[[], Awaitable[str]],
-        start_progress: int,
-        end_progress: int,
-    ) -> None:
-        """Spawn a lab and wait for it to start running.
-
-        This is run as a background task to create a user's lab and wait for
-        it to start running, notifing an `asyncio.Event` variable when it
-        completes for any reason.
-
-        Parameters
-        ----------
-        username
-            Username of user whose lab is being spawned.
-        spawner
-            Asynchronous callable that does the work of creating the
-            Kubernetes objects for the lab.
-        start_progress
-            Progress percentage to start at when watching pod startup events.
-        end_progress
-            Progress percentage to stop at when the spawn is complete.
-        """
-        pod = f"nb-{username}"
-        namespace = self._builder.namespace_for_user(username)
-        progress = start_progress
-        try:
-            await self._clear_events(self._labs[username])
-            msg = f"Starting lab creation for {username}"
-            await self.publish_event(username, msg, 1)
-            internal_url = await spawner()
-            async for event in self._kubernetes.wait_for_pod(pod, namespace):
-                await self.publish_event(username, event.message, progress)
-                if event.error:
-                    await self.publish_error(username, event.error, event.done)
-
-                # We don't know how many startup events we'll see, so we will
-                # do the same thing Kubespawner does and move one-third closer
-                # to the end of the percentage region each time.
-                progress = int(progress + (end_progress - progress) / 3)
-        except Exception as e:
-            self._logger.exception("Lab creation failed")
-            if self._slack:
-                if isinstance(e, SlackException):
-                    e.user = username
-                    await self._slack.post_exception(e)
-                else:
-                    await self._slack.post_uncaught_exception(e)
-            await self.publish_error(username, str(e), fatal=True)
-        else:
-            msg = f"Lab Kubernetes pod started for {username}"
-            completion_event = Event(message=msg, type=EventType.COMPLETE)
-            await self._add_event(username, completion_event)
-            self._labs[username].state.status = LabStatus.RUNNING
-            self._labs[username].state.internal_url = internal_url
-            self._logger.info("Lab created")
-        finally:
-            self._spawner_done.set()
 
 class FileserverStateManager:
     """Manage the record of user fileserver state.
@@ -1127,4 +1023,3 @@ class FileserverStateManager:
 
     async def list(self) -> list[str]:
         return await self.user_map.list_users()
-
