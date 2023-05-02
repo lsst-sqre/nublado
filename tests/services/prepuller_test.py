@@ -13,12 +13,10 @@ import pytest
 from google.cloud.artifactregistry_v1 import DockerImage
 from kubernetes_asyncio.client import (
     ApiException,
-    CoreV1Event,
     V1ContainerImage,
     V1Node,
     V1NodeStatus,
     V1ObjectMeta,
-    V1ObjectReference,
     V1Pod,
 )
 from safir.testing.kubernetes import MockKubernetesApi, strip_none
@@ -52,17 +50,17 @@ async def mark_pod_complete(
     pod
         Pod whose status should be changed.
     """
-    name = pod.metadata.name
-    namespace = pod.metadata.namespace
-    event = CoreV1Event(
-        metadata=V1ObjectMeta(name=f"{name}-done", namespace=namespace),
-        message="Pod finished",
-        involved_object=V1ObjectReference(
-            kind="Pod", name=name, namespace=namespace
-        ),
+    await mock_kubernetes.patch_namespaced_pod_status(
+        pod.metadata.name,
+        pod.metadata.namespace,
+        [
+            {
+                "op": "replace",
+                "path": "/status/phase",
+                "value": KubernetesPodPhase.SUCCEEDED.value,
+            }
+        ],
     )
-    pod.status.phase = KubernetesPodPhase.SUCCEEDED.value
-    await mock_kubernetes.create_namespaced_event(namespace, event)
 
 
 @pytest.mark.asyncio

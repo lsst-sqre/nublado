@@ -11,11 +11,6 @@ import asyncio
 from datetime import timedelta
 
 import pytest
-from kubernetes_asyncio.client import (
-    CoreV1Event,
-    V1ObjectMeta,
-    V1ObjectReference,
-)
 from safir.testing.kubernetes import MockKubernetesApi
 
 from jupyterlabcontroller.config import Config
@@ -152,31 +147,29 @@ async def test_reconcile_pending(
     # Start the background processing. It should discover the pod on reconcile
     # and put it into pending status.
     await factory.start_background_services()
+    await asyncio.sleep(0.1)
     state = await factory.lab_state.get_lab_state(user.username)
     assert state.status == LabStatus.PENDING
     assert state.dict() == expected.dict()
 
     # Change the pod status and post an event. This should cause the
     # background monitoring task to pick up the change and convert the pod
-    # status to running. Wait a bit before doing this to make sure the first
-    # reconciliation pass has finished.
-    await asyncio.sleep(0.1)
-    pod_name = f"nb-{user.username}"
-    namespace = f"userlabs-{user.username}"
-    pod = await mock_kubernetes.read_namespaced_pod(pod_name, namespace)
-    pod.status.phase = KubernetesPodPhase.RUNNING.value
-    event = CoreV1Event(
-        metadata=V1ObjectMeta(name=f"{pod_name}-start", namespace=namespace),
-        message=f"Pod {pod_name} started",
-        involved_object=V1ObjectReference(
-            kind="Pod", name=pod_name, namespace=namespace
-        ),
+    # status to running.
+    await mock_kubernetes.patch_namespaced_pod_status(
+        f"nb-{user.username}",
+        f"userlabs-{user.username}",
+        [
+            {
+                "op": "replace",
+                "path": "/status/phase",
+                "value": KubernetesPodPhase.RUNNING.value,
+            }
+        ],
     )
-    await mock_kubernetes.create_namespaced_event(namespace, event)
 
     # Wait a little bit for the task to pick up the change and then check to
     # make sure the status updated.
-    await asyncio.sleep(0.6)
+    await asyncio.sleep(0.1)
     state = await factory.lab_state.get_lab_state(user.username)
     expected.status = LabStatus.RUNNING
     assert state.dict() == expected.dict()
