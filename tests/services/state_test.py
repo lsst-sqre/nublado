@@ -176,7 +176,7 @@ async def test_reconcile_pending(
 
     # Wait a little bit for the task to pick up the change and then check to
     # make sure the status updated.
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0.6)
     state = await factory.lab_state.get_lab_state(user.username)
     expected.status = LabStatus.RUNNING
     assert state.dict() == expected.dict()

@@ -7,6 +7,7 @@ from typing import Optional
 
 from aiojobs import Scheduler
 from kubernetes_asyncio.client import V1Container, V1OwnerReference, V1PodSpec
+from safir.datetime import current_datetime
 from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
@@ -158,6 +159,7 @@ class Prepuller:
         namespace = self._namespace
         logger = self._logger.bind(pod=name, namespace=namespace)
         logger.debug(f"Prepulling {image.tag} on {node}")
+        start = current_datetime()
         try:
             await self._k8s_client.create_pod(
                 name=name,
@@ -166,11 +168,12 @@ class Prepuller:
                 owner=self._prepull_pod_owner(),
                 remove_on_conflict=True,
             )
-            async for event in self._k8s_client.wait_for_pod(name, namespace):
-                logger.debug(f"Saw pod event: {event.message}")
-                if event.error:
-                    logger.error(f"Error in prepuller pod: {event.error}")
+            await self._k8s_client.wait_for_pod(name, namespace)
             await self._k8s_client.remove_completed_pod(name, namespace)
+        except TimeoutError:
+            delay = int((current_datetime() - start).total_seconds())
+            msg = f"Timed out prepulling {image.tag} on {node} after {delay}s"
+            logger.warning(msg)
         except Exception as e:
             self._logger.exception(f"Failed to prepull {image.tag} on {node}")
             if self._slack_client:

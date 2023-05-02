@@ -319,17 +319,10 @@ async def test_delayed_spawn(
     )
     await mock_kubernetes.create_namespaced_event(namespace, event)
 
-    # Change the pod status to running and add another event.
+    # Change the pod status to running. Do not create another event;
+    # apparently Kubernetes doesn't create events when pods change phase.
     await asyncio.sleep(0.1)
     pod.status.phase = KubernetesPodPhase.RUNNING.value
-    event = CoreV1Event(
-        metadata=V1ObjectMeta(name=f"{name}-start", namespace=namespace),
-        message=f"Pod {name} started",
-        involved_object=V1ObjectReference(
-            kind="Pod", name=name, namespace=namespace
-        ),
-    )
-    await mock_kubernetes.create_namespaced_event(namespace, event)
 
     # The listeners should now complete successfully and we should see
     # appropriate events.
@@ -353,15 +346,6 @@ async def test_delayed_spawn(
                     {
                         "message": "Mounting all the things",
                         "progress": 48,
-                    }
-                ),
-                "event": "info",
-            },
-            {
-                "data": json.dumps(
-                    {
-                        "message": f"Pod nb-{user.username} started",
-                        "progress": 57,
                     }
                 ),
                 "event": "info",
