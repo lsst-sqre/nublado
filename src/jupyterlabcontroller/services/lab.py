@@ -43,6 +43,7 @@ from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.rspimage import RSPImage
 from ..models.v1.lab import (
     LabSpecification,
+    LabStatus,
     UserInfo,
     UserLabState,
     UserResourceQuantum,
@@ -120,15 +121,18 @@ class LabManager:
             tag = lab.options.image_tag
             image = await self._image_service.image_for_tag_name(tag)
 
+        # Check to see if the lab already exists. If so, but it is in a failed
+        # state, delete it first.
+        status = await self._lab_state.get_lab_status(user.username)
+        delete_first = status == LabStatus.FAILED
+
         # Start the spawning process. This also checks for conflicts and
-        # raises an exception if the lab already exists. A LabManager is
-        # per-request, so the management of the background task that does the
-        # lab spawning (which outlasts the request that kicks it off) is
-        # handed off to LabStateManager here.
+        # raises an exception if the lab already exists and is not in a failed
+        # state.
         #
-        # FIXME: Handle labs in failed state, which should be removed before
-        # starting to create a new lab.
-        self._logger.info("Creating new lab")
+        # A LabManager is per-request, so the management of the background
+        # task that does the lab spawning (which outlasts the request that
+        # kicks it off) is handed off to LabStateManager here.
         await self._lab_state.start_lab(
             username=user.username,
             state=UserLabState.new_from_user_resources(
@@ -136,17 +140,26 @@ class LabManager:
                 labspec=lab,
                 resources=self._size_manager.resources(lab.options.size),
             ),
-            spawner=partial(self._spawn_lab, user, token, lab, image),
+            spawner=partial(
+                self._spawn_lab,
+                user=user,
+                token=token,
+                lab=lab,
+                image=image,
+                delete_first=delete_first,
+            ),
             start_progress=35,
             end_progress=75,
         )
 
     async def _spawn_lab(
         self,
+        *,
         user: UserInfo,
         token: str,
         lab: LabSpecification,
         image: RSPImage,
+        delete_first: bool,
     ) -> str:
         """Do the work of creating a user's lab.
 
@@ -166,6 +179,8 @@ class LabManager:
             Specification for the lab environment to create.
         image
             Docker image to run as the lab.
+        delete_first
+            Whether there is an existing lab that needs to be deleted first.
 
         Returns
         -------
@@ -176,11 +191,19 @@ class LabManager:
         username = user.username
         namespace = self.namespace_from_user(username)
 
-        # This process has three stages. First, create or recreate the user's
-        # namespace.
+        # Delete an existing failed lab first if needed.
+        if delete_first:
+            self._logger.info("Deleting existing failed lab")
+            await self._lab_state.publish_event(
+                username, f"Deleting existing failed lab for {username}", 2
+            )
+            await self._delete_lab_and_namespace(username, 3, 9)
+
+        # This process has three stages. First, create the user's namespace.
+        self._logger.info("Creating new lab")
         await self.k8s_client.create_user_namespace(namespace)
         await self._lab_state.publish_event(
-            username, "Created user namespace", 5
+            username, "Created user namespace", 10
         )
 
         # Second, create all the supporting resources the lab pod will need.
@@ -810,10 +833,12 @@ class LabManager:
         UnknownUserError
             Raised if no lab currently exists for this user.
         """
-        callback = partial(self._delete_lab_and_namespace, username)
+        callback = partial(self._delete_lab_and_namespace, username, 25, 100)
         await self._lab_state.stop_lab(username, callback)
 
-    async def _delete_lab_and_namespace(self, username: str) -> None:
+    async def _delete_lab_and_namespace(
+        self, username: str, start_progress: int, end_progress: int
+    ) -> None:
         """Delete the user's lab and namespace.
 
         Currently, this just deletes the namespace and lets that delete the
@@ -825,12 +850,16 @@ class LabManager:
         ----------
         username
             Username of lab to delete.
+        start_progress
+            Initial progress percentage.
+        end_progress
+            Final progress percentage.
         """
         namespace = self.namespace_from_user(username)
         message = f"Deleting namespace for {username}"
-        await self._lab_state.publish_event(username, message, 25)
+        await self._lab_state.publish_event(username, message, start_progress)
         await self.k8s_client.delete_namespace(namespace)
         await self.k8s_client.wait_for_namespace_deletion(namespace)
         message = f"Lab for {username} deleted"
-        await self._lab_state.publish_event(username, message, 100)
+        await self._lab_state.publish_event(username, message, end_progress)
         self._logger.info("Lab deleted")

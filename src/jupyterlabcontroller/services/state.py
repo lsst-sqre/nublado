@@ -186,6 +186,26 @@ class LabStateManager:
                 lab.state.status = LabStatus.FAILED
         return lab.state
 
+    async def get_lab_status(self, username: str) -> LabStatus | None:
+        """Get lab status for a user.
+
+        Parameters
+        ----------
+        username
+            Username to retrieve lab status for.
+
+        Returns
+        -------
+        LabStatus or None
+            Status of lab for that user, or `None` if that user doesn't have a
+            lab.
+        """
+        try:
+            state = await self.get_lab_state(username)
+            return state.status
+        except UnknownUserError:
+            return None
+
     async def list_lab_users(self, only_running: bool = False) -> list[str]:
         """List all users with labs.
 
@@ -301,13 +321,17 @@ class LabStateManager:
         Raises
         ------
         LabExistsError
-            Raised if this user already has a lab (in any state).
+            Raised if this user already has a lab with a status other than
+            failed. If the current status is failed, assume the spawner will
+            recreate it.
         """
         if username in self._labs:
-            msg = f"Lab for {username} already exists"
-            completion_event = Event(message=msg, type=EventType.COMPLETE)
-            await self._add_event(username, completion_event)
-            raise LabExistsError(f"Lab already exists for {username}")
+            lab = self._labs[username]
+            if lab.state.status != LabStatus.FAILED:
+                msg = f"Lab for {username} already exists"
+                completion_event = Event(message=msg, type=EventType.COMPLETE)
+                await self._add_event(username, completion_event)
+                raise LabExistsError(f"Lab already exists for {username}")
         self._labs[username] = UserLab(state=state)
         task = asyncio.create_task(
             self._spawn(username, spawner, start_progress, end_progress)
