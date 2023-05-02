@@ -33,7 +33,7 @@ from kubernetes_asyncio.client import (
 from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
-from ..exceptions import KubernetesError, MissingSecretError
+from ..exceptions import KubernetesError, MissingObjectError
 from ..models.domain.kubernetes import (
     KubernetesNodeImage,
     KubernetesPodEvent,
@@ -368,7 +368,12 @@ class K8sStorageClient:
             key = spec.secret_key
             if key not in secret_data[spec.secret_name]:
                 name = f"{source_namespace}/{spec.secret_name}"
-                raise MissingSecretError(f"No key {key} in {name}")
+                raise MissingObjectError(
+                    f"No key {key} in secret {name}",
+                    kind="Secret",
+                    name=spec.secret_name,
+                    namespace=source_namespace,
+                )
             if key in data:
                 # Should be impossible due to the validator on our
                 # configuration, which should check for conflicts.
@@ -412,8 +417,12 @@ class K8sStorageClient:
         except ApiException as e:
             if e.status == 404:
                 logger.error("Secret does not exist")
-                msg = f"Secret {namespace}/{name} does not exist"
-                raise MissingSecretError(msg)
+                raise MissingObjectError(
+                    message=f"Secret {namespace}/{name} does not exist",
+                    kind="Secret",
+                    name=name,
+                    namespace=namespace,
+                )
             else:
                 raise KubernetesError.from_exception(
                     "Error reading secret", e, namespace=namespace, name=name
