@@ -754,9 +754,9 @@ class K8sStorageClient:
                 self._logger.debug(msg, name=name, namespace=namespace)
                 return None
             raise KubernetesError.from_exception(
-                "Error reading pod status", e, namespace=namespace, name=name
+                "Error reading pod phase", e, namespace=namespace, name=name
             ) from e
-        msg = f"Pod status is {pod.status.phase}"
+        msg = f"Pod phase is {pod.status.phase}"
         self._logger.debug(msg, name=name, namespace=namespace)
         return pod.status.phase
 
