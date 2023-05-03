@@ -141,7 +141,9 @@ async def test_lab_start_stop(
         "env": lab.env,
         "gid": user.gid,
         "groups": user.dict()["groups"],
-        "internal_url": f"http://lab.userlabs-{user.username}:8888",
+        "internal_url": (
+            f"http://lab.userlabs-{user.username}:8888/nb/user/rachel/"
+        ),
         "name": user.name,
         "options": expected_options,
         "pod": "present",

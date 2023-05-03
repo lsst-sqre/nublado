@@ -66,8 +66,7 @@
   ],
   "env": [
     {
-      "HOME": "/home/ceres",
-      "SHELL": "/bin/bash"
+      "JUPYTERHUB_SERVICE_PREFIX": "/nb/user/rachel/"
     }
   ],
   "user_options": [
@@ -83,8 +82,7 @@
 	"size": "small"
       },
       "env": {
-	"HOME": "/home/ceres",
-	"SHELL": "/bin/bash"
+        "JUPYTERHUB_SERVICE_PREFIX": "/nb/user/rachel/"
       }
     }
 

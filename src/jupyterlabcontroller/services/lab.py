@@ -230,7 +230,7 @@ class LabManager:
         )
 
         # Return the URL where the lab will be listening after it starts.
-        return f"http://lab.{namespace}:8888"
+        return self._get_lab_url(user.username, lab)
 
     async def create_secrets(
         self, username: str, token: str, namespace: str
@@ -863,3 +863,26 @@ class LabManager:
         message = f"Lab for {username} deleted"
         await self._lab_state.publish_event(username, message, end_progress)
         self._logger.info("Lab deleted")
+
+    def _get_lab_url(self, username: str, lab: LabSpecification) -> str:
+        """Determine the URL of a newly-spawned lab.
+
+        The hostname and port are fixed to match the Kubernetes ``Service`` we
+        create, but the local part is normally determined by an environment
+        variable passed from JupyterHub.
+
+        Parameters
+        ----------
+        username
+            Username of lab user.
+        lab
+            Lab specification from JupyterHub.
+
+        Returns
+        -------
+        str
+            URL of the newly-spawned lab.
+        """
+        namespace = self.namespace_from_user(username)
+        path = lab.env["JUPYTERHUB_SERVICE_PREFIX"]
+        return f"http://lab.{namespace}:8888" + path
