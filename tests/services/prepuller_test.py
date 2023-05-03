@@ -21,6 +21,7 @@ from kubernetes_asyncio.client import (
     V1ObjectReference,
     V1Pod,
 )
+from safir.testing.kubernetes import MockKubernetesApi, strip_none
 from safir.testing.slack import MockSlackWebhook
 
 from jupyterlabcontroller.config import Config
@@ -37,7 +38,6 @@ from ..support.data import (
 )
 from ..support.docker import MockDockerRegistry
 from ..support.gar import MockArtifactRegistry
-from ..support.kubernetes import MockKubernetesApi, strip_none
 
 
 async def mark_pod_complete(

@@ -19,6 +19,6 @@ google-cloud-artifact-registry
 httpx
 jinja2
 PyYAML
-safir[kubernetes]>=3.3.0
+safir[kubernetes]>=4.0.0
 semver
 sse-starlette

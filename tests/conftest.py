@@ -11,6 +11,7 @@ import respx
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
+from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 
 from jupyterlabcontroller.config import Config
@@ -24,7 +25,6 @@ from .support.constants import TEST_BASE_URL
 from .support.docker import MockDockerRegistry, register_mock_docker
 from .support.gafaelfawr import MockGafaelfawr, register_mock_gafaelfawr
 from .support.gar import MockArtifactRegistry, patch_artifact_registry
-from .support.kubernetes import MockKubernetesApi, patch_kubernetes
 
 
 @pytest.fixture(scope="session")
