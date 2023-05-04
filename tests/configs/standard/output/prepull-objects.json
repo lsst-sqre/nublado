@@ -20,7 +20,8 @@
           "name": "nublado-controller",
           "uid": "12720beb-ecae-452e-982e-2f0a0a2fbaf1"
         }
-      ]
+      ],
+      "resource_version": "1"
     },
     "spec": {
       "containers": [

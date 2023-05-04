@@ -205,6 +205,7 @@ class K8sStorageClient:
         watch_args = {
             "namespace": namespace,
             "field_selector": f"involvedObject.name={pod_name}",
+            "resource_version": "0",
             "timeout_seconds": int(self._spawn_timeout.total_seconds()),
             "_request_timeout": self._timeout,
         }
