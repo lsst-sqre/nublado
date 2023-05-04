@@ -138,7 +138,8 @@
         "app": "lab"
       },
       "name": "nb-rachel",
-      "namespace": "userlabs-rachel"
+      "namespace": "userlabs-rachel",
+      "resource_version": "1"
     },
     "spec": {
       "containers": [
