@@ -41,3 +41,26 @@ class SizeManager:
                 memory=int(memory / LIMIT_TO_REQUEST_RATIO),
             ),
         )
+
+    def size_from_resources(self, resources: UserResources) -> LabSize:
+        """Determine the lab size given the resource constraints.
+
+        This is used by reconciliation of internal data against Kubernetes.
+
+        Parameters
+        ----------
+        resources
+            Discovered lab resources from Kubernetes.
+
+        Returns
+        -------
+        LabSize
+            The corresponding lab size if one of the known sizes matches. If
+            not, returns ``LabSize.custom``.
+        """
+        limits = resources.limits
+        for size, definition in self._sizes.items():
+            memory = memory_string_to_int(definition.memory)
+            if definition.cpu == limits.cpu and memory == limits.memory:
+                return size
+        return LabSize.CUSTOM

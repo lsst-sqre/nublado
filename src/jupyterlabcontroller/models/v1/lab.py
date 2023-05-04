@@ -1,9 +1,10 @@
-"""Models for jupyterlab-controller."""
+"""API-visible models for user lab environments."""
+
+from __future__ import annotations
 
 from enum import Enum
 from typing import Any, Optional, Self
 
-from kubernetes_asyncio.client.models import V1Pod
 from pydantic import BaseModel, Field, root_validator, validator
 
 from ...constants import (
@@ -11,7 +12,6 @@ from ...constants import (
     GROUPNAME_REGEX,
     USERNAME_REGEX,
 )
-from ...util import str_to_bool
 
 __all__ = [
     "ImageClass",
@@ -31,9 +31,11 @@ __all__ = [
 
 
 class LabSize(str, Enum):
-    """Allowable names for pod sizes."""
+    """Allowable names for pod sizes.
 
-    # https://www.d20srd.org/srd/combat/movementPositionAndDistance.htm#bigandLittleCreaturesInCombat
+    Taken from `d20 creature sizes`_.
+    """
+
     FINE = "fine"
     DIMINUTIVE = "diminutive"
     TINY = "tiny"
@@ -44,6 +46,13 @@ class LabSize(str, Enum):
     GARGANTUAN = "gargantuan"
     COLOSSAL = "colossal"
 
+    CUSTOM = "custom"
+    """A custom lab size.
+
+    Used for lab sizes of existing labs that don't match any of our
+    currently-configured sizes.
+    """
+
 
 class LabStatus(Enum):
     """Possible states the user's lab may be in."""
@@ -52,6 +61,33 @@ class LabStatus(Enum):
     RUNNING = "running"
     TERMINATING = "terminating"
     FAILED = "failed"
+
+    @classmethod
+    def from_phase(cls, phase: str) -> LabStatus:
+        """Convert a Kubernetes pod phase to a lab status.
+
+        Be aware that it is not possible to detect Kubernetes pods that are in
+        the process of being terminated by looking only at the phase
+        (``Terminating`` is not a pod phase). This method will return
+        ``RUNNING`` if the container is still running or ``FAILED`` if it has
+        stopped.
+
+        Parameters
+        ----------
+        phase
+            Kubernetes pod phase, from the ``Pod`` object.
+
+        Returns
+        -------
+        LabStatus
+            Corresponding lab status.
+        """
+        if phase == "Running":
+            return cls.RUNNING
+        elif phase == "Pending":
+            return cls.PENDING
+        else:
+            return cls.FAILED
 
 
 class PodState(Enum):
@@ -412,75 +448,4 @@ class UserLabState(UserInfo, LabSpecification):
         )
         ud.status = status
         ud.pod = pod
-        return ud
-
-    @classmethod
-    def from_pod(cls, pod: V1Pod) -> Self:
-        # We will extract everything from the discovered pod that we need
-        # to build a UserLabState entry.  Size and namespace quota may be
-        # incorrect, and group name information and user display name will
-        # be lost.
-        #
-        # We use this when reconciling the user map with the observed state
-        # of the world at startup.
-        podname = pod.metadata.name
-        nsname = pod.metadata.namespace
-        username = podname[3:]  # Starts with "nb-"
-        status = pod.status.phase.lower()
-        # pod_state = PodState.PRESENT
-        lab_ctr = [x for x in pod.spec.containers if x.name == "notebook"][0]
-        if not lab_ctr:
-            # try the first container instead...but lab should be "notebook"
-            lab_ctr = pod.spec.containers[0]
-            # So this will likely crash in extraction
-        lab_env_l = lab_ctr.env
-        lab_env = {}
-        for ev in lab_env_l:
-            lab_env[ev.name] = ev.value or ""  # We will miss reflected vals
-        uid = lab_ctr.security_context.run_as_user
-        gid = lab_ctr.security_context.run_as_group or uid
-        supp_gids = pod.spec.security_context.supplemental_groups or []
-        # Now extract enough to get our options and quotas rebuilt
-        mem_limit = int(lab_env.get("MEM_LIMIT", 3 * 2**20))
-        mem_request = int(mem_limit / 4)
-        cpu_limit = float(lab_env.get("CPU_LIMIT", 1.0))
-        cpu_request = float(lab_env.get("CPU_GUARANTEE", cpu_limit / 4))
-        opt_debug = str_to_bool(lab_env.get("DEBUG", ""))
-        opt_reference = lab_env.get("JUPYTER_IMAGE_SPEC", "unknown")
-        opt_reset_user_env = str_to_bool(lab_env.get("RESET_USER_ENV", ""))
-        opt_size = LabSize.SMALL  # We could try harder, but...
-        opts = UserOptions(
-            enable_debug=opt_debug,
-            image_dropdown=opt_reference,
-            reset_user_env=opt_reset_user_env,
-            size=opt_size,
-        )
-        # We can't recover the group names
-        groups = [UserGroup(name=f"g{x}", id=x) for x in supp_gids]
-        quota = UserQuota(
-            notebook=NotebookQuota(
-                cpu=cpu_limit, memory=mem_limit / (1024 * 1024 * 1024)
-            )
-        )
-        user_info = UserInfo(
-            username=username,
-            name=username,  # We can't recover the display name
-            uid=uid,
-            gid=gid,
-            groups=groups,
-            quota=quota,
-        )
-        lab_spec = LabSpecification(options=opts, env=lab_env)
-        resources = UserResources(
-            limits=UserResourceQuantum(memory=mem_limit, cpu=cpu_limit),
-            requests=UserResourceQuantum(memory=mem_request, cpu=cpu_request),
-        )
-        ud = cls.new_from_user_resources(
-            user=user_info,
-            labspec=lab_spec,
-            resources=resources,
-        )
-        ud.status = LabStatus(status)
-        ud.internal_url = f"http://lab.{nsname}:8888"
-        ud.pod = PodState.PRESENT
         return ud

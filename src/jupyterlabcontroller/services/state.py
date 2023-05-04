@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from typing import Optional
 
 from aiojobs import Scheduler
+from kubernetes_asyncio.client import V1Pod, V1ResourceQuota
 from safir.datetime import current_datetime
 from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
@@ -19,8 +21,20 @@ from ..exceptions import KubernetesError, LabExistsError, UnknownUserError
 from ..models.domain.kubernetes import KubernetesPodPhase
 from ..models.domain.lab import UserLab
 from ..models.v1.event import Event, EventType
-from ..models.v1.lab import LabStatus, PodState, UserLabState
+from ..models.v1.lab import (
+    LabStatus,
+    NotebookQuota,
+    PodState,
+    UserGroup,
+    UserLabState,
+    UserOptions,
+    UserQuota,
+    UserResourceQuantum,
+    UserResources,
+)
 from ..storage.k8s import K8sStorageClient
+from .builder import LabBuilder
+from .size import SizeManager
 
 __all__ = ["LabStateManager"]
 
@@ -52,11 +66,15 @@ class LabStateManager:
         *,
         config: LabConfig,
         kubernetes: K8sStorageClient,
+        size_manager: SizeManager,
+        lab_builder: LabBuilder,
         slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._kubernetes = kubernetes
+        self._size_manager = size_manager
+        self._builder = lab_builder
         self._slack = slack_client
         self._logger = logger
 
@@ -153,7 +171,7 @@ class LabStateManager:
         # Ask Kubernetes for the current state so that we catch pods that have
         # been evicted or shut down behind our back by the Kubernetes cluster.
         pod = f"nb-{username}"
-        namespace = f"{self._config.namespace_prefix}-{username}"
+        namespace = self._builder.namespace_for_user(username)
         try:
             phase = await self._kubernetes.get_pod_phase(pod, namespace)
         except KubernetesError as e:
@@ -408,7 +426,7 @@ class LabStateManager:
             self._logger.warning(msg)
             return
         await self._reconcile_lab_state()
-        self._logger.info("Starting user lab state reconciliation")
+        self._logger.info("Starting periodic reconciliation task")
         self._scheduler = Scheduler()
         await self._scheduler.spawn(self._refresh_loop())
         self._logger.info("Starting reaper for spawn monitoring tasks")
@@ -475,6 +493,151 @@ class LabStateManager:
         for trigger in triggers:
             trigger.set()
 
+    async def _recreate_lab_state(self, username: str) -> UserLabState | None:
+        """Recreate user lab state from Kubernetes.
+
+        Read the objects from an existing Kubernetes lab namespace and from
+        them reconstruct the user's lab state. This is used during
+        reconciliation and allows us to recreate internal state from whatever
+        currently exists in Kubernetes when the lab controller is restarted.
+
+        Parameters
+        ----------
+        username
+            User whose lab state should be recreated.
+
+        Returns
+        -------
+        UserLabState or None
+            Recreated lab state, or `None` if the user's lab environment did
+            not exist or could not be parsed.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if Kubernetes API calls fail for reasons other than the
+            resources not existing.
+        """
+        env_name = f"nb-{username}-env"
+        pod_name = f"nb-{username}"
+        quota_name = f"nb-{username}"
+        namespace = f"{self._config.namespace_prefix}-{username}"
+        logger = self._logger.bind(user=username, namespace=namespace)
+
+        # Retrieve objects from Kubernetes.
+        env_map = await self._kubernetes.get_config_map(env_name, namespace)
+        pod = await self._kubernetes.get_pod(pod_name, namespace)
+        quota = await self._kubernetes.get_quota(quota_name, namespace)
+
+        # If the ConfigMap or Pod don't exist, we don't have enough
+        # information to recreate state and will have to delete the namespace
+        # entirely.
+        if not env_map:
+            msg = f"No {env_name} ConfigMap for {username}"
+            logger.warning(msg, name=env_name)
+            return None
+        env = env_map.data
+        if not pod:
+            msg = f"No {pod_name} Pod for {username}"
+            self._logger.warning(msg, name=pod_name)
+            return None
+
+        # Gather the necessary information from the pod. If anything is
+        # missing or in an unexpected format, log an error and return None.
+        try:
+            lab_container = None
+            for container in pod.spec.containers:
+                if container.name == "notebook":
+                    lab_container = container
+                    break
+            if not lab_container:
+                raise ValueError('No container named "notebook"')
+            resources = UserResources(
+                limits=UserResourceQuantum(
+                    cpu=float(env["CPU_LIMIT"]),
+                    memory=int(env["MEM_LIMIT"]),
+                ),
+                requests=UserResourceQuantum(
+                    cpu=float(env["CPU_GUARANTEE"]),
+                    memory=int(env["MEM_GUARANTEE"]),
+                ),
+            )
+            options = UserOptions(
+                image_list=env["JUPYTER_IMAGE_SPEC"],
+                size=self._size_manager.size_from_resources(resources),
+                enable_debug=env.get("DEBUG", "FALSE") == "TRUE",
+                reset_user_env=env.get("RESET_USER_ENV", "FALSE") == "TRUE",
+            )
+            internal_url = self._builder.build_internal_url(username, env)
+            return UserLabState(
+                username=username,
+                name=pod.metadata.annotations.get("nublado.lsst.io/user-name"),
+                uid=lab_container.security_context.run_as_user,
+                gid=lab_container.security_context.run_as_group,
+                groups=self._recreate_groups(pod),
+                quota=self._recreate_quota(quota),
+                options=options,
+                env=self._builder.recreate_env(env),
+                status=LabStatus.from_phase(pod.status.phase),
+                pod=PodState.PRESENT,
+                internal_url=internal_url,
+                resources=resources,
+            )
+        except Exception as e:
+            error = f"{type(e).__name__}: {str(e)}"
+            logger.error(f"Invalid lab environment for {username}: {error}")
+            return None
+
+    def _recreate_groups(self, pod: V1Pod) -> list[UserGroup]:
+        """Recreate user group information from a Kubernetes ``Pod``.
+
+        The GIDs are stored as supplemental groups, but the names of the
+        groups go into the templating of the :file:`/etc/group` file and
+        aren't easy to extract. We therefore add a serialized version of the
+        group list as a pod annotation so that we can recover it during
+        reconciliation.
+
+        Parameters
+        ----------
+        pod
+            User lab pod.
+
+        Returns
+        -------
+        list of UserGroup
+            User's group information.
+        """
+        annotation = "nublado.lsst.io/user-groups"
+        groups = json.loads(pod.metadata.annotations.get(annotation, "[]"))
+        return [UserGroup.parse_obj(g) for g in groups]
+
+    def _recreate_quota(
+        self, resource_quota: V1ResourceQuota | None
+    ) -> UserQuota | None:
+        """Recreate the user's quota information from Kuberentes.
+
+        Parameters
+        ----------
+        resource_quota
+            Kubernetes ``ResourceQuota`` object, or `None` if there was none
+            for this user.
+
+        Returns
+        -------
+        UserQuota or None
+            Corresponding user quota object, or `None` if no resource quota
+            was found in Kubernetes.
+        """
+        if not resource_quota:
+            return None
+        memory = int(resource_quota.spec.hard["limits.memory"])
+        return UserQuota(
+            notebook=NotebookQuota(
+                cpu=float(resource_quota.spec.hard["limits.cpu"]),
+                memory=memory / 1024 / 1024 / 1024,
+            )
+        )
+
     async def _reap_spawners(self) -> None:
         """Wait for spawner tasks to complete and record their status.
 
@@ -518,14 +681,28 @@ class LabStateManager:
         """
         self._logger.info("Reconciling user lab state with Kubernetes")
         known_users = set(self._labs.keys())
-        observed = await self._kubernetes.get_observed_user_state(
-            self._config.namespace_prefix
-        )
+        prefix = self._config.namespace_prefix
+
+        # Gather information about all extant Kubernetes namespaces.
+        observed = {}
+        for namespace in await self._kubernetes.list_namespaces(prefix):
+            username = namespace.removeprefix(f"{prefix}-")
+            if username in self._labs and self._labs[username].task:
+                continue
+            state = await self._recreate_lab_state(username)
+            if state:
+                observed[username] = state
+            else:
+                if username in self._labs:
+                    continue
+                msg = f"Deleting incomplete namespace {namespace}"
+                self._logger.warning(msg, user=username)
+                await self._kubernetes.delete_namespace(namespace)
 
         # If the set of users we expected to see changed during
-        # reconciliation, we may be running into all sorts of race
-        # conditions. Just skip this background update; we'll catch any
-        # inconsistencies the next time around.
+        # reconciliation, we may be running into all sorts of race conditions.
+        # Just skip this background update; we'll catch any inconsistencies
+        # the next time around.
         if set(self._labs.keys()) != known_users:
             msg = "Known users changed during reconciliation, skipping"
             self._logger.info(msg)
@@ -534,7 +711,7 @@ class LabStateManager:
         # First pass: check all users already recorded in internal state
         # against Kubernetes and correct them (or remove them) if needed.
         for username, lab in list(self._labs.items()):
-            if lab.task is not None:
+            if lab.task:
                 continue
             if lab.state.status == LabStatus.FAILED:
                 continue
@@ -626,7 +803,7 @@ class LabStateManager:
             Progress percentage to stop at when the spawn is complete.
         """
         pod = f"nb-{username}"
-        namespace = f"{self._config.namespace_prefix}-{username}"
+        namespace = self._builder.namespace_for_user(username)
         progress = start_progress
         try:
             await self._clear_events(self._labs[username])

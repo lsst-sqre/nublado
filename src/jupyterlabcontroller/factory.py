@@ -17,6 +17,7 @@ from structlog.stdlib import BoundLogger
 from .config import Config
 from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
+from .services.builder import LabBuilder
 from .services.form import FormManager
 from .services.image import ImageService
 from .services.lab import LabManager
@@ -140,6 +141,8 @@ class ProcessContext:
             lab_state=LabStateManager(
                 config=config.lab,
                 kubernetes=k8s_client,
+                size_manager=SizeManager(config.lab.sizes),
+                lab_builder=LabBuilder(config.lab),
                 slack_client=slack_client,
                 logger=logger,
             ),
@@ -216,6 +219,15 @@ class Factory:
         request context.
         """
         return self._context.image_service
+
+    @property
+    def lab_state(self) -> LabStateManager:
+        """Global lab state manager, from the `ProcessContext`.
+
+        Only used by tests; handlers have access to the lab state manager via
+        the request context.
+        """
+        return self._context.lab_state
 
     @property
     def prepuller(self) -> Prepuller:
@@ -296,6 +308,7 @@ class Factory:
             instance_url=self._context.config.base_url,
             manager_namespace=self._context.config.lab.namespace_prefix,
             lab_state=self._context.lab_state,
+            lab_builder=LabBuilder(self._context.config.lab),
             image_service=self._context.image_service,
             size_manager=size_manager,
             logger=self._logger,
