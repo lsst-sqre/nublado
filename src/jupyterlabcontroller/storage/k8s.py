@@ -149,8 +149,14 @@ class K8sStorageClient:
                         name=podname,
                     ) from e
             phase = pod_status.phase
-            if phase == KubernetesPodPhase.SUCCEEDED:
-                logger.debug("Removing succeeded pod")
+            if phase not in (
+                KubernetesPodPhase.PENDING,
+                KubernetesPodPhase.RUNNING,
+            ):
+                if phase == KubernetesPodPhase.SUCCEEDED:
+                    logger.debug("Removing succeeded pod")
+                else:
+                    logger.warning(f"Removing pod in phase {phase}")
                 try:
                     await self.api.delete_namespaced_pod(podname, namespace)
                 except ApiException as e:
@@ -534,8 +540,30 @@ class K8sStorageClient:
         labels: Optional[dict[str, str]] = None,
         annotations: Optional[dict[str, str]] = None,
         owner: Optional[V1OwnerReference] = None,
+        remove_on_conflict: bool = False,
     ) -> None:
-        self._logger.debug("Creating pod", name=name, namespace=namespace)
+        """Create a new Kubernetes pod.
+
+        Parameters
+        ----------
+        name
+            Name of the pod.
+        namespace
+            Namespace of the pod.
+        pod_spec
+            ``spec`` portion of the pod.
+        labels
+            Additional labels to add to the pod.
+        annotations
+            Additional annotations to add to the pod.
+        owner
+            If set, add this owner reference.
+        remove_on_conflict
+            If `True` and another pod already exists with the same name,
+            delete it before creating this pod.
+        """
+        logger = self._logger.bind(name=name, namespace=namespace)
+        logger.debug("Creating pod")
         metadata = self._standard_metadata(name)
         if labels:
             metadata.labels.update(labels)
@@ -547,6 +575,15 @@ class K8sStorageClient:
         try:
             await self.api.create_namespaced_pod(namespace, pod)
         except ApiException as e:
+            if e.status == 409 and remove_on_conflict:
+                logger.warning("Pod already exists, removing")
+                await self.delete_pod(name, namespace)
+                try:
+                    await self.api.create_namespaced_pod(namespace, pod)
+                except ApiException as nested_exc:
+                    e = nested_exc
+                else:
+                    return
             raise KubernetesError.from_exception(
                 "Error creating pod",
                 e,
@@ -574,6 +611,30 @@ class K8sStorageClient:
                 f" {name} to be deleted"
             )
             raise WaitingForObjectError(msg)
+
+    async def delete_pod(self, name: str, namespace: str) -> None:
+        """Delete a pod.
+
+        Parameters
+        ----------
+        name
+            Name of the pod.
+        namespace
+            Namespace of the pod.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is a Kubernetes API error.
+        """
+        try:
+            await self.api.delete_namespaced_pod(name, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                return
+            raise KubernetesError.from_exception(
+                "Error deleting pod", e, namespace=namespace, name=name
+            ) from e
 
     async def get_image_data(self) -> dict[str, list[KubernetesNodeImage]]:
         """Get the list of cached images from each node.

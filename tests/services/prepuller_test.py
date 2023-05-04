@@ -335,3 +335,33 @@ async def test_kubernetes_error(
             ]
         },
     ]
+
+
+@pytest.mark.asyncio
+async def test_conflict(
+    factory: Factory,
+    config: Config,
+    mock_kubernetes: MockKubernetesApi,
+    std_result_dir: Path,
+) -> None:
+    """Test handling of conflicts with a pre-existing prepuller pod."""
+    namespace = config.lab.namespace_prefix
+    with (std_result_dir / "prepull-conflict-objects.json").open("r") as f:
+        expected = json.load(f)
+
+    # Create a pod with the same name as the prepull pod that the prepuller
+    # will want to create. Don't bother to try to make this a valid pod, just
+    # make it something good enough to be accepted by the mock.
+    pod = V1Pod(
+        metadata=V1ObjectMeta(
+            name=expected[0]["metadata"]["name"], namespace=namespace
+        )
+    )
+    await mock_kubernetes.create_namespaced_pod(namespace, pod)
+
+    # Now, start the prepuller and wait for it to kick off its first pods. It
+    # should replace our dummy pod with the proper pod without complaining.
+    await factory.start_background_services()
+    await asyncio.sleep(0.2)
+    pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
+    assert [strip_none(o.to_dict()) for o in pod_list.items] == expected
