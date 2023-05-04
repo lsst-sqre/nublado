@@ -178,7 +178,7 @@ async def test_gar(
         await asyncio.sleep(0.2)
         pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
         tag = known_images[1]["tags"][0].replace("_", "-")
-        assert [o.metadata.name for o in pod_list.items] == [
+        assert sorted(o.metadata.name for o in pod_list.items) == [
             f"prepull-{tag}-node1",
             f"prepull-{tag}-node2",
         ]
