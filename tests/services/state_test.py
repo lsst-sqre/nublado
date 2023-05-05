@@ -7,24 +7,58 @@ state with Kubernetes.
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
+from kubernetes_asyncio.client import (
+    CoreV1Event,
+    V1ObjectMeta,
+    V1ObjectReference,
+)
 from safir.testing.kubernetes import MockKubernetesApi
 
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.models.domain.docker import DockerReference
-from jupyterlabcontroller.models.v1.lab import LabStatus, PodState
+from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
+from jupyterlabcontroller.models.v1.lab import (
+    LabStatus,
+    PodState,
+    UserLabState,
+)
 
 from ..settings import TestObjectFactory
 
 
-@pytest.mark.asyncio
-async def test_reconcile(
+async def create_lab(
     config: Config,
     factory: Factory,
     obj_factory: TestObjectFactory,
     mock_kubernetes: MockKubernetesApi,
-) -> None:
+) -> UserLabState:
+    """Create a lab for the default test user.
+
+    This matches the behavior of the lab manager, but works below the level of
+    the lab manager and the lab state manager. It is used to simulate labs
+    that were already created when the lab controller started, and should be
+    analyzed for reconciliation.
+
+    Parameters
+    ----------
+    config
+        Application configuration
+    factory
+        Component factory.
+    obj_factory
+        Test data source.
+    mock_kubernetes
+        Mock Kubernetes API.
+
+    Returns
+    -------
+    UserLabState
+        Expected state corresponding to the created lab.
+    """
     for secret in obj_factory.secrets:
         await mock_kubernetes.create_namespaced_secret(
             config.lab.namespace_prefix, secret
@@ -55,6 +89,34 @@ async def test_reconcile(
     await lab_manager.create_lab_service(user)
     await lab_manager.create_user_pod(user, resources, image)
 
+    return UserLabState(
+        env=lab.env,
+        gid=user.gid,
+        groups=user.groups,
+        internal_url=(
+            f"http://lab.userlabs-{user.username}:8888/nb/user/rachel/"
+        ),
+        name=user.name,
+        options=lab.options,
+        pod=PodState.PRESENT,
+        quota=user.quota,
+        resources=resources,
+        status=LabStatus.from_phase(mock_kubernetes.initial_pod_phase),
+        uid=user.uid,
+        username=user.username,
+    )
+
+
+@pytest.mark.asyncio
+async def test_reconcile(
+    config: Config,
+    factory: Factory,
+    obj_factory: TestObjectFactory,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    expected = await create_lab(config, factory, obj_factory, mock_kubernetes)
+    _, user = obj_factory.get_user()
+
     # The lab state manager should think there are no labs.
     assert await factory.lab_state.list_lab_users() == []
 
@@ -67,21 +129,53 @@ async def test_reconcile(
     # of its state.
     assert await factory.lab_state.list_lab_users() == [user.username]
     state = await factory.lab_state.get_lab_state(user.username)
-    assert state.dict() == {
-        "env": lab.env,
-        "gid": user.gid,
-        "groups": user.dict()["groups"],
-        "internal_url": (
-            f"http://lab.userlabs-{user.username}:8888/nb/user/rachel/"
-        ),
-        "name": user.name,
-        "options": lab.options.dict(),
-        "pod": PodState.PRESENT,
-        "quota": {"api": {}, "notebook": {"cpu": 9.0, "memory": 27.0}},
-        "resources": resources.dict(),
-        "status": LabStatus.RUNNING,
-        "uid": user.uid,
-        "username": user.username,
-    }
+    assert state.dict() == expected.dict()
     status = await factory.lab_state.get_lab_status(user.username)
     assert status == LabStatus.RUNNING
+
+
+@pytest.mark.asyncio
+async def test_reconcile_pending(
+    config: Config,
+    factory: Factory,
+    obj_factory: TestObjectFactory,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    mock_kubernetes.initial_pod_phase = KubernetesPodPhase.PENDING.value
+    expected = await create_lab(config, factory, obj_factory, mock_kubernetes)
+    _, user = obj_factory.get_user()
+
+    # The lab state manager shouldn't know about the pod to start with.
+    assert await factory.lab_state.list_lab_users() == []
+
+    # Start the background processing. It should discover the pod on reconcile
+    # and put it into pending status.
+    await factory.start_background_services()
+    state = await factory.lab_state.get_lab_state(user.username)
+    assert state.status == LabStatus.PENDING
+    assert state.dict() == expected.dict()
+
+    # Change the pod status and post an event. This should cause the
+    # background monitoring task to pick up the change and convert the pod
+    # status to running. Wait a bit before doing this to make sure the first
+    # reconciliation pass has finished.
+    await asyncio.sleep(0.1)
+    pod_name = f"nb-{user.username}"
+    namespace = f"userlabs-{user.username}"
+    pod = await mock_kubernetes.read_namespaced_pod(pod_name, namespace)
+    pod.status.phase = KubernetesPodPhase.RUNNING.value
+    event = CoreV1Event(
+        metadata=V1ObjectMeta(name=f"{pod_name}-start", namespace=namespace),
+        message=f"Pod {pod_name} started",
+        involved_object=V1ObjectReference(
+            kind="Pod", name=pod_name, namespace=namespace
+        ),
+    )
+    await mock_kubernetes.create_namespaced_event(namespace, event)
+
+    # Wait a little bit for the task to pick up the change and then check to
+    # make sure the status updated.
+    await asyncio.sleep(0.1)
+    state = await factory.lab_state.get_lab_state(user.username)
+    expected.status = LabStatus.RUNNING
+    assert state.dict() == expected.dict()
