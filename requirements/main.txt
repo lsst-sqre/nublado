@@ -115,7 +115,7 @@ multidict==6.0.4
     #   yarl
 proto-plus==1.22.2
     # via google-cloud-artifact-registry
-protobuf==4.22.3
+protobuf==4.22.4
     # via
     #   google-api-core
     #   google-cloud-artifact-registry
@@ -150,7 +150,7 @@ requests==2.30.0
     # via google-api-core
 rsa==4.9
     # via google-auth
-safir @ git+https://github.com/lsst-sqre/safir@tickets/DM-38795
+safir @ git+https://github.com/lsst-sqre/safir@main
     # via -r requirements/main.in
 semver==3.0.0
     # via -r requirements/main.in
