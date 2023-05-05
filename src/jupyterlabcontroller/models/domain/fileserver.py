@@ -1,6 +1,5 @@
-"""Models for the fileserver state.  Note that the reason its methods are
-async is that this will eventually be replaced by an implementation in
-Redis."""
+"""Models for the fileserver state.  Async because eventually this is going
+to use Redis.  Locking will be managed external to the user map."""
 
 
 class FileserverUserMap:
@@ -21,6 +20,3 @@ class FileserverUserMap:
             del self._dict[key]
         except KeyError:
             pass
-
-    async def bulk_update(self, new: dict[str, bool]) -> None:
-        self._dict = new

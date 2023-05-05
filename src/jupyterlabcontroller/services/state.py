@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections import defaultdict
 from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from typing import Optional
 
@@ -1010,19 +1011,26 @@ class FileserverStateManager:
         self._namespace_checked = False
         self._k8s_client = kubernetes
         self._logger = logger
+        # This maps usernames to locks, so we have a lock per user, and
+        # if there is no lock for that user, requesting one gets you a
+        # new lock.
+        self._lock: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
         self._user_map = FileserverUserMap()
-        self._reconciler = FileserverReconciler(
-            config=config,
-            user_map=self._user_map,
-            logger=logger,
-            k8s_client=kubernetes,
-        )
         self._manager = FileserverManager(
             config=config,
             user_map=self._user_map,
             logger=logger,
             k8s_client=kubernetes,
             slack_client=slack_client,
+            lock=self._lock,
+        )
+        self._reconciler = FileserverReconciler(
+            config=config,
+            user_map=self._user_map,
+            logger=logger,
+            k8s_client=kubernetes,
+            lock=self._lock,
+            manager=self._manager,
         )
 
     async def _preflight_check(self) -> None:
@@ -1032,9 +1040,6 @@ class FileserverStateManager:
             if not await self._k8s_client.check_namespace(
                 self._config.fileserver.namespace
             ):
-                self._logger.error(
-                    f"WTF: fileserver_config {self._config.fileserver}"
-                )
                 raise MissingObjectError(
                     message=(
                         "No namespace "

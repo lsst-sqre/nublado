@@ -40,73 +40,6 @@ FileserverStateManager that created them.
 """
 
 
-class FileserverReconciler:
-    def __init__(
-        self,
-        *,
-        config: Config,
-        user_map: FileserverUserMap,
-        logger: BoundLogger,
-        k8s_client: K8sStorageClient,
-    ) -> None:
-        self.fs_namespace = config.fileserver.namespace
-        self.user_map = user_map
-        self.k8s_client = k8s_client
-        self._logger = logger
-        self._tasks: Set[asyncio.Task] = set()
-        self._started = False
-        self._builder = LabBuilder(config=config.lab)
-
-    async def start(self) -> None:
-        if self._started:
-            msg = "Fileserver reconciliation already running; cannot start"
-            self._logger.warning(msg)
-            return
-        self._started = True
-        self._logger.info("Starting fileserver reconciliation")
-        reconciliation_task = asyncio.create_task(self._reconciliation_loop())
-        self._tasks.add(reconciliation_task)
-        reconciliation_task.add_done_callback(self._tasks.discard)
-
-    async def _reconciliation_loop(self) -> None:
-        while self._started:
-            await self.reconcile_user_map()
-            await asyncio.sleep(
-                FILESERVER_RECONCILIATION_INTERVAL.total_seconds()
-            )
-
-    async def stop(self) -> None:
-        # If you call this when it's already stopped or stopping it doesn't
-        # care.  There might be a race condition on self._tasks at that
-        # point, though.
-        self._started = False
-        for tsk in self._tasks:
-            tsk.cancel()
-
-    async def reconcile_user_map(self) -> None:
-        self._logger.debug("Reconciling fileserver user map")
-        namespace = self.fs_namespace
-        mapped_users = set(await self.user_map.list_users())
-        observed_map = await self.k8s_client.get_observed_fileserver_state(
-            namespace
-        )
-        # Tidy up any no-longer-running users.  They aren't running, but they
-        # might have some objects remaining.
-        observed_users = set(observed_map.keys())
-        missing_users = mapped_users - observed_users
-        if missing_users:
-            self._logger.info(
-                f"Users {missing_users} have broken fileservers; removing."
-            )
-        for user in missing_users:
-            await self.k8s_client.remove_fileserver(user, namespace)
-        # No need to create anything else for new ones--we know they're
-        # running.
-        await self.user_map.bulk_update(observed_map)
-        self._logger.debug("Filserver user map reconciliation complete")
-        self._logger.debug(f"Users with fileservers: {observed_users}")
-
-
 class FileserverManager:
     def __init__(
         self,
@@ -115,11 +48,13 @@ class FileserverManager:
         logger: BoundLogger,
         config: Config,
         k8s_client: K8sStorageClient,
+        lock: dict[str, asyncio.Lock],
         slack_client: Optional[SlackWebhookClient] = None,
     ) -> None:
         self.config = config
-        self.fs_namespace = config.fileserver.namespace
+        self.namespace = config.fileserver.namespace
         self.user_map = user_map
+        self._lock = lock
         self._logger = logger
         self.k8s_client = k8s_client
         self._tasks: Set[asyncio.Task] = set()
@@ -137,7 +72,7 @@ class FileserverManager:
         if not (
             await self.user_map.get(username)
             and await self.k8s_client.check_fileserver_present(
-                username, self.fs_namespace
+                username, self.namespace
             )
         ):
             try:
@@ -149,7 +84,6 @@ class FileserverManager:
                 )
                 await self.delete_fileserver(username)
                 raise
-            await self.user_map.set(username)
         return
 
     async def _create_fileserver(self, user: UserInfo) -> None:
@@ -157,20 +91,45 @@ class FileserverManager:
         operational.  If we can't build it, raise an error.
         """
         username = user.username
-        self._logger.info(f"Creating new fileserver for {username}")
-        namespace = self.fs_namespace
-        job = self._build_fileserver_job(user)
-        gf_ingress = self._build_fileserver_ingress(user.username)
-        service = self._build_fileserver_service(user.username)
-        # We put this all in k8s_client so it can manage its own lock
-        # But that's dumb.  FIXME
-        await self.k8s_client.create_fileserver(
-            username=username,
-            namespace=namespace,
-            job=job,
-            service=service,
-            gf_ingress=gf_ingress,
-        )
+        async with self._lock[username]:
+            self._logger.info(f"Creating new fileserver for {username}")
+            namespace = self.namespace
+            gf_ingress = self._build_fileserver_ingress(user.username)
+            service = self._build_fileserver_service(user.username)
+            job = self._build_fileserver_job(user)
+            self._logger.debug(
+                "...creating new gafawelfawrfingress for " + username
+            )
+            await self.k8s_client.create_fileserver_gafaelfawringress(
+                username, namespace, spec=gf_ingress
+            )
+            self._logger.debug(f"...creating new job for {username}")
+            await self.k8s_client.create_fileserver_job(
+                username, namespace, job
+            )
+            self._logger.debug(f"...creating new service for {username}")
+            await self.k8s_client.create_fileserver_service(
+                username, namespace, spec=service
+            )
+            await self._wait_for_fileserver(username, namespace)
+            await self.user_map.set(username)
+
+    async def _wait_for_fileserver(
+        self, username: str, namespace: str
+    ) -> None:
+        # FIXME watch for events, don't poll.
+        timeout = 60.0
+        interval = 3.9
+        async with asyncio.timeout(timeout):
+            # FIXME use an event watch, not a poll?
+            while True:
+                good = await self.k8s_client.check_fileserver_present(
+                    username, namespace
+                )
+                if good:
+                    self._logger.info(f"Fileserver created for {username}")
+                    return
+                await asyncio.sleep(interval)
 
     def _build_metadata(self, username: str) -> V1ObjectMeta:
         """Construct metadata for the user's fileserver objects.
@@ -188,7 +147,7 @@ class FileserverManager:
         """
         return self.k8s_client.standard_metadata(
             name=f"{username}-fs",
-            namespace=self.fs_namespace,
+            namespace=self.namespace,
         )
 
     def _build_fileserver_job(self, user: UserInfo) -> V1Job:
@@ -342,7 +301,7 @@ class FileserverManager:
         apj = "argocd.argoproj.io"
         md_obj = {
             "name": obj_name,
-            "namespace": self.fs_namespace,
+            "namespace": self.namespace,
             "labels": {
                 f"{apj}/instance": "fileservers",
                 "lsst.io/category": "fileserver",
@@ -411,7 +370,92 @@ class FileserverManager:
         return service
 
     async def delete_fileserver(self, username: str) -> None:
-        if not await self.k8s_client.check_namespace(self.fs_namespace):
+        namespace = self.namespace
+        async with self._lock[username]:
+            await self.user_map.remove(username)
+            await self.k8s_client.delete_fileserver_gafaelfawringress(
+                username, namespace
+            )
+            await self.k8s_client.delete_fileserver_service(
+                username, namespace
+            )
+            await self.k8s_client.delete_fileserver_job(username, namespace)
+            # This next bit is what takes the time--the method does not
+            # return until the fileserver objects are gone.
+            await self.k8s_client.wait_for_fileserver_object_deletion(
+                username, namespace
+            )
+        del self._lock[username]
+
+
+class FileserverReconciler:
+    def __init__(
+        self,
+        *,
+        config: Config,
+        user_map: FileserverUserMap,
+        logger: BoundLogger,
+        k8s_client: K8sStorageClient,
+        lock: dict[str, asyncio.Lock],
+        manager: FileserverManager,
+    ) -> None:
+        self.fs_namespace = config.fileserver.namespace
+        self.user_map = user_map
+        self.k8s_client = k8s_client
+        self._lock = lock
+        self._logger = logger
+        self._manager = manager
+        self._tasks: Set[asyncio.Task] = set()
+        self._started = False
+        self._builder = LabBuilder(config=config.lab)
+
+    async def start(self) -> None:
+        if self._started:
+            msg = "Fileserver reconciliation already running; cannot start"
+            self._logger.warning(msg)
             return
-        await self.user_map.remove(username)
-        await self.k8s_client.remove_fileserver(username, self.fs_namespace)
+        self._started = True
+        self._logger.info("Starting fileserver reconciliation")
+        reconciliation_task = asyncio.create_task(self._reconciliation_loop())
+        self._tasks.add(reconciliation_task)
+        reconciliation_task.add_done_callback(self._tasks.discard)
+
+    async def _reconciliation_loop(self) -> None:
+        # FIXME this should be event/watch based, rather than polling.
+        while self._started:
+            await self.reconcile_user_map()
+            await asyncio.sleep(
+                FILESERVER_RECONCILIATION_INTERVAL.total_seconds()
+            )
+
+    async def stop(self) -> None:
+        # If you call this when it's already stopped or stopping it doesn't
+        # care.
+        self._started = False
+        for tsk in self._tasks:
+            tsk.cancel()
+
+    async def reconcile_user_map(self) -> None:
+        self._logger.debug("Reconciling fileserver user map")
+        namespace = self.fs_namespace
+        mapped_users = set(await self.user_map.list_users())
+        observed_map = await self.k8s_client.get_observed_fileserver_state(
+            namespace
+        )
+        # Tidy up any no-longer-running users.  They aren't running, but they
+        # might have some objects remaining.
+        observed_users = set(observed_map.keys())
+        missing_users = mapped_users - observed_users
+        if missing_users:
+            self._logger.info(
+                f"Users {missing_users} have broken fileservers; removing."
+            )
+        for user in missing_users:
+            await self._manager.delete_fileserver(user)
+        # No need to create anything else for new ones--we know they're
+        # running.
+        for user in observed_users:
+            async with self._lock[user]:
+                await self.user_map.set(user)
+        self._logger.debug("Filserver user map reconciliation complete")
+        self._logger.debug(f"Users with fileservers: {observed_users}")
