@@ -165,7 +165,8 @@ class ProcessContext:
         await self.image_service.start()
         await self.prepuller.start()
         await self.lab_state.start()
-        await self.fileserver_state.start()
+        if self.config.fileserver.enabled:
+            await self.fileserver_state.start()
 
     async def stop(self) -> None:
         """Clean up a process context.
@@ -173,7 +174,8 @@ class ProcessContext:
         Called during shutdown, or before recreating the process context using
         a different configuration.
         """
-        await self.fileserver_state.stop()
+        if self.config.fileserver.enabled:
+            await self.fileserver_state.stop()
         await self.prepuller.stop()
         await self.image_service.stop()
         await self.lab_state.stop()

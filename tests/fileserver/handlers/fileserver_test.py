@@ -6,39 +6,34 @@ from pathlib import Path
 
 import pytest
 from httpx import AsyncClient
-from kubernetes_asyncio.client import V1Ingress, V1Namespace, V1ObjectMeta
+from kubernetes_asyncio.client import V1Ingress, V1ObjectMeta
 from safir.testing.kubernetes import MockKubernetesApi
 
-from jupyterlabcontroller.factory import Factory
+from jupyterlabcontroller.config import Config
 
-from ..settings import TestObjectFactory
+from ...settings import TestObjectFactory
+from ...support.docker import MockDockerRegistry
 
 
 @pytest.mark.asyncio
 async def test_fileserver(
-    client: AsyncClient,
-    std_result_dir: Path,
-    factory: Factory,
-    obj_factory: TestObjectFactory,
+    mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
+    obj_factory: TestObjectFactory,
+    config: Config,
+    client: AsyncClient,
+    std_result_dir: str,
 ) -> None:
     token, user = obj_factory.get_user()
     name = user.username
-    namespace = "fileservers"
-    #
-    # Create a namespace for fileserver objects.  This actually gets done
-    # implicitly by the create_namespaced_ingress() below anyway, but let's
-    # make it explicit.
-    #
-    await mock_kubernetes.create_namespace(
-        V1Namespace(metadata=V1ObjectMeta(name=namespace))
-    )
+    namespace = config.fileserver.namespace
+
     r = await client.get("/nublado/fileserver/v1/users")
     # No fileservers yet.
     assert r.json() == []
     #
-    # Create an Ingress to match the GafaelfawrIngress.  In real life,
-    # the GafaelfawrIngress creation would trigger this.
+    # Create an Ingress to match the GafaelfawrIngress.  In real
+    # life, the GafaelfawrIngress creation would trigger this.
     await mock_kubernetes.create_namespaced_ingress(
         namespace=namespace,
         body=V1Ingress(
@@ -54,12 +49,13 @@ async def test_fileserver(
         },
     )
     assert r.status_code == 200
-    expected = (std_result_dir / "fileserver.txt").read_text()
+    expected = Path(Path(std_result_dir) / "fileserver.txt").read_text()
     assert r.text == expected
     # Check that it has showed up, via an admin route.
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == [user.username]
-    # Remove (by hand) the Ingress (again done automagically in real life)
+    # Remove (by hand) the Ingress (again done automagically
+    # in real life)
     await mock_kubernetes.delete_namespaced_ingress(
         name=f"{name}-fs", namespace=namespace
     )

@@ -7,7 +7,7 @@ from ..config import Config
 from ..constants import FILESERVER_TEMPLATE
 from ..dependencies.config import configuration_dependency
 from ..dependencies.context import RequestContext, context_dependency
-from ..exceptions import FileserverCreationError, PermissionDeniedError
+from ..exceptions import PermissionDeniedError
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 user_router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -15,7 +15,37 @@ user_router = APIRouter(route_class=SlackRouteErrorHandler)
 
 __all__ = ["router", "user_router"]
 
-# This router is really at the top level--there's no safir path prefix.
+# This router does not go under the safir path prefix, but under its own,
+# which by default is "" -- that is, user files are typically accessed as
+# "{{ base_url }}/files"
+
+# Note that we don't care what's after /files.
+
+# That's because the requesting user is identified by the header,
+# and if there is already a more specific ingress path, then that
+# ingress will handle the request and we will never see it.  That will be
+# the case if the user already has a running fileserver, since
+# /files/<username> will already be a (basic-auth) ingress for WebDAV.
+
+# So either the user went to just "/files", in which case we figure
+# out whether they need an ingress, and create it (and the backing
+# fileserver) if so, or they went to "/files/<themselves>" but there
+# is no ingress and backing fileserver, so we need to create it, or
+# they went to "/files/<someone-else>" and there is no ingress for
+# <someone-else>.  In the last case, we do exactly the same thing as
+# for "/files": determine whether they themselves have a fileserver'
+# and create it if it doesn't exist.
+
+# In all these cases, we provide documentation of how to use the created
+# fileserver.  This should eventually move into SquareOne and be nicely
+# styled.
+
+# Finally, if they go to "/files/<someone-else>" and there already
+# is an ingress (that is, someone-else already has a running fileserver)
+# then the user request will go there (and we will never see the request).
+# In that case, it's not our problem; in any event, they won't have a token
+# that lets them authenticate to WebDAV behind that ingress, so they can't
+# do anything nefarious.
 
 
 @user_router.get(
@@ -30,29 +60,6 @@ async def route_user(
     x_auth_request_user: str = Header(..., include_in_schema=False),
     x_auth_request_token: str = Header(..., include_in_schema=False),
 ) -> str:
-    """Note that we don't care what's after /files.
-
-    That's because the requesting user is identified by the header,
-    and if there is already a more specific ingress path, then that
-    ingress will handle the request and we will never see it.
-
-    So either the user went to just "/files", in which case we figure
-    out whether they need an ingress, and create it (and the backing
-    fileserver) if so, or they went to "/files/<themselves>" but there
-    is no ingress and backing fileserver, so we need to create it, or
-    they went to "/files/<someone-else>" and there is no ingress for
-    <someone-else>.  In the last case, we determine whether they
-    themselves have a fileserver and create it if it doesn't exist.
-
-    In all these cases, we provide documentation of how to use the created
-    fileserver.  This should eventually move into SquareOne and be nicely
-    styled.
-
-    Finally, if they go to "/files/<someone-else>" and there already
-    is an ingress then they will go there (and we will never see the
-    request), but they won't have a token that lets them authenticate
-    to WebDAV with it, so they can't do anything nefarious.
-    """
     username = x_auth_request_user
     gafaelfawr_client = context.factory.create_gafaelfawr_client()
     user = await gafaelfawr_client.get_user_info(x_auth_request_token)
@@ -62,14 +69,17 @@ async def route_user(
     # one)
     context.rebind_logger(user=username)
     fileserver_state = context.fileserver_state
+    # These assertions will always succeed, because we will not mount the
+    # handler or create a fileserver state without a fileserver config.
+    # Mypy doesn't know that.
+    assert config.fileserver is not None
+    assert fileserver_state is not None
     timeout = config.fileserver.timeout
     base_url = config.base_url
-    result = await fileserver_state.create(user)
-    if result:
-        return FILESERVER_TEMPLATE.format(
-            username=user.username, base_url=base_url, timeout=timeout
-        )
-    raise FileserverCreationError("Error creating fileserver")
+    await fileserver_state.create(user)
+    return FILESERVER_TEMPLATE.format(
+        username=user.username, base_url=base_url, timeout=timeout
+    )
 
 
 # The remaining endpoints are for administrative functions and can be
@@ -84,6 +94,12 @@ async def route_user(
 async def get_fileserver_users(
     context: RequestContext = Depends(context_dependency),
 ) -> list[str]:
+    # This assertion will always succeed, because we will not
+    # create a fileserver state without a fileserver config.  (Nor will we
+    # mount the route handler in the first place.)
+    # Mypy doesn't know that.
+    assert context.fileserver_state is not None
+
     return await context.fileserver_state.list()
 
 
@@ -97,4 +113,9 @@ async def remove_fileserver(
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     context.rebind_logger(user=username)
+    # This assertion will always succeed, because we will not
+    # create a fileserver state without a fileserver config.  (Nor will we
+    # mount the route handler in the first place.)
+    # Mypy doesn't know that.
+    assert context.fileserver_state is not None
     await context.fileserver_state.delete(username)

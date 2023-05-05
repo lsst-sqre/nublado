@@ -20,10 +20,8 @@ from kubernetes_asyncio.client import (
     V1EnvFromSource,
     V1EnvVar,
     V1EnvVarSource,
-    V1HostPathVolumeSource,
     V1KeyToPath,
     V1LocalObjectReference,
-    V1NFSVolumeSource,
     V1ObjectFieldSelector,
     V1PodSecurityContext,
     V1PodSpec,
@@ -38,7 +36,7 @@ from kubernetes_asyncio.client import (
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
-from ..config import FileMode, LabConfig, LabVolume
+from ..config import LabConfig
 from ..models.domain.docker import DockerReference
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.rspimage import RSPImage
@@ -56,9 +54,6 @@ from .builder import LabBuilder
 from .image import ImageService
 from .size import SizeManager
 from .state import LabStateManager
-
-#  argh from aiojobs import Scheduler
-#  blargh from ..constants import KUBERNETES_REQUEST_TIMEOUT
 
 
 class LabManager:
@@ -459,46 +454,11 @@ class LabManager:
             namespace=self._builder.namespace_for_user(user.username),
             pod_spec=pod_spec,
             annotations={
-                "nublado.lsst.io/user-name": user.name,
+                "nublado.lsst.io/display-name": user.name,
                 "nublado.lsst.io/user-groups": serialized_groups,
             },
-            labels={"app": "lab"},
+            username=user.username,
         )
-
-    def build_lab_config_volumes(
-        self, config: list[LabVolume]
-    ) -> list[LabVolumeContainer]:
-        #
-        # Step one: disks specified in config, whether for the lab itself
-        # or one of its init containers.
-        #
-        vols = []
-        for storage in config:
-            ro = False
-            if storage.mode == FileMode.RO:
-                ro = True
-            vname = storage.container_path.replace("/", "_")[1:]
-            if not storage.server:
-                vol = V1Volume(
-                    host_path=V1HostPathVolumeSource(path=storage.server_path),
-                    name=vname,
-                )
-            else:
-                vol = V1Volume(
-                    nfs=V1NFSVolumeSource(
-                        path=storage.server_path,
-                        read_only=ro,
-                        server=storage.server,
-                    ),
-                    name=vname,
-                )
-            vm = V1VolumeMount(
-                mount_path=storage.container_path,
-                read_only=ro,
-                name=vname,
-            )
-            vols.append(LabVolumeContainer(volume=vol, volume_mount=vm))
-        return vols
 
     def build_cm_volumes(self, username: str) -> list[LabVolumeContainer]:
         #
@@ -672,9 +632,7 @@ class LabManager:
         """
         # Begin with the /tmp empty_dir
         vols = []
-        lab_config_vols = self.build_lab_config_volumes(
-            self.lab_config.volumes
-        )
+        lab_config_vols = self._builder.build_lab_config_volumes()
         vols.extend(lab_config_vols)
         cm_vols = self.build_cm_volumes(username=username)
         vols.extend(cm_vols)
@@ -696,7 +654,9 @@ class LabManager:
         ic_volumes = []
         for ic in self.lab_config.init_containers:
             if ic.volumes is not None:
-                ic_volumes = self.build_lab_config_volumes(ic.volumes)
+                ic_volumes = self._builder.build_lab_config_volumes(
+                    config=ic.volumes
+                )
             ic_vol_mounts = [x.volume_mount for x in ic_volumes]
             if ic.privileged:
                 ic_sec_ctx = V1SecurityContext(
@@ -710,6 +670,7 @@ class LabManager:
                     run_as_user=1000,
                     allow_privilege_escalation=False,
                 )
+            self._logger.warning(f"***IC VOL MTS\n{ic_vol_mounts}***")
             ctr = V1Container(
                 name=ic.name,
                 # We use the same environment as the notebook, because it

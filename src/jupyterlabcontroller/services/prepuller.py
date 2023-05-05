@@ -167,6 +167,7 @@ class Prepuller:
                 pod_spec=self._prepull_pod_spec(image, node),
                 owner=self._prepull_pod_owner(),
                 remove_on_conflict=True,
+                category="prepuller",
             )
             await self._k8s_client.wait_for_pod(name, namespace)
             await self._k8s_client.remove_completed_pod(name, namespace)

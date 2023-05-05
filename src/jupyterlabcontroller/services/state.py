@@ -17,7 +17,13 @@ from structlog.stdlib import BoundLogger
 
 from ..config import Config, LabConfig
 from ..constants import LAB_STATE_REFRESH_INTERVAL
-from ..exceptions import KubernetesError, LabExistsError, UnknownUserError
+from ..exceptions import (
+    DisabledError,
+    KubernetesError,
+    LabExistsError,
+    MissingObjectError,
+    UnknownUserError,
+)
 from ..models.domain.fileserver import FileserverUserMap
 from ..models.domain.kubernetes import KubernetesPodPhase
 from ..models.domain.lab import UserLab
@@ -733,7 +739,9 @@ class LabStateManager:
             internal_url = self._builder.build_internal_url(username, env)
             return UserLabState(
                 username=username,
-                name=pod.metadata.annotations.get("nublado.lsst.io/user-name"),
+                name=pod.metadata.annotations.get(
+                    "nublado.lsst.io/display-name"
+                ),
                 uid=lab_container.security_context.run_as_user,
                 gid=lab_container.security_context.run_as_group,
                 groups=self._recreate_groups(pod),
@@ -968,9 +976,6 @@ class LabStateManager:
 class FileserverStateManager:
     """Manage the record of user fileserver state.
 
-    This is currently managed as a per-process global. Eventually, it will use
-    Redis queues instead.
-
     Parameters
     ----------
     kubernetes
@@ -982,8 +987,15 @@ class FileserverStateManager:
 
     Notes
     -----
-    This is just a container holding the three fileserver objects to make
-    the external API a little cleaner.
+    This is a container holding the three fileserver objects.  It makes
+    the external API cleaner by hiding the internal objects' methods and
+    by doing validation of whether the fileserver is enabled on each
+    call.  It checks whether the fileserver namespace is present on the
+    first (post-enabled-check) call, but not on every method call.
+
+    If the namespace has a habit of going away during operations, we might
+    want to revisit whether the namespace is checked only the first time or
+    each time an operation is requested.
     """
 
     def __init__(
@@ -994,32 +1006,63 @@ class FileserverStateManager:
         slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
     ) -> None:
-        self.user_map = FileserverUserMap()
-        self.reconciler = FileserverReconciler(
+        self._config = config
+        self._namespace_checked = False
+        self._k8s_client = kubernetes
+        self._logger = logger
+        self._user_map = FileserverUserMap()
+        self._reconciler = FileserverReconciler(
             config=config,
-            user_map=self.user_map,
+            user_map=self._user_map,
             logger=logger,
             k8s_client=kubernetes,
         )
-        self.manager = FileserverManager(
+        self._manager = FileserverManager(
             config=config,
-            user_map=self.user_map,
+            user_map=self._user_map,
             logger=logger,
             k8s_client=kubernetes,
             slack_client=slack_client,
         )
 
+    async def _preflight_check(self) -> None:
+        if not self._config.fileserver.enabled:
+            raise DisabledError("Fileserver is disabled in configuration")
+        if not self._namespace_checked:
+            if not await self._k8s_client.check_namespace(
+                self._config.fileserver.namespace
+            ):
+                self._logger.error(
+                    f"WTF: fileserver_config {self._config.fileserver}"
+                )
+                raise MissingObjectError(
+                    message=(
+                        "No namespace "
+                        + f"'{self._config.fileserver.namespace}'"
+                    ),
+                    kind="namespace",
+                )
+            self._namespace_checked = True
+
     async def start(self) -> None:
-        await self.reconciler.start()
+        await self._preflight_check()
+        await self._reconciler.start()
 
     async def stop(self) -> None:
-        await self.reconciler.stop()
+        # No preflight check: this is mainly relevant for testing, but
+        # if we orphan a fileserver in a process context, and then
+        # try to recreate the process context, if the namespace isn't there
+        # we don't want to explode the whole process.
+        await self._reconciler.stop()
 
-    async def create(self, user: UserInfo) -> bool:
-        return await self.manager.create_fileserver_if_needed(user)
+    async def create(self, user: UserInfo) -> None:
+        await self._preflight_check()
+        return await self._manager.create_fileserver_if_needed(user)
 
     async def delete(self, username: str) -> None:
-        await self.manager.delete_fileserver(username)
+        await self._preflight_check()
+        await self._manager.delete_fileserver(username)
 
     async def list(self) -> list[str]:
-        return await self.user_map.list_users()
+        await self._preflight_check()
+        return await self._user_map.list_users()

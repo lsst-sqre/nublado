@@ -8,7 +8,8 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
-        "argocd.argoproj.io/instance": "nublado-users"
+        "argocd.argoproj.io/instance": "userlabs",
+	"lsst.io/category": "prepuller"
       },
       "name": "prepull-d-2077-10-23-node2",
       "namespace": "userlabs",

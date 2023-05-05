@@ -47,21 +47,26 @@ def create_app() -> FastAPI:
         redoc_url=f"{config.safir.path_prefix}/redoc",
     )
 
+    logger = structlog.get_logger(__name__)
+    logger.warning(f"FS CONFIG: {config.fileserver}")
     # Attach the routers.
     app.include_router(index.internal_router)
     app.include_router(index.external_router, prefix=config.safir.path_prefix)
     app.include_router(form.router, prefix=config.safir.path_prefix)
     app.include_router(labs.router, prefix=config.safir.path_prefix)
-    app.include_router(fileserver.user_router)
-    app.include_router(fileserver.router, prefix=config.safir.path_prefix)
     app.include_router(prepuller.router, prefix=config.safir.path_prefix)
     app.include_router(user_status.router, prefix=config.safir.path_prefix)
+    if config.fileserver.enabled:
+        logger.info("Enabling fileserver routes.")
+        app.include_router(
+            fileserver.user_router, prefix=config.fileserver.path_prefix
+        )
+        app.include_router(fileserver.router, prefix=config.safir.path_prefix)
 
     # Register middleware.
     app.add_middleware(XForwardedMiddleware)
 
     # Configure Slack alerts.
-    logger = structlog.get_logger(__name__)
     if config.slack_webhook:
         webhook = config.slack_webhook
         SlackRouteErrorHandler.initialize(webhook, config.safir.name, logger)

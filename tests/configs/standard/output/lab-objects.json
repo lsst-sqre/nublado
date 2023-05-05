@@ -13,7 +13,8 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
-        "argocd.argoproj.io/instance": "nublado-users"
+        "argocd.argoproj.io/instance": "nublado-users",
+	"lsst.io/category": "lab"
       },
       "name": "nb-rachel-configmap",
       "namespace": "userlabs-rachel"
@@ -50,7 +51,8 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
-        "argocd.argoproj.io/instance": "nublado-users"
+        "argocd.argoproj.io/instance": "nublado-users",
+	"lsst.io/category": "lab"
       },
       "name": "nb-rachel-env",
       "namespace": "userlabs-rachel"
@@ -70,7 +72,8 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
-        "argocd.argoproj.io/instance": "nublado-users"
+        "argocd.argoproj.io/instance": "nublado-users",
+	"lsst.io/category": "lab"
       },
       "name": "nb-rachel-nss",
       "namespace": "userlabs-rachel"
@@ -85,7 +88,8 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
-        "argocd.argoproj.io/instance": "nublado-users"
+        "argocd.argoproj.io/instance": "nublado-users",
+	"lsst.io/category": "lab"
       },
       "name": "userlabs-rachel"
     }
@@ -99,7 +103,8 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
-        "argocd.argoproj.io/instance": "nublado-users"
+        "argocd.argoproj.io/instance": "nublado-users",
+	"lsst.io/category": "lab"
       },
       "name": "nb-rachel-env",
       "namespace": "userlabs-rachel"
@@ -133,11 +138,12 @@
         "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
         "argocd.argoproj.io/sync-options": "Prune=false",
         "nublado.lsst.io/user-groups": "[{\"name\": \"rachel\", \"id\": 1101}, {\"name\": \"lunatics\", \"id\": 2028}, {\"name\": \"mechanics\", \"id\": 2001}, {\"name\": \"storytellers\", \"id\": 2021}]",
-        "nublado.lsst.io/user-name": "Rachel (?)"
+        "nublado.lsst.io/display-name": "Rachel (?)"
       },
       "labels": {
         "argocd.argoproj.io/instance": "nublado-users",
-        "app": "lab"
+	"lsst.io/category": "lab",
+	"lsst.io/user": "rachel"
       },
       "name": "nb-rachel",
       "namespace": "userlabs-rachel",
@@ -484,7 +490,8 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
-        "argocd.argoproj.io/instance": "nublado-users"
+        "argocd.argoproj.io/instance": "nublado-users",
+	"lsst.io/category": "lab"
       },
       "name": "nb-rachel",
       "namespace": "userlabs-rachel"
@@ -511,7 +518,8 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
-        "argocd.argoproj.io/instance": "nublado-users"
+        "argocd.argoproj.io/instance": "nublado-users",
+	"lsst.io/category": "lab"
       },
       "name": "nb-rachel",
       "namespace": "userlabs-rachel"
@@ -531,7 +539,8 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
-        "argocd.argoproj.io/instance": "nublado-users"
+        "argocd.argoproj.io/instance": "nublado-users",
+	"lsst.io/category": "lab"
       },
       "name": "pull-secret",
       "namespace": "userlabs-rachel"
@@ -547,7 +556,8 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
-        "argocd.argoproj.io/instance": "nublado-users"
+        "argocd.argoproj.io/instance": "nublado-users",
+	"lsst.io/category": "lab"
       },
       "name": "lab",
       "namespace": "userlabs-rachel"
@@ -560,7 +570,8 @@
         }
       ],
       "selector": {
-        "app": "lab"
+        "lsst.io/category": "lab",
+	"lsst.io/user": "rachel"
       }
     }
   }

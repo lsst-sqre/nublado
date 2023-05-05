@@ -400,6 +400,13 @@ async def test_lab_objects(
 
     namespace = f"{config.lab.namespace_prefix}-{user.username}"
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
+    with open("/tmp/lab-objects.json", "w") as f:
+        json.dump(
+            [strip_none(o.to_dict()) for o in objects],
+            f,
+            sort_keys=True,
+            indent=4,
+        )
     with (std_result_dir / "lab-objects.json").open("r") as f:
         expected = json.load(f)
     assert [strip_none(o.to_dict()) for o in objects] == expected
