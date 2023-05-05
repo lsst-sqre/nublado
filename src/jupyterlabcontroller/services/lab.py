@@ -20,10 +20,8 @@ from kubernetes_asyncio.client import (
     V1EnvFromSource,
     V1EnvVar,
     V1EnvVarSource,
-    V1HostPathVolumeSource,
     V1KeyToPath,
     V1LocalObjectReference,
-    V1NFSVolumeSource,
     V1ObjectFieldSelector,
     V1ObjectMeta,
     V1PersistentVolumeClaim,
@@ -67,9 +65,6 @@ from .builder import LabBuilder
 from .image import ImageService
 from .size import SizeManager
 from .state import LabStateManager
-
-#  argh from aiojobs import Scheduler
-#  blargh from ..constants import KUBERNETES_REQUEST_TIMEOUT
 
 
 class LabManager:
@@ -496,12 +491,13 @@ class LabManager:
             namespace=self._builder.namespace_for_user(user.username),
             pod_spec=pod_spec,
             annotations={
-                "nublado.lsst.io/user-name": user.name,
+                "nublado.lsst.io/display-name": user.name,
                 "nublado.lsst.io/user-groups": serialized_groups,
             },
-            labels={"app": "lab"},
+            username=user.username,
         )
 
+<<<<<<< HEAD
     def build_lab_config_volumes(
         self, username: str, config: list[LabVolume]
     ) -> list[LabVolumeContainer]:
@@ -545,6 +541,8 @@ class LabManager:
             vols.append(LabVolumeContainer(volume=vol, volume_mount=vm))
         return vols
 
+=======
+>>>>>>> 965262c (Begin addressing PR commentary)
     def build_cm_volumes(self, username: str) -> list[LabVolumeContainer]:
         #
         # Step three: other configmap files
@@ -717,9 +715,13 @@ class LabManager:
         """
         # Begin with the /tmp empty_dir
         vols = []
+<<<<<<< HEAD
         lab_config_vols = self.build_lab_config_volumes(
             username, self.lab_config.volumes
         )
+=======
+        lab_config_vols = self._builder.build_lab_config_volumes()
+>>>>>>> 965262c (Begin addressing PR commentary)
         vols.extend(lab_config_vols)
         cm_vols = self.build_cm_volumes(username=username)
         vols.extend(cm_vols)
@@ -741,8 +743,13 @@ class LabManager:
         ic_volumes = []
         for ic in self.lab_config.init_containers:
             if ic.volumes is not None:
+<<<<<<< HEAD
                 ic_volumes = self.build_lab_config_volumes(
                     user.username, ic.volumes
+=======
+                ic_volumes = self._builder.build_lab_config_volumes(
+                    config=ic.volumes
+>>>>>>> 965262c (Begin addressing PR commentary)
                 )
             ic_vol_mounts = [x.volume_mount for x in ic_volumes]
             if ic.privileged:
@@ -757,6 +764,7 @@ class LabManager:
                     run_as_user=1000,
                     allow_privilege_escalation=False,
                 )
+            self._logger.warning(f"***IC VOL MTS\n{ic_vol_mounts}***")
             ctr = V1Container(
                 name=ic.name,
                 # We use the same environment as the notebook, because it

@@ -6,8 +6,6 @@ lab:
     small:
       cpu: 1.0
       memory: 3Gi
-fileserver:
-  image: docker.io/lsstsqre/worblehat
 images:
   source:
     type: docker

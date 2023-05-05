@@ -32,6 +32,7 @@ __all__ = [
     "UnknownDockerImageError",
     "UnknownKindError",
     "UnknownUserError",
+    "DisabledError",
 ]
 
 
@@ -458,6 +459,8 @@ class MissingObjectError(SlackException):
     ----------
     message
         Summary of error.
+    kind
+        Kind of Kubernetes object that is missing.
     user
         Username on whose behalf the request is being made.
     namespace
@@ -515,3 +518,7 @@ class UnknownKindError(ClientRequestError):
 
     error = "unknown_kind"
     status_code = status.HTTP_400_BAD_REQUEST
+
+
+class DisabledError(SlackException):
+    """An attempt was made to use a disabled service."""

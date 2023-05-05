@@ -6,15 +6,15 @@ import os
 from datetime import timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Literal, Optional, Self
+from typing import Any, Literal, Optional, Self
 
 import yaml
-from pydantic import BaseSettings, Field, validator
+from pydantic import BaseSettings, Field, root_validator, validator
 from safir.logging import LogLevel, Profile
 from safir.pydantic import CamelCaseModel, to_camel_case
 
-from .constants import DOCKER_SECRETS_PATH, FILESERVER_NAMESPACE, METADATA_PATH
-from .models.v1.lab import LabSize
+from .constants import DOCKER_SECRETS_PATH, METADATA_PATH
+from .models.v1.lab import LabSize, UserResources
 from .models.v1.prepuller_config import PrepullerConfig
 
 
@@ -324,8 +324,15 @@ class PullPolicy(Enum):
 
 
 class FileserverConfig(CamelCaseModel):
+    enabled: bool = Field(
+        False, title="Whether to enable fileserver capability"
+    )
+    namespace: str = Field(
+        "",
+        title="Namespace for user fileservers",
+    )
     image: str = Field(
-        ...,
+        "",
         example="docker.io/lsstsqre/worblehat",
         title="Docker registry path to fileserver image",
     )
@@ -340,10 +347,24 @@ class FileserverConfig(CamelCaseModel):
     timeout: int = Field(
         3600, title="Inactivity timeout for the fileserver container (seconds)"
     )
-    namespace: str = Field(
-        FILESERVER_NAMESPACE,
-        title="Namespace for user fileservers",
+    path_prefix: str = Field(
+        "", title="Fileserver prefix path, to which '/files' is appended"
     )
+    resources: Optional[UserResources] = Field(
+        None, title="Resource requests and limits"
+    )
+
+    # Only care if our fields are filled out if the fileserver is enabled.
+    # Doing it this way saves a lot of assertions about when values
+    # are not None down the line.
+    @root_validator(pre=True)
+    def validate_namespace(cls, values: dict[str, Any]) -> dict[str, Any]:
+        enabled = values.get("enabled")
+        if enabled:
+            for key in ("namespace", "image"):
+                if not values.get(key):
+                    raise ValueError(f"'{key}' must be specified")
+        return values
 
 
 #
@@ -354,7 +375,9 @@ class FileserverConfig(CamelCaseModel):
 class Config(BaseSettings):
     safir: SafirConfig
     lab: LabConfig
-    fileserver: FileserverConfig
+    fileserver: FileserverConfig = Field(
+        FileserverConfig(), title="Fileserver configuration"
+    )
     images: PrepullerConfig = Field(..., title="Prepuller configuration")
     base_url: str = Field(
         "http://127.0.0.1:8080",

@@ -51,6 +51,28 @@ FILESERVER_LOCK = asyncio.Lock()
 
 
 class K8sStorageClient:
+    """
+    Notes
+    -----
+    It's really tempting to create generic methods for object
+    creation and deletion, that do some fancy exception handling to do
+    retries and ignore error-cases-that-are-normal-operation,
+    especially since Kubernetes methods are regular in both names and
+    argument type and ordering, and we want to do very similar things
+    for many objects.
+
+    How hard could it be, you think, to use getattr() to pluck the
+    right method, and then reuse the guts of creation/retry code?  And
+    then you realize that you could do this to await the creation of
+    an arbitrary Kubernetes object also.
+
+    I am here to warn you, dear reader, that this turns out to be a
+    terrible idea, because it turns errors you could have caught
+    quickly and easily with the type system into runtime errors deep
+    in the FastAPI event loop, with no obvious way to connect the
+    stack trace back to the place you forgot an "await" or misspelled
+    a method name."""
+
     def __init__(
         self,
         *,
@@ -77,7 +99,7 @@ class K8sStorageClient:
             Name of the namespace.
         """
         self._logger.debug("Creating namespace", name=name)
-        body = V1Namespace(metadata=self._standard_metadata(name))
+        body = V1Namespace(metadata=self.standard_metadata(name))
         try:
             await self.api.create_namespace(body)
         except ApiException as e:
@@ -473,7 +495,7 @@ class K8sStorageClient:
             data=data,
             type=secret_type,
             immutable=immutable,
-            metadata=self._standard_metadata(name),
+            metadata=self.standard_metadata(name, namespace=namespace),
         )
         self._logger.debug("Creating secret", name=name, namespace=namespace)
         try:
@@ -534,7 +556,7 @@ class K8sStorageClient:
         configmap = V1ConfigMap(
             data={deslashify(k): v for k, v in data.items()},
             immutable=immutable,
-            metadata=self._standard_metadata(name),
+            metadata=self.standard_metadata(name, namespace=namespace),
         )
         try:
             await self.api.create_namespaced_config_map(namespace, configmap)
@@ -556,7 +578,7 @@ class K8sStorageClient:
         # and Egress to ... external world, Hub, Portal, Gafaelfawr.  What
         # else?
         policy = V1NetworkPolicy(
-            metadata=self._standard_metadata(name),
+            metadata=self.standard_metadata(name, namespace=namespace),
             spec=V1NetworkPolicySpec(
                 policy_types=["Ingress"],
                 pod_selector=V1LabelSelector(
@@ -582,10 +604,10 @@ class K8sStorageClient:
     async def create_lab_service(self, username: str, namespace: str) -> None:
         self._logger.debug("Creating service", name="lab", namespace=namespace)
         service = V1Service(
-            metadata=self._standard_metadata("lab"),
+            metadata=self.standard_metadata("lab", namespace=namespace),
             spec=V1ServiceSpec(
                 ports=[V1ServicePort(port=8888, target_port=8888)],
-                selector={"app": "lab"},
+                selector={"lsst.io/user": username, "lsst.io/category": "lab"},
             ),
         )
         try:
@@ -608,7 +630,7 @@ class K8sStorageClient:
             "Creating resource quota", name=name, namespace=namespace
         )
         quota = V1ResourceQuota(
-            metadata=self._standard_metadata(name),
+            metadata=self.standard_metadata(name, namespace=namespace),
             spec=V1ResourceQuotaSpec(
                 hard={
                     "limits.cpu": str(resource.cpu),
@@ -632,6 +654,8 @@ class K8sStorageClient:
         namespace: str,
         pod_spec: V1PodSpec,
         *,
+        username: str = "",
+        category: str = "lab",
         labels: Optional[dict[str, str]] = None,
         annotations: Optional[dict[str, str]] = None,
         owner: Optional[V1OwnerReference] = None,
@@ -647,6 +671,10 @@ class K8sStorageClient:
             Namespace of the pod.
         pod_spec
             ``spec`` portion of the pod.
+        username
+            If set, user the pod is for.
+        category
+            If set, category for the pod (default "lab")
         labels
             Additional labels to add to the pod.
         annotations
@@ -659,7 +687,9 @@ class K8sStorageClient:
         """
         logger = self._logger.bind(name=name, namespace=namespace)
         logger.debug("Creating pod")
-        metadata = self._standard_metadata(name)
+        metadata = self.standard_metadata(
+            name, namespace=namespace, username=username, category=category
+        )
         if labels:
             metadata.labels.update(labels)
         if annotations:
@@ -943,14 +973,20 @@ class K8sStorageClient:
 
         # Try to create it again. If it still conflicts, don't catch that
         # error; something weird is going on.
-        namespace = V1Namespace(metadata=self._standard_metadata(name))
+        namespace = V1Namespace(metadata=self.standard_metadata(name))
         try:
             await self.api.create_namespace(namespace)
         except ApiException as e:
             msg = "Cannot create user namespace"
             raise KubernetesError.from_exception(msg, e, name=name) from e
 
-    def _standard_metadata(self, name: str) -> V1ObjectMeta:
+    def standard_metadata(
+        self,
+        name: str,
+        namespace: str = "",
+        category: str = "lab",
+        username: str = "",
+    ) -> V1ObjectMeta:
         """Create the standard metadata for an object.
 
         Parameters
@@ -958,39 +994,48 @@ class K8sStorageClient:
         name
             Name of the object.
 
+        namespace
+            Namespace of the object (optional, defaults to the empty string).
+
+        category
+            Category of the object (optional, defaults to ``lab``).
+
+        username
+            User for whom the object is created (optional, defaults to
+            the empty string).
+
         Returns
         -------
         V1ObjectMeta
-            Metadata for the object. Primarily, this adds the Argo CD
+            Metadata for the object. For labs, this primarily adds Argo CD
             annotations to make user labs play somewhat nicely with Argo CD.
+            For fileservers, this also adds labels we can use as selectors;
+            this is necessary because all user fileservers run in a single
+            namespace.
         """
-        return V1ObjectMeta(
+        argo_app = "nublado-users"
+        if category == "fileserver":
+            argo_app = "fileservers"
+        elif category == "prepuller":
+            argo_app = namespace or "prepuller"
+        labels = {
+            "argocd.argoproj.io/instance": argo_app,
+            "lsst.io/category": category,
+        }
+        if username:
+            labels["lsst.io/user"] = username
+        annotations = {
+            "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+            "argocd.argoproj.io/sync-options": "Prune=false",
+        }
+        metadata = V1ObjectMeta(
             name=name,
-            labels={"argocd.argoproj.io/instance": "nublado-users"},
-            annotations={
-                "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
-                "argocd.argoproj.io/sync-options": "Prune=false",
-            },
+            labels=labels,
+            annotations=annotations,
         )
-
-    """It's really tempting to create generic methods for object
-    creation and deletion, that do some fancy exception handling to do
-    retries and ignore error-cases-that-are-normal-operation,
-    especially since Kubernetes methods are regular in both names and
-    argument type and ordering, and we want to do very similar things
-    for many objects.
-
-    How hard could it be, you think, to use getattr() to pluck the
-    right method, and then reuse the guts of creation/retry code?  And
-    then you realize that you could do this to await the creation of
-    an arbitrary Kubernetes object also.
-
-    I am here to warn you, dear reader, that this turns out to be a
-    terrible idea, because it turns errors you could have caught
-    quickly and easily with the type system into runtime errors deep
-    in the FastAPI event loop, with no obvious way to connect the
-    stack trace back to the place you forgot an "await" or misspelled
-    a method name."""
+        if namespace:
+            metadata.namespace = namespace
+        return metadata
 
     # Methods for fileserver
 
@@ -1001,7 +1046,7 @@ class K8sStorageClient:
         job: V1Job,
         service: V1Service,
         gf_ingress: dict[str, Any],
-    ) -> bool:
+    ) -> None:
         async with FILESERVER_LOCK:
             self._logger.info(f"Creating new fileserver for {username}...")
             self._logger.debug(f"...creating new job for {username}")
@@ -1019,23 +1064,15 @@ class K8sStorageClient:
             )
             timeout = 60.0
             interval = 3.9
-            try:
-                async with asyncio.timeout(timeout):
-                    while True:
-                        good = await self.check_fileserver_present(
-                            username, namespace
-                        )
-                        if good:
-                            self._logger.info(
-                                f"Fileserver created for {username}"
-                            )
-                            return True
-                        await asyncio.sleep(interval)
-            except asyncio.TimeoutError:
-                self._logger.error(
-                    f"Fileserver for {username} did not appear."
-                )
-                return False
+            async with asyncio.timeout(timeout):
+                while True:
+                    good = await self.check_fileserver_present(
+                        username, namespace
+                    )
+                    if good:
+                        self._logger.info(f"Fileserver created for {username}")
+                        return
+                    await asyncio.sleep(interval)
 
     async def check_namespace(self, namespace: str) -> bool:
         """Check to see if namespace is present; return True if it is,

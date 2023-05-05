@@ -1,22 +1,6 @@
-"""Models for the fileserver state.  Note that the reason these are
+"""Models for the fileserver state.  Note that the reason its methods are
 async is that this will eventually be replaced by an implementation in
 Redis."""
-from dataclasses import dataclass
-
-from ..v1.lab import LabStatus as FileserverPodStatus
-from ..v1.lab import PodState, UserInfo
-
-
-@dataclass
-class FileserverData:
-    pod_state: PodState
-    """State of fileserver pod"""
-
-    pod_status: FileserverPodStatus
-    """Fileserver pod status"""
-
-    user: UserInfo
-    """Fileserver user information"""
 
 
 class FileserverUserMap:

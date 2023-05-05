@@ -66,7 +66,3 @@ USERNAME_REGEX = (
     "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*[a-z](?:[a-z0-9]|-[a-z0-9])*$"
 )
 """Regex matching all valid usernames."""
-
-# User file servers
-FILESERVER_NAMESPACE = "fileservers"
-"""Default name of namespace that contains user file servers."""

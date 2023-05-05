@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
-from ..config import LabConfig
+from typing import Optional
+
+from kubernetes_asyncio.client import (
+    V1HostPathVolumeSource,
+    V1NFSVolumeSource,
+    V1Volume,
+    V1VolumeMount,
+)
+
+from ..config import FileMode, LabConfig, LabVolume
+from ..models.domain.lab import LabVolumeContainer
 
 __all__ = ["LabBuilder"]
 
@@ -12,9 +22,15 @@ class LabBuilder:
 
     Eventually, this class will be responsible for constructing all of the
     Kubernetes objects required for a lab environment. Currently, it contains
-    only the Kubernetes object construction code that is shared between
+    the Kubernetes object construction code that is shared between
     `~jupyterlabcontroller.services.lab.LabManager` and
-    `~jupyterlabcontroller.services.state.LabStateManager`.
+    `~jupyterlabcontroller.services.state.LabStateManager`, and also the
+    Kubernetes volume construction code shared between the fileserver and
+    the lab user object sets.
+
+    Since it's not just the Lab anymore, it probably should have a more
+    generic name like ObjectBuilder, but let's not worry about that until
+    the non-fileserver work is merged.
 
     Parameters
     ----------
@@ -106,3 +122,63 @@ class LabBuilder:
             Name of their namespace.
         """
         return f"{self._config.namespace_prefix}-{username}"
+
+    def build_lab_config_volumes(
+        self, prefix: str = "", config: Optional[list[LabVolume]] = None
+    ) -> list[LabVolumeContainer]:
+        """Construct LabVolumeContainers for a specified list of LabVolumes
+
+        Parameters
+        ----------
+        prefix
+            Path to prepend to Lab volumes (defaults to the empty string)
+        config
+            List of LabVolumes.  Optional, defaults to what's specified in
+            the Lab configuration
+
+        Returns
+        -------
+        list[LabVolumeContainer]
+            LabVolumeContainers for attaching to a Pod
+        """
+        # We provide prefix for the use of the fileserver: because a WebDAV
+        # client must have a single endpoint, we aggregate the volume mounts
+        # in the fileserver pod under a single prefix, and export that prefix
+        # as the WebDAV endpoint.  There's no such requirement in Lab pods,
+        # which are going to mount filesystems all over the place.
+        #
+        # We allow specification of the config so we can build initContainers,
+        # which might only have a subset of the Lab volumes
+        #
+        # The default is to use the Lab volumes from the configuration
+        if config is None:
+            input_volumes = self._config.volumes
+        else:
+            input_volumes = config
+        vols = []
+        for storage in input_volumes:
+            ro = False
+            if storage.mode == FileMode.RO:
+                ro = True
+            vname = storage.container_path.replace("/", "_")[1:]
+            if not storage.server:
+                vol = V1Volume(
+                    host_path=V1HostPathVolumeSource(path=storage.server_path),
+                    name=vname,
+                )
+            else:
+                vol = V1Volume(
+                    nfs=V1NFSVolumeSource(
+                        path=storage.server_path,
+                        read_only=ro,
+                        server=storage.server,
+                    ),
+                    name=vname,
+                )
+            vm = V1VolumeMount(
+                mount_path=prefix + storage.container_path,
+                read_only=ro,
+                name=vname,
+            )
+            vols.append(LabVolumeContainer(volume=vol, volume_mount=vm))
+        return vols
