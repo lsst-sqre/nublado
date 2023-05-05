@@ -48,7 +48,6 @@ def create_app() -> FastAPI:
     )
 
     logger = structlog.get_logger(__name__)
-    logger.warning(f"FS CONFIG: {config.fileserver}")
     # Attach the routers.
     app.include_router(index.internal_router)
     app.include_router(index.external_router, prefix=config.safir.path_prefix)

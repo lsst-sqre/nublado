@@ -46,9 +46,6 @@ from ..util import deslashify
 __all__ = ["K8sStorageClient"]
 
 
-FILESERVER_LOCK = asyncio.Lock()
-
-
 class K8sStorageClient:
     """
     Notes
@@ -1023,41 +1020,6 @@ class K8sStorageClient:
 
     # Methods for fileserver
 
-    async def create_fileserver(
-        self,
-        username: str,
-        namespace: str,
-        job: V1Job,
-        service: V1Service,
-        gf_ingress: dict[str, Any],
-    ) -> None:
-        async with FILESERVER_LOCK:
-            self._logger.info(f"Creating new fileserver for {username}...")
-            self._logger.debug(f"...creating new job for {username}")
-            await self._create_fileserver_job(username, namespace, job)
-            self._logger.debug(f"...creating new service for {username}")
-            await self._create_fileserver_service(
-                username, namespace, spec=service
-            )
-            self._logger.debug(f"...creating new gfingress for {username}")
-            await self._create_fileserver_gafaelfawringress(
-                username, namespace, spec=gf_ingress
-            )
-            self._logger.debug(
-                f"...polling until objects appear for {username}"
-            )
-            timeout = 60.0
-            interval = 3.9
-            async with asyncio.timeout(timeout):
-                while True:
-                    good = await self.check_fileserver_present(
-                        username, namespace
-                    )
-                    if good:
-                        self._logger.info(f"Fileserver created for {username}")
-                        return
-                    await asyncio.sleep(interval)
-
     async def check_namespace(self, namespace: str) -> bool:
         """Check to see if namespace is present; return True if it is,
         False if it is not."""
@@ -1072,9 +1034,16 @@ class K8sStorageClient:
                 ) from e
             return False
 
-    async def _create_fileserver_job(
+    async def create_fileserver_job(
         self, username: str, namespace: str, job: V1Job
     ) -> None:
+        """For all of our fileserver objects: if we are being asked to
+        create them, it means we thought, based on our user map, that we did
+        not have a working fileserver.  If we encounter an object, then,
+        although the fileserver is not working, we didn't clean up after it
+        correctly.  In that case, we're in mid-creation already, so just
+        delete the old, possibly-broken, object, and create a new one.
+        """
         obj_name = f"{username}-fs"
         self._logger.debug("Creating job", name=obj_name, namespace=namespace)
         try:
@@ -1087,7 +1056,7 @@ class K8sStorageClient:
                     name=obj_name,
                     namespace=namespace,
                 )
-                await self._delete_fileserver_job(username, namespace)
+                await self.delete_fileserver_job(username, namespace)
                 await self._wait_for_fileserver_object_deletion(
                     obj_name=obj_name, namespace=namespace, kind="job"
                 )
@@ -1100,7 +1069,7 @@ class K8sStorageClient:
                 name=obj_name,
             ) from e
 
-    async def _delete_fileserver_job(
+    async def delete_fileserver_job(
         self, username: str, namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
@@ -1119,9 +1088,11 @@ class K8sStorageClient:
                 name=obj_name,
             ) from e
 
-    async def _create_fileserver_service(
+    async def create_fileserver_service(
         self, username: str, namespace: str, spec: V1Service
     ) -> None:
+        """see create_fileserver_job() for the rationale behind retrying
+        a conflict on creation."""
         obj_name = f"{username}-fs"
         try:
             await self.api.create_namespaced_service(namespace, spec)
@@ -1133,7 +1104,7 @@ class K8sStorageClient:
                     name=obj_name,
                     namespace=namespace,
                 )
-                await self._delete_fileserver_service(username, namespace)
+                await self.delete_fileserver_service(username, namespace)
                 await self._wait_for_fileserver_object_deletion(
                     obj_name=obj_name, namespace=namespace, kind="service"
                 )
@@ -1146,7 +1117,7 @@ class K8sStorageClient:
                 name=obj_name,
             ) from e
 
-    async def _delete_fileserver_service(
+    async def delete_fileserver_service(
         self, username: str, namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
@@ -1162,9 +1133,11 @@ class K8sStorageClient:
                 name=obj_name,
             ) from e
 
-    async def _create_fileserver_gafaelfawringress(
+    async def create_fileserver_gafaelfawringress(
         self, username: str, namespace: str, spec: dict[str, Any]
     ) -> None:
+        """see _create_fileserver_job() for the rationale behind retrying
+        a conflict on creation."""
         obj_name = f"{username}-fs"
         crd_group = "gafaelfawr.lsst.io"
         crd_version = "v1alpha1"
@@ -1188,7 +1161,7 @@ class K8sStorageClient:
                     name=obj_name,
                     namespace=namespace,
                 )
-                await self._delete_fileserver_gafaelfawringress(
+                await self.delete_fileserver_gafaelfawringress(
                     username, namespace
                 )
                 await self._wait_for_fileserver_object_deletion(
@@ -1206,7 +1179,7 @@ class K8sStorageClient:
                 name=obj_name,
             ) from e
 
-    async def _delete_fileserver_gafaelfawringress(
+    async def delete_fileserver_gafaelfawringress(
         self, username: str, namespace: str
     ) -> None:
         obj_name = f"{username}-fs"
@@ -1287,11 +1260,13 @@ class K8sStorageClient:
         A fileserver is working if:
 
         1) it has a Job with at least one active Pod
-        2) it has a Service (properties not checked)
-        3) it has an Ingress (properties not checked)
+        2) it has an Ingress (properties not checked)
 
         We do not check the GafaelfawrIngress, because the Custom API is
-        clumsy, and the created Ingress is a good proxy.
+        clumsy, and the created Ingress is a requirement for whether the
+        fileserver is running.  Although we create a Service, there's
+        not much that can go wrong with it, so we opt to save the API
+        call by assuming it's fine.
 
         If we find a broken fileserver, we delete all its objects.  In
         steady-state operations, this will happen when a fileserver Pod has
@@ -1322,19 +1297,6 @@ class K8sStorageClient:
             )
             return False
         try:
-            self._logger.debug(f"Checking service for {username}")
-            job = await self.api.read_namespaced_service(obj_name, namespace)
-        except ApiException as e:
-            self._logger.info(f"Service {obj_name} for {username} not found.")
-            if e.status == 404:
-                return False
-            raise KubernetesError.from_exception(
-                "Error reading service",
-                e,
-                namespace=namespace,
-                name=obj_name,
-            ) from e
-        try:
             self._logger.debug(f"Checking ingress for {username}")
             await self.networking_api.read_namespaced_ingress(
                 obj_name, namespace
@@ -1351,23 +1313,15 @@ class K8sStorageClient:
             ) from e
         return True
 
-    async def remove_fileserver(self, username: str, namespace: str) -> None:
-        """Remove the set of fileserver objects for a user.  It doesn't
-        return until the objects are no longer present in Kubernetes.
-        """
-        async with FILESERVER_LOCK:
-            await self._delete_fileserver_job(username, namespace)
-            await self._delete_fileserver_service(username, namespace)
-            await self._delete_fileserver_gafaelfawringress(
-                username, namespace
+    async def wait_for_fileserver_object_deletion(
+        self, username: str, namespace: str
+    ) -> None:
+        """This is a convenience wrapper that waits until all fileserver
+        objects for a given user are deleted."""
+        for kind in ("ingress", "gafaelfawringress", "service", "job"):
+            await self._wait_for_fileserver_object_deletion(
+                obj_name=f"{username}-fs", namespace=namespace, kind=kind
             )
-
-            obj_name = f"{username}-fs"
-
-            for kind in ("gafaelfawringress", "job", "service", "ingress"):
-                await self._wait_for_fileserver_object_deletion(
-                    obj_name=obj_name, namespace=namespace, kind=kind
-                )
 
     def _get_deletion_read_coro(
         self, obj_name: str, namespace: str, kind: str
@@ -1394,7 +1348,10 @@ class K8sStorageClient:
         self, obj_name: str, namespace: str, kind: str
     ) -> None:
         """This is as generic as I'm willing to go, and it's probably
-        too generic already."""
+        too generic already.
+
+        FIXME: we should rely on event watches, rather than polling.
+        """
         timeout = 30.0
         interval = 2.7
         self._logger.debug(
