@@ -149,6 +149,7 @@ class FileserverManager:
             name=f"{username}-fs",
             namespace=self.namespace,
             category="fileserver",
+            username=username,
         )
 
     def _build_fileserver_job(self, user: UserInfo) -> V1Job:
