@@ -1290,11 +1290,12 @@ class K8sStorageClient:
                 namespace=namespace,
                 name=obj_name,
             ) from e
-        if job.status is None or job.status.active < 1:
-            self._logger.info(
-                f"Job {obj_name} has no active pods; "
-                + f"terminating fileserver for {username}"
-            )
+        if (
+            job.status is None
+            or job.status.active is None
+            or job.status.active < 1
+        ):
+            self._logger.info(f"Job {obj_name} has no active pods.")
             return False
         try:
             self._logger.debug(f"Checking ingress for {username}")
@@ -1306,7 +1307,7 @@ class K8sStorageClient:
             if e.status == 404:
                 return False
             raise KubernetesError.from_exception(
-                "Error reading service",
+                "Error reading ingress",
                 e,
                 namespace=namespace,
                 name=obj_name,
