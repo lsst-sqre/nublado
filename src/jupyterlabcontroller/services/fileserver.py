@@ -148,6 +148,7 @@ class FileserverManager:
         return self.k8s_client.standard_metadata(
             name=f"{username}-fs",
             namespace=self.namespace,
+            category="fileserver",
         )
 
     def _build_fileserver_job(self, user: UserInfo) -> V1Job:
