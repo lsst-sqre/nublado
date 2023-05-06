@@ -180,7 +180,7 @@ class LabStateManager:
 
         # Ask Kubernetes for the current state so that we catch pods that have
         # been evicted or shut down behind our back by the Kubernetes cluster.
-        pod = f"nb-{username}"
+        pod = f"{username}-nb"
         namespace = self._builder.namespace_for_user(username)
         try:
             phase = await self._kubernetes.get_pod_phase(pod, namespace)
@@ -601,7 +601,7 @@ class LabStateManager:
         RuntimeError
             Raised if neither ``internal_url`` nor ``spawner`` is set.
         """
-        pod = f"nb-{username}"
+        pod = f"{username}-nb"
         namespace = self._builder.namespace_for_user(username)
         logger = self._logger.bind(
             user=username, name=pod, namespace=namespace
@@ -687,9 +687,9 @@ class LabStateManager:
             Raised if Kubernetes API calls fail for reasons other than the
             resources not existing.
         """
-        env_name = f"nb-{username}-env"
-        pod_name = f"nb-{username}"
-        quota_name = f"nb-{username}"
+        env_name = f"{username}-nb-env"
+        pod_name = f"{username}-nb"
+        quota_name = f"{username}-nb"
         namespace = f"{self._config.namespace_prefix}-{username}"
         logger = self._logger.bind(user=username, namespace=namespace)
 

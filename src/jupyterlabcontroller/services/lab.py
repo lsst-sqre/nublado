@@ -287,7 +287,7 @@ class LabManager:
         namespace = self._builder.namespace_for_user(user.username)
         data = self.build_nss(user=user)
         await self.k8s_client.create_configmap(
-            name=f"nb-{user.username}-nss",
+            name=f"{user.username}-nb-nss",
             namespace=namespace,
             data=data,
         )
@@ -318,7 +318,7 @@ class LabManager:
         namespace = self._builder.namespace_for_user(user.username)
         data = self.build_file_configmap()
         await self.k8s_client.create_configmap(
-            name=f"nb-{user.username}-configmap",
+            name=f"{user.username}-nb-configmap",
             namespace=namespace,
             data=data,
         )
@@ -347,7 +347,7 @@ class LabManager:
     ) -> None:
         data = self.build_env(user=user, lab=lab, image=image, token=token)
         await self.k8s_client.create_configmap(
-            name=f"nb-{user.username}-env",
+            name=f"{user.username}-nb-env",
             namespace=self._builder.namespace_for_user(user.username),
             data=data,
         )
@@ -420,7 +420,7 @@ class LabManager:
         # No corresponding "build" because the policy is hardcoded in the
         # storage driver.
         await self.k8s_client.create_network_policy(
-            name=f"nb-{user.username}-env",
+            name=f"{user.username}-nb-env",
             namespace=self._builder.namespace_for_user(user.username),
         )
 
@@ -436,7 +436,7 @@ class LabManager:
         if not user.quota or not user.quota.notebook:
             return
         await self.k8s_client.create_quota(
-            f"nb-{user.username}",
+            f"{user.username}-nb",
             self._builder.namespace_for_user(user.username),
             UserResourceQuantum(
                 cpu=user.quota.notebook.cpu,
@@ -450,7 +450,7 @@ class LabManager:
         pod_spec = self.build_pod_spec(user, resources, image)
         serialized_groups = json.dumps([g.dict() for g in user.groups])
         await self.k8s_client.create_pod(
-            name=f"nb-{user.username}",
+            name=f"{user.username}-nb",
             namespace=self._builder.namespace_for_user(user.username),
             pod_spec=pod_spec,
             annotations={
@@ -467,9 +467,9 @@ class LabManager:
         vols = []
         for cfile in self.lab_config.files:
             dscfile = deslashify(cfile)
-            cmname = f"nb-{username}-configmap"
+            cmname = f"{username}-nb-configmap"
             if cfile == "/etc/passwd" or cfile == "/etc/group":
-                cmname = f"nb-{username}-nss"
+                cmname = f"{username}-nb-nss"
             path = Path(cfile)
             bname = str(path.name)
             filename = re.sub(r"[_\.]", "-", str(path.name))
@@ -508,14 +508,14 @@ class LabManager:
         # of transition.
         sec_vol = LabVolumeContainer(
             volume=V1Volume(
-                name=f"nb-{username}-secrets",
+                name=f"{username}-nb-secrets",
                 secret=V1SecretVolumeSource(
-                    secret_name=f"nb-{username}",
+                    secret_name=f"{username}-nb",
                 ),
             ),
             volume_mount=V1VolumeMount(
                 mount_path="/opt/lsst/software/jupyterlab/secrets",
-                name=f"nb-{username}-secrets",
+                name=f"{username}-nb-secrets",
                 read_only=True,
             ),
         )
@@ -542,7 +542,7 @@ class LabManager:
                 continue
             mount = V1VolumeMount(
                 mount_path=spec.path,
-                name=f"nb-{username}-secrets",
+                name=f"{username}-nb-secrets",
                 read_only=True,
                 sub_path=spec.secret_key,
             )
@@ -555,14 +555,14 @@ class LabManager:
         #
         env_vol = LabVolumeContainer(
             volume=V1Volume(
-                name=f"nb-{username}-env",
+                name=f"{username}-nb-env",
                 config_map=V1ConfigMapVolumeSource(
-                    name=f"nb-{username}-env",
+                    name=f"{username}-nb-env",
                 ),
             ),
             volume_mount=V1VolumeMount(
                 mount_path="/opt/lsst/software/jupyterlab/environment",
-                name=f"nb-{username}-env",
+                name=f"{username}-nb-env",
                 read_only=False,  # We'd like to be able to update this
             ),
         )
@@ -615,12 +615,12 @@ class LabManager:
         )
         runtime_vol = LabVolumeContainer(
             volume=V1Volume(
-                name=f"nb-{username}-runtime",
+                name=f"{username}-nb-runtime",
                 downward_api=V1DownwardAPIVolumeSource(items=volfiles),
             ),
             volume_mount=V1VolumeMount(
                 mount_path="/opt/lsst/software/jupyterlab/runtime",
-                name=f"nb-{username}-runtime",
+                name=f"{username}-nb-runtime",
                 read_only=True,
             ),
         )
@@ -670,7 +670,6 @@ class LabManager:
                     run_as_user=1000,
                     allow_privilege_escalation=False,
                 )
-            self._logger.warning(f"***IC VOL MTS\n{ic_vol_mounts}***")
             ctr = V1Container(
                 name=ic.name,
                 # We use the same environment as the notebook, because it
@@ -682,7 +681,7 @@ class LabManager:
                 env_from=[
                     V1EnvFromSource(
                         config_map_ref=V1ConfigMapEnvSource(
-                            name=f"nb-{username}-env"
+                            name=f"{username}-nb-env"
                         )
                     ),
                 ],
@@ -733,7 +732,7 @@ class LabManager:
                 name="ACCESS_TOKEN",
                 value_from=V1EnvVarSource(
                     secret_key_ref=V1SecretKeySelector(
-                        key="token", name=f"nb-{user.username}", optional=False
+                        key="token", name=f"{user.username}-nb", optional=False
                     )
                 ),
             ),
@@ -754,7 +753,7 @@ class LabManager:
                 value_from=V1EnvVarSource(
                     secret_key_ref=V1SecretKeySelector(
                         key=spec.secret_key,
-                        name=f"nb-{user.username}",
+                        name=f"{user.username}-nb",
                         optional=False,
                     )
                 ),
@@ -769,7 +768,7 @@ class LabManager:
             env_from=[
                 V1EnvFromSource(
                     config_map_ref=V1ConfigMapEnvSource(
-                        name=f"nb-{user.username}-env"
+                        name=f"{user.username}-nb-env"
                     )
                 ),
             ],

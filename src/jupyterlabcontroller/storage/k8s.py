@@ -117,7 +117,7 @@ class K8sStorageClient:
         data = await self.merge_controller_secrets(
             token, source_ns, secret_list
         )
-        await self.create_secret(f"nb-{username}", target_ns, data)
+        await self.create_secret(f"{username}-nb", target_ns, data)
 
     async def wait_for_namespace_deletion(
         self, namespace: str, interval: float = 0.2
