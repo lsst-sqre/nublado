@@ -156,7 +156,7 @@ async def test_reconcile_pending(
     # background monitoring task to pick up the change and convert the pod
     # status to running.
     await mock_kubernetes.patch_namespaced_pod_status(
-        f"nb-{user.username}",
+        f"{user.username}-nb",
         f"userlabs-{user.username}",
         [
             {

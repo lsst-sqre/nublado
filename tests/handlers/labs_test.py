@@ -175,7 +175,7 @@ async def test_lab_start_stop(
     }
 
     # Change the pod phase. This should throw the lab into a failed state.
-    name = f"nb-{user.username}"
+    name = f"{user.username}-nb"
     namespace = f"userlabs-{user.username}"
     pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
     pod.status.phase = KubernetesPodPhase.FAILED.value
@@ -229,7 +229,7 @@ async def test_spawn_after_failure(
     )
 
     # Change the pod phase. This should throw the lab into a failed state.
-    name = f"nb-{user.username}"
+    name = f"{user.username}-nb"
     namespace = f"userlabs-{user.username}"
     pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
     pod.status.phase = KubernetesPodPhase.FAILED.value
@@ -300,7 +300,7 @@ async def test_delayed_spawn(
 
     # Add a few events.
     namespace = f"userlabs-{user.username}"
-    name = f"nb-{user.username}"
+    name = f"{user.username}-nb"
     await mock_kubernetes.read_namespaced_pod(name, namespace)
     event = CoreV1Event(
         metadata=V1ObjectMeta(name=f"{name}-1", namespace=namespace),
@@ -400,13 +400,6 @@ async def test_lab_objects(
 
     namespace = f"{config.lab.namespace_prefix}-{user.username}"
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
-    with open("/tmp/lab-objects.json", "w") as f:
-        json.dump(
-            [strip_none(o.to_dict()) for o in objects],
-            f,
-            sort_keys=True,
-            indent=4,
-        )
     with (std_result_dir / "lab-objects.json").open("r") as f:
         expected = json.load(f)
     assert [strip_none(o.to_dict()) for o in objects] == expected
@@ -556,29 +549,29 @@ async def test_spawn_errors(
         (
             "create_namespaced_secret",
             "creating secret",
-            "userlabs-rachel/nb-rachel",
+            "userlabs-rachel/rachel-nb",
         ),
         (
             "create_namespaced_config_map",
             "creating config map",
-            "userlabs-rachel/nb-rachel-nss",
+            "userlabs-rachel/rachel-nb-nss",
         ),
         (
             "create_namespaced_network_policy",
             "creating network policy",
-            "userlabs-rachel/nb-rachel-env",
+            "userlabs-rachel/rachel-nb-env",
         ),
         (
             "create_namespaced_resource_quota",
             "creating resource quota",
-            "userlabs-rachel/nb-rachel",
+            "userlabs-rachel/rachel-nb",
         ),
         (
             "create_namespaced_service",
             "creating service",
             "userlabs-rachel/lab",
         ),
-        ("create_namespaced_pod", "creating pod", "userlabs-rachel/nb-rachel"),
+        ("create_namespaced_pod", "creating pod", "userlabs-rachel/rachel-nb"),
     ]
     for api, error, obj in possible_errors:
         apis_to_fail = {api}
