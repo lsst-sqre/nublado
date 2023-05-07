@@ -14,8 +14,9 @@ from structlog.stdlib import BoundLogger
 
 from ..config import Config
 from ..factory import Factory, ProcessContext
+from ..services.fileserver import FileserverStateManager
 from ..services.image import ImageService
-from ..services.state import FileserverStateManager, LabStateManager
+from ..services.state import LabStateManager
 
 
 @dataclass(slots=True)

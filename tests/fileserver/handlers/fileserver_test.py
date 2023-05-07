@@ -27,7 +27,6 @@ async def test_fileserver(
     token, user = obj_factory.get_user()
     name = user.username
     namespace = config.fileserver.namespace
-
     r = await client.get("/nublado/fileserver/v1/users")
     # No fileservers yet.
     assert r.json() == []

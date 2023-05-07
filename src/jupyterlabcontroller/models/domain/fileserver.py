@@ -9,7 +9,7 @@ class FileserverUserMap:
     async def get(self, key: str) -> bool:
         return self._dict.get(key, False)
 
-    async def list_users(self) -> list[str]:
+    async def list(self) -> list[str]:
         return list(self._dict.keys())
 
     async def set(self, key: str) -> None:

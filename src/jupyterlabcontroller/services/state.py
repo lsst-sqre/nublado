@@ -15,16 +15,9 @@ from safir.slack.webhook import SlackWebhookClient
 from sse_starlette import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
-from ..config import Config, LabConfig
+from ..config import LabConfig
 from ..constants import LAB_STATE_REFRESH_INTERVAL
-from ..exceptions import (
-    DisabledError,
-    KubernetesError,
-    LabExistsError,
-    MissingObjectError,
-    UnknownUserError,
-)
-from ..models.domain.fileserver import FileserverUserMap
+from ..exceptions import KubernetesError, LabExistsError, UnknownUserError
 from ..models.domain.kubernetes import KubernetesPodPhase
 from ..models.domain.lab import UserLab
 from ..models.v1.event import Event, EventType
@@ -33,7 +26,6 @@ from ..models.v1.lab import (
     NotebookQuota,
     PodState,
     UserGroup,
-    UserInfo,
     UserLabState,
     UserOptions,
     UserQuota,
@@ -42,7 +34,6 @@ from ..models.v1.lab import (
 )
 from ..storage.k8s import K8sStorageClient
 from .builder import LabBuilder
-from .fileserver import FileserverManager, FileserverReconciler
 from .size import SizeManager
 
 __all__ = ["LabStateManager"]
@@ -971,92 +962,3 @@ class LabStateManager:
         self._labs[username].triggers = [
             t for t in self._labs[username].triggers if t != trigger
         ]
-
-
-class FileserverStateManager:
-    """Manage the record of user fileserver state.
-
-    Parameters
-    ----------
-    kubernetes
-        Kubernetes storage.
-    config
-        Global Config
-    logger
-        Logger to use.
-
-    Notes
-    -----
-    This is a container holding the three fileserver objects.  It makes
-    the external API cleaner by hiding the internal objects' methods and
-    by doing validation of whether the fileserver is enabled on each
-    call.  It checks whether the fileserver namespace is present on the
-    first (post-enabled-check) call, but not on every method call.
-
-    If the namespace has a habit of going away during operations, we might
-    want to revisit whether the namespace is checked only the first time or
-    each time an operation is requested.
-    """
-
-    def __init__(
-        self,
-        *,
-        config: Config,
-        kubernetes: K8sStorageClient,
-        logger: BoundLogger,
-    ) -> None:
-        self._config = config
-        self._namespace_checked = False
-        self._k8s_client = kubernetes
-        self._logger = logger
-        self._manager = FileserverManager(
-            config=config,
-            user_map=FileserverUserMap(),
-            logger=logger,
-            k8s_client=kubernetes,
-        )
-        self._reconciler = FileserverReconciler(
-            config=config,
-            logger=logger,
-            k8s_client=kubernetes,
-            manager=self._manager,
-        )
-
-    async def _preflight_check(self) -> None:
-        if not self._config.fileserver.enabled:
-            raise DisabledError("Fileserver is disabled in configuration")
-        if not self._namespace_checked:
-            if not await self._k8s_client.check_namespace(
-                self._config.fileserver.namespace
-            ):
-                raise MissingObjectError(
-                    message=(
-                        "No namespace "
-                        + f"'{self._config.fileserver.namespace}'"
-                    ),
-                    kind="namespace",
-                )
-            self._namespace_checked = True
-
-    async def start(self) -> None:
-        await self._preflight_check()
-        await self._reconciler.start()
-
-    async def stop(self) -> None:
-        # No preflight check: this is mainly relevant for testing, but
-        # if we orphan a fileserver in a process context, and then
-        # try to recreate the process context, if the namespace isn't there
-        # we don't want to explode the whole process.
-        await self._reconciler.stop()
-
-    async def create(self, user: UserInfo) -> None:
-        await self._preflight_check()
-        return await self._manager.create_fileserver_if_needed(user)
-
-    async def delete(self, username: str) -> None:
-        await self._preflight_check()
-        await self._manager.delete_fileserver(username)
-
-    async def list(self) -> list[str]:
-        await self._preflight_check()
-        return await self._manager.user_map.list_users()
