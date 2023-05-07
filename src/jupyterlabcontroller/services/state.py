@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections import defaultdict
 from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from typing import Optional
 
@@ -1004,32 +1003,22 @@ class FileserverStateManager:
         *,
         config: Config,
         kubernetes: K8sStorageClient,
-        slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._namespace_checked = False
         self._k8s_client = kubernetes
         self._logger = logger
-        # This maps usernames to locks, so we have a lock per user, and
-        # if there is no lock for that user, requesting one gets you a
-        # new lock.
-        self._lock: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
-        self._user_map = FileserverUserMap()
         self._manager = FileserverManager(
             config=config,
-            user_map=self._user_map,
+            user_map=FileserverUserMap(),
             logger=logger,
             k8s_client=kubernetes,
-            slack_client=slack_client,
-            lock=self._lock,
         )
         self._reconciler = FileserverReconciler(
             config=config,
-            user_map=self._user_map,
             logger=logger,
             k8s_client=kubernetes,
-            lock=self._lock,
             manager=self._manager,
         )
 
@@ -1070,4 +1059,4 @@ class FileserverStateManager:
 
     async def list(self) -> list[str]:
         await self._preflight_check()
-        return await self._user_map.list_users()
+        return await self._manager.user_map.list_users()

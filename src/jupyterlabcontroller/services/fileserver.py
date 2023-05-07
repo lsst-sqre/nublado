@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Optional, Set
+from collections import defaultdict
+from typing import Any
 from urllib.parse import urlparse
 
 from kubernetes_asyncio.client import (
@@ -23,11 +24,13 @@ from kubernetes_asyncio.client import (
     V1ServicePort,
     V1ServiceSpec,
 )
-from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
-from ..constants import FILESERVER_RECONCILIATION_INTERVAL
+from ..constants import (
+    FILESERVER_RECONCILIATION_INTERVAL,
+    LIMIT_TO_REQUEST_RATIO,
+)
 from ..models.domain.fileserver import FileserverUserMap
 from ..models.v1.lab import UserInfo
 from ..storage.k8s import K8sStorageClient
@@ -48,16 +51,18 @@ class FileserverManager:
         logger: BoundLogger,
         config: Config,
         k8s_client: K8sStorageClient,
-        lock: dict[str, asyncio.Lock],
-        slack_client: Optional[SlackWebhookClient] = None,
     ) -> None:
-        self.config = config
-        self.namespace = config.fileserver.namespace
+        self._config = config
+        self._namespace = config.fileserver.namespace
+        # User map and lock are used by the reconciler.
         self.user_map = user_map
-        self._lock = lock
+        # This maps usernames to locks, so we have a lock per user, and
+        # if there is no lock for that user, requesting one gets you a
+        # new lock.
+        self.lock: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
         self._logger = logger
-        self.k8s_client = k8s_client
-        self._tasks: Set[asyncio.Task] = set()
+        self._k8s_client = k8s_client
+        self._tasks: set[asyncio.Task] = set()
         self._builder: LabBuilder = LabBuilder(config=config.lab)
 
     async def create_fileserver_if_needed(self, user: UserInfo) -> None:
@@ -71,8 +76,8 @@ class FileserverManager:
         self._logger.info(f"Fileserver requested for {username}")
         if not (
             await self.user_map.get(username)
-            and await self.k8s_client.check_fileserver_present(
-                username, self.namespace
+            and await self._k8s_client.check_fileserver_present(
+                username, self._namespace
             )
         ):
             try:
@@ -91,24 +96,24 @@ class FileserverManager:
         operational.  If we can't build it, raise an error.
         """
         username = user.username
-        async with self._lock[username]:
+        async with self.lock[username]:
             self._logger.info(f"Creating new fileserver for {username}")
-            namespace = self.namespace
+            namespace = self._namespace
             gf_ingress = self._build_fileserver_ingress(user.username)
             service = self._build_fileserver_service(user.username)
             job = self._build_fileserver_job(user)
             self._logger.debug(
                 "...creating new gafawelfawrfingress for " + username
             )
-            await self.k8s_client.create_fileserver_gafaelfawringress(
+            await self._k8s_client.create_fileserver_gafaelfawringress(
                 username, namespace, spec=gf_ingress
             )
             self._logger.debug(f"...creating new job for {username}")
-            await self.k8s_client.create_fileserver_job(
+            await self._k8s_client.create_fileserver_job(
                 username, namespace, job
             )
             self._logger.debug(f"...creating new service for {username}")
-            await self.k8s_client.create_fileserver_service(
+            await self._k8s_client.create_fileserver_service(
                 username, namespace, spec=service
             )
             await self._wait_for_fileserver(username, namespace)
@@ -123,7 +128,7 @@ class FileserverManager:
         async with asyncio.timeout(timeout):
             # FIXME use an event watch, not a poll?
             while True:
-                good = await self.k8s_client.check_fileserver_present(
+                good = await self._k8s_client.check_fileserver_present(
                     username, namespace
                 )
                 if good:
@@ -145,9 +150,9 @@ class FileserverManager:
             Kubernetes metadata specification for that user's fileserver
             objects.
         """
-        return self.k8s_client.standard_metadata(
+        return self._k8s_client.standard_metadata(
             name=f"{username}-fs",
-            namespace=self.namespace,
+            namespace=self._namespace,
             category="fileserver",
             username=username,
         )
@@ -183,10 +188,7 @@ class FileserverManager:
         #
         # In practice, limits of 100m CPU and 128M of memory seem fine.
         #
-        # This assert will always succeed, because we cannot instantiate
-        # the class without a fileserver config.  Mypy is dumb sometimes.
-        assert self.config.fileserver is not None
-        resources = self.config.fileserver.resources
+        resources = self._config.fileserver.resources
         # Handle the degenerate cases first.
         if resources is None:
             return None
@@ -205,14 +207,13 @@ class FileserverManager:
             lim_dict["memory"] = str(resources.limits.memory)
         if not resources.requests.cpu:
             if resources.limits.cpu:
-                # Our 25% heuristic seems to work fine
-                cpu = resources.limits.cpu / 4.0
+                cpu = resources.limits.cpu / LIMIT_TO_REQUEST_RATIO
                 if cpu < 0.001:
                     cpu = 0.001  # K8s granularity limitation.
                 req_dict["cpu"] = str(cpu)
         if not resources.requests.memory:
             if resources.limits.memory:
-                mem = int(resources.limits.memory / 4)
+                mem = int(resources.limits.memory / LIMIT_TO_REQUEST_RATIO)
                 # Sane-architecture granularity limitation.
                 #
                 # I mean, I'm being defensive here, but let's hope that no one
@@ -241,10 +242,6 @@ class FileserverManager:
         V1PodSpec
             Kubernetes pod specification for that user's fileserver pod.
         """
-        # This assert will always succeed, because we cannot instantiate
-        # the class without a fileserver config.  Mypy is dumb sometimes.
-        assert self.config.fileserver is not None
-
         volume_data = self._builder.build_lab_config_volumes(prefix="/mnt")
         volumes = [v.volume for v in volume_data]
         mounts = [v.volume_mount for v in volume_data]
@@ -255,22 +252,24 @@ class FileserverManager:
             V1EnvVar(
                 name="WORBLEHAT_BASE_HREF",
                 value=(
-                    self.config.fileserver.path_prefix + f"/files/{username}"
+                    self._config.fileserver.path_prefix + f"/files/{username}"
                 ),
             ),
             V1EnvVar(
                 name="WORBLEHAT_TIMEOUT",
-                value=str(self.config.fileserver.timeout),
+                value=str(self._config.fileserver.timeout),
             ),
             V1EnvVar(name="WORBLEHAT_DIR", value="/mnt"),
         ]
-        image = self.config.fileserver.image + ":" + self.config.fileserver.tag
+        image = (
+            self._config.fileserver.image + ":" + self._config.fileserver.tag
+        )
         # Specification for the user's container.
         container = V1Container(
             name="fileserver",
             env=env,
             image=image,
-            image_pull_policy=self.config.fileserver.pull_policy.value,
+            image_pull_policy=self._config.fileserver.pull_policy.value,
             ports=[V1ContainerPort(container_port=8000, name="http")],
             resources=resource_data,
             security_context=V1SecurityContext(
@@ -303,7 +302,7 @@ class FileserverManager:
         apj = "argocd.argoproj.io"
         md_obj = {
             "name": obj_name,
-            "namespace": self.namespace,
+            "namespace": self._namespace,
             "labels": {
                 f"{apj}/instance": "fileservers",
                 "lsst.io/category": "fileserver",
@@ -318,7 +317,7 @@ class FileserverManager:
 
     def _build_fileserver_ingress(self, username: str) -> dict[str, Any]:
         # The Gafaelfawr Ingress is a CRD, so creating it is a bit different.
-        base_url = self.config.base_url
+        base_url = self._config.base_url
         host = urlparse(base_url).hostname
         # I feel like I should apologize for this object I'm returning.
         # Note: camelCase, not snake_case
@@ -372,22 +371,22 @@ class FileserverManager:
         return service
 
     async def delete_fileserver(self, username: str) -> None:
-        namespace = self.namespace
-        async with self._lock[username]:
+        namespace = self._namespace
+        async with self.lock[username]:
             await self.user_map.remove(username)
-            await self.k8s_client.delete_fileserver_gafaelfawringress(
+            await self._k8s_client.delete_fileserver_gafaelfawringress(
                 username, namespace
             )
-            await self.k8s_client.delete_fileserver_service(
+            await self._k8s_client.delete_fileserver_service(
                 username, namespace
             )
-            await self.k8s_client.delete_fileserver_job(username, namespace)
+            await self._k8s_client.delete_fileserver_job(username, namespace)
             # This next bit is what takes the time--the method does not
             # return until the fileserver objects are gone.
-            await self.k8s_client.wait_for_fileserver_object_deletion(
+            await self._k8s_client.wait_for_fileserver_object_deletion(
                 username, namespace
             )
-        del self._lock[username]
+        del self.lock[username]
 
 
 class FileserverReconciler:
@@ -395,19 +394,15 @@ class FileserverReconciler:
         self,
         *,
         config: Config,
-        user_map: FileserverUserMap,
         logger: BoundLogger,
         k8s_client: K8sStorageClient,
-        lock: dict[str, asyncio.Lock],
         manager: FileserverManager,
     ) -> None:
-        self.fs_namespace = config.fileserver.namespace
-        self.user_map = user_map
-        self.k8s_client = k8s_client
-        self._lock = lock
+        self._namespace = config.fileserver.namespace
+        self._k8s_client = k8s_client
         self._logger = logger
         self._manager = manager
-        self._tasks: Set[asyncio.Task] = set()
+        self._tasks: set[asyncio.Task] = set()
         self._started = False
         self._builder = LabBuilder(config=config.lab)
 
@@ -438,11 +433,11 @@ class FileserverReconciler:
             tsk.cancel()
 
     async def reconcile_user_map(self) -> None:
+        """This method uses our manager's user map and lock."""
         self._logger.debug("Reconciling fileserver user map")
-        namespace = self.fs_namespace
-        mapped_users = set(await self.user_map.list_users())
-        observed_map = await self.k8s_client.get_observed_fileserver_state(
-            namespace
+        mapped_users = set(await self._manager.user_map.list_users())
+        observed_map = await self._k8s_client.get_observed_fileserver_state(
+            self._namespace
         )
         # Tidy up any no-longer-running users.  They aren't running, but they
         # might have some objects remaining.
@@ -457,7 +452,7 @@ class FileserverReconciler:
         # No need to create anything else for new ones--we know they're
         # running.
         for user in observed_users:
-            async with self._lock[user]:
-                await self.user_map.set(user)
+            async with self._manager.lock[user]:
+                await self._manager.user_map.set(user)
         self._logger.debug("Filserver user map reconciliation complete")
         self._logger.debug(f"Users with fileservers: {observed_users}")
