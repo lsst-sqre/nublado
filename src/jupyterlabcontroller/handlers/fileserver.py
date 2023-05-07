@@ -69,11 +69,6 @@ async def route_user(
     # one)
     context.rebind_logger(user=username)
     fileserver_state = context.fileserver_state
-    # These assertions will always succeed, because we will not mount the
-    # handler or create a fileserver state without a fileserver config.
-    # Mypy doesn't know that.
-    assert config.fileserver is not None
-    assert fileserver_state is not None
     timeout = config.fileserver.timeout
     base_url = config.base_url
     await fileserver_state.create(user)
@@ -94,12 +89,6 @@ async def route_user(
 async def get_fileserver_users(
     context: RequestContext = Depends(context_dependency),
 ) -> list[str]:
-    # This assertion will always succeed, because we will not
-    # create a fileserver state without a fileserver config.  (Nor will we
-    # mount the route handler in the first place.)
-    # Mypy doesn't know that.
-    assert context.fileserver_state is not None
-
     return await context.fileserver_state.list()
 
 
@@ -113,9 +102,4 @@ async def remove_fileserver(
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     context.rebind_logger(user=username)
-    # This assertion will always succeed, because we will not
-    # create a fileserver state without a fileserver config.  (Nor will we
-    # mount the route handler in the first place.)
-    # Mypy doesn't know that.
-    assert context.fileserver_state is not None
     await context.fileserver_state.delete(username)

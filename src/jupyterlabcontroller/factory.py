@@ -18,6 +18,7 @@ from .config import Config
 from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
 from .services.builder import LabBuilder
+from .services.fileserver import FileserverStateManager
 from .services.form import FormManager
 from .services.image import ImageService
 from .services.lab import LabManager
@@ -26,7 +27,7 @@ from .services.size import SizeManager
 from .services.source.base import ImageSource
 from .services.source.docker import DockerImageSource
 from .services.source.gar import GARImageSource
-from .services.state import FileserverStateManager, LabStateManager
+from .services.state import LabStateManager
 from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.gar import GARStorageClient

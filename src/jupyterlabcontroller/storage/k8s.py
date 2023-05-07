@@ -1259,7 +1259,8 @@ class K8sStorageClient:
 
         A fileserver is working if:
 
-        1) it has a Job with at least one active Pod
+        1) it has exactly one Pod in Running state due to a Job of the
+           right name, and
         2) it has an Ingress (properties not checked)
 
         We do not check the GafaelfawrIngress, because the Custom API is
@@ -1278,24 +1279,27 @@ class K8sStorageClient:
         self._logger.debug(f"Checking whether {username} has fileserver")
         try:
             self._logger.debug(f"Checking job for {username}")
-            job = await self.batch_api.read_namespaced_job(obj_name, namespace)
+            await self.batch_api.read_namespaced_job(obj_name, namespace)
         except ApiException as e:
             self._logger.info(f"Job {obj_name} for {username} not found.")
             if e.status == 404:
                 self._logger.debug(f"Job {obj_name} for {username} not found.")
                 return False
-            raise KubernetesError.from_exception(
-                "Error reading job",
-                e,
-                namespace=namespace,
-                name=obj_name,
-            ) from e
-        if (
-            job.status is None
-            or job.status.active is None
-            or job.status.active < 1
-        ):
-            self._logger.info(f"Job {obj_name} has no active pods.")
+        # OK, we have a job.  Now let's see if the Pod from that job has
+        # arrived...
+        self._logger.debug(f"Checking Pod for {username}")
+        pod = await self.get_fileserver_pod_for_user(username, namespace)
+        if pod is None:
+            self._logger.info(f"No Pod for {username}")
+            return False
+        if pod.status is None:
+            self._logger.info(f"No Pod status for {pod.metadata.name}")
+            return False
+        if pod.status.phase != "Running":
+            self._logger.info(
+                f"Pod for {username} is in phase "
+                + f"'{pod.status.phase}', not 'Running'."
+            )
             return False
         try:
             self._logger.debug(f"Checking ingress for {username}")
@@ -1380,3 +1384,239 @@ class K8sStorageClient:
                     + "then rechecking."
                 )
                 await asyncio.sleep(interval)
+
+    async def get_fileserver_pod_for_user(
+        self, username: str, namespace: str
+    ) -> V1Pod | None:
+        selector_string = f"job-name=={username}-fs"
+        try:
+            pods = await self.api.list_namespaced_pod(
+                namespace=namespace, label_selector=selector_string
+            )
+            if not pods:
+                return None
+            if len(pods.items) > 1:
+                raise KubernetesError(
+                    f"Multiple pods match job {username}-fs",
+                    namespace=namespace,
+                )
+            return pods.items[0]
+        except ApiException as e:
+            raise KubernetesError.from_exception(
+                "Error listing pods",
+                e,
+                namespace=namespace,
+            ) from e
+
+    async def wait_for_fileserver_pod_up(
+        self, pod_name: str, namespace: str
+    ) -> None:
+        await self._wait_for_fileserver_pod_up_down(
+            pod_name, namespace, up=True
+        )
+
+    async def wait_for_fileserver_pod_down(
+        self, pod_name: str, namespace: str
+    ) -> None:
+        await self._wait_for_fileserver_pod_up_down(
+            pod_name, namespace, up=False
+        )
+
+    async def _wait_for_fileserver_pod_up_down(
+        self, pod_name: str, namespace: str, up: bool
+    ) -> None:
+        """
+        Waits for a fileserver pod to be up or down.
+
+        Parameters
+        ----------
+        pod_name
+            Name of the pod.
+        namespace
+            Namespace in which the pod is located.
+        up
+            If True, waits for pod to be in "Running" phase (for the
+            duration of a single watch timeout).  If False, waits
+            (indefinitely) for the pod to enter "Succeeded" or "Failed", or
+            for the pod to go away.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        """
+        logger = self._logger.bind(name=pod_name, namespace=namespace)
+        # Retrieve the object first. It's possible that it's already in the
+        # correct phase, and we can return immediately. If not, we want to
+        # start watching events with the next event after the current object
+        # version.
+        try:
+            pod = await self.api.read_namespaced_pod(pod_name, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                if not up:
+                    return
+            raise KubernetesError.from_exception(
+                "Error watching pod",
+                e,
+                namespace=namespace,
+                name=pod_name,
+            ) from e
+        initial_phase = "Pending"
+        if not up:
+            initial_phase = "Running"
+        if (
+            pod is not None
+            and pod.status is not None
+            and pod.status.phase is not None
+        ):
+            if pod.status.phase != initial_phase:
+                return pod.status.phase
+        while True:
+            logger.debug(
+                f"Waiting for pod phase change from '{initial_phase}'"
+            )
+            try:
+                phase = await self._pod_watch_loop(
+                    pod_name, namespace, initial_phase=initial_phase
+                )
+                if phase is None:
+                    logger.warning("New pod phase is None")
+                else:
+                    logger.debug(f"New pod phase is {phase.value}")
+            except TimeoutError:
+                if up:
+                    raise
+                logger.debug(
+                    f"Pod watch timed out for {namespace}/{pod_name}"
+                    + "; restarting."
+                )
+                continue
+            if up:
+                if phase is None or phase != KubernetesPodPhase.RUNNING:
+                    msg = "Unexpected phase "
+                    if phase is not None:
+                        msg += f"'{phase.value}'"
+                    else:
+                        msg += "'None'"
+                    msg += ".  Expected 'Running'."
+                    raise KubernetesError(
+                        message=msg,
+                        name=pod_name,
+                        namespace=namespace,
+                    )
+                logger.debug(f"Phase transition to {phase.value}")
+                return
+            # We're now in the waiting-for-down phase.
+            if (
+                phase is None
+                or phase == KubernetesPodPhase.SUCCEEDED
+                or phase == KubernetesPodPhase.FAILED
+            ):
+                # Pod finished no longer exists; that's what we were waiting
+                # for.
+                return
+            if phase == KubernetesPodPhase.UNKNOWN:
+                logger.warning(
+                    f"Pod {namespace}/{pod_name} in 'Unknown' phase."
+                )
+            logger.debug(f"Phase is {phase.value}; looping.")
+            # Loop and try again.
+
+    async def _pod_watch_loop(
+        self, pod_name: str, namespace: str, initial_phase: str
+    ) -> KubernetesPodPhase | None:
+        """Waits for a pod to change phase.  Returns the new phase.
+
+        Parameters
+        ----------
+        pod_name
+            Name of the pod.
+        namespace
+            Namespace in which the pod is located.
+        initial_phase
+            Phase we expect the pod to be in at the start of the watch.
+
+        Returns
+        -------
+        KubernetesPodPhase
+            New pod phase, or `None` if the pod has disappeared.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if watch expires.  The caller should decide on
+            whether to restart the watch, or allow the error to propagate.
+        """
+
+        logger = self._logger.bind(name=pod_name, namespace=namespace)
+        logger.debug(
+            f"Waiting for pod phase change (inital = {initial_phase})"
+        )
+        # Retrieve the object first. It's possible that it's already in the
+        # correct phase, and we can return immediately. If not, we want to
+        # start watching events with the next event after the current object
+        # version. Note that we treat Unknown the same as Pending; we rely on
+        # the timeout and otherwise hope that Kubernetes will figure out the
+        # phase.
+        try:
+            pod = await self.api.read_namespaced_pod(pod_name, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                return None
+            raise KubernetesError.from_exception(
+                "Error watching pod",
+                e,
+                namespace=namespace,
+                name=pod_name,
+            ) from e
+        continuing_phases = ("Unknown", "Pending", "Running")
+        if pod.status.phase not in continuing_phases:
+            return KubernetesPodPhase(pod.status.phase)
+        if pod.status.phase != initial_phase:
+            return KubernetesPodPhase(pod.status.phase)
+        # The pod is not in a terminal phase. Start the watch and
+        # wait for it to change state.
+        w = watch.Watch()
+        method = self.api.list_namespaced_pod
+        timeout = int(self._spawn_timeout.total_seconds())
+        retry_without_rv = True
+        watch_args = {
+            "namespace": namespace,
+            "field_selector": f"metadata.name={pod_name}",
+            "resource_version": pod.metadata.resource_version,
+            "timeout_seconds": timeout,
+            "_request_timeout": timeout,
+        }
+        while retry_without_rv:
+            try:
+                async with w.stream(method, **watch_args) as stream:
+                    async for event in stream:
+                        if event["type"] == "DELETED":
+                            return None
+                        phase = event["raw_object"]["status"]["phase"]
+                        if phase != initial_phase:
+                            return KubernetesPodPhase(phase)
+                        retry_without_rv = False
+            except ApiException as e:
+                if e.status == 410 and retry_without_rv:
+                    # Pod resource version expired.
+                    # try again without one
+                    del watch_args["resource_version"]
+                    retry_without_rv = False
+                    logger.warning(
+                        f"Resource version {pod.metadata.resource_version}"
+                        + f"expired: {e}; retrying without resource version"
+                    )
+                    continue
+                raise KubernetesError.from_exception(
+                    "Error watching pod",
+                    e,
+                    namespace=namespace,
+                    name=pod_name,
+                ) from e
+
+        # If we fell through, the watch timed out.
+        raise TimeoutError(f"Watch timed out after {timeout}s")
