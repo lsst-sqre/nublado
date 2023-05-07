@@ -152,7 +152,6 @@ class ProcessContext:
                 logger=logger,
                 config=config,
                 kubernetes=k8s_client,
-                slack_client=slack_client,
             ),
         )
 
