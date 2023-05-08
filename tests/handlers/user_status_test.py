@@ -74,6 +74,7 @@ async def test_user_status(
         "quota": {"api": {}, "notebook": {"cpu": 9.0, "memory": 27.0}},
         "resources": expected_resources.dict(),
         "status": "running",
+        "token": "token-of-affection",
         "uid": user.uid,
         "username": user.username,
     }
