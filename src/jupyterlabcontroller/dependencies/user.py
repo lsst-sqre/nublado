@@ -41,6 +41,7 @@ class UserDependency:
         if user.username != x_auth_request_user:
             raise PermissionDeniedError("Permission denied")
         # The user is valid.
+        context.rebind_logger(user=user.username)
         user.token = x_auth_request_token
         return user
 
