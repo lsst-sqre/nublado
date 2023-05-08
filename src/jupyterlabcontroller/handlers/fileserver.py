@@ -7,7 +7,8 @@ from ..config import Config
 from ..constants import FILESERVER_TEMPLATE
 from ..dependencies.config import configuration_dependency
 from ..dependencies.context import RequestContext, context_dependency
-from ..exceptions import PermissionDeniedError
+from ..dependencies.user import user_dependency
+from ..models.v1.lab import UserInfo
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 user_router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -57,16 +58,11 @@ __all__ = ["router", "user_router"]
 async def route_user(
     context: RequestContext = Depends(context_dependency),
     config: Config = Depends(configuration_dependency),
+    user: UserInfo = Depends(user_dependency),
     x_auth_request_user: str = Header(..., include_in_schema=False),
     x_auth_request_token: str = Header(..., include_in_schema=False),
 ) -> str:
-    username = x_auth_request_user
-    gafaelfawr_client = context.factory.create_gafaelfawr_client()
-    user = await gafaelfawr_client.get_user_info(x_auth_request_token)
-    if user.username != username:
-        raise PermissionDeniedError("Permission denied")
-    # The user is valid.  Create a fileserver for them (or use an extant
-    # one)
+    username = user.username
     context.rebind_logger(user=username)
     fileserver_state = context.fileserver_state
     timeout = config.fileserver.timeout
