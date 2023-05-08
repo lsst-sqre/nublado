@@ -27,7 +27,7 @@ __all__ = [
     "InvalidTokenError",
     "KubernetesError",
     "LabExistsError",
-    "MissingSecretError",
+    "MissingObjectError",
     "SlackWebException",
     "UnknownDockerImageError",
     "UnknownUserError",
@@ -399,19 +399,7 @@ class KubernetesError(SlackException):
         self.body = body
 
     def __str__(self) -> str:
-        result = self.message
-        if self.name or self.status:
-            result += " ("
-            if self.name:
-                if self.namespace:
-                    result += f"{self.namespace}/{self.name}"
-                else:
-                    result += self.name
-                if self.status:
-                    result += ", "
-            if self.status:
-                result += f"status {self.status}"
-            result += ")"
+        result = self._summary()
         if self.body:
             result += f": {self.body}"
         return result
@@ -425,6 +413,7 @@ class KubernetesError(SlackException):
             Slack message suitable for posting as an alert.
         """
         message = super().to_slack()
+        message.message = self._summary()
         if self.name:
             if self.namespace:
                 obj = f"{self.namespace}/{self.name}"
@@ -439,6 +428,71 @@ class KubernetesError(SlackException):
             message.blocks.append(block)
         return message
 
+    def _summary(self) -> str:
+        """Summarize the exception.
 
-class MissingSecretError(Exception):
-    """Secret specified in the controller configuration was not found."""
+        Produces a single-line summary, used for the main part of the Slack
+        message and part of the stringification.
+        """
+        result = self.message
+        if self.name or self.status:
+            result += " ("
+            if self.name:
+                if self.namespace:
+                    result += f"{self.namespace}/{self.name}"
+                else:
+                    result += self.name
+                if self.status:
+                    result += ", "
+            if self.status:
+                result += f"status {self.status}"
+            result += ")"
+        return result
+
+
+class MissingObjectError(SlackException):
+    """An expected Kubernetes object is missing.
+
+    Parameters
+    ----------
+    message
+        Summary of error.
+    user
+        Username on whose behalf the request is being made.
+    namespace
+        Namespace of object being acted on.
+    name
+        Name of object being acted on.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        kind: str,
+        user: Optional[str] = None,
+        namespace: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> None:
+        super().__init__(message, user)
+        self.message = message
+        self.kind = kind
+        self.namespace = namespace
+        self.name = name
+
+    def to_slack(self) -> SlackMessage:
+        """Convert to a Slack message for Slack alerting.
+
+        Returns
+        -------
+        SlackMessage
+            Slack message suitable for posting as an alert.
+        """
+        message = super().to_slack()
+        if self.name:
+            if self.namespace:
+                obj = f"{self.kind} {self.namespace}/{self.name}"
+            else:
+                obj = f"{self.kind} {self.name}"
+            message.blocks.append(SlackTextField(heading="Object", text=obj))
+        return message

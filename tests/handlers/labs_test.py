@@ -591,9 +591,11 @@ async def test_spawn_errors(
         )
         assert r.status_code == 201
         events = await get_lab_events(client, user.username)
-        error = f"Error {error} ({obj}, status 400): Something bad happened"
+        error = f"Error {error} ({obj}, status 400)"
         assert events[-2] == {
-            "data": json.dumps({"message": error}),
+            "data": json.dumps(
+                {"message": f"{error}: Something bad happened"}
+            ),
             "event": "error",
         }
         assert events[-1] == {

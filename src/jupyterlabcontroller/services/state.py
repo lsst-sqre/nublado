@@ -550,6 +550,9 @@ class LabStateManager:
         """
         pod = f"nb-{username}"
         namespace = self._builder.namespace_for_user(username)
+        logger = self._logger.bind(
+            user=username, name=pod, namespace=namespace
+        )
         start = current_datetime()
         progress = start_progress
         timeout = self._config.spawn_timeout.total_seconds()
@@ -573,10 +576,10 @@ class LabStateManager:
         except TimeoutError:
             delay = int((current_datetime() - start).total_seconds())
             msg = f"Lab creation timed out after {delay}s"
-            self._logger.error(msg)
+            logger.error(msg)
             await self.publish_error(username, msg, fatal=True)
         except Exception as e:
-            self._logger.exception("Lab creation failed")
+            logger.exception("Lab creation failed")
             if self._slack:
                 if isinstance(e, SlackException):
                     e.user = username
@@ -590,7 +593,7 @@ class LabStateManager:
             await self._add_event(username, completion_event)
             self._labs[username].state.status = LabStatus.RUNNING
             self._labs[username].state.internal_url = internal_url
-            self._logger.info("Lab created")
+            logger.info("Lab created")
         finally:
             self._spawner_done.set()
 

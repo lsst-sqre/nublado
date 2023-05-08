@@ -290,7 +290,7 @@ async def test_kubernetes_error(
     await asyncio.sleep(0.2)
 
     obj = "userlabs/prepull-d-2077-10-23-node2"
-    error = f"Error creating pod ({obj}, status 400): Some error happened"
+    error = f"Error creating pod ({obj}, status 400)"
     assert mock_slack.messages == [
         {
             "blocks": [

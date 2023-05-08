@@ -33,13 +33,12 @@ from kubernetes_asyncio.client import (
 from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
-from ..exceptions import KubernetesError, MissingSecretError
+from ..exceptions import KubernetesError, MissingObjectError
 from ..models.domain.kubernetes import (
     KubernetesNodeImage,
     KubernetesPodEvent,
     KubernetesPodPhase,
 )
-from ..models.k8s import Secret
 from ..models.v1.lab import UserResourceQuantum
 from ..util import deslashify
 
@@ -207,12 +206,13 @@ class K8sStorageClient:
         logger.debug("Watching pod events")
         w = watch.Watch()
         method = self.api.list_namespaced_event
+        timeout = int(self._spawn_timeout.total_seconds())
         watch_args = {
             "namespace": namespace,
             "field_selector": f"involvedObject.name={pod_name}",
             "resource_version": "0",
-            "timeout_seconds": int(self._spawn_timeout.total_seconds()),
-            "_request_timeout": self._timeout,
+            "timeout_seconds": timeout,
+            "_request_timeout": timeout,
         }
         try:
             async with w.stream(method, **watch_args) as stream:
@@ -277,11 +277,7 @@ class K8sStorageClient:
             404 for a missing pod, which is treated as a spawn failure).
         """
         message = raw_event.get("message")
-        logger.debug(
-            "Saw Kubernetes event",
-            object=raw_event.get("involved_object"),
-            message=message,
-        )
+        logger.debug("Saw Kubernetes event", message=message)
         if not message:
             return None
 
@@ -304,7 +300,7 @@ class K8sStorageClient:
         if phase == KubernetesPodPhase.UNKNOWN:
             error = "Pod phase is Unknown, assuming it failed"
             logger.error(error)
-        else:
+        elif phase != KubernetesPodPhase.PENDING:
             logger.debug(f"Pod phase is now {phase}")
         return KubernetesPodEvent(message=message, phase=phase, error=error)
 
@@ -334,7 +330,7 @@ class K8sStorageClient:
             name=target_secret,
             namespace=target_namespace,
             data=secret.data,
-            secret_type=secret.secret_type,
+            secret_type=secret.type,
         )
 
     async def merge_controller_secrets(
@@ -372,7 +368,12 @@ class K8sStorageClient:
             key = spec.secret_key
             if key not in secret_data[spec.secret_name]:
                 name = f"{source_namespace}/{spec.secret_name}"
-                raise MissingSecretError(f"No key {key} in {name}")
+                raise MissingObjectError(
+                    f"No key {key} in secret {name}",
+                    kind="Secret",
+                    name=spec.secret_name,
+                    namespace=source_namespace,
+                )
             if key in data:
                 # Should be impossible due to the validator on our
                 # configuration, which should check for conflicts.
@@ -408,22 +409,24 @@ class K8sStorageClient:
         self,
         name: str,
         namespace: str,
-    ) -> Secret:
+    ) -> V1Secret:
         logger = self._logger.bind(name=name, namespace=namespace)
         logger.debug("Reading secret")
         try:
-            secret = await self.api.read_namespaced_secret(name, namespace)
+            return await self.api.read_namespaced_secret(name, namespace)
         except ApiException as e:
             if e.status == 404:
                 logger.error("Secret does not exist")
-                msg = f"Secret {namespace}/{name} does not exist"
-                raise MissingSecretError(msg)
+                raise MissingObjectError(
+                    message=f"Secret {namespace}/{name} does not exist",
+                    kind="Secret",
+                    name=name,
+                    namespace=namespace,
+                )
             else:
                 raise KubernetesError.from_exception(
                     "Error reading secret", e, namespace=namespace, name=name
                 ) from e
-        secret_type = secret.type
-        return Secret(data=secret.data, secret_type=secret_type)
 
     async def create_configmap(
         self,
@@ -596,9 +599,8 @@ class K8sStorageClient:
         """
         self._logger.debug("Deleting namespace", name=name)
         try:
-            await asyncio.wait_for(
-                self.api.delete_namespace(name), self._timeout
-            )
+            async with asyncio.timeout(self._timeout):
+                await self.api.delete_namespace(name)
         except ApiException as e:
             if e.status == 404:
                 return
@@ -744,16 +746,18 @@ class K8sStorageClient:
         KubernetesError
             Raised on failure to talk to Kubernetes.
         """
-        msg = "Getting pod status"
-        self._logger.debug(msg, name=name, namespace=namespace)
         try:
             pod = await self.api.read_namespaced_pod_status(name, namespace)
         except ApiException as e:
             if e.status == 404:
+                msg = "Pod does not exist when checking phase"
+                self._logger.debug(msg, name=name, namespace=namespace)
                 return None
             raise KubernetesError.from_exception(
-                "Error reading pod status", e, namespace=namespace, name=name
+                "Error reading pod phase", e, namespace=namespace, name=name
             ) from e
+        msg = f"Pod phase is {pod.status.phase}"
+        self._logger.debug(msg, name=name, namespace=namespace)
         return pod.status.phase
 
     async def get_quota(
