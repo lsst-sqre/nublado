@@ -303,8 +303,8 @@ class FileserverStateManager:
             "namespace": self._namespace,
             "labels": {
                 f"{apj}/instance": "fileservers",
-                "lsst.io/category": "fileserver",
-                "lsst.io/user": username,
+                "nublado.lsst.io/category": "fileserver",
+                "nublado.lsst.io/user": username,
             },
             "annotations": {
                 f"{apj}/compare-options": "IgnoreExtraneous",
@@ -361,8 +361,8 @@ class FileserverStateManager:
             spec=V1ServiceSpec(
                 ports=[V1ServicePort(port=8000, target_port=8000)],
                 selector={
-                    "lsst.io/category": "fileserver",
-                    "lsst.io/user": username,
+                    "nublado.lsst.io/category": "fileserver",
+                    "nublado.lsst.io/user": username,
                 },
             ),
         )
