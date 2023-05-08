@@ -33,11 +33,7 @@ from kubernetes_asyncio.client import (
 from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
-from ..exceptions import (
-    KubernetesError,
-    MissingSecretError,
-    WaitingForObjectError,
-)
+from ..exceptions import KubernetesError, MissingSecretError
 from ..models.domain.kubernetes import (
     KubernetesNodeImage,
     KubernetesPodEvent,
@@ -107,6 +103,12 @@ class K8sStorageClient:
         expect a 404, and when we get it we return. If it doesn't arrive
         within the timeout, we raise the timeout exception, and if we get some
         other error, we repackage that and raise it.
+
+        Raises
+        ------
+        TimeoutError
+            Raised if the namespace doesn't disappear within the configured
+            timeout.
         """
         self._logger.debug("Waiting for namespace deletion", name=namespace)
         elapsed = 0.0
@@ -121,7 +123,7 @@ class K8sStorageClient:
                 ) from e
             await asyncio.sleep(interval)
             elapsed += interval
-        raise WaitingForObjectError("Timed out waiting for namespace deletion")
+        raise TimeoutError("Timed out waiting for namespace deletion")
 
     async def remove_completed_pod(
         self, podname: str, namespace: str, interval: float = 0.2
@@ -172,7 +174,7 @@ class K8sStorageClient:
             await asyncio.sleep(interval)
             elapsed += interval
         # And if we get this far, it timed out without being created.
-        raise WaitingForObjectError(
+        raise TimeoutError(
             f"Timed out waiting for pod {namespace}/{podname} creation"
         )
 
@@ -200,9 +202,6 @@ class K8sStorageClient:
         ------
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
-        WaitingForObjectError
-            Raised if the pod spawn doesn't succeed or fail within the
-            timeout period.
         """
         logger = self._logger.bind(pod=pod_name, namespace=namespace)
         logger.debug("Watching pod events")
@@ -610,7 +609,7 @@ class K8sStorageClient:
                 f"Timed out after {self._timeout}s waiting for namespace"
                 f" {name} to be deleted"
             )
-            raise WaitingForObjectError(msg)
+            raise TimeoutError(msg)
 
     async def delete_pod(self, name: str, namespace: str) -> None:
         """Delete a pod.

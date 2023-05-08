@@ -31,7 +31,6 @@ __all__ = [
     "SlackWebException",
     "UnknownDockerImageError",
     "UnknownUserError",
-    "WaitingForObjectError",
 ]
 
 
@@ -439,10 +438,6 @@ class KubernetesError(SlackException):
             block = SlackCodeBlock(heading="Error", code=self.body)
             message.blocks.append(block)
         return message
-
-
-class WaitingForObjectError(Exception):
-    """An error occurred while waiting for object creation or deletion."""
 
 
 class MissingSecretError(Exception):

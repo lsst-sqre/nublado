@@ -8,6 +8,7 @@ state with Kubernetes.
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 
 import pytest
 from kubernetes_asyncio.client import (
@@ -179,3 +180,45 @@ async def test_reconcile_pending(
     state = await factory.lab_state.get_lab_state(user.username)
     expected.status = LabStatus.RUNNING
     assert state.dict() == expected.dict()
+
+
+@pytest.mark.asyncio
+async def test_spawn_timeout(
+    config: Config,
+    factory: Factory,
+    obj_factory: TestObjectFactory,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    for secret in obj_factory.secrets:
+        await mock_kubernetes.create_namespaced_secret(
+            config.lab.namespace_prefix, secret
+        )
+    mock_kubernetes.initial_pod_phase = KubernetesPodPhase.PENDING.value
+    config.lab.spawn_timeout = timedelta(seconds=1)
+    token, user = obj_factory.get_user()
+    lab = obj_factory.labspecs[0]
+    lab_manager = factory.create_lab_manager()
+    await factory.start_background_services()
+
+    # Start the lab creation.
+    await lab_manager.create_lab(user, token, lab)
+    await asyncio.sleep(0.1)
+    status = await factory.lab_state.get_lab_status(user.username)
+    assert status == LabStatus.PENDING
+
+    # Wait for half the timeout and the status should still be pending.
+    await asyncio.sleep(0.5)
+    status = await factory.lab_state.get_lab_status(user.username)
+    assert status == LabStatus.PENDING
+
+    # Wait for the timeout. The lab creation should have failed with an
+    # appropriate event.
+    await asyncio.sleep(0.5)
+    status = await factory.lab_state.get_lab_status(user.username)
+    assert status == LabStatus.FAILED
+    events = []
+    async for event in factory.lab_state.events_for_user(user.username):
+        events.append(event)
+    assert events[-2].data and events[-1].data
+    assert "Lab creation timed out after" in events[-2].data
+    assert "Lab creation failed" in events[-1].data

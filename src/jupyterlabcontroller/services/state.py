@@ -391,12 +391,23 @@ class LabStateManager:
             raise UnknownUserError(f"Unknown user {username}")
         logger = self._logger.bind(user=username)
         lab = self._labs[username]
+        timeout = self._config.spawn_timeout.total_seconds()
         await self._clear_events(lab)
         lab.state.status = LabStatus.TERMINATING
         lab.state.internal_url = None
+        start = current_datetime()
         lab.task = asyncio.create_task(deleter())
         try:
-            await lab.task
+            async with asyncio.timeout(timeout):
+                await lab.task
+        except TimeoutError:
+            delay = int((current_datetime() - start).total_seconds())
+            msg = f"Lab deletion timed out after {delay}s"
+            logger.error(msg)
+            event = Event(message=msg, type=EventType.FAILED)
+            await self._add_event(username, event)
+            self._labs[username].state.status = LabStatus.FAILED
+            self._labs[username].state.internal_url = None
         except Exception as e:
             logger.exception("Lab deletion failed")
             if self._slack:
@@ -539,22 +550,31 @@ class LabStateManager:
         """
         pod = f"nb-{username}"
         namespace = self._builder.namespace_for_user(username)
+        start = current_datetime()
         progress = start_progress
+        timeout = self._config.spawn_timeout.total_seconds()
         try:
-            if not internal_url:
-                if not spawner:
-                    msg = "Neither internal_url nor spawner provided"
-                    raise RuntimeError(msg)
-                internal_url = await spawner()
-            async for event in self._kubernetes.wait_for_pod(pod, namespace):
-                await self.publish_event(username, event.message, progress)
-                if event.error:
-                    await self.publish_error(username, event.error, event.done)
+            async with asyncio.timeout(timeout):
+                if not internal_url:
+                    if not spawner:
+                        msg = "Neither internal_url nor spawner provided"
+                        raise RuntimeError(msg)
+                    internal_url = await spawner()
+                async for ev in self._kubernetes.wait_for_pod(pod, namespace):
+                    await self.publish_event(username, ev.message, progress)
+                    if ev.error:
+                        await self.publish_error(username, ev.error, ev.done)
 
-                # We don't know how many startup events we'll see, so we will
-                # do the same thing Kubespawner does and move one-third closer
-                # to the end of the percentage region each time.
-                progress = int(progress + (end_progress - progress) / 3)
+                    # We don't know how many startup events we'll see, so we
+                    # will do the same thing Kubespawner does and move
+                    # one-third closer to the end of the percentage region
+                    # each time.
+                    progress = int(progress + (end_progress - progress) / 3)
+        except TimeoutError:
+            delay = int((current_datetime() - start).total_seconds())
+            msg = f"Lab creation timed out after {delay}s"
+            self._logger.error(msg)
+            await self.publish_error(username, msg, fatal=True)
         except Exception as e:
             self._logger.exception("Lab creation failed")
             if self._slack:
