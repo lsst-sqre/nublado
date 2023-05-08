@@ -53,8 +53,6 @@ def create_app() -> FastAPI:
     app.include_router(index.external_router, prefix=config.safir.path_prefix)
     app.include_router(form.router, prefix=config.safir.path_prefix)
     app.include_router(labs.router, prefix=config.safir.path_prefix)
-    app.include_router(fileserver.user_router)
-    app.include_router(fileserver.router, prefix=config.safir.path_prefix)
     app.include_router(prepuller.router, prefix=config.safir.path_prefix)
     app.include_router(user_status.router, prefix=config.safir.path_prefix)
     if config.fileserver.enabled:

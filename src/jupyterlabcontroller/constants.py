@@ -40,9 +40,6 @@ upgrades.
 METADATA_PATH = Path("/etc/podinfo")
 """Default path to injected pod metadata."""
 
-FILESERVER_RECONCILIATION_INTERVAL = timedelta(minutes=2)
-"""How frequently to refresh the fileserver map against Kubernetes."""
-
 # These are in seconds; they're arguments to various functions, not timedeltas.
 KUBERNETES_REQUEST_TIMEOUT = 60
 
@@ -66,7 +63,3 @@ USERNAME_REGEX = (
     "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*[a-z](?:[a-z0-9]|-[a-z0-9])*$"
 )
 """Regex matching all valid usernames."""
-
-# User file servers
-FILESERVER_NAMESPACE = "fileservers"
-"""Default name of namespace that contains user file servers."""
