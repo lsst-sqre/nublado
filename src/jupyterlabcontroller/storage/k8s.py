@@ -588,7 +588,10 @@ class K8sStorageClient:
             metadata=self.standard_metadata("lab", namespace=namespace),
             spec=V1ServiceSpec(
                 ports=[V1ServicePort(port=8888, target_port=8888)],
-                selector={"lsst.io/user": username, "lsst.io/category": "lab"},
+                selector={
+                    "nublado.lsst.io/user": username,
+                    "nublado.lsst.io/category": "lab",
+                },
             ),
         )
         try:
@@ -1001,10 +1004,10 @@ class K8sStorageClient:
             argo_app = namespace or "prepuller"
         labels = {
             "argocd.argoproj.io/instance": argo_app,
-            "lsst.io/category": category,
+            "nublado.lsst.io/category": category,
         }
         if username:
-            labels["lsst.io/user"] = username
+            labels["nublado.lsst.io/user"] = username
         annotations = {
             "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
             "argocd.argoproj.io/sync-options": "Prune=false",
@@ -1234,9 +1237,10 @@ class K8sStorageClient:
         all_jobs = await self.batch_api.list_namespaced_job(namespace)
         # Filter to those with the right label
         users = [
-            x.metadata.labels.get("lsst.io/user")
+            x.metadata.labels.get("nublado.lsst.io/user")
             for x in all_jobs.items
-            if x.metadata.labels.get("lsst.io/category", "") == "fileserver"
+            if x.metadata.labels.get("nublado.lsst.io/category", "")
+            == "fileserver"
         ]
         # For each of these, check whether the fileserver is present
         for user in users:

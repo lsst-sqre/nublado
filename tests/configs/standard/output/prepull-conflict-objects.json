@@ -9,7 +9,7 @@
       },
       "labels": {
         "argocd.argoproj.io/instance": "userlabs",
-	"lsst.io/category": "prepuller"
+	"nublado.lsst.io/category": "prepuller"
       },
       "name": "prepull-d-2077-10-23-node2",
       "namespace": "userlabs",

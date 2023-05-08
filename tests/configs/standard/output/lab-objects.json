@@ -14,7 +14,7 @@
             },
             "labels": {
                 "argocd.argoproj.io/instance": "nublado-users",
-                "lsst.io/category": "lab"
+                "nublado.lsst.io/category": "lab"
             },
             "name": "rachel-nb-configmap",
             "namespace": "userlabs-rachel"
@@ -52,7 +52,7 @@
             },
             "labels": {
                 "argocd.argoproj.io/instance": "nublado-users",
-                "lsst.io/category": "lab"
+                "nublado.lsst.io/category": "lab"
             },
             "name": "rachel-nb-env",
             "namespace": "userlabs-rachel"
@@ -73,7 +73,7 @@
             },
             "labels": {
                 "argocd.argoproj.io/instance": "nublado-users",
-                "lsst.io/category": "lab"
+                "nublado.lsst.io/category": "lab"
             },
             "name": "rachel-nb-nss",
             "namespace": "userlabs-rachel"
@@ -89,7 +89,7 @@
             },
             "labels": {
                 "argocd.argoproj.io/instance": "nublado-users",
-                "lsst.io/category": "lab"
+                "nublado.lsst.io/category": "lab"
             },
             "name": "userlabs-rachel"
         }
@@ -104,7 +104,7 @@
             },
             "labels": {
                 "argocd.argoproj.io/instance": "nublado-users",
-                "lsst.io/category": "lab"
+                "nublado.lsst.io/category": "lab"
             },
             "name": "rachel-nb-env",
             "namespace": "userlabs-rachel"
@@ -142,8 +142,8 @@
             },
             "labels": {
                 "argocd.argoproj.io/instance": "nublado-users",
-                "lsst.io/category": "lab",
-                "lsst.io/user": "rachel"
+                "nublado.lsst.io/category": "lab",
+                "nublado.lsst.io/user": "rachel"
             },
             "name": "rachel-nb",
             "namespace": "userlabs-rachel",
@@ -491,7 +491,7 @@
             },
             "labels": {
                 "argocd.argoproj.io/instance": "nublado-users",
-                "lsst.io/category": "lab"
+                "nublado.lsst.io/category": "lab"
             },
             "name": "rachel-nb",
             "namespace": "userlabs-rachel"
@@ -517,7 +517,7 @@
             },
             "labels": {
                 "argocd.argoproj.io/instance": "nublado-users",
-                "lsst.io/category": "lab"
+                "nublado.lsst.io/category": "lab"
             },
             "name": "pull-secret",
             "namespace": "userlabs-rachel"
@@ -540,7 +540,7 @@
             },
             "labels": {
                 "argocd.argoproj.io/instance": "nublado-users",
-                "lsst.io/category": "lab"
+                "nublado.lsst.io/category": "lab"
             },
             "name": "rachel-nb",
             "namespace": "userlabs-rachel"
@@ -557,7 +557,7 @@
             },
             "labels": {
                 "argocd.argoproj.io/instance": "nublado-users",
-                "lsst.io/category": "lab"
+                "nublado.lsst.io/category": "lab"
             },
             "name": "lab",
             "namespace": "userlabs-rachel"
@@ -570,8 +570,8 @@
                 }
             ],
             "selector": {
-                "lsst.io/category": "lab",
-                "lsst.io/user": "rachel"
+                "nublado.lsst.io/category": "lab",
+                "nublado.lsst.io/user": "rachel"
             }
         }
     }
