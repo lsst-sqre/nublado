@@ -511,6 +511,49 @@ class LabStateManager:
         for trigger in triggers:
             trigger.set()
 
+    async def _reflect_events(
+        self,
+        *,
+        username: str,
+        pod: str,
+        namespace: str,
+        start_progress: int,
+        end_progress: int,
+    ) -> None:
+        """Monitor Kubernetes events for a pod.
+
+        Translate these into our internal event structure and add them to the
+        event list for this user. Intented to be run as a task and cancelled
+        once the pod spawn completes or times out.
+
+        Parameters
+        ----------
+        username
+            Username for which we're spawning a lab.
+        pod
+            Name of the pod.
+        namespace
+            Namespace of the pod.
+        start_progress
+            Progress percentage to start at when watching pod startup events.
+        end_progress
+            Progress percentage to stop at when the spawn is complete.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is an API error watching events.
+        """
+        progress = start_progress
+        async for event in self._kubernetes.watch_pod_events(pod, namespace):
+            await self.publish_event(username, event, progress)
+
+            # We don't know how many startup events we'll see, so we
+            # will do the same thing Kubespawner does and move
+            # one-third closer to the end of the percentage region
+            # each time.
+            progress = int(progress + (end_progress - progress) / 3)
+
     async def _monitor_spawn(
         self,
         *,
@@ -554,25 +597,24 @@ class LabStateManager:
             user=username, name=pod, namespace=namespace
         )
         start = current_datetime()
-        progress = start_progress
         timeout = self._config.spawn_timeout.total_seconds()
         try:
             async with asyncio.timeout(timeout):
+                event_task = asyncio.create_task(
+                    self._reflect_events(
+                        username=username,
+                        pod=pod,
+                        namespace=namespace,
+                        start_progress=start_progress,
+                        end_progress=end_progress,
+                    )
+                )
                 if not internal_url:
                     if not spawner:
                         msg = "Neither internal_url nor spawner provided"
                         raise RuntimeError(msg)
                     internal_url = await spawner()
-                async for ev in self._kubernetes.wait_for_pod(pod, namespace):
-                    await self.publish_event(username, ev.message, progress)
-                    if ev.error:
-                        await self.publish_error(username, ev.error, ev.done)
-
-                    # We don't know how many startup events we'll see, so we
-                    # will do the same thing Kubespawner does and move
-                    # one-third closer to the end of the percentage region
-                    # each time.
-                    progress = int(progress + (end_progress - progress) / 3)
+                await self._kubernetes.wait_for_pod(pod, namespace)
         except TimeoutError:
             delay = int((current_datetime() - start).total_seconds())
             msg = f"Lab creation timed out after {delay}s"
@@ -595,6 +637,19 @@ class LabStateManager:
             self._labs[username].state.internal_url = internal_url
             logger.info("Lab created")
         finally:
+            event_task.cancel()
+            try:
+                await event_task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.exception("Error watching Kubernetes pod events")
+                if self._slack:
+                    if isinstance(e, SlackException):
+                        e.user = username
+                        await self._slack.post_exception(e)
+                    else:
+                        await self._slack.post_uncaught_exception(e)
             self._spawner_done.set()
 
     async def _recreate_lab_state(self, username: str) -> UserLabState | None:
