@@ -1260,9 +1260,9 @@ class K8sStorageClient:
 
         A fileserver is working if:
 
-        1) it has exactly one Pod in Running state due to a Job of the
+        1) it has an Ingress which has an IP address.
+        2) it has exactly one Pod in Running state due to a Job of the
            right name, and
-        2) it has an Ingress which has an IP address.
 
         We do not check the GafaelfawrIngress, because the Custom API is
         clumsy, and the created Ingress is a requirement for whether the
@@ -1270,38 +1270,12 @@ class K8sStorageClient:
         not much that can go wrong with it, so we opt to save the API
         call by assuming it's fine.
 
-        If we find a broken fileserver, we delete all its objects.  In
-        steady-state operations, this will happen when a fileserver Pod has
-        seen no operations for its timeout period; the Pod will exit and
-        the reconciliation task will note that the Job has no active Pods
-        and take action to clean it up.
+        We do it in this order because the operation that generally takes
+        the longest is for the Ingress to get wired into the overall
+        ingress-nginx structure.  In general, by the time the ingress is
+        ready, everything else will be too.
         """
         obj_name = f"{username}-fs"
-        self._logger.debug(f"Checking whether {username} has fileserver")
-        try:
-            self._logger.debug(f"Checking job for {username}")
-            await self.batch_api.read_namespaced_job(obj_name, namespace)
-        except ApiException as e:
-            self._logger.info(f"Job {obj_name} for {username} not found.")
-            if e.status == 404:
-                self._logger.debug(f"Job {obj_name} for {username} not found.")
-                return False
-        # OK, we have a job.  Now let's see if the Pod from that job has
-        # arrived...
-        self._logger.debug(f"Checking Pod for {username}")
-        pod = await self.get_fileserver_pod_for_user(username, namespace)
-        if pod is None:
-            self._logger.info(f"No Pod for {username}")
-            return False
-        if pod.status is None:
-            self._logger.info(f"No Pod status for {pod.metadata.name}")
-            return False
-        if pod.status.phase != "Running":
-            self._logger.info(
-                f"Pod for {username} is in phase "
-                + f"'{pod.status.phase}', not 'Running'."
-            )
-            return False
         try:
             self._logger.debug(f"Checking ingress for {username}")
             ing = await self.networking_api.read_namespaced_ingress(
@@ -1344,6 +1318,32 @@ class K8sStorageClient:
             self._logger.info(
                 f"Ingress {obj_name} for {username} does not "
                 + "have an IP address."
+            )
+            return False
+        # Ingress is OK.  Find the created job...
+        self._logger.debug(f"Checking whether {username} has fileserver")
+        try:
+            self._logger.debug(f"Checking job for {username}")
+            await self.batch_api.read_namespaced_job(obj_name, namespace)
+        except ApiException as e:
+            self._logger.info(f"Job {obj_name} for {username} not found.")
+            if e.status == 404:
+                self._logger.debug(f"Job {obj_name} for {username} not found.")
+                return False
+        # OK, we have a job.  Now let's see if the Pod from that job has
+        # arrived...
+        self._logger.debug(f"Checking Pod for {username}")
+        pod = await self.get_fileserver_pod_for_user(username, namespace)
+        if pod is None:
+            self._logger.info(f"No Pod for {username}")
+            return False
+        if pod.status is None:
+            self._logger.info(f"No Pod status for {pod.metadata.name}")
+            return False
+        if pod.status.phase != "Running":
+            self._logger.info(
+                f"Pod for {username} is in phase "
+                + f"'{pod.status.phase}', not 'Running'."
             )
             return False
         return True

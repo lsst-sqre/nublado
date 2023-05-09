@@ -121,7 +121,7 @@ class FileserverStateManager:
         self, username: str, namespace: str
     ) -> None:
         # FIXME watch for events, don't poll.
-        timeout = 60.0
+        timeout = 100.0
         interval = 3.9
         async with asyncio.timeout(timeout):
             # FIXME use an event watch, not a poll?
