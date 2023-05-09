@@ -6,7 +6,7 @@ import asyncio
 from base64 import b64encode
 from collections.abc import AsyncIterator
 from datetime import timedelta
-from typing import Any, Coroutine, Optional
+from typing import Any, Callable, Coroutine, Optional
 
 from kubernetes_asyncio import client, watch
 from kubernetes_asyncio.client import (
@@ -1637,6 +1637,148 @@ class K8sStorageClient:
                     namespace=namespace,
                     name=pod_name,
                 ) from e
+
+        # If we fell through, the watch timed out.
+        raise TimeoutError(f"Watch timed out after {timeout}s")
+
+    async def _inner_watch_loop(
+        self,
+        *method: Callable[[Any, Any], Any],
+        watch_args: dict[str, Any],
+        namespace: str,
+        field: list[str],
+        initial_value: Any,
+        timeout: Optional[float] = None,
+    ) -> Any:
+        """Waits for a pod event that reports a value different from the
+        intial value supplied.  Returns the new value.
+
+        Parameters
+        ----------
+        method
+            K8s API method (list_namespaced_<thing>) for watch.
+        watch_args
+            Arguments to supply to watch method, typically field or
+            label selectors
+        namespace
+            Namespace in which the pod is located.
+        field
+            Path to field on object.  For instance, if you were waiting for
+            a pod's phase to change, this would be [ "status", "phase" ]
+        initial_value
+            Value expected at start of watch; we only report changes from
+            this value
+        timeout
+            Watch timeout in seconds
+
+        Returns
+        -------
+        Primitive
+            New value for pod field, or `None` if the pod has disappeared.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if watch expires.  The caller should decide on
+            whether to restart the watch, or allow the error to propagate.
+
+        Notes
+        -----
+        This is barely typed.  Don't call it directly; set up a wrapper method
+        for the specific object types and fields you want to watch.
+        """
+        # Set up timeout
+        if timeout is None:
+            timeout = self._spawn_timeout.total_seconds()
+        if "timeout_seconds" not in watch_args:
+            watch_args["timeout_seconds"] = timeout
+        if "_request_timeout" not in watch_args:
+            watch_args["_request_timeout"] = timeout
+        # Extract kind from method name.  Also refuse to deal with custom
+        # objects; that's a whole 'nother can of worms.
+        methodname = getattr(method, "__name__")
+        if methodname is None:
+            # I don't think this can happen.  It's for mypy.
+            kind = "<unknown kind>"
+        else:
+            if methodname.endswith("custom_object"):
+                raise NotImplementedError(
+                    "Custom Object watches are not supported"
+                )
+            kind = methodname.split("_")[-1].title()
+
+        w = watch.Watch()
+        logger = self._logger.bind(namespace=namespace)
+        try:
+            async with w.stream(method, **watch_args) as stream:
+                async for event in stream:
+                    logger.debug(f"Event received: {event}")
+                    if event["type"] == "DELETED":
+                        return None
+                    # extract name from object
+                    involved_obj = event["raw_object"]
+                    obj_name: Optional[str] = None
+                    try:
+                        obj_name = involved_obj["metadata"]["name"]
+                    except KeyError:
+                        pass
+                    # Rebind logger with object name
+                    logger = self._logger.bind(
+                        name=obj_name, namespace=namespace
+                    )
+                    # Extract field from object
+                    value = involved_obj.copy()
+                    try:
+                        for f in field:
+                            value = value[f]
+                    except (KeyError, TypeError):
+                        message = (
+                            f"Object '{involved_obj}' has no field "
+                            + f"{'.'.join(field)}."
+                        )
+                        raise MissingObjectError(
+                            message,
+                            kind=kind,
+                            name=obj_name,
+                            namespace=namespace,
+                        )
+                    if value != initial_value:
+                        return value
+        except ApiException as e:
+            if e.status == 410:
+                # Object resource version expired?
+                # if we had one, try again without one.
+                if watch_args.get("resource_version") is not None:
+                    logger.warning(
+                        "Resource version "
+                        + f"{watch_args['resource_version']}"
+                        + f" expired: {e}; retrying without "
+                        + "resource version"
+                    )
+                    # I don't know why method appears to be a tuple when
+                    # we get down here.
+                    #
+                    # error: Argument "method" to "_inner_watch_loop" of
+                    # "K8sStorageClient" has incompatible type
+                    # "Tuple[Callable[[Any, Any], Any], ...]";
+                    # expected "Callable[[Any, Any], Any]"  [arg-type]
+                    del watch_args["resource_version"]
+                    return await self._inner_watch_loop(
+                        method=method,  # type:ignore
+                        watch_args=watch_args,
+                        namespace=namespace,
+                        field=field,
+                        initial_value=initial_value,
+                        timeout=timeout,
+                    )
+            raise KubernetesError.from_exception(
+                "Error watching object",
+                e,
+                namespace=namespace,
+                name=obj_name,
+            ) from e
 
         # If we fell through, the watch timed out.
         raise TimeoutError(f"Watch timed out after {timeout}s")
