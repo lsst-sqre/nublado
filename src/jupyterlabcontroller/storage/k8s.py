@@ -1274,14 +1274,18 @@ class K8sStorageClient:
     ) -> bool:
         """Our determination of whether a user has a fileserver is this:
 
-        We assume all fileserver objects are named <username>-fs, which we
-        can do, since we created them and that's the convention we chose.
+        We assume all fileserver objects other than the Pod are named
+        <username>-fs, which we can do, since we created them and that's
+        the convention we chose.  The pod will have a name
+        "<username>-fs-<random-tag>", but more importantly it will have a
+        label "job-name" equal to "<username>-fs".  We have a convenience
+        method to retrieve the Pod active for a Job for a given username.
 
         A fileserver is working if:
 
         1) it has exactly one Pod in Running state due to a Job of the
            right name, and
-        2) it has an Ingress (properties not checked)
+        2) it has an Ingress which has an IP address.
 
         We do not check the GafaelfawrIngress, because the Custom API is
         clumsy, and the created Ingress is a requirement for whether the
@@ -1323,7 +1327,7 @@ class K8sStorageClient:
             return False
         try:
             self._logger.debug(f"Checking ingress for {username}")
-            await self.networking_api.read_namespaced_ingress(
+            ing = await self.networking_api.read_namespaced_ingress(
                 obj_name, namespace
             )
         except ApiException as e:
@@ -1336,6 +1340,35 @@ class K8sStorageClient:
                 namespace=namespace,
                 name=obj_name,
             ) from e
+        if (
+            ing.status is None
+            or ing.status.load_balancer is None
+            or ing.status.load_balancer.ingress is None
+        ):
+            self._logger.info(
+                f"Ingress {obj_name} for {username} does not "
+                + "have status.load_balancer.ingress field."
+            )
+            return False
+        if len(ing.status.load_balancer.ingress) < 1:
+            self._logger.info(
+                f"Ingress {obj_name} for {username} does not "
+                + "have any ingress points."
+            )
+            return False
+        ing_props = ing.status.load_balancer.ingress[0]
+        if ing_props is None:
+            self._logger.info(
+                f"Ingress point for ingress {obj_name} for "
+                + f"{username} does not have any properties."
+            )
+            return False
+        if ing_props.ip is None or ing_props.ip == "":
+            self._logger.info(
+                f"Ingress {obj_name} for {username} does not "
+                + "have an IP address."
+            )
+            return False
         return True
 
     async def wait_for_fileserver_object_deletion(
@@ -1610,6 +1643,8 @@ class K8sStorageClient:
             field=["status", "phase"],
             initial_value=initial_phase,
         )
+        if phase is None:
+            return None
         return KubernetesPodPhase(phase)
 
     async def _inner_watch_loop(
@@ -1668,30 +1703,14 @@ class K8sStorageClient:
             watch_args["timeout_seconds"] = timeout
         if "_request_timeout" not in watch_args:
             watch_args["_request_timeout"] = timeout
-        # Extract kind from method name.  Also refuse to deal with custom
-        # objects; that's a whole 'nother can of worms.
-        methodname = getattr(method, "__name__")
-        if methodname is None:
-            # I don't think this can happen.  It's for mypy.
-            kind = "<unknown kind>"
-        else:
-            if methodname.endswith("custom_object"):
-                raise NotImplementedError(
-                    "Custom Object watches are not supported"
-                )
-            kind = methodname.split("_")[-1].title()
-
         w = watch.Watch()
         logger = self._logger.bind(namespace=namespace)
         try:
             async with w.stream(method, **watch_args) as stream:
                 async for event in stream:
-                    logger.debug("===============")
-                    logger.debug("Event received.")
-                    logger.debug("---------------")
-                    logger.debug(f"{event}")
-                    logger.debug("===============")
-                    if event["type"] == "DELETED":
+                    e_type = event["type"]
+                    if e_type == "DELETED":
+                        logger.debug(f"Event {e_type}:\n{event}")
                         return None
                     # extract name from object
                     involved_obj = event["raw_object"]
@@ -1703,6 +1722,14 @@ class K8sStorageClient:
                     # Rebind logger with object name
                     logger = self._logger.bind(
                         name=obj_name, namespace=namespace
+                    )
+                    # extract kind from object
+                    try:
+                        kind = involved_obj["kind"]
+                    except KeyError:
+                        kind = "<unknown kind>"
+                    logger.debug(
+                        f"Event {e_type}: Kind: {kind}; Name: {obj_name}"
                     )
                     # Extract field from object
                     value = involved_obj.copy()
