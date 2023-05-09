@@ -784,6 +784,13 @@ class LabManager:
                     field_ref=V1ObjectFieldSelector(field_path="spec.nodeName")
                 ),
             ),
+            # Deprecated, but what lsst.rsp 0.3.4 looks for.
+            V1EnvVar(
+                name="K8S_NODE_NAME",
+                value_from=V1EnvVarSource(
+                    field_ref=V1ObjectFieldSelector(field_path="spec.nodeName")
+                ),
+            ),
         ]
         for spec in self.lab_config.secrets:
             if not spec.env:

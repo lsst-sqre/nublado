@@ -169,6 +169,14 @@
               }
             },
             {
+              "name": "K8S_NODE_NAME",
+              "value_from": {
+                "field_ref": {
+                  "field_path": "spec.nodeName"
+                }
+              }
+            },
+            {
               "name": "BUTLER_SECRET",
               "value_from": {
                 "secret_key_ref": {
