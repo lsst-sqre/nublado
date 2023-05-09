@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from base64 import b64encode
 from collections.abc import AsyncIterator
+from copy import deepcopy
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Callable, Coroutine, Optional
 
@@ -45,6 +47,36 @@ from ..models.v1.lab import UserResourceQuantum
 from ..util import deslashify
 
 __all__ = ["K8sStorageClient"]
+
+
+@dataclass
+class EventData:
+    type: str
+    involved_object: dict[str, Any]
+    name: str
+    kind: str
+
+    @classmethod
+    def from_event(cls, event: dict[str, Any]) -> EventData:
+        e_type = event["type"]  # If there's no type, it's OK to blow up.
+        involved_obj = {}
+        try:
+            involved_obj = event["raw_object"]
+        except KeyError:
+            pass
+        # extract kind from object
+        try:
+            kind = involved_obj["kind"]
+        except KeyError:
+            kind = "<unknown kind>"
+        # extract name from object
+        try:
+            obj_name = involved_obj["metadata"]["name"]
+        except (KeyError, TypeError):
+            obj_name = "<unknown name>"
+        return cls(
+            type=e_type, involved_object=involved_obj, name=obj_name, kind=kind
+        )
 
 
 class K8sStorageClient:
@@ -1631,13 +1663,14 @@ class K8sStorageClient:
         namespace
             Namespace in which the pod is located.
         field
-            Path to field on object.  For instance, if you were waiting for
-            a pod's phase to change, this would be [ "status", "phase" ]
+            Components of path to field on object.  For instance, if you
+            were waiting for a pod's phase to change, this would be
+            [ "status", "phase" ].
         initial_value
             Value expected at start of watch; we only report changes from
-            this value
+            this value.
         timeout
-            Watch timeout in seconds
+            Watch timeout in seconds.
 
         Returns
         -------
@@ -1657,6 +1690,7 @@ class K8sStorageClient:
         This is barely typed.  Don't call it directly; set up a wrapper method
         for the specific object types and fields you want to watch.
         """
+        logger = self._logger.bind(namespace=namespace)
         # Set up timeout
         if timeout is None:
             timeout = int(self._spawn_timeout.total_seconds())
@@ -1665,47 +1699,34 @@ class K8sStorageClient:
         if "_request_timeout" not in watch_args:
             watch_args["_request_timeout"] = timeout
         w = watch.Watch()
-        logger = self._logger.bind(namespace=namespace)
         try:
             async with w.stream(method, **watch_args) as stream:
                 async for event in stream:
-                    e_type = event["type"]
-                    if e_type == "DELETED":
-                        logger.debug(f"Event {e_type}:\n{event}")
-                        return None
-                    # extract name from object
-                    involved_obj = event["raw_object"]
-                    obj_name: Optional[str] = None
-                    try:
-                        obj_name = involved_obj["metadata"]["name"]
-                    except KeyError:
-                        pass
+                    ed = EventData.from_event(event)
                     # Rebind logger with object name
                     logger = self._logger.bind(
-                        name=obj_name, namespace=namespace
+                        name=ed.name, namespace=namespace
                     )
-                    # extract kind from object
-                    try:
-                        kind = involved_obj["kind"]
-                    except KeyError:
-                        kind = "<unknown kind>"
+                    if ed.type == "DELETED":
+                        return None
                     logger.debug(
-                        f"Event {e_type}: Kind: {kind}; Name: {obj_name}"
+                        f"Event: {ed.type} ; kind {ed.kind} ; "
+                        + f"object name: {ed.name}"
                     )
-                    # Extract field from object
-                    value = involved_obj.copy()
+                    # Extract field from object; don't modify involved_object
+                    value = deepcopy(ed.involved_object)
                     try:
                         for f in field:
                             value = value[f]
                     except (KeyError, TypeError):
                         message = (
-                            f"Object '{involved_obj}' has no field "
+                            f"Object '{ed.involved_object}' has no field "
                             + f"{'.'.join(field)}."
                         )
                         raise MissingObjectError(
                             message,
-                            kind=kind,
-                            name=obj_name,
+                            kind=ed.kind,
+                            name=ed.name,
                             namespace=namespace,
                         )
                     if value != initial_value:
@@ -1734,7 +1755,105 @@ class K8sStorageClient:
                 "Error watching object",
                 e,
                 namespace=namespace,
-                name=obj_name,
+                name=ed.name,
+            ) from e
+
+        # If we fell through, the watch timed out.
+        raise TimeoutError(f"Watch timed out after {timeout}s")
+
+    async def _inner_watch_streaming_loop(
+        self,
+        *,
+        method: Callable[[Any, Any], Any],
+        watch_args: dict[str, Any],
+        namespace: str,
+        field: list[str],
+        timeout: Optional[int] = None,
+    ) -> AsyncIterator[Any]:
+        """Yields the value in the specified field for the event's
+        InvolvedObject when the event occurs.
+
+        Parameters
+        ----------
+        method
+            K8s API method (list_namespaced_<thing>) for watch.
+        watch_args
+            Arguments to supply to watch method, typically field or
+            label selectors
+        namespace
+            Namespace in which the pod is located.
+        field
+            Components of path to field on object.  For instance, if you
+            were waiting for a pod's phase to change, this would be
+            [ "status", "phase" ].
+        timeout
+            Watch timeout in seconds.
+
+        Returns
+        -------
+        Primitive
+            New value for pod field, or `None` if the pod has disappeared.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if watch expires.  The caller should decide on
+            whether to restart the watch, or allow the error to propagate.
+
+        Notes
+        -----
+        This is barely typed.  Don't call it directly; set up a wrapper method
+        for the specific object types and fields you want to watch.
+
+        This is a whole lot like _inner_watch_loop, except that it's an
+        AsyncIterator, not just a method that returns a value.  If you see
+        how to consolidate these two methods, let me know.
+        """
+        # Set up timeout
+        if timeout is None:
+            timeout = int(self._spawn_timeout.total_seconds())
+        if "timeout_seconds" not in watch_args:
+            watch_args["timeout_seconds"] = timeout
+        if "_request_timeout" not in watch_args:
+            watch_args["_request_timeout"] = timeout
+        w = watch.Watch()
+        try:
+            async with w.stream(method, **watch_args) as stream:
+                async for event in stream:
+                    ed = EventData.from_event(event)
+                    # Rebind logger with object name
+                    logger = self._logger.bind(
+                        name=ed.name, namespace=namespace
+                    )
+                    logger.debug(
+                        f"Event: {ed.type} ; kind {ed.kind} ; "
+                        + f"object name: {ed.name}"
+                    )
+                    # Extract field from object; don't modify involved_object
+                    value = deepcopy(ed.involved_object)
+                    try:
+                        for f in field:
+                            value = value[f]
+                    except (KeyError, TypeError):
+                        message = (
+                            f"Object '{ed.involved_object}' has no field "
+                            + f"{'.'.join(field)}."
+                        )
+                        raise MissingObjectError(
+                            message,
+                            kind=ed.kind,
+                            name=ed.name,
+                            namespace=namespace,
+                        )
+                    yield value
+        except ApiException as e:
+            raise KubernetesError.from_exception(
+                "Error watching object",
+                e,
+                namespace=namespace,
+                name=ed.name,
             ) from e
 
         # If we fell through, the watch timed out.
