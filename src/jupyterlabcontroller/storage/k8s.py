@@ -233,57 +233,18 @@ class K8sStorageClient:
         """
         logger = self._logger.bind(name=pod_name, namespace=namespace)
         logger.debug("Waiting for pod creation")
-
-        # Retrieve the object first. It's possible that it's already in the
-        # correct phase, and we can return immediately. If not, we want to
-        # start watching events with the next event after the current object
-        # version. Note that we treat Unknown the same as Pending; we rely on
-        # the timeout and otherwise hope that Kubernetes will figure out the
-        # phase.
-        try:
-            pod = await self.api.read_namespaced_pod(pod_name, namespace)
-        except ApiException as e:
-            if e.status == 404:
+        initial_phase = "Pending"
+        while True:
+            # We only loop waiting for "Unknown" to resolve.
+            phase = await self._pod_watch_loop(
+                pod_name, namespace, initial_phase=initial_phase
+            )
+            if phase is None:
                 return None
-            raise KubernetesError.from_exception(
-                "Error watching pod startup",
-                e,
-                namespace=namespace,
-                name=pod_name,
-            ) from e
-        if pod.status.phase not in ("Unknown", "Pending"):
-            return KubernetesPodPhase(pod.status.phase)
-
-        # The pod is not in a terminal phase. Start the watch and wait for it
-        # to change state.
-        w = watch.Watch()
-        method = self.api.list_namespaced_pod
-        timeout = int(self._spawn_timeout.total_seconds())
-        watch_args = {
-            "namespace": namespace,
-            "field_selector": f"metadata.name={pod_name}",
-            "resource_version": pod.metadata.resource_version,
-            "timeout_seconds": timeout,
-            "_request_timeout": timeout,
-        }
-        try:
-            async with w.stream(method, **watch_args) as stream:
-                async for event in stream:
-                    if event["type"] == "DELETED":
-                        return None
-                    phase = event["raw_object"]["status"]["phase"]
-                    if phase not in ("Unknown", "Pending"):
-                        return KubernetesPodPhase(phase)
-        except ApiException as e:
-            raise KubernetesError.from_exception(
-                "Error watching pod startup",
-                e,
-                namespace=namespace,
-                name=pod_name,
-            ) from e
-
-        # If we fell through, we timed out waiting for the pod to start.
-        raise TimeoutError()
+            if phase == KubernetesPodPhase.UNKNOWN:
+                initial_phase = "Unknown"
+                continue
+            return phase
 
     async def watch_pod_events(
         self, pod_name: str, namespace: str
