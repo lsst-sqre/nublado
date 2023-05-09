@@ -305,35 +305,19 @@ class K8sStorageClient:
         """
         logger = self._logger.bind(pod=pod_name, namespace=namespace)
         logger.debug("Watching pod events")
-        w = watch.Watch()
         method = self.api.list_namespaced_event
-        timeout = int(self._spawn_timeout.total_seconds())
         watch_args = {
             "namespace": namespace,
             "field_selector": f"involvedObject.name={pod_name}",
-            "timeout_seconds": timeout,
-            "_request_timeout": timeout,
         }
-        try:
-            async with w.stream(method, **watch_args) as stream:
-                async for event in stream:
-                    # Ideally we would use the parsed rather than the raw
-                    # object and make use of the better Python models, but
-                    # this doesn't seem to work with kubernetes_asyncio with
-                    # our mock. This is probably a bug in the mock that we
-                    # should fix, but use the raw object for now since it's
-                    # not much harder.
-                    raw_event = event["raw_object"]
-                    message = raw_event.get("message")
-                    if message:
-                        yield message
-        except ApiException as e:
-            raise KubernetesError.from_exception(
-                "Error watching pod startup",
-                e,
-                namespace=namespace,
-                name=pod_name,
-            ) from e
+        field = ["message"]
+        async for msg in self._inner_watch_streaming_loop(
+            method=method,
+            watch_args=watch_args,
+            namespace=namespace,
+            field=field,
+        ):
+            yield str(msg)
 
     async def _handle_pod_event(
         self,
