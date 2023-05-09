@@ -1599,56 +1599,28 @@ class K8sStorageClient:
             return KubernetesPodPhase(pod.status.phase)
         # The pod is not in a terminal phase. Start the watch and
         # wait for it to change state.
-        w = watch.Watch()
-        method = self.api.list_namespaced_pod
-        timeout = int(self._spawn_timeout.total_seconds())
-        retry_without_rv = True
-        watch_args = {
-            "namespace": namespace,
-            "field_selector": f"metadata.name={pod_name}",
-            "resource_version": pod.metadata.resource_version,
-            "timeout_seconds": timeout,
-            "_request_timeout": timeout,
-        }
-        while retry_without_rv:
-            try:
-                async with w.stream(method, **watch_args) as stream:
-                    async for event in stream:
-                        if event["type"] == "DELETED":
-                            return None
-                        phase = event["raw_object"]["status"]["phase"]
-                        if phase != initial_phase:
-                            return KubernetesPodPhase(phase)
-                        retry_without_rv = False
-            except ApiException as e:
-                if e.status == 410 and retry_without_rv:
-                    # Pod resource version expired.
-                    # try again without one
-                    del watch_args["resource_version"]
-                    retry_without_rv = False
-                    logger.warning(
-                        f"Resource version {pod.metadata.resource_version}"
-                        + f"expired: {e}; retrying without resource version"
-                    )
-                    continue
-                raise KubernetesError.from_exception(
-                    "Error watching pod",
-                    e,
-                    namespace=namespace,
-                    name=pod_name,
-                ) from e
-
-        # If we fell through, the watch timed out.
-        raise TimeoutError(f"Watch timed out after {timeout}s")
+        phase = await self._inner_watch_loop(
+            method=self.api.list_namespaced_pod,
+            watch_args={
+                "namespace": namespace,
+                "field_selector": f"metadata.name={pod_name}",
+                "resource_version": pod.metadata.resource_version,
+            },
+            namespace=namespace,
+            field=["status", "phase"],
+            initial_value=initial_phase,
+        )
+        return KubernetesPodPhase(phase)
 
     async def _inner_watch_loop(
         self,
-        *method: Callable[[Any, Any], Any],
+        *,
+        method: Callable[[Any, Any], Any],
         watch_args: dict[str, Any],
         namespace: str,
         field: list[str],
         initial_value: Any,
-        timeout: Optional[float] = None,
+        timeout: Optional[int] = None,
     ) -> Any:
         """Waits for a pod event that reports a value different from the
         intial value supplied.  Returns the new value.
@@ -1691,7 +1663,7 @@ class K8sStorageClient:
         """
         # Set up timeout
         if timeout is None:
-            timeout = self._spawn_timeout.total_seconds()
+            timeout = int(self._spawn_timeout.total_seconds())
         if "timeout_seconds" not in watch_args:
             watch_args["timeout_seconds"] = timeout
         if "_request_timeout" not in watch_args:
@@ -1714,7 +1686,11 @@ class K8sStorageClient:
         try:
             async with w.stream(method, **watch_args) as stream:
                 async for event in stream:
-                    logger.debug(f"Event received: {event}")
+                    logger.debug("===============")
+                    logger.debug("Event received.")
+                    logger.debug("---------------")
+                    logger.debug(f"{event}")
+                    logger.debug("===============")
                     if event["type"] == "DELETED":
                         return None
                     # extract name from object
@@ -1757,16 +1733,9 @@ class K8sStorageClient:
                         + f" expired: {e}; retrying without "
                         + "resource version"
                     )
-                    # I don't know why method appears to be a tuple when
-                    # we get down here.
-                    #
-                    # error: Argument "method" to "_inner_watch_loop" of
-                    # "K8sStorageClient" has incompatible type
-                    # "Tuple[Callable[[Any, Any], Any], ...]";
-                    # expected "Callable[[Any, Any], Any]"  [arg-type]
                     del watch_args["resource_version"]
                     return await self._inner_watch_loop(
-                        method=method,  # type:ignore
+                        method=method,
                         watch_args=watch_args,
                         namespace=namespace,
                         field=field,
