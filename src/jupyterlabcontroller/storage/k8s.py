@@ -1674,53 +1674,21 @@ class K8sStorageClient:
         This is barely typed.  Don't call it directly; set up a wrapper method
         for the specific object types and fields you want to watch.
         """
-        logger = self._logger.bind(namespace=namespace)
-        # Set up timeout
-        if timeout is None:
-            timeout = int(self._spawn_timeout.total_seconds())
-        if "timeout_seconds" not in watch_args:
-            watch_args["timeout_seconds"] = timeout
-        if "_request_timeout" not in watch_args:
-            watch_args["_request_timeout"] = timeout
-        w = watch.Watch()
         try:
-            async with w.stream(method, **watch_args) as stream:
-                async for event in stream:
-                    ed = EventData.from_event(event)
-                    # Rebind logger with object name
-                    logger = self._logger.bind(
-                        name=ed.name, namespace=namespace
-                    )
-                    if ed.type == "DELETED":
-                        return None
-                    logger.debug(
-                        f"Event: {ed.type} ; kind {ed.kind} ; "
-                        + f"object name: {ed.name}"
-                    )
-                    # Extract field from object; don't modify involved_object
-                    value = deepcopy(ed.involved_object)
-                    try:
-                        for f in field:
-                            value = value[f]
-                    except (KeyError, TypeError):
-                        message = (
-                            f"Object '{ed.involved_object}' has no field "
-                            + f"{'.'.join(field)}."
-                        )
-                        raise MissingObjectError(
-                            message,
-                            kind=ed.kind,
-                            name=ed.name,
-                            namespace=namespace,
-                        )
-                    if value != initial_value:
-                        return value
-        except ApiException as e:
-            if e.status == 410:
+            async for value in self._inner_watch_streaming_loop(
+                method=method,
+                watch_args=watch_args,
+                namespace=namespace,
+                field=field,
+            ):
+                if value != initial_value:
+                    return value
+        except KubernetesError as e:
+            if e.status == "410":
                 # Object resource version expired?
                 # if we had one, try again without one.
                 if watch_args.get("resource_version") is not None:
-                    logger.warning(
+                    self._logger.warning(
                         "Resource version "
                         + f"{watch_args['resource_version']}"
                         + f" expired: {e}; retrying without "
@@ -1735,12 +1703,9 @@ class K8sStorageClient:
                         initial_value=initial_value,
                         timeout=timeout,
                     )
-            raise KubernetesError.from_exception(
-                "Error watching object",
-                e,
-                namespace=namespace,
-                name=ed.name,
-            ) from e
+                # If it wasn't a resource version timeout, or we already
+                # were not setting watch_args, re-raise
+                raise
 
         # If we fell through, the watch timed out.
         raise TimeoutError(f"Watch timed out after {timeout}s")
@@ -1790,10 +1755,6 @@ class K8sStorageClient:
         -----
         This is barely typed.  Don't call it directly; set up a wrapper method
         for the specific object types and fields you want to watch.
-
-        This is a whole lot like _inner_watch_loop, except that it's an
-        AsyncIterator, not just a method that returns a value.  If you see
-        how to consolidate these two methods, let me know.
         """
         # Set up timeout
         if timeout is None:
