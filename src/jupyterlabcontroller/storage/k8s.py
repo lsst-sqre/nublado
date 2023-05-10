@@ -6,7 +6,7 @@ import asyncio
 from base64 import b64encode
 from collections.abc import AsyncIterator
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, Callable, Coroutine, Optional
 
@@ -57,31 +57,39 @@ __all__ = ["K8sStorageClient"]
 @dataclass
 class EventData:
     type: str
-    involved_object: dict[str, Any]
+    raw_object: dict[str, Any]
     name: str
     kind: str
+    field: list[str] = field(default_factory=list)
+    missing_field: bool = True
+    value: Any = None
 
     @classmethod
-    def from_event(cls, event: dict[str, Any]) -> EventData:
-        e_type = event["type"]  # If there's no type, it's OK to blow up.
-        involved_obj = {}
-        try:
-            involved_obj = event["raw_object"]
-        except KeyError:
-            pass
-        # extract kind from object
-        try:
-            kind = involved_obj["kind"]
-        except KeyError:
-            kind = "<unknown kind>"
-        # extract name from object
-        try:
-            obj_name = involved_obj["metadata"]["name"]
-        except (KeyError, TypeError):
-            obj_name = "<unknown name>"
+    def from_kubernetes_event(cls, event: dict[str, Any]) -> EventData:
+        raw_object = event["raw_object"]  # This will exist (I think)
+        e_type = event["type"]
+        name = "<unknown name>"
+        kind = "<unknown kind>"
+        if "metadata" in raw_object and "name" in raw_object["metadata"]:
+            name = raw_object["metadata"]["name"]
+        if "kind" in raw_object:
+            kind = raw_object["kind"]
         return cls(
-            type=e_type, involved_object=involved_obj, name=obj_name, kind=kind
+            type=e_type, name=name, kind=kind, field=[], raw_object=raw_object
         )
+
+    def reduce_by_field(self) -> None:
+        obj = self.raw_object
+        if self.field:
+            fldval = deepcopy(obj)
+            self.missing_field = False
+            for fld in self.field:
+                try:
+                    fldval = fldval[fld]
+                except (KeyError, TypeError):
+                    self.missing_field = True
+                    break
+            self.value = fldval
 
 
 class K8sStorageClient:
@@ -315,14 +323,14 @@ class K8sStorageClient:
             "namespace": namespace,
             "field_selector": f"involvedObject.name={pod_name}",
         }
-        field = ["message"]
         async for msg in self._inner_watch_streaming_loop(
             method=method,
             watch_args=watch_args,
             namespace=namespace,
-            field=field,
         ):
-            yield str(msg)
+            msg.field = ["message"]
+            msg.reduce_by_field()
+            yield str(msg.value)
 
     async def _handle_pod_event(
         self,
@@ -1614,7 +1622,7 @@ class K8sStorageClient:
             return KubernetesPodPhase(pod.status.phase)
         # The pod is not in a terminal phase. Start the watch and
         # wait for it to change state.
-        phase = await self._inner_watch_loop(
+        phase = await self._object_field_watch(
             method=self.api.list_namespaced_pod,
             watch_args={
                 "namespace": namespace,
@@ -1624,23 +1632,28 @@ class K8sStorageClient:
             namespace=namespace,
             field=["status", "phase"],
             initial_value=initial_phase,
+            kind="Pod",
         )
-        if phase is None:
+        if phase.type == "DELETED":
             return None
-        return KubernetesPodPhase(phase)
+        return KubernetesPodPhase(phase.value)
 
-    async def _inner_watch_loop(
+    async def _object_field_watch(
         self,
         *,
         method: Callable[[Any, Any], Any],
         watch_args: dict[str, Any],
+        kind: str,
         namespace: str,
         field: list[str],
         initial_value: Any,
+        missing_ok: bool = False,
         timeout: Optional[int] = None,
-    ) -> Any:
-        """Waits for a pod event that reports a value different from the
-        intial value supplied.  Returns the new value.
+    ) -> EventData:
+        """Waits for a pod event that reports a value in a particular field
+        for a particular object that differs from the initial value
+        supplied.  Returns an EventData with the event's value, and
+        whether the object in question has been deleted.
 
         Parameters
         ----------
@@ -1658,13 +1671,21 @@ class K8sStorageClient:
         initial_value
             Value expected at start of watch; we only report changes from
             this value.
+        missing_ok
+            Only useful in conjunction with ``initial_value`` equal to
+        ``None``, this treats a missing field as if the field value were
+        ``None``.  This is useful for object statuses where fields do not
+        exist until some operation is complete.
         timeout
             Watch timeout in seconds.
 
         Returns
         -------
-        Primitive
-            New value for pod field, or `None` if the pod has disappeared.
+        EventData
+            This will contain the field's value in ``value``.  If the object
+        has been deleted, the ``type`` field will be set to "DELETED".  If
+        the field is not present on the object, ``missing_field`` will be
+        True.
 
         Raises
         ------
@@ -1680,14 +1701,27 @@ class K8sStorageClient:
         for the specific object types and fields you want to watch.
         """
         try:
-            async for value in self._inner_watch_streaming_loop(
+            async for evt in self._inner_watch_streaming_loop(
                 method=method,
                 watch_args=watch_args,
                 namespace=namespace,
-                field=field,
+                timeout=timeout,
             ):
-                if value != initial_value:
-                    return value
+                evt.field = field
+                evt.reduce_by_field()
+                if evt.missing_field and not missing_ok:
+                    fldname = ".".join(field)
+                    raise MissingFieldError(
+                        f"Missing field {fldname}",
+                        kind=evt.kind,
+                        name=evt.name,
+                        namespace=namespace,
+                        field=fldname,
+                    )
+                if evt.type == "DELETED" or initial_value != evt.value:
+                    # We return if the object is gone, or if the
+                    # field value has changed.
+                    return evt
         except KubernetesError as e:
             if e.status == "410":
                 # Object resource version expired?
@@ -1700,10 +1734,11 @@ class K8sStorageClient:
                         + "resource version"
                     )
                     del watch_args["resource_version"]
-                    return await self._inner_watch_loop(
+                    return await self._object_field_watch(
                         method=method,
                         watch_args=watch_args,
                         namespace=namespace,
+                        kind=kind,
                         field=field,
                         initial_value=initial_value,
                         timeout=timeout,
@@ -1711,7 +1746,6 @@ class K8sStorageClient:
                 # If it wasn't a resource version timeout, or we already
                 # were not setting watch_args, re-raise
                 raise
-
         # If we fell through, the watch timed out.
         raise TimeoutError(f"Watch timed out after {timeout}s")
 
@@ -1721,11 +1755,9 @@ class K8sStorageClient:
         method: Callable[[Any, Any], Any],
         watch_args: dict[str, Any],
         namespace: str,
-        field: list[str],
         timeout: Optional[int] = None,
-    ) -> AsyncIterator[Any]:
-        """Yields the value in the specified field for the event's
-        InvolvedObject when the event occurs.
+    ) -> AsyncIterator[EventData]:
+        """Yields an EventData object for each Kubernetes event.
 
         Parameters
         ----------
@@ -1736,22 +1768,22 @@ class K8sStorageClient:
             label selectors
         namespace
             Namespace in which the pod is located.
-        field
-            Components of path to field on object.  For instance, if you
-            were waiting for a pod's phase to change, this would be
-            [ "status", "phase" ].
         timeout
             Watch timeout in seconds.
 
-        Returns
+        Yields
         -------
-        Primitive
-            New value for pod field, or `None` if the pod has disappeared.
+        EventData.  ``field`` will be the empty list and ``missing_field``
+        will be True.  The caller may plug in a value for ``field`` and call
+        the EventData's ``reduce_by_field()`` method to filter.
+        FIXME Russ is probably right, that this should be a callback.
 
         Raises
         ------
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
+        MissingFieldError
+            Raised if the specified field is not present on the object.
         TimeoutError
             Raised if watch expires.  The caller should decide on
             whether to restart the watch, or allow the error to propagate.
@@ -1772,7 +1804,7 @@ class K8sStorageClient:
         try:
             async with w.stream(method, **watch_args) as stream:
                 async for event in stream:
-                    ed = EventData.from_event(event)
+                    ed = EventData.from_kubernetes_event(event)
                     # Rebind logger with object name
                     logger = self._logger.bind(
                         name=ed.name, namespace=namespace
@@ -1781,31 +1813,12 @@ class K8sStorageClient:
                         f"Event: {ed.type} ; kind {ed.kind} ; "
                         + f"object name: {ed.name}"
                     )
-                    # Extract field from object; don't modify involved_object
-                    value = deepcopy(ed.involved_object)
-                    try:
-                        for f in field:
-                            value = value[f]
-                    except (KeyError, TypeError):
-                        field_path = ".".join(field)
-                        message = (
-                            f"Object '{ed.involved_object}' has no field "
-                            + f"{field_path}"
-                        )
-                        raise MissingFieldError(
-                            message,
-                            kind=ed.kind,
-                            name=ed.name,
-                            namespace=namespace,
-                            field=field_path,
-                        )
-                    yield value
+                    yield ed
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error watching object",
                 e,
                 namespace=namespace,
-                name=ed.name,
             ) from e
 
         # If we fell through, the watch timed out.
