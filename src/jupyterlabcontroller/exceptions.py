@@ -522,3 +522,30 @@ class UnknownKindError(ClientRequestError):
 
 class DisabledError(SlackException):
     """An attempt was made to use a disabled service."""
+
+
+class MissingFieldError(Exception):
+    """A Kubernetes object is missing an expected field.
+
+    Parameters
+    ----------
+    message
+        Summary of error.
+    kind
+        Kind of Kubernetes object that is missing a field.
+    field
+        Missing field.
+    namespace
+        Namespace of object being acted on.
+    name
+        Name of object being acted on.
+    """
+
+    def __init__(
+        self, message: str, *, kind: str, field: str, namespace: str, name: str
+    ) -> None:
+        self.message = message
+        self.kind = kind
+        self.field = field
+        self.namespace = namespace
+        self.name = name

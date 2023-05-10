@@ -37,7 +37,12 @@ from kubernetes_asyncio.client import (
 from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
-from ..exceptions import KubernetesError, MissingObjectError, UnknownKindError
+from ..exceptions import (
+    KubernetesError,
+    MissingFieldError,
+    MissingObjectError,
+    UnknownKindError,
+)
 from ..models.domain.kubernetes import (
     KubernetesNodeImage,
     KubernetesPodEvent,
@@ -1782,15 +1787,17 @@ class K8sStorageClient:
                         for f in field:
                             value = value[f]
                     except (KeyError, TypeError):
+                        field_path = ".".join(field)
                         message = (
                             f"Object '{ed.involved_object}' has no field "
-                            + f"{'.'.join(field)}."
+                            + f"{field_path}"
                         )
-                        raise MissingObjectError(
+                        raise MissingFieldError(
                             message,
                             kind=ed.kind,
                             name=ed.name,
                             namespace=namespace,
+                            field=field_path,
                         )
                     yield value
         except ApiException as e:
