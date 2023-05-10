@@ -169,7 +169,7 @@ class Prepuller:
                 remove_on_conflict=True,
                 category="prepuller",
             )
-            await self._k8s_client.wait_for_pod(name, namespace)
+            await self._k8s_client.wait_for_pod_start(name, namespace)
             await self._k8s_client.remove_completed_pod(name, namespace)
         except TimeoutError:
             delay = int((current_datetime() - start).total_seconds())

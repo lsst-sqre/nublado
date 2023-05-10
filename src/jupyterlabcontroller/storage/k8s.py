@@ -5,8 +5,6 @@ from __future__ import annotations
 import asyncio
 from base64 import b64encode
 from collections.abc import AsyncIterator
-from copy import deepcopy
-from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, Callable, Coroutine, Optional
 
@@ -44,52 +42,14 @@ from ..exceptions import (
     UnknownKindError,
 )
 from ..models.domain.kubernetes import (
+    KubernetesEventData,
     KubernetesNodeImage,
-    KubernetesPodEvent,
     KubernetesPodPhase,
 )
 from ..models.v1.lab import UserResourceQuantum
 from ..util import deslashify
 
 __all__ = ["K8sStorageClient"]
-
-
-@dataclass
-class EventData:
-    type: str
-    raw_object: dict[str, Any]
-    name: str
-    kind: str
-    field: list[str] = field(default_factory=list)
-    missing_field: bool = True
-    value: Any = None
-
-    @classmethod
-    def from_kubernetes_event(cls, event: dict[str, Any]) -> EventData:
-        raw_object = event["raw_object"]  # This will exist (I think)
-        e_type = event["type"]
-        name = "<unknown name>"
-        kind = "<unknown kind>"
-        if "metadata" in raw_object and "name" in raw_object["metadata"]:
-            name = raw_object["metadata"]["name"]
-        if "kind" in raw_object:
-            kind = raw_object["kind"]
-        return cls(
-            type=e_type, name=name, kind=kind, field=[], raw_object=raw_object
-        )
-
-    def reduce_by_field(self) -> None:
-        obj = self.raw_object
-        if self.field:
-            fldval = deepcopy(obj)
-            self.missing_field = False
-            for fld in self.field:
-                try:
-                    fldval = fldval[fld]
-                except (KeyError, TypeError):
-                    self.missing_field = True
-                    break
-            self.value = fldval
 
 
 class K8sStorageClient:
@@ -181,6 +141,7 @@ class K8sStorageClient:
             Raised if the namespace doesn't disappear within the configured
             timeout.
         """
+        # FIXME use a watch
         self._logger.debug("Waiting for namespace deletion", name=namespace)
         elapsed = 0.0
         while elapsed < self._timeout:
@@ -249,7 +210,7 @@ class K8sStorageClient:
             f"Timed out waiting for pod {namespace}/{podname} creation"
         )
 
-    async def wait_for_pod(
+    async def wait_for_pod_start(
         self, pod_name: str, namespace: str
     ) -> KubernetesPodPhase | None:
         """Waits for a pod to finish starting.
@@ -331,65 +292,6 @@ class K8sStorageClient:
             msg.field = ["message"]
             msg.reduce_by_field()
             yield str(msg.value)
-
-    async def _handle_pod_event(
-        self,
-        raw_event: dict[str, Any],
-        name: str,
-        namespace: str,
-        logger: BoundLogger,
-    ) -> KubernetesPodEvent | None:
-        """Handle a single event seen while watching pod startup.
-
-        Parameters
-        ----------
-        raw_event
-            Kubernetes core event object as a dictionary.
-        name
-            Name of the pod being watched.
-        namespace
-            Namespace of the pod being watched.
-        logger
-            Bound logger with additional metadata to use for logging.
-
-        Returns
-        -------
-        KubernetesPodEvent
-            The parsed version of this event.
-
-        Raises
-        ------
-        kubernetes_asyncio.client.ApiException
-            Raised if an error occurred retrieving the pod status (other than
-            404 for a missing pod, which is treated as a spawn failure).
-        """
-        message = raw_event.get("message")
-        logger.debug("Saw Kubernetes event", message=message)
-        if not message:
-            return None
-
-        # Check to see if the pod has reached an end state (anything other
-        # than Pending or Unknown).
-        error = None
-        try:
-            pod = await self.api.read_namespaced_pod_status(name, namespace)
-        except ApiException as e:
-            if e.status == 404:
-                error = "Pod disappeared while spawning"
-                logger.error(error)
-                phase = KubernetesPodPhase.FAILED
-            else:
-                raise
-        else:
-            phase = pod.status.phase
-
-        # Log and return the results.
-        if phase == KubernetesPodPhase.UNKNOWN:
-            error = "Pod phase is Unknown, assuming it failed"
-            logger.error(error)
-        elif phase != KubernetesPodPhase.PENDING:
-            logger.debug(f"Pod phase is now {phase}")
-        return KubernetesPodEvent(message=message, phase=phase, error=error)
 
     async def copy_secret(
         self,
@@ -1649,10 +1551,10 @@ class K8sStorageClient:
         initial_value: Any,
         missing_ok: bool = False,
         timeout: Optional[int] = None,
-    ) -> EventData:
+    ) -> KubernetesEventData:
         """Waits for a pod event that reports a value in a particular field
         for a particular object that differs from the initial value
-        supplied.  Returns an EventData with the event's value, and
+        supplied.  Returns an KubernetesEventData with the event's value, and
         whether the object in question has been deleted.
 
         Parameters
@@ -1681,7 +1583,7 @@ class K8sStorageClient:
 
         Returns
         -------
-        EventData
+        KubernetesEventData
             This will contain the field's value in ``value``.  If the object
         has been deleted, the ``type`` field will be set to "DELETED".  If
         the field is not present on the object, ``missing_field`` will be
@@ -1756,8 +1658,8 @@ class K8sStorageClient:
         watch_args: dict[str, Any],
         namespace: str,
         timeout: Optional[int] = None,
-    ) -> AsyncIterator[EventData]:
-        """Yields an EventData object for each Kubernetes event.
+    ) -> AsyncIterator[KubernetesEventData]:
+        """Yields an KubernetesEventData object for each Kubernetes event.
 
         Parameters
         ----------
@@ -1773,9 +1675,10 @@ class K8sStorageClient:
 
         Yields
         -------
-        EventData.  ``field`` will be the empty list and ``missing_field``
-        will be True.  The caller may plug in a value for ``field`` and call
-        the EventData's ``reduce_by_field()`` method to filter.
+        KubernetesEventData.  ``field`` will be the empty list and
+        ``missing_field`` will be True.  The caller may plug in a value
+        for ``field`` and call the KubernetesEventData's
+        ``reduce_by_field()`` method to filter.
         FIXME Russ is probably right, that this should be a callback.
 
         Raises
@@ -1804,7 +1707,7 @@ class K8sStorageClient:
         try:
             async with w.stream(method, **watch_args) as stream:
                 async for event in stream:
-                    ed = EventData.from_kubernetes_event(event)
+                    ed = KubernetesEventData.from_kubernetes_event(event)
                     # Rebind logger with object name
                     logger = self._logger.bind(
                         name=ed.name, namespace=namespace
