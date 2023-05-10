@@ -210,48 +210,6 @@ class K8sStorageClient:
             f"Timed out waiting for pod {namespace}/{podname} creation"
         )
 
-    async def wait_for_pod_start(
-        self, pod_name: str, namespace: str
-    ) -> KubernetesPodPhase | None:
-        """Waits for a pod to finish starting.
-
-        Waits for the pod to reach a phase other than pending or unknown, and
-        returns the new phase. We treat unknown like pending since we're
-        running with a timeout anyway, and will eventually time out if we
-        can't get back access to the node where the pod is running.
-
-        Parameters
-        ----------
-        pod_name
-            Name of the pod.
-        namespace
-            Namespace in which the pod is located.
-
-        Returns
-        -------
-        KubernetesPodPhase
-            New pod phase, or `None` if the pod has disappeared.
-
-        Raises
-        ------
-        KubernetesError
-            Raised if there is some failure in a Kubernetes API call.
-        """
-        logger = self._logger.bind(name=pod_name, namespace=namespace)
-        logger.debug("Waiting for pod creation")
-        initial_phase = "Pending"
-        while True:
-            # We only loop waiting for "Unknown" to resolve.
-            phase = await self._pod_watch_loop(
-                pod_name, namespace, initial_phase=initial_phase
-            )
-            if phase is None:
-                return None
-            if phase == KubernetesPodPhase.UNKNOWN:
-                initial_phase = "Unknown"
-                continue
-            return phase
-
     async def watch_pod_events(
         self, pod_name: str, namespace: str
     ) -> AsyncIterator[str]:
@@ -1353,21 +1311,13 @@ class K8sStorageClient:
                 namespace=namespace,
             ) from e
 
-    async def wait_for_fileserver_pod_up(
-        self, pod_name: str, namespace: str
-    ) -> None:
-        await self._wait_for_fileserver_pod_up_down(
-            pod_name, namespace, up=True
-        )
+    async def wait_for_pod_up(self, pod_name: str, namespace: str) -> None:
+        await self._wait_for_pod_up_down(pod_name, namespace, up=True)
 
-    async def wait_for_fileserver_pod_down(
-        self, pod_name: str, namespace: str
-    ) -> None:
-        await self._wait_for_fileserver_pod_up_down(
-            pod_name, namespace, up=False
-        )
+    async def wait_for_pod_down(self, pod_name: str, namespace: str) -> None:
+        await self._wait_for_pod_up_down(pod_name, namespace, up=False)
 
-    async def _wait_for_fileserver_pod_up_down(
+    async def _wait_for_pod_up_down(
         self, pod_name: str, namespace: str, up: bool
     ) -> None:
         """

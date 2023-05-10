@@ -614,7 +614,7 @@ class LabStateManager:
                         msg = "Neither internal_url nor spawner provided"
                         raise RuntimeError(msg)
                     internal_url = await spawner()
-                await self._kubernetes.wait_for_pod_start(pod, namespace)
+                await self._kubernetes.wait_for_pod_up(pod, namespace)
         except TimeoutError:
             delay = int((current_datetime() - start).total_seconds())
             msg = f"Lab creation timed out after {delay}s"

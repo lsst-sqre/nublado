@@ -432,9 +432,7 @@ class FileserverStateManager:
                 kind="Pod",
             )
         podname = pod.metadata.name
-        await self._k8s_client.wait_for_fileserver_pod_down(
-            podname, self._namespace
-        )
+        await self._k8s_client.wait_for_pod_down(podname, self._namespace)
         await self.delete(username)
 
     async def _reconcile_user_map(self) -> None:
