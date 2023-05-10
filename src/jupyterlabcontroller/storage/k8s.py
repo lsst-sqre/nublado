@@ -157,58 +157,34 @@ class K8sStorageClient:
             elapsed += interval
         raise TimeoutError("Timed out waiting for namespace deletion")
 
-    async def remove_completed_pod(
-        self, podname: str, namespace: str, interval: float = 0.2
-    ) -> None:
+    async def remove_completed_pod(self, podname: str, namespace: str) -> None:
         logger = self._logger.bind(name=podname, namespace=namespace)
         logger.debug("Waiting for pod execution to succeed")
-        elapsed = 0.0
-        pod_timeout = 30  # arbitrary, but the prepuller pod should just sleep
-        # 5 seconds and go away.
-        while elapsed < pod_timeout:
-            try:
-                pod = await self.api.read_namespaced_pod_status(
-                    name=podname, namespace=namespace
-                )  # Actually returns a V1Pod, not a V1PodStatus
-                pod_status = pod.status
-            except ApiException as e:
-                if e.status == 404:
-                    # Not there to start with is OK.
-                    return
-                else:
-                    raise KubernetesError.from_exception(
-                        "Error reading pod status of completed pod",
-                        e,
-                        namespace=namespace,
-                        name=podname,
-                    ) from e
-            phase = pod_status.phase
-            if phase not in (
-                KubernetesPodPhase.PENDING,
-                KubernetesPodPhase.RUNNING,
-            ):
-                if phase == KubernetesPodPhase.SUCCEEDED:
-                    logger.debug("Removing succeeded pod")
-                else:
-                    logger.warning(f"Removing pod in phase {phase}")
-                try:
-                    await self.api.delete_namespaced_pod(podname, namespace)
-                except ApiException as e:
-                    if e.status == 404:
-                        return
-                    raise KubernetesError.from_exception(
-                        "Error deleting completed pod",
-                        e,
-                        namespace=namespace,
-                        name=podname,
-                    ) from e
-                return
-            await asyncio.sleep(interval)
-            elapsed += interval
-        # And if we get this far, it timed out without being created.
-        raise TimeoutError(
-            f"Timed out waiting for pod {namespace}/{podname} creation"
+        # First wait for pod to start.
+        await self.wait_for_pod_up(pod_name=podname, namespace=namespace)
+        # Then wait for it to stop, preferably in SUCCEEDED.
+        phase = await self._wait_for_pod_up_down(
+            pod_name=podname, namespace=namespace, up=False
         )
+        if phase is None:
+            logger.warning("Pod vanished while being awaited.")
+            return
+        if phase == KubernetesPodPhase.SUCCEEDED:
+            logger.debug("Removing succeeded pod")
+        else:
+            logger.warning(f"Removing pod in phase {phase}")
+        try:
+            await self.api.delete_namespaced_pod(podname, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                return
+            raise KubernetesError.from_exception(
+                "Error deleting completed pod",
+                e,
+                namespace=namespace,
+                name=podname,
+            ) from e
+        return
 
     async def watch_pod_events(
         self, pod_name: str, namespace: str
@@ -1319,7 +1295,7 @@ class K8sStorageClient:
 
     async def _wait_for_pod_up_down(
         self, pod_name: str, namespace: str, up: bool
-    ) -> None:
+    ) -> KubernetesPodPhase | None:
         """
         Waits for a fileserver pod to be up or down.
 
@@ -1334,6 +1310,11 @@ class K8sStorageClient:
             duration of a single watch timeout).  If False, waits
             (indefinitely) for the pod to enter "Succeeded" or "Failed", or
             for the pod to go away.
+
+        Returns
+        -------
+        Optional[KubernetesPodPhase]
+            Final phase of the pod, or None if pod does not exist.
 
         Raises
         ------
@@ -1350,7 +1331,7 @@ class K8sStorageClient:
         except ApiException as e:
             if e.status == 404:
                 if not up:
-                    return
+                    return None
             raise KubernetesError.from_exception(
                 "Error watching pod",
                 e,
@@ -1366,7 +1347,7 @@ class K8sStorageClient:
             and pod.status.phase is not None
         ):
             if pod.status.phase != initial_phase:
-                return pod.status.phase
+                return KubernetesPodPhase(pod.status.phase)
         while True:
             logger.debug(
                 f"Waiting for pod phase change from '{initial_phase}'"
@@ -1376,7 +1357,7 @@ class K8sStorageClient:
                     pod_name, namespace, initial_phase=initial_phase
                 )
                 if phase is None:
-                    logger.warning("New pod phase is None")
+                    logger.warning("Pod disappeared while being watched.")
                 else:
                     logger.debug(f"New pod phase is {phase.value}")
             except TimeoutError:
@@ -1390,10 +1371,10 @@ class K8sStorageClient:
             if up:
                 if phase is None or phase != KubernetesPodPhase.RUNNING:
                     msg = "Unexpected phase "
-                    if phase is not None:
-                        msg += f"'{phase.value}'"
+                    if phase is None:
+                        msg += "<None>"
                     else:
-                        msg += "'None'"
+                        msg += f"'{phase.value}'"
                     msg += ".  Expected 'Running'."
                     raise KubernetesError(
                         message=msg,
@@ -1401,7 +1382,7 @@ class K8sStorageClient:
                         namespace=namespace,
                     )
                 logger.debug(f"Phase transition to {phase.value}")
-                return
+                return phase
             # We're now in the waiting-for-down phase.
             if (
                 phase is None
@@ -1410,7 +1391,7 @@ class K8sStorageClient:
             ):
                 # Pod finished no longer exists; that's what we were waiting
                 # for.
-                return
+                return phase
             if phase == KubernetesPodPhase.UNKNOWN:
                 logger.warning(
                     f"Pod {namespace}/{pod_name} in 'Unknown' phase."
