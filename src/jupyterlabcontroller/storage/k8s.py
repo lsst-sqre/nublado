@@ -1340,14 +1340,9 @@ class K8sStorageClient:
                 await self.delete_fileserver_gafaelfawringress(
                     username, namespace
                 )
-                # await self._wait_for_fileserver_object_deletion(
-                #    obj_name=obj_name,
-                #    namespace=namespace,
-                #    kind="Gafaelfawringress",
-                # )
-                # FIXME -- which will require implementing custom
-                # object watches too.
-                await asyncio.sleep(10.0)
+                await self._wait_for_gafaelfawr_ingress_deletion(
+                    obj_name, namespace
+                )
                 await self.custom_api.create_namespaced_custom_object(
                     crd_group, crd_version, namespace, plural, spec
                 )
@@ -1358,6 +1353,28 @@ class K8sStorageClient:
                 namespace=namespace,
                 name=obj_name,
             ) from e
+
+    async def _wait_for_gafaelfawr_ingress_deletion(
+        self, obj_name: str, namespace: str
+    ) -> None:
+        # Unfortunately, it appears that no event (at least not
+        # visible to ``get gafaelfawringress -w``) happens
+        # for Gafaelfawringress deletion.
+        #
+        # So...I'm sorry, but we do have to poll here.
+        crd_group = "gafaelfawr.lsst.io"
+        crd_version = "v1alpha1"
+        plural = "gafaelfawringresses"
+        delay = 0.8
+        while True:
+            try:
+                await self.custom_api.get_namespaced_custom_object(
+                    crd_group, crd_version, namespace, plural, obj_name
+                )
+            except ApiException as e:
+                if e.status == 404:
+                    return
+            await asyncio.sleep(delay)
 
     async def delete_fileserver_gafaelfawringress(
         self, username: str, namespace: str
@@ -1499,7 +1516,9 @@ class K8sStorageClient:
         self, username: str, namespace: str
     ) -> None:
         """Wait for the key fileserver objects (Ingress and Job) to
-        be deleted.
+        be deleted.  We will presume that the GafaelfawrIngress deletion
+        happens basically immediately after its corresponding Ingress
+        is deleted.
         """
         obj_name = "{username}-fs"
         for kind in ("Ingress", "Job"):
