@@ -9,6 +9,7 @@ from ..dependencies.config import configuration_dependency
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.user import user_dependency
 from ..models.v1.lab import UserInfo
+from ..util import seconds_to_phrase
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 user_router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -69,7 +70,9 @@ async def route_user(
     base_url = config.base_url
     await fileserver_state.create(user)
     return FILESERVER_TEMPLATE.format(
-        username=user.username, base_url=base_url, timeout=timeout
+        username=user.username,
+        base_url=base_url,
+        timeout=seconds_to_phrase(timeout),
     )
 
 

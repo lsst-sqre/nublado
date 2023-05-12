@@ -57,7 +57,7 @@ accurate and traditional.
 </p>
 
 <p>
-If you make no requests in 3600 seconds, the fileserver will shut
+If you make no requests in 1h, the fileserver will shut
 down.  If that occurs, simply go back to
 <a href="http://127.0.0.1:8080/files">http://127.0.0.1:8080/files</a>
 and a new fileserver will be created for you.

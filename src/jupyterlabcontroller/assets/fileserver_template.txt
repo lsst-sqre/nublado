@@ -57,7 +57,7 @@ accurate and traditional.
 </p>
 
 <p>
-If you make no requests in {timeout} seconds, the fileserver will shut
+If you make no requests in {timeout}, the fileserver will shut
 down.  If that occurs, simply go back to
 <a href="{base_url}/files">{base_url}/files</a>
 and a new fileserver will be created for you.
