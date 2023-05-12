@@ -1437,30 +1437,25 @@ class K8sStorageClient:
 
         1) it has exactly one Pod in Running state due to a Job of the
            right name, and
-        2) it has an Ingress (properties not checked)
+        2) it has an Ingress, which has status.load_balancer.ingress, and
+           that inner ingress has an attribute "ip" which is not the
+           empty string.
 
         We do not check the GafaelfawrIngress, because the Custom API is
         clumsy, and the created Ingress is a requirement for whether the
         fileserver is running.  Although we create a Service, there's
         not much that can go wrong with it, so we opt to save the API
         call by assuming it's fine.
-
-        If we find a broken fileserver, we delete all its objects.  In
-        steady-state operations, this will happen when a fileserver Pod has
-        seen no operations for its timeout period; the Pod will exit and
-        the reconciliation task will note that the Job has no active Pods
-        and take action to clean it up.
         """
         obj_name = f"{username}-fs"
         self._logger.debug(f"Checking whether {username} has fileserver")
-        try:
-            self._logger.debug(f"Checking job for {username}")
-            await self.batch_api.read_namespaced_job(obj_name, namespace)
-        except ApiException as e:
-            self._logger.info(f"Job {obj_name} for {username} not found.")
-            if e.status == 404:
-                self._logger.debug(f"Job {obj_name} for {username} not found.")
-                return False
+        self._logger.debug(f"...checking Job for {username}")
+        job = await self._get_object_maybe(
+            kind="Job", obj_name=obj_name, namespace=namespace
+        )
+        if job is None:
+            self._logger.debug(f"...Job {obj_name} for {username} not found.")
+            return False
         # OK, we have a job.  Now let's see if the Pod from that job has
         # arrived...
         self._logger.debug(f"Checking Pod for {username}")
@@ -1477,22 +1472,22 @@ class K8sStorageClient:
                 + f"'{pod.status.phase}', not 'Running'."
             )
             return False
-        try:
-            self._logger.debug(f"Checking ingress for {username}")
-            await self.networking_api.read_namespaced_ingress(
-                obj_name, namespace
+        ingress = await self._get_object_maybe(
+            kind="Ingress", obj_name=obj_name, namespace=namespace
+        )
+        if ingress is None:
+            self._logger.info(
+                f"...Ingress {obj_name} for {username} not found."
             )
-        except ApiException as e:
-            self._logger.info(f"Ingress {obj_name} for {username} not found.")
-            if e.status == 404:
-                return False
-            raise KubernetesError.from_exception(
-                "Error reading ingress",
-                e,
-                kind="Ingress",
-                namespace=namespace,
-                name=obj_name,
-            ) from e
+            return False
+        if (
+            ingress.status is None
+            or ingress.status.load_balancer is None
+            or ingress.status.load_balancer.ingress is None
+            or len(ingress.status.load_balancer.ingress) < 1
+            or ingress.status.load_balancer.ingress[0].ip == ""
+        ):
+            return False
         return True
 
     async def wait_for_fileserver_object_deletion(
