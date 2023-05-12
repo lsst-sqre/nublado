@@ -1458,7 +1458,7 @@ class K8sStorageClient:
             return False
         # OK, we have a job.  Now let's see if the Pod from that job has
         # arrived...
-        self._logger.debug(f"Checking Pod for {username}")
+        self._logger.debug(f"...checking Pod for {username}")
         pod = await self.get_fileserver_pod_for_user(username, namespace)
         if pod is None:
             self._logger.info(f"No Pod for {username}")
@@ -1472,6 +1472,7 @@ class K8sStorageClient:
                 + f"'{pod.status.phase}', not 'Running'."
             )
             return False
+        self._logger.debug(f"...checking Ingress for {username}")
         ingress = await self._get_object_maybe(
             kind="Ingress", obj_name=obj_name, namespace=namespace
         )
@@ -1487,7 +1488,11 @@ class K8sStorageClient:
             or len(ingress.status.load_balancer.ingress) < 1
             or ingress.status.load_balancer.ingress[0].ip == ""
         ):
+            self._logger.info(
+                f"...Ingress {obj_name} for {username} does not have address."
+            )
             return False
+        self._logger.debug(f"...fileserver for {username} is OK.")
         return True
 
     async def wait_for_fileserver_object_deletion(
