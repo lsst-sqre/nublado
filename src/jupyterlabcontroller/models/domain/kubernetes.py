@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Awaitable, Optional, Self
+from typing import Any, Coroutine, Optional, Self
 
 from kubernetes_asyncio.client import V1ContainerImage, V1Pod
 
@@ -157,8 +157,8 @@ class KubernetesPodWatchInfo:
 @dataclass
 class KubernetesKindMethodContainer:
     object_type: object
-    read_method: Awaitable[Any]
-    list_method: Awaitable[Any]
+    read_method: Coroutine[Any, Any, Any]
+    list_method: Coroutine[Any, Any, Any]
 
 
 class KubernetesKindMethodMapper:

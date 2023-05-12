@@ -6,7 +6,7 @@ import asyncio
 from base64 import b64encode
 from collections.abc import AsyncIterator
 from datetime import timedelta
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Coroutine, Optional, Union
 
 from kubernetes_asyncio import client, watch
 from kubernetes_asyncio.client import (
@@ -98,14 +98,13 @@ class K8sStorageClient:
         self._spawn_timeout = spawn_timeout
         self._logger = logger
         self._method_map = KubernetesKindMethodMapper()
-        self._method_map.add(
-            "Pod",
-            KubernetesKindMethodContainer(
-                object_type=V1Pod,
-                read_method=self.api.read_namespaced_pod,
-                list_method=self.api.list_namespaced_pod,
-            ),
-        )
+        self._fill_method_map()
+
+    def _fill_method_map(self) -> None:
+        """This sets up the object kinds that we have generic methods for,
+        which are used by _get_object_maybe() and
+        _wait_for_object_deletion().
+        """
         self._method_map.add(
             "Ingress",
             KubernetesKindMethodContainer(
@@ -120,6 +119,30 @@ class K8sStorageClient:
                 object_type=V1Job,
                 read_method=self.batch_api.read_namespaced_job,
                 list_method=self.batch_api.list_namespaced_job,
+            ),
+        )
+        self._method_map.add(
+            "Namespace",
+            KubernetesKindMethodContainer(
+                object_type=V1Namespace,
+                read_method=self.api.read_namespace,
+                list_method=self.api.list_namespace,
+            ),
+        )
+        self._method_map.add(
+            "Pod",
+            KubernetesKindMethodContainer(
+                object_type=V1Pod,
+                read_method=self.api.read_namespaced_pod,
+                list_method=self.api.list_namespaced_pod,
+            ),
+        )
+        self._method_map.add(
+            "Service",
+            KubernetesKindMethodContainer(
+                object_type=V1Service,
+                read_method=self.api.read_namespaced_service,
+                list_method=self.api.list_namespaced_service,
             ),
         )
         self._supported_generic_kinds = self._method_map.list()
@@ -159,43 +182,19 @@ class K8sStorageClient:
         )
         await self.create_secret(f"{username}-nb", target_ns, data)
 
-    async def wait_for_namespace_deletion(
-        self, namespace: str, interval: float = 0.2
-    ) -> None:
-        """Wait for a namespace to disappear.
-
-        Once it's underway, we loop, reading the namespace. We eventually
-        expect a 404, and when we get it we return. If it doesn't arrive
-        within the timeout, we raise the timeout exception, and if we get some
-        other error, we repackage that and raise it.
-
-        Raises
-        ------
-        TimeoutError
-            Raised if the namespace doesn't disappear within the configured
-            timeout.
-        """
+    async def wait_for_namespace_deletion(self, namespace: str) -> None:
+        """Wait for a namespace to disappear."""
+        ns = await self._get_object_maybe(
+            kind="Namespace", obj_name=namespace, namespace=None
+        )
+        if ns is None:
+            return
         self._logger.debug("Waiting for namespace deletion", name=namespace)
-        elapsed = 0.0
-        while elapsed < self._timeout:
-            try:
-                await self.api.read_namespace(namespace)
-            except ApiException as e:
-                if e.status == 404:
-                    return
-                raise KubernetesError.from_exception(
-                    "Cannot get status of namespace",
-                    e,
-                    name=namespace,
-                    kind="Namespace",
-                ) from e
-            await asyncio.sleep(interval)
-            elapsed += interval
-        raise TimeoutError("Timed out waiting for namespace deletion")
+        await self._wait_for_object_deletion(
+            kind="Namespace", obj_name=namespace, namespace=None
+        )
 
-    async def remove_completed_pod(
-        self, podname: str, namespace: str, interval: float = 0.2
-    ) -> None:
+    async def remove_completed_pod(self, podname: str, namespace: str) -> None:
         logger = self._logger.bind(name=podname, namespace=namespace)
         await self.wait_for_pod_start(podname, namespace)
         phase = await self.wait_for_pod_stop(podname, namespace)
@@ -228,13 +227,21 @@ class K8sStorageClient:
             )
 
     async def _get_object_maybe(
-        self, kind: str, obj_name: str, namespace: str
-    ) -> Union[V1Pod, V1Job, V1Ingress] | None:
+        self, kind: str, obj_name: str, namespace: Optional[str]
+    ) -> Union[V1Pod, V1Job, V1Ingress, V1Namespace] | None:
         """Try to read an object; if it's not there return None"""
         self._generic_kind_check(kind)
+        if kind == "Namespace":
+            namespace = None
         method = self._method_map.get(kind).read_method
+        kwargs = {"name": obj_name}
+        if kind != "Namespace":
+            if namespace is None:
+                raise ValueError(f"Namespace cannot be None for kind {kind}")
+            kwargs["namespace"] = namespace
         try:
-            obj = await method(obj_name, namespace)  # type: ignore
+            # FIXME figure out what we need to do to get typing correct
+            obj = await method(**kwargs)  # type: ignore
             return obj
         except ApiException as e:
             if e.status == 404:
@@ -1387,24 +1394,17 @@ class K8sStorageClient:
 
         It returns a dict mapping strings to the value True, indicating those
         users who currently have fileservers.
-
-        If the fileserver namespace does not exist, create it before moving
-        ahead.
         """
         observed_state: dict[str, bool] = {}
-        try:
-            await self.api.read_namespace(namespace)
-        except ApiException as e:
-            if e.status == 404:
-                self._logger.warning(f"No fileserver namespace '{namespace}'")
-                return observed_state
-            else:
-                raise KubernetesError.from_exception(
-                    "Error reading namespace",
-                    e,
-                    kind="Namespace",
-                    namespace=namespace,
-                ) from e
+        ns = await self._get_object_maybe(
+            kind="Namespace", obj_name=namespace, namespace=None
+        )
+        if ns is None:
+            raise KubernetesError(
+                f"Missing user fileservers namespace {namespace}",
+                kind="Namespace",
+                name=namespace,
+            )
         # Get all jobs
         all_jobs = await self.batch_api.list_namespaced_job(namespace)
         # Filter to those with the right label
@@ -1508,7 +1508,7 @@ class K8sStorageClient:
             )
 
     async def _wait_for_object_deletion(
-        self, kind: str, obj_name: str, namespace: str
+        self, kind: str, obj_name: str, namespace: Optional[str]
     ) -> None:
         """Here's the generic method we feared."""
         obj = await self._get_object_maybe(
@@ -1516,16 +1516,22 @@ class K8sStorageClient:
         )
         if obj is None:
             return
+        if kind == "Namespace":
+            namespace = None
+        else:
+            if namespace is None:
+                raise ValueError(f"Namespace cannot be None for kind {kind}")
         watch_args = {
-            "namespace": obj.metadata.namespace,
             "field_selector": f"metadata.name={obj.metadata.name}",
             "resource_version": obj.metadata.resource_version,
         }
+        if namespace is not None:
+            watch_args["namespace"] = namespace
         method = self._method_map.get(kind).list_method
         # Wait for an event saying the object is deleted.
         try:
             async for event in self._event_watch(
-                method=method,  # type: ignore
+                method=method,
                 watch_args=watch_args,
                 transmogrifier=None,
                 timeout=None,
@@ -1533,6 +1539,10 @@ class K8sStorageClient:
             ):
                 if event.type == "DELETED":
                     return
+            # I don't think we should get here
+            raise RuntimeError(
+                "Control reached end of _wait_for_object_deletion"
+            )
         except TimeoutError:
             # Possible race condition, if object was deleted between the
             # _get_object_maybe() check and the watch.
@@ -1570,7 +1580,7 @@ class K8sStorageClient:
 
     async def _event_watch(
         self,
-        method: Callable[[Any, Any], Any],
+        method: Coroutine[Any, Any, Any],
         watch_args: dict[str, Any],
         transmogrifier: Optional[Callable[[dict[str, Any]], Any]],
         timeout: Optional[int],
@@ -1600,6 +1610,10 @@ class K8sStorageClient:
                             event = transmogrifier(raw_event)
                         self._logger.debug(f"Received event {event}")
                         yield event
+                # We should raise a timeout error when the watch expires,
+                # so it's not clear to me under what circumstances we get
+                # here...but we sometimes do.
+                w.close()
                 raise RuntimeError("Control reached end of _event_watch()")
             except ApiException as e:
                 if (
@@ -1613,6 +1627,7 @@ class K8sStorageClient:
                     )
                     del watch_args["resource_version"]
                     continue
+                w.close()
                 raise KubernetesError.from_exception(
                     f"Error in Kubernetes watch {method}->{watch_args}",
                     e,
