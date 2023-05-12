@@ -1357,24 +1357,35 @@ class K8sStorageClient:
     async def _wait_for_gafaelfawr_ingress_deletion(
         self, obj_name: str, namespace: str
     ) -> None:
-        # Unfortunately, it appears that no event (at least not
-        # visible to ``get gafaelfawringress -w``) happens
-        # for Gafaelfawringress deletion.
-        #
-        # So...I'm sorry, but we do have to poll here.
         crd_group = "gafaelfawr.lsst.io"
         crd_version = "v1alpha1"
         plural = "gafaelfawringresses"
-        delay = 0.8
-        while True:
-            try:
-                await self.custom_api.get_namespaced_custom_object(
-                    crd_group, crd_version, namespace, plural, obj_name
-                )
-            except ApiException as e:
-                if e.status == 404:
-                    return
-            await asyncio.sleep(delay)
+        try:
+            gi = await self.custom_api.get_namespaced_custom_object(
+                crd_group, crd_version, namespace, plural, obj_name
+            )
+        except ApiException as e:
+            if e.status == 404:
+                return
+            raise
+        watch_args = get_watch_args(gi)
+        watch_args["group"] = crd_group
+        watch_args["version"] = crd_version
+        watch_args["plural"] = plural
+        async for event in self._event_watch(
+            method=self.custom_api.list_namespaced_custom_object,
+            watch_args=watch_args,
+            transmogrifier=None,
+            timeout=None,
+            retry_expired=True,
+        ):
+            if event.type == "DELETED":
+                return
+        # I don't think we should get here
+        raise RuntimeError(
+            "Control reached end of "
+            + "_wait_for_gafaelfawr_ingress_deletion()"
+        )
 
     async def delete_fileserver_gafaelfawringress(
         self, username: str, namespace: str
