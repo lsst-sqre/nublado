@@ -21,7 +21,7 @@ page</a> and press the "Create Token" button.
 
 <p>
 Give that token a name, such as "fileserver", the "exec:notebook" scope,
-and a reasonable expiration data, such as 1 month.
+and a reasonable expiration duration, such as 1 month.
 </p>
 
 <p>

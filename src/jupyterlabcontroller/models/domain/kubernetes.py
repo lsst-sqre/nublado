@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Coroutine, Optional, Self
 
-from kubernetes_asyncio.client import V1ContainerImage, V1Pod
+from kubernetes_asyncio.client import V1ContainerImage, V1ObjectMeta, V1Pod
 
 from .docker import DockerReference
 
@@ -18,6 +18,7 @@ __all__ = [
     "KubernetesPodWatchInfo",
     "KubernetesKindMethodContainer",
     "KubernetesKindMethodMapper",
+    "get_watch_args",
 ]
 
 
@@ -134,23 +135,32 @@ class KubernetesEvent:
             namespace=event["raw_object"]["metadata"].get("namespace"),
         )
 
+    def __str__(self) -> str:
+        """Printing the raw object makes it extremely long.
+        So don't do that."""
+        rs = (
+            f"KubernetesEvent(type='{self.type}', "
+            + f"object.kind='{self.kind}', "
+            + f"object.metadata.name='{self.name}'"
+        )
+        if self.namespace is not None:
+            rs += f", object.metadata.namespace='{self.namespace}'"
+        rs += ")"
+        return rs
+
 
 @dataclass
 class KubernetesPodWatchInfo:
     """Packages useful info for setting up a watch for a Pod."""
 
-    watch_args: dict[str, Any]
+    watch_args: dict[str, str]
     initial_phase: str
 
     @classmethod
     def from_pod(cls, pod: V1Pod) -> Self:
         return cls(
-            watch_args={
-                "namespace": pod.metadata.namespace,
-                "field_selector": f"metadata.name={pod.metadata.name}",
-                "resource_version": pod.metadata.resource_version,
-            },
             initial_phase=pod.status.phase,
+            watch_args=get_watch_args(pod.metadata),
         )
 
 
@@ -173,3 +183,13 @@ class KubernetesKindMethodMapper:
 
     def list(self) -> list[str]:
         return list(self._dict.keys())
+
+
+def get_watch_args(metadata: V1ObjectMeta) -> dict[str, str]:
+    watch_args = {
+        "field_selector": f"metadata.name={metadata.name}",
+        "resource_version": metadata.resource_version,
+    }
+    if metadata.namespace is not None:
+        watch_args["namespace"] = metadata.namespace
+    return watch_args

@@ -337,6 +337,8 @@ class KubernetesError(SlackException):
         Namespace of object being acted on.
     name
         Name of object being acted on.
+    kind
+        Kind of object being acted on.
     status
         Status code of failure, if any.
     body

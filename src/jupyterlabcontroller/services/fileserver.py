@@ -111,28 +111,31 @@ class FileserverStateManager:
             await self._k8s_client.create_fileserver_service(
                 username, namespace, spec=service
             )
-            await self._wait_for_fileserver(username, namespace)
+            await self._wait_for_fileserver_start(username, namespace)
             task = asyncio.create_task(self._discard_when_done(username))
             self._watches.add(task)
             task.add_done_callback(self._watches.discard)
             await self._user_map.set(username)
 
-    async def _wait_for_fileserver(
+    async def _wait_for_fileserver_start(
         self, username: str, namespace: str
     ) -> None:
-        # FIXME watch for events, don't poll.
-        timeout = 60.0
-        interval = 3.9
-        async with asyncio.timeout(timeout):
-            # FIXME use an event watch, not a poll?
-            while True:
-                good = await self._k8s_client.check_fileserver_present(
-                    username, namespace
-                )
-                if good:
-                    self._logger.info(f"Fileserver created for {username}")
-                    return
-                await asyncio.sleep(interval)
+        pod = await self._k8s_client.get_fileserver_pod_for_user(
+            username, namespace
+        )
+        if pod is None:
+            raise MissingObjectError(
+                message=f"No pod for job fs-{username}",
+                namespace=self._namespace,
+                kind="Pod",
+            )
+        await self._k8s_client.wait_for_pod_start(
+            pod_name=pod.metadata.name, namespace=namespace
+        )
+        # The ingress is the part that typically takes longest
+        await self._k8s_client.wait_for_user_fileserver_ingress_ready(
+            username, namespace
+        )
 
     def _build_metadata(self, username: str) -> V1ObjectMeta:
         """Construct metadata for the user's fileserver objects.

@@ -45,6 +45,7 @@ from ..models.domain.kubernetes import (
     KubernetesPodEvent,
     KubernetesPodPhase,
     KubernetesPodWatchInfo,
+    get_watch_args,
 )
 from ..models.v1.lab import UserResourceQuantum
 from ..util import deslashify
@@ -1278,11 +1279,9 @@ class K8sStorageClient:
                     namespace=namespace,
                 )
                 await self.delete_fileserver_service(username, namespace)
-                # await self._wait_for_fileserver_object_deletion(
-                #    obj_name=obj_name, namespace=namespace, kind="Service"
-                # )
-                # FIXME.  Ew.
-                await asyncio.sleep(1.0)
+                await self._wait_for_object_deletion(
+                    obj_name=obj_name, namespace=namespace, kind="Service"
+                )
                 await self.api.create_namespaced_service(namespace, spec)
                 return
             raise KubernetesError.from_exception(
@@ -1346,8 +1345,9 @@ class K8sStorageClient:
                 #    namespace=namespace,
                 #    kind="Gafaelfawringress",
                 # )
-                # FIXME
-                await asyncio.sleep(1.0)
+                # FIXME -- which will require implementing custom
+                # object watches too.
+                await asyncio.sleep(10.0)
                 await self.custom_api.create_namespaced_custom_object(
                     crd_group, crd_version, namespace, plural, spec
                 )
@@ -1521,12 +1521,7 @@ class K8sStorageClient:
         else:
             if namespace is None:
                 raise ValueError(f"Namespace cannot be None for kind {kind}")
-        watch_args = {
-            "field_selector": f"metadata.name={obj.metadata.name}",
-            "resource_version": obj.metadata.resource_version,
-        }
-        if namespace is not None:
-            watch_args["namespace"] = namespace
+        watch_args = get_watch_args(obj.metadata)
         method = self._method_map.get(kind).list_method
         # Wait for an event saying the object is deleted.
         try:
@@ -1545,7 +1540,9 @@ class K8sStorageClient:
             )
         except TimeoutError:
             # Possible race condition, if object was deleted between the
-            # _get_object_maybe() check and the watch.
+            # _get_object_maybe() check and the watch.  Then there would not
+            # have been any events to see.  So if we time out, then we should
+            # check again whether the object really is gone after all.
             obj = await self._get_object_maybe(
                 kind=kind, obj_name=obj_name, namespace=namespace
             )
@@ -1577,6 +1574,62 @@ class K8sStorageClient:
                 kind="Pod",
                 namespace=namespace,
             ) from e
+
+    async def wait_for_user_fileserver_ingress_ready(
+        self, username: str, namespace: str
+    ) -> None:
+        obj_name = f"{username}-fs"
+        ingress = await self._get_object_maybe(
+            kind="Ingress", obj_name=obj_name, namespace=namespace
+        )
+        if ingress is None:
+            raise MissingObjectError(
+                "No Ingress found",
+                name=obj_name,
+                namespace=namespace,
+                kind="Ingress",
+            )
+        if (
+            ingress.status is not None
+            and ingress.status.load_balancer is not None
+            and ingress.status.load_balancer.ingress is not None
+            and len(ingress.status.load_balancer.ingress) > 0
+            and ingress.status.load_balancer.ingress[0].ip != ""
+        ):
+            return
+
+        # Ingress exists, but it's not ready yet.  Wait for it to
+        # get an IP address.
+        watch_args = get_watch_args(ingress.metadata)
+
+        def transmogrifier(event: dict[str, Any]) -> bool:
+            obj = event["raw_object"]
+            if (
+                "status" not in obj
+                or "loadBalancer" not in obj["status"]
+                or "ingress" not in obj["status"]["loadBalancer"]
+            ):
+                return False
+            ing_list = obj["status"]["loadBalancer"]["ingress"]
+            if ing_list is None or len(ing_list) < 1:
+                return False
+            ing = ing_list[0]
+            if ing is None or "ip" not in ing or ing["ip"] == "":
+                return False
+            return True
+
+        async for event in self._event_watch(
+            method=self._method_map.get("Ingress").list_method,
+            watch_args=watch_args,
+            transmogrifier=transmogrifier,
+            timeout=None,  # default to self._spawn_timeout
+            retry_expired=True,
+        ):
+            if event is True:
+                return
+        raise RuntimeError(
+            "Control reached end of wait_for_user_fileserver_ingress_ready()"
+        )
 
     async def _event_watch(
         self,
@@ -1610,11 +1663,9 @@ class K8sStorageClient:
                             event = transmogrifier(raw_event)
                         self._logger.debug(f"Received event {event}")
                         yield event
-                # We should raise a timeout error when the watch expires,
-                # so it's not clear to me under what circumstances we get
-                # here...but we sometimes do.
-                w.close()
-                raise RuntimeError("Control reached end of _event_watch()")
+                # If we got here, it was a timeout
+                await w.close()
+                raise TimeoutError(f"Event watch timed out after {timeout}s")
             except ApiException as e:
                 if (
                     e.status == 410
@@ -1627,7 +1678,7 @@ class K8sStorageClient:
                     )
                     del watch_args["resource_version"]
                     continue
-                w.close()
+                await w.close()
                 raise KubernetesError.from_exception(
                     f"Error in Kubernetes watch {method}->{watch_args}",
                     e,
