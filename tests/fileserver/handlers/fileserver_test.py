@@ -6,11 +6,7 @@ from pathlib import Path
 
 import pytest
 from httpx import AsyncClient
-from kubernetes_asyncio.client import (
-    V1Ingress,
-    V1LoadBalancerIngress,
-    V1ObjectMeta,
-)
+from kubernetes_asyncio.client import V1Ingress, V1ObjectMeta
 from safir.testing.kubernetes import MockKubernetesApi
 
 from jupyterlabcontroller.config import Config
@@ -43,19 +39,6 @@ async def test_fileserver(
             metadata=V1ObjectMeta(name=f"{name}-fs", namespace=namespace)
         ),
     )
-    # Patch the ingress so that it has an IP address
-    t = await mock_kubernetes.patch_namespaced_ingress_status(
-        f"{name}-fs",
-        namespace,
-        [
-            {
-                "op": "replace",
-                "path": "/status/load_balancer/ingress",
-                "value": [V1LoadBalancerIngress(ip="127.0.0.1")],
-            }
-        ],
-    )
-    print(f"***** {t} *******")
     # Start a user fileserver.
     r = await client.get(
         "/files",

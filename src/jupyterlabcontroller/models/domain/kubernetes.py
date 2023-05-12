@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Self
+from typing import Any, Awaitable, Optional, Self
 
-from kubernetes_asyncio.client import V1ContainerImage
+from kubernetes_asyncio.client import V1ContainerImage, V1Pod
 
 from .docker import DockerReference
 
 __all__ = [
-    "KubernetesEventData",
     "KubernetesNodeImage",
+    "KubernetesPodEvent",
     "KubernetesPodPhase",
+    "KubernetesEvent",
+    "KubernetesPodWatchInfo",
+    "KubernetesKindMethodContainer",
+    "KubernetesKindMethodMapper",
 ]
 
 
@@ -86,44 +89,87 @@ class KubernetesPodPhase(str, Enum):
 
 
 @dataclass
-class KubernetesEventData:
-    """A helper class to capture the most useful data about a Kubernetes
-    Event and focus on a particular field within the event's involved object.
-    """
+class KubernetesPodEvent:
+    """Represents an event seen while waiting for pod startup."""
+
+    message: str
+    """Message in the Kubernetes event."""
+
+    phase: KubernetesPodPhase
+    """Current phase of the pod."""
+
+    error: Optional[str] = None
+    """Additional error accompanying this event (usually from the pod)."""
+
+    @property
+    def done(self) -> bool:
+        """`True` if the pod has started or definitively failed to start.
+
+        An unknown phase is considered a failure. The Kubernetes documentation
+        says that this can happen when the node on which the pod is supposed
+        to be running cannot be contacted, which is a sufficiently broken
+        state that we should consider the spawn a failure rather than waiting
+        to hope it will fix itself.
+        """
+        return self.phase != KubernetesPodPhase.PENDING
+
+
+@dataclass
+class KubernetesEvent:
+    """Repackaging of yielded event to regularize some fields."""
 
     type: str
-    raw_object: dict[str, Any]
-    name: str
+    object: dict[str, Any]
     kind: str
-    field: list[str] = field(default_factory=list)
-    missing_field: bool = True
-    value: Any = None
+    name: str
+    namespace: Optional[str]
 
     @classmethod
-    def from_kubernetes_event(
-        cls, event: dict[str, Any]
-    ) -> KubernetesEventData:
-        raw_object = event["raw_object"]  # This will exist (I think)
-        e_type = event["type"]
-        name = "<unknown name>"
-        kind = "<unknown kind>"
-        if "metadata" in raw_object and "name" in raw_object["metadata"]:
-            name = raw_object["metadata"]["name"]
-        if "kind" in raw_object:
-            kind = raw_object["kind"]
+    def from_event(cls, event: dict[str, Any]) -> Self:
         return cls(
-            type=e_type, name=name, kind=kind, field=[], raw_object=raw_object
+            type=event["type"],
+            object=event["raw_object"],
+            kind=event["raw_object"]["kind"],
+            name=event["raw_object"]["metadata"]["name"],
+            namespace=event["raw_object"]["metadata"].get("namespace"),
         )
 
-    def reduce_by_field(self) -> None:
-        obj = self.raw_object
-        if self.field:
-            fldval = deepcopy(obj)
-            self.missing_field = False
-            for fld in self.field:
-                try:
-                    fldval = fldval[fld]
-                except (KeyError, TypeError):
-                    self.missing_field = True
-                    break
-            self.value = fldval
+
+@dataclass
+class KubernetesPodWatchInfo:
+    """Packages useful info for setting up a watch for a Pod."""
+
+    watch_args: dict[str, Any]
+    initial_phase: str
+
+    @classmethod
+    def from_pod(cls, pod: V1Pod) -> Self:
+        return cls(
+            watch_args={
+                "namespace": pod.metadata.namespace,
+                "field_selector": f"metadata.name={pod.metadata.name}",
+                "resource_version": pod.metadata.resource_version,
+            },
+            initial_phase=pod.status.phase,
+        )
+
+
+@dataclass
+class KubernetesKindMethodContainer:
+    object_type: object
+    read_method: Awaitable[Any]
+    list_method: Awaitable[Any]
+
+
+class KubernetesKindMethodMapper:
+    def __init__(self) -> None:
+        self._dict: dict[str, KubernetesKindMethodContainer] = dict()
+
+    def add(self, key: str, val: KubernetesKindMethodContainer) -> None:
+        self._dict[key] = val
+
+    def get(self, key: str) -> KubernetesKindMethodContainer:
+        return self._dict[key]
+
+    def list(self) -> list[str]:
+        return list(self._dict.keys())

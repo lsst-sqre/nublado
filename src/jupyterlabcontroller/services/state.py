@@ -180,6 +180,7 @@ class LabStateManager:
                 user=username,
                 name=pod,
                 namespace=namespace,
+                kind="Pod",
             )
             if self._slack:
                 e.user = username
@@ -614,7 +615,7 @@ class LabStateManager:
                         msg = "Neither internal_url nor spawner provided"
                         raise RuntimeError(msg)
                     internal_url = await spawner()
-                await self._kubernetes.wait_for_pod_up(pod, namespace)
+                await self._kubernetes.wait_for_pod_start(pod, namespace)
         except TimeoutError:
             delay = int((current_datetime() - start).total_seconds())
             msg = f"Lab creation timed out after {delay}s"

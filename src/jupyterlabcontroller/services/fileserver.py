@@ -121,7 +121,7 @@ class FileserverStateManager:
         self, username: str, namespace: str
     ) -> None:
         # FIXME watch for events, don't poll.
-        timeout = 100.0
+        timeout = 60.0
         interval = 3.9
         async with asyncio.timeout(timeout):
             # FIXME use an event watch, not a poll?
@@ -386,7 +386,13 @@ class FileserverStateManager:
             await self._k8s_client.wait_for_fileserver_object_deletion(
                 username, namespace
             )
-        del self._lock[username]
+        try:
+            del self._lock[username]
+        except KeyError:
+            # It seems the context manager removes the dict entry when
+            # the lock is finished.  I would have expected it to become
+            # None, but I guess it's not an optional value, so... huh.
+            pass
 
     async def list(self) -> list[str]:
         return await self._user_map.list()
@@ -432,7 +438,7 @@ class FileserverStateManager:
                 kind="Pod",
             )
         podname = pod.metadata.name
-        await self._k8s_client.wait_for_pod_down(podname, self._namespace)
+        await self._k8s_client.wait_for_pod_stop(podname, self._namespace)
         await self.delete(username)
 
     async def _reconcile_user_map(self) -> None:

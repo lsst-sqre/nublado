@@ -353,6 +353,7 @@ class KubernetesError(SlackException):
         namespace: Optional[str] = None,
         name: Optional[str] = None,
         user: Optional[str] = None,
+        kind: Optional[str] = None,
     ) -> Self:
         """Create an exception from a Kubernetes API exception.
 
@@ -366,6 +367,8 @@ class KubernetesError(SlackException):
             Namespace of object being acted on.
         name
             Name of object being acted on.
+        kind
+            Kind of object being acted on.
         user
             User on whose behalf the operation was being performed.
 
@@ -379,6 +382,7 @@ class KubernetesError(SlackException):
             user=user,
             namespace=namespace,
             name=name,
+            kind=kind,
             status=exc.status,
             body=exc.body if exc.body else exc.reason,
         )
@@ -390,8 +394,9 @@ class KubernetesError(SlackException):
         user: Optional[str] = None,
         namespace: Optional[str] = None,
         name: Optional[str] = None,
-        status: Optional[str] = None,
+        status: Optional[int] = None,
         body: Optional[str] = None,
+        kind: Optional[str] = None,
     ) -> None:
         super().__init__(message, user)
         self.message = message
@@ -399,6 +404,7 @@ class KubernetesError(SlackException):
         self.name = name
         self.status = status
         self.body = body
+        self.kind = kind
 
     def __str__(self) -> str:
         result = self._summary()
@@ -416,14 +422,17 @@ class KubernetesError(SlackException):
         """
         message = super().to_slack()
         message.message = self._summary()
+        obj = ""
+        if self.kind:
+            obj = f"[{self.kind}] "
         if self.name:
             if self.namespace:
-                obj = f"{self.namespace}/{self.name}"
+                obj += f"{self.namespace}/{self.name}"
             else:
-                obj = self.name
+                obj += self.name
             message.fields.append(SlackTextField(heading="Object", text=obj))
         if self.status:
-            field = SlackTextField(heading="Status", text=self.status)
+            field = SlackTextField(heading="Status", text=str(self.status))
             message.fields.append(field)
         if self.body:
             block = SlackCodeBlock(heading="Error", code=self.body)
@@ -522,30 +531,3 @@ class UnknownKindError(ClientRequestError):
 
 class DisabledError(SlackException):
     """An attempt was made to use a disabled service."""
-
-
-class MissingFieldError(Exception):
-    """A Kubernetes object is missing an expected field.
-
-    Parameters
-    ----------
-    message
-        Summary of error.
-    kind
-        Kind of Kubernetes object that is missing a field.
-    field
-        Missing field.
-    namespace
-        Namespace of object being acted on.
-    name
-        Name of object being acted on.
-    """
-
-    def __init__(
-        self, message: str, *, kind: str, field: str, namespace: str, name: str
-    ) -> None:
-        self.message = message
-        self.kind = kind
-        self.field = field
-        self.namespace = namespace
-        self.name = name
