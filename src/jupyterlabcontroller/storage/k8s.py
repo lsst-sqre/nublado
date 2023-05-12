@@ -156,9 +156,9 @@ class K8sStorageClient:
         self,
         method: Coroutine[Any, Any, Any],
         watch_args: dict[str, Any],
-        transmogrifier: Optional[Callable[[dict[str, Any]], Any]],
-        timeout: Optional[int],
-        retry_expired: bool,
+        transmogrifier: Optional[Callable[[dict[str, Any]], Any]] = None,
+        retry_expired: bool = True,
+        timeout: Optional[int] = None,
     ) -> AsyncIterator[Any]:
         if timeout is None:
             timeout = int(self._spawn_timeout.total_seconds())
@@ -261,9 +261,6 @@ class K8sStorageClient:
             async for event in self._event_watch(
                 method=method,
                 watch_args=watch_args,
-                transmogrifier=None,
-                timeout=None,
-                retry_expired=True,
             ):
                 if event.type == "DELETED":
                     return
@@ -459,8 +456,6 @@ class K8sStorageClient:
             method=self.api.list_namespaced_pod,
             watch_args=watch_info.watch_args,
             transmogrifier=transmogrifier,
-            timeout=None,  # defaults to self._spawn_timeout
-            retry_expired=True,
         ):
             if event is None:
                 return None
@@ -530,8 +525,6 @@ class K8sStorageClient:
                     method=self.api.list_namespaced_pod,
                     watch_args=watch_info.watch_args,
                     transmogrifier=transmogrifier,
-                    timeout=None,  # defaults to self._spawn_timeout
-                    retry_expired=True,
                 ):
                     if event is None:
                         return None
@@ -585,7 +578,6 @@ class K8sStorageClient:
             method=method,
             watch_args=watch_args,
             transmogrifier=lambda x: str(x["raw_object"]["message"]),
-            timeout=None,  # defaults to self._spawn_timeout
             retry_expired=False,
         ):
             yield event
@@ -1454,9 +1446,6 @@ class K8sStorageClient:
         async for event in self._event_watch(
             method=self.custom_api.list_namespaced_custom_object,
             watch_args=watch_args,
-            transmogrifier=None,
-            timeout=None,
-            retry_expired=True,
         ):
             if event.type == "DELETED":
                 return
@@ -1688,8 +1677,6 @@ class K8sStorageClient:
             method=self._method_map.get("Ingress").list_method,
             watch_args=watch_args,
             transmogrifier=transmogrifier,
-            timeout=None,  # default to self._spawn_timeout
-            retry_expired=True,
         ):
             if event is True:
                 return
