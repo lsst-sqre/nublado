@@ -6,7 +6,7 @@ import asyncio
 from base64 import b64encode
 from collections.abc import AsyncIterator
 from datetime import timedelta
-from typing import Any, Callable, Coroutine, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from kubernetes_asyncio import client, watch
 from kubernetes_asyncio.client import (
@@ -36,7 +36,7 @@ from kubernetes_asyncio.client import (
 from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
-from ..exceptions import KubernetesError, MissingObjectError, UnknownKindError
+from ..exceptions import KubernetesError, MissingObjectError
 from ..models.domain.kubernetes import (
     KubernetesEvent,
     KubernetesKindMethodContainer,
@@ -1221,8 +1221,8 @@ class K8sStorageClient:
                     namespace=namespace,
                 )
                 await self.delete_fileserver_job(username, namespace)
-                await self._wait_for_fileserver_object_deletion(
-                    obj_name=obj_name, namespace=namespace, kind="job"
+                await self._wait_for_object_deletion(
+                    obj_name=obj_name, namespace=namespace, kind="Job"
                 )
                 await self.batch_api.create_namespaced_job(namespace, job)
                 return
@@ -1271,9 +1271,11 @@ class K8sStorageClient:
                     namespace=namespace,
                 )
                 await self.delete_fileserver_service(username, namespace)
-                await self._wait_for_fileserver_object_deletion(
-                    obj_name=obj_name, namespace=namespace, kind="service"
-                )
+                # await self._wait_for_fileserver_object_deletion(
+                #    obj_name=obj_name, namespace=namespace, kind="Service"
+                # )
+                # FIXME.  Ew.
+                await asyncio.sleep(1.0)
                 await self.api.create_namespaced_service(namespace, spec)
                 return
             raise KubernetesError.from_exception(
@@ -1332,11 +1334,13 @@ class K8sStorageClient:
                 await self.delete_fileserver_gafaelfawringress(
                     username, namespace
                 )
-                await self._wait_for_fileserver_object_deletion(
-                    obj_name=obj_name,
-                    namespace=namespace,
-                    kind="gafaelfawringress",
-                )
+                # await self._wait_for_fileserver_object_deletion(
+                #    obj_name=obj_name,
+                #    namespace=namespace,
+                #    kind="Gafaelfawringress",
+                # )
+                # FIXME
+                await asyncio.sleep(1.0)
                 await self.custom_api.create_namespaced_custom_object(
                     crd_group, crd_version, namespace, plural, spec
                 )
@@ -1499,94 +1503,45 @@ class K8sStorageClient:
         """
         obj_name = "{username}-fs"
         for kind in ("Ingress", "Job"):
+            await self._wait_for_object_deletion(
+                kind=kind, obj_name=obj_name, namespace=namespace
+            )
+
+    async def _wait_for_object_deletion(
+        self, kind: str, obj_name: str, namespace: str
+    ) -> None:
+        """Here's the generic method we feared."""
+        obj = await self._get_object_maybe(
+            kind=kind, obj_name=obj_name, namespace=namespace
+        )
+        if obj is None:
+            return
+        watch_args = {
+            "namespace": obj.metadata.namespace,
+            "field_selector": f"metadata.name={obj.metadata.name}",
+            "resource_version": obj.metadata.resource_version,
+        }
+        method = self._method_map.get(kind).list_method
+        # Wait for an event saying the object is deleted.
+        try:
+            async for event in self._event_watch(
+                method=method,  # type: ignore
+                watch_args=watch_args,
+                transmogrifier=None,
+                timeout=None,
+                retry_expired=True,
+            ):
+                if event.type == "DELETED":
+                    return
+        except TimeoutError:
+            # Possible race condition, if object was deleted between the
+            # _get_object_maybe() check and the watch.
             obj = await self._get_object_maybe(
                 kind=kind, obj_name=obj_name, namespace=namespace
             )
-            if obj is not None:
-                watch_args = {
-                    "namespace": obj.metadata.namespace,
-                    "field_selector": f"metadata.name={obj.metadata.name}",
-                    "resource_version": obj.metadata.resource_version,
-                }
-                method = self._method_map.get(kind).list_method
-                # Wait for an event saying the object is deleted.
-                async for event in self._event_watch(
-                    method=method,  # type: ignore
-                    watch_args=watch_args,
-                    transmogrifier=None,
-                    timeout=None,
-                    retry_expired=True,
-                ):
-                    if event.type == "DELETED":
-                        continue
-
-    async def _save_wait_for_fileserver_object_deletion(
-        self, username: str, namespace: str
-    ) -> None:
-        """This is a convenience wrapper that waits until all fileserver
-        objects for a given user are deleted."""
-        for kind in ("ingress", "gafaelfawringress", "service", "job"):
-            await self._wait_for_fileserver_object_deletion(
-                obj_name=f"{username}-fs", namespace=namespace, kind=kind
-            )
-
-    def _get_deletion_read_coro(
-        self, obj_name: str, namespace: str, kind: str
-    ) -> Coroutine[Any, Any, Any]:
-        if kind == "job":
-            return self.batch_api.read_namespaced_job(obj_name, namespace)
-        elif kind == "gafaelfawringress":
-            crd_group = "gafaelfawr.lsst.io"
-            crd_version = "v1alpha1"
-            plural = "gafaelfawringresses"
-            # Note method name inconsistency
-            return self.custom_api.get_namespaced_custom_object(
-                crd_group, crd_version, namespace, plural, obj_name
-            )
-        elif kind == "service":
-            return self.api.read_namespaced_service(obj_name, namespace)
-        elif kind == "ingress":
-            return self.networking_api.read_namespaced_ingress(
-                obj_name, namespace
-            )
-        raise UnknownKindError(f"Don't know how to check for {kind} presence.")
-
-    async def _wait_for_fileserver_object_deletion(
-        self, obj_name: str, namespace: str, kind: str
-    ) -> None:
-        """This is as generic as I'm willing to go, and it's probably
-        too generic already.
-
-        FIXME: we should rely on event watches, rather than polling.
-        """
-        timeout = 30.0
-        interval = 2.7
-        self._logger.debug(
-            f"Waiting for {kind} deletion",
-            name=obj_name,
-            namespace=namespace,
-        )
-        async with asyncio.timeout(timeout):
-            while True:
-                try:
-                    await self._get_deletion_read_coro(
-                        obj_name, namespace, kind
-                    )
-                except ApiException as e:
-                    if e.status == 404:
-                        return
-                    raise KubernetesError.from_exception(
-                        "Error waiting for deletion",
-                        e,
-                        kind=kind,
-                        namespace=namespace,
-                        name=obj_name,
-                    ) from e
-                self._logger.debug(
-                    f"{kind} still present; waiting {interval}s "
-                    + "then rechecking."
-                )
-                await asyncio.sleep(interval)
+            if obj is None:
+                return
+            raise
 
     async def get_fileserver_pod_for_user(
         self, username: str, namespace: str

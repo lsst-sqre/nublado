@@ -30,7 +30,6 @@ __all__ = [
     "MissingObjectError",
     "SlackWebException",
     "UnknownDockerImageError",
-    "UnknownKindError",
     "UnknownUserError",
     "DisabledError",
 ]
@@ -519,13 +518,6 @@ class FileserverCreationError(ClientRequestError):
     """An error occured while trying to create a user fileserver."""
 
     error = "fileserver_creation_failed"
-    status_code = status.HTTP_400_BAD_REQUEST
-
-
-class UnknownKindError(ClientRequestError):
-    """We wanted to check the health of some kind we don't know how to read."""
-
-    error = "unknown_kind"
     status_code = status.HTTP_400_BAD_REQUEST
 
 
