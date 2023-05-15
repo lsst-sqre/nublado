@@ -53,6 +53,24 @@ async def test_fileserver(
     # Check that it has showed up, via an admin route.
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == [user.username]
+    #
+    # Request it again; should detect that there is a user fileserver and
+    # return immediately without actually doing anything.
+    #
+    r = await client.get(
+        "/files",
+        headers={
+            "X-Auth-Request-User": user.username,
+            "X-Auth-Request-Token": token,
+        },
+    )
+    assert r.status_code == 200
+    expected = Path(Path(std_result_dir) / "fileserver.txt").read_text()
+    assert r.text == expected
+    # Make sure fileserver still exists
+    r = await client.get("/nublado/fileserver/v1/users")
+    assert r.json() == [user.username]
+
     # Remove (by hand) the Ingress (again done automagically
     # in real life)
     await mock_kubernetes.delete_namespaced_ingress(
