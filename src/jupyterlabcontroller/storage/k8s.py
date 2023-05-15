@@ -503,7 +503,7 @@ class K8sStorageClient:
             Raised if there is some failure in a Kubernetes API call.
         """
         logger = self._logger.bind(name=pod_name, namespace=namespace)
-        logger.debug("Setting up watch for stopped pod")
+        logger.debug("Setting up watch to wait for pod stop")
 
         # Retrieve the object first. It's possible that it's already in the
         # correct phase, and we can return immediately. If not, we want to
@@ -534,7 +534,6 @@ class K8sStorageClient:
                     watch_args=watch_info.watch_args,
                     transmogrifier=transmogrifier,
                 ):
-                    self._logger.warning("Pod watch got event {event}")
                     if event is None:
                         return None
                     if event not in (
@@ -1649,7 +1648,6 @@ class K8sStorageClient:
         if ingress is None:
             # Well, OK, but we know what it's going to look like, so we
             # can do the watch anyway...
-            self._logger.warning(f"No Ingress for {username} yet.")
             expected_metadata = V1ObjectMeta(
                 name=obj_name, namespace=namespace
             )
@@ -1668,14 +1666,28 @@ class K8sStorageClient:
             return
 
         def transmogrifier(event: dict[str, Any]) -> bool:
+            """This is irritatingly complex, because of the whole object/
+            raw_object thing.  Even though we *should* be, with the raw
+            object, looking at the camelCase versions of the fields, when
+            we patch the ingress in the test suite, what ends up getting
+            set is the snake_case.  So we need to account for both.
+
+            Eventually, we should fix the kubernetes mock to not need
+            raw objects, and then this hack can go away.
+            """
             obj = event["raw_object"]
-            if (
-                "status" not in obj
-                or "load_balancer" not in obj["status"]
-                or "ingress" not in obj["status"]["load_balancer"]
-            ):
+            if "status" not in obj:
                 return False
-            ing_list = obj["status"]["load_balancer"]["ingress"]
+            lb: str = ""
+            for item in ("load_balancer", "loadBalancer"):
+                if item in obj["status"]:
+                    lb = item
+                    break
+            if not lb:
+                return False
+            if "ingress" not in obj["status"][lb]:
+                return False
+            ing_list = obj["status"][lb]["ingress"]
             if ing_list is None or len(ing_list) < 1:
                 return False
             ing = ing_list[0]
