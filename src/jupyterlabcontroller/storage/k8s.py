@@ -1669,7 +1669,6 @@ class K8sStorageClient:
 
         def transmogrifier(event: dict[str, Any]) -> bool:
             obj = event["raw_object"]
-            self._logger.warning(f"*** {event} ***")
             if (
                 "status" not in obj
                 or "load_balancer" not in obj["status"]
