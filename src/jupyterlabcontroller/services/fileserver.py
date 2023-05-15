@@ -130,11 +130,15 @@ class FileserverStateManager:
                 kind="Pod",
             )
         await self._k8s_client.wait_for_pod_start(
-            pod_name=pod.metadata.name, namespace=namespace
+            pod_name=pod.metadata.name,
+            namespace=namespace,
+            timeout=self._config.fileserver.creation_timeout,
         )
         # The ingress is the part that typically takes longest
         await self._k8s_client.wait_for_user_fileserver_ingress_ready(
-            username, namespace
+            username,
+            namespace,
+            timeout=self._config.fileserver.creation_timeout,
         )
 
     def _build_metadata(self, username: str) -> V1ObjectMeta:

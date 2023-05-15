@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 from httpx import AsyncClient
-from kubernetes_asyncio.client import V1Ingress, V1ObjectMeta
 from safir.testing.kubernetes import MockKubernetesApi
 
 from jupyterlabcontroller.config import Config
 
 from ...settings import TestObjectFactory
 from ...support.docker import MockDockerRegistry
+from ..util import create_working_ingress_for_user, delete_ingress_for_user
 
 
 @pytest.mark.asyncio
@@ -33,12 +33,8 @@ async def test_fileserver(
     #
     # Create an Ingress to match the GafaelfawrIngress.  In real
     # life, the GafaelfawrIngress creation would trigger this.
-    await mock_kubernetes.create_namespaced_ingress(
-        namespace=namespace,
-        body=V1Ingress(
-            metadata=V1ObjectMeta(name=f"{name}-fs", namespace=namespace)
-        ),
-    )
+    await create_working_ingress_for_user(mock_kubernetes, name, namespace)
+
     # Start a user fileserver.
     r = await client.get(
         "/files",
@@ -69,15 +65,13 @@ async def test_fileserver(
     assert r.text == expected
     # Make sure fileserver still exists
     r = await client.get("/nublado/fileserver/v1/users")
-    assert r.json() == [user.username]
+    assert r.json() == [name]
 
     # Remove (by hand) the Ingress (again done automagically
     # in real life)
-    await mock_kubernetes.delete_namespaced_ingress(
-        name=f"{name}-fs", namespace=namespace
-    )
+    await delete_ingress_for_user(mock_kubernetes, name, namespace)
     # Now remove it, again via an admin route
-    r = await client.delete(f"/nublado/fileserver/v1/{user.username}")
+    r = await client.delete(f"/nublado/fileserver/v1/{name}")
     # Check that it's gone.
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == []

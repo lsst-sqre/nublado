@@ -188,8 +188,9 @@ class KubernetesKindMethodMapper:
 def get_watch_args(metadata: V1ObjectMeta) -> dict[str, str]:
     watch_args = {
         "field_selector": f"metadata.name={metadata.name}",
-        "resource_version": metadata.resource_version,
     }
+    if metadata.resource_version is not None:
+        watch_args["resource_version"] = metadata.resource_version
     if metadata.namespace is not None:
         watch_args["namespace"] = metadata.namespace
     return watch_args

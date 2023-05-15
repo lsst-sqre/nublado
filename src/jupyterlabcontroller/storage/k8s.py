@@ -87,6 +87,7 @@ class K8sStorageClient:
         *,
         kubernetes_client: ApiClient,
         timeout: int,
+        fileserver_creation_timeout: int,
         spawn_timeout: timedelta,
         logger: BoundLogger,
     ) -> None:
@@ -97,6 +98,7 @@ class K8sStorageClient:
         self.networking_api = client.NetworkingV1Api(kubernetes_client)
         self._timeout = timeout
         self._spawn_timeout = spawn_timeout
+        self._fileserver_creation_timeout = fileserver_creation_timeout
         self._logger = logger
         self._method_map = KubernetesKindMethodMapper()
         self._fill_method_map()
@@ -166,6 +168,11 @@ class K8sStorageClient:
             watch_args["timeout_seconds"] = timeout
         if "_request_timeout" not in watch_args:
             watch_args["_request_timeout"] = timeout
+        self._logger.debug(
+            f"Starting watch with method {method}, "
+            + f"watch args {watch_args}, "
+            + f"and timeout {timeout}s."
+        )
         w = watch.Watch()
         while True:
             try:
@@ -401,7 +408,7 @@ class K8sStorageClient:
         return pod.status.phase
 
     async def wait_for_pod_start(
-        self, pod_name: str, namespace: str
+        self, pod_name: str, namespace: str, timeout: Optional[int] = None
     ) -> KubernetesPodPhase | None:
         """Waits for a pod to finish starting.
 
@@ -456,6 +463,7 @@ class K8sStorageClient:
             method=self.api.list_namespaced_pod,
             watch_args=watch_info.watch_args,
             transmogrifier=transmogrifier,
+            timeout=timeout,  # If None, defaults to config.lab.spawn_timeout
         ):
             if event is None:
                 return None
@@ -495,7 +503,7 @@ class K8sStorageClient:
             Raised if there is some failure in a Kubernetes API call.
         """
         logger = self._logger.bind(name=pod_name, namespace=namespace)
-        logger.debug("Waiting for pod creation")
+        logger.debug("Setting up watch for stopped pod")
 
         # Retrieve the object first. It's possible that it's already in the
         # correct phase, and we can return immediately. If not, we want to
@@ -526,6 +534,7 @@ class K8sStorageClient:
                     watch_args=watch_info.watch_args,
                     transmogrifier=transmogrifier,
                 ):
+                    self._logger.warning("Pod watch got event {event}")
                     if event is None:
                         return None
                     if event not in (
@@ -1631,21 +1640,26 @@ class K8sStorageClient:
             ) from e
 
     async def wait_for_user_fileserver_ingress_ready(
-        self, username: str, namespace: str
+        self, username: str, namespace: str, timeout: Optional[int] = None
     ) -> None:
         obj_name = f"{username}-fs"
         ingress = await self._get_object_maybe(
             kind="Ingress", obj_name=obj_name, namespace=namespace
         )
         if ingress is None:
-            raise MissingObjectError(
-                "No Ingress found",
-                name=obj_name,
-                namespace=namespace,
-                kind="Ingress",
+            # Well, OK, but we know what it's going to look like, so we
+            # can do the watch anyway...
+            self._logger.warning(f"No Ingress for {username} yet.")
+            expected_metadata = V1ObjectMeta(
+                name=obj_name, namespace=namespace
             )
+            watch_args = get_watch_args(expected_metadata)
+        else:
+            watch_args = get_watch_args(ingress.metadata)
+        # Do we already have a working ingress?
         if (
-            ingress.status is not None
+            ingress is not None
+            and ingress.status is not None
             and ingress.status.load_balancer is not None
             and ingress.status.load_balancer.ingress is not None
             and len(ingress.status.load_balancer.ingress) > 0
@@ -1653,19 +1667,16 @@ class K8sStorageClient:
         ):
             return
 
-        # Ingress exists, but it's not ready yet.  Wait for it to
-        # get an IP address.
-        watch_args = get_watch_args(ingress.metadata)
-
         def transmogrifier(event: dict[str, Any]) -> bool:
             obj = event["raw_object"]
+            self._logger.warning(f"*** {event} ***")
             if (
                 "status" not in obj
-                or "loadBalancer" not in obj["status"]
-                or "ingress" not in obj["status"]["loadBalancer"]
+                or "load_balancer" not in obj["status"]
+                or "ingress" not in obj["status"]["load_balancer"]
             ):
                 return False
-            ing_list = obj["status"]["loadBalancer"]["ingress"]
+            ing_list = obj["status"]["load_balancer"]["ingress"]
             if ing_list is None or len(ing_list) < 1:
                 return False
             ing = ing_list[0]
@@ -1677,6 +1688,7 @@ class K8sStorageClient:
             method=self._method_map.get("Ingress").list_method,
             watch_args=watch_args,
             transmogrifier=transmogrifier,
+            timeout=timeout,
         ):
             if event is True:
                 return

@@ -93,6 +93,7 @@ class ProcessContext:
             kubernetes_client=kubernetes_client,
             timeout=KUBERNETES_REQUEST_TIMEOUT,
             spawn_timeout=config.lab.spawn_timeout,
+            fileserver_creation_timeout=config.fileserver.creation_timeout,
             logger=logger,
         )
 
@@ -310,10 +311,12 @@ class Factory:
             Newly-created lab manager.
         """
         size_manager = self.create_size_manager()
+        config = self._context.config
         k8s_client = K8sStorageClient(
             kubernetes_client=self._context.kubernetes_client,
             timeout=KUBERNETES_REQUEST_TIMEOUT,
-            spawn_timeout=self._context.config.lab.spawn_timeout,
+            spawn_timeout=config.lab.spawn_timeout,
+            fileserver_creation_timeout=config.fileserver.creation_timeout,
             logger=self._logger,
         )
         return LabManager(

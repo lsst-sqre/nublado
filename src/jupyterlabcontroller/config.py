@@ -353,6 +353,9 @@ class FileserverConfig(CamelCaseModel):
     resources: Optional[UserResources] = Field(
         None, title="Resource requests and limits"
     )
+    creation_timeout: int = Field(
+        120, title="Timeout for fileserver creation (seconds)"
+    )
 
     # Only care if our fields are filled out if the fileserver is enabled.
     # Doing it this way saves a lot of assertions about when values
