@@ -15,7 +15,7 @@ Access Token
 
 <p>
 If you do not have an access token, go to <a
-href="https://data-dev.lsst.cloud/auth/tokens/">the Gafaelfawr tokens
+href="{base_url}/auth/tokens/">the Gafaelfawr tokens
 page</a> and press the "Create Token" button.
 </p>
 

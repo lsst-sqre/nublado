@@ -56,7 +56,7 @@ def create_app() -> FastAPI:
     app.include_router(prepuller.router, prefix=config.safir.path_prefix)
     app.include_router(user_status.router, prefix=config.safir.path_prefix)
     if config.fileserver.enabled:
-        logger.info("Enabling fileserver routes.")
+        logger.info("Enabling fileserver routes")
         app.include_router(
             fileserver.user_router, prefix=config.fileserver.path_prefix
         )
