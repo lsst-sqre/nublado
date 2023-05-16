@@ -130,10 +130,12 @@ lab:
       image: ghcr.io/lsst-sqre/initdir:0.0.3
       privileged: true
       volumes:
-        - containerPath: "/home"
-          serverPath: "/share1/home"
-          server: "10.87.86.26"
-          mode: "rw"
+        - containerPath: /home
+          mode: rw
+          source:
+            type: nfs
+            serverPath: /share1/home
+            server: 10.87.86.26
   pullSecret: pull-secret
   secrets:
     - secretName: nublado-secret
@@ -154,17 +156,26 @@ lab:
       memory: 12Gi
   volumes:
     - containerPath: /home
-      serverPath: /share1/home
-      server: 10.13.105.122
       mode: rw
+      source:
+        type: nfs
+        server: 10.13.105.122
+        serverPath: /share1/home
     - containerPath: /project
-      serverPath: /share1/project
-      server: 10.13.105.122
       mode: ro
+      source:
+        type: hostPath
+        path: /share1/project
     - containerPath: /scratch
-      serverPath: /share1/scratch
-      server: 10.13.105.122
       mode: rw
+      source:
+        type: persistentVolumeClaim
+        storageClassName: sdf-home
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 1Gi
 images:
   source:
     type: docker

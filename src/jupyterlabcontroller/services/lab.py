@@ -25,6 +25,10 @@ from kubernetes_asyncio.client import (
     V1LocalObjectReference,
     V1NFSVolumeSource,
     V1ObjectFieldSelector,
+    V1ObjectMeta,
+    V1PersistentVolumeClaim,
+    V1PersistentVolumeClaimSpec,
+    V1PersistentVolumeClaimVolumeSource,
     V1PodSecurityContext,
     V1PodSpec,
     V1ResourceFieldSelector,
@@ -38,7 +42,14 @@ from kubernetes_asyncio.client import (
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
-from ..config import FileMode, LabConfig, LabVolume
+from ..config import (
+    FileMode,
+    HostPathVolumeSource,
+    LabConfig,
+    LabVolume,
+    NFSVolumeSource,
+    PVCVolumeSource,
+)
 from ..models.domain.docker import DockerReference
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.rspimage import RSPImage
@@ -207,6 +218,7 @@ class LabManager:
 
         # Second, create all the supporting resources the lab pod will need.
         await self.create_secrets(user, token)
+        await self.create_pvcs(user)
         await self.create_nss(user)
         await self.create_file_configmap(user)
         await self.create_env(user=user, lab=lab, image=image, token=token)
@@ -287,6 +299,31 @@ class LabManager:
     # few things, so that we can more easily unit test the object construction
     # logic.
     #
+
+    async def create_pvcs(self, user: UserInfo) -> None:
+        namespace = self._builder.namespace_for_user(user.username)
+        pvcs = self.build_pvcs(user.username)
+        if pvcs:
+            await self.k8s_client.create_pvcs(pvcs, namespace)
+
+    def build_pvcs(self, username: str) -> list[V1PersistentVolumeClaim]:
+        pvcs: list[V1PersistentVolumeClaim] = []
+        for volume in self.lab_config.volumes:
+            if not isinstance(volume.source, PVCVolumeSource):
+                continue
+            name = f"nb-{username}-pvc-{len(pvcs) + 1}"
+            pvc = V1PersistentVolumeClaim(
+                metadata=V1ObjectMeta(name=name),
+                spec=V1PersistentVolumeClaimSpec(
+                    storage_class_name=volume.source.storage_class_name,
+                    access_modes=volume.source.access_modes,
+                    resources=V1ResourceRequirements(
+                        requests=volume.source.resources.requests
+                    ),
+                ),
+            )
+            pvcs.append(pvc)
+        return pvcs
 
     async def create_nss(self, user: UserInfo) -> None:
         namespace = self._builder.namespace_for_user(user.username)
@@ -466,32 +503,40 @@ class LabManager:
         )
 
     def build_lab_config_volumes(
-        self, config: list[LabVolume]
+        self, username: str, config: list[LabVolume]
     ) -> list[LabVolumeContainer]:
         #
         # Step one: disks specified in config, whether for the lab itself
         # or one of its init containers.
         #
         vols = []
+        pvc = 1
         for storage in config:
-            ro = False
-            if storage.mode == FileMode.RO:
-                ro = True
+            ro = storage.mode == FileMode.RO
             vname = storage.container_path.replace("/", "_")[1:]
-            if not storage.server:
-                vol = V1Volume(
-                    host_path=V1HostPathVolumeSource(path=storage.server_path),
-                    name=vname,
-                )
-            else:
-                vol = V1Volume(
-                    nfs=V1NFSVolumeSource(
-                        path=storage.server_path,
+            match storage.source:
+                case HostPathVolumeSource() as source:
+                    vol = V1Volume(
+                        host_path=V1HostPathVolumeSource(path=source.path),
+                        name=vname,
+                    )
+                case NFSVolumeSource() as source:
+                    vol = V1Volume(
+                        nfs=V1NFSVolumeSource(
+                            path=source.server_path,
+                            read_only=ro,
+                            server=source.server,
+                        ),
+                        name=vname,
+                    )
+                case PVCVolumeSource():
+                    pvc_name = f"nb-{username}-pvc-{pvc}"
+                    pvc += 1
+                    claim = V1PersistentVolumeClaimVolumeSource(
+                        claim_name=pvc_name,
                         read_only=ro,
-                        server=storage.server,
-                    ),
-                    name=vname,
-                )
+                    )
+                    vol = V1Volume(persistent_volume_claim=claim, name=vname)
             vm = V1VolumeMount(
                 mount_path=storage.container_path,
                 read_only=ro,
@@ -673,7 +718,7 @@ class LabManager:
         # Begin with the /tmp empty_dir
         vols = []
         lab_config_vols = self.build_lab_config_volumes(
-            self.lab_config.volumes
+            username, self.lab_config.volumes
         )
         vols.extend(lab_config_vols)
         cm_vols = self.build_cm_volumes(username=username)
@@ -696,7 +741,9 @@ class LabManager:
         ic_volumes = []
         for ic in self.lab_config.init_containers:
             if ic.volumes is not None:
-                ic_volumes = self.build_lab_config_volumes(ic.volumes)
+                ic_volumes = self.build_lab_config_volumes(
+                    user.username, ic.volumes
+                )
             ic_vol_mounts = [x.volume_mount for x in ic_volumes]
             if ic.privileged:
                 ic_sec_ctx = V1SecurityContext(
