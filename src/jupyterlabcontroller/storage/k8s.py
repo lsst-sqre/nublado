@@ -21,6 +21,7 @@ from kubernetes_asyncio.client import (
     V1NetworkPolicySpec,
     V1ObjectMeta,
     V1OwnerReference,
+    V1PersistentVolumeClaim,
     V1Pod,
     V1PodSpec,
     V1ResourceQuota,
@@ -496,6 +497,21 @@ class K8sStorageClient:
             else:
                 raise KubernetesError.from_exception(
                     "Error reading secret", e, namespace=namespace, name=name
+                ) from e
+
+    async def create_pvcs(
+        self, pvcs: list[V1PersistentVolumeClaim], namespace: str
+    ) -> None:
+        for pvc in pvcs:
+            name = pvc.metadata.name
+            pvc.metadata = self._standard_metadata(name)
+            try:
+                await self.api.create_namespaced_persistent_volume_claim(
+                    namespace, pvc
+                )
+            except ApiException as e:
+                raise KubernetesError.from_exception(
+                    "Error creating PVC", e, namespace=namespace, name=name
                 ) from e
 
     async def create_configmap(

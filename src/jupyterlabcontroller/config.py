@@ -6,7 +6,7 @@ import os
 from datetime import timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Self
+from typing import Literal, Optional, Self
 
 import yaml
 from pydantic import BaseSettings, Field, validator
@@ -103,33 +103,85 @@ class FileMode(Enum):
     RO = "ro"
 
 
+class BaseVolumeSource(CamelCaseModel):
+    """Source of a volume to be mounted in the lab.
+
+    This is a base class that must be subclassed by the different supported
+    ways a volume can be provided.
+    """
+
+    type: str = Field(..., title="Type of volume to mount", example="nfs")
+
+
+class HostPathVolumeSource(BaseVolumeSource):
+    """A hostPath volume to be mounted in the container."""
+
+    type: Literal["hostPath"] = Field(..., title="Type of volume to mount")
+    path: str = Field(
+        ...,
+        title="Absolute host path to mount in the container",
+        example="/home",
+        regex="^/.*",
+    )
+
+
+class NFSVolumeSource(BaseVolumeSource):
+    """An NFS volume to be mounted in the container."""
+
+    type: Literal["nfs"] = Field(..., title="Type of volume to mount")
+    server: str = Field(
+        ...,
+        title="Name or address of the server providing the volume",
+        example="10.13.105.122",
+    )
+    server_path: str = Field(
+        ...,
+        title="Absolute path where the volume is exported from the NFS server",
+        example="/share1/home",
+        regex="^/.*",
+    )
+
+
+class VolumeAccessMode(str, Enum):
+    """Access mode for a persistent volume."""
+
+    ReadWriteOnce = "ReadWriteOnce"
+    ReadOnlyMany = "ReadOnlyMany"
+    ReadWriteMany = "ReadWriteMany"
+
+
+class PVCVolumeResources(CamelCaseModel):
+    """Resources for a persistent volume claim."""
+
+    requests: dict[str, str] = Field(..., title="Resource requests")
+
+
+class PVCVolumeSource(BaseVolumeSource):
+    """A PVC to create to materialize the volume to mount in the container."""
+
+    type: Literal["persistentVolumeClaim"] = Field(
+        ..., title="Type of volume to mount"
+    )
+    access_modes: list[VolumeAccessMode] = Field(..., title="Access mode")
+    storage_class_name: str = Field(..., title="Storage class")
+    resources: PVCVolumeResources = Field(..., title="Resources for volume")
+
+
 class LabVolume(CamelCaseModel):
     container_path: str = Field(
         ...,
         example="/home",
         title="Absolute path of the volume mounted inside the Lab container",
-        regex="^/*",
-    )
-    server: str = Field(
-        ...,
-        example="10.13.105.122",
-        title="Name or address of the server providing the volume",
-        description=(
-            "If 'server' is the empty string, the mount is taken to be of "
-            "type HostPath rather than NFS"
-        ),
-    )
-    server_path: str = Field(
-        ...,
-        example="/share1/home",
-        title="Absolute path where the volume is exported from the NFS server",
-        regex="^/*",
+        regex="^/.*",
     )
     mode: FileMode = Field(
         FileMode.RW,
         example="ro",
         title="File permissions when mounted",
         description="`rw` is read/write and `ro` is read-only",
+    )
+    source: HostPathVolumeSource | NFSVolumeSource | PVCVolumeSource = Field(
+        ..., title="Source of volume"
     )
 
 
