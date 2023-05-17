@@ -170,7 +170,7 @@ class LabStateManager:
 
         # Ask Kubernetes for the current state so that we catch pods that have
         # been evicted or shut down behind our back by the Kubernetes cluster.
-        pod = f"nb-{username}"
+        pod = f"{username}-nb"
         namespace = self._builder.namespace_for_user(username)
         try:
             phase = await self._kubernetes.get_pod_phase(pod, namespace)
@@ -180,6 +180,7 @@ class LabStateManager:
                 user=username,
                 name=pod,
                 namespace=namespace,
+                kind="Pod",
             )
             if self._slack:
                 e.user = username
@@ -591,7 +592,7 @@ class LabStateManager:
         RuntimeError
             Raised if neither ``internal_url`` nor ``spawner`` is set.
         """
-        pod = f"nb-{username}"
+        pod = f"{username}-nb"
         namespace = self._builder.namespace_for_user(username)
         logger = self._logger.bind(
             user=username, name=pod, namespace=namespace
@@ -614,7 +615,7 @@ class LabStateManager:
                         msg = "Neither internal_url nor spawner provided"
                         raise RuntimeError(msg)
                     internal_url = await spawner()
-                await self._kubernetes.wait_for_pod(pod, namespace)
+                await self._kubernetes.wait_for_pod_start(pod, namespace)
         except TimeoutError:
             delay = int((current_datetime() - start).total_seconds())
             msg = f"Lab creation timed out after {delay}s"
@@ -677,9 +678,9 @@ class LabStateManager:
             Raised if Kubernetes API calls fail for reasons other than the
             resources not existing.
         """
-        env_name = f"nb-{username}-env"
-        pod_name = f"nb-{username}"
-        quota_name = f"nb-{username}"
+        env_name = f"{username}-nb-env"
+        pod_name = f"{username}-nb"
+        quota_name = f"{username}-nb"
         namespace = f"{self._config.namespace_prefix}-{username}"
         logger = self._logger.bind(user=username, namespace=namespace)
 

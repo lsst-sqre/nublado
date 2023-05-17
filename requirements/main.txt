@@ -150,7 +150,7 @@ requests==2.30.0
     # via google-api-core
 rsa==4.9
     # via google-auth
-safir @ git+https://github.com/lsst-sqre/safir@main
+safir @ git+https://github.com/lsst-sqre/safir@tickets/DM-38972
     # via -r requirements/main.in
 semver==3.0.0
     # via -r requirements/main.in

@@ -382,6 +382,7 @@ class UserInfo(BaseModel):
     )
     groups: list[UserGroup] = Field([], title="User's group memberships")
     quota: Optional[UserQuota] = Field(None, title="User's quotas")
+    token: Optional[str] = Field(None, title="User's token")
 
 
 class UserResources(BaseModel):

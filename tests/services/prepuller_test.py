@@ -310,7 +310,7 @@ async def test_kubernetes_error(
                         },
                         {"text": ANY, "type": "mrkdwn", "verbatim": True},
                         {
-                            "text": f"*Object*\n{obj}",
+                            "text": f"*Object*\n[Pod] {obj}",
                             "type": "mrkdwn",
                             "verbatim": True,
                         },

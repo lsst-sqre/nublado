@@ -14,6 +14,7 @@ from structlog.stdlib import BoundLogger
 
 from ..config import Config
 from ..factory import Factory, ProcessContext
+from ..services.fileserver import FileserverStateManager
 from ..services.image import ImageService
 from ..services.state import LabStateManager
 
@@ -42,6 +43,9 @@ class RequestContext:
 
     lab_state: LabStateManager
     """User lab state."""
+
+    fileserver_state: FileserverStateManager
+    """User fileserver state."""
 
     def rebind_logger(self, **values: Any) -> None:
         """Add the given values to the logging context.
@@ -82,6 +86,7 @@ class ContextDependency:
             factory=factory,
             image_service=self._process_context.image_service,
             lab_state=self._process_context.lab_state,
+            fileserver_state=self._process_context.fileserver_state,
         )
 
     async def initialize(self, config: Config) -> None:

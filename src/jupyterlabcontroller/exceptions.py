@@ -31,6 +31,7 @@ __all__ = [
     "SlackWebException",
     "UnknownDockerImageError",
     "UnknownUserError",
+    "DisabledError",
 ]
 
 
@@ -336,6 +337,8 @@ class KubernetesError(SlackException):
         Namespace of object being acted on.
     name
         Name of object being acted on.
+    kind
+        Kind of object being acted on.
     status
         Status code of failure, if any.
     body
@@ -351,6 +354,7 @@ class KubernetesError(SlackException):
         namespace: Optional[str] = None,
         name: Optional[str] = None,
         user: Optional[str] = None,
+        kind: Optional[str] = None,
     ) -> Self:
         """Create an exception from a Kubernetes API exception.
 
@@ -364,6 +368,8 @@ class KubernetesError(SlackException):
             Namespace of object being acted on.
         name
             Name of object being acted on.
+        kind
+            Kind of object being acted on.
         user
             User on whose behalf the operation was being performed.
 
@@ -377,6 +383,7 @@ class KubernetesError(SlackException):
             user=user,
             namespace=namespace,
             name=name,
+            kind=kind,
             status=exc.status,
             body=exc.body if exc.body else exc.reason,
         )
@@ -388,8 +395,9 @@ class KubernetesError(SlackException):
         user: Optional[str] = None,
         namespace: Optional[str] = None,
         name: Optional[str] = None,
-        status: Optional[str] = None,
+        status: Optional[int] = None,
         body: Optional[str] = None,
+        kind: Optional[str] = None,
     ) -> None:
         super().__init__(message, user)
         self.message = message
@@ -397,6 +405,7 @@ class KubernetesError(SlackException):
         self.name = name
         self.status = status
         self.body = body
+        self.kind = kind
 
     def __str__(self) -> str:
         result = self._summary()
@@ -414,14 +423,17 @@ class KubernetesError(SlackException):
         """
         message = super().to_slack()
         message.message = self._summary()
+        obj = ""
+        if self.kind:
+            obj = f"[{self.kind}] "
         if self.name:
             if self.namespace:
-                obj = f"{self.namespace}/{self.name}"
+                obj += f"{self.namespace}/{self.name}"
             else:
-                obj = self.name
+                obj += self.name
             message.fields.append(SlackTextField(heading="Object", text=obj))
         if self.status:
-            field = SlackTextField(heading="Status", text=self.status)
+            field = SlackTextField(heading="Status", text=str(self.status))
             message.fields.append(field)
         if self.body:
             block = SlackCodeBlock(heading="Error", code=self.body)
@@ -457,6 +469,8 @@ class MissingObjectError(SlackException):
     ----------
     message
         Summary of error.
+    kind
+        Kind of Kubernetes object that is missing.
     user
         Username on whose behalf the request is being made.
     namespace
@@ -496,3 +510,18 @@ class MissingObjectError(SlackException):
                 obj = f"{self.kind} {self.name}"
             message.blocks.append(SlackTextField(heading="Object", text=obj))
         return message
+
+
+class MissingSecretError(Exception):
+    """Secret specified in the controller configuration was not found."""
+
+
+class FileserverCreationError(ClientRequestError):
+    """An error occured while trying to create a user fileserver."""
+
+    error = "fileserver_creation_failed"
+    status_code = status.HTTP_400_BAD_REQUEST
+
+
+class DisabledError(SlackException):
+    """An attempt was made to use a disabled service."""

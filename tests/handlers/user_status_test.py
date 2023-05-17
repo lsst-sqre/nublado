@@ -74,13 +74,14 @@ async def test_user_status(
         "quota": {"api": {}, "notebook": {"cpu": 9.0, "memory": 27.0}},
         "resources": expected_resources.dict(),
         "status": "running",
+        "token": "token-of-affection",
         "uid": user.uid,
         "username": user.username,
     }
     assert r.json() == expected
 
     # Change the pod phase. This should throw the lab into a failed state.
-    name = f"nb-{user.username}"
+    name = f"{user.username}-nb"
     namespace = f"userlabs-{user.username}"
     pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
     pod.status.phase = KubernetesPodPhase.FAILED.value

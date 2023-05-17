@@ -6,13 +6,15 @@ import asyncio
 from base64 import b64encode
 from collections.abc import AsyncIterator
 from datetime import timedelta
-from typing import Any, Optional
+from typing import Any, Callable, Coroutine, Optional, Union
 
 from kubernetes_asyncio import client, watch
 from kubernetes_asyncio.client import (
     ApiClient,
     ApiException,
     V1ConfigMap,
+    V1Ingress,
+    V1Job,
     V1LabelSelector,
     V1Namespace,
     V1NetworkPolicy,
@@ -36,9 +38,14 @@ from structlog.stdlib import BoundLogger
 from ..config import LabSecret
 from ..exceptions import KubernetesError, MissingObjectError
 from ..models.domain.kubernetes import (
+    KubernetesEvent,
+    KubernetesKindMethodContainer,
+    KubernetesKindMethodMapper,
     KubernetesNodeImage,
     KubernetesPodEvent,
     KubernetesPodPhase,
+    KubernetesPodWatchInfo,
+    get_watch_args,
 )
 from ..models.v1.lab import UserResourceQuantum
 from ..util import deslashify
@@ -47,274 +54,248 @@ __all__ = ["K8sStorageClient"]
 
 
 class K8sStorageClient:
+    """
+    Notes
+    -----
+    It's really tempting to create generic methods for object
+    creation and deletion, that do some fancy exception handling to do
+    retries and ignore error-cases-that-are-normal-operation,
+    especially since Kubernetes methods are regular in both names and
+    argument type and ordering, and we want to do very similar things
+    for many objects.
+
+    How hard could it be, you think, to use getattr() to pluck the
+    right method, and then reuse the guts of creation/retry code?  And
+    then you realize that you could do this to await the creation of
+    an arbitrary Kubernetes object also.
+
+    I am here to warn you, dear reader, that this turns out to be a
+    terrible idea, because it turns errors you could have caught
+    quickly and easily with the type system into runtime errors deep
+    in the FastAPI event loop, with no obvious way to connect the
+    stack trace back to the place you forgot an "await" or misspelled
+    a method name.
+
+    Now that I've said that, I'm going to build a map of kind-to-list-and-
+    read-methods and still delegate most of the work to a hidden method
+    that does the boilerplate.  But at least this way, you get reasonable
+    debuggability.
+    """
+
     def __init__(
         self,
         *,
         kubernetes_client: ApiClient,
         timeout: int,
+        fileserver_creation_timeout: int,
         spawn_timeout: timedelta,
         logger: BoundLogger,
     ) -> None:
         self.k8s_api = kubernetes_client
         self.api = client.CoreV1Api(kubernetes_client)
+        self.batch_api = client.BatchV1Api(kubernetes_client)
+        self.custom_api = client.CustomObjectsApi(kubernetes_client)
+        self.networking_api = client.NetworkingV1Api(kubernetes_client)
         self._timeout = timeout
         self._spawn_timeout = spawn_timeout
+        self._fileserver_creation_timeout = fileserver_creation_timeout
         self._logger = logger
+        self._method_map = KubernetesKindMethodMapper()
+        self._fill_method_map()
 
-    async def create_user_namespace(self, name: str) -> None:
-        """Create the namespace for a user's lab.
-
-        Parameters
-        ----------
-        name
-            Name of the namespace.
+    def _fill_method_map(self) -> None:
+        """This sets up the object kinds that we have generic methods for,
+        which are used by _get_object_maybe() and
+        _wait_for_object_deletion().
         """
-        self._logger.debug("Creating namespace", name=name)
-        body = V1Namespace(metadata=self._standard_metadata(name))
-        try:
-            await self.api.create_namespace(body)
-        except ApiException as e:
-            if e.status == 409:
-                # The namespace already exists. Presume that it is stranded,
-                # delete it and all of its resources, and recreate it.
-                await self._recreate_user_namespace(name)
-            msg = "Error creating user namespace"
-            raise KubernetesError.from_exception(msg, e, name=name) from e
+        self._method_map.add(
+            "Ingress",
+            KubernetesKindMethodContainer(
+                object_type=V1Ingress,
+                read_method=self.networking_api.read_namespaced_ingress,
+                list_method=self.networking_api.list_namespaced_ingress,
+            ),
+        )
+        self._method_map.add(
+            "Job",
+            KubernetesKindMethodContainer(
+                object_type=V1Job,
+                read_method=self.batch_api.read_namespaced_job,
+                list_method=self.batch_api.list_namespaced_job,
+            ),
+        )
+        self._method_map.add(
+            "Namespace",
+            KubernetesKindMethodContainer(
+                object_type=V1Namespace,
+                read_method=self.api.read_namespace,
+                list_method=self.api.list_namespace,
+            ),
+        )
+        self._method_map.add(
+            "Pod",
+            KubernetesKindMethodContainer(
+                object_type=V1Pod,
+                read_method=self.api.read_namespaced_pod,
+                list_method=self.api.list_namespaced_pod,
+            ),
+        )
+        self._method_map.add(
+            "Service",
+            KubernetesKindMethodContainer(
+                object_type=V1Service,
+                read_method=self.api.read_namespaced_service,
+                list_method=self.api.list_namespaced_service,
+            ),
+        )
+        self._supported_generic_kinds = self._method_map.list()
 
-    async def create_secrets(
+    #
+    # Generic internal helper methods
+    #
+
+    async def _event_watch(
         self,
-        secret_list: list[LabSecret],
-        username: str,
-        token: str,
-        source_ns: str,
-        target_ns: str,
-    ) -> None:
-        data = await self.merge_controller_secrets(
-            token, source_ns, secret_list
+        method: Coroutine[Any, Any, Any],
+        watch_args: dict[str, Any],
+        transmogrifier: Optional[Callable[[dict[str, Any]], Any]] = None,
+        retry_expired: bool = True,
+        timeout: Optional[int] = None,
+    ) -> AsyncIterator[Any]:
+        if timeout is None:
+            timeout = int(self._spawn_timeout.total_seconds())
+        if "timeout_seconds" not in watch_args:
+            watch_args["timeout_seconds"] = timeout
+        if "_request_timeout" not in watch_args:
+            watch_args["_request_timeout"] = timeout
+        self._logger.debug(
+            f"Starting watch with method {method}, "
+            + f"watch args {watch_args}, "
+            + f"and timeout {timeout}s."
         )
-        await self.create_secret(f"nb-{username}", target_ns, data)
-
-    async def wait_for_namespace_deletion(
-        self, namespace: str, interval: float = 0.2
-    ) -> None:
-        """Wait for a namespace to disappear.
-
-        Once it's underway, we loop, reading the namespace. We eventually
-        expect a 404, and when we get it we return. If it doesn't arrive
-        within the timeout, we raise the timeout exception, and if we get some
-        other error, we repackage that and raise it.
-
-        Raises
-        ------
-        TimeoutError
-            Raised if the namespace doesn't disappear within the configured
-            timeout.
-        """
-        self._logger.debug("Waiting for namespace deletion", name=namespace)
-        elapsed = 0.0
-        while elapsed < self._timeout:
+        w = watch.Watch()
+        while True:
             try:
-                await self.api.read_namespace(namespace)
+                async with w.stream(method, **watch_args) as stream:
+                    async for raw_event in stream:
+                        # Ideally we would use the parsed rather than
+                        # the raw object and make use of the better
+                        # Python models, but this doesn't seem to work
+                        # with kubernetes_asyncio with our mock. This
+                        # is probably a bug in the mock that we should
+                        # fix, but use the raw object for now since
+                        # it's not much harder.
+                        if transmogrifier is None:
+                            event = KubernetesEvent.from_event(raw_event)
+                        else:
+                            event = transmogrifier(raw_event)
+                        self._logger.debug(f"Received event {event}")
+                        yield event
+                # If we got here, it was a timeout
+                await w.close()
+                raise TimeoutError(f"Event watch timed out after {timeout}s")
             except ApiException as e:
-                if e.status == 404:
-                    return
+                if (
+                    e.status == 410
+                    and retry_expired
+                    and "resource_version" in watch_args
+                ):
+                    self._logger.debug(
+                        f"Resource version {watch_args['resource_version']} "
+                        + "expired; retrying watch without it."
+                    )
+                    del watch_args["resource_version"]
+                    continue
+                await w.close()
                 raise KubernetesError.from_exception(
-                    "Cannot get status of namespace", e, name=namespace
+                    f"Error in Kubernetes watch {method}->{watch_args}",
+                    e,
                 ) from e
-            await asyncio.sleep(interval)
-            elapsed += interval
-        raise TimeoutError("Timed out waiting for namespace deletion")
 
-    async def remove_completed_pod(
-        self, podname: str, namespace: str, interval: float = 0.2
-    ) -> None:
-        logger = self._logger.bind(name=podname, namespace=namespace)
-        logger.debug("Waiting for pod execution to succeed")
-        elapsed = 0.0
-        pod_timeout = 30  # arbitrary, but the prepuller pod should just sleep
-        # 5 seconds and go away.
-        while elapsed < pod_timeout:
-            try:
-                pod = await self.api.read_namespaced_pod_status(
-                    name=podname, namespace=namespace
-                )  # Actually returns a V1Pod, not a V1PodStatus
-                pod_status = pod.status
-            except ApiException as e:
-                if e.status == 404:
-                    # Not there to start with is OK.
-                    return
-                else:
-                    raise KubernetesError.from_exception(
-                        "Error reading pod status of completed pod",
-                        e,
-                        namespace=namespace,
-                        name=podname,
-                    ) from e
-            phase = pod_status.phase
-            if phase not in (
-                KubernetesPodPhase.PENDING,
-                KubernetesPodPhase.RUNNING,
-            ):
-                if phase == KubernetesPodPhase.SUCCEEDED:
-                    logger.debug("Removing succeeded pod")
-                else:
-                    logger.warning(f"Removing pod in phase {phase}")
-                try:
-                    await self.api.delete_namespaced_pod(podname, namespace)
-                except ApiException as e:
-                    if e.status == 404:
-                        return
-                    raise KubernetesError.from_exception(
-                        "Error deleting completed pod",
-                        e,
-                        namespace=namespace,
-                        name=podname,
-                    ) from e
-                return
-            await asyncio.sleep(interval)
-            elapsed += interval
-        # And if we get this far, it timed out without being created.
-        raise TimeoutError(
-            f"Timed out waiting for pod {namespace}/{podname} creation"
-        )
+    def _generic_kind_check(self, kind: str) -> None:
+        if kind not in self._supported_generic_kinds:
+            raise RuntimeError(
+                f"Kind '{kind}' not in supported generic kinds "
+                + f"{self._supported_generic_kinds}"
+            )
 
-    async def wait_for_pod(
-        self, pod_name: str, namespace: str
-    ) -> KubernetesPodPhase | None:
-        """Waits for a pod to finish starting.
-
-        Waits for the pod to reach a phase other than pending or unknown, and
-        returns the new phase. We treat unknown like pending since we're
-        running with a timeout anyway, and will eventually time out if we
-        can't get back access to the node where the pod is running.
-
-        Parameters
-        ----------
-        pod_name
-            Name of the pod.
-        namespace
-            Namespace in which the pod is located.
-
-        Returns
-        -------
-        KubernetesPodPhase
-            New pod phase, or `None` if the pod has disappeared.
-
-        Raises
-        ------
-        KubernetesError
-            Raised if there is some failure in a Kubernetes API call.
-        """
-        logger = self._logger.bind(name=pod_name, namespace=namespace)
-        logger.debug("Waiting for pod creation")
-
-        # Retrieve the object first. It's possible that it's already in the
-        # correct phase, and we can return immediately. If not, we want to
-        # start watching events with the next event after the current object
-        # version. Note that we treat Unknown the same as Pending; we rely on
-        # the timeout and otherwise hope that Kubernetes will figure out the
-        # phase.
+    async def _get_object_maybe(
+        self, kind: str, obj_name: str, namespace: Optional[str]
+    ) -> Union[V1Pod, V1Job, V1Ingress, V1Namespace] | None:
+        """Try to read an object; if it's not there return None"""
+        self._generic_kind_check(kind)
+        if kind == "Namespace":
+            namespace = None
+        method = self._method_map.get(kind).read_method
+        kwargs = {"name": obj_name}
+        if kind != "Namespace":
+            if namespace is None:
+                raise ValueError(f"Namespace cannot be None for kind {kind}")
+            kwargs["namespace"] = namespace
         try:
-            pod = await self.api.read_namespaced_pod(pod_name, namespace)
+            # FIXME figure out what we need to do to get typing correct
+            obj = await method(**kwargs)  # type: ignore
+            return obj
         except ApiException as e:
             if e.status == 404:
                 return None
             raise KubernetesError.from_exception(
-                "Error watching pod startup",
+                "Error reading object",
                 e,
+                kind=kind,
                 namespace=namespace,
-                name=pod_name,
+                name=obj_name,
             ) from e
-        if pod.status.phase not in ("Unknown", "Pending"):
-            return KubernetesPodPhase(pod.status.phase)
 
-        # The pod is not in a terminal phase. Start the watch and wait for it
-        # to change state.
-        w = watch.Watch()
-        method = self.api.list_namespaced_pod
-        timeout = int(self._spawn_timeout.total_seconds())
-        watch_args = {
-            "namespace": namespace,
-            "field_selector": f"metadata.name={pod_name}",
-            "resource_version": pod.metadata.resource_version,
-            "timeout_seconds": timeout,
-            "_request_timeout": timeout,
-        }
+    async def _wait_for_object_deletion(
+        self, kind: str, obj_name: str, namespace: Optional[str]
+    ) -> None:
+        """Here's the generic method we feared."""
+        obj = await self._get_object_maybe(
+            kind=kind, obj_name=obj_name, namespace=namespace
+        )
+        if obj is None:
+            return
+        if kind == "Namespace":
+            namespace = None
+        else:
+            if namespace is None:
+                raise ValueError(f"Namespace cannot be None for kind {kind}")
+        watch_args = get_watch_args(obj.metadata)
+        method = self._method_map.get(kind).list_method
+        # Wait for an event saying the object is deleted.
         try:
-            async with w.stream(method, **watch_args) as stream:
-                async for event in stream:
-                    if event["type"] == "DELETED":
-                        return None
-                    phase = event["raw_object"]["status"]["phase"]
-                    if phase not in ("Unknown", "Pending"):
-                        return KubernetesPodPhase(phase)
-        except ApiException as e:
-            raise KubernetesError.from_exception(
-                "Error watching pod startup",
-                e,
-                namespace=namespace,
-                name=pod_name,
-            ) from e
+            async for event in self._event_watch(
+                method=method,
+                watch_args=watch_args,
+            ):
+                if event.type == "DELETED":
+                    return
+            # I don't think we should get here
+            raise RuntimeError(
+                "Control reached end of _wait_for_object_deletion"
+            )
+        except TimeoutError:
+            # Possible race condition, if object was deleted between the
+            # _get_object_maybe() check and the watch.  Then there would not
+            # have been any events to see.  So if we time out, then we should
+            # check again whether the object really is gone after all.
+            obj = await self._get_object_maybe(
+                kind=kind, obj_name=obj_name, namespace=namespace
+            )
+            if obj is None:
+                return
+            raise
 
-        # If we fell through, we timed out waiting for the pod to start.
-        raise TimeoutError()
-
-    async def watch_pod_events(
+    async def _get_pod_watch_info(
         self, pod_name: str, namespace: str
-    ) -> AsyncIterator[str]:
-        """Monitor the startup of a pod.
-
-        Watches for events involving a pod, yielding them. Must be cancelled
-        by the caller when the watch is no longer of interest.
-
-        Parameters
-        ----------
-        pod_name
-            Name of the pod.
-        namespace
-            Namespace in which the pod is located.
-
-        Yields
-        ------
-        str
-            The next observed event.
-
-        Raises
-        ------
-        KubernetesError
-            Raised if there is some failure in a Kubernetes API call.
-        """
-        logger = self._logger.bind(pod=pod_name, namespace=namespace)
-        logger.debug("Watching pod events")
-        w = watch.Watch()
-        method = self.api.list_namespaced_event
-        timeout = int(self._spawn_timeout.total_seconds())
-        watch_args = {
-            "namespace": namespace,
-            "field_selector": f"involvedObject.name={pod_name}",
-            "timeout_seconds": timeout,
-            "_request_timeout": timeout,
-        }
-        try:
-            async with w.stream(method, **watch_args) as stream:
-                async for event in stream:
-                    # Ideally we would use the parsed rather than the raw
-                    # object and make use of the better Python models, but
-                    # this doesn't seem to work with kubernetes_asyncio with
-                    # our mock. This is probably a bug in the mock that we
-                    # should fix, but use the raw object for now since it's
-                    # not much harder.
-                    raw_event = event["raw_object"]
-                    message = raw_event.get("message")
-                    if message:
-                        yield message
-        except ApiException as e:
-            raise KubernetesError.from_exception(
-                "Error watching pod startup",
-                e,
-                namespace=namespace,
-                name=pod_name,
-            ) from e
+    ) -> KubernetesPodWatchInfo | None:
+        """Find a pod and then extract watch info from it.  If the pod doesn't
+        exist, return None."""
+        pod = await self.get_pod(pod_name, namespace)
+        if pod is None:
+            return None
+        return KubernetesPodWatchInfo.from_pod(pod)
 
     async def _handle_pod_event(
         self,
@@ -352,20 +333,11 @@ class K8sStorageClient:
         if not message:
             return None
 
-        # Check to see if the pod has reached an end state (anything other
-        # than Pending or Unknown).
-        error = None
-        try:
-            pod = await self.api.read_namespaced_pod_status(name, namespace)
-        except ApiException as e:
-            if e.status == 404:
-                error = "Pod disappeared while spawning"
-                logger.error(error)
-                phase = KubernetesPodPhase.FAILED
-            else:
-                raise
-        else:
-            phase = pod.status.phase
+        phase = await self.get_pod_phase(name, namespace)
+        if phase is None:
+            error = "Pod disappeared while spawning"
+            logger.error(error)
+            phase = KubernetesPodPhase.FAILED
 
         # Log and return the results.
         if phase == KubernetesPodPhase.UNKNOWN:
@@ -374,6 +346,357 @@ class K8sStorageClient:
         elif phase != KubernetesPodPhase.PENDING:
             logger.debug(f"Pod phase is now {phase}")
         return KubernetesPodEvent(message=message, phase=phase, error=error)
+
+    #
+    # Exported methods useful for multiple services
+    #
+
+    async def get_pod(self, name: str, namespace: str) -> V1Pod | None:
+        """Read a ``Pod`` object from Kubernetes.
+
+        Parameters
+        ----------
+        name
+            Name of the pod.
+        namespace
+            Namespace of the pod.
+
+        Returns
+        -------
+        kubernetes_asyncio.client.V1Pod or None
+            The ``Pod`` object, or `None` if it does not exist.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if a Kubernetes API call fails.
+        """
+        return await self._get_object_maybe(
+            kind="Pod", obj_name=name, namespace=namespace
+        )
+
+    async def get_pod_phase(
+        self, name: str, namespace: str
+    ) -> KubernetesPodPhase | None:
+        """Get the phase of a currently running pod.
+
+        Called whenever JupyterHub wants to check the status of running pods,
+        so this will be called frequently and should be fairly quick.
+
+        Parameters
+        ----------
+        name
+            Name of the pod.
+        namespace
+            Namespace of the pod
+
+        Returns
+        -------
+        KubernetesPodPhase or None
+            Phase of the pod or `None` if the pod does not exist.
+
+        Raises
+        ------
+        KubernetesError
+            Raised on failure to talk to Kubernetes.
+        """
+        pod = await self.get_pod(name, namespace)
+        if pod is None:
+            return None
+        msg = f"Pod phase is {pod.status.phase}"
+        self._logger.debug(msg, name=name, namespace=namespace)
+        return pod.status.phase
+
+    async def wait_for_pod_start(
+        self, pod_name: str, namespace: str, timeout: Optional[int] = None
+    ) -> KubernetesPodPhase | None:
+        """Waits for a pod to finish starting.
+
+        Waits for the pod to reach a phase other than pending or unknown, and
+        returns the new phase. We treat unknown like pending since we're
+        running with a timeout anyway, and will eventually time out if we
+        can't get back access to the node where the pod is running.
+
+        Parameters
+        ----------
+        pod_name
+            Name of the pod.
+        namespace
+            Namespace in which the pod is located.
+
+        Returns
+        -------
+        KubernetesPodPhase
+            New pod phase, or `None` if the pod has disappeared.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        """
+        logger = self._logger.bind(name=pod_name, namespace=namespace)
+        logger.debug("Waiting for pod creation")
+
+        # Retrieve the object first. It's possible that it's already in the
+        # correct phase, and we can return immediately. If not, we want to
+        # start watching events with the next event after the current object
+        # version. Note that we treat Unknown the same as Pending; we rely on
+        # the timeout and otherwise hope that Kubernetes will figure out the
+        # phase.
+        watch_info = await self._get_pod_watch_info(pod_name, namespace)
+        if watch_info is None:
+            return None
+        if watch_info.initial_phase not in ("Unknown", "Pending"):
+            return KubernetesPodPhase(watch_info.initial_phase)
+
+        # The pod is not in a terminal phase. Start the watch and wait for it
+        # to change state.
+
+        def transmogrifier(
+            event: dict[str, Any]
+        ) -> Optional[KubernetesPodPhase]:
+            if event["type"] == "DELETED":
+                return None
+            return KubernetesPodPhase(event["raw_object"]["status"]["phase"])
+
+        async for event in self._event_watch(
+            method=self.api.list_namespaced_pod,
+            watch_args=watch_info.watch_args,
+            transmogrifier=transmogrifier,
+            timeout=timeout,  # If None, defaults to config.lab.spawn_timeout
+        ):
+            if event is None:
+                return None
+            if event not in (
+                KubernetesPodPhase.UNKNOWN,
+                KubernetesPodPhase.PENDING,
+            ):
+                return event
+
+        # We shouldn't get here.
+        raise RuntimeError("Control reached end of wait_for_pod_start()")
+
+    async def wait_for_pod_stop(
+        self, pod_name: str, namespace: str
+    ) -> KubernetesPodPhase | None:
+        """Waits for a pod to terminate.
+
+        Waits for the pod to reach a phase other than running or unknown, and
+        returns the new phase. We treat unknown like running and assume
+        eventually we will get back a real phase.
+
+        Parameters
+        ----------
+        pod_name
+            Name of the pod.
+        namespace
+            Namespace in which the pod is located.
+
+        Returns
+        -------
+        KubernetesPodPhase
+            New pod phase, or `None` if the pod has disappeared.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        """
+        logger = self._logger.bind(name=pod_name, namespace=namespace)
+        logger.debug("Setting up watch to wait for pod stop")
+
+        # Retrieve the object first. It's possible that it's already in the
+        # correct phase, and we can return immediately. If not, we want to
+        # start watching events with the next event after the current object
+        # version. Note that we treat Unknown the same as Pending; we rely on
+        # the timeout and otherwise hope that Kubernetes will figure out the
+        # phase.
+        watch_info = await self._get_pod_watch_info(pod_name, namespace)
+        if watch_info is None:
+            return None
+        if watch_info.initial_phase not in ("Unknown", "Running"):
+            return KubernetesPodPhase(watch_info.initial_phase)
+
+        # The pod is not in a terminal phase. Start the watch and wait for it
+        # to change state.
+
+        def transmogrifier(
+            event: dict[str, Any]
+        ) -> Optional[KubernetesPodPhase]:
+            if event["type"] == "DELETED":
+                return None
+            return KubernetesPodPhase(event["raw_object"]["status"]["phase"])
+
+        while True:
+            try:
+                async for event in self._event_watch(
+                    method=self.api.list_namespaced_pod,
+                    watch_args=watch_info.watch_args,
+                    transmogrifier=transmogrifier,
+                ):
+                    if event is None:
+                        return None
+                    if event not in (
+                        KubernetesPodPhase.UNKNOWN,
+                        KubernetesPodPhase.RUNNING,
+                    ):
+                        return event
+            except TimeoutError:
+                self._logger.debug(
+                    "Watch timed out awaiting pod stop. " + "Restarting watch."
+                )
+                continue
+        # We shouldn't get here
+        raise RuntimeError("Control reached end of wait_for_pod_stop()")
+
+    async def watch_pod_events(
+        self, pod_name: str, namespace: str
+    ) -> AsyncIterator[str]:
+        """Monitor the startup of a pod.
+
+        Watches for events involving a pod, yielding them. Must be cancelled
+        by the caller when the watch is no longer of interest.
+
+        Parameters
+        ----------
+        pod_name
+            Name of the pod.
+        namespace
+            Namespace in which the pod is located.
+
+        Yields
+        ------
+        str
+            The next observed event.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        """
+        logger = self._logger.bind(pod=pod_name, namespace=namespace)
+        logger.debug("Watching pod events")
+        method = self.api.list_namespaced_event
+        watch_args = {
+            "namespace": namespace,
+            "field_selector": f"involvedObject.name={pod_name}",
+        }
+
+        async for event in self._event_watch(
+            method=method,
+            watch_args=watch_args,
+            transmogrifier=lambda x: str(x["raw_object"]["message"]),
+            retry_expired=False,
+        ):
+            yield event
+
+    def standard_metadata(
+        self,
+        name: str,
+        namespace: str = "",
+        category: str = "lab",
+        username: str = "",
+    ) -> V1ObjectMeta:
+        """Create the standard metadata for an object.
+
+        Parameters
+        ----------
+        name
+            Name of the object.
+
+        namespace
+            Namespace of the object (optional, defaults to the empty string).
+
+        category
+            Category of the object (optional, defaults to ``lab``).
+
+        username
+            User for whom the object is created (optional, defaults to
+            the empty string).
+
+        Returns
+        -------
+        V1ObjectMeta
+            Metadata for the object. For labs, this primarily adds Argo CD
+            annotations to make user labs play somewhat nicely with Argo CD.
+            For fileservers, this also adds labels we can use as selectors;
+            this is necessary because all user fileservers run in a single
+            namespace.
+        """
+        argo_app = "nublado-users"
+        if category == "fileserver":
+            argo_app = "fileservers"
+        elif category == "prepuller":
+            argo_app = namespace or "prepuller"
+        labels = {
+            "argocd.argoproj.io/instance": argo_app,
+            "nublado.lsst.io/category": category,
+        }
+        if username:
+            labels["nublado.lsst.io/user"] = username
+        annotations = {
+            "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+            "argocd.argoproj.io/sync-options": "Prune=false",
+        }
+        metadata = V1ObjectMeta(
+            name=name,
+            labels=labels,
+            annotations=annotations,
+        )
+        if namespace:
+            metadata.namespace = namespace
+        return metadata
+
+    #
+    # Lab object methods
+    #
+
+    async def create_user_namespace(self, name: str) -> None:
+        """Create the namespace for a user's lab.
+
+        Parameters
+        ----------
+        name
+            Name of the namespace.
+        """
+        self._logger.debug("Creating namespace", name=name)
+        body = V1Namespace(metadata=self.standard_metadata(name))
+        try:
+            await self.api.create_namespace(body)
+        except ApiException as e:
+            if e.status == 409:
+                # The namespace already exists. Presume that it is stranded,
+                # delete it and all of its resources, and recreate it.
+                await self._recreate_user_namespace(name)
+            msg = "Error creating user namespace"
+            raise KubernetesError.from_exception(
+                msg, e, name=name, kind="Namespace"
+            ) from e
+
+    async def create_secrets(
+        self,
+        secret_list: list[LabSecret],
+        username: str,
+        token: str,
+        source_ns: str,
+        target_ns: str,
+    ) -> None:
+        data = await self.merge_controller_secrets(
+            token, source_ns, secret_list
+        )
+        await self.create_secret(f"{username}-nb", target_ns, data)
+
+    async def wait_for_namespace_deletion(self, namespace: str) -> None:
+        """Wait for a namespace to disappear."""
+        ns = await self._get_object_maybe(
+            kind="Namespace", obj_name=namespace, namespace=None
+        )
+        if ns is None:
+            return
+        self._logger.debug("Waiting for namespace deletion", name=namespace)
+        await self._wait_for_object_deletion(
+            kind="Namespace", obj_name=namespace, namespace=None
+        )
 
     async def copy_secret(
         self,
@@ -466,14 +789,18 @@ class K8sStorageClient:
             data=data,
             type=secret_type,
             immutable=immutable,
-            metadata=self._standard_metadata(name),
+            metadata=self.standard_metadata(name, namespace=namespace),
         )
         self._logger.debug("Creating secret", name=name, namespace=namespace)
         try:
             await self.api.create_namespaced_secret(namespace, secret)
         except ApiException as e:
             raise KubernetesError.from_exception(
-                "Error creating secret", e, namespace=namespace, name=name
+                "Error creating secret",
+                e,
+                namespace=namespace,
+                name=name,
+                kind="Secret",
             ) from e
 
     async def read_secret(
@@ -496,7 +823,11 @@ class K8sStorageClient:
                 )
             else:
                 raise KubernetesError.from_exception(
-                    "Error reading secret", e, namespace=namespace, name=name
+                    "Error reading secret",
+                    e,
+                    namespace=namespace,
+                    name=name,
+                    kind="Secret",
                 ) from e
 
     async def create_pvcs(
@@ -504,7 +835,7 @@ class K8sStorageClient:
     ) -> None:
         for pvc in pvcs:
             name = pvc.metadata.name
-            pvc.metadata = self._standard_metadata(name)
+            pvc.metadata = self.standard_metadata(name, namespace)
             try:
                 await self.api.create_namespaced_persistent_volume_claim(
                     namespace, pvc
@@ -527,13 +858,17 @@ class K8sStorageClient:
         configmap = V1ConfigMap(
             data={deslashify(k): v for k, v in data.items()},
             immutable=immutable,
-            metadata=self._standard_metadata(name),
+            metadata=self.standard_metadata(name, namespace=namespace),
         )
         try:
             await self.api.create_namespaced_config_map(namespace, configmap)
         except ApiException as e:
             raise KubernetesError.from_exception(
-                "Error creating config map", e, namespace=namespace, name=name
+                "Error creating config map",
+                e,
+                namespace=namespace,
+                name=name,
+                kind="ConfigMap",
             ) from e
 
     async def create_network_policy(
@@ -541,7 +876,7 @@ class K8sStorageClient:
         name: str,
         namespace: str,
     ) -> None:
-        api = client.NetworkingV1Api(self.k8s_api)
+        api = self.networking_api
         self._logger.debug(
             "Creating network policy", name=name, namespace=namespace
         )
@@ -549,7 +884,7 @@ class K8sStorageClient:
         # and Egress to ... external world, Hub, Portal, Gafaelfawr.  What
         # else?
         policy = V1NetworkPolicy(
-            metadata=self._standard_metadata(name),
+            metadata=self.standard_metadata(name, namespace=namespace),
             spec=V1NetworkPolicySpec(
                 policy_types=["Ingress"],
                 pod_selector=V1LabelSelector(
@@ -568,6 +903,7 @@ class K8sStorageClient:
             raise KubernetesError.from_exception(
                 "Error creating network policy",
                 e,
+                kind="NetworkPolicy",
                 namespace=namespace,
                 name=name,
             ) from e
@@ -575,10 +911,13 @@ class K8sStorageClient:
     async def create_lab_service(self, username: str, namespace: str) -> None:
         self._logger.debug("Creating service", name="lab", namespace=namespace)
         service = V1Service(
-            metadata=self._standard_metadata("lab"),
+            metadata=self.standard_metadata("lab", namespace=namespace),
             spec=V1ServiceSpec(
                 ports=[V1ServicePort(port=8888, target_port=8888)],
-                selector={"app": "lab"},
+                selector={
+                    "nublado.lsst.io/user": username,
+                    "nublado.lsst.io/category": "lab",
+                },
             ),
         )
         try:
@@ -587,6 +926,7 @@ class K8sStorageClient:
             raise KubernetesError.from_exception(
                 "Error creating service",
                 e,
+                kind="Service",
                 namespace=namespace,
                 name="lab",
             ) from e
@@ -601,7 +941,7 @@ class K8sStorageClient:
             "Creating resource quota", name=name, namespace=namespace
         )
         quota = V1ResourceQuota(
-            metadata=self._standard_metadata(name),
+            metadata=self.standard_metadata(name, namespace=namespace),
             spec=V1ResourceQuotaSpec(
                 hard={
                     "limits.cpu": str(resource.cpu),
@@ -615,6 +955,7 @@ class K8sStorageClient:
             raise KubernetesError.from_exception(
                 "Error creating resource quota",
                 e,
+                kind="ResourceQuota",
                 namespace=namespace,
                 name=name,
             ) from e
@@ -625,6 +966,8 @@ class K8sStorageClient:
         namespace: str,
         pod_spec: V1PodSpec,
         *,
+        username: str = "",
+        category: str = "lab",
         labels: Optional[dict[str, str]] = None,
         annotations: Optional[dict[str, str]] = None,
         owner: Optional[V1OwnerReference] = None,
@@ -640,6 +983,10 @@ class K8sStorageClient:
             Namespace of the pod.
         pod_spec
             ``spec`` portion of the pod.
+        username
+            If set, user the pod is for.
+        category
+            If set, category for the pod (default "lab")
         labels
             Additional labels to add to the pod.
         annotations
@@ -652,7 +999,9 @@ class K8sStorageClient:
         """
         logger = self._logger.bind(name=name, namespace=namespace)
         logger.debug("Creating pod")
-        metadata = self._standard_metadata(name)
+        metadata = self.standard_metadata(
+            name, namespace=namespace, username=username, category=category
+        )
         if labels:
             metadata.labels.update(labels)
         if annotations:
@@ -677,6 +1026,7 @@ class K8sStorageClient:
                 e,
                 namespace=namespace,
                 name=name,
+                kind="Pod",
             ) from e
 
     async def delete_namespace(self, name: str) -> None:
@@ -691,7 +1041,9 @@ class K8sStorageClient:
             if e.status == 404:
                 return
             msg = "Error deleting namespace"
-            raise KubernetesError.from_exception(msg, e, name=name) from e
+            raise KubernetesError.from_exception(
+                msg, e, name=name, kind="Namespace"
+            ) from e
         except TimeoutError:
             msg = (
                 f"Timed out after {self._timeout}s waiting for namespace"
@@ -720,32 +1072,12 @@ class K8sStorageClient:
             if e.status == 404:
                 return
             raise KubernetesError.from_exception(
-                "Error deleting pod", e, namespace=namespace, name=name
+                "Error deleting pod",
+                e,
+                namespace=namespace,
+                name=name,
+                kind="Pod",
             ) from e
-
-    async def get_image_data(self) -> dict[str, list[KubernetesNodeImage]]:
-        """Get the list of cached images from each node.
-
-        Returns
-        -------
-        dict of str to list
-            Map of nodes to lists of all cached images on that node.
-        """
-        self._logger.debug("Getting node image data")
-        try:
-            nodes = await self.api.list_node()
-        except ApiException as e:
-            msg = "Error reading node information"
-            raise KubernetesError.from_exception(msg, e)
-        image_data = {}
-        for node in nodes.items:
-            name = node.metadata.name
-            images = [
-                KubernetesNodeImage.from_container_image(i)
-                for i in node.status.images
-            ]
-            image_data[name] = images
-        return image_data
 
     async def get_config_map(
         self, name: str, namespace: str
@@ -775,76 +1107,12 @@ class K8sStorageClient:
             if e.status == 404:
                 return None
             raise KubernetesError.from_exception(
-                "Error reading config map", e, namespace=namespace, name=name
+                "Error reading config map",
+                e,
+                namespace=namespace,
+                name=name,
+                kind="ConfigMap",
             ) from e
-
-    async def get_pod(self, name: str, namespace: str) -> V1Pod | None:
-        """Read a ``Pod`` object from Kubernetes.
-
-        Parameters
-        ----------
-        name
-            Name of the pod.
-        namespace
-            Namespace of the pod.
-
-        Returns
-        -------
-        kubernetes_asyncio.client.V1Pod or None
-            The ``Pod`` object, or `None` if it does not exist.
-
-        Raises
-        ------
-        KubernetesError
-            Raised if a Kubernetes API call fails.
-        """
-        try:
-            return await self.api.read_namespaced_pod(name, namespace)
-        except ApiException as e:
-            if e.status == 404:
-                return None
-            raise KubernetesError.from_exception(
-                "Error reading pod", e, namespace=namespace, name=name
-            ) from e
-
-    async def get_pod_phase(
-        self, name: str, namespace: str
-    ) -> KubernetesPodPhase | None:
-        """Get the phase of a currently running pod.
-
-        Called whenever JupyterHub wants to check the status of running pods,
-        so this will be called frequently and should be fairly quick.
-
-        Parameters
-        ----------
-        name
-            Name of the pod.
-        namespace
-            Namespace of the pod
-
-        Returns
-        -------
-        KubernetesPodPhase or None
-            Phase of the pod or `None` if the pod does not exist.
-
-        Raises
-        ------
-        KubernetesError
-            Raised on failure to talk to Kubernetes.
-        """
-        try:
-            pod = await self.api.read_namespaced_pod_status(name, namespace)
-        except ApiException as e:
-            if e.status == 404:
-                msg = "Pod does not exist when checking phase"
-                self._logger.debug(msg, name=name, namespace=namespace)
-                return None
-            raise KubernetesError.from_exception(
-                "Error reading pod phase", e, namespace=namespace, name=name
-            ) from e
-        msg = f"Pod phase is {pod.status.phase}"
-        self._logger.debug(msg, name=name, namespace=namespace)
-        return pod.status.phase
 
     async def get_quota(
         self, name: str, namespace: str
@@ -877,6 +1145,7 @@ class K8sStorageClient:
             raise KubernetesError.from_exception(
                 "Error reading resource quota",
                 e,
+                kind="ResourceQuota",
                 namespace=namespace,
                 name=name,
             ) from e
@@ -908,7 +1177,9 @@ class K8sStorageClient:
             ]
         except KubernetesError as e:
             msg = "Error listing namespaces"
-            raise KubernetesError.from_exception(msg, e) from e
+            raise KubernetesError.from_exception(
+                msg, e, kind="Namespace"
+            ) from e
 
     async def _recreate_user_namespace(self, name: str) -> None:
         """Recreate an existing user namespace.
@@ -931,37 +1202,507 @@ class K8sStorageClient:
         except ApiException as e:
             if e.status != 404:
                 msg = "Cannot delete stranded user namespace"
-                raise KubernetesError.from_exception(msg, e, name=name) from e
+                raise KubernetesError.from_exception(
+                    msg, e, name=name, kind="Namespace"
+                ) from e
         await self.wait_for_namespace_deletion(name)
 
         # Try to create it again. If it still conflicts, don't catch that
         # error; something weird is going on.
-        namespace = V1Namespace(metadata=self._standard_metadata(name))
+        namespace = V1Namespace(metadata=self.standard_metadata(name))
         try:
             await self.api.create_namespace(namespace)
         except ApiException as e:
             msg = "Cannot create user namespace"
-            raise KubernetesError.from_exception(msg, e, name=name) from e
+            raise KubernetesError.from_exception(
+                msg, e, name=name, kind="Namespace"
+            ) from e
 
-    def _standard_metadata(self, name: str) -> V1ObjectMeta:
-        """Create the standard metadata for an object.
+    #
+    # Prepuller methods
+    #
 
-        Parameters
-        ----------
-        name
-            Name of the object.
+    async def remove_completed_pod(self, podname: str, namespace: str) -> None:
+        logger = self._logger.bind(name=podname, namespace=namespace)
+        await self.wait_for_pod_start(podname, namespace)
+        phase = await self.wait_for_pod_stop(podname, namespace)
+        if phase is None:
+            logger.warning("Pod was already missing")
+            return
+        if phase == KubernetesPodPhase.SUCCEEDED:
+            logger.debug("Removing succeeded pod")
+        else:
+            logger.warning(f"Removing pod in phase {phase}")
+        try:
+            await self.api.delete_namespaced_pod(podname, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                return
+            raise KubernetesError.from_exception(
+                "Error deleting completed pod",
+                e,
+                kind="Pod",
+                namespace=namespace,
+                name=podname,
+            ) from e
+        return
+
+    async def get_image_data(self) -> dict[str, list[KubernetesNodeImage]]:
+        """Get the list of cached images from each node.
 
         Returns
         -------
-        V1ObjectMeta
-            Metadata for the object. Primarily, this adds the Argo CD
-            annotations to make user labs play somewhat nicely with Argo CD.
+        dict of str to list
+            Map of nodes to lists of all cached images on that node.
         """
-        return V1ObjectMeta(
-            name=name,
-            labels={"argocd.argoproj.io/instance": "nublado-users"},
-            annotations={
-                "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
-                "argocd.argoproj.io/sync-options": "Prune=false",
-            },
+        self._logger.debug("Getting node image data")
+        try:
+            nodes = await self.api.list_node()
+        except ApiException as e:
+            msg = "Error reading node information"
+            raise KubernetesError.from_exception(msg, e, kind="Node")
+        image_data = {}
+        for node in nodes.items:
+            name = node.metadata.name
+            images = [
+                KubernetesNodeImage.from_container_image(i)
+                for i in node.status.images
+            ]
+            image_data[name] = images
+        return image_data
+
+    #
+    # Methods for user fileservers
+    #
+
+    async def check_namespace(self, namespace: str) -> bool:
+        """Check to see if namespace is present; return True if it is,
+        False if it is not."""
+        ns = await self._get_object_maybe(
+            kind="Namespace", obj_name=namespace, namespace=None
+        )
+        if ns is None:
+            return False
+        return True
+
+    async def create_fileserver_job(
+        self, username: str, namespace: str, job: V1Job
+    ) -> None:
+        """For all of our fileserver objects: if we are being asked to
+        create them, it means we thought, based on our user map, that we did
+        not have a working fileserver.  If we encounter an object, then,
+        although the fileserver is not working, we didn't clean up after it
+        correctly.  In that case, we're in mid-creation already, so just
+        delete the old, possibly-broken, object, and create a new one.
+        """
+        obj_name = f"{username}-fs"
+        self._logger.debug("Creating job", name=obj_name, namespace=namespace)
+        try:
+            await self.batch_api.create_namespaced_job(namespace, job)
+        except ApiException as e:
+            if e.status == 409:
+                # It already exists.  Delete and recreate it
+                self._logger.warning(
+                    "Job exists.  Deleting and recreating.",
+                    name=obj_name,
+                    namespace=namespace,
+                )
+                await self.delete_fileserver_job(username, namespace)
+                await self._wait_for_object_deletion(
+                    obj_name=obj_name, namespace=namespace, kind="Job"
+                )
+                await self.batch_api.create_namespaced_job(namespace, job)
+                return
+            raise KubernetesError.from_exception(
+                "Error creating job",
+                e,
+                namespace=namespace,
+                kind="Job",
+                name=obj_name,
+            ) from e
+
+    async def delete_fileserver_job(
+        self, username: str, namespace: str
+    ) -> None:
+        obj_name = f"{username}-fs"
+        self._logger.debug("Deleting job", name=obj_name, namespace=namespace)
+        try:
+            await self.batch_api.delete_namespaced_job(
+                obj_name, namespace, propagation_policy="Foreground"
+            )
+        except ApiException as e:
+            if e.status == 404:
+                return
+            raise KubernetesError.from_exception(
+                "Error deleting job",
+                e,
+                kind="Job",
+                namespace=namespace,
+                name=obj_name,
+            ) from e
+
+    async def create_fileserver_service(
+        self, username: str, namespace: str, spec: V1Service
+    ) -> None:
+        """see create_fileserver_job() for the rationale behind retrying
+        a conflict on creation."""
+        obj_name = f"{username}-fs"
+        try:
+            await self.api.create_namespaced_service(namespace, spec)
+        except ApiException as e:
+            if e.status == 409:
+                # It already exists.  Delete and recreate it
+                self._logger.warning(
+                    "Service exists.  Deleting and recreating.",
+                    name=obj_name,
+                    namespace=namespace,
+                )
+                await self.delete_fileserver_service(username, namespace)
+                await self._wait_for_object_deletion(
+                    obj_name=obj_name, namespace=namespace, kind="Service"
+                )
+                await self.api.create_namespaced_service(namespace, spec)
+                return
+            raise KubernetesError.from_exception(
+                "Error creating service",
+                e,
+                kind="Service",
+                namespace=namespace,
+                name=obj_name,
+            ) from e
+
+    async def delete_fileserver_service(
+        self, username: str, namespace: str
+    ) -> None:
+        obj_name = f"{username}-fs"
+        try:
+            await self.api.delete_namespaced_service(obj_name, namespace)
+        except ApiException as e:
+            if e.status == 404:
+                return
+            raise KubernetesError.from_exception(
+                "Error deleting service",
+                e,
+                kind="Service",
+                namespace=namespace,
+                name=obj_name,
+            ) from e
+
+    async def create_fileserver_gafaelfawringress(
+        self, username: str, namespace: str, spec: dict[str, Any]
+    ) -> None:
+        """see _create_fileserver_job() for the rationale behind retrying
+        a conflict on creation."""
+        obj_name = f"{username}-fs"
+        crd_group = "gafaelfawr.lsst.io"
+        crd_version = "v1alpha1"
+        plural = "gafaelfawringresses"
+        try:
+            await self.custom_api.create_namespaced_custom_object(
+                body=spec,
+                group=crd_group,
+                version=crd_version,
+                namespace=namespace,
+                plural=plural,
+            )
+        except ApiException as e:
+            if e.status == 409:
+                # It already exists.  Delete and recreate it
+                self._logger.warning(
+                    (
+                        "Fileserver gafaelfawringress exists. "
+                        + "Deleting and recreating."
+                    ),
+                    name=obj_name,
+                    namespace=namespace,
+                )
+                await self.delete_fileserver_gafaelfawringress(
+                    username, namespace
+                )
+                await self._wait_for_gafaelfawr_ingress_deletion(
+                    obj_name, namespace
+                )
+                await self.custom_api.create_namespaced_custom_object(
+                    crd_group, crd_version, namespace, plural, spec
+                )
+            raise KubernetesError.from_exception(
+                "Error creating gafaelfawringress",
+                e,
+                kind="GafaelfawrIngress",
+                namespace=namespace,
+                name=obj_name,
+            ) from e
+
+    async def _wait_for_gafaelfawr_ingress_deletion(
+        self, obj_name: str, namespace: str
+    ) -> None:
+        crd_group = "gafaelfawr.lsst.io"
+        crd_version = "v1alpha1"
+        plural = "gafaelfawringresses"
+        try:
+            gi = await self.custom_api.get_namespaced_custom_object(
+                crd_group, crd_version, namespace, plural, obj_name
+            )
+        except ApiException as e:
+            if e.status == 404:
+                return
+            raise
+        watch_args = get_watch_args(gi)
+        watch_args["group"] = crd_group
+        watch_args["version"] = crd_version
+        watch_args["plural"] = plural
+        async for event in self._event_watch(
+            method=self.custom_api.list_namespaced_custom_object,
+            watch_args=watch_args,
+        ):
+            if event.type == "DELETED":
+                return
+        # I don't think we should get here
+        raise RuntimeError(
+            "Control reached end of "
+            + "_wait_for_gafaelfawr_ingress_deletion()"
+        )
+
+    async def delete_fileserver_gafaelfawringress(
+        self, username: str, namespace: str
+    ) -> None:
+        obj_name = f"{username}-fs"
+        crd_group = "gafaelfawr.lsst.io"
+        crd_version = "v1alpha1"
+        plural = "gafaelfawringresses"
+        try:
+            await self.custom_api.delete_namespaced_custom_object(
+                crd_group, crd_version, namespace, plural, obj_name
+            )
+        except ApiException as e:
+            if e.status == 404:
+                return
+
+            raise KubernetesError.from_exception(
+                "Error deleting gafaelfawringress",
+                e,
+                kind="GafaelfawrIngress",
+                namespace=namespace,
+                name=obj_name,
+            ) from e
+
+    async def get_observed_fileserver_state(
+        self, namespace: str
+    ) -> dict[str, bool]:
+        """Reconstruct the fileserver user map with what we can determine
+        from the Kubernetes cluster.
+
+        Objects with the name <username>-fs are presumed to be fileserver
+        objects, where <username> can be assumed to be the name of the
+        owning user.
+
+        It returns a dict mapping strings to the value True, indicating those
+        users who currently have fileservers.
+        """
+        observed_state: dict[str, bool] = {}
+        ns = await self._get_object_maybe(
+            kind="Namespace", obj_name=namespace, namespace=None
+        )
+        if ns is None:
+            raise KubernetesError(
+                f"Missing user fileservers namespace {namespace}",
+                kind="Namespace",
+                name=namespace,
+            )
+        # Get all jobs
+        all_jobs = await self.batch_api.list_namespaced_job(namespace)
+        # Filter to those with the right label
+        users = [
+            x.metadata.labels.get("nublado.lsst.io/user")
+            for x in all_jobs.items
+            if x.metadata.labels.get("nublado.lsst.io/category", "")
+            == "fileserver"
+        ]
+        # For each of these, check whether the fileserver is present
+        for user in users:
+            self._logger.debug(f"Checking user {user}")
+            good = await self.check_fileserver_present(
+                username=user, namespace=namespace
+            )
+            self._logger.debug(f"{user} fileserver good?  {good}")
+            if good:
+                observed_state[user] = True
+        return observed_state
+
+    async def check_fileserver_present(
+        self, username: str, namespace: str
+    ) -> bool:
+        """Our determination of whether a user has a fileserver is this:
+
+        We assume all fileserver objects are named <username>-fs, which we
+        can do, since we created them and that's the convention we chose.
+
+        A fileserver is working if:
+
+        1) it has exactly one Pod in Running state due to a Job of the
+           right name, and
+        2) it has an Ingress, which has status.load_balancer.ingress, and
+           that inner ingress has an attribute "ip" which is not the
+           empty string.
+
+        We do not check the GafaelfawrIngress, because the Custom API is
+        clumsy, and the created Ingress is a requirement for whether the
+        fileserver is running.  Although we create a Service, there's
+        not much that can go wrong with it, so we opt to save the API
+        call by assuming it's fine.
+        """
+        obj_name = f"{username}-fs"
+        self._logger.debug(f"Checking whether {username} has fileserver")
+        self._logger.debug(f"...checking Job for {username}")
+        job = await self._get_object_maybe(
+            kind="Job", obj_name=obj_name, namespace=namespace
+        )
+        if job is None:
+            self._logger.debug(f"...Job {obj_name} for {username} not found.")
+            return False
+        # OK, we have a job.  Now let's see if the Pod from that job has
+        # arrived...
+        self._logger.debug(f"...checking Pod for {username}")
+        pod = await self.get_fileserver_pod_for_user(username, namespace)
+        if pod is None:
+            self._logger.info(f"No Pod for {username}")
+            return False
+        if pod.status is None:
+            self._logger.info(f"No Pod status for {pod.metadata.name}")
+            return False
+        if pod.status.phase != "Running":
+            self._logger.info(
+                f"Pod for {username} is in phase "
+                + f"'{pod.status.phase}', not 'Running'."
+            )
+            return False
+        self._logger.debug(f"...checking Ingress for {username}")
+        ingress = await self._get_object_maybe(
+            kind="Ingress", obj_name=obj_name, namespace=namespace
+        )
+        if ingress is None:
+            self._logger.info(
+                f"...Ingress {obj_name} for {username} not found."
+            )
+            return False
+        if (
+            ingress.status is None
+            or ingress.status.load_balancer is None
+            or ingress.status.load_balancer.ingress is None
+            or len(ingress.status.load_balancer.ingress) < 1
+            or ingress.status.load_balancer.ingress[0].ip == ""
+        ):
+            self._logger.info(
+                f"...Ingress {obj_name} for {username} does not have address."
+            )
+            return False
+        self._logger.debug(f"...fileserver for {username} is OK.")
+        return True
+
+    async def wait_for_fileserver_object_deletion(
+        self, username: str, namespace: str
+    ) -> None:
+        """Wait for the key fileserver objects (Ingress and Job) to
+        be deleted.  We will presume that the GafaelfawrIngress deletion
+        happens basically immediately after its corresponding Ingress
+        is deleted.
+        """
+        obj_name = "{username}-fs"
+        for kind in ("Ingress", "Job"):
+            await self._wait_for_object_deletion(
+                kind=kind, obj_name=obj_name, namespace=namespace
+            )
+
+    async def get_fileserver_pod_for_user(
+        self, username: str, namespace: str
+    ) -> V1Pod | None:
+        selector_string = f"job-name=={username}-fs"
+        try:
+            pods = await self.api.list_namespaced_pod(
+                namespace=namespace, label_selector=selector_string
+            )
+            if not pods:
+                return None
+            if len(pods.items) > 1:
+                raise KubernetesError(
+                    f"Multiple pods match job {username}-fs",
+                    namespace=namespace,
+                    kind="Pod",
+                )
+            return pods.items[0]
+        except ApiException as e:
+            raise KubernetesError.from_exception(
+                "Error listing pods",
+                e,
+                kind="Pod",
+                namespace=namespace,
+            ) from e
+
+    async def wait_for_user_fileserver_ingress_ready(
+        self, username: str, namespace: str, timeout: Optional[int] = None
+    ) -> None:
+        obj_name = f"{username}-fs"
+        ingress = await self._get_object_maybe(
+            kind="Ingress", obj_name=obj_name, namespace=namespace
+        )
+        if ingress is None:
+            # Well, OK, but we know what it's going to look like, so we
+            # can do the watch anyway...
+            expected_metadata = V1ObjectMeta(
+                name=obj_name, namespace=namespace
+            )
+            watch_args = get_watch_args(expected_metadata)
+        else:
+            watch_args = get_watch_args(ingress.metadata)
+        # Do we already have a working ingress?
+        if (
+            ingress is not None
+            and ingress.status is not None
+            and ingress.status.load_balancer is not None
+            and ingress.status.load_balancer.ingress is not None
+            and len(ingress.status.load_balancer.ingress) > 0
+            and ingress.status.load_balancer.ingress[0].ip != ""
+        ):
+            return
+
+        def transmogrifier(event: dict[str, Any]) -> bool:
+            """This is irritatingly complex, because of the whole object/
+            raw_object thing.  Even though we *should* be, with the raw
+            object, looking at the camelCase versions of the fields, when
+            we patch the ingress in the test suite, what ends up getting
+            set is the snake_case.  So we need to account for both.
+
+            Eventually, we should fix the kubernetes mock to not need
+            raw objects, and then this hack can go away.
+            """
+            obj = event["raw_object"]
+            if "status" not in obj:
+                return False
+            lb: str = ""
+            for item in ("load_balancer", "loadBalancer"):
+                if item in obj["status"]:
+                    lb = item
+                    break
+            if not lb:
+                return False
+            if "ingress" not in obj["status"][lb]:
+                return False
+            ing_list = obj["status"][lb]["ingress"]
+            if ing_list is None or len(ing_list) < 1:
+                return False
+            ing = ing_list[0]
+            if ing is None or "ip" not in ing or ing["ip"] == "":
+                return False
+            return True
+
+        async for event in self._event_watch(
+            method=self._method_map.get("Ingress").list_method,
+            watch_args=watch_args,
+            transmogrifier=transmogrifier,
+            timeout=timeout,
+        ):
+            if event is True:
+                return
+        raise RuntimeError(
+            "Control reached end of wait_for_user_fileserver_ingress_ready()"
         )

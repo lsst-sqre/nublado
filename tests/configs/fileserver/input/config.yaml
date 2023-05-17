@@ -1,0 +1,44 @@
+safir:
+  profile: development
+  logLevel: DEBUG
+lab:
+  sizes:
+    small:
+      cpu: 1.0
+      memory: 3Gi
+  volumes:
+    - containerPath: /home
+      mode: rw
+      source:
+        type: nfs
+        server: 10.13.105.122
+        serverPath: /share1/home
+    - containerPath: /project
+      mode: ro
+      source:
+        type: hostPath
+        path: /share1/project
+    - containerPath: /scratch
+      mode: rw
+      source:
+        type: persistentVolumeClaim
+        storageClassName: sdf-home
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 1Gi
+images:
+  source:
+    type: docker
+    registry: lighthouse.ceres
+    repository: library/sketchbook
+  recommendedTag: recommended
+  numReleases: 1
+  numWeeklies: 2
+  numDailies: 3
+fileserver:
+  enabled: true
+  namespace: fileservers
+  image: ghcr.io/lsst-sqre/worblehat
+

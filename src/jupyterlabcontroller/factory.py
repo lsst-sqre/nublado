@@ -18,6 +18,7 @@ from .config import Config
 from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
 from .services.builder import LabBuilder
+from .services.fileserver import FileserverStateManager
 from .services.form import FormManager
 from .services.image import ImageService
 from .services.lab import LabManager
@@ -63,6 +64,9 @@ class ProcessContext:
     lab_state: LabStateManager
     """State management for user lab pods."""
 
+    fileserver_state: FileserverStateManager
+    """State management for user fileservers."""
+
     @classmethod
     async def from_config(cls, config: Config) -> Self:
         """Create a new process context from the controller configuration.
@@ -89,6 +93,7 @@ class ProcessContext:
             kubernetes_client=kubernetes_client,
             timeout=KUBERNETES_REQUEST_TIMEOUT,
             spawn_timeout=config.lab.spawn_timeout,
+            fileserver_creation_timeout=config.fileserver.creation_timeout,
             logger=logger,
         )
 
@@ -124,7 +129,6 @@ class ProcessContext:
             slack_client=slack_client,
             logger=logger,
         )
-
         return cls(
             config=config,
             http_client=http_client,
@@ -146,6 +150,11 @@ class ProcessContext:
                 slack_client=slack_client,
                 logger=logger,
             ),
+            fileserver_state=FileserverStateManager(
+                logger=logger,
+                config=config,
+                kubernetes=k8s_client,
+            ),
         )
 
     async def aclose(self) -> None:
@@ -157,6 +166,8 @@ class ProcessContext:
         await self.image_service.start()
         await self.prepuller.start()
         await self.lab_state.start()
+        if self.config.fileserver.enabled:
+            await self.fileserver_state.start()
 
     async def stop(self) -> None:
         """Clean up a process context.
@@ -164,6 +175,8 @@ class ProcessContext:
         Called during shutdown, or before recreating the process context using
         a different configuration.
         """
+        if self.config.fileserver.enabled:
+            await self.fileserver_state.stop()
         await self.prepuller.stop()
         await self.image_service.stop()
         await self.lab_state.stop()
@@ -295,13 +308,15 @@ class Factory:
         Returns
         -------
         LabManager
-            Newly-creted lab manager.
+            Newly-created lab manager.
         """
         size_manager = self.create_size_manager()
+        config = self._context.config
         k8s_client = K8sStorageClient(
             kubernetes_client=self._context.kubernetes_client,
             timeout=KUBERNETES_REQUEST_TIMEOUT,
-            spawn_timeout=self._context.config.lab.spawn_timeout,
+            spawn_timeout=config.lab.spawn_timeout,
+            fileserver_creation_timeout=config.fileserver.creation_timeout,
             logger=self._logger,
         )
         return LabManager(

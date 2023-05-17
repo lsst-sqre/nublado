@@ -150,6 +150,7 @@ async def test_lab_start_stop(
         "quota": {"api": {}, "notebook": {"cpu": 9.0, "memory": 27.0}},
         "resources": expected_resources.dict(),
         "status": "running",
+        "token": "token-of-affection",
         "uid": user.uid,
         "username": user.username,
     }
@@ -175,7 +176,7 @@ async def test_lab_start_stop(
     }
 
     # Change the pod phase. This should throw the lab into a failed state.
-    name = f"nb-{user.username}"
+    name = f"{user.username}-nb"
     namespace = f"userlabs-{user.username}"
     pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
     pod.status.phase = KubernetesPodPhase.FAILED.value
@@ -229,7 +230,7 @@ async def test_spawn_after_failure(
     )
 
     # Change the pod phase. This should throw the lab into a failed state.
-    name = f"nb-{user.username}"
+    name = f"{user.username}-nb"
     namespace = f"userlabs-{user.username}"
     pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
     pod.status.phase = KubernetesPodPhase.FAILED.value
@@ -300,7 +301,7 @@ async def test_delayed_spawn(
 
     # Add a few events.
     namespace = f"userlabs-{user.username}"
-    name = f"nb-{user.username}"
+    name = f"{user.username}-nb"
     await mock_kubernetes.read_namespaced_pod(name, namespace)
     event = CoreV1Event(
         metadata=V1ObjectMeta(name=f"{name}-1", namespace=namespace),
@@ -540,40 +541,56 @@ async def test_spawn_errors(
     # failure is caught, results in a correct failure event with a correct
     # message, and leaves the lab in a failed state.
     possible_errors = [
-        ("create_namespace", "creating user namespace", "userlabs-rachel"),
+        (
+            "create_namespace",
+            "creating user namespace",
+            "userlabs-rachel",
+            "Namespace",
+        ),
         (
             "read_namespaced_secret",
             "reading secret",
             "userlabs/nublado-secret",
+            "Secret",
         ),
         (
             "create_namespaced_secret",
             "creating secret",
-            "userlabs-rachel/nb-rachel",
+            "userlabs-rachel/rachel-nb",
+            "Secret",
         ),
         (
             "create_namespaced_config_map",
             "creating config map",
-            "userlabs-rachel/nb-rachel-nss",
+            "userlabs-rachel/rachel-nb-nss",
+            "ConfigMap",
         ),
         (
             "create_namespaced_network_policy",
             "creating network policy",
-            "userlabs-rachel/nb-rachel-env",
+            "userlabs-rachel/rachel-nb-env",
+            "NetworkPolicy",
         ),
         (
             "create_namespaced_resource_quota",
             "creating resource quota",
-            "userlabs-rachel/nb-rachel",
+            "userlabs-rachel/rachel-nb",
+            "ResourceQuota",
         ),
         (
             "create_namespaced_service",
             "creating service",
             "userlabs-rachel/lab",
+            "Service",
         ),
-        ("create_namespaced_pod", "creating pod", "userlabs-rachel/nb-rachel"),
+        (
+            "create_namespaced_pod",
+            "creating pod",
+            "userlabs-rachel/rachel-nb",
+            "Pod",
+        ),
     ]
-    for api, error, obj in possible_errors:
+    for api, error, obj, kind in possible_errors:
         apis_to_fail = {api}
         r = await client.post(
             f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -622,7 +639,7 @@ async def test_spawn_errors(
                                 "verbatim": True,
                             },
                             {
-                                "text": f"*Object*\n{obj}",
+                                "text": f"*Object*\n[{kind}] {obj}",
                                 "type": "mrkdwn",
                                 "verbatim": True,
                             },

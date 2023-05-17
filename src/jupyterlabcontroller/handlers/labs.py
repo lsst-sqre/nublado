@@ -6,13 +6,14 @@ from safir.slack.webhook import SlackRouteErrorHandler
 from sse_starlette import EventSourceResponse
 
 from ..dependencies.context import RequestContext, context_dependency
+from ..dependencies.user import user_dependency
 from ..exceptions import (
     InvalidDockerReferenceError,
     PermissionDeniedError,
     UnknownDockerImageError,
     UnknownUserError,
 )
-from ..models.v1.lab import LabSpecification, UserLabState
+from ..models.v1.lab import LabSpecification, UserInfo, UserLabState
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
@@ -68,16 +69,15 @@ async def post_new_lab(
     response: Response,
     x_auth_request_token: str = Header(..., include_in_schema=False),
     context: RequestContext = Depends(context_dependency),
+    user: UserInfo = Depends(user_dependency),
 ) -> None:
-    gafaelfawr_client = context.factory.create_gafaelfawr_client()
-    user = await gafaelfawr_client.get_user_info(x_auth_request_token)
-    if user.username != username:
-        raise PermissionDeniedError("Permission denied")
     context.rebind_logger(user=username)
-
-    # The user is valid. Attempt the lab creation.
+    if username != user.username:
+        raise PermissionDeniedError("Permission denied")
+    # The user is valid and matches the route. Attempt the lab creation.
     lab_manager = context.factory.create_lab_manager()
     try:
+        # FIXME User now includes x_auth_request_token
         await lab_manager.create_lab(user, x_auth_request_token, lab)
     except (InvalidDockerReferenceError, UnknownDockerImageError) as e:
         e.location = ErrorLocation.body
