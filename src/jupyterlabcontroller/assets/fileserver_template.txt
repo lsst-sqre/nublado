@@ -13,11 +13,9 @@ Your <a href="{base_url}/files/{username}">fileserver</a> is ready.
 Access Token
 </h2>
 
-<p>
-If you do not have an access token, go to <a
-href="{base_url}/auth/tokens/">the Gafaelfawr tokens
-page</a> and press the "Create Token" button.
-</p>
+<p> If you do not have an access token, go to <a
+href="{base_url}/auth/tokens/">the Gafaelfawr tokens page</a> and press
+the "Create Token" button.  </p>
 
 <p>
 Give that token a name, such as "fileserver", the "exec:notebook" scope,
@@ -49,11 +47,11 @@ almost any Unix-like system and will work.
 <p>
 Connect to
 <a href="{base_url}/files/{username}">{base_url}/files/{username}</a>
-with your WebDAV client (for Konqueror, use "webdavs" rather than
-"https" as the protocol).  Use the token you acquired earlier as the
-password.  You can use any string for your username (since the token
-belongs to you, it identifies you), but "{username}" would be both
-accurate and traditional.
+with your WebDAV client (for Konqueror, use "webdav" or "webdavs" rather
+than "http" or "https" as the protocol).  Use the token you acquired
+earlier as the password.  You can use any string for your username
+(since the token belongs to you, it identifies you), but "{username}"
+would be both accurate and traditional.
 </p>
 
 <p>

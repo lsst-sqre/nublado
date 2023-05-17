@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from kubernetes_asyncio.client import (
     V1HostPathVolumeSource,
     V1NFSVolumeSource,
+    V1PersistentVolumeClaimVolumeSource,
     V1Volume,
     V1VolumeMount,
 )
 
-from ..config import FileMode, LabConfig, LabVolume
+from ..config import (
+    FileMode,
+    HostPathVolumeSource,
+    LabConfig,
+    LabVolume,
+    NFSVolumeSource,
+    PVCVolumeSource,
+)
 from ..models.domain.lab import LabVolumeContainer
 
 __all__ = ["LabBuilder"]
@@ -124,57 +130,40 @@ class LabBuilder:
         return f"{self._config.namespace_prefix}-{username}"
 
     def build_lab_config_volumes(
-        self, prefix: str = "", config: Optional[list[LabVolume]] = None
+        self, username: str, config: list[LabVolume], prefix: str = ""
     ) -> list[LabVolumeContainer]:
-        """Construct LabVolumeContainers for a specified list of LabVolumes
-
-        Parameters
-        ----------
-        prefix
-            Path to prepend to Lab volumes (defaults to the empty string)
-        config
-            List of LabVolumes.  Optional, defaults to what's specified in
-            the Lab configuration
-
-        Returns
-        -------
-        list[LabVolumeContainer]
-            LabVolumeContainers for attaching to a Pod
-        """
-        # We provide prefix for the use of the fileserver: because a WebDAV
-        # client must have a single endpoint, we aggregate the volume mounts
-        # in the fileserver pod under a single prefix, and export that prefix
-        # as the WebDAV endpoint.  There's no such requirement in Lab pods,
-        # which are going to mount filesystems all over the place.
         #
-        # We allow specification of the config so we can build initContainers,
-        # which might only have a subset of the Lab volumes
+        # Step one: disks specified in config, whether for the lab itself
+        # or one of its init containers.
         #
-        # The default is to use the Lab volumes from the configuration
-        if config is None:
-            input_volumes = self._config.volumes
-        else:
-            input_volumes = config
         vols = []
-        for storage in input_volumes:
-            ro = False
-            if storage.mode == FileMode.RO:
-                ro = True
+        pvc = 1
+        for storage in config:
+            ro = storage.mode == FileMode.RO
             vname = storage.container_path.replace("/", "_")[1:]
-            if not storage.server:
-                vol = V1Volume(
-                    host_path=V1HostPathVolumeSource(path=storage.server_path),
-                    name=vname,
-                )
-            else:
-                vol = V1Volume(
-                    nfs=V1NFSVolumeSource(
-                        path=storage.server_path,
+            match storage.source:
+                case HostPathVolumeSource() as source:
+                    vol = V1Volume(
+                        host_path=V1HostPathVolumeSource(path=source.path),
+                        name=vname,
+                    )
+                case NFSVolumeSource() as source:
+                    vol = V1Volume(
+                        nfs=V1NFSVolumeSource(
+                            path=source.server_path,
+                            read_only=ro,
+                            server=source.server,
+                        ),
+                        name=vname,
+                    )
+                case PVCVolumeSource():
+                    pvc_name = f"nb-{username}-pvc-{pvc}"
+                    pvc += 1
+                    claim = V1PersistentVolumeClaimVolumeSource(
+                        claim_name=pvc_name,
                         read_only=ro,
-                        server=storage.server,
-                    ),
-                    name=vname,
-                )
+                    )
+                    vol = V1Volume(persistent_volume_claim=claim, name=vname)
             vm = V1VolumeMount(
                 mount_path=prefix + storage.container_path,
                 read_only=ro,

@@ -26,7 +26,6 @@ from kubernetes_asyncio.client import (
     V1ObjectMeta,
     V1PersistentVolumeClaim,
     V1PersistentVolumeClaimSpec,
-    V1PersistentVolumeClaimVolumeSource,
     V1PodSecurityContext,
     V1PodSpec,
     V1ResourceFieldSelector,
@@ -40,14 +39,7 @@ from kubernetes_asyncio.client import (
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
-from ..config import (
-    FileMode,
-    HostPathVolumeSource,
-    LabConfig,
-    LabVolume,
-    NFSVolumeSource,
-    PVCVolumeSource,
-)
+from ..config import LabConfig, PVCVolumeSource
 from ..models.domain.docker import DockerReference
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.rspimage import RSPImage
@@ -306,7 +298,7 @@ class LabManager:
         for volume in self.lab_config.volumes:
             if not isinstance(volume.source, PVCVolumeSource):
                 continue
-            name = f"nb-{username}-pvc-{len(pvcs) + 1}"
+            name = f"{username}-nb-pvc-{len(pvcs) + 1}"
             pvc = V1PersistentVolumeClaim(
                 metadata=V1ObjectMeta(name=name),
                 spec=V1PersistentVolumeClaimSpec(
@@ -491,58 +483,12 @@ class LabManager:
             namespace=self._builder.namespace_for_user(user.username),
             pod_spec=pod_spec,
             annotations={
-                "nublado.lsst.io/display-name": user.name,
+                "nublado.lsst.io/user-name": user.name,
                 "nublado.lsst.io/user-groups": serialized_groups,
             },
             username=user.username,
         )
 
-<<<<<<< HEAD
-    def build_lab_config_volumes(
-        self, username: str, config: list[LabVolume]
-    ) -> list[LabVolumeContainer]:
-        #
-        # Step one: disks specified in config, whether for the lab itself
-        # or one of its init containers.
-        #
-        vols = []
-        pvc = 1
-        for storage in config:
-            ro = storage.mode == FileMode.RO
-            vname = storage.container_path.replace("/", "_")[1:]
-            match storage.source:
-                case HostPathVolumeSource() as source:
-                    vol = V1Volume(
-                        host_path=V1HostPathVolumeSource(path=source.path),
-                        name=vname,
-                    )
-                case NFSVolumeSource() as source:
-                    vol = V1Volume(
-                        nfs=V1NFSVolumeSource(
-                            path=source.server_path,
-                            read_only=ro,
-                            server=source.server,
-                        ),
-                        name=vname,
-                    )
-                case PVCVolumeSource():
-                    pvc_name = f"nb-{username}-pvc-{pvc}"
-                    pvc += 1
-                    claim = V1PersistentVolumeClaimVolumeSource(
-                        claim_name=pvc_name,
-                        read_only=ro,
-                    )
-                    vol = V1Volume(persistent_volume_claim=claim, name=vname)
-            vm = V1VolumeMount(
-                mount_path=storage.container_path,
-                read_only=ro,
-                name=vname,
-            )
-            vols.append(LabVolumeContainer(volume=vol, volume_mount=vm))
-        return vols
-
-=======
->>>>>>> 965262c (Begin addressing PR commentary)
     def build_cm_volumes(self, username: str) -> list[LabVolumeContainer]:
         #
         # Step three: other configmap files
@@ -715,13 +661,9 @@ class LabManager:
         """
         # Begin with the /tmp empty_dir
         vols = []
-<<<<<<< HEAD
-        lab_config_vols = self.build_lab_config_volumes(
+        lab_config_vols = self._builder.build_lab_config_volumes(
             username, self.lab_config.volumes
         )
-=======
-        lab_config_vols = self._builder.build_lab_config_volumes()
->>>>>>> 965262c (Begin addressing PR commentary)
         vols.extend(lab_config_vols)
         cm_vols = self.build_cm_volumes(username=username)
         vols.extend(cm_vols)
@@ -743,13 +685,8 @@ class LabManager:
         ic_volumes = []
         for ic in self.lab_config.init_containers:
             if ic.volumes is not None:
-<<<<<<< HEAD
-                ic_volumes = self.build_lab_config_volumes(
-                    user.username, ic.volumes
-=======
                 ic_volumes = self._builder.build_lab_config_volumes(
-                    config=ic.volumes
->>>>>>> 965262c (Begin addressing PR commentary)
+                    user.username, ic.volumes
                 )
             ic_vol_mounts = [x.volume_mount for x in ic_volumes]
             if ic.privileged:

@@ -247,11 +247,13 @@ class FileserverStateManager:
         V1PodSpec
             Kubernetes pod specification for that user's fileserver pod.
         """
-        volume_data = self._builder.build_lab_config_volumes(prefix="/mnt")
+        username = user.username
+        volume_data = self._builder.build_lab_config_volumes(
+            username, self._config.lab.volumes, prefix="/mnt"
+        )
         volumes = [v.volume for v in volume_data]
         mounts = [v.volume_mount for v in volume_data]
         resource_data = self._build_fileserver_resources()
-        username = user.username
         # Additional environment variables to set.
         env = [
             V1EnvVar(

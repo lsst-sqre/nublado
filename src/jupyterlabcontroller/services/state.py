@@ -731,9 +731,7 @@ class LabStateManager:
             internal_url = self._builder.build_internal_url(username, env)
             return UserLabState(
                 username=username,
-                name=pod.metadata.annotations.get(
-                    "nublado.lsst.io/display-name"
-                ),
+                name=pod.metadata.annotations.get("nublado.lsst.io/user-name"),
                 uid=lab_container.security_context.run_as_user,
                 gid=lab_container.security_context.run_as_group,
                 groups=self._recreate_groups(pod),

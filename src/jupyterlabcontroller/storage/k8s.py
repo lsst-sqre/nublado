@@ -835,7 +835,7 @@ class K8sStorageClient:
     ) -> None:
         for pvc in pvcs:
             name = pvc.metadata.name
-            pvc.metadata = self._standard_metadata(name)
+            pvc.metadata = self.standard_metadata(name, namespace)
             try:
                 await self.api.create_namespaced_persistent_volume_claim(
                     namespace, pvc
