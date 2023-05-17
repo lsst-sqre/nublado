@@ -29,9 +29,10 @@ async def test_start(spawner: RSPRestSpawner) -> None:
     user = spawner.user.name
     assert await spawner.start() == f"http://lab.nublado-{user}:8888"
 
-    # Calling start again while it is running will return a 409, but then the
-    # status endpoint should return the existing running lab, resulting in the
-    # same apparent behavior.
+    # Calling start again while it is running will return a 409, which should
+    # trigger deletion of the lab followed by its recreation. This turns into
+    # the same apparent behavior at the API level. (The details of this are
+    # tested later.)
     assert await spawner.start() == f"http://lab.nublado-{user}:8888"
 
 
@@ -83,6 +84,29 @@ async def test_progress(spawner: RSPRestSpawner) -> None:
     await spawner.start()
     user = spawner.user.name
     expected = [
+        {"progress": 2, "message": "[info] Lab creation initiated"},
+        {"progress": 45, "message": "[info] Pod requested"},
+        {
+            "progress": 75,
+            "message": f"[info] Pod successfully spawned for {user}",
+        },
+    ]
+    index = 0
+    async for message in spawner.progress():
+        assert message == expected[index]
+        index += 1
+    assert index == len(expected)
+
+
+@pytest.mark.asyncio
+async def test_progress_conflict(spawner: RSPRestSpawner) -> None:
+    await spawner.start()
+
+    # Start it a second time, which should trigger deleting the old lab.
+    await spawner.start()
+    user = spawner.user.name
+    expected = [
+        {"progress": 1, "message": "[warning] Deleting existing orphaned lab"},
         {"progress": 2, "message": "[info] Lab creation initiated"},
         {"progress": 45, "message": "[info] Pod requested"},
         {
