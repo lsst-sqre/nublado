@@ -37,7 +37,7 @@ function selectDropdown() {
     <label for="{{ dropdown_sentinel }}">
       Select uncached image (slower start):
     </label><br />
-    <select name="image_dropdown" onclick="selectDropdown()">
+    <select name="image_dropdown" onchange="selectDropdown()">
 {% for i in all_images -%}
         <option value="{{ i.reference }}">{{ i.name }}</option>
 {% endfor %}

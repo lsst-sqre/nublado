@@ -34,7 +34,7 @@ function selectDropdown() {
     <label for="use_image_from_dropdown">
       Select uncached image (slower start):
     </label><br />
-    <select name="image_dropdown" onclick="selectDropdown()">
+    <select name="image_dropdown" onchange="selectDropdown()">
 <option value="lighthouse.ceres/library/sketchbook:recommended@sha256:5678">Recommended (Weekly 2077_43)</option>
 <option value="lighthouse.ceres/library/sketchbook:w_2077_43@sha256:5678">Weekly 2077_43</option>
 <option value="lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234">Daily 2077_10_23</option>
