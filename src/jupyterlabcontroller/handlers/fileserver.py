@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
@@ -60,8 +60,6 @@ async def route_user(
     context: RequestContext = Depends(context_dependency),
     config: Config = Depends(configuration_dependency),
     user: UserInfo = Depends(user_dependency),
-    x_auth_request_user: str = Header(..., include_in_schema=False),
-    x_auth_request_token: str = Header(..., include_in_schema=False),
 ) -> str:
     username = user.username
     context.rebind_logger(user=username)

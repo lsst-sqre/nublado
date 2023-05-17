@@ -395,13 +395,6 @@ class FileserverStateManager:
             await self._k8s_client.wait_for_fileserver_object_deletion(
                 username, namespace
             )
-        try:
-            del self._lock[username]
-        except KeyError:
-            # It seems the context manager removes the dict entry when
-            # the lock is finished.  I would have expected it to become
-            # None, but I guess it's not an optional value, so... huh.
-            pass
 
     async def list(self) -> list[str]:
         return await self._user_map.list()

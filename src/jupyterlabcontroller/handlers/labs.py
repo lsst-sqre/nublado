@@ -71,9 +71,9 @@ async def post_new_lab(
     context: RequestContext = Depends(context_dependency),
     user: UserInfo = Depends(user_dependency),
 ) -> None:
+    context.rebind_logger(user=username)
     if username != user.username:
         raise PermissionDeniedError("Permission denied")
-    context.rebind_logger(user=username)
     # The user is valid and matches the route. Attempt the lab creation.
     lab_manager = context.factory.create_lab_manager()
     try:
