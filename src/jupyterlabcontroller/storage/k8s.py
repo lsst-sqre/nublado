@@ -627,11 +627,12 @@ class K8sStorageClient:
         if category == "fileserver":
             argo_app = "fileservers"
         elif category == "prepuller":
-            argo_app = namespace or "prepuller"
+            argo_app = ""
         labels = {
-            "argocd.argoproj.io/instance": argo_app,
             "nublado.lsst.io/category": category,
         }
+        if argo_app:
+            labels["argocd.argoproj.io/instance"] = argo_app
         if username:
             labels["nublado.lsst.io/user"] = username
         annotations = {
