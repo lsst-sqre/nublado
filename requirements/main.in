@@ -21,7 +21,7 @@ jinja2
 PyYAML
 # safir[kubernetes]>=4.2.0
 semver
-sse-starlette
+sse-starlette!=1.6.1
 
 # Uncomment this, change the branch, comment out safir above, and run make
 # update-deps-no-hashes to test against an unreleased version of Safir.
