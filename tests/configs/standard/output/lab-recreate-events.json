@@ -1,0 +1,38 @@
+[
+  {
+    "data": "{\"message\": \"Starting lab creation for rachel\", \"progress\": 1}",
+    "event": "info"
+  },
+  {
+    "data": "{\"message\": \"Deleting existing failed lab for rachel\", \"progress\": 2}",
+    "event": "info"
+  },
+  {
+    "data": "{\"message\": \"Shutting down Kubernetes pod\", \"progress\": 3}",
+    "event": "info"
+  },
+  {
+    "data": "{\"message\": \"Deleting user namespace\", \"progress\": 6}",
+    "event": "info"
+  },
+  {
+    "data": "{\"message\": \"Lab for rachel deleted\", \"progress\": 9}",
+    "event": "info"
+  },
+  {
+    "data": "{\"message\": \"Created user namespace\", \"progress\": 10}",
+    "event": "info"
+  },
+  {
+    "data": "{\"message\": \"Created Kubernetes resources for lab\", \"progress\": 25}",
+    "event": "info"
+  },
+  {
+    "data": "{\"message\": \"Requested lab Kubernetes pod\", \"progress\": 30}",
+    "event": "info"
+  },
+  {
+    "data": "{\"message\": \"Lab Kubernetes pod started for rachel\"}",
+    "event": "complete"
+  }
+]

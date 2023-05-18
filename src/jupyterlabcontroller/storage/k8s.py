@@ -13,6 +13,7 @@ from kubernetes_asyncio.client import (
     ApiClient,
     ApiException,
     V1ConfigMap,
+    V1DeleteOptions,
     V1Ingress,
     V1Job,
     V1LabelSelector,
@@ -1052,7 +1053,13 @@ class K8sStorageClient:
             )
             raise TimeoutError(msg)
 
-    async def delete_pod(self, name: str, namespace: str) -> None:
+    async def delete_pod(
+        self,
+        name: str,
+        namespace: str,
+        *,
+        grace_period: timedelta | None = None,
+    ) -> None:
         """Delete a pod.
 
         Parameters
@@ -1061,6 +1068,10 @@ class K8sStorageClient:
             Name of the pod.
         namespace
             Namespace of the pod.
+        grace_period
+            How long to tell Kubernetes to wait between sending SIGTERM and
+            sending SIGKILL to the pod process. The default if no grace period
+            is set is 30s as of Kubernetes 1.27.1.
 
         Raises
         ------
@@ -1068,7 +1079,19 @@ class K8sStorageClient:
             Raised if there is a Kubernetes API error.
         """
         try:
-            await self.api.delete_namespaced_pod(name, namespace)
+            if grace_period:
+                grace = int(grace_period.total_seconds())
+
+                # It's not clear whether the grace period has to be specified
+                # in both the delete options body and as a query parameter,
+                # but kubespawner sets both, so we'll do the same. I suspect
+                # that only one or the other is needed.
+                options = V1DeleteOptions(grace_period_seconds=grace)
+                await self.api.delete_namespaced_pod(
+                    name, namespace, body=options, grace_period_seconds=grace
+                )
+            else:
+                await self.api.delete_namespaced_pod(name, namespace)
         except ApiException as e:
             if e.status == 404:
                 return
