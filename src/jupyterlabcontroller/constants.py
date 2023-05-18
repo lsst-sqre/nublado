@@ -37,6 +37,17 @@ action, such as labs being terminated by Kubernetes node replacements or
 upgrades.
 """
 
+LAB_STOP_GRACE_PERIOD = timedelta(seconds=1)
+"""How long to wait for a lab to shut down before SIGKILL.
+
+Ideally we would let the lab shut down gracefully after SIGTERM with a longer
+delay than this, but when we tried to do that in practice, a web browser open
+to the lab spammed alert messages about missing files, presumably from the
+JavaScript calls to the lab failing. Kubespawner uses a grace period of 1s and
+appears to assume the lab will not do anything useful in repsonse to SIGTERM,
+so copy its behavior.
+"""
+
 METADATA_PATH = Path("/etc/podinfo")
 """Default path to injected pod metadata."""
 

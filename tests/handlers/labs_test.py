@@ -27,6 +27,7 @@ from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
 
 from ..settings import TestObjectFactory
 from ..support.constants import TEST_BASE_URL
+from ..support.data import read_output_data
 
 
 async def get_lab_events(
@@ -232,8 +233,17 @@ async def test_spawn_after_failure(
     # Change the pod phase. This should throw the lab into a failed state.
     name = f"{user.username}-nb"
     namespace = f"userlabs-{user.username}"
-    pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
-    pod.status.phase = KubernetesPodPhase.FAILED.value
+    await mock_kubernetes.patch_namespaced_pod_status(
+        name,
+        namespace,
+        [
+            {
+                "op": "replace",
+                "path": "/status/phase",
+                "value": KubernetesPodPhase.FAILED.value,
+            }
+        ],
+    )
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
     assert r.json()["status"] == "failed"
@@ -256,13 +266,8 @@ async def test_spawn_after_failure(
     assert pod.status.phase == KubernetesPodPhase.RUNNING.value
 
     # Get the events and look for the lab recreation events.
-    r = await client.get(
-        f"/nublado/spawner/v1/labs/{user.username}/events",
-        headers={"X-Auth-Request-User": user.username},
-    )
-    assert r.status_code == 200
-    assert f"Deleting existing failed lab for {user.username}" in r.text
-    assert f"Deleting namespace for {user.username}" in r.text
+    expected_events = read_output_data("standard", "lab-recreate-events.json")
+    assert await get_lab_events(client, user.username) == expected_events
 
 
 @pytest.mark.asyncio
@@ -338,7 +343,7 @@ async def test_delayed_spawn(
     # The listeners should now complete successfully and we should see
     # appropriate events.
     event_lists = await asyncio.gather(*listeners)
-    with (std_result_dir / "pod-events.json").open("r") as f:
+    with (std_result_dir / "lab-spawn-events.json").open("r") as f:
         expected_events = json.load(f)
     expected_events = (
         expected_events[:-1]

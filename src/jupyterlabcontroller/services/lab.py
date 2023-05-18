@@ -40,6 +40,7 @@ from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..config import LabConfig, PVCVolumeSource
+from ..constants import LAB_STOP_GRACE_PERIOD
 from ..models.domain.docker import DockerReference
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.rspimage import RSPImage
@@ -889,9 +890,16 @@ class LabManager:
         end_progress
             Final progress percentage.
         """
+        pod = f"{username}-nb"
         namespace = self._builder.namespace_for_user(username)
-        message = f"Deleting namespace for {username}"
+        message = "Shutting down Kubernetes pod"
         await self._lab_state.publish_event(username, message, start_progress)
+        await self.k8s_client.delete_pod(
+            pod, namespace, grace_period=LAB_STOP_GRACE_PERIOD
+        )
+        message = "Deleting user namespace"
+        progress = start_progress + int((end_progress - start_progress) / 2)
+        await self._lab_state.publish_event(username, message, progress)
         await self.k8s_client.delete_namespace(namespace)
         await self.k8s_client.wait_for_namespace_deletion(namespace)
         message = f"Lab for {username} deleted"
