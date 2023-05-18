@@ -11,7 +11,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Optional, ParamSpec, TypeVar
 
-from httpx import AsyncClient, HTTPError
+from httpx import AsyncClient, HTTPError, Response
 from httpx_sse import ServerSentEvent, aconnect_sse
 from jupyterhub.spawner import Spawner
 from traitlets import Unicode, default
@@ -451,26 +451,25 @@ class RSPRestSpawner(Spawner):
         # Ask the Nublado lab controller to do the spawn and monitor its
         # progress until complete.
         try:
-            r = await self._client.post(
-                self._controller_url("labs", self.user.name, "create"),
-                headers=await self._user_authorization(),
-                json={
-                    "options": self.options_from_form(self.user_options),
-                    "env": self.get_env(),
-                },
-                timeout=self.start_timeout,
-            )
+            r = await self._create_lab()
 
-            # 409 (Conflict) indicates the user already has a running pod. See
-            # if it really is running, and if so, return its URL.
+            # 409 (Conflict) indicates the user already has a running pod.
+            # Ideally, we would reuse the running pod, but unfortunately at
+            # this point JupyterHub has already invalidated its OpenID Connect
+            # credentials, so we'll be unable to talk to it. We therefore have
+            # to delete it and recreate it.
             if r.status_code == 409:
                 event = SpawnEvent(
-                    progress=75, message="Lab already running", severity="info"
+                    progress=1,
+                    message="Deleting existing orphaned lab",
+                    severity="warning",
                 )
                 self._events.append(event)
-                return await self._get_internal_url()
-            else:
-                r.raise_for_status()
+                await self.stop()
+                r = await self._create_lab()
+
+            # Any remaining errors should fail lab creation with an exception.
+            r.raise_for_status()
 
             # The spawn is now in progress. Monitor the events endpoint until
             # we get a completion or failure event.
@@ -534,6 +533,29 @@ class RSPRestSpawner(Spawner):
             URL to the lab controller using the configured base URL.
         """
         return self.controller_url + "/spawner/v1/" + "/".join(components)
+
+    async def _create_lab(self) -> Response:
+        """Send the request to create the lab.
+
+        Returns
+        -------
+        httpx.Response
+            Response from the Nublado lab controller.
+
+        Raises
+        ------
+        httpx.HTTPError
+            Raised if the call to the Nublado lab controller failed.
+        """
+        return await self._client.post(
+            self._controller_url("labs", self.user.name, "create"),
+            headers=await self._user_authorization(),
+            json={
+                "options": self.options_from_form(self.user_options),
+                "env": self.get_env(),
+            },
+            timeout=self.start_timeout,
+        )
 
     async def _get_internal_url(self) -> str:
         """Get the cluster-internal URL of a user's pod.
