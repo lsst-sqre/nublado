@@ -159,6 +159,33 @@
   },
   {
     "api_version": "v1",
+    "kind": "PersistentVolumeClaim",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "argocd.argoproj.io/instance": "nublado-users",
+        "nublado.lsst.io/category": "lab"
+      },
+      "name": "rachel-nb-pvc-2",
+      "namespace": "userlabs-rachel"
+    },
+    "spec": {
+      "access_modes": [
+        "ReadWriteMany"
+      ],
+      "resources": {
+        "requests": {
+          "storage": "1Gi"
+        }
+      },
+      "storage_class_name": "sdf-home"
+    }
+  },
+  {
+    "api_version": "v1",
     "kind": "Pod",
     "metadata": {
       "annotations": {
@@ -266,6 +293,12 @@
               "mount_path": "/scratch",
               "name": "scratch",
               "read_only": false
+            },
+            {
+              "mount_path": "/temporary",
+              "name": "temporary",
+              "read_only": false,
+              "sub_path": "temporary"
             },
             {
               "mount_path": "/etc/passwd",
@@ -401,6 +434,13 @@
           "name": "scratch",
           "persistent_volume_claim": {
             "claim_name": "nb-rachel-pvc-1",
+            "read_only": false
+          }
+        },
+        {
+          "name": "temporary",
+          "persistent_volume_claim": {
+            "claim_name": "nb-rachel-pvc-2",
             "read_only": false
           }
         },

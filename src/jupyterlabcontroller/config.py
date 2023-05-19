@@ -174,6 +174,11 @@ class LabVolume(CamelCaseModel):
         title="Absolute path of the volume mounted inside the Lab container",
         regex="^/.*",
     )
+    sub_path: str | None = Field(
+        None,
+        example="groups",
+        title="Mount only this subpath of the volume source",
+    )
     mode: FileMode = Field(
         FileMode.RW,
         example="ro",
