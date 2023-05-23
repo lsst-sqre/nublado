@@ -176,6 +176,17 @@ lab:
         resources:
           requests:
             storage: 1Gi
+    - containerPath: /temporary
+      subPath: temporary
+      mode: rw
+      source:
+        type: persistentVolumeClaim
+        storageClassName: sdf-home
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 1Gi
 fileserver:
   image: docker.io/lsstsqre/worblehat
   tag: ajt-dev

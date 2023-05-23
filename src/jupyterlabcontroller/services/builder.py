@@ -166,6 +166,7 @@ class LabBuilder:
                     vol = V1Volume(persistent_volume_claim=claim, name=vname)
             vm = V1VolumeMount(
                 mount_path=prefix + storage.container_path,
+                sub_path=storage.sub_path,
                 read_only=ro,
                 name=vname,
             )
