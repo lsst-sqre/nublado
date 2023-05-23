@@ -9,7 +9,7 @@ from datetime import timedelta
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Any, Optional, ParamSpec, TypeVar
+from typing import Any, Concatenate, Optional, ParamSpec, TypeVar
 
 from httpx import AsyncClient, HTTPError, Response
 from httpx_sse import ServerSentEvent, aconnect_sse
@@ -109,15 +109,22 @@ class SpawnEvent:
 
 
 def _convert_exception(
-    f: Callable[P, Coroutine[None, None, T]]
-) -> Callable[P, Coroutine[None, None, T]]:
+    f: Callable[Concatenate[RSPRestSpawner, P], Coroutine[None, None, T]]
+) -> Callable[Concatenate[RSPRestSpawner, P], Coroutine[None, None, T]]:
     """Convert ``httpx`` exceptions to `ControllerWebError`."""
 
     @wraps(f)
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+    async def wrapper(
+        spawner: RSPRestSpawner, *args: P.args, **kwargs: P.kwargs
+    ) -> T:
         try:
-            return await f(*args, **kwargs)
+            return await f(spawner, *args, **kwargs)
         except HTTPError as e:
+            # JupyterHub appears to swallow the backtrace of the original
+            # exception even though we reference it in a from clause, so
+            # explicitly log the original exception before raising the
+            # translated one.
+            spawner.log.exception("Exception raised in REST spawner")
             raise ControllerWebError.from_exception(e) from e
 
     return wrapper
