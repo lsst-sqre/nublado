@@ -946,9 +946,9 @@ sniffio==1.3.0 \
     #   anyio
     #   httpcore
     #   httpx
-sse-starlette==1.6.0 \
-    --hash=sha256:14dfde4d5c8e319251655800c4efcae581b2283503ece3826a62d92975e997ff \
-    --hash=sha256:b9cb77cd61a686466105171090a050a42df45ff76d6034f6668b1bca7dba55fb
+sse-starlette==1.6.1 \
+    --hash=sha256:6208af2bd7d0887c92f1379da14bd1f4db56bd1274cc5d36670c683d2aa1de6a \
+    --hash=sha256:d8f18f1c633e355afe61cc5e9c92eea85badcb8b2d56ec8cfb0a006994aa55da
     # via -r requirements/main.in
 starlette==0.27.0 \
     --hash=sha256:6a6b0d042acb8d469a01eba54e9cda6cbd24ac602c4cd016723117d6a7e73b75 \
