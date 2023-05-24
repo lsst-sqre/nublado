@@ -10,3 +10,8 @@ The Nublado code structure follows the guidelines in :sqr:`072`.
    :caption: Architecture
 
    overview
+
+.. toctree::
+   :caption: Development
+
+   plan
