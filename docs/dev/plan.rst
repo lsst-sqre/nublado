@@ -7,17 +7,6 @@ This page documents known work required, planned, or proposed for Nublado as an 
 Before data.lsst.cloud deployment
 =================================
 
-Known bugs
-----------
-
-- The API currently leaks user Gafaelfawr tokens to admin API requests because of overloading of models.
-  Use separate models for talking to Gafaelfawr, for collecting user identity information when passing between internal objects, and when reporting lab status to the user.
-
-- If the Nublado controller is currently spawning or deleting a lab, when JupyterHub restarts, querying it for the URL of labs may raise an uncaught ``MissingFieldError``, which JupyterHub does not handle correctly.
-  It should fall back on the value recorded in its database.
-
-- The affected object in Kubernetes error Slack alerts should be in a block rather than a field (it's too long for a field).
-
 Documentation
 -------------
 
@@ -33,10 +22,6 @@ Operations
 
 Rollout
 -------
-
-- Add the required Vault secrets for Nublado v3 on USDF development.
-
-- Switch USDF development to Nublado v3.
 
 - Write the Phalanx configuration for Nublado v3 for data.lsst.cloud and USDF production.
 
@@ -62,7 +47,7 @@ Architectural changes
   Consider separate builder classes for labs, prepull pod, and file servers.
   Collect all name generation for objects into the builders.
   Use this to simplify the API to the Kubernetes storage layer: rather than a separate function to create or read each underlying Kubernetes object, create or retrieve all Kubernetes objects of interest for a lab, file server, or prepull pod in a single call with a domain model.
-  This reduces code duplication by allowing one exception handler for the entire method, as long as the current object being acted on is updated before each Kubernetes API call.
+  This reduces code duplication by allowing one exception handler for the entire method, as long as we use a variable holding the current object being acted on that is updated before each Kubernetes API call and is used in the exception handler to report which specific object caused problems.
 
 - The new Kubernetes watch layer looks like it could benefit from being reworked using inheritance so that it can expose a narrow API for specific operations on types of objects while still sharing code internally.
   Move it to a separate storage layer from the rest of the Kubernetes storage object, since it's conceptually a separate operation.
@@ -74,10 +59,15 @@ Architectural changes
   Making the user state object persistent even if they don't currently have a running lab will also reduce the risk of race conditions.
   The locking around multiple file server creation for a user should then move into the same structure.
 
+- Separate volumes from volume mounts, following Kubernetes, and give volumes names.
+  This will allow the same volume to be mounted multiple times and will clear up the problem where init containers appear to specify volumes but have to share them with the lab.
+  Verify that all volumes are used by either the lab or an init container and every volume references by the lab or init container exists.
+  Name PVCs after the human-chosen volume name (probably with a prefix) instead of autogenerating names.
+
 API changes
 -----------
 
-- Add more structure to the lab status rather than flattening user identity information, pod status, and lab specification into one flat object.
+- Add more structure to the lab status rather than flattening pod status and lab specification into one object.
 
 Known bugs
 ----------
@@ -132,9 +122,7 @@ Code cleanup
 
 - Switch all the tests over to the new utility functions for reading test data instead of using fixtures, which saves some cognitive complexity.
 
-- Add helper functions to manipulate pods (particularly pod status) and namespace events to reduce code duplication.
-
-- Now that the Gafaelfawr token is in the user model, it no longer needs to be passed separately to various methods in the lab service.
+- Add test helper functions to manipulate pods (particularly pod status) and namespace events in test cases to reduce code duplication.
 
 - Delete the unused template for ``GafaelfawrIngress``.
 
@@ -148,6 +136,8 @@ Code cleanup
 - Push titlecasing of lab sizes down into the form generation code, rather than exposting other parts of the code to it.
 
 - Move checking the user against the username in the path into a dependency to avoid repeating that code.
+
+- Move the multi-reader, multi-writer event stream implementation that is currently copied in the controller, the REST spawner, and the Kubernetes mock in Safir, into its own data type in Safir, and modify all the users to use that instead.
 
 Documentation
 -------------
@@ -224,12 +214,6 @@ API changes
 Configuration
 -------------
 
-- Rework volume configuration to allow the same volume to be mounted on multiple paths.
-  This is required by the USDF configuration, and currently can only be done by awkwardly creating duplicate PVCs for the same underlying volume.
-  Either follow Kubernetes and separate volumes from volume mounts, which unfortunately requires naming volumes to have a shared key, or make each entry in the volumes list support a list of container mounts instead of a single value.
-
-- Volume configuration for init containers shares volumes with the main lab containers, but this is not reflected in the configuration syntax.
-
 - Replace the ``rw`` and ``ro`` enum in volume configuration with a ``readOnly`` boolean flag.
   This has the same range of values but is more self-documenting and matches how Kubernetes thinks about volume mounts.
 
@@ -284,6 +268,8 @@ Code cleanup
 - Provide a cleaner way to construct a ``NodeImage`` from an ``RSPImage``.
 
 - Use ``importlib.resources`` to get the form template.
+
+- Switch to Ruff for linting.
 
 Minor changes
 -------------
