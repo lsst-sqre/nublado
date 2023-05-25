@@ -228,8 +228,21 @@ class RSPRestSpawner(Spawner):
         """
         try:
             return await self._get_internal_url()
+        except MissingFieldError:
+            # This is normal if the lab is currently being spawned or deleted
+            # when JupyterHub asks for its URL. Tell JupyterHub to use the
+            # stored URL.
+            msg = (
+                f"Lab for {self.user.name} has no URL (possibly still"
+                " spawning), falling back on stored URL"
+            )
+            self.log.info(msg)
+            return await super().get_url()
         except Exception:
-            msg = f"Unable to get URL of running lab for {self.user.name}"
+            msg = (
+                f"Unable to get URL of running lab for {self.user.name},"
+                " falling back on stored URL"
+            )
             self.log.exception(msg)
             return await super().get_url()
 
