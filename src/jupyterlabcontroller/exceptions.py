@@ -14,13 +14,16 @@ from safir.slack.blockkit import (
     SlackCodeBlock,
     SlackException,
     SlackMessage,
+    SlackTextBlock,
     SlackTextField,
 )
 from safir.slack.webhook import SlackIgnoredException
 
 __all__ = [
     "ClientRequestError",
+    "DisabledError",
     "DockerRegistryError",
+    "DuplicateObjectError",
     "GafaelfawrParseError",
     "GafaelfawrWebError",
     "InvalidDockerReferenceError",
@@ -31,7 +34,6 @@ __all__ = [
     "SlackWebException",
     "UnknownDockerImageError",
     "UnknownUserError",
-    "DisabledError",
 ]
 
 
@@ -351,10 +353,10 @@ class KubernetesError(SlackException):
         message: str,
         exc: ApiException,
         *,
-        namespace: Optional[str] = None,
-        name: Optional[str] = None,
         user: Optional[str] = None,
         kind: Optional[str] = None,
+        namespace: Optional[str] = None,
+        name: Optional[str] = None,
     ) -> Self:
         """Create an exception from a Kubernetes API exception.
 
@@ -364,14 +366,14 @@ class KubernetesError(SlackException):
             Brief explanation of what was being attempted.
         exc
             Kubernetes API exception.
+        user
+            User on whose behalf the operation was being performed.
+        kind
+            Kind of object being acted on.
         namespace
             Namespace of object being acted on.
         name
             Name of object being acted on.
-        kind
-            Kind of object being acted on.
-        user
-            User on whose behalf the operation was being performed.
 
         Returns
         -------
@@ -381,9 +383,9 @@ class KubernetesError(SlackException):
         return cls(
             message,
             user=user,
+            kind=kind,
             namespace=namespace,
             name=name,
-            kind=kind,
             status=exc.status,
             body=exc.body if exc.body else exc.reason,
         )
@@ -393,19 +395,19 @@ class KubernetesError(SlackException):
         message: str,
         *,
         user: Optional[str] = None,
+        kind: Optional[str] = None,
         namespace: Optional[str] = None,
         name: Optional[str] = None,
         status: Optional[int] = None,
         body: Optional[str] = None,
-        kind: Optional[str] = None,
     ) -> None:
         super().__init__(message, user)
         self.message = message
+        self.kind = kind
         self.namespace = namespace
         self.name = name
         self.status = status
         self.body = body
-        self.kind = kind
 
     def __str__(self) -> str:
         result = self._summary()
@@ -423,21 +425,22 @@ class KubernetesError(SlackException):
         """
         message = super().to_slack()
         message.message = self._summary()
-        obj = ""
-        if self.kind:
-            obj = f"[{self.kind}] "
-        if self.name:
-            if self.namespace:
-                obj += f"{self.namespace}/{self.name}"
-            else:
-                obj += self.name
-            message.fields.append(SlackTextField(heading="Object", text=obj))
         if self.status:
             field = SlackTextField(heading="Status", text=str(self.status))
             message.fields.append(field)
-        if self.body:
-            block = SlackCodeBlock(heading="Error", code=self.body)
+        if self.name:
+            kind = f"{self.kind} " if self.kind else ""
+            if self.namespace:
+                obj = f"{kind}{self.namespace}/{self.name}"
+            else:
+                obj = f"{kind}{self.name}"
+            message.blocks.append(SlackTextBlock(heading="Object", text=obj))
+        elif self.kind:
+            block = SlackTextBlock(heading="Object", text=self.kind)
             message.blocks.append(block)
+        if self.body:
+            code = SlackCodeBlock(heading="Error", code=self.body)
+            message.blocks.append(code)
         return message
 
     def _summary(self) -> str:
@@ -447,13 +450,18 @@ class KubernetesError(SlackException):
         message and part of the stringification.
         """
         result = self.message
-        if self.name or self.status:
+        if self.name or self.kind or self.status:
             result += " ("
             if self.name:
+                kind = f"{self.kind} " if self.kind else ""
                 if self.namespace:
-                    result += f"{self.namespace}/{self.name}"
+                    result += f"{kind}{self.namespace}/{self.name}"
                 else:
-                    result += self.name
+                    result += f"{kind}{self.name}"
+                if self.status:
+                    result += ", "
+            elif self.kind:
+                result += self.kind
                 if self.status:
                     result += ", "
             if self.status:
@@ -469,10 +477,10 @@ class MissingObjectError(SlackException):
     ----------
     message
         Summary of error.
-    kind
-        Kind of Kubernetes object that is missing.
     user
         Username on whose behalf the request is being made.
+    kind
+        Kind of Kubernetes object that is missing.
     namespace
         Namespace of object being acted on.
     name
@@ -483,13 +491,12 @@ class MissingObjectError(SlackException):
         self,
         message: str,
         *,
-        kind: str,
         user: Optional[str] = None,
+        kind: str,
         namespace: Optional[str] = None,
         name: Optional[str] = None,
     ) -> None:
         super().__init__(message, user)
-        self.message = message
         self.kind = kind
         self.namespace = namespace
         self.name = name
@@ -508,12 +515,67 @@ class MissingObjectError(SlackException):
                 obj = f"{self.kind} {self.namespace}/{self.name}"
             else:
                 obj = f"{self.kind} {self.name}"
-            message.blocks.append(SlackTextField(heading="Object", text=obj))
+        else:
+            if self.namespace:
+                obj = f"{self.kind} (namespace: {self.namespace})"
+            else:
+                obj = self.kind
+        message.blocks.append(SlackTextBlock(heading="Object", text=obj))
         return message
 
 
-class MissingSecretError(Exception):
+class MissingSecretError(MissingObjectError):
     """Secret specified in the controller configuration was not found."""
+
+    def __init__(self, message: str, namespace: str, name: str) -> None:
+        super().__init__(
+            message, kind="Secret", namespace=namespace, name=name
+        )
+
+
+class DuplicateObjectError(SlackException):
+    """Multiple Kubernetes objects were found when one was expected.
+
+    Parameters
+    ----------
+    message
+        Summary of error.
+    user
+        Username on whose behalf the request is being made.
+    kind
+        Kind of Kubernetes object that was duplicated.
+    namespace
+        Namespace of object being acted on.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        user: Optional[str] = None,
+        kind: str,
+        namespace: Optional[str] = None,
+    ) -> None:
+        super().__init__(message, user)
+        self.message = message
+        self.kind = kind
+        self.namespace = namespace
+
+    def to_slack(self) -> SlackMessage:
+        """Convert to a Slack message for Slack alerting.
+
+        Returns
+        -------
+        SlackMessage
+            Slack message suitable for posting as an alert.
+        """
+        message = super().to_slack()
+        if self.namespace:
+            obj = f"{self.kind} {self.namespace}"
+        else:
+            obj = self.kind
+        message.blocks.append(SlackTextBlock(heading="Object", text=obj))
+        return message
 
 
 class FileserverCreationError(ClientRequestError):
