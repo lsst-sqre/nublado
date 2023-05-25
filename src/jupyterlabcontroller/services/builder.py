@@ -140,7 +140,7 @@ class LabBuilder:
         pvc = 1
         for storage in config:
             ro = storage.mode == FileMode.RO
-            vname = storage.container_path.replace("/", "_")[1:]
+            vname = storage.container_path.replace("/", "-")[1:]
             match storage.source:
                 case HostPathVolumeSource() as source:
                     vol = V1Volume(
