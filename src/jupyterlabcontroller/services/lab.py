@@ -39,7 +39,7 @@ from kubernetes_asyncio.client import (
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
-from ..config import LabConfig, PVCVolumeSource
+from ..config import LabConfig, PVCVolumeSource, UserHomeDirectorySchema
 from ..constants import LAB_STOP_GRACE_PERIOD
 from ..models.domain.docker import DockerReference
 from ..models.domain.lab import LabVolumeContainer
@@ -327,9 +327,13 @@ class LabManager:
         pwfile = deepcopy(self.lab_config.files["/etc/passwd"])
         gpfile = deepcopy(self.lab_config.files["/etc/group"])
 
+        if self.lab_config.homedir_schema == UserHomeDirectorySchema.USERNAME:
+            homedir = f"/home/{username}"
+        else:
+            homedir = f"/home/{username[0]}/{username}"
         pwfile.contents += (
             f"{username}:x:{user.uid}:{user.gid}:"
-            f"{user.name}:/home/{username}:/bin/bash"
+            f"{user.name}:{homedir}:/bin/bash"
             "\n"
         )
         groups = user.groups
