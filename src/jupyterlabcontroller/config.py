@@ -100,7 +100,7 @@ class UserHomeDirectorySchema(Enum):
     """Possible ways a homedir may be constructed."""
 
     USERNAME = "username"  # /home/rachel
-    INITIAL_THEN_USERNAME = "initial_then_username"  # /home/r/rachel
+    INITIAL_THEN_USERNAME = "initialThenUsername"  # /home/r/rachel
 
 
 class FileMode(Enum):
