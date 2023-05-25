@@ -157,7 +157,7 @@ class LabBuilder:
                         name=vname,
                     )
                 case PVCVolumeSource():
-                    pvc_name = f"nb-{username}-pvc-{pvc}"
+                    pvc_name = f"{username}-nb-pvc-{pvc}"
                     pvc += 1
                     claim = V1PersistentVolumeClaimVolumeSource(
                         claim_name=pvc_name,
