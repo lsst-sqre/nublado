@@ -549,53 +549,53 @@ async def test_spawn_errors(
         (
             "create_namespace",
             "creating user namespace",
-            "userlabs-rachel",
             "Namespace",
+            "userlabs-rachel",
         ),
         (
             "read_namespaced_secret",
-            "reading secret",
-            "userlabs/nublado-secret",
+            "reading object",
             "Secret",
+            "userlabs/nublado-secret",
         ),
         (
             "create_namespaced_secret",
-            "creating secret",
-            "userlabs-rachel/rachel-nb",
+            "creating object",
             "Secret",
+            "userlabs-rachel/rachel-nb",
         ),
         (
             "create_namespaced_config_map",
-            "creating config map",
-            "userlabs-rachel/rachel-nb-nss",
+            "creating object",
             "ConfigMap",
+            "userlabs-rachel/rachel-nb-nss",
         ),
         (
             "create_namespaced_network_policy",
-            "creating network policy",
-            "userlabs-rachel/rachel-nb-env",
+            "creating object",
             "NetworkPolicy",
+            "userlabs-rachel/rachel-nb-env",
         ),
         (
             "create_namespaced_resource_quota",
-            "creating resource quota",
-            "userlabs-rachel/rachel-nb",
+            "creating object",
             "ResourceQuota",
+            "userlabs-rachel/rachel-nb",
         ),
         (
             "create_namespaced_service",
-            "creating service",
-            "userlabs-rachel/lab",
+            "creating object",
             "Service",
+            "userlabs-rachel/lab",
         ),
         (
             "create_namespaced_pod",
-            "creating pod",
-            "userlabs-rachel/rachel-nb",
+            "creating object",
             "Pod",
+            "userlabs-rachel/rachel-nb",
         ),
     ]
-    for api, error, obj, kind in possible_errors:
+    for api, error, kind, obj in possible_errors:
         apis_to_fail = {api}
         r = await client.post(
             f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -607,7 +607,7 @@ async def test_spawn_errors(
         )
         assert r.status_code == 201
         events = await get_lab_events(client, user.username)
-        error = f"Error {error} ({obj}, status 400)"
+        error = f"Error {error} ({kind} {obj}, status 400)"
         assert events[-2] == {
             "data": json.dumps(
                 {"message": f"{error}: Something bad happened"}
@@ -644,16 +644,19 @@ async def test_spawn_errors(
                                 "verbatim": True,
                             },
                             {
-                                "text": f"*Object*\n[{kind}] {obj}",
-                                "type": "mrkdwn",
-                                "verbatim": True,
-                            },
-                            {
                                 "text": "*Status*\n400",
                                 "type": "mrkdwn",
                                 "verbatim": True,
                             },
                         ],
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "text": f"*Object*\n{kind} {obj}",
+                            "type": "mrkdwn",
+                            "verbatim": True,
+                        },
                     },
                     {
                         "type": "section",

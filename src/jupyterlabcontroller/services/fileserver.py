@@ -406,10 +406,9 @@ class FileserverStateManager:
             self._config.fileserver.namespace
         ):
             raise MissingObjectError(
-                message=(
-                    "No namespace " + f"'{self._config.fileserver.namespace}'"
-                ),
-                kind="namespace",
+                "File server namespace missing",
+                kind="Namespace",
+                name=self._config.fileserver.namespace,
             )
         await self._reconcile_user_map()
         self._started = True

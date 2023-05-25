@@ -288,7 +288,7 @@ async def test_kubernetes_error(
     await asyncio.sleep(0.2)
 
     obj = "userlabs/prepull-d-2077-10-23-node2"
-    error = f"Error creating pod ({obj}, status 400)"
+    error = f"Error creating object (Pod {obj}, status 400)"
     assert mock_slack.messages == [
         {
             "blocks": [
@@ -310,16 +310,19 @@ async def test_kubernetes_error(
                         },
                         {"text": ANY, "type": "mrkdwn", "verbatim": True},
                         {
-                            "text": f"*Object*\n[Pod] {obj}",
-                            "type": "mrkdwn",
-                            "verbatim": True,
-                        },
-                        {
                             "text": "*Status*\n400",
                             "type": "mrkdwn",
                             "verbatim": True,
                         },
                     ],
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "text": f"*Object*\nPod {obj}",
+                        "type": "mrkdwn",
+                        "verbatim": True,
+                    },
                 },
                 {
                     "type": "section",
