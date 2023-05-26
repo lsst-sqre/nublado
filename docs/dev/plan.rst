@@ -64,6 +64,10 @@ Architectural changes
   Verify that all volumes are used by either the lab or an init container and every volume references by the lab or init container exists.
   Name PVCs after the human-chosen volume name (probably with a prefix) instead of autogenerating names.
 
+- Remove the ``Service`` resource created for the user's lab and instead follow kubespawner in returning a lab URL that points directly to the pod.
+  This will hopefully fix the spurious error messages we see during lab shutdown, since it allows the proxy to continue to talk to the pod even once it's been put in terminating state.
+  (The ``Service`` immediately drops pods in terminating state.)
+
 API changes
 -----------
 
