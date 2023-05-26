@@ -7,6 +7,10 @@ class FormSize:
     cpu: str
     memory: str
 
+    @property
+    def description(self) -> str:
+        return f"{self.name} ({self.cpu} CPU, {self.memory } RAM)"
+
 
 @dataclass(frozen=True, slots=True)
 class MenuImage:
