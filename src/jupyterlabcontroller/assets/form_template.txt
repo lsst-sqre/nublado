@@ -52,7 +52,7 @@ function selectDropdown() {
      {% if loop.first %} checked {%- endif -%}
     >
     <label for="{{ s.name }}">
-      {{ s.name }} ({{ s.cpu }} CPU, {{ s.memory }} RAM)
+      {{ s.description }}
     </label><br />
 {% endfor %}
   </div>

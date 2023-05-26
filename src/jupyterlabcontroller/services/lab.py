@@ -424,6 +424,11 @@ class LabManager:
 
         # Add standard environment variables.
         resources = self._size_manager.resources(lab.options.size)
+        size_str = [
+            x.description
+            for x in self._size_manager.formdata()
+            if x.name == lab.options.size.value.title()
+        ][0]
         env.update(
             {
                 # We would like to deprecate this, following KubeSpawner, but
@@ -433,6 +438,8 @@ class LabManager:
                 "JUPYTER_IMAGE_SPEC": image.reference_with_digest,
                 "IMAGE_DESCRIPTION": image.display_name,
                 "IMAGE_DIGEST": image.digest,
+                # Container data for display frame
+                "CONTAINER_SIZE": size_str,
                 # Normally set by JupyterHub so keep compatibility
                 "CPU_GUARANTEE": str(resources.requests.cpu),
                 "CPU_LIMIT": str(resources.limits.cpu),
