@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from copy import copy, deepcopy
+from copy import copy
 from functools import partial
 from pathlib import Path
 from typing import Optional
@@ -58,6 +58,8 @@ from .builder import LabBuilder
 from .image import ImageService
 from .size import SizeManager
 from .state import LabStateManager
+
+__all__ = ["LabManager"]
 
 
 class LabManager:
@@ -313,30 +315,53 @@ class LabManager:
         )
 
     def build_nss(self, user: GafaelfawrUserInfo) -> dict[str, str]:
-        username = user.username
-        pwfile = deepcopy(self.lab_config.files["/etc/passwd"])
-        gpfile = deepcopy(self.lab_config.files["/etc/group"])
+        """Construct the NSS ``ConfigMap`` to mount in the lab container.
 
-        if self.lab_config.homedir_schema == UserHomeDirectorySchema.USERNAME:
-            homedir = f"/home/{username}"
-        else:
-            homedir = f"/home/{username[0]}/{username}"
-        pwfile.contents += (
-            f"{username}:x:{user.uid}:{user.gid}:"
-            f"{user.name}:{homedir}:/bin/bash"
-            "\n"
+        The NSS ``ConfigMap`` provides the ``/etc/passwd`` and ``/etc/group``
+        files for the running lab. These files are constructed by adding
+        entries for the user and their groups to a base file in the Nublado
+        controller configuration.
+
+        Parameters
+        ----------
+        user
+            User metadata.
+
+        Returns
+        -------
+        dict of str to str
+            Contents of the ``ConfigMap``.
+        """
+        etc_passwd = self.lab_config.files["/etc/passwd"].contents
+        etc_group = self.lab_config.files["/etc/group"].contents
+
+        # Construct the user's /etc/passwd entry. Different sites use
+        # different schemes for constructing the home directory path.
+        match self.lab_config.homedir_schema:
+            case UserHomeDirectorySchema.USERNAME:
+                homedir = f"/home/{user.username}"
+            case UserHomeDirectorySchema.INITIAL_THEN_USERNAME:
+                homedir = f"/home/{user.username[0]}/{user.username}"
+        etc_passwd += (
+            f"{user.username}:x:{user.uid}:{user.gid}:"
+            f"{user.name}:{homedir}:/bin/bash\n"
         )
-        groups = user.groups
-        for grp in groups:
-            gpfile.contents += f"{grp.name}:x:{grp.id}:"
-            if grp.id != user.gid:
-                gpfile.contents += user.username
-            gpfile.contents += "\n"
-        data = {
-            "/etc/passwd": pwfile.contents,
-            "/etc/group": gpfile.contents,
-        }
-        return data
+
+        # Construct the /etc/group entry by adding all groups that have GIDs.
+        # Add the user as an additional member of their supplemental groups.
+        # We can't do anything with groups that don't have GIDs, so ignore
+        # those.
+        for group in user.groups:
+            if not group.id:
+                continue
+            if group.id == user.gid:
+                etc_group += f"{group.name}:x:{group.id}:\n"
+            else:
+                etc_group += f"{group.name}:x:{group.id}:{user.username}\n"
+
+        # Return the results in a form suitable for the data member of a
+        # ConfigMap object.
+        return {"/etc/passwd": etc_passwd, "/etc/group": etc_group}
 
     async def create_file_configmap(self, user: GafaelfawrUserInfo) -> None:
         namespace = self._builder.namespace_for_user(user.username)
@@ -478,7 +503,7 @@ class LabManager:
         image: RSPImage,
     ) -> None:
         pod_spec = self.build_pod_spec(user, resources, image)
-        serialized_groups = json.dumps([g.dict() for g in user.groups])
+        serialized_groups = json.dumps([g.dict() for g in user.groups if g.id])
         await self.k8s_client.create_pod(
             name=f"{user.username}-nb",
             namespace=self._builder.namespace_for_user(user.username),
@@ -850,7 +875,7 @@ class LabManager:
             security_context=V1PodSecurityContext(
                 run_as_non_root=True,
                 fs_group=user.gid,
-                supplemental_groups=[x.id for x in user.groups],
+                supplemental_groups=[x.id for x in user.groups if x.id],
             ),
             volumes=volumes,
         )
