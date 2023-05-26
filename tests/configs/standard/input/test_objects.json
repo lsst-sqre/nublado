@@ -9,7 +9,8 @@
         {"name": "rachel", "id": 1101},
         {"name": "lunatics", "id": 2028},
         {"name": "mechanics", "id": 2001},
-        {"name": "storytellers", "id": 2021}
+        {"name": "storytellers", "id": 2021},
+        {"name": "explorers"}
       ],
       "quota": {
         "notebook": {

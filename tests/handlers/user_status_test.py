@@ -81,7 +81,7 @@ async def test_user_status(
             "name": user.name,
             "uid": user.uid,
             "gid": user.gid,
-            "groups": user.dict()["groups"],
+            "groups": [g.dict() for g in user.groups if g.id],
         },
     }
     assert r.json() == expected
