@@ -140,7 +140,7 @@ class LabBuilder:
         pvc = 1
         for storage in config:
             ro = storage.mode == FileMode.RO
-            vname = storage.container_path.replace("/", "_")[1:]
+            vname = storage.container_path.replace("/", "-")[1:]
             match storage.source:
                 case HostPathVolumeSource() as source:
                     vol = V1Volume(
@@ -157,7 +157,7 @@ class LabBuilder:
                         name=vname,
                     )
                 case PVCVolumeSource():
-                    pvc_name = f"nb-{username}-pvc-{pvc}"
+                    pvc_name = f"{username}-nb-pvc-{pvc}"
                     pvc += 1
                     claim = V1PersistentVolumeClaimVolumeSource(
                         claim_name=pvc_name,

@@ -1,0 +1,79 @@
+safir:
+  profile: development
+  logLevel: DEBUG
+lab:
+  homedirSchema: initialThenUsername
+  files:
+    /etc/passwd:
+      modify: true
+      contents: |
+        root:x:0:0:root:/root:/bin/bash
+        bin:x:1:1:bin:/bin:/sbin/nologin
+        daemon:x:2:2:daemon:/sbin:/sbin/nologin
+        adm:x:3:4:adm:/var/adm:/sbin/nologin
+        lp:x:4:7:lp:/var/spool/lpd:/sbin/nologin
+        sync:x:5:0:sync:/sbin:/bin/sync
+        shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+        halt:x:7:0:halt:/sbin:/sbin/halt
+        mail:x:8:12:mail:/var/spool/mail:/sbin/nologin
+        operator:x:11:0:operator:/root:/sbin/nologin
+        games:x:12:100:games:/usr/games:/sbin/nologin
+        ftp:x:14:50:FTP User:/var/ftp:/sbin/nologin
+        tss:x:59:59:Account used by the trousers package to sandbox the tcsd daemon:/dev/null:/sbin/nologin
+        dbus:x:81:81:System message bus:/:/sbin/nologin
+        nobody:x:99:99:Nobody:/:/sbin/nologin
+        systemd-network:x:192:192:systemd Network Management:/:/sbin/nologin
+        lsst_lcl:x:1000:1000::/home/lsst_lcl:/bin/bash
+    /etc/group:
+      modify: true
+      contents: |
+        root:x:0:
+        bin:x:1:
+        daemon:x:2:
+        sys:x:3:
+        adm:x:4:
+        tty:x:5:
+        disk:x:6:
+        lp:x:7:
+        mem:x:8:
+        kmem:x:9:
+        wheel:x:10:
+        cdrom:x:11:
+        mail:x:12:
+        man:x:15:
+        dialout:x:18:
+        floppy:x:19:
+        games:x:20:
+        utmp:x:22:
+        tape:x:33:
+        utempter:x:35:
+        video:x:39:
+        ftp:x:50:
+        lock:x:54:
+        tss:x:59:
+        audio:x:63:
+        dbus:x:81:
+        screen:x:84:
+        nobody:x:99:
+        users:x:100:
+        systemd-journal:x:190:
+        systemd-network:x:192:
+        cgred:x:997:
+        ssh_keys:x:998:
+        input:x:999:
+  sizes:
+    small:
+      cpu: 1.0
+      memory: 3Gi
+  volumes:
+    - containerPath: /home
+      mode: rw
+      source:
+        type: nfs
+        server: 10.13.105.122
+        serverPath: /share1/home
+images:
+  source:
+    type: docker
+    registry: lighthouse.ceres
+    repository: library/sketchbook

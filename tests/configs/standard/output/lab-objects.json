@@ -433,14 +433,14 @@
         {
           "name": "scratch",
           "persistent_volume_claim": {
-            "claim_name": "nb-rachel-pvc-1",
+            "claim_name": "rachel-nb-pvc-1",
             "read_only": false
           }
         },
         {
           "name": "temporary",
           "persistent_volume_claim": {
-            "claim_name": "nb-rachel-pvc-2",
+            "claim_name": "rachel-nb-pvc-2",
             "read_only": false
           }
         },

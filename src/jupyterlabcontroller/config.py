@@ -96,6 +96,13 @@ class LabSizeDefinition(CamelCaseModel):
     )
 
 
+class UserHomeDirectorySchema(Enum):
+    """Possible ways a homedir may be constructed."""
+
+    USERNAME = "username"  # /home/rachel
+    INITIAL_THEN_USERNAME = "initialThenUsername"  # /home/r/rachel
+
+
 class FileMode(Enum):
     """Possible read/write modes with which a file may be mounted."""
 
@@ -295,6 +302,10 @@ class LabConfig(CamelCaseModel):
     namespace_prefix: str = Field(
         default_factory=_get_namespace_prefix,
         title="Namespace prefix for lab environments",
+    )
+    homedir_schema: UserHomeDirectorySchema = Field(
+        UserHomeDirectorySchema.USERNAME,
+        title="Schema for user homedir construction.",
     )
 
     @validator("secrets")
