@@ -42,15 +42,15 @@ from structlog.stdlib import BoundLogger
 from ..config import LabConfig, PVCVolumeSource, UserHomeDirectorySchema
 from ..constants import LAB_STOP_GRACE_PERIOD
 from ..models.domain.docker import DockerReference
+from ..models.domain.gafaelfawr import GafaelfawrUser, GafaelfawrUserInfo
 from ..models.domain.lab import LabVolumeContainer
 from ..models.domain.rspimage import RSPImage
 from ..models.v1.lab import (
+    LabResources,
     LabSpecification,
     LabStatus,
-    UserInfo,
+    ResourceQuantity,
     UserLabState,
-    UserResourceQuantum,
-    UserResources,
 )
 from ..storage.k8s import K8sStorageClient
 from ..util import deslashify
@@ -87,7 +87,7 @@ class LabManager:
         self._slack_client = slack_client
 
     async def create_lab(
-        self, user: UserInfo, token: str, lab: LabSpecification
+        self, user: GafaelfawrUser, lab: LabSpecification
     ) -> None:
         """Schedules creation of user lab objects/resources.
 
@@ -95,9 +95,6 @@ class LabManager:
         ----------
         user
             User for whom the lab is being created.
-        token
-            Delegated notebook token for that user, which will be injected
-            into the lab.
         lab
             Specification for lab to spawn.
 
@@ -132,17 +129,13 @@ class LabManager:
         # A LabManager is per-request, so the management of the background
         # task that does the lab spawning (which outlasts the request that
         # kicks it off) is handed off to LabStateManager here.
+        resources = self._size_manager.resources(lab.options.size)
         await self._lab_state.start_lab(
             username=user.username,
-            state=UserLabState.new_from_user_resources(
-                user=user,
-                labspec=lab,
-                resources=self._size_manager.resources(lab.options.size),
-            ),
+            state=UserLabState.from_request(user, lab, resources),
             spawner=partial(
                 self._spawn_lab,
                 user=user,
-                token=token,
                 lab=lab,
                 image=image,
                 delete_first=delete_first,
@@ -154,8 +147,7 @@ class LabManager:
     async def _spawn_lab(
         self,
         *,
-        user: UserInfo,
-        token: str,
+        user: GafaelfawrUser,
         lab: LabSpecification,
         image: RSPImage,
         delete_first: bool,
@@ -172,8 +164,6 @@ class LabManager:
         ----------
         user
             Identity information for the user spawning the lab.
-        token
-            Gafaelfawr notebook token for the user.
         lab
             Specification for the lab environment to create.
         image
@@ -205,11 +195,11 @@ class LabManager:
         )
 
         # Second, create all the supporting resources the lab pod will need.
-        await self.create_secrets(user, token)
+        await self.create_secrets(user)
         await self.create_pvcs(user)
         await self.create_nss(user)
         await self.create_file_configmap(user)
-        await self.create_env(user=user, lab=lab, image=image, token=token)
+        await self.create_env(user, lab, image)
         await self.create_network_policy(user)
         await self.create_quota(user)
         await self.create_lab_service(user)
@@ -227,7 +217,7 @@ class LabManager:
         # Return the URL where the lab will be listening after it starts.
         return self._builder.build_internal_url(user.username, lab.env)
 
-    async def create_namespace(self, user: UserInfo) -> None:
+    async def create_namespace(self, user: GafaelfawrUser) -> None:
         """Create the namespace for a user's lab environment.
 
         Parameters
@@ -243,7 +233,7 @@ class LabManager:
         namespace = self._builder.namespace_for_user(user.username)
         await self.k8s_client.create_user_namespace(namespace)
 
-    async def create_secrets(self, user: UserInfo, token: str) -> None:
+    async def create_secrets(self, user: GafaelfawrUser) -> None:
         """Create the secrets for the user's lab environment.
 
         There will at least be a secret with the user's token and any
@@ -269,7 +259,7 @@ class LabManager:
         await self.k8s_client.create_secrets(
             secret_list=self.lab_config.secrets,
             username=user.username,
-            token=token,
+            token=user.token,
             source_ns=self.manager_namespace,
             target_ns=namespace,
         )
@@ -288,7 +278,7 @@ class LabManager:
     # logic.
     #
 
-    async def create_pvcs(self, user: UserInfo) -> None:
+    async def create_pvcs(self, user: GafaelfawrUserInfo) -> None:
         namespace = self._builder.namespace_for_user(user.username)
         pvcs = self.build_pvcs(user.username)
         if pvcs:
@@ -313,7 +303,7 @@ class LabManager:
             pvcs.append(pvc)
         return pvcs
 
-    async def create_nss(self, user: UserInfo) -> None:
+    async def create_nss(self, user: GafaelfawrUserInfo) -> None:
         namespace = self._builder.namespace_for_user(user.username)
         data = self.build_nss(user=user)
         await self.k8s_client.create_configmap(
@@ -322,7 +312,7 @@ class LabManager:
             data=data,
         )
 
-    def build_nss(self, user: UserInfo) -> dict[str, str]:
+    def build_nss(self, user: GafaelfawrUserInfo) -> dict[str, str]:
         username = user.username
         pwfile = deepcopy(self.lab_config.files["/etc/passwd"])
         gpfile = deepcopy(self.lab_config.files["/etc/group"])
@@ -348,7 +338,7 @@ class LabManager:
         }
         return data
 
-    async def create_file_configmap(self, user: UserInfo) -> None:
+    async def create_file_configmap(self, user: GafaelfawrUserInfo) -> None:
         namespace = self._builder.namespace_for_user(user.username)
         data = self.build_file_configmap()
         await self.k8s_client.create_configmap(
@@ -373,13 +363,11 @@ class LabManager:
 
     async def create_env(
         self,
-        *,
-        user: UserInfo,
+        user: GafaelfawrUserInfo,
         lab: LabSpecification,
         image: RSPImage,
-        token: str,
     ) -> None:
-        data = self.build_env(user=user, lab=lab, image=image, token=token)
+        data = self.build_env(user, lab, image)
         await self.k8s_client.create_configmap(
             name=f"{user.username}-nb-env",
             namespace=self._builder.namespace_for_user(user.username),
@@ -388,11 +376,9 @@ class LabManager:
 
     def build_env(
         self,
-        *,
-        user: UserInfo,
+        user: GafaelfawrUserInfo,
         lab: LabSpecification,
         image: RSPImage,
-        token: str,
     ) -> dict[str, str]:
         """Construct the environment for the user's lab pod.
 
@@ -450,7 +436,7 @@ class LabManager:
 
         return env
 
-    async def create_network_policy(self, user: UserInfo) -> None:
+    async def create_network_policy(self, user: GafaelfawrUserInfo) -> None:
         # No corresponding "build" because the policy is hardcoded in the
         # storage driver.
         await self.k8s_client.create_network_policy(
@@ -458,7 +444,7 @@ class LabManager:
             namespace=self._builder.namespace_for_user(user.username),
         )
 
-    async def create_lab_service(self, user: UserInfo) -> None:
+    async def create_lab_service(self, user: GafaelfawrUserInfo) -> None:
         # No corresponding build because the service is hardcoded in the
         # storage driver.
         await self.k8s_client.create_lab_service(
@@ -466,20 +452,23 @@ class LabManager:
             namespace=self._builder.namespace_for_user(user.username),
         )
 
-    async def create_quota(self, user: UserInfo) -> None:
+    async def create_quota(self, user: GafaelfawrUserInfo) -> None:
         if not user.quota or not user.quota.notebook:
             return
         await self.k8s_client.create_quota(
             f"{user.username}-nb",
             self._builder.namespace_for_user(user.username),
-            UserResourceQuantum(
+            ResourceQuantity(
                 cpu=user.quota.notebook.cpu,
                 memory=int(user.quota.notebook.memory * 1024 * 1024 * 1024),
             ),
         )
 
     async def create_user_pod(
-        self, user: UserInfo, resources: UserResources, image: RSPImage
+        self,
+        user: GafaelfawrUserInfo,
+        resources: LabResources,
+        image: RSPImage,
     ) -> None:
         pod_spec = self.build_pod_spec(user, resources, image)
         serialized_groups = json.dumps([g.dict() for g in user.groups])
@@ -683,7 +672,7 @@ class LabManager:
         return vols
 
     def build_init_containers(
-        self, user: UserInfo, resources: UserResources
+        self, user: GafaelfawrUserInfo, resources: LabResources
     ) -> list[V1Container]:
         username = user.username
         init_ctrs = []
@@ -739,7 +728,10 @@ class LabManager:
         return init_ctrs
 
     def build_pod_spec(
-        self, user: UserInfo, resources: UserResources, image: RSPImage
+        self,
+        user: GafaelfawrUserInfo,
+        resources: LabResources,
+        image: RSPImage,
     ) -> V1PodSpec:
         """Construct the pod specification for the user's lab pod.
 

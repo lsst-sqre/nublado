@@ -21,6 +21,8 @@ async def test_user_status(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     token, user = obj_factory.get_user()
+    assert user.quota
+    assert user.quota.notebook
     lab = obj_factory.labspecs[0]
     size_manager = factory.create_size_manager()
 
@@ -65,18 +67,22 @@ async def test_user_status(
     expected_resources = size_manager.resources(lab.options.size)
     expected = {
         "env": lab.env,
-        "gid": user.gid,
-        "groups": user.dict()["groups"],
         "internal_url": "http://lab.userlabs-rachel:8888/nb/user/rachel/",
-        "name": user.name,
         "options": lab.options.dict(),
         "pod": "present",
-        "quota": {"api": {}, "notebook": {"cpu": 9.0, "memory": 27.0}},
+        "quota": {
+            "cpu": user.quota.notebook.cpu,
+            "memory": int(user.quota.notebook.memory * 1024 * 1024 * 1024),
+        },
         "resources": expected_resources.dict(),
         "status": "running",
-        "token": "token-of-affection",
-        "uid": user.uid,
-        "username": user.username,
+        "user": {
+            "username": user.username,
+            "name": user.name,
+            "uid": user.uid,
+            "gid": user.gid,
+            "groups": user.dict()["groups"],
+        },
     }
     assert r.json() == expected
 

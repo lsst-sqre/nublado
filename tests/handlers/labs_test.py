@@ -64,6 +64,8 @@ async def test_lab_start_stop(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     token, user = obj_factory.get_user()
+    assert user.quota
+    assert user.quota.notebook
     lab = obj_factory.labspecs[0]
     size_manager = factory.create_size_manager()
     unknown_user_error = {
@@ -140,20 +142,24 @@ async def test_lab_start_stop(
     expected_options["image_list"] = None
     expected = {
         "env": lab.env,
-        "gid": user.gid,
-        "groups": user.dict()["groups"],
         "internal_url": (
             f"http://lab.userlabs-{user.username}:8888/nb/user/rachel/"
         ),
-        "name": user.name,
         "options": expected_options,
         "pod": "present",
-        "quota": {"api": {}, "notebook": {"cpu": 9.0, "memory": 27.0}},
+        "quota": {
+            "cpu": user.quota.notebook.cpu,
+            "memory": int(user.quota.notebook.memory * 1024 * 1024 * 1024),
+        },
         "resources": expected_resources.dict(),
         "status": "running",
-        "token": "token-of-affection",
-        "uid": user.uid,
-        "username": user.username,
+        "user": {
+            "username": user.username,
+            "name": user.name,
+            "uid": user.uid,
+            "gid": user.gid,
+            "groups": user.dict()["groups"],
+        },
     }
     assert r.json() == expected
 

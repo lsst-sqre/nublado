@@ -52,7 +52,7 @@ from ..models.domain.kubernetes import (
     KubernetesPodWatchInfo,
     get_watch_args,
 )
-from ..models.v1.lab import UserResourceQuantum
+from ..models.v1.lab import ResourceQuantity
 from ..util import deslashify
 
 __all__ = ["K8sStorageClient"]
@@ -940,10 +940,7 @@ class K8sStorageClient:
             ) from e
 
     async def create_quota(
-        self,
-        name: str,
-        namespace: str,
-        resource: UserResourceQuantum,
+        self, name: str, namespace: str, resource: ResourceQuantity
     ) -> None:
         self._logger.debug(
             "Creating resource quota", name=name, namespace=namespace

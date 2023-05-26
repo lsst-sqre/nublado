@@ -16,10 +16,13 @@ from safir.testing.kubernetes import MockKubernetesApi
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.models.domain.docker import DockerReference
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUser
 from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
 from jupyterlabcontroller.models.v1.lab import (
     LabStatus,
     PodState,
+    ResourceQuantity,
+    UserInfo,
     UserLabState,
 )
 
@@ -60,6 +63,9 @@ async def create_lab(
             config.lab.namespace_prefix, secret
         )
     token, user = obj_factory.get_user()
+    user = GafaelfawrUser(token=token, **user.dict())
+    assert user.quota
+    assert user.quota.notebook
     lab = obj_factory.labspecs[0]
     lab_manager = factory.create_lab_manager()
     size_manager = factory.create_size_manager()
@@ -76,10 +82,10 @@ async def create_lab(
     # state manager, and we want the lab state manager to have no record of
     # anything to test reconciliation.
     await lab_manager.create_namespace(user)
-    await lab_manager.create_secrets(user, token)
+    await lab_manager.create_secrets(user)
     await lab_manager.create_nss(user)
     await lab_manager.create_file_configmap(user)
-    await lab_manager.create_env(user=user, lab=lab, image=image, token=token)
+    await lab_manager.create_env(user, lab, image)
     await lab_manager.create_network_policy(user)
     await lab_manager.create_quota(user)
     await lab_manager.create_lab_service(user)
@@ -87,19 +93,18 @@ async def create_lab(
 
     return UserLabState(
         env=lab.env,
-        gid=user.gid,
-        groups=user.groups,
+        user=UserInfo.from_gafaelfawr(user),
         internal_url=(
             f"http://lab.userlabs-{user.username}:8888/nb/user/rachel/"
         ),
-        name=user.name,
         options=lab.options,
         pod=PodState.PRESENT,
-        quota=user.quota,
+        quota=ResourceQuantity(
+            cpu=user.quota.notebook.cpu,
+            memory=int(user.quota.notebook.memory * 1024 * 1024 * 1024),
+        ),
         resources=resources,
         status=LabStatus.from_phase(mock_kubernetes.initial_pod_phase),
-        uid=user.uid,
-        username=user.username,
     )
 
 
@@ -189,12 +194,13 @@ async def test_spawn_timeout(
     mock_kubernetes.initial_pod_phase = KubernetesPodPhase.PENDING.value
     config.lab.spawn_timeout = timedelta(seconds=1)
     token, user = obj_factory.get_user()
+    user = GafaelfawrUser(token=token, **user.dict())
     lab = obj_factory.labspecs[0]
     lab_manager = factory.create_lab_manager()
     await factory.start_background_services()
 
     # Start the lab creation.
-    await lab_manager.create_lab(user, token, lab)
+    await lab_manager.create_lab(user, lab)
     await asyncio.sleep(0.1)
     status = await factory.lab_state.get_lab_status(user.username)
     assert status == LabStatus.PENDING

@@ -14,7 +14,7 @@ from safir.logging import LogLevel, Profile
 from safir.pydantic import CamelCaseModel, to_camel_case
 
 from .constants import DOCKER_SECRETS_PATH, METADATA_PATH
-from .models.v1.lab import LabSize, UserResources
+from .models.v1.lab import LabResources, LabSize
 from .models.v1.prepuller_config import PrepullerConfig
 
 
@@ -366,7 +366,7 @@ class FileserverConfig(CamelCaseModel):
     path_prefix: str = Field(
         "", title="Fileserver prefix path, to which '/files' is appended"
     )
-    resources: Optional[UserResources] = Field(
+    resources: Optional[LabResources] = Field(
         None, title="Resource requests and limits"
     )
     creation_timeout: int = Field(

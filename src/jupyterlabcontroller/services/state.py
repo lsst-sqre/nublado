@@ -22,15 +22,14 @@ from ..models.domain.kubernetes import KubernetesPodPhase
 from ..models.domain.lab import UserLab
 from ..models.v1.event import Event, EventType
 from ..models.v1.lab import (
+    LabResources,
     LabStatus,
-    NotebookQuota,
     PodState,
+    ResourceQuantity,
     UserGroup,
+    UserInfo,
     UserLabState,
     UserOptions,
-    UserQuota,
-    UserResourceQuantum,
-    UserResources,
 )
 from ..storage.k8s import K8sStorageClient
 from .builder import LabBuilder
@@ -712,12 +711,12 @@ class LabStateManager:
                     break
             if not lab_container:
                 raise ValueError('No container named "notebook"')
-            resources = UserResources(
-                limits=UserResourceQuantum(
+            resources = LabResources(
+                limits=ResourceQuantity(
                     cpu=float(env["CPU_LIMIT"]),
                     memory=int(env["MEM_LIMIT"]),
                 ),
-                requests=UserResourceQuantum(
+                requests=ResourceQuantity(
                     cpu=float(env["CPU_GUARANTEE"]),
                     memory=int(env["MEM_GUARANTEE"]),
                 ),
@@ -729,19 +728,22 @@ class LabStateManager:
                 reset_user_env=env.get("RESET_USER_ENV", "FALSE") == "TRUE",
             )
             internal_url = self._builder.build_internal_url(username, env)
-            return UserLabState(
+            user = UserInfo(
                 username=username,
                 name=pod.metadata.annotations.get("nublado.lsst.io/user-name"),
                 uid=lab_container.security_context.run_as_user,
                 gid=lab_container.security_context.run_as_group,
                 groups=self._recreate_groups(pod),
-                quota=self._recreate_quota(quota),
+            )
+            return UserLabState(
+                user=user,
                 options=options,
                 env=self._builder.recreate_env(env),
                 status=LabStatus.from_phase(pod.status.phase),
                 pod=PodState.PRESENT,
                 internal_url=internal_url,
                 resources=resources,
+                quota=self._recreate_quota(quota),
             )
         except Exception as e:
             error = f"{type(e).__name__}: {str(e)}"
@@ -773,7 +775,7 @@ class LabStateManager:
 
     def _recreate_quota(
         self, resource_quota: V1ResourceQuota | None
-    ) -> UserQuota | None:
+    ) -> ResourceQuantity | None:
         """Recreate the user's quota information from Kuberentes.
 
         Parameters
@@ -784,18 +786,15 @@ class LabStateManager:
 
         Returns
         -------
-        UserQuota or None
+        ResourceQuantity or None
             Corresponding user quota object, or `None` if no resource quota
             was found in Kubernetes.
         """
         if not resource_quota:
             return None
-        memory = int(resource_quota.spec.hard["limits.memory"])
-        return UserQuota(
-            notebook=NotebookQuota(
-                cpu=float(resource_quota.spec.hard["limits.cpu"]),
-                memory=memory / 1024 / 1024 / 1024,
-            )
+        return ResourceQuantity(
+            cpu=float(resource_quota.spec.hard["limits.cpu"]),
+            memory=int(resource_quota.spec.hard["limits.memory"]),
         )
 
     async def _reap_spawners(self) -> None:
@@ -911,12 +910,13 @@ class LabStateManager:
         # off monitoring jobs to wait for them to become ready and handle
         # timeouts if they never do.
         for pending in to_monitor:
-            await self._clear_events(self._labs[pending.username])
-            msg = f"Monitoring in-progress lab creation for {pending.username}"
-            await self.publish_event(pending.username, msg, 1)
+            username = pending.user.username
+            await self._clear_events(self._labs[username])
+            msg = f"Monitoring in-progress lab creation for {username}"
+            await self.publish_event(username, msg, 1)
             self._labs[username].task = asyncio.create_task(
                 self._monitor_spawn(
-                    username=pending.username,
+                    username=username,
                     internal_url=pending.internal_url,
                     start_progress=25,
                     end_progress=75,
