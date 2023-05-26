@@ -5,7 +5,7 @@ from __future__ import annotations
 import respx
 from httpx import Request, Response
 
-from jupyterlabcontroller.models.v1.lab import UserInfo
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
 
 __all__ = ["MockGafaelfawr", "register_mock_gafaelfawr"]
 
@@ -19,7 +19,7 @@ class MockGafaelfawr:
         Map of tokens to mock user information.
     """
 
-    def __init__(self, tokens: dict[str, UserInfo]) -> None:
+    def __init__(self, tokens: dict[str, GafaelfawrUserInfo]) -> None:
         self._tokens = tokens
 
     def get_info(self, request: Request) -> Response:
@@ -48,7 +48,7 @@ class MockGafaelfawr:
 def register_mock_gafaelfawr(
     respx_mock: respx.Router,
     base_url: str,
-    tokens: dict[str, UserInfo],
+    tokens: dict[str, GafaelfawrUserInfo],
 ) -> MockGafaelfawr:
     """Mock out Gafaelfawr.
 

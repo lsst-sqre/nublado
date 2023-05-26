@@ -13,7 +13,8 @@ from ..exceptions import (
     UnknownDockerImageError,
     UnknownUserError,
 )
-from ..models.v1.lab import LabSpecification, UserInfo, UserLabState
+from ..models.domain.gafaelfawr import GafaelfawrUser
+from ..models.v1.lab import LabSpecification, UserLabState
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
@@ -67,18 +68,17 @@ async def post_new_lab(
     username: str,
     lab: LabSpecification,
     response: Response,
-    x_auth_request_token: str = Header(..., include_in_schema=False),
     context: RequestContext = Depends(context_dependency),
-    user: UserInfo = Depends(user_dependency),
+    user: GafaelfawrUser = Depends(user_dependency),
 ) -> None:
     context.rebind_logger(user=username)
     if username != user.username:
         raise PermissionDeniedError("Permission denied")
+
     # The user is valid and matches the route. Attempt the lab creation.
     lab_manager = context.factory.create_lab_manager()
     try:
-        # FIXME User now includes x_auth_request_token
-        await lab_manager.create_lab(user, x_auth_request_token, lab)
+        await lab_manager.create_lab(user, lab)
     except (InvalidDockerReferenceError, UnknownDockerImageError) as e:
         e.location = ErrorLocation.body
         e.field_path = ["options", lab.options.image_attribute]

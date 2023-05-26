@@ -12,7 +12,7 @@ from ..exceptions import (
     GafaelfawrWebError,
     InvalidTokenError,
 )
-from ..models.v1.lab import UserInfo
+from ..models.domain.gafaelfawr import GafaelfawrUserInfo
 
 __all__ = ["GafaelfawrStorageClient"]
 
@@ -40,7 +40,7 @@ class GafaelfawrStorageClient:
         self._logger = logger
         self._url = f"{config.base_url}/auth/api/v1/user-info"
 
-    async def get_user_info(self, token: str) -> UserInfo:
+    async def get_user_info(self, token: str) -> GafaelfawrUserInfo:
         """Get user information for the user identified by a token.
 
         Parameters
@@ -73,7 +73,7 @@ class GafaelfawrStorageClient:
             r.raise_for_status()
             data = r.json()
             self._logger.debug("Retrieved user metadata", metadata=data)
-            return UserInfo.parse_obj(data)
+            return GafaelfawrUserInfo.parse_obj(data)
         except HTTPError as e:
             raise GafaelfawrWebError.from_exception(e) from e
         except ValidationError as e:

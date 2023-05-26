@@ -7,26 +7,21 @@ from typing import Any, Optional, Self
 
 from pydantic import BaseModel, Field, root_validator, validator
 
-from ...constants import (
-    DROPDOWN_SENTINEL_VALUE,
-    GROUPNAME_REGEX,
-    USERNAME_REGEX,
-)
+from ...constants import DROPDOWN_SENTINEL_VALUE, USERNAME_REGEX
+from ..domain.gafaelfawr import GafaelfawrUserInfo, UserGroup
 
 __all__ = [
     "ImageClass",
+    "LabResources",
     "LabSize",
     "LabSpecification",
     "LabStatus",
-    "NotebookQuota",
     "PodState",
+    "ResourceQuantity",
     "UserGroup",
     "UserInfo",
     "UserLabState",
     "UserOptions",
-    "UserQuota",
-    "UserResourceQuantum",
-    "UserResources",
 ]
 
 
@@ -259,24 +254,6 @@ class UserOptions(BaseModel):
             return v
 
 
-class UserResourceQuantum(BaseModel):
-    cpu: float = Field(
-        ...,
-        example=1.5,
-        title="Kubernetes CPU resource quantity",
-        description=(
-            "cf. "
-            "https://kubernetes.io/docs/tasks/"
-            "configure-pod-container/assign-cpu-resource/\n"
-        ),
-    )
-    memory: int = Field(
-        ...,
-        example=1073741824,
-        title="Kubernetes memory resource in bytes",
-    )
-
-
 class LabSpecification(BaseModel):
     """Specification of lab to spawn, sent by the JupyterHub spawner."""
 
@@ -305,53 +282,9 @@ class LabSpecification(BaseModel):
 """GET /nublado/spawner/v1/user-status"""
 
 
-class UserGroup(BaseModel):
-    name: str = Field(
-        ...,
-        example="ferrymen",
-        title="Group to which lab user belongs",
-        description="Should follow Unix naming conventions",
-        regex=GROUPNAME_REGEX,
-    )
-    id: Optional[int] = Field(
-        None,
-        example=2023,
-        title="Numeric GID of the group (POSIX)",
-        description="32-bit unsigned integer",
-    )
-
-
-class NotebookQuota(BaseModel):
-    """Notebook Aspect quota information for a user."""
-
-    cpu: float = Field(..., title="CPU equivalents", example=4.0)
-
-    memory: float = Field(..., title="Maximum memory use (GiB)", example=16.0)
-
-
-class UserQuota(BaseModel):
-    """Quota information for a user."""
-
-    api: dict[str, int] = Field(
-        {},
-        title="API quotas",
-        description=(
-            "Mapping of service names to allowed requests per 15 minutes."
-        ),
-        example={
-            "datalinker": 500,
-            "hips": 2000,
-            "tap": 500,
-            "vo-cutouts": 100,
-        },
-    )
-
-    notebook: Optional[NotebookQuota] = Field(
-        None, title="Notebook Aspect quotas"
-    )
-
-
 class UserInfo(BaseModel):
+    """Metadata about the user who owns the lab."""
+
     username: str = Field(
         ...,
         example="ribbon",
@@ -381,72 +314,109 @@ class UserInfo(BaseModel):
         description="32-bit unsigned integer",
     )
     groups: list[UserGroup] = Field([], title="User's group memberships")
-    quota: Optional[UserQuota] = Field(None, title="User's quotas")
-    token: Optional[str] = Field(None, title="User's token")
+
+    @classmethod
+    def from_gafaelfawr(cls, user: GafaelfawrUserInfo) -> Self:
+        """Convert Gafaelfawr's user metadata model to this model.
+
+        Parameters
+        ----------
+        user
+            Gafaelfawr user metadata.
+
+        Returns
+        -------
+        UserInfo
+            User information stored as part of the lab state.
+        """
+        return cls(
+            username=user.username,
+            name=user.name,
+            uid=user.uid,
+            gid=user.gid,
+            groups=user.groups,
+        )
 
 
-class UserResources(BaseModel):
-    limits: UserResourceQuantum = Field(..., title="Maximum allowed resources")
-    requests: UserResourceQuantum = Field(
+class ResourceQuantity(BaseModel):
+    cpu: float = Field(
+        ...,
+        example=1.5,
+        title="Kubernetes CPU resource quantity",
+        description=(
+            "cf. "
+            "https://kubernetes.io/docs/tasks/"
+            "configure-pod-container/assign-cpu-resource/\n"
+        ),
+    )
+    memory: int = Field(
+        ...,
+        example=1073741824,
+        title="Kubernetes memory resource in bytes",
+    )
+
+
+class LabResources(BaseModel):
+    limits: ResourceQuantity = Field(..., title="Maximum allowed resources")
+    requests: ResourceQuantity = Field(
         ..., title="Intially-requested resources"
     )
 
 
-class UserLabState(UserInfo, LabSpecification):
+class UserLabState(LabSpecification):
     """Current state of the user's lab."""
 
+    user: UserInfo = Field(..., title="User who owns the lab")
     status: LabStatus = Field(
-        ...,
-        example="running",
-        title="Status of user container.",
-        description=(
-            "Must be one of `pending`, "
-            "`running`, `terminating`, or `failed`."
-        ),
+        ..., example="running", title="Status of user container"
     )
-    pod: PodState = Field(
-        ...,
-        example="present",
-        title="User pod state.",
-        description="Must be one of `present` or `missing`.",
-    )
+    pod: PodState = Field(..., example="present", title="User pod state")
     internal_url: Optional[str] = Field(
         None,
         example="http://nublado-ribbon.nb-ribbon:8888",
         title="URL by which the Hub can access the user Pod",
     )
-    resources: UserResources = Field(..., title="Resource requests and limits")
+    resources: LabResources = Field(..., title="Resource limits and requests")
+    quota: ResourceQuantity | None = Field(
+        None, title="Quota for all user resources"
+    )
 
     @classmethod
-    def new_from_user_resources(
+    def from_request(
         cls,
-        user: UserInfo,
-        labspec: LabSpecification,
-        resources: UserResources,
+        user: GafaelfawrUserInfo,
+        lab: LabSpecification,
+        resources: LabResources,
     ) -> Self:
+        """Create state for a new lab that is about to be spawned.
+
+        Parameters
+        ----------
+        user
+            Owner of the lab.
+        lab
+            Lab specification from JupyterHub.
+        resources
+            Resource limits and requests for the lab (normally derived from
+            the lab size).
+
+        Returns
+        -------
+        UserLabState
+            New user lab state representing a lab that's about to be spawned.
+        """
+        quota = None
+        if user.quota and user.quota.notebook:
+            quota = ResourceQuantity(
+                cpu=user.quota.notebook.cpu,
+                memory=int(user.quota.notebook.memory * 1024 * 1024 * 1024),
+            )
         return cls(
-            options=labspec.options,
-            env=labspec.env,
+            user=UserInfo.from_gafaelfawr(user),
+            options=lab.options,
+            env=lab.env,
             status=LabStatus.PENDING,
             pod=PodState.MISSING,
             resources=resources,
-            **user.dict(),
+            quota=quota,
         )
-
-    @classmethod
-    def from_components(
-        cls,
-        user: UserInfo,
-        labspec: LabSpecification,
-        resources: UserResources,
-        status: LabStatus,
-        pod: PodState,
-    ) -> Self:
-        ud = cls.new_from_user_resources(
-            user=user,
-            labspec=labspec,
-            resources=resources,
-        )
-        ud.status = status
-        ud.pod = pod
-        return ud

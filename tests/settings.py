@@ -14,11 +14,8 @@ from kubernetes_asyncio.client import (
     V1Secret,
 )
 
-from jupyterlabcontroller.models.v1.lab import (
-    LabSpecification,
-    UserInfo,
-    UserResources,
-)
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
+from jupyterlabcontroller.models.v1.lab import LabSpecification
 from jupyterlabcontroller.services.size import memory_string_to_int
 
 # Factory to manufacture test objects
@@ -58,9 +55,9 @@ class TestObjectFactory:
         self._canonicalized = True
 
     @property
-    def userinfos(self) -> dict[str, UserInfo]:
+    def userinfos(self) -> dict[str, GafaelfawrUserInfo]:
         return {
-            t: UserInfo.parse_obj(d)
+            t: GafaelfawrUserInfo.parse_obj(d)
             for t, d in self.test_objects["user_info"].items()
         }
 
@@ -71,14 +68,6 @@ class TestObjectFactory:
         return [
             LabSpecification.parse_obj(x)
             for x in self.test_objects["lab_specification"]
-        ]
-
-    @property
-    def resources(self) -> list[UserResources]:
-        if not self._canonicalized:
-            self.canonicalize()
-        return [
-            UserResources.parse_obj(x) for x in self.test_objects["resources"]
         ]
 
     @property
@@ -115,7 +104,7 @@ class TestObjectFactory:
             secrets.append(secret)
         return secrets
 
-    def get_user(self) -> tuple[str, UserInfo]:
+    def get_user(self) -> tuple[str, GafaelfawrUserInfo]:
         """Get user information and token for a user."""
         for token, user in self.userinfos.items():
             return token, user

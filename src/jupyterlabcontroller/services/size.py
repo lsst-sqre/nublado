@@ -6,7 +6,7 @@ import bitmath
 from ..config import LabSizeDefinition
 from ..constants import LIMIT_TO_REQUEST_RATIO
 from ..models.domain.form import FormSize
-from ..models.v1.lab import LabSize, UserResourceQuantum, UserResources
+from ..models.v1.lab import LabResources, LabSize, ResourceQuantity
 
 
 def memory_string_to_int(memstr: str) -> int:
@@ -31,18 +31,18 @@ class SizeManager:
             for x in self._sizes
         ]
 
-    def resources(self, size: LabSize) -> UserResources:
+    def resources(self, size: LabSize) -> LabResources:
         cpu = self._sizes[size].cpu
         memory = memory_string_to_int(self._sizes[size].memory)
-        return UserResources(
-            limits=UserResourceQuantum(cpu=cpu, memory=memory),
-            requests=UserResourceQuantum(
+        return LabResources(
+            limits=ResourceQuantity(cpu=cpu, memory=memory),
+            requests=ResourceQuantity(
                 cpu=cpu / LIMIT_TO_REQUEST_RATIO,
                 memory=int(memory / LIMIT_TO_REQUEST_RATIO),
             ),
         )
 
-    def size_from_resources(self, resources: UserResources) -> LabSize:
+    def size_from_resources(self, resources: LabResources) -> LabSize:
         """Determine the lab size given the resource constraints.
 
         This is used by reconciliation of internal data against Kubernetes.
