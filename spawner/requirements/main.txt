@@ -101,9 +101,9 @@ alembic==1.11.1 \
     --hash=sha256:6a810a6b012c88b33458fceb869aef09ac75d6ace5291915ba7fae44de372c01 \
     --hash=sha256:dc871798a601fab38332e38d6ddb38d5e734f60034baeb8e2db5b642fccd8ab8
     # via jupyterhub
-anyio==3.6.2 \
-    --hash=sha256:25ea0d673ae30af41a0c442f81cf3b38c7e79fdc7b60335a4c14e05eb0947421 \
-    --hash=sha256:fbbe32bd270d2a2ef3ed1c5d45041250284e31fc0a4df4a5a6071842051a51e3
+anyio==3.7.0 \
+    --hash=sha256:275d9973793619a5374e1c89a4f4ad3f4b0a5510a2b5b939444bee8f4c4d37ce \
+    --hash=sha256:eddca883c4175f14df8aedce21054bfca3adb70ffe76a9f607aef9d7fa2ea7f0
     # via httpcore
 async-generator==1.10 \
     --hash=sha256:01c7bf666359b4967d2cda0000cc2e4af16a0ae098cbffcb8472fb9e8ad6585b \
@@ -633,9 +633,9 @@ pamela==1.0.0 \
     --hash=sha256:65c9389bef7d1bb0b168813b6be21964df32016923aac7515bdf05366acbab6c \
     --hash=sha256:b54be508a13bb3d983d117f7b069b31545003ae989791f467cf941376c807f20
     # via jupyterhub
-prometheus-client==0.16.0 \
-    --hash=sha256:0836af6eb2c8f4fed712b2f279f6c0a8bbab29f9f4aa15276b91c7cb0d1616ab \
-    --hash=sha256:a03e35b359f14dd1630898543e2120addfdeacd1a6069c1367ae90fd93ad3f48
+prometheus-client==0.17.0 \
+    --hash=sha256:9c3b26f1535945e85b8934fb374678d263137b78ef85f305b1156c7c881cd11b \
+    --hash=sha256:a77b708cf083f4d1a3fb3ce5c95b4afa32b9c521ae363354a4a910204ea095ce
     # via jupyterhub
 psycopg2==2.9.6 \
     --hash=sha256:11aca705ec888e4f4cea97289a0bf0f22a067a32614f6ef64fcf7b8bfbc53744 \
@@ -748,9 +748,9 @@ requests==2.31.0 \
     --hash=sha256:58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f \
     --hash=sha256:942c5a758f98d790eaed1a29cb6eefc7ffb0d1cf7af05c3d2791656dbd6ad1e1
     # via jupyterhub
-ruamel-yaml==0.17.26 \
-    --hash=sha256:25d0ee82a0a9a6f44683dcf8c282340def4074a4562f3a24f55695bb254c1693 \
-    --hash=sha256:baa2d0a5aad2034826c439ce61c142c07082b76f4791d54145e131206e998059
+ruamel-yaml==0.17.28 \
+    --hash=sha256:3bf6df1c481d2463a633be6ee86e8aece941bb3298a9a0cd6d0865f47b1ddce6 \
+    --hash=sha256:823aff68f88260805049d6a4825e36cb7f1e273a7dd8f391e7b35a16a67a30ea
     # via jupyter-telemetry
 ruamel-yaml-clib==0.2.7 \
     --hash=sha256:045e0626baf1c52e5527bd5db361bc83180faaba2ff586e763d3d5982a876a9e \
@@ -872,9 +872,9 @@ traitlets==5.9.0 \
     #   -r requirements/main.in
     #   jupyter-telemetry
     #   jupyterhub
-typing-extensions==4.6.0 \
-    --hash=sha256:6ad00b63f849b7dcc313b70b6b304ed67b2b2963b3098a33efe18056b1a9a223 \
-    --hash=sha256:ff6b238610c747e44c268aa4bb23c8c735d665a63726df3f9431ce707f2aa768
+typing-extensions==4.6.2 \
+    --hash=sha256:06006244c70ac8ee83fa8282cb188f697b8db25bc8b4df07be1873c43897060c \
+    --hash=sha256:3a8b36f13dd5fdc5d1b16fe317f5668545de77fa0b8e02006381fd49d731ab98
     # via
     #   alembic
     #   sqlalchemy
