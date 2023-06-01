@@ -1647,7 +1647,7 @@ class K8sStorageClient:
             pods = await self.api.list_namespaced_pod(
                 namespace=namespace, label_selector=selector_string
             )
-            if not pods:
+            if not pods or not pods.items:
                 return None
             if len(pods.items) > 1:
                 raise DuplicateObjectError(
