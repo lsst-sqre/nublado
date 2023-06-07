@@ -18,7 +18,7 @@ Operations
 ----------
 
 - Run tutorial notebooks on data-dev and data-int for better testing of new Nublado releases.
-  This requires a fix to one notebook that asserts that it only runs in the data.lsst.cloud environment.
+  ~This requires a fix to one notebook that asserts that it only runs in the data.lsst.cloud environment.~ (fixed)
 
 Rollout
 -------
