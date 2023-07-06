@@ -202,7 +202,7 @@ class RSPRestSpawner(Spawner):
         """Shared `httpx.AsyncClient`."""
         global _CLIENT
         if not _CLIENT:
-            _CLIENT = AsyncClient()
+            _CLIENT = AsyncClient(timeout=60)
         return _CLIENT
 
     async def get_url(self) -> str:

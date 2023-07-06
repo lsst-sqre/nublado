@@ -29,4 +29,5 @@ kubernetes_asyncio
 # Pin them so that we can regenerate dependencies with Python 3.11 and still
 # successfully build a Docker image using Python 3.10, which the base
 # JupyterHub image currently uses.
+exceptiongroup
 ruamel.yaml.clib
