@@ -1295,6 +1295,7 @@ class K8sStorageClient:
             images = [
                 KubernetesNodeImage.from_container_image(i)
                 for i in node.status.images
+                if node.status is not None and node.status.images is not None
             ]
             image_data[name] = images
         return image_data
