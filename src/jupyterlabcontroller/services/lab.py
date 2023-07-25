@@ -877,9 +877,6 @@ class LabManager:
             image_pull_secrets=pull_secrets,
             restart_policy="OnFailure",
             security_context=V1PodSecurityContext(
-                run_as_non_root=True,
-                run_as_user=user.uid,
-                run_as_group=user.gid,
                 supplemental_groups=[x.id for x in user.groups if x.id],
             ),
             volumes=volumes,
