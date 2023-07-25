@@ -831,7 +831,6 @@ class LabManager:
             env.append(env_var)
 
         # Specification for the user's container.
-        homedir = self._get_homedir(user)
         container = V1Container(
             name="notebook",
             args=["/opt/lsst/software/jupyterlab/runlab.sh"],
@@ -862,7 +861,7 @@ class LabManager:
                 run_as_group=user.gid,
             ),
             volume_mounts=mounts,
-            working_dir=homedir,
+            working_dir=self._get_homedir(user),
         )
 
         # Build the pod specification itself.
