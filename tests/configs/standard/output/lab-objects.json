@@ -407,8 +407,9 @@
       ],
       "restart_policy": "OnFailure",
       "security_context": {
-        "fs_group": 1101,
+        "run_as_group": 1101,
         "run_as_non_root": true,
+	"run_as_user": 1101,
         "supplemental_groups": [
           1101,
           2028,

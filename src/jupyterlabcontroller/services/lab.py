@@ -878,7 +878,8 @@ class LabManager:
             restart_policy="OnFailure",
             security_context=V1PodSecurityContext(
                 run_as_non_root=True,
-                fs_group=user.gid,
+                run_as_user=user.uid,
+                run_as_group=user.gid,
                 supplemental_groups=[x.id for x in user.groups if x.id],
             ),
             volumes=volumes,
