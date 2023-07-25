@@ -146,6 +146,13 @@ class LabManager:
             end_progress=75,
         )
 
+    def _get_homedir(self, user: GafaelfawrUserInfo) -> str:
+        match self.lab_config.homedir_schema:
+            case UserHomeDirectorySchema.USERNAME:
+                return f"/home/{user.username}"
+            case UserHomeDirectorySchema.INITIAL_THEN_USERNAME:
+                return f"/home/{user.username[0]}/{user.username}"
+
     async def _spawn_lab(
         self,
         *,
@@ -337,11 +344,7 @@ class LabManager:
 
         # Construct the user's /etc/passwd entry. Different sites use
         # different schemes for constructing the home directory path.
-        match self.lab_config.homedir_schema:
-            case UserHomeDirectorySchema.USERNAME:
-                homedir = f"/home/{user.username}"
-            case UserHomeDirectorySchema.INITIAL_THEN_USERNAME:
-                homedir = f"/home/{user.username[0]}/{user.username}"
+        homedir = self._get_homedir(user)
         etc_passwd += (
             f"{user.username}:x:{user.uid}:{user.gid}:"
             f"{user.name}:{homedir}:/bin/bash\n"
@@ -828,6 +831,7 @@ class LabManager:
             env.append(env_var)
 
         # Specification for the user's container.
+        homedir = self._get_homedir(user)
         container = V1Container(
             name="notebook",
             args=["/opt/lsst/software/jupyterlab/runlab.sh"],
@@ -858,7 +862,7 @@ class LabManager:
                 run_as_group=user.gid,
             ),
             volume_mounts=mounts,
-            working_dir=f"/home/{user.username}",
+            working_dir=homedir,
         )
 
         # Build the pod specification itself.
