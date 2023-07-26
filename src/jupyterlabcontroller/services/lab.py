@@ -146,6 +146,13 @@ class LabManager:
             end_progress=75,
         )
 
+    def _get_homedir(self, user: GafaelfawrUserInfo) -> str:
+        match self.lab_config.homedir_schema:
+            case UserHomeDirectorySchema.USERNAME:
+                return f"/home/{user.username}"
+            case UserHomeDirectorySchema.INITIAL_THEN_USERNAME:
+                return f"/home/{user.username[0]}/{user.username}"
+
     async def _spawn_lab(
         self,
         *,
@@ -337,11 +344,7 @@ class LabManager:
 
         # Construct the user's /etc/passwd entry. Different sites use
         # different schemes for constructing the home directory path.
-        match self.lab_config.homedir_schema:
-            case UserHomeDirectorySchema.USERNAME:
-                homedir = f"/home/{user.username}"
-            case UserHomeDirectorySchema.INITIAL_THEN_USERNAME:
-                homedir = f"/home/{user.username[0]}/{user.username}"
+        homedir = self._get_homedir(user)
         etc_passwd += (
             f"{user.username}:x:{user.uid}:{user.gid}:"
             f"{user.name}:{homedir}:/bin/bash\n"
@@ -858,7 +861,7 @@ class LabManager:
                 run_as_group=user.gid,
             ),
             volume_mounts=mounts,
-            working_dir=f"/home/{user.username}",
+            working_dir=self._get_homedir(user),
         )
 
         # Build the pod specification itself.
@@ -873,8 +876,6 @@ class LabManager:
             image_pull_secrets=pull_secrets,
             restart_policy="OnFailure",
             security_context=V1PodSecurityContext(
-                run_as_non_root=True,
-                fs_group=user.gid,
                 supplemental_groups=[x.id for x in user.groups if x.id],
             ),
             volumes=volumes,
