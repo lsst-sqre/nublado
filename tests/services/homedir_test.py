@@ -12,7 +12,7 @@ from ..support.data import read_output_data
 
 
 @pytest.mark.asyncio
-async def test_homedir_schema(obj_factory: TestObjectFactory) -> None:
+async def test_homedir_schema_nss(obj_factory: TestObjectFactory) -> None:
     """Test building a passwd file with the alternate homedir layout."""
     _, user = obj_factory.get_user()
     config = configure("homedir-schema")
