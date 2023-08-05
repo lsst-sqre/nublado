@@ -218,7 +218,8 @@ class LabManager:
 
         # Finally, create the lab pod.
         resources = self._size_manager.resources(lab.options.size)
-        await self.create_user_pod(user, resources, image)
+        annos = self.build_annotations(user, self.lab_config.extra_annotations)
+        await self.create_user_pod(user, resources, image, annos)
         await self._lab_state.publish_pod_creation(
             username, "Requested lab Kubernetes pod", 30
         )
@@ -286,6 +287,18 @@ class LabManager:
     # few things, so that we can more easily unit test the object construction
     # logic.
     #
+
+    def build_annotations(
+        self, user: GafaelfawrUser, extra_annotations: dict[str, str]
+    ) -> dict[str, str]:
+        serialized_groups = json.dumps([g.dict() for g in user.groups if g.id])
+        annos = {
+            "nublado.lsst.io/user-name": user.name,
+            "nublado.lsst.io/user-groups": serialized_groups,
+        }
+        if extra_annotations:
+            annos.update(extra_annotations)
+        return annos
 
     async def create_pvcs(self, user: GafaelfawrUserInfo) -> None:
         namespace = self._builder.namespace_for_user(user.username)
@@ -504,17 +517,14 @@ class LabManager:
         user: GafaelfawrUserInfo,
         resources: LabResources,
         image: RSPImage,
+        annotations: dict[str, str],
     ) -> None:
         pod_spec = self.build_pod_spec(user, resources, image)
-        serialized_groups = json.dumps([g.dict() for g in user.groups if g.id])
         await self.k8s_client.create_pod(
             name=f"{user.username}-nb",
             namespace=self._builder.namespace_for_user(user.username),
             pod_spec=pod_spec,
-            annotations={
-                "nublado.lsst.io/user-name": user.name,
-                "nublado.lsst.io/user-groups": serialized_groups,
-            },
+            annotations=annotations,
             username=user.username,
         )
 
