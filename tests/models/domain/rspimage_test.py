@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import typing
 from dataclasses import asdict
 from random import SystemRandom
 
@@ -57,6 +58,9 @@ def test_image() -> None:
     assert not image.is_possible_alias
 
 
+# See the discussion inline about why we must disable the type checker here
+# for mypy 1.4+
+@typing.no_type_check
 def test_resolve_alias() -> None:
     """Test enhancing an RSPImage alias."""
     image = RSPImage.from_tag(
@@ -85,6 +89,20 @@ def test_resolve_alias() -> None:
     assert recommended.is_possible_alias
 
     recommended.resolve_alias(image)
+    # This breaks in mypy 1.4; somehow, it can't imagine that the type
+    # could change after resolution.  Then it claims that the rest of the
+    # test is unreachable, because it imagines that the assertion will have
+    # failed.
+    #
+    # Empirically, mypy is just wrong.
+    #
+    # It felt like annotating the next line with an ignore[comparison-overlap]
+    # and all subsequent lines in the test function with an
+    # ignore[unreachable,unused-ignore] was really ugly, so I chose to just
+    # disable type checking of the whole function.  No, an ignore comment
+    # on its own line doesn't turn it off for the rest of the block.  It can
+    # only go at the very top of the file and turns it off for the whole file.
+    # I think this is the best scoping we can do with mypy.
     assert recommended.image_type == RSPImageType.ALIAS
     assert recommended.alias_target == "d_2077_10_23_c0045.003"
     assert image.aliases == {"recommended"}
@@ -118,6 +136,7 @@ def test_resolve_alias() -> None:
         image.resolve_alias(latest_daily)
 
 
+@typing.no_type_check
 def test_collection() -> None:
     """Test RSPImageCollection."""
     tags = ["w_2077_46", "w_2077_45", "w_2077_44", "w_2077_43", "d_2077_10_21"]
@@ -155,6 +174,7 @@ def test_collection() -> None:
     SystemRandom().shuffle(shuffled_images)
     assert images[0].aliases == set()
     collection = RSPImageCollection(shuffled_images)
+    # Same mypy error as above in test_resolve_alias
     assert latest_weekly.image_type == RSPImageType.ALIAS
     assert latest_weekly.alias_target == "w_2077_46"
     assert recommended.alias_target == "w_2077_46"
