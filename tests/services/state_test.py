@@ -81,7 +81,6 @@ async def create_lab(
     # higher-level lab manager function, but it reports events to the lab
     # state manager, and we want the lab state manager to have no record of
     # anything to test reconciliation.
-    annos = lab_manager.build_annotations(user, {})
     await lab_manager.create_namespace(user)
     await lab_manager.create_secrets(user)
     await lab_manager.create_nss(user)
@@ -90,7 +89,7 @@ async def create_lab(
     await lab_manager.create_network_policy(user)
     await lab_manager.create_quota(user)
     await lab_manager.create_lab_service(user)
-    await lab_manager.create_user_pod(user, resources, image, annos)
+    await lab_manager.create_user_pod(user, resources, image)
 
     return UserLabState(
         env=lab.env,
