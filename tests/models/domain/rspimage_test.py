@@ -72,7 +72,13 @@ def test_resolve_alias() -> None:
         tag=RSPImageTag.from_str("recommended"),
         digest="sha256:1234",
     )
-    assert recommended.image_type == RSPImageType.UNKNOWN
+
+    # resolve_alias(), called below, may change image_type, but mypy doesn't
+    # have enough information to know that and preserves type narrowing. This
+    # is therefore written a little oddly to prevent mypy from doing type
+    # narrowing.
+    expected = RSPImageType.UNKNOWN
+    assert recommended.image_type == expected
     assert recommended.display_name == "recommended"
     assert recommended.alias_target is None
     assert recommended.cycle is None
@@ -127,14 +133,21 @@ def test_collection() -> None:
     images.append(recommended)
 
     # Add an unknown image with the same digest as the first image. This
-    # should get promoted to an alias.
+    # should start as an unknown tag but get promoted to an alias once
+    # ingested into a collection.
     latest_weekly = RSPImage.from_tag(
         registry="lighthouse.ceres",
         repository="library/sketchbook",
         tag=RSPImageTag.from_str("latest_weekly"),
         digest=images[0].digest,
     )
-    assert latest_weekly.image_type == RSPImageType.UNKNOWN
+
+    # resolve_alias(), called below, may change image_type, but mypy doesn't
+    # have enough information to know that and preserves type narrowing. This
+    # is therefore written a little oddly to prevent mypy from doing type
+    # narrowing.
+    expected = RSPImageType.UNKNOWN
+    assert latest_weekly.image_type == expected
     images.append(latest_weekly)
 
     # Ingest into a collection.
