@@ -12,12 +12,11 @@ uvicorn[standard]
 
 # Other dependencies.
 aiojobs
-aioredis
-aioredlock
 bitmath
 google-cloud-artifact-registry
 httpx
 jinja2
+pydantic<2
 PyYAML
 safir[kubernetes]>=4.3.0
 semver
