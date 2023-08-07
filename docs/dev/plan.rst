@@ -14,21 +14,6 @@ Documentation
 
 - Review the operational documentation for ``nublado2`` and move anything still relevant to the documentation for the new Nublado application.
 
-Operations
-----------
-
-- Run tutorial notebooks on data-dev and data-int for better testing of new Nublado releases.
-  This requires a fix to one notebook that asserts that it only runs in the data.lsst.cloud environment.
-
-Rollout
--------
-
-- Write the Phalanx configuration for Nublado v3 for data.lsst.cloud and USDF production.
-
-- Add the required secrets, including 1Password configuration, for Nublado v3 on data.lsst.cloud and USDF production.
-
-- Switch data.lsst.cloud and USDF production to Nublado v3.
-
 Before end of 2023
 ==================
 
