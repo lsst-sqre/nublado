@@ -155,7 +155,6 @@ def test_collection() -> None:
     SystemRandom().shuffle(shuffled_images)
     assert images[0].aliases == set()
     collection = RSPImageCollection(shuffled_images)
-    # Same mypy error as above in test_resolve_alias
     assert latest_weekly.image_type == RSPImageType.ALIAS
     assert latest_weekly.alias_target == "w_2077_46"
     assert recommended.alias_target == "w_2077_46"
