@@ -287,6 +287,17 @@ class LabManager:
     # logic.
     #
 
+    def _build_annotations(self, user: GafaelfawrUserInfo) -> dict[str, str]:
+        """Private helper function; it's a bit unwieldy to do inline."""
+        serialized_groups = json.dumps([g.dict() for g in user.groups if g.id])
+        annos = {
+            "nublado.lsst.io/user-name": user.name,
+            "nublado.lsst.io/user-groups": serialized_groups,
+        }
+        if self.lab_config.extra_annotations:
+            annos.update(self.lab_config.extra_annotations)
+        return annos
+
     async def create_pvcs(self, user: GafaelfawrUserInfo) -> None:
         namespace = self._builder.namespace_for_user(user.username)
         pvcs = self.build_pvcs(user.username)
@@ -506,15 +517,12 @@ class LabManager:
         image: RSPImage,
     ) -> None:
         pod_spec = self.build_pod_spec(user, resources, image)
-        serialized_groups = json.dumps([g.dict() for g in user.groups if g.id])
+        annos = self._build_annotations(user)
         await self.k8s_client.create_pod(
             name=f"{user.username}-nb",
             namespace=self._builder.namespace_for_user(user.username),
             pod_spec=pod_spec,
-            annotations={
-                "nublado.lsst.io/user-name": user.name,
-                "nublado.lsst.io/user-groups": serialized_groups,
-            },
+            annotations=annos,
             username=user.username,
         )
 

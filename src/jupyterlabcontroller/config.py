@@ -305,7 +305,11 @@ class LabConfig(CamelCaseModel):
     )
     homedir_schema: UserHomeDirectorySchema = Field(
         UserHomeDirectorySchema.USERNAME,
-        title="Schema for user homedir construction.",
+        title="Schema for user homedir construction",
+    )
+    extra_annotations: dict[str, str] = Field(
+        {},
+        title="Extra annotations for lab pod",
     )
 
     @validator("secrets")
