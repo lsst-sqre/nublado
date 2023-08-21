@@ -35,6 +35,9 @@
           "working_dir": "/tmp"
         }
       ],
+      "image_pull_secrets": [
+	{ "name": "pull-secret" }
+      ],
       "node_name": "node2",
       "restart_policy": "Never"
     },
