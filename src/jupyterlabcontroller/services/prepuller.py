@@ -6,7 +6,12 @@ from pathlib import Path
 from typing import Optional
 
 from aiojobs import Scheduler
-from kubernetes_asyncio.client import V1Container, V1OwnerReference, V1PodSpec
+from kubernetes_asyncio.client import (
+    V1Container,
+    V1LocalObjectReference,
+    V1OwnerReference,
+    V1PodSpec,
+)
 from safir.datetime import current_datetime
 from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
@@ -40,6 +45,8 @@ class Prepuller:
         Client for talking to Kubernetes.
     slack_client
         Optional Slack webhook client for alerts.
+    pull_secret
+        Optional name of Secret object to use for pulling images
     logger
         Logger for messages.
     """
@@ -52,6 +59,7 @@ class Prepuller:
         image_service: ImageService,
         k8s_client: K8sStorageClient,
         slack_client: Optional[SlackWebhookClient] = None,
+        pull_secret: Optional[str] = None,
         logger: BoundLogger,
     ) -> None:
         self._namespace = namespace
@@ -59,6 +67,7 @@ class Prepuller:
         self._image_service = image_service
         self._k8s_client = k8s_client
         self._slack_client = slack_client
+        self._pull_secret = pull_secret
         self._logger = logger
 
         # Scheduler to manage background tasks that prepull images to nodes.
@@ -132,7 +141,7 @@ class Prepuller:
         The pod does nothing but sleep five seconds and then exit.  Its only
         function is to ensure that that image gets pulled to that node.
         """
-        return V1PodSpec(
+        podspec = V1PodSpec(
             containers=[
                 V1Container(
                     name="prepull",
@@ -144,6 +153,11 @@ class Prepuller:
             node_name=node,
             restart_policy="Never",
         )
+        if self._pull_secret is not None and self._pull_secret:
+            podspec.image_pull_secrets = [
+                V1LocalObjectReference(name=self._pull_secret)
+            ]
+        return podspec
 
     async def _prepull_image(self, image: RSPImage, node: str) -> None:
         """Prepull an image on a single node.

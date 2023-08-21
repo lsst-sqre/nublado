@@ -140,6 +140,7 @@ class ProcessContext:
                 image_service=image_service,
                 k8s_client=k8s_client,
                 slack_client=slack_client,
+                pull_secret=config.lab.pull_secret,
                 logger=logger,
             ),
             lab_state=LabStateManager(
