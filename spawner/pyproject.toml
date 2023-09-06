@@ -80,6 +80,10 @@ exclude = '''
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
+filterwarnings = [
+    # Will probably be fixed with JupyterHub v4.
+    "ignore:'pipes' is deprecated:DeprecationWarning:jupyterhub.spawner"
+]
 # The python_files setting is not for test detection (pytest will pick up any
 # test files named *_test.py without this setting) but to enable special
 # assert processing in any non-test supporting files under tests.  We
