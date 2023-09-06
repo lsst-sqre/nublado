@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from jupyterhub.app import JupyterHub
 from jupyterhub.auth import Authenticator
@@ -102,7 +102,7 @@ class GafaelfawrAuthenticator(Authenticator):
 
         This is not used in our authentication scheme.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_handlers(self, app: JupyterHub) -> list[Route]:
         """Register the header-only login and the logout handlers."""
@@ -121,7 +121,7 @@ class GafaelfawrAuthenticator(Authenticator):
         return url_path_join(base_url, "gafaelfawr/login")
 
     async def refresh_user(
-        self, user: User, handler: Optional[RequestHandler] = None
+        self, user: User, handler: RequestHandler | None = None
     ) -> bool | AuthInfo:
         """Optionally refresh the user's token."""
         # If running outside of a Tornado handler, we can't refresh the auth

@@ -18,10 +18,7 @@ async def collect_progress(
     spawner: RSPRestSpawner,
 ) -> list[dict[str, int | str]]:
     """Gather progress from a spawner and return it as a list when done."""
-    result = []
-    async for message in spawner.progress():
-        result.append(message)
-    return result
+    return [m async for m in spawner.progress()]
 
 
 @pytest.mark.asyncio
