@@ -1,3 +1,27 @@
+.PHONY: help
+help:
+	@echo "Make targets for RSP REST spawner"
+	@echo "make init - Set up dev environment"
+	@echo "make run - Run dev instance of service locally"
+	@echo "make update - Update pinned dependencies and run make init"
+	@echo "make update-deps - Update pinned dependencies"
+	@echo "make update-deps-no-hashes - Pin dependencies without hashes"
+
+.PHONY: init
+init:
+	pip install --editable .
+	pip install --upgrade -r requirements/main.txt -r requirements/dev.txt
+	rm -rf .tox
+	pip install --upgrade pre-commit tox
+	pre-commit install
+
+.PHONY: run
+run:
+	tox run -e run
+
+.PHONY: update
+update: update-deps init
+
 # The dependencies need --allow-unsafe because kubernetes-asyncio and
 # (transitively) pre-commit depends on setuptools, which is normally not
 # allowed to appear in a hashed dependency file.
@@ -21,18 +45,3 @@ update-deps-no-hashes:
 	pip-compile --upgrade --resolver=backtracking --build-isolation \
 	    --allow-unsafe						\
 	    --output-file requirements/dev.txt requirements/dev.in
-
-.PHONY: init
-init:
-	pip install --editable .
-	pip install --upgrade -r requirements/main.txt -r requirements/dev.txt
-	rm -rf .tox
-	pip install --upgrade pre-commit tox
-	pre-commit install
-
-.PHONY: update
-update: update-deps init
-
-.PHONY: run
-run:
-	tox -e=run
