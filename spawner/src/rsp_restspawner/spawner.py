@@ -9,7 +9,7 @@ from datetime import timedelta
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Any, Concatenate, Optional, ParamSpec, TypeVar
+from typing import Any, Concatenate, ParamSpec, TypeVar
 
 from httpx import AsyncClient, HTTPError, Response
 from httpx_sse import ServerSentEvent, aconnect_sse
@@ -31,7 +31,7 @@ __all__ = [
     "RSPRestSpawner",
 ]
 
-_CLIENT: Optional[AsyncClient] = None
+_CLIENT: AsyncClient | None = None
 """Cached global HTTP client so that we can share a connection pool."""
 
 
@@ -195,7 +195,7 @@ class RSPRestSpawner(Spawner):
         # Holds the future representing a spawn in progress, used by the
         # progress method to know when th spawn is finished and it should
         # exit.
-        self._start_future: Optional[asyncio.Task[str]] = None
+        self._start_future: asyncio.Task[str] | None = None
 
     @property
     def _client(self) -> AsyncClient:
@@ -274,7 +274,7 @@ class RSPRestSpawner(Spawner):
         return r.text
 
     @_convert_exception
-    async def poll(self) -> Optional[int]:
+    async def poll(self) -> int | None:
         """Check if the pod is running.
 
         Returns

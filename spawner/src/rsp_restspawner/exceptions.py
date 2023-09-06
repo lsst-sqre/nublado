@@ -7,8 +7,6 @@ and improved code readability.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from httpx import HTTPError, HTTPStatusError, RequestError
 
 __all__ = [
@@ -65,7 +63,7 @@ class ControllerWebError(Exception):
                 body=exc.response.text,
             )
         else:
-            message = f"{type(exc).__name__}: {str(exc)}"
+            message = f"{type(exc).__name__}: {exc!s}"
             if isinstance(exc, RequestError):
                 return cls(
                     message,
@@ -79,11 +77,11 @@ class ControllerWebError(Exception):
         self,
         message: str,
         *,
-        method: Optional[str] = None,
-        url: Optional[str] = None,
-        status: Optional[int] = None,
-        reason: Optional[str] = None,
-        body: Optional[str] = None,
+        method: str | None = None,
+        url: str | None = None,
+        status: int | None = None,
+        reason: str | None = None,
+        body: str | None = None,
     ) -> None:
         self.message = message
         self.method = method

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import respx
 from httpx import AsyncByteStream, Request, Response
@@ -34,7 +34,7 @@ class MockProgress(AsyncByteStream):
     """
 
     def __init__(
-        self, user: str, delay: timedelta, fail_during_spawn: bool = False
+        self, user: str, delay: timedelta, *, fail_during_spawn: bool = False
     ) -> None:
         self._user = user
         self._delay = delay
@@ -50,7 +50,7 @@ class MockProgress(AsyncByteStream):
         # sse-starlette sends these ping events periodically to keep the
         # connection alive. We should just ignore them.
         yield b"event: ping\r\n"
-        yield b"data: " + str(datetime.utcnow()).encode() + b"\r\n"
+        yield b"data: " + str(datetime.now(tz=timezone.utc)).encode() + b"\r\n"
         yield b"\r\n"
 
         yield b"event: info\r\n"
@@ -144,7 +144,9 @@ class MockLabController:
         self._check_authorization(request)
         if not self._lab_status.get(user):
             return Response(status_code=404)
-        stream = MockProgress(user, self.delay, self.fail_during_spawn)
+        stream = MockProgress(
+            user, self.delay, fail_during_spawn=self.fail_during_spawn
+        )
         return Response(
             status_code=200,
             headers={"Content-Type": "text/event-stream"},
@@ -174,7 +176,7 @@ class MockLabController:
         )
 
     def _check_authorization(
-        self, request: Request, admin: bool = False
+        self, request: Request, *, admin: bool = False
     ) -> None:
         authorization = request.headers["Authorization"]
         auth_type, token = authorization.split(None, 1)
