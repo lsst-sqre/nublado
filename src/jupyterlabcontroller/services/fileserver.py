@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
+from datetime import timedelta
 from typing import Any
 from urllib.parse import urlparse
 
@@ -129,10 +130,11 @@ class FileserverStateManager:
                 namespace=self._namespace,
                 kind="Pod",
             )
+        timeout = timedelta(seconds=self._config.fileserver.creation_timeout)
         await self._k8s_client.wait_for_pod_start(
             pod_name=pod.metadata.name,
             namespace=namespace,
-            timeout=self._config.fileserver.creation_timeout,
+            timeout=timeout,
         )
         # The ingress is the part that typically takes longest
         await self._k8s_client.wait_for_user_fileserver_ingress_ready(

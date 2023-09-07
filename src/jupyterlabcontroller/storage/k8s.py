@@ -50,10 +50,12 @@ from ..models.domain.kubernetes import (
     KubernetesPodEvent,
     KubernetesPodPhase,
     KubernetesPodWatchInfo,
+    WatchEventType,
     get_watch_args,
 )
 from ..models.v1.lab import ResourceQuantity
 from ..util import deslashify
+from .kubernetes.watcher import KubernetesWatcher
 
 __all__ = ["K8sStorageClient"]
 
@@ -412,7 +414,7 @@ class K8sStorageClient:
         return pod.status.phase
 
     async def wait_for_pod_start(
-        self, pod_name: str, namespace: str, timeout: Optional[int] = None
+        self, pod_name: str, namespace: str, timeout: timedelta | None = None
     ) -> KubernetesPodPhase | None:
         """Waits for a pod to finish starting.
 
@@ -427,6 +429,8 @@ class K8sStorageClient:
             Name of the pod.
         namespace
             Namespace in which the pod is located.
+        timeout
+            Timeout to wait for the pod to start.
 
         Returns
         -------
@@ -440,6 +444,7 @@ class K8sStorageClient:
         """
         logger = self._logger.bind(name=pod_name, namespace=namespace)
         logger.debug("Waiting for pod creation")
+        in_progress_phases = ("Unknown", "Pending")
 
         # Retrieve the object first. It's possible that it's already in the
         # correct phase, and we can return immediately. If not, we want to
@@ -447,38 +452,35 @@ class K8sStorageClient:
         # version. Note that we treat Unknown the same as Pending; we rely on
         # the timeout and otherwise hope that Kubernetes will figure out the
         # phase.
-        watch_info = await self._get_pod_watch_info(pod_name, namespace)
-        if watch_info is None:
+        pod = await self.get_pod(pod_name, namespace)
+        if pod is None:
             return None
-        if watch_info.initial_phase not in ("Unknown", "Pending"):
-            return KubernetesPodPhase(watch_info.initial_phase)
+        if pod.status.phase not in in_progress_phases:
+            return KubernetesPodPhase(pod.status.phase)
 
         # The pod is not in a terminal phase. Start the watch and wait for it
         # to change state.
-
-        def transmogrifier(
-            event: dict[str, Any]
-        ) -> Optional[KubernetesPodPhase]:
-            if event["type"] == "DELETED":
-                return None
-            return KubernetesPodPhase(event["raw_object"]["status"]["phase"])
-
-        async for event in self._event_watch(
+        watcher = KubernetesWatcher(
             method=self.api.list_namespaced_pod,
-            watch_args=watch_info.watch_args,
-            transmogrifier=transmogrifier,
-            timeout=timeout,  # If None, defaults to config.lab.spawn_timeout
-        ):
-            if event is None:
-                return None
-            if event not in (
-                KubernetesPodPhase.UNKNOWN,
-                KubernetesPodPhase.PENDING,
-            ):
-                return event
+            object_type=V1Pod,
+            kind="Pod",
+            name=pod.metadata.name,
+            namespace=pod.metadata.namespace,
+            resource_version=pod.metadata.resource_version,
+            timeout=timeout or self._spawn_timeout,
+            logger=self._logger,
+        )
+        try:
+            async for event in watcher.watch():
+                if event.action == WatchEventType.DELETED:
+                    return None
+                if event.object.status.phase not in in_progress_phases:
+                    return KubernetesPodPhase(event.object.status.phase)
+        finally:
+            await watcher.close()
 
-        # We shouldn't get here.
-        raise RuntimeError("Control reached end of wait_for_pod_start()")
+        # This should be impossible; someone called stop on the watcher.
+        raise RuntimeError("Wait for pod start unexpectedly stopped")
 
     async def wait_for_pod_stop(
         self, pod_name: str, namespace: str
