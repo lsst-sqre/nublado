@@ -110,7 +110,7 @@ class FileserverStateManager:
             )
             self._logger.debug(f"...creating new service for {username}")
             await self._k8s_client.create_fileserver_service(
-                username, namespace, spec=service
+                namespace, service
             )
             await self._wait_for_fileserver_start(username, namespace)
             task = asyncio.create_task(self._discard_when_done(username))

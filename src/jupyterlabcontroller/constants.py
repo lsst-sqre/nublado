@@ -9,6 +9,7 @@ __all__ = [
     "DROPDOWN_SENTINEL_VALUE",
     "GROUPNAME_REGEX",
     "IMAGE_REFRESH_INTERVAL",
+    "KUBERNETES_DELETE_TIMEOUT",
     "KUBERNETES_REQUEST_TIMEOUT",
     "LAB_STATE_REFRESH_INTERVAL",
     "LIMIT_TO_REQUEST_RATIO",
@@ -28,6 +29,15 @@ DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 
 IMAGE_REFRESH_INTERVAL = timedelta(minutes=5)
 """How frequently to refresh the list of remote and cached images."""
+
+KUBERNETES_DELETE_TIMEOUT = timedelta(seconds=60)
+"""How long to wait for deletion of an object to finish.
+
+In some cases, if a Kubernetes object the controller is trying to create
+already exists, it deletes that object and then retries the creation. This
+controls how long it waits for the object to go away after deletion before it
+gives up.
+"""
 
 LAB_STATE_REFRESH_INTERVAL = timedelta(minutes=60)
 """How frequently to refresh user lab state from Kubernetes.

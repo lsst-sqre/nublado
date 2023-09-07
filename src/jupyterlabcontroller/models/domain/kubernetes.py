@@ -7,10 +7,12 @@ from enum import Enum
 from typing import Any, Coroutine, Optional, Self
 
 from kubernetes_asyncio.client import V1ContainerImage, V1ObjectMeta, V1Pod
+from typing_extensions import Protocol
 
 from .docker import DockerReference
 
 __all__ = [
+    "KubernetesModel",
     "KubernetesNodeImage",
     "KubernetesPodEvent",
     "KubernetesPodPhase",
@@ -21,6 +23,17 @@ __all__ = [
     "WatchEventType",
     "get_watch_args",
 ]
+
+
+class KubernetesModel(Protocol):
+    """Protocol for Kubernetes object models.
+
+    kubernetes-asyncio_ doesn't currently expose type information, so this
+    tells mypy that all the object models we deal with will have a metadata
+    attribute.
+    """
+
+    metadata: V1ObjectMeta
 
 
 class WatchEventType(Enum):
