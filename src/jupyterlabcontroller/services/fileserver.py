@@ -105,9 +105,7 @@ class FileserverStateManager:
                 username, namespace, spec=gf_ingress
             )
             self._logger.debug(f"...creating new job for {username}")
-            await self._k8s_client.create_fileserver_job(
-                username, namespace, job
-            )
+            await self._k8s_client.create_fileserver_job(namespace, job)
             self._logger.debug(f"...creating new service for {username}")
             await self._k8s_client.create_fileserver_service(
                 namespace, service
@@ -140,7 +138,9 @@ class FileserverStateManager:
         await self._k8s_client.wait_for_user_fileserver_ingress_ready(
             username,
             namespace,
-            timeout=self._config.fileserver.creation_timeout,
+            timeout=timedelta(
+                seconds=self._config.fileserver.creation_timeout
+            ),
         )
 
     def _build_metadata(self, username: str) -> V1ObjectMeta:

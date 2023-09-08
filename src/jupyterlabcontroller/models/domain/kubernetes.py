@@ -20,6 +20,7 @@ __all__ = [
     "KubernetesPodWatchInfo",
     "KubernetesKindMethodContainer",
     "KubernetesKindMethodMapper",
+    "PropagationPolicy",
     "WatchEventType",
     "get_watch_args",
 ]
@@ -34,6 +35,14 @@ class KubernetesModel(Protocol):
     """
 
     metadata: V1ObjectMeta
+
+
+class PropagationPolicy(Enum):
+    """Possible values for the ``propagationPolicy`` parameter to delete."""
+
+    FOREGROUND = "Foreground"
+    BACKGROUND = "Background"
+    ORPHAN = "Orphan"
 
 
 class WatchEventType(Enum):

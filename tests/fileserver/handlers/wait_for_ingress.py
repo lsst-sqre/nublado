@@ -64,11 +64,16 @@ async def test_wait_for_ingress(
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == [user.username]
 
-    # Now remove fileserver
-    r = await client.delete(f"/nublado/fileserver/v1/{user.username}")
+    # Now remove the fileserver. Run this as a background task, wait for a
+    # bit, and then delete the Ingress, which simulates what happens normally
+    # in Kubernetes when the parent GafaelfawrIngress is deleted.
+    delete_task = asyncio.create_task(
+        client.delete(f"/nublado/fileserver/v1/{user.username}")
+    )
+    await asyncio.sleep(0.1)
+    await delete_ingress_for_user(mock_kubernetes, name, namespace)
+    await delete_task
+
     # Check that it's gone.
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == []
-
-    # Clean up the Ingress
-    await delete_ingress_for_user(mock_kubernetes, name, namespace)

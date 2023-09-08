@@ -49,6 +49,7 @@ from ..models.domain.kubernetes import (
     KubernetesPodEvent,
     KubernetesPodPhase,
     KubernetesPodWatchInfo,
+    PropagationPolicy,
     WatchEventType,
     get_watch_args,
 )
@@ -61,7 +62,8 @@ from .kubernetes.creator import (
     ResourceQuotaStorage,
     SecretStorage,
 )
-from .kubernetes.deleter import ServiceStorage
+from .kubernetes.deleter import JobStorage, ServiceStorage
+from .kubernetes.ingress import IngressStorage
 from .kubernetes.namespace import NamespaceStorage
 from .kubernetes.watcher import KubernetesWatcher
 
@@ -119,6 +121,8 @@ class K8sStorageClient:
         self._fill_method_map()
 
         self._config_map = ConfigMapStorage(self.k8s_api, logger)
+        self._ingress = IngressStorage(self.k8s_api, logger)
+        self._job = JobStorage(self.k8s_api, logger)
         self._namespace = NamespaceStorage(self.k8s_api, logger)
         self._network_policy = NetworkPolicyStorage(self.k8s_api, logger)
         self._pvc = PersistentVolumeClaimStorage(self.k8s_api, logger)
@@ -131,22 +135,6 @@ class K8sStorageClient:
         which are used by _get_object_maybe() and
         _wait_for_object_deletion().
         """
-        self._method_map.add(
-            "Ingress",
-            KubernetesKindMethodContainer(
-                object_type=V1Ingress,
-                read_method=self.networking_api.read_namespaced_ingress,
-                list_method=self.networking_api.list_namespaced_ingress,
-            ),
-        )
-        self._method_map.add(
-            "Job",
-            KubernetesKindMethodContainer(
-                object_type=V1Job,
-                read_method=self.batch_api.read_namespaced_job,
-                list_method=self.batch_api.list_namespaced_job,
-            ),
-        )
         self._method_map.add(
             "Pod",
             KubernetesKindMethodContainer(
@@ -1138,9 +1126,7 @@ class K8sStorageClient:
         """
         return await self._namespace.read(name) is not None
 
-    async def create_fileserver_job(
-        self, username: str, namespace: str, job: V1Job
-    ) -> None:
+    async def create_fileserver_job(self, namespace: str, job: V1Job) -> None:
         """For all of our fileserver objects: if we are being asked to
         create them, it means we thought, based on our user map, that we did
         not have a working fileserver.  If we encounter an object, then,
@@ -1148,51 +1134,21 @@ class K8sStorageClient:
         correctly.  In that case, we're in mid-creation already, so just
         delete the old, possibly-broken, object, and create a new one.
         """
-        name = f"{username}-fs"
-        self._logger.debug("Creating job", name=name, namespace=namespace)
-        try:
-            await self.batch_api.create_namespaced_job(namespace, job)
-        except ApiException as e:
-            if e.status == 409:
-                # It already exists.  Delete and recreate it
-                self._logger.warning(
-                    "Job exists.  Deleting and recreating.",
-                    name=name,
-                    namespace=namespace,
-                )
-                await self.delete_fileserver_job(username, namespace)
-                await self._wait_for_object_deletion(
-                    name=name, namespace=namespace, kind="Job"
-                )
-                await self.batch_api.create_namespaced_job(namespace, job)
-                return
-            raise KubernetesError.from_exception(
-                "Error creating object",
-                e,
-                kind="Job",
-                namespace=namespace,
-                name=name,
-            ) from e
+        await self._job.create(
+            namespace,
+            job,
+            replace=True,
+            propagation_policy=PropagationPolicy.FOREGROUND,
+        )
 
     async def delete_fileserver_job(
         self, username: str, namespace: str
     ) -> None:
-        name = f"{username}-fs"
-        self._logger.debug("Deleting job", name=name, namespace=namespace)
-        try:
-            await self.batch_api.delete_namespaced_job(
-                name, namespace, propagation_policy="Foreground"
-            )
-        except ApiException as e:
-            if e.status == 404:
-                return
-            raise KubernetesError.from_exception(
-                "Error deleting object",
-                e,
-                kind="Job",
-                namespace=namespace,
-                name=name,
-            ) from e
+        await self._job.delete(
+            f"{username}-fs",
+            namespace,
+            propagation_policy=PropagationPolicy.FOREGROUND,
+        )
 
     async def create_fileserver_service(
         self, namespace: str, spec: V1Service
@@ -1326,11 +1282,11 @@ class K8sStorageClient:
                 name=namespace,
             )
         # Get all jobs
-        all_jobs = await self.batch_api.list_namespaced_job(namespace)
+        all_jobs = await self._job.list(namespace)
         # Filter to those with the right label
         users = [
             x.metadata.labels.get("nublado.lsst.io/user")
-            for x in all_jobs.items
+            for x in all_jobs
             if x.metadata.labels.get("nublado.lsst.io/category", "")
             == "fileserver"
         ]
@@ -1370,9 +1326,7 @@ class K8sStorageClient:
         name = f"{username}-fs"
         self._logger.debug(f"Checking whether {username} has fileserver")
         self._logger.debug(f"...checking Job for {username}")
-        job = await self._get_object_maybe(
-            kind="Job", name=name, namespace=namespace
-        )
+        job = await self._job.read(name, namespace)
         if job is None:
             self._logger.debug(f"...Job {name} for {username} not found.")
             return False
@@ -1393,19 +1347,11 @@ class K8sStorageClient:
             )
             return False
         self._logger.debug(f"...checking Ingress for {username}")
-        ingress = await self._get_object_maybe(
-            kind="Ingress", name=name, namespace=namespace
-        )
-        if ingress is None:
+        ingress = await self._ingress.read(name, namespace)
+        if not ingress:
             self._logger.info(f"...Ingress {name} for {username} not found.")
             return False
-        if (
-            ingress.status is None
-            or ingress.status.load_balancer is None
-            or ingress.status.load_balancer.ingress is None
-            or len(ingress.status.load_balancer.ingress) < 1
-            or ingress.status.load_balancer.ingress[0].ip == ""
-        ):
+        if not self._ingress.has_ip_address(ingress):
             self._logger.info(
                 f"...Ingress {name} for {username} does not have address."
             )
@@ -1421,11 +1367,11 @@ class K8sStorageClient:
         happens basically immediately after its corresponding Ingress
         is deleted.
         """
-        name = "{username}-fs"
-        for kind in ("Ingress", "Job"):
-            await self._wait_for_object_deletion(
-                kind=kind, name=name, namespace=namespace
-            )
+        name = f"{username}-fs"
+        self._logger.debug("Waiting for fileserver Ingress deletion")
+        await self._ingress.wait_for_deletion(name, namespace)
+        self._logger.debug("Waiting for fileserver Job deletion")
+        await self._job.wait_for_deletion(name, namespace)
 
     async def get_fileserver_pod_for_user(
         self, username: str, namespace: str
@@ -1453,68 +1399,7 @@ class K8sStorageClient:
             ) from e
 
     async def wait_for_user_fileserver_ingress_ready(
-        self, username: str, namespace: str, timeout: Optional[int] = None
+        self, username: str, namespace: str, timeout: timedelta
     ) -> None:
         name = f"{username}-fs"
-        ingress = await self._get_object_maybe(
-            kind="Ingress", name=name, namespace=namespace
-        )
-        if ingress is None:
-            # Well, OK, but we know what it's going to look like, so we
-            # can do the watch anyway...
-            expected_metadata = V1ObjectMeta(name=name, namespace=namespace)
-            watch_args = get_watch_args(expected_metadata)
-        else:
-            watch_args = get_watch_args(ingress.metadata)
-        # Do we already have a working ingress?
-        if (
-            ingress is not None
-            and ingress.status is not None
-            and ingress.status.load_balancer is not None
-            and ingress.status.load_balancer.ingress is not None
-            and len(ingress.status.load_balancer.ingress) > 0
-            and ingress.status.load_balancer.ingress[0].ip != ""
-        ):
-            return
-
-        def transmogrifier(event: dict[str, Any]) -> bool:
-            """This is irritatingly complex, because of the whole object/
-            raw_object thing.  Even though we *should* be, with the raw
-            object, looking at the camelCase versions of the fields, when
-            we patch the ingress in the test suite, what ends up getting
-            set is the snake_case.  So we need to account for both.
-
-            Eventually, we should fix the kubernetes mock to not need
-            raw objects, and then this hack can go away.
-            """
-            obj = event["raw_object"]
-            if "status" not in obj:
-                return False
-            lb: str = ""
-            for item in ("load_balancer", "loadBalancer"):
-                if item in obj["status"]:
-                    lb = item
-                    break
-            if not lb:
-                return False
-            if "ingress" not in obj["status"][lb]:
-                return False
-            ing_list = obj["status"][lb]["ingress"]
-            if ing_list is None or len(ing_list) < 1:
-                return False
-            ing = ing_list[0]
-            if ing is None or "ip" not in ing or ing["ip"] == "":
-                return False
-            return True
-
-        async for event in self._event_watch(
-            method=self._method_map.get("Ingress").list_method,
-            watch_args=watch_args,
-            transmogrifier=transmogrifier,
-            timeout=timeout,
-        ):
-            if event is True:
-                return
-        raise RuntimeError(
-            "Control reached end of wait_for_user_fileserver_ingress_ready()"
-        )
+        await self._ingress.wait_for_ip_address(name, namespace, timeout)
