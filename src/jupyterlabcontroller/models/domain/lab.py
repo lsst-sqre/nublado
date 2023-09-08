@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from kubernetes_asyncio.client.models import V1Volume, V1VolumeMount
+from safir.asyncio import AsyncMultiQueue
 
 from ..v1.event import Event
 from ..v1.lab import UserLabState
@@ -30,11 +31,8 @@ class UserLab:
     state: UserLabState
     """Current state of the lab, in the form returned by status routes."""
 
-    events: list[Event] = field(default_factory=list)
+    events: AsyncMultiQueue[Event] = field(default_factory=AsyncMultiQueue)
     """Events from the current or most recent lab operation."""
-
-    triggers: list[asyncio.Event] = field(default_factory=list)
-    """Triggers used to notify event stream listeners of new events."""
 
     task: Optional[asyncio.Task[None]] = None
     """Background task monitoring the progress of a lab operation.

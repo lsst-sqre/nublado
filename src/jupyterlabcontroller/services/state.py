@@ -114,34 +114,9 @@ class LabStateManager:
         if username not in self._labs:
             raise UnknownUserError(f"Unknown user {username}")
 
-        # Get the event list and add our trigger to it. We grab a separate
-        # reference to the event list, rather than using self._labs inside the
-        # iterator, so that if the event list is cleared (via replacement with
-        # an empty list) while we are listening, we will only see the old
-        # list.
-        events = self._labs[username].events
-        trigger = asyncio.Event()
-        if events:
-            trigger.set()
-        self._labs[username].triggers.append(trigger)
-
-        # The iterator waits for the trigger and returns any new events,
-        # calling _remove_trigger after it sees an event that indicates the
-        # operation has completed.
         async def iterator() -> AsyncIterator[ServerSentEvent]:
-            position = 0
-            try:
-                while True:
-                    trigger.clear()
-                    event_len = len(events)
-                    for event in events[position:event_len]:
-                        yield event.to_sse()
-                        if event.done:
-                            return
-                    position = event_len
-                    await trigger.wait()
-            finally:
-                self._remove_trigger(username, trigger)
+            async for event in self._labs[username].events:
+                yield event.to_sse()
 
         return iterator()
 
@@ -262,12 +237,12 @@ class LabStateManager:
             Whether the event is fatal (the operation has been aborted).
         """
         event = Event(message=message, type=EventType.ERROR)
-        await self._add_event(username, event)
+        self._labs[username].events.put(event)
         self._logger.error(f"Spawning error: {message}")
         if fatal:
             event = Event(message="Lab creation failed", type=EventType.FAILED)
-            await self._add_event(username, event)
             self._logger.error("Lab creation failed", user=username)
+            self._labs[username].events.put(event)
             self._labs[username].state.status = LabStatus.FAILED
             self._labs[username].state.internal_url = None
 
@@ -286,7 +261,7 @@ class LabStateManager:
             New progress percentage.
         """
         event = Event(message=message, progress=progress, type=EventType.INFO)
-        await self._add_event(username, event)
+        self._labs[username].events.put(event)
         msg = f"Spawning event: {message}"
         self._logger.debug(msg, user=username, progress=progress)
 
@@ -346,12 +321,8 @@ class LabStateManager:
         if username in self._labs:
             lab = self._labs[username]
             if lab.state.status != LabStatus.FAILED:
-                msg = f"Lab for {username} already exists"
-                completion_event = Event(message=msg, type=EventType.COMPLETE)
-                await self._add_event(username, completion_event)
                 raise LabExistsError(f"Lab already exists for {username}")
         self._labs[username] = UserLab(state=state)
-        await self._clear_events(self._labs[username])
         msg = f"Starting lab creation for {username}"
         await self.publish_event(username, msg, 1)
         self._labs[username].task = asyncio.create_task(
@@ -392,7 +363,7 @@ class LabStateManager:
         logger = self._logger.bind(user=username)
         lab = self._labs[username]
         timeout = self._config.spawn_timeout.total_seconds()
-        await self._clear_events(lab)
+        self._labs[username].events.clear()
         lab.state.status = LabStatus.TERMINATING
         lab.state.internal_url = None
         start = current_datetime()
@@ -405,7 +376,8 @@ class LabStateManager:
             msg = f"Lab deletion timed out after {delay}s"
             logger.error(msg)
             event = Event(message=msg, type=EventType.FAILED)
-            await self._add_event(username, event)
+            self._labs[username].events.put(event)
+            self._labs[username].events.close()
             self._labs[username].state.status = LabStatus.FAILED
             self._labs[username].state.internal_url = None
         except Exception as e:
@@ -417,17 +389,18 @@ class LabStateManager:
                 else:
                     await self._slack.post_uncaught_exception(e)
             event = Event(message=str(e), type=EventType.ERROR)
-            await self._add_event(username, event)
+            self._labs[username].events.put(event)
             event = Event(message="Lab deletion failed", type=EventType.FAILED)
-            await self._add_event(username, event)
+            self._labs[username].events.put(event)
+            self._labs[username].events.close()
             self._labs[username].state.status = LabStatus.FAILED
             self._labs[username].state.internal_url = None
             raise
         else:
             msg = f"Lab for {username} deleted"
             completion_event = Event(message=msg, type=EventType.COMPLETE)
-            await self._add_event(username, completion_event)
-            await self._clear_events(lab)
+            self._labs[username].events.put(completion_event)
+            self._labs[username].events.close()
             del self._labs[username]
             logger.info(msg)
 
@@ -469,47 +442,6 @@ class LabStateManager:
                     await spawner
                 except asyncio.CancelledError:
                     pass
-
-    async def _add_event(self, username: str, event: Event) -> None:
-        """Publish an event for the given user.
-
-        Parameters
-        ----------
-        username
-            Username the event is for.
-        event
-            Event to publish.
-        """
-        self._labs[username].events.append(event)
-        for trigger in self._labs[username].triggers:
-            trigger.set()
-
-    async def _clear_events(self, lab: UserLab) -> None:
-        """Safely clear the event list for a user.
-
-        If the record for the user is about to be deleted, remove it from
-        ``self._labs`` before calling this method to ensure that nothing
-        starts adding new events and triggers while the deletion is in
-        progress.
-
-        Parameters
-        ----------
-        lab
-            User lab data holding the event stream to clear.
-        """
-        events = lab.events
-        triggers = lab.triggers
-        lab.events = []
-        lab.triggers = []
-
-        # If the final event in the list of events is not a completion
-        # event, add a synthetic completion event. Then notify any listeners.
-        # This ensures all the listeners will complete.
-        if not events or not events[-1].done:
-            event = Event(message="Operation aborted", type=EventType.FAILED)
-            events.append(event)
-        for trigger in triggers:
-            trigger.set()
 
     async def _reflect_events(
         self,
@@ -620,6 +552,7 @@ class LabStateManager:
             msg = f"Lab creation timed out after {delay}s"
             logger.error(msg)
             await self.publish_error(username, msg, fatal=True)
+            self._labs[username].events.close()
         except Exception as e:
             logger.exception("Lab creation failed")
             if self._slack:
@@ -629,10 +562,12 @@ class LabStateManager:
                 else:
                     await self._slack.post_uncaught_exception(e)
             await self.publish_error(username, str(e), fatal=True)
+            self._labs[username].events.close()
         else:
             msg = f"Lab Kubernetes pod started for {username}"
             completion_event = Event(message=msg, type=EventType.COMPLETE)
-            await self._add_event(username, completion_event)
+            self._labs[username].events.put(completion_event)
+            self._labs[username].events.close()
             self._labs[username].state.status = LabStatus.RUNNING
             self._labs[username].state.internal_url = internal_url
             logger.info("Lab created")
@@ -911,7 +846,7 @@ class LabStateManager:
         # timeouts if they never do.
         for pending in to_monitor:
             username = pending.user.username
-            await self._clear_events(self._labs[username])
+            self._labs[username].events.clear()
             msg = f"Monitoring in-progress lab creation for {username}"
             await self.publish_event(username, msg, 1)
             self._labs[username].task = asyncio.create_task(
@@ -939,25 +874,3 @@ class LabStateManager:
                 self._logger.warning(msg)
             else:
                 await asyncio.sleep(delay.total_seconds())
-
-    def _remove_trigger(self, username: str, trigger: asyncio.Event) -> None:
-        """Called when a generator is complete.
-
-        Does some housekeeping by removing the `asyncio.Event` for that
-        generator. Strictly speaking, this probably isn't necessary; we will
-        release all of the events when the user is reset, and there shouldn't
-        be enough requests for the user's events before that happens for the
-        memory leak to matter. But do this the right way anyway.
-
-        Parameters
-        ----------
-        username
-            User whose generator has completed.
-        trigger
-            Corresponding trigger to remove.
-        """
-        if username not in self._labs:
-            return
-        self._labs[username].triggers = [
-            t for t in self._labs[username].triggers if t != trigger
-        ]
