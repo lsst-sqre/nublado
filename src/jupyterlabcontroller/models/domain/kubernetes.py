@@ -18,8 +18,17 @@ __all__ = [
     "KubernetesPodWatchInfo",
     "KubernetesKindMethodContainer",
     "KubernetesKindMethodMapper",
+    "WatchEventType",
     "get_watch_args",
 ]
+
+
+class WatchEventType(Enum):
+    """Possible values of the ``type`` field of Kubernetes watch events."""
+
+    ADDED = "ADDED"
+    MODIFIED = "MODIFIED"
+    DELETED = "DELETED"
 
 
 @dataclass
