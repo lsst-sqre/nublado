@@ -96,6 +96,12 @@ class KubernetesWatcher(Generic[T]):
         Name of object to watch.
     namespace
         Namespace to watch.
+    group
+        Group of custom object.
+    version
+        Version of custom object.
+    plural
+        Plural of custom object.
     involved_object
         Involved object to watch (used when watching events).
     resource_version
@@ -114,6 +120,9 @@ class KubernetesWatcher(Generic[T]):
         kind: str,
         name: str | None = None,
         namespace: str | None = None,
+        group: str | None = None,
+        version: str | None = None,
+        plural: str | None = None,
         involved_object: str | None = None,
         resource_version: str | None = None,
         timeout: timedelta | None = None,
@@ -131,6 +140,12 @@ class KubernetesWatcher(Generic[T]):
         args: dict[str, str | int] = {}
         if name:
             args["field_selector"] = f"metadata.name={name}"
+        if group:
+            args["group"] = group
+        if version:
+            args["version"] = version
+        if plural:
+            args["plural"] = plural
         if involved_object:
             if name:
                 raise ValueError("name and involved_object both specified")
