@@ -554,7 +554,7 @@ async def test_spawn_errors(
     possible_errors = [
         (
             "create_namespace",
-            "creating user namespace",
+            "creating namespace",
             "Namespace",
             "userlabs-rachel",
         ),
