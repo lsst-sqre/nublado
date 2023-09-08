@@ -201,8 +201,7 @@
         "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-nb",
-      "namespace": "userlabs-rachel",
-      "resource_version": "1"
+      "namespace": "userlabs-rachel"
     },
     "spec": {
       "containers": [
