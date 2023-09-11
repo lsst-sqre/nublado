@@ -15,7 +15,6 @@ from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from .config import Config
-from .constants import KUBERNETES_REQUEST_TIMEOUT
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
 from .services.builder import LabBuilder
 from .services.fileserver import FileserverStateManager
@@ -91,9 +90,7 @@ class ProcessContext:
 
         k8s_client = K8sStorageClient(
             kubernetes_client=kubernetes_client,
-            timeout=KUBERNETES_REQUEST_TIMEOUT,
             spawn_timeout=config.lab.spawn_timeout,
-            fileserver_creation_timeout=config.fileserver.creation_timeout,
             logger=logger,
         )
 
@@ -315,9 +312,7 @@ class Factory:
         config = self._context.config
         k8s_client = K8sStorageClient(
             kubernetes_client=self._context.kubernetes_client,
-            timeout=KUBERNETES_REQUEST_TIMEOUT,
             spawn_timeout=config.lab.spawn_timeout,
-            fileserver_creation_timeout=config.fileserver.creation_timeout,
             logger=self._logger,
         )
         return LabManager(

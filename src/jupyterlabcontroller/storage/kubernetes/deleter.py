@@ -10,10 +10,17 @@ classes with other operations are defined in their own modules.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from datetime import timedelta
 from typing import Any, Generic, TypeVar
 
 from kubernetes_asyncio import client
-from kubernetes_asyncio.client import ApiClient, ApiException, V1Job, V1Service
+from kubernetes_asyncio.client import (
+    ApiClient,
+    ApiException,
+    V1DeleteOptions,
+    V1Job,
+    V1Service,
+)
 from structlog.stdlib import BoundLogger
 
 from ...constants import KUBERNETES_DELETE_TIMEOUT
@@ -141,6 +148,7 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         *,
         wait: bool = False,
         propagation_policy: PropagationPolicy | None = None,
+        grace_period: timedelta | None = None,
     ) -> None:
         """Delete a Kubernetes object.
 
@@ -156,15 +164,30 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             Whether to wait for the object to be deleted.
         propagation_policy
             Propagation policy for the object deletion.
+        grace_period
+            How long to tell Kubernetes to wait between sending SIGTERM and
+            sending SIGKILL to the pod process. The default if no grace period
+            is set is 30s as of Kubernetes 1.27.1. This will be truncated to
+            integer seconds.
 
         Raises
         ------
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
         """
-        extra_args = {}
+        extra_args: dict[str, str | int] = {}
+        body = None
         if propagation_policy:
             extra_args["propagation_policy"] = propagation_policy.value
+        if grace_period:
+            grace = int(grace_period.total_seconds())
+
+            # It's not clear whether the grace period has to be specified in
+            # both the delete options body and as a query parameter, but
+            # kubespawner sets both, so we'll do the same. I suspect that only
+            # one or the other is needed.
+            body = V1DeleteOptions(grace_period_seconds=grace)
+            extra_args["grace_period_seconds"] = grace
         self._logger.debug(
             f"Deleting {self._kind}",
             name=name,
@@ -172,7 +195,7 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             options=extra_args,
         )
         try:
-            await self._delete(name, namespace, **extra_args)
+            await self._delete(name, namespace, body=body, **extra_args)
         except ApiException as e:
             if e.status == 404:
                 return
@@ -186,13 +209,17 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         if wait:
             await self.wait_for_deletion(name, namespace)
 
-    async def list(self, namespace: str) -> list[T]:
+    async def list(
+        self, namespace: str, *, label_selector: str | None = None
+    ) -> list[T]:
         """List all objects of the appropriate kind in the namespace.
 
         Parameters
         ----------
         namespace
             Namespace to list.
+        label_selector
+            Filter the returned list by the given label selector expression.
 
         Returns
         -------
@@ -204,14 +231,18 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
         """
+        extra_args = {}
+        if label_selector:
+            extra_args["label_selector"] = label_selector
         try:
-            objs = await self._list(namespace)
+            objs = await self._list(namespace, **extra_args)
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error listing objects",
                 e,
                 kind=self._kind,
                 namespace=namespace,
+                **extra_args,
             ) from e
         return objs.items
 
@@ -232,6 +263,7 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         TimeoutError
             Raised if the object is not deleted within the delete timeout.
         """
+        logger = self._logger.bind(name=name, namespace=namespace)
         obj = await self.read(name, namespace)
         if not obj:
             return
@@ -245,7 +277,7 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             namespace=namespace,
             resource_version=obj.metadata.resource_version,
             timeout=KUBERNETES_DELETE_TIMEOUT,
-            logger=self._logger,
+            logger=logger,
         )
         try:
             async for event in watcher.watch():
