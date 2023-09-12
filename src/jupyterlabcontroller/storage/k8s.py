@@ -55,7 +55,13 @@ from ..models.domain.kubernetes import (
 )
 from ..models.v1.lab import ResourceQuantity
 from ..util import deslashify
-from .kubernetes.creator import ConfigMapStorage
+from .kubernetes.creator import (
+    ConfigMapStorage,
+    NetworkPolicyStorage,
+    PersistentVolumeClaimStorage,
+    ResourceQuotaStorage,
+    SecretStorage,
+)
 from .kubernetes.deleter import ServiceStorage
 from .kubernetes.watcher import KubernetesWatcher
 
@@ -113,6 +119,10 @@ class K8sStorageClient:
         self._fill_method_map()
 
         self._config_map = ConfigMapStorage(self.k8s_api, logger)
+        self._network_policy = NetworkPolicyStorage(self.k8s_api, logger)
+        self._pvc = PersistentVolumeClaimStorage(self.k8s_api, logger)
+        self._quota = ResourceQuotaStorage(self.k8s_api, logger)
+        self._secret = SecretStorage(self.k8s_api, logger)
         self._service = ServiceStorage(self.k8s_api, logger)
 
     def _fill_method_map(self) -> None:
@@ -794,44 +804,20 @@ class K8sStorageClient:
             immutable=immutable,
             metadata=self.standard_metadata(name, namespace=namespace),
         )
-        self._logger.debug("Creating secret", name=name, namespace=namespace)
-        try:
-            await self.api.create_namespaced_secret(namespace, secret)
-        except ApiException as e:
-            raise KubernetesError.from_exception(
-                "Error creating object",
-                e,
-                kind="Secret",
-                namespace=namespace,
-                name=name,
-            ) from e
+        await self._secret.create(namespace, secret)
 
-    async def read_secret(
-        self,
-        name: str,
-        namespace: str,
-    ) -> V1Secret:
-        logger = self._logger.bind(name=name, namespace=namespace)
-        logger.debug("Reading secret")
-        try:
-            return await self.api.read_namespaced_secret(name, namespace)
-        except ApiException as e:
-            if e.status == 404:
-                logger.error("Secret does not exist")
-                raise MissingObjectError(
-                    message=f"Secret {namespace}/{name} does not exist",
-                    kind="Secret",
-                    name=name,
-                    namespace=namespace,
-                )
-            else:
-                raise KubernetesError.from_exception(
-                    "Error reading object",
-                    e,
-                    namespace=namespace,
-                    name=name,
-                    kind="Secret",
-                ) from e
+    async def read_secret(self, name: str, namespace: str) -> V1Secret:
+        secret = await self._secret.read(name, namespace)
+        if not secret:
+            msg = "Secret does not exist"
+            self._logger.error(msg, name=name, namespace=namespace)
+            raise MissingObjectError(
+                message=f"Secret {namespace}/{name} does not exist",
+                kind="Secret",
+                name=name,
+                namespace=namespace,
+            )
+        return secret
 
     async def create_pvcs(
         self, pvcs: list[V1PersistentVolumeClaim], namespace: str
@@ -839,18 +825,7 @@ class K8sStorageClient:
         for pvc in pvcs:
             name = pvc.metadata.name
             pvc.metadata = self.standard_metadata(name, namespace)
-            try:
-                await self.api.create_namespaced_persistent_volume_claim(
-                    namespace, pvc
-                )
-            except ApiException as e:
-                raise KubernetesError.from_exception(
-                    "Error creating object",
-                    e,
-                    kind="PersistentVolumeClaim",
-                    namespace=namespace,
-                    name=name,
-                ) from e
+            await self._pvc.create(namespace, pvc)
 
     async def create_configmap(
         self,
@@ -866,15 +841,7 @@ class K8sStorageClient:
         )
         await self._config_map.create(namespace, configmap)
 
-    async def create_network_policy(
-        self,
-        name: str,
-        namespace: str,
-    ) -> None:
-        api = self.networking_api
-        self._logger.debug(
-            "Creating network policy", name=name, namespace=namespace
-        )
+    async def create_network_policy(self, name: str, namespace: str) -> None:
         # FIXME we need to further restrict Ingress to the right pods,
         # and Egress to ... external world, Hub, Portal, Gafaelfawr.  What
         # else?
@@ -892,16 +859,7 @@ class K8sStorageClient:
                 ],
             ),
         )
-        try:
-            await api.create_namespaced_network_policy(namespace, policy)
-        except ApiException as e:
-            raise KubernetesError.from_exception(
-                "Error creating object",
-                e,
-                kind="NetworkPolicy",
-                namespace=namespace,
-                name=name,
-            ) from e
+        await self._network_policy.create(namespace, policy)
 
     async def create_lab_service(self, username: str, namespace: str) -> None:
         service = V1Service(
@@ -919,9 +877,6 @@ class K8sStorageClient:
     async def create_quota(
         self, name: str, namespace: str, resource: ResourceQuantity
     ) -> None:
-        self._logger.debug(
-            "Creating resource quota", name=name, namespace=namespace
-        )
         quota = V1ResourceQuota(
             metadata=self.standard_metadata(name, namespace=namespace),
             spec=V1ResourceQuotaSpec(
@@ -931,16 +886,7 @@ class K8sStorageClient:
                 }
             ),
         )
-        try:
-            await self.api.create_namespaced_resource_quota(namespace, quota)
-        except ApiException as e:
-            raise KubernetesError.from_exception(
-                "Error creating object",
-                e,
-                kind="ResourceQuota",
-                namespace=namespace,
-                name=name,
-            ) from e
+        await self._quota.create(namespace, quota)
 
     async def create_pod(
         self,
@@ -1129,19 +1075,7 @@ class K8sStorageClient:
         KubernetesError
             Raised if a Kubernetes API call fails.
         """
-        api = self.api
-        try:
-            return await api.read_namespaced_resource_quota(name, namespace)
-        except ApiException as e:
-            if e.status == 404:
-                return None
-            raise KubernetesError.from_exception(
-                "Error reading object",
-                e,
-                kind="ResourceQuota",
-                namespace=namespace,
-                name=name,
-            ) from e
+        return await self._quota.read(name, namespace)
 
     async def list_namespaces(self, prefix: str) -> list[str]:
         """List namespaces with the given prefix.

@@ -17,7 +17,15 @@ from collections.abc import Awaitable, Callable
 from typing import Any, Generic, TypeVar
 
 from kubernetes_asyncio import client
-from kubernetes_asyncio.client import ApiClient, ApiException, V1ConfigMap
+from kubernetes_asyncio.client import (
+    ApiClient,
+    ApiException,
+    V1ConfigMap,
+    V1NetworkPolicy,
+    V1PersistentVolumeClaim,
+    V1ResourceQuota,
+    V1Secret,
+)
 from structlog.stdlib import BoundLogger
 
 from ...exceptions import KubernetesError
@@ -29,6 +37,10 @@ T = TypeVar("T", bound=KubernetesModel)
 __all__ = [
     "ConfigMapStorage",
     "KubernetesObjectCreator",
+    "NetworkPolicyStorage",
+    "PersistentVolumeClaimStorage",
+    "ResourceQuotaStorage",
+    "SecretStorage",
     "T",
 ]
 
@@ -153,5 +165,93 @@ class ConfigMapStorage(KubernetesObjectCreator):
             read_method=api.read_namespaced_config_map,
             object_type=V1ConfigMap,
             kind="ConfigMap",
+            logger=logger,
+        )
+
+
+class NetworkPolicyStorage(KubernetesObjectCreator):
+    """Storage layer for ``NetworkPolicy`` objects.
+
+    Parameters
+    ----------
+    api_client
+        Kubernetes API client.
+    logger
+        Logger to use.
+    """
+
+    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+        api = client.NetworkingV1Api(api_client)
+        super().__init__(
+            create_method=api.create_namespaced_network_policy,
+            read_method=api.read_namespaced_network_policy,
+            object_type=V1NetworkPolicy,
+            kind="NetworkPolicy",
+            logger=logger,
+        )
+
+
+class PersistentVolumeClaimStorage(KubernetesObjectCreator):
+    """Storage layer for ``PersistentVolumeClaim`` objects.
+
+    Parameters
+    ----------
+    api_client
+        Kubernetes API client.
+    logger
+        Logger to use.
+    """
+
+    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+        api = client.CoreV1Api(api_client)
+        super().__init__(
+            create_method=api.create_namespaced_persistent_volume_claim,
+            read_method=api.read_namespaced_persistent_volume_claim,
+            object_type=V1PersistentVolumeClaim,
+            kind="PersistentVolumeClaim",
+            logger=logger,
+        )
+
+
+class ResourceQuotaStorage(KubernetesObjectCreator):
+    """Storage layer for ``ResourceQuota`` objects.
+
+    Parameters
+    ----------
+    api_client
+        Kubernetes API client.
+    logger
+        Logger to use.
+    """
+
+    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+        api = client.CoreV1Api(api_client)
+        super().__init__(
+            create_method=api.create_namespaced_resource_quota,
+            read_method=api.read_namespaced_resource_quota,
+            object_type=V1ResourceQuota,
+            kind="ResourceQuota",
+            logger=logger,
+        )
+
+
+class SecretStorage(KubernetesObjectCreator):
+    """Storage layer for ``Secret`` objects.
+
+    Parameters
+    ----------
+    api_client
+        Kubernetes API client.
+    logger
+        Logger to use.
+    """
+
+    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+        api = client.CoreV1Api(api_client)
+        super().__init__(
+            create_method=api.create_namespaced_secret,
+            read_method=api.read_namespaced_secret,
+            object_type=V1Secret,
+            kind="Secret",
             logger=logger,
         )
