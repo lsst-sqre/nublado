@@ -18,7 +18,7 @@ httpx
 jinja2
 pydantic<2
 PyYAML
-safir[kubernetes]>=4.4.0
+safir[kubernetes]>=4.5.0
 semver
 sse-starlette
 

@@ -410,8 +410,13 @@ async def test_lab_objects(
     )
     assert r.status_code == 201
 
+    # When checking all of the objects, strip out resource versions, since
+    # those are added by Kubernetes (and the Kubernetes mock) and are not
+    # meaningful to compare.
     namespace = f"{config.lab.namespace_prefix}-{user.username}"
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
+    for obj in objects:
+        obj.metadata.resource_version = None
     with (std_result_dir / "lab-objects.json").open("r") as f:
         expected = json.load(f)
     assert [strip_none(o.to_dict()) for o in objects] == expected
