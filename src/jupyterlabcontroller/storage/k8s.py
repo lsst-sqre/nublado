@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from base64 import b64encode
 from collections.abc import AsyncIterator
 from datetime import timedelta
@@ -63,6 +62,7 @@ from .kubernetes.creator import (
     SecretStorage,
 )
 from .kubernetes.deleter import ServiceStorage
+from .kubernetes.namespace import NamespaceStorage
 from .kubernetes.watcher import KubernetesWatcher
 
 __all__ = ["K8sStorageClient"]
@@ -119,6 +119,7 @@ class K8sStorageClient:
         self._fill_method_map()
 
         self._config_map = ConfigMapStorage(self.k8s_api, logger)
+        self._namespace = NamespaceStorage(self.k8s_api, logger)
         self._network_policy = NetworkPolicyStorage(self.k8s_api, logger)
         self._pvc = PersistentVolumeClaimStorage(self.k8s_api, logger)
         self._quota = ResourceQuotaStorage(self.k8s_api, logger)
@@ -144,14 +145,6 @@ class K8sStorageClient:
                 object_type=V1Job,
                 read_method=self.batch_api.read_namespaced_job,
                 list_method=self.batch_api.list_namespaced_job,
-            ),
-        )
-        self._method_map.add(
-            "Namespace",
-            KubernetesKindMethodContainer(
-                object_type=V1Namespace,
-                read_method=self.api.read_namespace,
-                list_method=self.api.list_namespace,
             ),
         )
         self._method_map.add(
@@ -673,18 +666,8 @@ class K8sStorageClient:
         name
             Name of the namespace.
         """
-        self._logger.debug("Creating namespace", name=name)
         body = V1Namespace(metadata=self.standard_metadata(name))
-        try:
-            await self.api.create_namespace(body)
-        except ApiException as e:
-            if e.status == 409:
-                # The namespace already exists. Presume that it is stranded,
-                # delete it and all of its resources, and recreate it.
-                await self._recreate_user_namespace(name)
-            raise KubernetesError.from_exception(
-                "Error creating user namespace", e, kind="Namespace", name=name
-            ) from e
+        await self._namespace.create(body, replace=True)
 
     async def create_secrets(
         self,
@@ -698,18 +681,6 @@ class K8sStorageClient:
             token, source_ns, secret_list
         )
         await self.create_secret(f"{username}-nb", target_ns, data)
-
-    async def wait_for_namespace_deletion(self, namespace: str) -> None:
-        """Wait for a namespace to disappear."""
-        ns = await self._get_object_maybe(
-            kind="Namespace", name=namespace, namespace=None
-        )
-        if ns is None:
-            return
-        self._logger.debug("Waiting for namespace deletion", name=namespace)
-        await self._wait_for_object_deletion(
-            kind="Namespace", name=namespace, namespace=None
-        )
 
     async def copy_secret(
         self,
@@ -957,27 +928,19 @@ class K8sStorageClient:
                 name=name,
             ) from e
 
-    async def delete_namespace(self, name: str) -> None:
-        """Delete the namespace with name ``name``.  If it doesn't exist,
-        that's OK.
+    async def delete_namespace(self, name: str, wait: bool = False) -> None:
+        """Delete a Kubernetes namespace.
+
+        If the namespace doesn't exist, the deletion is silently successful.
+
+        Parameters
+        ----------
+        name
+            Name of the namespace.
+        wait
+            Whether to wait for the namespace to be deleted.
         """
-        self._logger.debug("Deleting namespace", name=name)
-        try:
-            async with asyncio.timeout(self._timeout):
-                await self.api.delete_namespace(name)
-        except ApiException as e:
-            if e.status == 404:
-                return
-            msg = "Error deleting object"
-            raise KubernetesError.from_exception(
-                msg, e, kind="Namespace", name=name
-            ) from e
-        except TimeoutError:
-            msg = (
-                f"Timed out after {self._timeout}s waiting for namespace"
-                f" {name} to be deleted"
-            )
-            raise TimeoutError(msg)
+        await self._namespace.delete(name, wait=wait)
 
     async def delete_pod(
         self,
@@ -1095,55 +1058,11 @@ class K8sStorageClient:
         KubernetesError
             Raised if a Kubernetes API call fails.
         """
-        try:
-            namespaces = await self.api.list_namespace()
-            return [
-                n.metadata.name
-                for n in namespaces.items
-                if n.metadata.name.startswith(f"{prefix}-")
-            ]
-        except KubernetesError as e:
-            raise KubernetesError.from_exception(
-                "Error listing object", e, kind="Namespace"
-            ) from e
-
-    async def _recreate_user_namespace(self, name: str) -> None:
-        """Recreate an existing user namespace.
-
-        The namespace for the user already exists. Delete it and recreate it.
-
-        Parameters
-        ----------
-        name
-            Name of the namespace.
-
-        Raises
-        ------
-        KubernetesError
-            Raised if Kubernetes API calls fail unexpectedly.
-        """
-        self._logger.warning(f"Namespace {name} already exists, removing")
-        try:
-            self.api.delete_namespace(name)
-        except ApiException as e:
-            if e.status != 404:
-                raise KubernetesError.from_exception(
-                    "Error deleting stranded user namespace",
-                    e,
-                    kind="Namespace",
-                    name=name,
-                ) from e
-        await self.wait_for_namespace_deletion(name)
-
-        # Try to create it again. If it still conflicts, don't catch that
-        # error; something weird is going on.
-        namespace = V1Namespace(metadata=self.standard_metadata(name))
-        try:
-            await self.api.create_namespace(namespace)
-        except ApiException as e:
-            raise KubernetesError.from_exception(
-                "Error creating user namespace", e, kind="Namespace", name=name
-            ) from e
+        return [
+            n.metadata.name
+            for n in await self._namespace.list()
+            if n.metadata.name.startswith(f"{prefix}-")
+        ]
 
     #
     # Prepuller methods
@@ -1204,15 +1123,20 @@ class K8sStorageClient:
     # Methods for user fileservers
     #
 
-    async def check_namespace(self, namespace: str) -> bool:
-        """Check to see if namespace is present; return True if it is,
-        False if it is not."""
-        ns = await self._get_object_maybe(
-            kind="Namespace", name=namespace, namespace=None
-        )
-        if ns is None:
-            return False
-        return True
+    async def check_namespace(self, name: str) -> bool:
+        """Check whether a namespace is present.
+
+        Parameters
+        ----------
+        name
+            Name of the namespace.
+
+        Returns
+        -------
+        bool
+            `True` if the namespace is present, `False` otherwise.
+        """
+        return await self._namespace.read(name) is not None
 
     async def create_fileserver_job(
         self, username: str, namespace: str, job: V1Job
@@ -1395,10 +1319,7 @@ class K8sStorageClient:
         users who currently have fileservers.
         """
         observed_state: dict[str, bool] = {}
-        ns = await self._get_object_maybe(
-            kind="Namespace", name=namespace, namespace=None
-        )
-        if ns is None:
+        if not await self.check_namespace(namespace):
             raise MissingObjectError(
                 f"Missing user fileservers namespace {namespace}",
                 kind="Namespace",

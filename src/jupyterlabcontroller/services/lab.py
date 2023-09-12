@@ -937,8 +937,7 @@ class LabManager:
         message = "Deleting user namespace"
         progress = start_progress + int((end_progress - start_progress) / 2)
         await self._lab_state.publish_event(username, message, progress)
-        await self.k8s_client.delete_namespace(namespace)
-        await self.k8s_client.wait_for_namespace_deletion(namespace)
+        await self.k8s_client.delete_namespace(namespace, wait=True)
         message = f"Lab for {username} deleted"
         await self._lab_state.publish_event(username, message, end_progress)
         self._logger.info("Lab deleted")
