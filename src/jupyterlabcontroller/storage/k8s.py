@@ -55,6 +55,8 @@ from ..models.domain.kubernetes import (
 )
 from ..models.v1.lab import ResourceQuantity
 from ..util import deslashify
+from .kubernetes.creator import ConfigMapStorage
+from .kubernetes.deleter import ServiceStorage
 from .kubernetes.watcher import KubernetesWatcher
 
 __all__ = ["K8sStorageClient"]
@@ -110,6 +112,9 @@ class K8sStorageClient:
         self._method_map = KubernetesKindMethodMapper()
         self._fill_method_map()
 
+        self._config_map = ConfigMapStorage(self.k8s_api, logger)
+        self._service = ServiceStorage(self.k8s_api, logger)
+
     def _fill_method_map(self) -> None:
         """This sets up the object kinds that we have generic methods for,
         which are used by _get_object_maybe() and
@@ -145,14 +150,6 @@ class K8sStorageClient:
                 object_type=V1Pod,
                 read_method=self.api.read_namespaced_pod,
                 list_method=self.api.list_namespaced_pod,
-            ),
-        )
-        self._method_map.add(
-            "Service",
-            KubernetesKindMethodContainer(
-                object_type=V1Service,
-                read_method=self.api.read_namespaced_service,
-                list_method=self.api.list_namespaced_service,
             ),
         )
         self._supported_generic_kinds = self._method_map.list()
@@ -862,24 +859,12 @@ class K8sStorageClient:
         data: dict[str, str],
         immutable: bool = True,
     ) -> None:
-        self._logger.debug(
-            "Creating config map", name=name, namespace=namespace
-        )
         configmap = V1ConfigMap(
             data={deslashify(k): v for k, v in data.items()},
             immutable=immutable,
             metadata=self.standard_metadata(name, namespace=namespace),
         )
-        try:
-            await self.api.create_namespaced_config_map(namespace, configmap)
-        except ApiException as e:
-            raise KubernetesError.from_exception(
-                "Error creating object",
-                e,
-                kind="ConfigMap",
-                namespace=namespace,
-                name=name,
-            ) from e
+        await self._config_map.create(namespace, configmap)
 
     async def create_network_policy(
         self,
@@ -919,7 +904,6 @@ class K8sStorageClient:
             ) from e
 
     async def create_lab_service(self, username: str, namespace: str) -> None:
-        self._logger.debug("Creating service", name="lab", namespace=namespace)
         service = V1Service(
             metadata=self.standard_metadata("lab", namespace=namespace),
             spec=V1ServiceSpec(
@@ -930,16 +914,7 @@ class K8sStorageClient:
                 },
             ),
         )
-        try:
-            await self.api.create_namespaced_service(namespace, service)
-        except ApiException as e:
-            raise KubernetesError.from_exception(
-                "Error creating object",
-                e,
-                kind="Service",
-                namespace=namespace,
-                name="lab",
-            ) from e
+        await self._service.create(namespace, service)
 
     async def create_quota(
         self, name: str, namespace: str, resource: ResourceQuantity
@@ -1123,25 +1098,14 @@ class K8sStorageClient:
         Returns
         -------
         kubernetes_asyncio.client.V1ConfigMap or None
-            The ``ConfigMap`` object, or `None` if it does not exist.
+            ``ConfigMap`` object, or `None` if it does not exist.
 
         Raises
         ------
         KubernetesError
             Raised if a Kubernetes API call fails.
         """
-        try:
-            return await self.api.read_namespaced_config_map(name, namespace)
-        except ApiException as e:
-            if e.status == 404:
-                return None
-            raise KubernetesError.from_exception(
-                "Error reading object",
-                e,
-                kind="ConfigMap",
-                namespace=namespace,
-                name=name,
-            ) from e
+        return await self._config_map.read(name, namespace)
 
     async def get_quota(
         self, name: str, namespace: str
@@ -1373,51 +1337,17 @@ class K8sStorageClient:
             ) from e
 
     async def create_fileserver_service(
-        self, username: str, namespace: str, spec: V1Service
+        self, namespace: str, spec: V1Service
     ) -> None:
         """see create_fileserver_job() for the rationale behind retrying
         a conflict on creation."""
-        name = f"{username}-fs"
-        try:
-            await self.api.create_namespaced_service(namespace, spec)
-        except ApiException as e:
-            if e.status == 409:
-                # It already exists.  Delete and recreate it
-                self._logger.warning(
-                    "Service exists.  Deleting and recreating.",
-                    name=name,
-                    namespace=namespace,
-                )
-                await self.delete_fileserver_service(username, namespace)
-                await self._wait_for_object_deletion(
-                    name=name, namespace=namespace, kind="Service"
-                )
-                await self.api.create_namespaced_service(namespace, spec)
-                return
-            raise KubernetesError.from_exception(
-                "Error creating object",
-                e,
-                kind="Service",
-                namespace=namespace,
-                name=name,
-            ) from e
+        await self._service.create(namespace, spec, replace=True)
 
     async def delete_fileserver_service(
         self, username: str, namespace: str
     ) -> None:
         name = f"{username}-fs"
-        try:
-            await self.api.delete_namespaced_service(name, namespace)
-        except ApiException as e:
-            if e.status == 404:
-                return
-            raise KubernetesError.from_exception(
-                "Error deleting object",
-                e,
-                kind="Service",
-                namespace=namespace,
-                name=name,
-            ) from e
+        await self._service.delete(name, namespace)
 
     async def create_fileserver_gafaelfawringress(
         self, username: str, namespace: str, spec: dict[str, Any]
