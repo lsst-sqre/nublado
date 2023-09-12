@@ -31,38 +31,45 @@ async def test_timeout_no_pod_start(
     token, user = obj_factory.get_user()
     name = user.username
     namespace = config.fileserver.namespace
-    save_initial = mock_kubernetes.initial_pod_phase
-    save_fs_timeout = config.fileserver.creation_timeout
-    # Set low for testing
-    config.fileserver.creation_timeout = 1
-    # The pod won't start on its own.
+
+    # Tell the Kubernetes mock to leave newly-created pods in pending status
+    # rather than having them start automatically, simulating a fileserver pod
+    # that never starts.
     mock_kubernetes.initial_pod_phase = "Pending"
+
+    # Confirm there are no fileservers running at the start of the test.
     r = await client.get("/nublado/fileserver/v1/users")
-    # No fileservers yet.
     assert r.json() == []
-    #
-    # Create an Ingress to match the GafaelfawrIngress.  In real
-    # life, the GafaelfawrIngress creation would trigger this.
+
+    # Create an Ingress to match the GafaelfawrIngress. In real Kubernetes,
+    # the GafaelfawrIngress creation would trigger this.
     await create_working_ingress_for_user(mock_kubernetes, name, namespace)
-    # Start a user fileserver.  Expect a timeout, because the pod won't
-    # start
-    with pytest.raises(TimeoutError):
-        r = await client.get(
+
+    # Start a user fileserver.
+    start_task = asyncio.create_task(
+        client.get(
             "/files",
             headers={
                 "X-Auth-Request-User": name,
                 "X-Auth-Request-Token": token,
             },
         )
-    # Check that the fileserver user map is still clear
+    )
+
+    # The start task will create the Job and then time out waiting for the Pod
+    # to start, and then will attempt to clean up. We need to manually delete
+    # the ingress for it, since otherwise it will block waiting for the
+    # ingress to disappear.
+    await asyncio.sleep(0.1)
+    await delete_ingress_for_user(mock_kubernetes, name, namespace)
+
+    # Check that the start call raised a timeout error as expected.
+    with pytest.raises(TimeoutError):
+        await start_task
+
+    # Check that the fileserver user map is still clear.
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == []
-    # Set mock back to auto-start pods
-    mock_kubernetes.initial_pod_phase = save_initial
-    # Set creation timeout back to initial value
-    config.fileserver.creation_timeout = save_fs_timeout
-    # Clean up the Ingress
-    await delete_ingress_for_user(mock_kubernetes, name, namespace)
 
 
 @pytest.mark.asyncio

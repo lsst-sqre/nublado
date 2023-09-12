@@ -13,12 +13,16 @@ from collections.abc import Awaitable, Callable
 from typing import Any, Generic, TypeVar
 
 from kubernetes_asyncio import client
-from kubernetes_asyncio.client import ApiClient, ApiException, V1Service
+from kubernetes_asyncio.client import ApiClient, ApiException, V1Job, V1Service
 from structlog.stdlib import BoundLogger
 
 from ...constants import KUBERNETES_DELETE_TIMEOUT
 from ...exceptions import KubernetesError
-from ...models.domain.kubernetes import KubernetesModel, WatchEventType
+from ...models.domain.kubernetes import (
+    KubernetesModel,
+    PropagationPolicy,
+    WatchEventType,
+)
 from .creator import KubernetesObjectCreator
 from .watcher import KubernetesWatcher
 
@@ -86,7 +90,12 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         self._list = list_method
 
     async def create(
-        self, namespace: str, body: T, *, replace: bool = False
+        self,
+        namespace: str,
+        body: T,
+        *,
+        replace: bool = False,
+        propagation_policy: PropagationPolicy | None = None,
     ) -> None:
         """Create a new Kubernetes object.
 
@@ -99,6 +108,9 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         replace
             If `True` and an object of that name already exists in that
             namespace, delete the existing object and then try again.
+        propagation_policy
+            Propagation policy for the object deletion when deleting a
+            conflicting object.
 
         Raises
         ------
@@ -112,13 +124,23 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
                 name = body.metadata.name
                 msg = f"{self._kind} already exists, deleting and recreating"
                 self._logger.warning(msg, name=name, namespace=namespace)
-                await self.delete(name, namespace, wait=True)
+                await self.delete(
+                    name,
+                    namespace,
+                    wait=True,
+                    propagation_policy=propagation_policy,
+                )
                 await super().create(namespace, body)
             else:
                 raise
 
     async def delete(
-        self, name: str, namespace: str, *, wait: bool = False
+        self,
+        name: str,
+        namespace: str,
+        *,
+        wait: bool = False,
+        propagation_policy: PropagationPolicy | None = None,
     ) -> None:
         """Delete a Kubernetes object.
 
@@ -132,16 +154,25 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             Namespace of the object.
         wait
             Whether to wait for the object to be deleted.
+        propagation_policy
+            Propagation policy for the object deletion.
 
         Raises
         ------
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
         """
-        msg = f"Deleting {self._kind}"
-        self._logger.debug(msg, name=name, namespace=namespace)
+        extra_args = {}
+        if propagation_policy:
+            extra_args["propagation_policy"] = propagation_policy.value
+        self._logger.debug(
+            f"Deleting {self._kind}",
+            name=name,
+            namespace=namespace,
+            options=extra_args,
+        )
         try:
-            await self._delete(name, namespace)
+            await self._delete(name, namespace, **extra_args)
         except ApiException as e:
             if e.status == 404:
                 return
@@ -234,6 +265,30 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
 
         # This should be impossible; someone called stop on the watcher.
         raise RuntimeError("Wait for object deletion unexpectedly stopped")
+
+
+class JobStorage(KubernetesObjectDeleter):
+    """Storage layer for ``Job`` objects.
+
+    Parameters
+    ----------
+    api_client
+        Kubernetes API client.
+    logger
+        Logger to use.
+    """
+
+    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+        api = client.BatchV1Api(api_client)
+        super().__init__(
+            create_method=api.create_namespaced_job,
+            delete_method=api.delete_namespaced_job,
+            list_method=api.list_namespaced_job,
+            read_method=api.read_namespaced_job,
+            object_type=V1Job,
+            kind="Job",
+            logger=logger,
+        )
 
 
 class ServiceStorage(KubernetesObjectDeleter):

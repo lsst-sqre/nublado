@@ -39,6 +39,7 @@ images:
   numDailies: 3
 fileserver:
   enabled: true
+  creationTimeout: 1
   namespace: fileservers
   image: ghcr.io/lsst-sqre/worblehat
 
