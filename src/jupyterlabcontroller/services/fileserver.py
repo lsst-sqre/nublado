@@ -102,7 +102,7 @@ class FileserverStateManager:
                 "...creating new gafawelfawrfingress for " + username
             )
             await self._k8s_client.create_fileserver_gafaelfawringress(
-                username, namespace, spec=gf_ingress
+                namespace, gf_ingress
             )
             self._logger.debug(f"...creating new job for {username}")
             await self._k8s_client.create_fileserver_job(namespace, job)

@@ -62,6 +62,7 @@ from .kubernetes.creator import (
     ResourceQuotaStorage,
     SecretStorage,
 )
+from .kubernetes.custom import GafaelfawrIngressStorage
 from .kubernetes.deleter import JobStorage, ServiceStorage
 from .kubernetes.ingress import IngressStorage
 from .kubernetes.namespace import NamespaceStorage
@@ -121,6 +122,7 @@ class K8sStorageClient:
         self._fill_method_map()
 
         self._config_map = ConfigMapStorage(self.k8s_api, logger)
+        self._gafaelfawr = GafaelfawrIngressStorage(self.k8s_api, logger)
         self._ingress = IngressStorage(self.k8s_api, logger)
         self._job = JobStorage(self.k8s_api, logger)
         self._namespace = NamespaceStorage(self.k8s_api, logger)
@@ -1164,102 +1166,17 @@ class K8sStorageClient:
         await self._service.delete(name, namespace)
 
     async def create_fileserver_gafaelfawringress(
-        self, username: str, namespace: str, spec: dict[str, Any]
+        self, namespace: str, spec: dict[str, Any]
     ) -> None:
         """see _create_fileserver_job() for the rationale behind retrying
         a conflict on creation."""
-        name = f"{username}-fs"
-        crd_group = "gafaelfawr.lsst.io"
-        crd_version = "v1alpha1"
-        plural = "gafaelfawringresses"
-        try:
-            await self.custom_api.create_namespaced_custom_object(
-                body=spec,
-                group=crd_group,
-                version=crd_version,
-                namespace=namespace,
-                plural=plural,
-            )
-        except ApiException as e:
-            if e.status == 409:
-                # It already exists.  Delete and recreate it
-                self._logger.warning(
-                    (
-                        "Fileserver gafaelfawringress exists. "
-                        + "Deleting and recreating."
-                    ),
-                    name=name,
-                    namespace=namespace,
-                )
-                await self.delete_fileserver_gafaelfawringress(
-                    username, namespace
-                )
-                await self._wait_for_gafaelfawr_ingress_deletion(
-                    name, namespace
-                )
-                await self.custom_api.create_namespaced_custom_object(
-                    crd_group, crd_version, namespace, plural, spec
-                )
-            raise KubernetesError.from_exception(
-                "Error creating object",
-                e,
-                kind="GafaelfawrIngress",
-                namespace=namespace,
-                name=name,
-            ) from e
-
-    async def _wait_for_gafaelfawr_ingress_deletion(
-        self, name: str, namespace: str
-    ) -> None:
-        crd_group = "gafaelfawr.lsst.io"
-        crd_version = "v1alpha1"
-        plural = "gafaelfawringresses"
-        try:
-            gi = await self.custom_api.get_namespaced_custom_object(
-                crd_group, crd_version, namespace, plural, name
-            )
-        except ApiException as e:
-            if e.status == 404:
-                return
-            raise
-        watch_args = get_watch_args(gi)
-        watch_args["group"] = crd_group
-        watch_args["version"] = crd_version
-        watch_args["plural"] = plural
-        async for event in self._event_watch(
-            method=self.custom_api.list_namespaced_custom_object,
-            watch_args=watch_args,
-        ):
-            if event.type == "DELETED":
-                return
-        # I don't think we should get here
-        raise RuntimeError(
-            "Control reached end of "
-            + "_wait_for_gafaelfawr_ingress_deletion()"
-        )
+        await self._gafaelfawr.create(namespace, spec, replace=True)
 
     async def delete_fileserver_gafaelfawringress(
         self, username: str, namespace: str
     ) -> None:
         name = f"{username}-fs"
-        crd_group = "gafaelfawr.lsst.io"
-        crd_version = "v1alpha1"
-        plural = "gafaelfawringresses"
-        try:
-            await self.custom_api.delete_namespaced_custom_object(
-                crd_group, crd_version, namespace, plural, name
-            )
-        except ApiException as e:
-            if e.status == 404:
-                return
-
-            raise KubernetesError.from_exception(
-                "Error deleting object",
-                e,
-                kind="GafaelfawrIngress",
-                namespace=namespace,
-                name=name,
-            ) from e
+        await self._gafaelfawr.delete(name, namespace)
 
     async def get_observed_fileserver_state(
         self, namespace: str
