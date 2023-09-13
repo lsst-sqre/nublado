@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -81,6 +82,7 @@ async def test_cleanup_on_pod_exit(
             }
         ],
     )
+    await asyncio.sleep(0.1)
     # Check that the fileserver user map is clear
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == []

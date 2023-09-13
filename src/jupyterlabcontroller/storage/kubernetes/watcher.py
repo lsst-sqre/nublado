@@ -9,6 +9,7 @@ from typing import Any, Generic, Self, TypeVar
 
 from kubernetes_asyncio.client import ApiException
 from kubernetes_asyncio.watch import Watch
+from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
 
 from ...exceptions import KubernetesError
@@ -134,6 +135,7 @@ class KubernetesWatcher(Generic[T]):
         self._namespace = namespace
         self._name = name
         self._logger = logger
+        self._timeout = timeout
         self._stopped = False
 
         # Build the arguments to the method being watched.
@@ -199,6 +201,8 @@ class KubernetesWatcher(Generic[T]):
         TimeoutError
             Raised if the timeout was reached.
         """
+        args = self._args.copy()
+        start = current_datetime(microseconds=True)
         while True:
             try:
                 async with self._watch.stream(self._method, **self._args) as s:
@@ -209,20 +213,32 @@ class KubernetesWatcher(Generic[T]):
                 # will just end the iterator. Calling the stop method will
                 # also end the iterator; distinguish by looking at
                 # self._stopped.
+                #
+                # The server may time us out before our configured timeout
+                # (the Kubernetes control plane implements some global maximum
+                # timeouts), so we have to check for that case and retry with
+                # a reduced timeout if it happens.
                 if self._stopped:
                     break
-                if "timeout_seconds" in self._args:
-                    timeout = self._args["timeout_seconds"]
-                    msg = f"Event watch timed out after {timeout}s"
+                if self._timeout:
+                    elapsed = current_datetime(microseconds=True) - start
+                    if elapsed + timedelta(seconds=1) < self._timeout:
+                        new_timeout = self._timeout - elapsed
+                        new_timeout_seconds = int(new_timeout.total_seconds())
+                        args["timeout_seconds"] = new_timeout_seconds
+                        args["_request_timeout"] = new_timeout_seconds
+                        continue
+                    elapsed_seconds = elapsed.total_seconds()
+                    msg = f"Event watch timed out after {elapsed_seconds}s"
                     raise TimeoutError(msg)
                 else:
                     raise TimeoutError("Event watch timed out by server")
             except ApiException as e:
-                if e.status == 410 and "resource_version" in self._args:
-                    version = self._args["resource_version"]
+                if e.status == 410 and "resource_version" in args:
+                    version = args["resource_version"]
                     msg = f"Resource version {version} expired, retrying watch"
                     self._logger.info(msg)
-                    del self._args["resource_version"]
+                    del args["resource_version"]
                     continue
                 raise KubernetesError.from_exception(
                     "Error watching objects",
