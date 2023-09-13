@@ -791,21 +791,18 @@ class K8sStorageClient:
                 kind="Namespace",
                 name=namespace,
             )
-        # Get all jobs
-        all_jobs = await self._job.list(namespace)
-        # Filter to those with the right label
+
+        # Get all jobs with the right labels and extract the users.
+        selector = "nublado.lsst.io/category=fileserver"
         users = [
-            x.metadata.labels.get("nublado.lsst.io/user")
-            for x in all_jobs
-            if x.metadata.labels.get("nublado.lsst.io/category", "")
-            == "fileserver"
+            j.metadata.labels.get("nublado.lsst.io/user")
+            for j in await self._job.list(namespace, label_selector=selector)
         ]
+
         # For each of these, check whether the fileserver is present
         for user in users:
             self._logger.debug(f"Checking user {user}")
-            good = await self.check_fileserver_present(
-                username=user, namespace=namespace
-            )
+            good = await self.check_fileserver_present(user, namespace)
             self._logger.debug(f"{user} fileserver good?  {good}")
             if good:
                 observed_state[user] = True
