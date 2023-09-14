@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
 
 from jupyterlabcontroller.factory import Factory
-from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
+from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 
 from ..settings import TestObjectFactory
 from ..support.constants import TEST_BASE_URL
@@ -90,7 +90,7 @@ async def test_user_status(
     name = f"{user.username}-nb"
     namespace = f"userlabs-{user.username}"
     pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
-    pod.status.phase = KubernetesPodPhase.FAILED.value
+    pod.status.phase = PodPhase.FAILED.value
     r = await client.get(
         "/nublado/spawner/v1/user-status",
         headers={"X-Auth-Request-User": user.username},

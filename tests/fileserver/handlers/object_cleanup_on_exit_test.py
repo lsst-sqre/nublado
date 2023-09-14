@@ -11,7 +11,7 @@ from kubernetes_asyncio.client import V1Pod
 from safir.testing.kubernetes import MockKubernetesApi
 
 from jupyterlabcontroller.config import Config
-from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
+from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 
 from ...settings import TestObjectFactory
 from ...support.docker import MockDockerRegistry
@@ -78,7 +78,7 @@ async def test_cleanup_on_pod_exit(
             {
                 "op": "replace",
                 "path": "/status/phase",
-                "value": KubernetesPodPhase.SUCCEEDED.value,
+                "value": PodPhase.SUCCEEDED.value,
             }
         ],
     )

@@ -9,7 +9,7 @@ from kubernetes_asyncio import client
 from kubernetes_asyncio.client import ApiClient, CoreV1Event, V1Pod
 from structlog.stdlib import BoundLogger
 
-from ...models.domain.kubernetes import KubernetesPodPhase, WatchEventType
+from ...models.domain.kubernetes import PodPhase, WatchEventType
 from .deleter import KubernetesObjectDeleter
 from .watcher import KubernetesWatcher
 
@@ -67,17 +67,13 @@ class PodStorage(KubernetesObjectDeleter):
         phase = await self.wait_for_phase(
             name,
             namespace,
-            until_not={
-                KubernetesPodPhase.UNKNOWN,
-                KubernetesPodPhase.PENDING,
-                KubernetesPodPhase.RUNNING,
-            },
+            until_not={PodPhase.UNKNOWN, PodPhase.PENDING, PodPhase.RUNNING},
             timeout=timeout,
         )
         if phase is None:
             logger.warning("Pod was already missing")
             return
-        if phase == KubernetesPodPhase.SUCCEEDED:
+        if phase == PodPhase.SUCCEEDED:
             logger.debug("Removing succeeded pod")
         else:
             logger.warning(f"Removing pod in phase {phase.value}")
@@ -132,9 +128,9 @@ class PodStorage(KubernetesObjectDeleter):
         name: str,
         namespace: str,
         *,
-        until_not: set[KubernetesPodPhase],
+        until_not: set[PodPhase],
         timeout: timedelta | None = None,
-    ) -> KubernetesPodPhase | None:
+    ) -> PodPhase | None:
         """Waits for a pod to finish starting.
 
         Waits for the pod to reach a phase other than the ones given, and
@@ -154,7 +150,7 @@ class PodStorage(KubernetesObjectDeleter):
 
         Returns
         -------
-        KubernetesPodPhase
+        PodPhase
             New pod phase, or `None` if the pod has disappeared.
 
         Raises
@@ -174,7 +170,7 @@ class PodStorage(KubernetesObjectDeleter):
         pod = await self.read(name, namespace)
         if pod is None:
             return None
-        phase = KubernetesPodPhase(pod.status.phase)
+        phase = PodPhase(pod.status.phase)
         if phase not in until_not:
             return phase
 
@@ -194,7 +190,7 @@ class PodStorage(KubernetesObjectDeleter):
             async for event in watcher.watch():
                 if event.action == WatchEventType.DELETED:
                     return None
-                phase = KubernetesPodPhase(event.object.status.phase)
+                phase = PodPhase(event.object.status.phase)
                 if phase not in until_not:
                     return phase
         finally:

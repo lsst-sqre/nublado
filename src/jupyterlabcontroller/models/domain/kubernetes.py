@@ -14,7 +14,7 @@ from .docker import DockerReference
 __all__ = [
     "KubernetesModel",
     "KubernetesNodeImage",
-    "KubernetesPodPhase",
+    "PodPhase",
     "PropagationPolicy",
     "WatchEventType",
 ]
@@ -104,7 +104,7 @@ class KubernetesNodeImage:
         return None
 
 
-class KubernetesPodPhase(str, Enum):
+class PodPhase(str, Enum):
     """One of the valid phases reported in the status section of a Pod."""
 
     PENDING = "Pending"
