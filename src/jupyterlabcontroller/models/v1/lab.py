@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Optional, Self
 
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ...constants import DROPDOWN_SENTINEL_VALUE, USERNAME_REGEX
 from ..domain.gafaelfawr import GafaelfawrUserInfo, UserGroup
@@ -120,13 +120,13 @@ class UserOptions(BaseModel):
 
     image_list: Optional[str] = Field(
         None,
-        example="lighthouse.ceres/library/sketchbook:w_2023_07@sha256:abcd",
+        examples=["lighthouse.ceres/library/sketchbook:w_2023_07@sha256:abcd"],
         title="Image from selection radio button",
         description="If this is set, `image_dropdown` should not be set.",
     )
     image_dropdown: Optional[str] = Field(
         None,
-        example="lighthouse.ceres/library/sketchbook:w_2022_40",
+        examples=["lighthouse.ceres/library/sketchbook:w_2022_40"],
         title="Image from dropdown list",
         description=(
             "If this is set, `image_list` should be omitted or set to"
@@ -135,7 +135,7 @@ class UserOptions(BaseModel):
     )
     image_class: Optional[ImageClass] = Field(
         None,
-        example=ImageClass.RECOMMENDED,
+        examples=[ImageClass.RECOMMENDED],
         title="Class of image to spawn",
         description=(
             "Spawn a class of image determined by the lab controller. Not"
@@ -147,7 +147,7 @@ class UserOptions(BaseModel):
     )
     image_tag: Optional[str] = Field(
         None,
-        example="w_2023_07",
+        examples=["w_2023_07"],
         title="Tag of image to spawn",
         description=(
             "Spawn the image with the given tag. Not used by the user form,"
@@ -156,15 +156,15 @@ class UserOptions(BaseModel):
             " `image_dropdown` should be set when using these options."
         ),
     )
-    size: LabSize = Field(..., example=LabSize.MEDIUM, title="Image size")
+    size: LabSize = Field(..., examples=[LabSize.MEDIUM], title="Image size")
     enable_debug: bool = Field(
         False,
-        example=True,
+        examples=[True],
         title="Enable debugging in spawned Lab",
     )
     reset_user_env: bool = Field(
         False,
-        example=True,
+        examples=[True],
         title="Relocate user environment (`.cache`, `.jupyter`, `.local`)",
     )
 
@@ -184,8 +184,11 @@ class UserOptions(BaseModel):
         else:
             return "image_tag"
 
-    @root_validator(pre=True)
-    def _validate_lists(cls, values: dict[str, Any]) -> dict[str, list[Any]]:
+    @model_validator(mode="before")
+    @classmethod
+    def _validate_lists(
+        cls, data: dict[str, Any] | Self
+    ) -> dict[str, Any] | Self:
         """Convert from lists of length 1 to values.
 
         JupyterHub passes the value of the input form directly to the lab
@@ -195,8 +198,10 @@ class UserOptions(BaseModel):
         wrapper. Also accept values without the list wrapping for direct calls
         to the lab controller via the same API.
         """
-        new_values = {}
-        for key, value in values.items():
+        if not isinstance(data, dict):
+            return data
+        new_data = {}
+        for key, value in data.items():
             if value is None:
                 continue
             if isinstance(value, list):
@@ -204,34 +209,45 @@ class UserOptions(BaseModel):
                     continue
                 if len(value) != 1:
                     raise ValueError(f"Too many values for {key}")
-                new_values[key] = value[0]
+                new_data[key] = value[0]
             else:
-                new_values[key] = value
-        return new_values
+                new_data[key] = value
+        return new_data
 
-    @root_validator
-    def _validate_one_image(cls, values: dict[str, Any]) -> dict[str, Any]:
+    @model_validator(mode="after")
+    def _validate_one_image(self) -> Self:
         """Ensure that the image is only specified in one way."""
-        values_set = set()
-        for k in ("image_list", "image_dropdown", "image_class", "image_tag"):
-            if values.get(k) is not None:
-                if k == "image_list" and values[k] == DROPDOWN_SENTINEL_VALUE:
-                    values[k] = None
-                    continue
-                values_set.add(k)
-        if values_set == {"image_list", "image_dropdown"}:
-            # image_dropdown will have a spurious value if image_list is set,
-            # due to the form design, so in that case use image_list. (Unless
-            # it has the sentinel value, but that's handled above.)
-            del values["image_dropdown"]
-        elif len(values_set) < 1:
+        if self.image_list == DROPDOWN_SENTINEL_VALUE:
+            self.image_list = None
+
+        # image_dropdown will have a spurious value if image_list is set,
+        # due to the form design, so in that case use image_list. (Unless
+        # it has the sentinel value, but that's handled above.)
+        if self.image_list:
+            self.image_dropdown = None
+
+        # See which image attributes are set.
+        values_set = {
+            attr
+            for attr in (
+                "image_list",
+                "image_dropdown",
+                "image_class",
+                "image_tag",
+            )
+            if getattr(self, attr, None)
+        }
+
+        # Check that exactly one of them is set.
+        if len(values_set) < 1:
             raise ValueError("No image to spawn specified")
         elif len(values_set) > 1:
             keys = ", ".join(sorted(values_set))
             raise ValueError(f"Image specified multiple ways ({keys})")
-        return values
+        return self
 
-    @validator("enable_debug", "reset_user_env", pre=True)
+    @field_validator("enable_debug", "reset_user_env", mode="before")
+    @classmethod
     def _validate_booleans(cls, v: bool | str) -> bool:
         """Convert boolean values from strings."""
         if isinstance(v, bool):
@@ -243,7 +259,8 @@ class UserOptions(BaseModel):
         else:
             raise ValueError(f"Invalid boolean value {v}")
 
-    @validator("size", pre=True)
+    @field_validator("size", mode="before")
+    @classmethod
     def _validate_size(cls, v: Any) -> Any:
         """Lab sizes may be title-cased, so convert them to lowercase."""
         if isinstance(v, LabSize):
@@ -271,7 +288,8 @@ class LabSpecification(BaseModel):
         ),
     )
 
-    @validator("env")
+    @field_validator("env")
+    @classmethod
     def _validate_env(cls, v: dict[str, str]) -> dict[str, str]:
         if "JUPYTERHUB_SERVICE_PREFIX" not in v:
             raise ValueError("JUPYTERHUB_SERVICE_PREFIX must be set")
@@ -287,13 +305,13 @@ class UserInfo(BaseModel):
 
     username: str = Field(
         ...,
-        example="ribbon",
+        examples=["ribbon"],
         title="Username for Lab user",
-        regex=USERNAME_REGEX,
+        pattern=USERNAME_REGEX,
     )
     name: str = Field(
         ...,
-        example="Ribbon",
+        examples=["Ribbon"],
         title="Human-friendly display name for user",
         description=(
             "May contain spaces, capital letters, and non-ASCII characters."
@@ -303,13 +321,13 @@ class UserInfo(BaseModel):
     )
     uid: int = Field(
         ...,
-        example=1104,
+        examples=[1104],
         title="Numeric UID for user (POSIX)",
         description="32-bit unsigned integer",
     )
     gid: int = Field(
         ...,
-        example=1104,
+        examples=[1104],
         title="Numeric GID for user's primary group (POSIX)",
         description="32-bit unsigned integer",
     )
@@ -341,7 +359,7 @@ class UserInfo(BaseModel):
 class ResourceQuantity(BaseModel):
     cpu: float = Field(
         ...,
-        example=1.5,
+        examples=[1.5],
         title="Kubernetes CPU resource quantity",
         description=(
             "cf. "
@@ -351,7 +369,7 @@ class ResourceQuantity(BaseModel):
     )
     memory: int = Field(
         ...,
-        example=1073741824,
+        examples=[1073741824],
         title="Kubernetes memory resource in bytes",
     )
 
@@ -368,12 +386,12 @@ class UserLabState(LabSpecification):
 
     user: UserInfo = Field(..., title="User who owns the lab")
     status: LabStatus = Field(
-        ..., example="running", title="Status of user container"
+        ..., examples=["running"], title="Status of user container"
     )
-    pod: PodState = Field(..., example="present", title="User pod state")
+    pod: PodState = Field(..., examples=["present"], title="User pod state")
     internal_url: Optional[str] = Field(
         None,
-        example="http://nublado-ribbon.nb-ribbon:8888",
+        examples=["http://nublado-ribbon.nb-ribbon:8888"],
         title="URL by which the Hub can access the user Pod",
     )
     resources: LabResources = Field(..., title="Resource limits and requests")

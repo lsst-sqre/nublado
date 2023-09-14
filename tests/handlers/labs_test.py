@@ -137,7 +137,7 @@ async def test_lab_start_stop(
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
     expected_resources = size_manager.resources(lab.options.size)
-    expected_options = lab.options.dict()
+    expected_options = lab.options.model_dump()
     expected_options["image_dropdown"] = expected_options["image_list"]
     expected_options["image_list"] = None
     expected = {
@@ -151,14 +151,14 @@ async def test_lab_start_stop(
             "cpu": user.quota.notebook.cpu,
             "memory": int(user.quota.notebook.memory * 1024 * 1024 * 1024),
         },
-        "resources": expected_resources.dict(),
+        "resources": expected_resources.model_dump(),
         "status": "running",
         "user": {
             "username": user.username,
             "name": user.name,
             "uid": user.uid,
             "gid": user.gid,
-            "groups": [g.dict() for g in user.groups if g.id],
+            "groups": [g.model_dump() for g in user.groups if g.id],
         },
     }
     assert r.json() == expected
@@ -166,7 +166,7 @@ async def test_lab_start_stop(
     # Creating the lab again should result in a 409 error.
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
-        json={"options": lab.options.dict(), "env": lab.env},
+        json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
             "X-Auth-Request-Token": token,
             "X-Auth-Request-User": user.username,
@@ -225,7 +225,7 @@ async def test_spawn_after_failure(
     # Create a lab.
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
-        json={"options": lab.options.dict(), "env": lab.env},
+        json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
             "X-Auth-Request-Token": token,
             "X-Auth-Request-User": user.username,
@@ -258,7 +258,7 @@ async def test_spawn_after_failure(
     # should delete the old lab and then create a new one.
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
-        json={"options": lab.options.dict(), "env": lab.env},
+        json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
             "X-Auth-Request-Token": token,
             "X-Auth-Request-User": user.username,
@@ -290,7 +290,7 @@ async def test_delayed_spawn(
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
-        json={"options": lab.options.dict(), "env": lab.env},
+        json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
             "X-Auth-Request-Token": token,
             "X-Auth-Request-User": user.username,
@@ -402,7 +402,7 @@ async def test_lab_objects(
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
-        json={"options": lab.options.dict(), "env": lab.env},
+        json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
             "X-Auth-Request-Token": token,
             "X-Auth-Request-User": user.username,
@@ -432,7 +432,7 @@ async def test_errors(
     # Wrong user.
     r = await client.post(
         "/nublado/spawner/v1/labs/otheruser/create",
-        json={"options": lab.options.dict(), "env": lab.env},
+        json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
             "X-Auth-Request-Token": token,
             "X-Auth-Request-User": user.username,
@@ -454,7 +454,7 @@ async def test_errors(
     # Invalid token.
     r = await client.post(
         "/nublado/spawner/v1/labs/otheruser/create",
-        json={"options": lab.options.dict(), "env": lab.env},
+        json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
             "X-Auth-Request-Token": "some-invalid-token",
             "X-Auth-Request-User": user.username,
@@ -466,7 +466,7 @@ async def test_errors(
     }
 
     # Test passing a reference with no tag.
-    options = lab.options.dict()
+    options = lab.options.model_dump()
     options["image_list"] = "lighthouse.ceres/library/sketchbook"
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -489,7 +489,7 @@ async def test_errors(
     }
 
     # The same but in image_dropdown.
-    options = lab.options.dict()
+    options = lab.options.model_dump()
     options["image_list"] = DROPDOWN_SENTINEL_VALUE
     options["image_dropdown"] = "lighthouse.ceres/library/sketchbook"
     r = await client.post(
@@ -610,7 +610,7 @@ async def test_spawn_errors(
         apis_to_fail = {api}
         r = await client.post(
             f"/nublado/spawner/v1/labs/{user.username}/create",
-            json={"options": lab.options.dict(), "env": lab.env},
+            json={"options": lab.options.model_dump(), "env": lab.env},
             headers={
                 "X-Auth-Request-Token": token,
                 "X-Auth-Request-User": user.username,

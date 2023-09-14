@@ -63,7 +63,7 @@ async def create_lab(
             config.lab.namespace_prefix, secret
         )
     token, user = obj_factory.get_user()
-    user = GafaelfawrUser(token=token, **user.dict())
+    user = GafaelfawrUser(token=token, **user.model_dump())
     assert user.quota
     assert user.quota.notebook
     lab = obj_factory.labspecs[0]
@@ -130,7 +130,7 @@ async def test_reconcile(
     # of its state.
     assert await factory.lab_state.list_lab_users() == [user.username]
     state = await factory.lab_state.get_lab_state(user.username)
-    assert state.dict() == expected.dict()
+    assert state.model_dump() == expected.model_dump()
     status = await factory.lab_state.get_lab_status(user.username)
     assert status == LabStatus.RUNNING
 
@@ -155,7 +155,7 @@ async def test_reconcile_pending(
     await asyncio.sleep(0.1)
     state = await factory.lab_state.get_lab_state(user.username)
     assert state.status == LabStatus.PENDING
-    assert state.dict() == expected.dict()
+    assert state.model_dump() == expected.model_dump()
 
     # Change the pod status and post an event. This should cause the
     # background monitoring task to pick up the change and convert the pod
@@ -177,7 +177,7 @@ async def test_reconcile_pending(
     await asyncio.sleep(0.1)
     state = await factory.lab_state.get_lab_state(user.username)
     expected.status = LabStatus.RUNNING
-    assert state.dict() == expected.dict()
+    assert state.model_dump() == expected.model_dump()
 
 
 @pytest.mark.asyncio
@@ -194,7 +194,7 @@ async def test_spawn_timeout(
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
     config.lab.spawn_timeout = timedelta(seconds=1)
     token, user = obj_factory.get_user()
-    user = GafaelfawrUser(token=token, **user.dict())
+    user = GafaelfawrUser(token=token, **user.model_dump())
     lab = obj_factory.labspecs[0]
     lab_manager = factory.create_lab_manager()
     await factory.start_background_services()

@@ -40,7 +40,7 @@ class MockGafaelfawr:
         auth_type, token = authorization.split(None, 1)
         assert auth_type.lower() == "bearer"
         if token in self._tokens:
-            return Response(200, json=self._tokens[token].dict())
+            return Response(200, json=self._tokens[token].model_dump())
         else:
             return Response(403)
 

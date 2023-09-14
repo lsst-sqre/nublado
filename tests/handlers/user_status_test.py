@@ -68,20 +68,20 @@ async def test_user_status(
     expected = {
         "env": lab.env,
         "internal_url": "http://lab.userlabs-rachel:8888/nb/user/rachel/",
-        "options": lab.options.dict(),
+        "options": lab.options.model_dump(),
         "pod": "present",
         "quota": {
             "cpu": user.quota.notebook.cpu,
             "memory": int(user.quota.notebook.memory * 1024 * 1024 * 1024),
         },
-        "resources": expected_resources.dict(),
+        "resources": expected_resources.model_dump(),
         "status": "running",
         "user": {
             "username": user.username,
             "name": user.name,
             "uid": user.uid,
             "gid": user.gid,
-            "groups": [g.dict() for g in user.groups if g.id],
+            "groups": [g.model_dump() for g in user.groups if g.id],
         },
     }
     assert r.json() == expected

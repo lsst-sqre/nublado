@@ -16,9 +16,10 @@ bitmath
 google-cloud-artifact-registry
 httpx
 jinja2
-pydantic<2
+pydantic>2
+pydantic-settings
 PyYAML
-safir[kubernetes]>=4.5.0
+safir[kubernetes]>=5.0.0a1
 semver
 sse-starlette
 

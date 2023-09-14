@@ -44,7 +44,7 @@ class UserDependency:
         if user.username != x_auth_request_user:
             raise PermissionDeniedError("Permission denied")
         context.rebind_logger(user=user.username)
-        return GafaelfawrUser(token=x_auth_request_token, **user.dict())
+        return GafaelfawrUser(token=x_auth_request_token, **user.model_dump())
 
 
 user_dependency = UserDependency()

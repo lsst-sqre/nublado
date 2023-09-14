@@ -73,7 +73,7 @@ class GafaelfawrStorageClient:
             r.raise_for_status()
             data = r.json()
             self._logger.debug("Retrieved user metadata", metadata=data)
-            return GafaelfawrUserInfo.parse_obj(data)
+            return GafaelfawrUserInfo.model_validate(data)
         except HTTPError as e:
             raise GafaelfawrWebError.from_exception(e) from e
         except ValidationError as e:

@@ -6,10 +6,11 @@ import os
 from datetime import timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal, Optional, Self
+from typing import Literal, Optional, Self
 
 import yaml
-from pydantic import BaseSettings, Field, root_validator, validator
+from pydantic import Field, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from safir.logging import LogLevel, Profile
 from safir.pydantic import CamelCaseModel, to_camel_case
 
@@ -51,24 +52,24 @@ class SafirConfig(CamelCaseModel):
     name: str = Field(
         "Nublado",
         title="Name of application",
-        env="SAFIR_NAME",
+        validation_alias="SAFIR_NAME",
     )
 
     path_prefix: str = Field(
         "/nublado",
         title="URL prefix for application API",
-        env="SAFIR_PATH_PREFIX",
+        validation_alias="SAFIR_PATH_PREFIX",
     )
 
     profile: Profile = Field(
         Profile.production,
         title="Application logging profile",
-        env="SAFIR_PROFILE",
+        validation_alias="SAFIR_PROFILE",
     )
 
     log_level: LogLevel = Field(
         LogLevel.INFO,
-        example=LogLevel.INFO,
+        examples=[LogLevel.INFO],
         title="Application log level",
     )
 
@@ -82,7 +83,7 @@ class LabSizeDefinition(CamelCaseModel):
     cpu: float = Field(
         ...,
         title="Number of CPU resource units for container",
-        example=0.5,
+        examples=[0.5],
         description=(
             "See https://kubernetes.io/docs/concepts/configuration/"
             "manage-resources-containers/"
@@ -91,7 +92,7 @@ class LabSizeDefinition(CamelCaseModel):
     memory: str = Field(
         ...,
         title="Amount of memory for Lab container.",
-        example="1536MiB",
+        examples=["1536MiB"],
         description="Must be specified as a text string (e.g. '1536MiB')",
     )
 
@@ -117,7 +118,7 @@ class BaseVolumeSource(CamelCaseModel):
     ways a volume can be provided.
     """
 
-    type: str = Field(..., title="Type of volume to mount", example="nfs")
+    type: str = Field(..., title="Type of volume to mount", examples=["nfs"])
 
 
 class HostPathVolumeSource(BaseVolumeSource):
@@ -127,8 +128,8 @@ class HostPathVolumeSource(BaseVolumeSource):
     path: str = Field(
         ...,
         title="Absolute host path to mount in the container",
-        example="/home",
-        regex="^/.*",
+        examples=["/home"],
+        pattern="^/.*",
     )
 
 
@@ -139,13 +140,13 @@ class NFSVolumeSource(BaseVolumeSource):
     server: str = Field(
         ...,
         title="Name or address of the server providing the volume",
-        example="10.13.105.122",
+        examples=["10.13.105.122"],
     )
     server_path: str = Field(
         ...,
         title="Absolute path where the volume is exported from the NFS server",
-        example="/share1/home",
-        regex="^/.*",
+        examples=["/share1/home"],
+        pattern="^/.*",
     )
 
 
@@ -177,18 +178,18 @@ class PVCVolumeSource(BaseVolumeSource):
 class LabVolume(CamelCaseModel):
     container_path: str = Field(
         ...,
-        example="/home",
+        examples=["/home"],
         title="Absolute path of the volume mounted inside the Lab container",
-        regex="^/.*",
+        pattern="^/.*",
     )
     sub_path: str | None = Field(
         None,
-        example="groups",
+        examples=["groups"],
         title="Mount only this subpath of the volume source",
     )
     mode: FileMode = Field(
         FileMode.RW,
-        example="ro",
+        examples=["ro"],
         title="File permissions when mounted",
         description="`rw` is read/write and `ro` is read-only",
     )
@@ -200,17 +201,17 @@ class LabVolume(CamelCaseModel):
 class LabInitContainer(CamelCaseModel):
     name: str = Field(
         ...,
-        example="multus-init",
+        examples=["multus-init"],
         title="Name of an initContainer run before the user Lab starts",
     )
     image: str = Field(
         ...,
-        example="docker.io/lsstit/ddsnet4u:latest",
+        examples=["docker.io/lsstit/ddsnet4u:latest"],
         title="Docker registry path to initContainer image",
     )
     privileged: bool = Field(
         False,
-        example=False,
+        examples=[False],
         title="Whether the initContainer needs privilege to do its job",
         description=(
             "For example, permission to configure networking or "
@@ -231,7 +232,7 @@ class LabSecret(CamelCaseModel):
             "Must name a secret in the same namespace as the lab controller"
             " pod."
         ),
-        example="credentials",
+        examples=["credentials"],
     )
     secret_key: str = Field(
         ...,
@@ -241,33 +242,35 @@ class LabSecret(CamelCaseModel):
             " of source secrets, since it is also used as the key for the"
             " entry in the secret created in the user's lab environment."
         ),
-        example="butler-credentials",
+        examples=["butler-credentials"],
     )
     env: Optional[str] = Field(
         None,
         title="Environment variable to set to secret value",
-        example="BUTLER_CREDENTIALS",
+        examples=["BUTLER_CREDENTIALS"],
     )
     path: Optional[str] = Field(
         None,
         title="Path inside lab at which to mount secret",
-        example="/opt/lsst/software/jupyterlab/butler-secret",
+        examples=["/opt/lsst/software/jupyterlab/butler-secret"],
     )
 
 
 class LabFile(CamelCaseModel):
     contents: str = Field(
         ...,
-        example=(
-            "root:x:0:0:root:/root:/bin/bash\n"
-            "bin:x:1:1:bin:/bin:/sbin/nologin\n",
-            "...",
-        ),
+        examples=[
+            (
+                "root:x:0:0:root:/root:/bin/bash\n"
+                "bin:x:1:1:bin:/bin:/sbin/nologin\n",
+                "...",
+            )
+        ],
         title="Contents of file",
     )
     modify: bool = Field(
         False,
-        example=False,
+        examples=[False],
         title="Whether to modify this file before injection",
     )
 
@@ -312,7 +315,8 @@ class LabConfig(CamelCaseModel):
         title="Extra annotations for lab pod",
     )
 
-    @validator("secrets")
+    @field_validator("secrets")
+    @classmethod
     def _validate_secrets(cls, v: list[LabSecret]) -> list[LabSecret]:
         keys = set()
         for secret in v:
@@ -353,15 +357,15 @@ class FileserverConfig(CamelCaseModel):
     )
     image: str = Field(
         "",
-        example="docker.io/lsstsqre/worblehat",
+        examples=["docker.io/lsstsqre/worblehat"],
         title="Docker registry path to fileserver image",
     )
     tag: str = Field(
-        "latest", example="0.1.0", title="Tag of fileserver image to use"
+        "latest", examples=["0.1.0"], title="Tag of fileserver image to use"
     )
     pull_policy: PullPolicy = Field(
         PullPolicy.IFNOTPRESENT,
-        example="Always",
+        examples=["Always"],
         title="Pull policy for the fileserver image",
     )
     timeout: int = Field(
@@ -380,14 +384,14 @@ class FileserverConfig(CamelCaseModel):
     # Only care if our fields are filled out if the fileserver is enabled.
     # Doing it this way saves a lot of assertions about when values
     # are not None down the line.
-    @root_validator(pre=True)
-    def validate_namespace(cls, values: dict[str, Any]) -> dict[str, Any]:
-        enabled = values.get("enabled")
-        if enabled:
-            for key in ("namespace", "image"):
-                if not values.get(key):
-                    raise ValueError(f"'{key}' must be specified")
-        return values
+    @model_validator(mode="after")
+    def validate_namespace(self) -> Self:
+        if self.enabled:
+            if not self.namespace:
+                raise ValueError("namespace must be specified")
+            if not self.image:
+                raise ValueError("image must be specified")
+        return self
 
 
 #
@@ -405,7 +409,7 @@ class Config(BaseSettings):
     base_url: str = Field(
         "http://127.0.0.1:8080",
         title="Base URL for Science Platform",
-        env="EXTERNAL_INSTANCE_URL",
+        validation_alias="EXTERNAL_INSTANCE_URL",
         description="Injected into the lab pod as EXTERNAL_INSTANCE_URL",
     )
     docker_secrets_path: Path = Field(
@@ -425,16 +429,16 @@ class Config(BaseSettings):
     slack_webhook: Optional[str] = Field(
         None,
         title="Slack webhook to which to post alerts",
-        env="NUBLADO_SLACK_WEBHOOK",
+        validation_alias="NUBLADO_SLACK_WEBHOOK",
     )
 
     # CamelCaseModel conflicts with BaseSettings, so do this manually.
-    class Config:
-        alias_generator = to_camel_case
-        allow_population_by_field_name = True
+    model_config = SettingsConfigDict(
+        alias_generator=to_camel_case, populate_by_name=True
+    )
 
     @classmethod
     def from_file(cls, path: Path) -> Self:
         """Load the controller configuration from a YAML file."""
         with path.open("r") as f:
-            return cls.parse_obj(yaml.safe_load(f))
+            return cls.model_validate(yaml.safe_load(f))

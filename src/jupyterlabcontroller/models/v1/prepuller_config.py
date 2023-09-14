@@ -25,12 +25,12 @@ class DockerSourceConfig(CamelCaseModel):
     type: Literal["docker"] = Field(..., title="Type of image source")
     registry: str = Field(
         "docker.io",
-        example="lighthouse.ceres",
+        examples=["lighthouse.ceres"],
         title="hostname (and optional port) of Docker repository",
     )
     repository: str = Field(
         ...,
-        example="library/sketchbook",
+        examples=["library/sketchbook"],
         title="Docker repository path to lab image (no tag or digest)",
     )
 
@@ -52,7 +52,7 @@ class GARSourceConfig(CamelCaseModel):
     type: Literal["google"] = Field(..., title="Type of image source")
     location: str = Field(
         ...,
-        example="us-central1",
+        examples=["us-central1"],
         title="Region or multiregion of registry",
         description=(
             "This is the same as the hostname of the registry but with the"
@@ -61,17 +61,17 @@ class GARSourceConfig(CamelCaseModel):
     )
     project_id: str = Field(
         ...,
-        example="ceres-lighthouse-6ab4",
+        examples=["ceres-lighthouse-6ab4"],
         title="Google Cloud Platform project ID of registry",
     )
     repository: str = Field(
         ...,
-        example="library",
+        examples=["library"],
         title="Google Artifact Registry repository name",
     )
     image: str = Field(
         ...,
-        example="sketchbook",
+        examples=["sketchbook"],
         title="Google Artifact Registry image name",
     )
 
@@ -102,7 +102,7 @@ class PrepullerConfig(CamelCaseModel):
     )
     recommended_tag: str = Field(
         "recommended",
-        example="recommended",
+        examples=["recommended"],
         title="Tag of recommended image",
         description=(
             "This image will be shown first on the menu as the default choice."
@@ -110,7 +110,7 @@ class PrepullerConfig(CamelCaseModel):
     )
     num_releases: int = Field(
         1,
-        example=1,
+        examples=[1],
         title="Number of releases to prepull",
         description=(
             "This many releases, starting with the most recent, will be"
@@ -120,7 +120,7 @@ class PrepullerConfig(CamelCaseModel):
     )
     num_weeklies: int = Field(
         2,
-        example=2,
+        examples=[2],
         title="Number of weeklies to prepull",
         description=(
             "This many weeklies, starting with the most recent, will be"
@@ -130,7 +130,7 @@ class PrepullerConfig(CamelCaseModel):
     )
     num_dailies: int = Field(
         3,
-        example=3,
+        examples=[3],
         title="Number of dailies to prepull",
         description=(
             "This many dailies, starting with the most recent, will be"
@@ -140,7 +140,7 @@ class PrepullerConfig(CamelCaseModel):
     )
     cycle: Optional[int] = Field(
         None,
-        example=27,
+        examples=[27],
         title="Limit to this cycle number (XML schema version)",
         description=(
             "Telescope and Site images contain software implementing a"
@@ -152,7 +152,7 @@ class PrepullerConfig(CamelCaseModel):
     )
     pin: Optional[list[str]] = Field(
         None,
-        example=["d_2077_10_23"],
+        examples=[["d_2077_10_23"]],
         title="List of image tags to prepull and pin to the menu",
         description=(
             "Forces images to be cached and pinned to the menu even when they"
@@ -165,7 +165,7 @@ class PrepullerConfig(CamelCaseModel):
     )
     alias_tags: list[str] = Field(
         [],
-        example=["recommended_cycle0027"],
+        examples=[["recommended_cycle0027"]],
         title="Additional alias tags",
         description=(
             "These tags will automatically be recognized as alias tags rather"

@@ -148,7 +148,7 @@ async def test_gar(
 
         images = factory.image_service.images()
         expected = read_output_data("gar", "images-before.json")
-        assert images.dict(exclude_none=True) == expected
+        assert images.model_dump(exclude_none=True) == expected
 
         menu_images = factory.image_service.menu_images()
         seen = {
@@ -190,7 +190,7 @@ async def test_gar(
 
         images = factory.image_service.images()
         expected = read_output_data("gar", "images-after.json")
-        assert images.dict(exclude_none=True) == expected
+        assert images.model_dump(exclude_none=True) == expected
 
         menu_images = factory.image_service.menu_images()
         seen = {
@@ -229,7 +229,7 @@ async def test_cycle(
 
         images = factory.image_service.images()
         expected = read_output_data("cycle", "images.json")
-        assert images.dict(exclude_none=True) == expected
+        assert images.model_dump(exclude_none=True) == expected
 
         menu_images = factory.image_service.menu_images()
         seen = {
@@ -261,7 +261,7 @@ async def test_gar_cycle(
 
         images = factory.image_service.images()
         expected = read_output_data("gar-cycle", "images.json")
-        assert images.dict(exclude_none=True) == expected
+        assert images.model_dump(exclude_none=True) == expected
 
         menu_images = factory.image_service.menu_images()
         seen = {

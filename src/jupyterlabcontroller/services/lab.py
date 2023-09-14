@@ -289,7 +289,9 @@ class LabManager:
 
     def _build_annotations(self, user: GafaelfawrUserInfo) -> dict[str, str]:
         """Private helper function; it's a bit unwieldy to do inline."""
-        serialized_groups = json.dumps([g.dict() for g in user.groups if g.id])
+        serialized_groups = json.dumps(
+            [g.model_dump() for g in user.groups if g.id]
+        )
         annos = {
             "nublado.lsst.io/user-name": user.name,
             "nublado.lsst.io/user-groups": serialized_groups,
