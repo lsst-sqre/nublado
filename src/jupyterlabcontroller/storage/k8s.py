@@ -41,7 +41,7 @@ from ..exceptions import (
 )
 from ..models.domain.kubernetes import (
     KubernetesNodeImage,
-    KubernetesPodPhase,
+    PodPhase,
     PropagationPolicy,
 )
 from ..models.v1.lab import ResourceQuantity
@@ -115,7 +115,7 @@ class K8sStorageClient:
 
     async def get_pod_phase(
         self, name: str, namespace: str
-    ) -> KubernetesPodPhase | None:
+    ) -> PodPhase | None:
         """Get the phase of a currently running pod.
 
         Called whenever JupyterHub wants to check the status of running pods,
@@ -130,7 +130,7 @@ class K8sStorageClient:
 
         Returns
         -------
-        KubernetesPodPhase or None
+        PodPhase or None
             Phase of the pod or `None` if the pod does not exist.
 
         Raises
@@ -147,7 +147,7 @@ class K8sStorageClient:
 
     async def wait_for_pod_start(
         self, pod_name: str, namespace: str, timeout: timedelta | None = None
-    ) -> KubernetesPodPhase | None:
+    ) -> PodPhase | None:
         """Waits for a pod to finish starting.
 
         Waits for the pod to reach a phase other than pending or unknown, and
@@ -166,7 +166,7 @@ class K8sStorageClient:
 
         Returns
         -------
-        KubernetesPodPhase
+        PodPhase
             New pod phase, or `None` if the pod has disappeared.
 
         Raises
@@ -177,13 +177,13 @@ class K8sStorageClient:
         return await self._pod.wait_for_phase(
             pod_name,
             namespace,
-            until_not={KubernetesPodPhase.UNKNOWN, KubernetesPodPhase.PENDING},
+            until_not={PodPhase.UNKNOWN, PodPhase.PENDING},
             timeout=timeout or self._spawn_timeout,
         )
 
     async def wait_for_pod_stop(
         self, pod_name: str, namespace: str
-    ) -> KubernetesPodPhase | None:
+    ) -> PodPhase | None:
         """Waits for a pod to terminate.
 
         Waits for the pod to reach a phase other than running or unknown, and
@@ -199,7 +199,7 @@ class K8sStorageClient:
 
         Returns
         -------
-        KubernetesPodPhase
+        PodPhase
             New pod phase, or `None` if the pod has disappeared.
 
         Raises
@@ -210,7 +210,7 @@ class K8sStorageClient:
         return await self._pod.wait_for_phase(
             pod_name,
             namespace,
-            until_not={KubernetesPodPhase.UNKNOWN, KubernetesPodPhase.RUNNING},
+            until_not={PodPhase.UNKNOWN, PodPhase.RUNNING},
             timeout=self._spawn_timeout,
         )
 

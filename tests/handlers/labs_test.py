@@ -23,7 +23,7 @@ from safir.testing.slack import MockSlackWebhook
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.constants import DROPDOWN_SENTINEL_VALUE
 from jupyterlabcontroller.factory import Factory
-from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
+from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 
 from ..settings import TestObjectFactory
 from ..support.constants import TEST_BASE_URL
@@ -186,7 +186,7 @@ async def test_lab_start_stop(
     name = f"{user.username}-nb"
     namespace = f"userlabs-{user.username}"
     pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
-    pod.status.phase = KubernetesPodPhase.FAILED.value
+    pod.status.phase = PodPhase.FAILED.value
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
     expected["status"] = "failed"
@@ -246,7 +246,7 @@ async def test_spawn_after_failure(
             {
                 "op": "replace",
                 "path": "/status/phase",
-                "value": KubernetesPodPhase.FAILED.value,
+                "value": PodPhase.FAILED.value,
             }
         ],
     )
@@ -269,7 +269,7 @@ async def test_spawn_after_failure(
         f"{TEST_BASE_URL}/nublado/spawner/v1/labs/{user.username}"
     )
     pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
-    assert pod.status.phase == KubernetesPodPhase.RUNNING.value
+    assert pod.status.phase == PodPhase.RUNNING.value
 
     # Get the events and look for the lab recreation events.
     expected_events = read_output_data("standard", "lab-recreate-events.json")
@@ -286,7 +286,7 @@ async def test_delayed_spawn(
 ) -> None:
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
-    mock_kubernetes.initial_pod_phase = KubernetesPodPhase.PENDING.value
+    mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -341,7 +341,7 @@ async def test_delayed_spawn(
             {
                 "op": "replace",
                 "path": "/status/phase",
-                "value": KubernetesPodPhase.RUNNING.value,
+                "value": PodPhase.RUNNING.value,
             }
         ],
     )

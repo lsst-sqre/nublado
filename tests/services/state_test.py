@@ -17,7 +17,7 @@ from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.models.domain.docker import DockerReference
 from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUser
-from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
+from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 from jupyterlabcontroller.models.v1.lab import (
     LabStatus,
     PodState,
@@ -142,7 +142,7 @@ async def test_reconcile_pending(
     obj_factory: TestObjectFactory,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    mock_kubernetes.initial_pod_phase = KubernetesPodPhase.PENDING.value
+    mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
     expected = await create_lab(config, factory, obj_factory, mock_kubernetes)
     _, user = obj_factory.get_user()
 
@@ -167,7 +167,7 @@ async def test_reconcile_pending(
             {
                 "op": "replace",
                 "path": "/status/phase",
-                "value": KubernetesPodPhase.RUNNING.value,
+                "value": PodPhase.RUNNING.value,
             }
         ],
     )
@@ -191,7 +191,7 @@ async def test_spawn_timeout(
         await mock_kubernetes.create_namespaced_secret(
             config.lab.namespace_prefix, secret
         )
-    mock_kubernetes.initial_pod_phase = KubernetesPodPhase.PENDING.value
+    mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
     config.lab.spawn_timeout = timedelta(seconds=1)
     token, user = obj_factory.get_user()
     user = GafaelfawrUser(token=token, **user.dict())

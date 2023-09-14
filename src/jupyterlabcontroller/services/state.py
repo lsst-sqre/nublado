@@ -18,7 +18,7 @@ from structlog.stdlib import BoundLogger
 from ..config import LabConfig
 from ..constants import LAB_STATE_REFRESH_INTERVAL
 from ..exceptions import KubernetesError, LabExistsError, UnknownUserError
-from ..models.domain.kubernetes import KubernetesPodPhase
+from ..models.domain.kubernetes import PodPhase
 from ..models.domain.lab import UserLab
 from ..models.v1.event import Event, EventType
 from ..models.v1.lab import (
@@ -175,7 +175,7 @@ class LabStateManager:
             lab.state.status = LabStatus.FAILED
             lab.state.pod = PodState.MISSING
         elif lab.state.status == LabStatus.RUNNING:
-            if phase != KubernetesPodPhase.RUNNING:
+            if phase != PodPhase.RUNNING:
                 lab.state.status = LabStatus.FAILED
         return lab.state
 

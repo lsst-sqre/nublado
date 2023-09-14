@@ -24,7 +24,7 @@ from safir.testing.slack import MockSlackWebhook
 
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
-from jupyterlabcontroller.models.domain.kubernetes import KubernetesPodPhase
+from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 from jupyterlabcontroller.models.v1.prepuller_config import GARSourceConfig
 
 from ..settings import TestObjectFactory
@@ -57,7 +57,7 @@ async def mark_pod_complete(
             {
                 "op": "replace",
                 "path": "/status/phase",
-                "value": KubernetesPodPhase.SUCCEEDED.value,
+                "value": PodPhase.SUCCEEDED.value,
             }
         ],
     )
