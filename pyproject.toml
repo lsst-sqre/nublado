@@ -162,6 +162,16 @@ ignore = [
     "TD003",   # we don't require issues be created for TODOs
     "TID252",  # if we're going to use relative imports, use them always
     "TRY003",  # good general advice but lint is way too aggressive
+
+    # TEMPORARY exclusions while refactoring is in progress. All of these will
+    # be re-enabled once refactoring is complete.
+    "C901",
+    "D100",
+    "D101",
+    "D103",
+    "D401",
+    "D404",
+    "PLR0912",
 ]
 select = ["ALL"]
 target-version = "py311"
