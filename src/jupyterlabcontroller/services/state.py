@@ -602,16 +602,21 @@ class LabStateManager:
             self._logger.warning(msg, name=pod_name)
             return None
 
+        # Find the lab container.
+        lab_container = None
+        for container in pod.spec.containers:
+            if container.name == "notebook":
+                lab_container = container
+                break
+        if not lab_container:
+            error = 'No container named "notebook"'
+            msg = f"Invalid lab environment for {username}: {error}"
+            logger.error(msg)
+            return None
+
         # Gather the necessary information from the pod. If anything is
         # missing or in an unexpected format, log an error and return None.
         try:
-            lab_container = None
-            for container in pod.spec.containers:
-                if container.name == "notebook":
-                    lab_container = container
-                    break
-            if not lab_container:
-                raise ValueError('No container named "notebook"')
             resources = LabResources(
                 limits=ResourceQuantity(
                     cpu=float(env["CPU_LIMIT"]),
