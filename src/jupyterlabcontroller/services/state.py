@@ -599,7 +599,7 @@ class LabStateManager:
         env = env_map.data
         if not pod:
             msg = f"No {pod_name} Pod for {username}"
-            self._logger.warning(msg, name=pod_name)
+            logger.warning(msg, name=pod_name)
             return None
 
         # Find the lab container.
