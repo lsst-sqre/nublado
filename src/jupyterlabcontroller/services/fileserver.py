@@ -78,11 +78,12 @@ class FileserverStateManager:
         ):
             try:
                 await self._create_fileserver(user)
-            except Exception as exc:
-                self._logger.error(
-                    f"Fileserver creation for {username} failed with {exc}"
-                    + ": deleting fileserver objects."
+            except Exception:
+                msg = (
+                    f"Fileserver creation for {username} failed, deleting"
+                    " fileserver objects"
                 )
+                self._logger.exception(msg)
                 await self.delete(username)
                 raise
 
@@ -98,7 +99,7 @@ class FileserverStateManager:
             service = self._build_fileserver_service(user.username)
             job = self._build_fileserver_job(user)
             self._logger.debug(
-                "...creating new gafawelfawrfingress for " + username
+                f"...creating new GafaelfawrIngress for {username}"
             )
             await self._k8s_client.create_fileserver_gafaelfawringress(
                 namespace, gf_ingress
@@ -290,7 +291,7 @@ class FileserverStateManager:
         )
 
         # _Build the pod specification itself.
-        # FIXME work out tolerations
+        # TODO(athornton): work out tolerations
         return V1PodSpec(
             containers=[container],
             restart_policy="Never",

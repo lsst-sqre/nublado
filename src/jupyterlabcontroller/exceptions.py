@@ -510,11 +510,10 @@ class MissingObjectError(SlackException):
                 obj = f"{self.kind} {self.namespace}/{self.name}"
             else:
                 obj = f"{self.kind} {self.name}"
+        elif self.namespace:
+            obj = f"{self.kind} (namespace: {self.namespace})"
         else:
-            if self.namespace:
-                obj = f"{self.kind} (namespace: {self.namespace})"
-            else:
-                obj = self.kind
+            obj = self.kind
         message.blocks.append(SlackTextBlock(heading="Object", text=obj))
         return message
 

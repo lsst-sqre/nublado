@@ -413,6 +413,7 @@ class K8sStorageClient:
         namespace: str,
         data: dict[str, str],
         secret_type: str = "Opaque",
+        *,
         immutable: bool = True,
     ) -> None:
         secret = V1Secret(
@@ -449,6 +450,7 @@ class K8sStorageClient:
         name: str,
         namespace: str,
         data: dict[str, str],
+        *,
         immutable: bool = True,
     ) -> None:
         configmap = V1ConfigMap(
@@ -459,9 +461,9 @@ class K8sStorageClient:
         await self._config_map.create(namespace, configmap)
 
     async def create_network_policy(self, name: str, namespace: str) -> None:
-        # FIXME we need to further restrict Ingress to the right pods,
-        # and Egress to ... external world, Hub, Portal, Gafaelfawr.  What
-        # else?
+        # TODO(athornton): we need to further restrict Ingress to the right
+        # pods, and Egress to ... external world, Hub, Portal, Gafaelfawr.
+        # What else?
         policy = V1NetworkPolicy(
             metadata=self.standard_metadata(name, namespace=namespace),
             spec=V1NetworkPolicySpec(
@@ -556,7 +558,7 @@ class K8sStorageClient:
         pod = V1Pod(metadata=metadata, spec=pod_spec)
         await self._pod.create(namespace, pod, replace=remove_on_conflict)
 
-    async def delete_namespace(self, name: str, wait: bool = False) -> None:
+    async def delete_namespace(self, name: str, *, wait: bool = False) -> None:
         """Delete a Kubernetes namespace.
 
         If the namespace doesn't exist, the deletion is silently successful.
@@ -823,16 +825,18 @@ class K8sStorageClient:
     async def check_fileserver_present(
         self, username: str, namespace: str
     ) -> bool:
-        """Our determination of whether a user has a fileserver is this:
+        """Check if a file server is present.
+
+        Our determination of whether a user has a fileserver is this:
 
         We assume all fileserver objects are named <username>-fs, which we
         can do, since we created them and that's the convention we chose.
 
         A fileserver is working if:
 
-        1) it has exactly one Pod in Running state due to a Job of the
+        #. it has exactly one Pod in Running state due to a Job of the
            right name, and
-        2) it has an Ingress, which has status.load_balancer.ingress, and
+        #. it has an Ingress, which has status.load_balancer.ingress, and
            that inner ingress has an attribute "ip" which is not the
            empty string.
 
@@ -862,7 +866,7 @@ class K8sStorageClient:
         if pod.status.phase != "Running":
             self._logger.info(
                 f"Pod for {username} is in phase "
-                + f"'{pod.status.phase}', not 'Running'."
+                f"'{pod.status.phase}', not 'Running'."
             )
             return False
         self._logger.debug(f"...checking Ingress for {username}")

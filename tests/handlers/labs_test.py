@@ -47,13 +47,13 @@ async def get_lab_events(
     dict of str to str or None
         Serialized events read from the server.
     """
-    events = []
     url = f"/nublado/spawner/v1/labs/{username}/events"
     headers = {"X-Auth-Request-User": username}
     async with aconnect_sse(client, "GET", url, headers=headers) as source:
-        async for sse in source.aiter_sse():
-            events.append({"event": sse.event, "data": sse.data})
-    return events
+        return [
+            {"event": sse.event, "data": sse.data}
+            async for sse in source.aiter_sse()
+        ]
 
 
 @pytest.mark.asyncio
@@ -618,10 +618,10 @@ async def test_spawn_errors(
         )
         assert r.status_code == 201
         events = await get_lab_events(client, user.username)
-        error = f"Error {error} ({kind} {obj}, status 400)"
+        error_msg = f"Error {error} ({kind} {obj}, status 400)"
         assert events[-2] == {
             "data": json.dumps(
-                {"message": f"{error}: Something bad happened"}
+                {"message": f"{error_msg}: Something bad happened"}
             ),
             "event": "error",
         }
@@ -635,7 +635,7 @@ async def test_spawn_errors(
                     {
                         "type": "section",
                         "text": {
-                            "text": f"Error in Nublado: {error}",
+                            "text": f"Error in Nublado: {error_msg}",
                             "type": "mrkdwn",
                             "verbatim": True,
                         },

@@ -117,7 +117,7 @@ class ProcessContext:
                 config=config.images.source, gar=gar_client, logger=logger
             )
         else:
-            raise RuntimeError("Unknown prepuller configuration type")
+            raise TypeError("Unknown prepuller configuration type")
 
         image_service = ImageService(
             config=config.images,

@@ -31,9 +31,9 @@ def test_tag_ordering() -> None:
     assert three == three
     assert one != three
     with pytest.raises(TypeError):
-        one < three
+        assert one < three
     with pytest.raises(TypeError):
-        one > three
+        assert one > three
 
     four = RSPImageTag.from_str("d_2023_02_10_c0030.004")
     assert three != four

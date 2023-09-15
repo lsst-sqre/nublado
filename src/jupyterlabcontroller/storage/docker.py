@@ -143,6 +143,13 @@ class DockerStorageClient:
                 r = await self._client.get(url, headers=headers)
             r.raise_for_status()
             tags = r.json()["tags"]
+        except HTTPError as e:
+            raise DockerRegistryError.from_exception(e) from e
+        except Exception as e:
+            error = f"{type(e).__name__}: {e!s}"
+            msg = f"Cannot parse response from Docker registry: {error}"
+            raise DockerRegistryError(msg, method="GET", url=url) from e
+        else:
             self._logger.debug(
                 "Listed all image tags",
                 registry=config.registry,
@@ -150,12 +157,6 @@ class DockerStorageClient:
                 count=len(tags),
             )
             return tags
-        except HTTPError as e:
-            raise DockerRegistryError.from_exception(e) from e
-        except Exception as e:
-            error = f"{type(e).__name__}: {e!s}"
-            msg = f"Cannot parse response from Docker registry: {error}"
-            raise DockerRegistryError(msg, method="GET", url=url)
 
     async def get_image_digest(
         self, config: DockerSourceConfig, tag: str
@@ -190,6 +191,13 @@ class DockerStorageClient:
                 r = await self._client.head(url, headers=headers)
             r.raise_for_status()
             digest = r.headers["Docker-Content-Digest"]
+        except HTTPError as e:
+            raise DockerRegistryError.from_exception(e) from e
+        except Exception as e:
+            error = f"{type(e).__name__}: {e!s}"
+            msg = f"Cannot get image digest from Docker registry: {error}"
+            raise DockerRegistryError(msg, method="GET", url=url) from e
+        else:
             self._logger.debug(
                 "Retrieved image digest for tag",
                 registry=config.registry,
@@ -198,12 +206,6 @@ class DockerStorageClient:
                 digest=digest,
             )
             return digest
-        except HTTPError as e:
-            raise DockerRegistryError.from_exception(e) from e
-        except Exception as e:
-            error = f"{type(e).__name__}: {e!s}"
-            msg = f"Cannot get image digest from Docker registry: {error}"
-            raise DockerRegistryError(msg, method="GET", url=url)
 
     async def _authenticate(
         self, host: str, response: Response
@@ -346,4 +348,4 @@ class DockerStorageClient:
         except Exception as e:
             error = f"{type(e).__name__}: {e!s}"
             msg = f"Cannot parse Docker registry login response: {error}"
-            raise DockerRegistryError(msg, method="GET", url=url)
+            raise DockerRegistryError(msg, method="GET", url=url) from e

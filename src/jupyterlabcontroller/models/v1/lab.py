@@ -241,7 +241,7 @@ class UserOptions(BaseModel):
         # Check that exactly one of them is set.
         if len(values_set) < 1:
             raise ValueError("No image to spawn specified")
-        elif len(values_set) > 1:
+        if len(values_set) > 1:
             keys = ", ".join(sorted(values_set))
             raise ValueError(f"Image specified multiple ways ({keys})")
         return self

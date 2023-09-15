@@ -535,7 +535,7 @@ class LabManager:
         for cfile in self.lab_config.files:
             dscfile = deslashify(cfile)
             cmname = f"{username}-nb-configmap"
-            if cfile == "/etc/passwd" or cfile == "/etc/group":
+            if cfile in {"/etc/passwd", "/etc/group"}:
                 cmname = f"{username}-nb-nss"
             path = Path(cfile)
             bname = str(path.name)
@@ -868,7 +868,7 @@ class LabManager:
         )
 
         # Build the pod specification itself.
-        # FIXME work out tolerations
+        # TODO(athornton): work out tolerations
         pull_secrets = None
         if self.lab_config.pull_secret:
             pull_secrets = [V1LocalObjectReference(name="pull-secret")]

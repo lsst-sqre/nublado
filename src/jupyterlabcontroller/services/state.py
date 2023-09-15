@@ -195,11 +195,12 @@ class LabStateManager:
         """
         try:
             state = await self.get_lab_state(username)
-            return state.status
         except UnknownUserError:
             return None
+        else:
+            return state.status
 
-    async def list_lab_users(self, only_running: bool = False) -> list[str]:
+    async def list_lab_users(self, *, only_running: bool = False) -> list[str]:
         """List all users with labs.
 
         Parameters
@@ -223,7 +224,7 @@ class LabStateManager:
             return list(self._labs.keys())
 
     async def publish_error(
-        self, username: str, message: str, fatal: bool = False
+        self, username: str, message: str, *, fatal: bool = False
     ) -> None:
         """Publish a lab spawn or deletion failure event for a user.
 
@@ -374,7 +375,7 @@ class LabStateManager:
         except TimeoutError:
             delay = int((current_datetime() - start).total_seconds())
             msg = f"Lab deletion timed out after {delay}s"
-            logger.error(msg)
+            logger.exception(msg)
             event = Event(message=msg, type=EventType.FAILED)
             self._labs[username].events.put(event)
             self._labs[username].events.close()
@@ -680,7 +681,8 @@ class LabStateManager:
             )
         except Exception as e:
             error = f"{type(e).__name__}: {e!s}"
-            logger.error(f"Invalid lab environment for {username}: {error}")
+            msg = f"Invalid lab environment for {username}: {error}"
+            logger.exception(msg)
             return None
 
     def _recreate_groups(self, pod: V1Pod) -> list[UserGroup]:

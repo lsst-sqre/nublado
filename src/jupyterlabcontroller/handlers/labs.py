@@ -108,14 +108,14 @@ async def delete_user_lab(
         e.location = ErrorLocation.path
         e.field_path = ["username"]
         raise
-    except Exception:
+    except Exception as e:
         # The exception was already reported to Slack at the service layer, so
         # convert it to a standard error message instead of letting it
         # propagate as an uncaught exception.
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=[{"msg": "Failed to delete lab", "type": "delete_failed"}],
-        )
+        ) from e
 
 
 @router.get(

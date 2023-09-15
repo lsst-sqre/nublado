@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
@@ -179,14 +180,12 @@ class RSPImageTag:
         for image_type, regex in _TAG_REGEXES:
             match = regex.match(tag)
             if match:
-                try:
+                # It should be impossible for from_match to fail if we
+                # constructed the regexes properly, but if it does,
+                # silently fall back on treating this as an unknown tag
+                # rather than crashing the lab controller.
+                with contextlib.suppress(Exception):
                     return cls._from_match(image_type, match, tag)
-                except Exception:
-                    # It should be impossible for from_match to fail if we
-                    # constructed the regexes properly, but if it does,
-                    # silently fall back on treating this as an unknown tag
-                    # rather than crashing the lab controller.
-                    pass
 
         # No matches, so return the unknown tag type.
         return cls(
@@ -508,9 +507,9 @@ class RSPImageTagCollection:
 
         # Include additional tags if they're present in the collection.
         if include:
-            for tag in include:
-                if tag in self._by_tag:
-                    tags.append(self._by_tag[tag])
+            tags.extend(
+                [self._by_tag[t] for t in include if t in self._by_tag]
+            )
 
         # Return the results.
         return RSPImageTagCollection(tags)

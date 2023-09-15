@@ -114,7 +114,7 @@ def test_resolve_alias() -> None:
     )
 
     # Can't resolve some other image type.
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Can only resolve.*"):
         image.resolve_alias(latest_daily)
 
 

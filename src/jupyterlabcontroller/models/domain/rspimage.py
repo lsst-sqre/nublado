@@ -215,7 +215,10 @@ class RSPImageCollection:
         self._by_type[image.image_type].sort(reverse=True)
 
     def all_images(
-        self, hide_aliased: bool = False, hide_resolved_aliases: bool = False
+        self,
+        *,
+        hide_aliased: bool = False,
+        hide_resolved_aliases: bool = False,
     ) -> Iterator[RSPImage]:
         """All images in sorted order.
 
@@ -359,9 +362,13 @@ class RSPImageCollection:
 
         # Include additional images if they're present in the collection.
         if include:
-            for tag in include:
-                if tag in self._by_tag_name:
-                    images.append(self._by_tag_name[tag])
+            images.extend(
+                [
+                    self._by_tag_name[t]
+                    for t in include
+                    if t in self._by_tag_name
+                ]
+            )
 
         # Return the results.
         return RSPImageCollection(images)
