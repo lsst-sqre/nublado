@@ -5,6 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Self
 
+from kubernetes_asyncio.client import V1ResourceRequirements
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ...constants import DROPDOWN_SENTINEL_VALUE, USERNAME_REGEX
@@ -364,7 +365,7 @@ class ResourceQuantity(BaseModel):
         description=(
             "cf. "
             "https://kubernetes.io/docs/tasks/"
-            "configure-pod-container/assign-cpu-resource/\n"
+            "configure-pod-container/assign-cpu-resource/"
         ),
     )
     memory: int = Field(
@@ -379,6 +380,19 @@ class LabResources(BaseModel):
     requests: ResourceQuantity = Field(
         ..., title="Intially-requested resources"
     )
+
+    def to_kubernetes(self) -> V1ResourceRequirements:
+        """Convert to the Kubernetes object representation."""
+        return V1ResourceRequirements(
+            limits={
+                "cpu": str(self.limits.cpu),
+                "memory": str(self.limits.memory),
+            },
+            requests={
+                "cpu": str(self.requests.cpu),
+                "memory": str(self.requests.memory),
+            },
+        )
 
 
 class UserLabState(LabSpecification):

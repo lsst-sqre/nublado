@@ -749,16 +749,7 @@ class LabManager:
                     ),
                 ],
                 image=ic.image,
-                resources=V1ResourceRequirements(
-                    limits={
-                        "cpu": str(resources.limits.cpu),
-                        "memory": str(resources.limits.memory),
-                    },
-                    requests={
-                        "cpu": str(resources.requests.cpu),
-                        "memory": str(resources.requests.memory),
-                    },
-                ),
+                resources=resources.to_kubernetes(),
                 security_context=ic_sec_ctx,
                 volume_mounts=ic_vol_mounts,
             )
@@ -848,16 +839,7 @@ class LabManager:
             image=image.reference_with_digest,
             image_pull_policy="IfNotPresent",
             ports=[V1ContainerPort(container_port=8888, name="jupyterlab")],
-            resources=V1ResourceRequirements(
-                limits={
-                    "cpu": str(resources.limits.cpu),
-                    "memory": str(resources.limits.memory),
-                },
-                requests={
-                    "cpu": str(resources.requests.cpu),
-                    "memory": str(resources.requests.memory),
-                },
-            ),
+            resources=resources.to_kubernetes(),
             security_context=V1SecurityContext(
                 run_as_non_root=True,
                 run_as_user=user.uid,
