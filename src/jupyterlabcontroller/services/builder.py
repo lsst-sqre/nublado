@@ -87,7 +87,7 @@ class LabBuilder:
 
         Returns
         -------
-        dict of str to str
+        dict of str
             Equivalent environment sent by JupyterHub.
 
         Notes
