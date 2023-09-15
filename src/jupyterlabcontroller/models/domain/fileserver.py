@@ -1,8 +1,17 @@
-"""Models for the fileserver state.  Async because eventually this is going
-to use Redis.  Locking will be managed external to the user map."""
+"""Models for the fileserver state."""
+
+import contextlib
+
+__all__ = ["FileserverUserMap"]
 
 
 class FileserverUserMap:
+    """File server state.
+
+    All methods are async because eventually this is going to use
+    Redis. Locking will be managed external to the user map.
+    """
+
     def __init__(self) -> None:
         self._dict: dict[str, bool] = {}
 
@@ -16,7 +25,5 @@ class FileserverUserMap:
         self._dict[key] = True
 
     async def remove(self, key: str) -> None:
-        try:
+        with contextlib.suppress(KeyError):
             del self._dict[key]
-        except KeyError:
-            pass

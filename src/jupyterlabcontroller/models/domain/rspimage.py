@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import asdict, dataclass, field
-from typing import Optional, Self
+from typing import Self
 
 from .rsptag import RSPImageTag, RSPImageType
 
@@ -38,7 +38,7 @@ class RSPImage(RSPImageTag):
     digest: str
     """Image digest for the image, including prefixes like ``sha256:``."""
 
-    size: Optional[int] = None
+    size: int | None = None
     """Size of the image in bytes if known."""
 
     aliases: set[str] = field(default_factory=set)
@@ -51,7 +51,7 @@ class RSPImage(RSPImageTag):
     logic that is aware of the contents of the collection.
     """
 
-    alias_target: Optional[str] = None
+    alias_target: str | None = None
     """The tag of the image for which this is an alias, if known."""
 
     nodes: set[str] = field(default_factory=set)
@@ -168,7 +168,7 @@ class RSPImageCollection:
     """
 
     def __init__(
-        self, images: Iterable[RSPImage], cycle: Optional[int] = None
+        self, images: Iterable[RSPImage], cycle: int | None = None
     ) -> None:
         self._by_digest: dict[str, RSPImage]
         self._by_tag_name: dict[str, RSPImage]
@@ -291,7 +291,7 @@ class RSPImageCollection:
         return images[0] if images else None
 
     def mark_image_seen_on_node(
-        self, digest: str, node: str, image_size: Optional[int] = None
+        self, digest: str, node: str, image_size: int | None = None
     ) -> None:
         """Mark an image as seen on a node.
 
@@ -327,7 +327,7 @@ class RSPImageCollection:
         releases: int = 0,
         weeklies: int = 0,
         dailies: int = 0,
-        include: Optional[set[str]] = None,
+        include: set[str] | None = None,
     ) -> RSPImageCollection:
         """Return a subset of the image collection.
 
@@ -418,7 +418,7 @@ class RSPImageCollection:
         return False
 
     def _replace_contents(
-        self, images: Iterable[RSPImage], cycle: Optional[int] = None
+        self, images: Iterable[RSPImage], cycle: int | None = None
     ) -> None:
         """Replace the contents of the collection with the provided images.
 

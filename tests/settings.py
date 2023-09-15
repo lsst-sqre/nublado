@@ -1,4 +1,4 @@
-"""Produce a test object factory"""
+"""Produce a test object factory."""
 
 from __future__ import annotations
 
@@ -108,7 +108,7 @@ class TestObjectFactory:
         """Get user information and token for a user."""
         for token, user in self.userinfos.items():
             return token, user
-        assert False, "No user information records configured"
+        raise AssertionError("No user information records configured")
 
 
 test_object_factory = TestObjectFactory()

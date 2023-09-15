@@ -10,7 +10,7 @@ def deslashify(data: str) -> str:
 
 
 def metadata_to_dict(metadata_object: V1ObjectMeta) -> dict[str, Any]:
-    """Return the dict representation of a Kubernetes metadata object
+    """Return the dict representation of a Kubernetes metadata object.
 
     Parameters
     ----------
@@ -24,7 +24,6 @@ def metadata_to_dict(metadata_object: V1ObjectMeta) -> dict[str, Any]:
         custom resources, which require dicts rather than Kubernetes
         objects.
     """
-
     md_obj = {
         "name": metadata_object.name,
         "annotations": metadata_object.annotations,

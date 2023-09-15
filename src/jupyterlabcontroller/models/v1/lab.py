@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional, Self
+from typing import Any, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -118,13 +118,13 @@ class UserOptions(BaseModel):
     without modifications.
     """
 
-    image_list: Optional[str] = Field(
+    image_list: str | None = Field(
         None,
         examples=["lighthouse.ceres/library/sketchbook:w_2023_07@sha256:abcd"],
         title="Image from selection radio button",
         description="If this is set, `image_dropdown` should not be set.",
     )
-    image_dropdown: Optional[str] = Field(
+    image_dropdown: str | None = Field(
         None,
         examples=["lighthouse.ceres/library/sketchbook:w_2022_40"],
         title="Image from dropdown list",
@@ -133,7 +133,7 @@ class UserOptions(BaseModel):
             f" `{DROPDOWN_SENTINEL_VALUE}`."
         ),
     )
-    image_class: Optional[ImageClass] = Field(
+    image_class: ImageClass | None = Field(
         None,
         examples=[ImageClass.RECOMMENDED],
         title="Class of image to spawn",
@@ -145,7 +145,7 @@ class UserOptions(BaseModel):
             " using these options."
         ),
     )
-    image_tag: Optional[str] = Field(
+    image_tag: str | None = Field(
         None,
         examples=["w_2023_07"],
         title="Tag of image to spawn",
@@ -389,7 +389,7 @@ class UserLabState(LabSpecification):
         ..., examples=["running"], title="Status of user container"
     )
     pod: PodState = Field(..., examples=["present"], title="User pod state")
-    internal_url: Optional[str] = Field(
+    internal_url: str | None = Field(
         None,
         examples=["http://nublado-ribbon.nb-ribbon:8888"],
         title="URL by which the Hub can access the user Pod",

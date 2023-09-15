@@ -5,7 +5,7 @@ from __future__ import annotations
 from base64 import b64encode
 from collections.abc import AsyncIterator
 from datetime import timedelta
-from typing import Any, Optional
+from typing import Any
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (
@@ -513,9 +513,9 @@ class K8sStorageClient:
         *,
         username: str = "",
         category: str = "lab",
-        labels: Optional[dict[str, str]] = None,
-        annotations: Optional[dict[str, str]] = None,
-        owner: Optional[V1OwnerReference] = None,
+        labels: dict[str, str] | None = None,
+        annotations: dict[str, str] | None = None,
+        owner: V1OwnerReference | None = None,
         remove_on_conflict: bool = False,
     ) -> None:
         """Create a new Kubernetes pod.
@@ -722,12 +722,14 @@ class K8sStorageClient:
         return await self._namespace.read(name) is not None
 
     async def create_fileserver_job(self, namespace: str, job: V1Job) -> None:
-        """For all of our fileserver objects: if we are being asked to
-        create them, it means we thought, based on our user map, that we did
-        not have a working fileserver.  If we encounter an object, then,
-        although the fileserver is not working, we didn't clean up after it
-        correctly.  In that case, we're in mid-creation already, so just
-        delete the old, possibly-broken, object, and create a new one.
+        """Create a ``Job`` for a file server.
+
+        For all of our fileserver objects, if we are being asked to create
+        them, it means we thought, based on our user map that we did not have
+        a working file server. Any objects we encounter are therefore left
+        over from a non-functional file server that wasn't cleaned up
+        properly. In that case, delete the old object and then create a new
+        one.
         """
         await self._job.create(
             namespace,
@@ -748,8 +750,11 @@ class K8sStorageClient:
     async def create_fileserver_service(
         self, namespace: str, spec: V1Service
     ) -> None:
-        """see create_fileserver_job() for the rationale behind retrying
-        a conflict on creation."""
+        """Create the ``Service`` for a file server.
+
+        See `create_fileserver_job` for the rationale behind retrying a
+        conflict on creation.
+        """
         await self._service.create(namespace, spec, replace=True)
 
     async def delete_fileserver_service(
@@ -761,8 +766,11 @@ class K8sStorageClient:
     async def create_fileserver_gafaelfawringress(
         self, namespace: str, spec: dict[str, Any]
     ) -> None:
-        """see _create_fileserver_job() for the rationale behind retrying
-        a conflict on creation."""
+        """Create the ``GafaelfawrIngress`` for a file server.
+
+        See `create_fileserver_job` for the rationale behind retrying a
+        conflict on creation.
+        """
         await self._gafaelfawr.create(namespace, spec, replace=True)
 
     async def delete_fileserver_gafaelfawringress(
@@ -774,15 +782,19 @@ class K8sStorageClient:
     async def get_observed_fileserver_state(
         self, namespace: str
     ) -> dict[str, bool]:
-        """Reconstruct the fileserver user map with what we can determine
+        """Get file server state from Kubernetes.
+
+        Reconstruct the fileserver user map with what we can determine
         from the Kubernetes cluster.
 
-        Objects with the name <username>-fs are presumed to be fileserver
-        objects, where <username> can be assumed to be the name of the
+        Objects with the name :samp:`{username}-fs` are presumed to be file
+        server objects, where *username* can be assumed to be the name of the
         owning user.
 
-        It returns a dict mapping strings to the value True, indicating those
-        users who currently have fileservers.
+        Returns
+        -------
+        dict of bool
+            Users who currently have fileservers.
         """
         observed_state: dict[str, bool] = {}
         if not await self.check_namespace(namespace):

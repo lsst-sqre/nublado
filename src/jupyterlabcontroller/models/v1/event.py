@@ -2,7 +2,6 @@
 
 import json
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 from sse_starlette import ServerSentEvent
@@ -25,7 +24,7 @@ class Event(BaseModel):
 
     type: EventType = Field(..., title="Type of the event")
     message: str = Field(..., title="Event message")
-    progress: Optional[int] = Field(
+    progress: int | None = Field(
         None, title="Progress percentage", le=100, gt=0
     )
 

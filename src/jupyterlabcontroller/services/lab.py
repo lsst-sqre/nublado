@@ -7,7 +7,6 @@ import re
 from copy import copy
 from functools import partial
 from pathlib import Path
-from typing import Optional
 
 from kubernetes_asyncio.client import (
     V1ConfigMapEnvSource,
@@ -75,7 +74,7 @@ class LabManager:
         logger: BoundLogger,
         lab_config: LabConfig,
         k8s_client: K8sStorageClient,
-        slack_client: Optional[SlackWebhookClient] = None,
+        slack_client: SlackWebhookClient | None = None,
     ) -> None:
         self.manager_namespace = manager_namespace
         self.instance_url = instance_url
@@ -451,11 +450,11 @@ class LabManager:
 
         # Add standard environment variables.
         resources = self._size_manager.resources(lab.options.size)
-        size_str = [
+        size_str = next(
             x.description
             for x in self._size_manager.formdata()
             if x.name == lab.options.size.value.title()
-        ][0]
+        )
         env.update(
             {
                 # We would like to deprecate this, following KubeSpawner, but
@@ -574,7 +573,7 @@ class LabManager:
         # preferably be referred to by that path, although we also support
         # injecting them into environment variables and other paths for ease
         # of transition.
-        sec_vol = LabVolumeContainer(
+        return LabVolumeContainer(
             volume=V1Volume(
                 name=f"{username}-nb-secrets",
                 secret=V1SecretVolumeSource(
@@ -587,7 +586,6 @@ class LabManager:
                 read_only=True,
             ),
         )
-        return sec_vol
 
     def build_extra_secret_volume_mounts(
         self, username: str
@@ -621,7 +619,7 @@ class LabManager:
         #
         # Step five: environment
         #
-        env_vol = LabVolumeContainer(
+        return LabVolumeContainer(
             volume=V1Volume(
                 name=f"{username}-nb-env",
                 config_map=V1ConfigMapVolumeSource(
@@ -634,7 +632,6 @@ class LabManager:
                 read_only=False,  # We'd like to be able to update this
             ),
         )
-        return env_vol
 
     def build_tmp_volume(self) -> LabVolumeContainer:
         return LabVolumeContainer(
@@ -659,9 +656,6 @@ class LabManager:
         # Except we can't have it:
         # https://github.com/kubernetes/kubernetes/issues/64168
         # So we will inject it into the env instead.
-        # volfields = [
-        #    "spec.nodeName",
-        # ]
         resfields = [
             "limits.cpu",
             "requests.cpu",
@@ -681,7 +675,7 @@ class LabManager:
                 for x in resfields
             ]
         )
-        runtime_vol = LabVolumeContainer(
+        return LabVolumeContainer(
             volume=V1Volume(
                 name=f"{username}-nb-runtime",
                 downward_api=V1DownwardAPIVolumeSource(items=volfiles),
@@ -692,7 +686,6 @@ class LabManager:
                 read_only=True,
             ),
         )
-        return runtime_vol
 
     def build_volumes(self, username: str) -> list[LabVolumeContainer]:
         """This stitches together the Volume and VolumeMount definitions
@@ -880,7 +873,7 @@ class LabManager:
         if self.lab_config.pull_secret:
             pull_secrets = [V1LocalObjectReference(name="pull-secret")]
         init_containers = self.build_init_containers(user, resources)
-        pod = V1PodSpec(
+        return V1PodSpec(
             init_containers=init_containers,
             containers=[container],
             image_pull_secrets=pull_secrets,
@@ -890,7 +883,6 @@ class LabManager:
             ),
             volumes=volumes,
         )
-        return pod
 
     async def delete_lab(self, username: str) -> None:
         """Delete the lab environment for the given user.

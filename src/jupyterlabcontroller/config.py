@@ -6,7 +6,7 @@ import os
 from datetime import timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Literal, Optional, Self
+from typing import Literal, Self
 
 import yaml
 from pydantic import Field, field_validator, model_validator
@@ -244,12 +244,12 @@ class LabSecret(CamelCaseModel):
         ),
         examples=["butler-credentials"],
     )
-    env: Optional[str] = Field(
+    env: str | None = Field(
         None,
         title="Environment variable to set to secret value",
         examples=["BUTLER_CREDENTIALS"],
     )
-    path: Optional[str] = Field(
+    path: str | None = Field(
         None,
         title="Path inside lab at which to mount secret",
         examples=["/opt/lsst/software/jupyterlab/butler-secret"],
@@ -293,7 +293,7 @@ class LabConfig(CamelCaseModel):
     init_containers: list[LabInitContainer] = Field(
         [], title="Initialization containers to run before user's lab starts"
     )
-    pull_secret: Optional[str] = Field(
+    pull_secret: str | None = Field(
         None,
         title="Pull secret to use for lab pods",
         description=(
@@ -374,7 +374,7 @@ class FileserverConfig(CamelCaseModel):
     path_prefix: str = Field(
         "", title="Fileserver prefix path, to which '/files' is appended"
     )
-    resources: Optional[LabResources] = Field(
+    resources: LabResources | None = Field(
         None, title="Resource requests and limits"
     )
     creation_timeout: int = Field(
@@ -426,7 +426,7 @@ class Config(BaseSettings):
             " pods spawned by the prepuller."
         ),
     )
-    slack_webhook: Optional[str] = Field(
+    slack_webhook: str | None = Field(
         None,
         title="Slack webhook to which to post alerts",
         validation_alias="NUBLADO_SLACK_WEBHOOK",

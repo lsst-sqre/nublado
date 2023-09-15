@@ -168,7 +168,7 @@ async def test_gar(
             f"prepull-{tag}-node1",
             f"prepull-{tag}-node2",
         ]
-        assert all([not p.metadata.owner_references for p in pod_list.items])
+        assert all(not p.metadata.owner_references for p in pod_list.items)
 
         # Mark those nodes as complete, and two more should be started.
         for pod in pod_list.items:

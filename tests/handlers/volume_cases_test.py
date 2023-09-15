@@ -38,16 +38,10 @@ async def test_volume_cases(
     pod = await mock_kubernetes.read_namespaced_pod(pod_name, namespace)
     ctr = pod.spec.containers[0]
     # lowercase works the same
-    assert (
-        ctr.volume_mounts[0].mount_path == "/home"
-        and ctr.volume_mounts[0].name == "home"
-    )
+    assert ctr.volume_mounts[0].mount_path == "/home"
+    assert ctr.volume_mounts[0].name == "home"
     # but upper and mixed-case are squashed to lower in object name
-    assert (
-        ctr.volume_mounts[1].mount_path == "/PROJECT"
-        and ctr.volume_mounts[1].name == "project"
-    )
-    assert (
-        ctr.volume_mounts[2].mount_path == "/ScRaTcH"
-        and ctr.volume_mounts[2].name == "scratch"
-    )
+    assert ctr.volume_mounts[1].mount_path == "/PROJECT"
+    assert ctr.volume_mounts[1].name == "project"
+    assert ctr.volume_mounts[2].mount_path == "/ScRaTcH"
+    assert ctr.volume_mounts[2].name == "scratch"

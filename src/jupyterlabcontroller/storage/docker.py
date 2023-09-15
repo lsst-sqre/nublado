@@ -153,7 +153,7 @@ class DockerStorageClient:
         except HTTPError as e:
             raise DockerRegistryError.from_exception(e) from e
         except Exception as e:
-            error = f"{type(e).__name__}: {str(e)}"
+            error = f"{type(e).__name__}: {e!s}"
             msg = f"Cannot parse response from Docker registry: {error}"
             raise DockerRegistryError(msg, method="GET", url=url)
 
@@ -201,7 +201,7 @@ class DockerStorageClient:
         except HTTPError as e:
             raise DockerRegistryError.from_exception(e) from e
         except Exception as e:
-            error = f"{type(e).__name__}: {str(e)}"
+            error = f"{type(e).__name__}: {e!s}"
             msg = f"Cannot get image digest from Docker registry: {error}"
             raise DockerRegistryError(msg, method="GET", url=url)
 
@@ -344,6 +344,6 @@ class DockerStorageClient:
         except HTTPError as e:
             raise DockerRegistryError.from_exception(e) from e
         except Exception as e:
-            error = f"{type(e).__name__}: {str(e)}"
+            error = f"{type(e).__name__}: {e!s}"
             msg = f"Cannot parse Docker registry login response: {error}"
             raise DockerRegistryError(msg, method="GET", url=url)

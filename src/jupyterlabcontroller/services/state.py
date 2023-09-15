@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
-from typing import Optional
 
 from aiojobs import Scheduler
 from kubernetes_asyncio.client import V1Pod, V1ResourceQuota
@@ -78,7 +78,7 @@ class LabStateManager:
         self._logger = logger
 
         # Background task management.
-        self._scheduler: Optional[Scheduler] = None
+        self._scheduler: Scheduler | None = None
 
         # Mapping of usernames to internal lab state.
         self._labs: dict[str, UserLab] = {}
@@ -438,10 +438,8 @@ class LabStateManager:
                 spawner = state.task
                 state.task = None
                 spawner.cancel("Shutting down")
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await spawner
-                except asyncio.CancelledError:
-                    pass
 
     async def _reflect_events(
         self,
@@ -492,8 +490,8 @@ class LabStateManager:
         username: str,
         start_progress: int,
         end_progress: int,
-        spawner: Optional[Callable[[], Awaitable[str]]] = None,
-        internal_url: Optional[str] = None,
+        spawner: Callable[[], Awaitable[str]] | None = None,
+        internal_url: str | None = None,
     ) -> None:
         """Spawn a lab and wait for it to start running.
 
@@ -681,7 +679,7 @@ class LabStateManager:
                 quota=self._recreate_quota(quota),
             )
         except Exception as e:
-            error = f"{type(e).__name__}: {str(e)}"
+            error = f"{type(e).__name__}: {e!s}"
             logger.error(f"Invalid lab environment for {username}: {error}")
             return None
 

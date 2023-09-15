@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from google.cloud import artifactregistry_v1
 from google.cloud.artifactregistry_v1 import ListDockerImagesRequest
 from structlog.stdlib import BoundLogger
@@ -33,7 +31,7 @@ class GARStorageClient:
         self._client = artifactregistry_v1.ArtifactRegistryAsyncClient()
 
     async def list_images(
-        self, config: GARSourceConfig, cycle: Optional[int] = None
+        self, config: GARSourceConfig, cycle: int | None = None
     ) -> RSPImageCollection:
         """Return all images stored in the remote repository.
 

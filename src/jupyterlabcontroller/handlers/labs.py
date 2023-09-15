@@ -136,7 +136,7 @@ async def get_lab_events(
     x_auth_request_user: str = Header(..., include_in_schema=False),
     context: RequestContext = Depends(context_dependency),
 ) -> EventSourceResponse:
-    """Returns the events for the lab of the given user"""
+    """Returns the events for the lab of the given user."""
     if username != x_auth_request_user:
         raise PermissionDeniedError("Permission denied")
     context.rebind_logger(user=username)

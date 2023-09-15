@@ -14,7 +14,7 @@ class FormManager:
         image_service: ImageService,
         lab_sizes: dict[LabSize, LabSizeDefinition],
         logger: BoundLogger,
-    ):
+    ) -> None:
         self._image_service = image_service
         self._logger = logger
         self._lab_sizes = lab_sizes
@@ -23,13 +23,12 @@ class FormManager:
         options_template = Template(SPAWNER_FORM_TEMPLATE)
         images = self._image_service.menu_images()
         sizes = self._extract_sizes()
-        rendered = options_template.render(
+        return options_template.render(
             dropdown_sentinel=DROPDOWN_SENTINEL_VALUE,
             cached_images=images.menu,
             all_images=images.dropdown,
             sizes=sizes,
         )
-        return rendered
 
     def _extract_sizes(self) -> list[FormSize]:
         sz = self._lab_sizes

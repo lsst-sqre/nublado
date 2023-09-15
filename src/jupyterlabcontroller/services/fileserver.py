@@ -85,7 +85,6 @@ class FileserverStateManager:
                 )
                 await self.delete(username)
                 raise
-        return
 
     async def _create_fileserver(self, user: UserInfo) -> None:
         """Create a fileserver for the given user.  Wait for it to be
@@ -185,11 +184,10 @@ class FileserverStateManager:
                 spec=pod_spec, metadata=self._build_metadata(username)
             ),
         )
-        job = V1Job(
+        return V1Job(
             metadata=self._build_metadata(username),
             spec=job_spec,
         )
-        return job
 
     def _build_fileserver_resources(self) -> V1ResourceRequirements | None:
         #
@@ -293,7 +291,7 @@ class FileserverStateManager:
 
         # _Build the pod specification itself.
         # FIXME work out tolerations
-        podspec = V1PodSpec(
+        return V1PodSpec(
             containers=[container],
             restart_policy="Never",
             security_context=V1PodSecurityContext(
@@ -304,12 +302,11 @@ class FileserverStateManager:
             ),
             volumes=volumes,
         )
-        return podspec
 
     def _build_custom_object_metadata(self, username: str) -> dict[str, Any]:
         obj_name = f"{username}-fs"
         apj = "argocd.argoproj.io"
-        md_obj = {
+        return {
             "name": obj_name,
             "namespace": self._namespace,
             "labels": {
@@ -322,7 +319,6 @@ class FileserverStateManager:
                 f"{apj}/sync-options": "Prune=false",
             },
         }
-        return md_obj
 
     def _build_fileserver_ingress(self, username: str) -> dict[str, Any]:
         # The Gafaelfawr Ingress is a CRD, so creating it is a bit different.
@@ -367,7 +363,7 @@ class FileserverStateManager:
         }
 
     def _build_fileserver_service(self, username: str) -> V1Service:
-        service = V1Service(
+        return V1Service(
             metadata=self._build_metadata(username),
             spec=V1ServiceSpec(
                 ports=[V1ServicePort(port=8000, target_port=8000)],
@@ -377,7 +373,6 @@ class FileserverStateManager:
                 },
             ),
         )
-        return service
 
     async def delete(self, username: str) -> None:
         if not self._started:
@@ -445,8 +440,11 @@ class FileserverStateManager:
         await self.delete(username)
 
     async def _reconcile_user_map(self) -> None:
-        """We need to run this on startup, to synchronize the
-        user map resource with observed state."""
+        """Reconcile internal state with Kubernetes.
+
+        We need to run this on startup, to synchronize the user map resource
+        with observed state.
+        """
         self._logger.debug("Reconciling fileserver user map")
         mapped_users = set(await self.list())
         observed_map = await self._k8s_client.get_observed_fileserver_state(

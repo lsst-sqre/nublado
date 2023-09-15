@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Optional
 
 from aiojobs import Scheduler
 from safir.datetime import current_datetime
@@ -74,7 +73,7 @@ class ImageService:
         config: PrepullerConfig,
         source: ImageSource,
         kubernetes: K8sStorageClient,
-        slack_client: Optional[SlackWebhookClient] = None,
+        slack_client: SlackWebhookClient | None = None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
@@ -84,7 +83,7 @@ class ImageService:
         self._logger = logger
 
         # Background task management.
-        self._scheduler: Optional[Scheduler] = None
+        self._scheduler: Scheduler | None = None
         self._lock = asyncio.Lock()
         self._refreshed = asyncio.Event()
 
@@ -275,7 +274,7 @@ class ImageService:
             Model suitable for returning from a handler.
         """
         all_nodes = set(self._node_images.keys())
-        nodes = {n: Node(name=n) for n in self._node_images.keys()}
+        nodes = {n: Node(name=n) for n in self._node_images}
         prepulled = []
         pending = []
         for image in self._to_prepull.all_images(hide_resolved_aliases=True):

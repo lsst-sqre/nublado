@@ -173,7 +173,7 @@ def test_collection() -> None:
 
     # Test all_images, its sorting, and its filtering options.
     all_images = [i.tag for i in collection.all_images()]
-    assert all_images == ["recommended", "latest_weekly"] + tags
+    assert all_images == ["recommended", "latest_weekly", *tags]
     without_aliases = collection.all_images(hide_resolved_aliases=True)
     assert [i.tag for i in without_aliases] == tags
     assert [i.tag for i in collection.all_images(hide_aliased=True)] == [

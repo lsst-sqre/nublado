@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import Optional
 
 from kubernetes_asyncio.client.models import V1Volume, V1VolumeMount
 from safir.asyncio import AsyncMultiQueue
@@ -34,7 +33,7 @@ class UserLab:
     events: AsyncMultiQueue[Event] = field(default_factory=AsyncMultiQueue)
     """Events from the current or most recent lab operation."""
 
-    task: Optional[asyncio.Task[None]] = None
+    task: asyncio.Task[None] | None = None
     """Background task monitoring the progress of a lab operation.
 
     These tasks are not wrapped in an `aiojobs.Spawner` because the

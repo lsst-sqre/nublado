@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import ClassVar, Optional, Self
+from typing import ClassVar, Self
 
 from fastapi import status
 from httpx import HTTPError, HTTPStatusError, RequestError
@@ -90,8 +90,8 @@ class ClientRequestError(SlackIgnoredException):
     def __init__(
         self,
         message: str,
-        location: Optional[ErrorLocation] = None,
-        field_path: Optional[list[str]] = None,
+        location: ErrorLocation | None = None,
+        field_path: list[str] | None = None,
     ) -> None:
         super().__init__(message)
         self.location = location
@@ -113,7 +113,7 @@ class ClientRequestError(SlackIgnoredException):
         }
         if self.location:
             if self.field_path:
-                result["loc"] = [self.location.value] + self.field_path
+                result["loc"] = [self.location.value, *self.field_path]
             else:
                 result["loc"] = [self.location.value]
         return result
@@ -186,9 +186,7 @@ class SlackWebException(SlackException):
     """
 
     @classmethod
-    def from_exception(
-        cls, exc: HTTPError, user: Optional[str] = None
-    ) -> Self:
+    def from_exception(cls, exc: HTTPError, user: str | None = None) -> Self:
         """Create an exception from an httpx exception.
 
         Parameters
@@ -216,7 +214,7 @@ class SlackWebException(SlackException):
                 body=exc.response.text,
             )
         else:
-            message = f"{type(exc).__name__}: {str(exc)}"
+            message = f"{type(exc).__name__}: {exc!s}"
             if isinstance(exc, RequestError):
                 return cls(
                     message,
@@ -231,12 +229,12 @@ class SlackWebException(SlackException):
         self,
         message: str,
         *,
-        failed_at: Optional[datetime] = None,
-        method: Optional[str] = None,
-        url: Optional[str] = None,
-        user: Optional[str] = None,
-        status: Optional[int] = None,
-        body: Optional[str] = None,
+        failed_at: datetime | None = None,
+        method: str | None = None,
+        url: str | None = None,
+        user: str | None = None,
+        status: int | None = None,
+        body: str | None = None,
     ) -> None:
         self.message = message
         self.method = method
@@ -261,10 +259,7 @@ class SlackWebException(SlackException):
         """
         message = super().to_slack()
         if self.url:
-            if self.method:
-                text = f"{self.method} {self.url}"
-            else:
-                text = self.url
+            text = f"{self.method} {self.url}" if self.method else self.url
             message.blocks.append(SlackTextField(heading="URL", text=text))
         if self.body:
             block = SlackCodeBlock(heading="Response", code=self.body)
@@ -305,7 +300,7 @@ class GafaelfawrParseError(SlackException):
         GafaelfawrParseError
             Constructed exception.
         """
-        error = f"{type(exc).__name__}: {str(exc)}"
+        error = f"{type(exc).__name__}: {exc!s}"
         return cls("Unable to parse reply from Gafalefawr", error)
 
     def __init__(self, message: str, error: str) -> None:
@@ -353,10 +348,10 @@ class KubernetesError(SlackException):
         message: str,
         exc: ApiException,
         *,
-        user: Optional[str] = None,
-        kind: Optional[str] = None,
-        namespace: Optional[str] = None,
-        name: Optional[str] = None,
+        user: str | None = None,
+        kind: str | None = None,
+        namespace: str | None = None,
+        name: str | None = None,
     ) -> Self:
         """Create an exception from a Kubernetes API exception.
 
@@ -394,12 +389,12 @@ class KubernetesError(SlackException):
         self,
         message: str,
         *,
-        user: Optional[str] = None,
-        kind: Optional[str] = None,
-        namespace: Optional[str] = None,
-        name: Optional[str] = None,
-        status: Optional[int] = None,
-        body: Optional[str] = None,
+        user: str | None = None,
+        kind: str | None = None,
+        namespace: str | None = None,
+        name: str | None = None,
+        status: int | None = None,
+        body: str | None = None,
     ) -> None:
         super().__init__(message, user)
         self.message = message
@@ -491,10 +486,10 @@ class MissingObjectError(SlackException):
         self,
         message: str,
         *,
-        user: Optional[str] = None,
+        user: str | None = None,
         kind: str,
-        namespace: Optional[str] = None,
-        name: Optional[str] = None,
+        namespace: str | None = None,
+        name: str | None = None,
     ) -> None:
         super().__init__(message, user)
         self.kind = kind
@@ -552,9 +547,9 @@ class DuplicateObjectError(SlackException):
         self,
         message: str,
         *,
-        user: Optional[str] = None,
+        user: str | None = None,
         kind: str,
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> None:
         super().__init__(message, user)
         self.message = message
@@ -570,10 +565,7 @@ class DuplicateObjectError(SlackException):
             Slack message suitable for posting as an alert.
         """
         message = super().to_slack()
-        if self.namespace:
-            obj = f"{self.kind} {self.namespace}"
-        else:
-            obj = self.kind
+        obj = f"{self.kind} {self.namespace}" if self.namespace else self.kind
         message.blocks.append(SlackTextBlock(heading="Object", text=obj))
         return message
 

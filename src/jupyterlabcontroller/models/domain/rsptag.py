@@ -8,7 +8,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum
 from functools import total_ordering
-from typing import Optional, Self
+from typing import Self
 
 from semver.version import VersionInfo
 
@@ -407,7 +407,7 @@ class RSPImageTagCollection:
         cls,
         tag_names: list[str],
         aliases: set[str],
-        cycle: Optional[int] = None,
+        cycle: int | None = None,
     ) -> Self:
         """Create a collection from tag strings.
 
@@ -453,8 +453,7 @@ class RSPImageTagCollection:
             Each tag in sorted order.
         """
         for image_type in RSPImageType:
-            for tag in self._by_type[image_type]:
-                yield tag
+            yield from self._by_type[image_type]
 
     def tag_for_tag_name(self, tag_name: str) -> RSPImageTag | None:
         """Look up a tag by tag name.
@@ -477,7 +476,7 @@ class RSPImageTagCollection:
         releases: int = 0,
         weeklies: int = 0,
         dailies: int = 0,
-        include: Optional[set[str]] = None,
+        include: set[str] | None = None,
     ) -> RSPImageTagCollection:
         """Return a subset of the tag collection.
 
