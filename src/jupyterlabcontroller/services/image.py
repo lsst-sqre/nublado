@@ -27,7 +27,7 @@ from ..models.v1.prepuller import (
 )
 from ..models.v1.prepuller_config import PrepullerConfig
 from ..services.source.base import ImageSource
-from ..storage.k8s import K8sStorageClient
+from ..storage.kubernetes.node import NodeStorage
 
 __all__ = ["ImageService"]
 
@@ -59,8 +59,8 @@ class ImageService:
         prepulled and some other related information.
     source
         Source of remote images.
-    kubernetes
-        Client to query the Kubernetes cluster for cached images.
+    node_storage
+        Storage layer for Kubernetes nodes.
     slack_client
         Optional Slack client to use for alerts.
     logger
@@ -72,13 +72,13 @@ class ImageService:
         *,
         config: PrepullerConfig,
         source: ImageSource,
-        kubernetes: K8sStorageClient,
+        node_storage: NodeStorage,
         slack_client: SlackWebhookClient | None = None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._source = source
-        self._kubernetes = kubernetes
+        self._nodes = node_storage
         self._slack_client = slack_client
         self._logger = logger
 
@@ -307,7 +307,7 @@ class ImageService:
         exceptions; the caller must do that if desired.
         """
         async with self._lock:
-            cached = await self._kubernetes.get_image_data()
+            cached = await self._nodes.get_image_data()
             to_prepull = await self._source.update_images(self._config, cached)
             self._node_images = self._build_node_images(to_prepull, cached)
             self._to_prepull = to_prepull

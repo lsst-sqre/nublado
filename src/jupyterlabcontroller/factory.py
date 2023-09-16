@@ -31,6 +31,7 @@ from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.gar import GARStorageClient
 from .storage.k8s import K8sStorageClient
+from .storage.kubernetes.node import NodeStorage
 from .storage.kubernetes.pod import PodStorage
 from .storage.metadata import MetadataStorage
 
@@ -125,7 +126,7 @@ class ProcessContext:
         image_service = ImageService(
             config=config.images,
             source=source,
-            kubernetes=k8s_client,
+            node_storage=NodeStorage(kubernetes_client, logger),
             slack_client=slack_client,
             logger=logger,
         )
