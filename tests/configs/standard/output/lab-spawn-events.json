@@ -4,15 +4,7 @@
     "event": "info"
   },
   {
-    "data": "{\"message\": \"Created user namespace\", \"progress\": 10}",
-    "event": "info"
-  },
-  {
-    "data": "{\"message\": \"Created Kubernetes resources for lab\", \"progress\": 25}",
-    "event": "info"
-  },
-  {
-    "data": "{\"message\": \"Requested lab Kubernetes pod\", \"progress\": 30}",
+    "data": "{\"message\": \"Created Kubernetes objects for user lab\", \"progress\": 30}",
     "event": "info"
   },
   {

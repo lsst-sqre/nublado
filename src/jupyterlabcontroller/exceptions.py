@@ -519,9 +519,26 @@ class MissingObjectError(SlackException):
 
 
 class MissingSecretError(MissingObjectError):
-    """Secret specified in the controller configuration was not found."""
+    """Secret specified in the controller configuration was not found.
 
-    def __init__(self, message: str, namespace: str, name: str) -> None:
+    Parameters
+    ----------
+    name
+        Name of secret.
+    namespace
+        Namespace of secret.
+    key
+        If given, indicates the secret itself was found but the desired key
+        within that secret was missing.
+    """
+
+    def __init__(
+        self, namespace: str, name: str, key: str | None = None
+    ) -> None:
+        if key:
+            message = f"No key {key} in secret {namespace}/{name}"
+        else:
+            message = f"Secret {namespace}/{name} does not exist"
         super().__init__(
             message, kind="Secret", namespace=namespace, name=name
         )

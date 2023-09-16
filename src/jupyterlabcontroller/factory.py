@@ -16,7 +16,8 @@ from structlog.stdlib import BoundLogger
 
 from .config import Config
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
-from .services.builder import LabBuilder, PrepullerBuilder
+from .services.builder.lab import LabBuilder
+from .services.builder.prepuller import PrepullerBuilder
 from .services.fileserver import FileserverStateManager
 from .services.form import FormManager
 from .services.image import ImageService
@@ -31,6 +32,7 @@ from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.gar import GARStorageClient
 from .storage.k8s import K8sStorageClient
+from .storage.kubernetes.lab import LabStorage
 from .storage.kubernetes.node import NodeStorage
 from .storage.kubernetes.pod import PodStorage
 from .storage.metadata import MetadataStorage
@@ -130,6 +132,8 @@ class ProcessContext:
             slack_client=slack_client,
             logger=logger,
         )
+        size_manager = SizeManager(config.lab.sizes)
+        lab_builder = LabBuilder(config.lab, size_manager, config.base_url)
         return cls(
             config=config,
             http_client=http_client,
@@ -149,8 +153,8 @@ class ProcessContext:
             lab_state=LabStateManager(
                 config=config.lab,
                 kubernetes=k8s_client,
-                size_manager=SizeManager(config.lab.sizes),
-                lab_builder=LabBuilder(config.lab),
+                size_manager=size_manager,
+                lab_builder=lab_builder,
                 slack_client=slack_client,
                 logger=logger,
             ),
@@ -158,6 +162,7 @@ class ProcessContext:
                 logger=logger,
                 config=config,
                 kubernetes=k8s_client,
+                lab_builder=lab_builder,
             ),
         )
 
@@ -306,6 +311,20 @@ class Factory:
             logger=self._logger,
         )
 
+    def create_lab_builder(self) -> LabBuilder:
+        """Create builder service for user labs.
+
+        Returns
+        -------
+        LabBuilder
+            Newly-created lab builder.
+        """
+        return LabBuilder(
+            self._context.config.lab,
+            self.create_size_manager(),
+            self._context.config.base_url,
+        )
+
     def create_lab_manager(self) -> LabManager:
         """Create service to manage user labs.
 
@@ -314,25 +333,28 @@ class Factory:
         LabManager
             Newly-created lab manager.
         """
-        size_manager = self.create_size_manager()
-        config = self._context.config
-        k8s_client = K8sStorageClient(
-            kubernetes_client=self._context.kubernetes_client,
-            spawn_timeout=config.lab.spawn_timeout,
-            logger=self._logger,
-        )
         return LabManager(
             instance_url=self._context.config.base_url,
             manager_namespace=self._context.config.lab.namespace_prefix,
             lab_state=self._context.lab_state,
-            lab_builder=LabBuilder(self._context.config.lab),
+            lab_builder=self.create_lab_builder(),
             image_service=self._context.image_service,
-            size_manager=size_manager,
-            logger=self._logger,
+            size_manager=self.create_size_manager(),
+            lab_storage=self.create_lab_storage(),
             lab_config=self._context.config.lab,
-            k8s_client=k8s_client,
             slack_client=self.create_slack_client(),
+            logger=self._logger,
         )
+
+    def create_lab_storage(self) -> LabStorage:
+        """Create Kubernetes storage object for user labs.
+
+        Returns
+        -------
+        LabStorage
+            Newly-created lab storage.
+        """
+        return LabStorage(self._context.kubernetes_client, self._logger)
 
     def create_size_manager(self) -> SizeManager:
         """Create service to map between named sizes and resource amounts.

@@ -3,6 +3,7 @@ safir:
   logLevel: DEBUG
 lab:
   spawnTimeout: 10
+  application: "nublado-users"
   env:
     API_ROUTE: /api
     AUTO_REPO_SPECS: "https://github.com/lsst-sqre/system-test@prod"

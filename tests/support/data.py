@@ -14,13 +14,15 @@ from kubernetes_asyncio.client import (
 )
 
 __all__ = [
-    "read_input_data",
-    "read_input_node_data",
+    "read_input_json",
+    "read_input_node_json",
     "read_output_data",
+    "read_output_json",
+    "write_output_json",
 ]
 
 
-def read_input_data(config: str, filename: str) -> Any:
+def read_input_json(config: str, filename: str) -> Any:
     """Read input data as JSON and return its decoded form.
 
     Parameters
@@ -41,7 +43,7 @@ def read_input_data(config: str, filename: str) -> Any:
         return json.load(f)
 
 
-def read_input_node_data(config: str, filename: str) -> list[V1Node]:
+def read_input_node_json(config: str, filename: str) -> list[V1Node]:
     """Read input node data as JSON and return it as a list of nodes.
 
     This only includes data about which images the node has cached, since this
@@ -60,7 +62,7 @@ def read_input_node_data(config: str, filename: str) -> list[V1Node]:
     list of kubernetes_asyncio.client.V1Node
         Parsed contents of file.
     """
-    node_data = read_input_data(config, filename)
+    node_data = read_input_json(config, filename)
     nodes = []
     for name, data in node_data.items():
         node_images = [
@@ -75,7 +77,27 @@ def read_input_node_data(config: str, filename: str) -> list[V1Node]:
     return nodes
 
 
-def read_output_data(config: str, filename: str) -> Any:
+def read_output_data(config: str, filename: str) -> str:
+    """Read an output data file and return its contents.
+
+    Parameters
+    ----------
+    config
+        Configuration from which to read data (the name of one of the
+        directories under ``tests/configs``).
+    filename
+        File to read.
+
+    Returns
+    -------
+    str
+        Contents of the file.
+    """
+    base_path = Path(__file__).parent.parent / "configs" / config
+    return (base_path / "output" / filename).read_text()
+
+
+def read_output_json(config: str, filename: str) -> Any:
     """Read output data as JSON and return its decoded form.
 
     Parameters
@@ -96,7 +118,7 @@ def read_output_data(config: str, filename: str) -> Any:
         return json.load(f)
 
 
-def write_output_data(config: str, filename: str, data: Any) -> None:
+def write_output_json(config: str, filename: str, data: Any) -> None:
     """Store output data as JSON.
 
     This function is not called directly by the test suite. It is provided as
