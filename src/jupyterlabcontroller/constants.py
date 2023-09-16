@@ -4,6 +4,7 @@ from datetime import timedelta
 from pathlib import Path
 
 __all__ = [
+    "ARGO_CD_ANNOTATIONS",
     "CONFIGURATION_PATH",
     "DOCKER_SECRETS_PATH",
     "DROPDOWN_SENTINEL_VALUE",
@@ -18,6 +19,18 @@ __all__ = [
     "SPAWNER_FORM_TEMPLATE",
     "USERNAME_REGEX",
 ]
+
+ARGO_CD_ANNOTATIONS = {
+    "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+    "argocd.argoproj.io/sync-options": "Prune=false",
+}
+"""Annotations to add to most created objects.
+
+These annotations tell Argo CD to ignore these resources for the purposes of
+determining if the Argo Cd ``Application`` object is out of date. We apply
+them to all the resources managed by the Nublado controller, since Argo CD
+should not manage them.
+"""
 
 CONFIGURATION_PATH = Path("/etc/nublado/config.yaml")
 """Default path to controller configuration."""
