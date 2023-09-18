@@ -57,7 +57,7 @@ class TestObjectFactory:
     @property
     def userinfos(self) -> dict[str, GafaelfawrUserInfo]:
         return {
-            t: GafaelfawrUserInfo.parse_obj(d)
+            t: GafaelfawrUserInfo.model_validate(d)
             for t, d in self.test_objects["user_info"].items()
         }
 
@@ -66,7 +66,7 @@ class TestObjectFactory:
         if not self._canonicalized:
             self.canonicalize()
         return [
-            LabSpecification.parse_obj(x)
+            LabSpecification.model_validate(x)
             for x in self.test_objects["lab_specification"]
         ]
 

@@ -30,7 +30,7 @@ async def test_pod_working_dir(
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
-        json={"options": lab.options.dict(), "env": lab.env},
+        json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
             "X-Auth-Request-Token": token,
             "X-Auth-Request-User": user.username,

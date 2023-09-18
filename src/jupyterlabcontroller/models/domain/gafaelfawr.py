@@ -22,14 +22,14 @@ __all__ = [
 class UserGroup(BaseModel):
     name: str = Field(
         ...,
-        example="ferrymen",
+        examples=["ferrymen"],
         title="Group to which lab user belongs",
         description="Should follow Unix naming conventions",
-        regex=GROUPNAME_REGEX,
+        pattern=GROUPNAME_REGEX,
     )
     id: int | None = Field(
         None,
-        example=2023,
+        examples=[2023],
         title="Numeric GID of the group (POSIX)",
         description="32-bit unsigned integer",
     )
@@ -38,9 +38,11 @@ class UserGroup(BaseModel):
 class NotebookQuota(BaseModel):
     """Notebook Aspect quota information for a user."""
 
-    cpu: float = Field(..., title="CPU equivalents", example=4.0)
+    cpu: float = Field(..., title="CPU equivalents", examples=[4.0])
 
-    memory: float = Field(..., title="Maximum memory use (GiB)", example=16.0)
+    memory: float = Field(
+        ..., title="Maximum memory use (GiB)", examples=[16.0]
+    )
 
 
 class UserQuota(BaseModel):
@@ -52,12 +54,14 @@ class UserQuota(BaseModel):
         description=(
             "Mapping of service names to allowed requests per 15 minutes."
         ),
-        example={
-            "datalinker": 500,
-            "hips": 2000,
-            "tap": 500,
-            "vo-cutouts": 100,
-        },
+        examples=[
+            {
+                "datalinker": 500,
+                "hips": 2000,
+                "tap": 500,
+                "vo-cutouts": 100,
+            }
+        ],
     )
 
     notebook: NotebookQuota | None = Field(
@@ -70,13 +74,13 @@ class GafaelfawrUserInfo(BaseModel):
 
     username: str = Field(
         ...,
-        example="ribbon",
+        examples=["ribbon"],
         title="Username for Lab user",
-        regex=USERNAME_REGEX,
+        pattern=USERNAME_REGEX,
     )
     name: str = Field(
         ...,
-        example="Ribbon",
+        examples=["Ribbon"],
         title="Human-friendly display name for user",
         description=(
             "May contain spaces, capital letters, and non-ASCII characters."
@@ -86,13 +90,13 @@ class GafaelfawrUserInfo(BaseModel):
     )
     uid: int = Field(
         ...,
-        example=1104,
+        examples=[1104],
         title="Numeric UID for user (POSIX)",
         description="32-bit unsigned integer",
     )
     gid: int = Field(
         ...,
-        example=1104,
+        examples=[1104],
         title="Numeric GID for user's primary group (POSIX)",
         description="32-bit unsigned integer",
     )

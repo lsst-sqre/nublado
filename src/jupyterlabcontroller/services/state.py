@@ -706,7 +706,7 @@ class LabStateManager:
         """
         annotation = "nublado.lsst.io/user-groups"
         groups = json.loads(pod.metadata.annotations.get(annotation, "[]"))
-        return [UserGroup.parse_obj(g) for g in groups]
+        return [UserGroup.model_validate(g) for g in groups]
 
     def _recreate_quota(
         self, resource_quota: V1ResourceQuota | None

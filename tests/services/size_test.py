@@ -15,7 +15,7 @@ async def test_resources(config: Config, std_result_dir: Path) -> None:
         expected = json.load(f)
     size_manager = SizeManager(sizes=config.lab.sizes)
     for size, resources in expected.items():
-        assert size_manager.resources(LabSize(size)).dict() == resources
+        assert size_manager.resources(LabSize(size)).model_dump() == resources
 
 
 @pytest.mark.asyncio
