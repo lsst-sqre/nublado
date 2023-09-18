@@ -15,7 +15,7 @@ jobs:
 
       - uses: lsst-sqre/run-neophile@v1
         with:
-          python-version: "3.10"
+          python-version: "3.11"
           mode: pr
           types: pre-commit
           app-id: ${{ secrets.NEOPHILE_APP_ID }}
