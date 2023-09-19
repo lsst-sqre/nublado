@@ -53,7 +53,7 @@ class WatchEvent(Generic[T]):
 
         Raises
         ------
-        ValueError
+        TypeError
             Raised if the type of the object in the watch event was incorrect.
         """
         action = WatchEventType(event["type"])
@@ -64,7 +64,7 @@ class WatchEvent(Generic[T]):
             real_type = type(obj).__name__
             expected_type = object_type.__name__
             msg = f"Watch object was of type {real_type}, not {expected_type}"
-            raise ValueError(msg)
+            raise TypeError(msg)
         return cls(action=action, object=obj)
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from base64 import b64encode
 from collections.abc import AsyncIterator
 from datetime import timedelta
-from typing import Any, Optional
+from typing import Any
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (
@@ -413,6 +413,7 @@ class K8sStorageClient:
         namespace: str,
         data: dict[str, str],
         secret_type: str = "Opaque",
+        *,
         immutable: bool = True,
     ) -> None:
         secret = V1Secret(
@@ -449,6 +450,7 @@ class K8sStorageClient:
         name: str,
         namespace: str,
         data: dict[str, str],
+        *,
         immutable: bool = True,
     ) -> None:
         configmap = V1ConfigMap(
@@ -459,9 +461,9 @@ class K8sStorageClient:
         await self._config_map.create(namespace, configmap)
 
     async def create_network_policy(self, name: str, namespace: str) -> None:
-        # FIXME we need to further restrict Ingress to the right pods,
-        # and Egress to ... external world, Hub, Portal, Gafaelfawr.  What
-        # else?
+        # TODO(athornton): we need to further restrict Ingress to the right
+        # pods, and Egress to ... external world, Hub, Portal, Gafaelfawr.
+        # What else?
         policy = V1NetworkPolicy(
             metadata=self.standard_metadata(name, namespace=namespace),
             spec=V1NetworkPolicySpec(
@@ -513,9 +515,9 @@ class K8sStorageClient:
         *,
         username: str = "",
         category: str = "lab",
-        labels: Optional[dict[str, str]] = None,
-        annotations: Optional[dict[str, str]] = None,
-        owner: Optional[V1OwnerReference] = None,
+        labels: dict[str, str] | None = None,
+        annotations: dict[str, str] | None = None,
+        owner: V1OwnerReference | None = None,
         remove_on_conflict: bool = False,
     ) -> None:
         """Create a new Kubernetes pod.
@@ -556,7 +558,7 @@ class K8sStorageClient:
         pod = V1Pod(metadata=metadata, spec=pod_spec)
         await self._pod.create(namespace, pod, replace=remove_on_conflict)
 
-    async def delete_namespace(self, name: str, wait: bool = False) -> None:
+    async def delete_namespace(self, name: str, *, wait: bool = False) -> None:
         """Delete a Kubernetes namespace.
 
         If the namespace doesn't exist, the deletion is silently successful.
@@ -722,12 +724,14 @@ class K8sStorageClient:
         return await self._namespace.read(name) is not None
 
     async def create_fileserver_job(self, namespace: str, job: V1Job) -> None:
-        """For all of our fileserver objects: if we are being asked to
-        create them, it means we thought, based on our user map, that we did
-        not have a working fileserver.  If we encounter an object, then,
-        although the fileserver is not working, we didn't clean up after it
-        correctly.  In that case, we're in mid-creation already, so just
-        delete the old, possibly-broken, object, and create a new one.
+        """Create a ``Job`` for a file server.
+
+        For all of our fileserver objects, if we are being asked to create
+        them, it means we thought, based on our user map that we did not have
+        a working file server. Any objects we encounter are therefore left
+        over from a non-functional file server that wasn't cleaned up
+        properly. In that case, delete the old object and then create a new
+        one.
         """
         await self._job.create(
             namespace,
@@ -748,8 +752,11 @@ class K8sStorageClient:
     async def create_fileserver_service(
         self, namespace: str, spec: V1Service
     ) -> None:
-        """see create_fileserver_job() for the rationale behind retrying
-        a conflict on creation."""
+        """Create the ``Service`` for a file server.
+
+        See `create_fileserver_job` for the rationale behind retrying a
+        conflict on creation.
+        """
         await self._service.create(namespace, spec, replace=True)
 
     async def delete_fileserver_service(
@@ -761,8 +768,11 @@ class K8sStorageClient:
     async def create_fileserver_gafaelfawringress(
         self, namespace: str, spec: dict[str, Any]
     ) -> None:
-        """see _create_fileserver_job() for the rationale behind retrying
-        a conflict on creation."""
+        """Create the ``GafaelfawrIngress`` for a file server.
+
+        See `create_fileserver_job` for the rationale behind retrying a
+        conflict on creation.
+        """
         await self._gafaelfawr.create(namespace, spec, replace=True)
 
     async def delete_fileserver_gafaelfawringress(
@@ -774,15 +784,19 @@ class K8sStorageClient:
     async def get_observed_fileserver_state(
         self, namespace: str
     ) -> dict[str, bool]:
-        """Reconstruct the fileserver user map with what we can determine
+        """Get file server state from Kubernetes.
+
+        Reconstruct the fileserver user map with what we can determine
         from the Kubernetes cluster.
 
-        Objects with the name <username>-fs are presumed to be fileserver
-        objects, where <username> can be assumed to be the name of the
+        Objects with the name :samp:`{username}-fs` are presumed to be file
+        server objects, where *username* can be assumed to be the name of the
         owning user.
 
-        It returns a dict mapping strings to the value True, indicating those
-        users who currently have fileservers.
+        Returns
+        -------
+        dict of bool
+            Users who currently have fileservers.
         """
         observed_state: dict[str, bool] = {}
         if not await self.check_namespace(namespace):
@@ -811,16 +825,18 @@ class K8sStorageClient:
     async def check_fileserver_present(
         self, username: str, namespace: str
     ) -> bool:
-        """Our determination of whether a user has a fileserver is this:
+        """Check if a file server is present.
+
+        Our determination of whether a user has a fileserver is this:
 
         We assume all fileserver objects are named <username>-fs, which we
         can do, since we created them and that's the convention we chose.
 
         A fileserver is working if:
 
-        1) it has exactly one Pod in Running state due to a Job of the
+        #. it has exactly one Pod in Running state due to a Job of the
            right name, and
-        2) it has an Ingress, which has status.load_balancer.ingress, and
+        #. it has an Ingress, which has status.load_balancer.ingress, and
            that inner ingress has an attribute "ip" which is not the
            empty string.
 
@@ -850,7 +866,7 @@ class K8sStorageClient:
         if pod.status.phase != "Running":
             self._logger.info(
                 f"Pod for {username} is in phase "
-                + f"'{pod.status.phase}', not 'Running'."
+                f"'{pod.status.phase}', not 'Running'."
             )
             return False
         self._logger.debug(f"...checking Ingress for {username}")

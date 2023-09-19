@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum
 from functools import total_ordering
-from typing import Optional, Self
+from typing import Self
 
 from semver.version import VersionInfo
 
@@ -179,14 +180,12 @@ class RSPImageTag:
         for image_type, regex in _TAG_REGEXES:
             match = regex.match(tag)
             if match:
-                try:
+                # It should be impossible for from_match to fail if we
+                # constructed the regexes properly, but if it does,
+                # silently fall back on treating this as an unknown tag
+                # rather than crashing the lab controller.
+                with contextlib.suppress(Exception):
                     return cls._from_match(image_type, match, tag)
-                except Exception:
-                    # It should be impossible for from_match to fail if we
-                    # constructed the regexes properly, but if it does,
-                    # silently fall back on treating this as an unknown tag
-                    # rather than crashing the lab controller.
-                    pass
 
         # No matches, so return the unknown tag type.
         return cls(
@@ -407,7 +406,7 @@ class RSPImageTagCollection:
         cls,
         tag_names: list[str],
         aliases: set[str],
-        cycle: Optional[int] = None,
+        cycle: int | None = None,
     ) -> Self:
         """Create a collection from tag strings.
 
@@ -453,8 +452,7 @@ class RSPImageTagCollection:
             Each tag in sorted order.
         """
         for image_type in RSPImageType:
-            for tag in self._by_type[image_type]:
-                yield tag
+            yield from self._by_type[image_type]
 
     def tag_for_tag_name(self, tag_name: str) -> RSPImageTag | None:
         """Look up a tag by tag name.
@@ -477,7 +475,7 @@ class RSPImageTagCollection:
         releases: int = 0,
         weeklies: int = 0,
         dailies: int = 0,
-        include: Optional[set[str]] = None,
+        include: set[str] | None = None,
     ) -> RSPImageTagCollection:
         """Return a subset of the tag collection.
 
@@ -509,9 +507,9 @@ class RSPImageTagCollection:
 
         # Include additional tags if they're present in the collection.
         if include:
-            for tag in include:
-                if tag in self._by_tag:
-                    tags.append(self._by_tag[tag])
+            tags.extend(
+                [self._by_tag[t] for t in include if t in self._by_tag]
+            )
 
         # Return the results.
         return RSPImageTagCollection(tags)

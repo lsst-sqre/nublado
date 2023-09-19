@@ -87,7 +87,7 @@ class LabBuilder:
 
         Returns
         -------
-        dict of str to str
+        dict of str
             Equivalent environment sent by JupyterHub.
 
         Notes
@@ -96,22 +96,20 @@ class LabBuilder:
         the lab controller must be kept in sync with the code that creates the
         config map.
         """
-        unwanted = set(
-            (
-                "CPU_GUARANTEE",
-                "CPU_LIMIT",
-                "DEBUG",
-                "EXTERNAL_INSTANCE_URL",
-                "IMAGE_DESCRIPTION",
-                "IMAGE_DIGEST",
-                "JUPYTER_IMAGE",
-                "JUPYTER_IMAGE_SPEC",
-                "MEM_GUARANTEE",
-                "MEM_LIMIT",
-                "RESET_USER_ENV",
-                *list(self._config.env.keys()),
-            )
-        )
+        unwanted = {
+            "CPU_GUARANTEE",
+            "CPU_LIMIT",
+            "DEBUG",
+            "EXTERNAL_INSTANCE_URL",
+            "IMAGE_DESCRIPTION",
+            "IMAGE_DIGEST",
+            "JUPYTER_IMAGE",
+            "JUPYTER_IMAGE_SPEC",
+            "MEM_GUARANTEE",
+            "MEM_LIMIT",
+            "RESET_USER_ENV",
+            *list(self._config.env.keys()),
+        }
         return {k: v for k, v in env.items() if k not in unwanted}
 
     def namespace_for_user(self, username: str) -> str:

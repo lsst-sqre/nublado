@@ -10,7 +10,7 @@ def deslashify(data: str) -> str:
 
 
 def metadata_to_dict(metadata_object: V1ObjectMeta) -> dict[str, Any]:
-    """Return the dict representation of a Kubernetes metadata object
+    """Return the dict representation of a Kubernetes metadata object.
 
     Parameters
     ----------
@@ -24,7 +24,6 @@ def metadata_to_dict(metadata_object: V1ObjectMeta) -> dict[str, Any]:
         custom resources, which require dicts rather than Kubernetes
         objects.
     """
-
     md_obj = {
         "name": metadata_object.name,
         "annotations": metadata_object.annotations,
@@ -39,13 +38,13 @@ def seconds_to_phrase(seconds: int) -> str:
     days, seconds = divmod(seconds, 86400)
     hours, seconds = divmod(seconds, 3600)
     minutes, seconds = divmod(seconds, 60)
-    str = ""
+    string = ""
     if days:
-        str = f"{days}d"
+        string = f"{days}d"
     if hours:
-        str += f"{hours}h"
+        string += f"{hours}h"
     if minutes:
-        str += f"{minutes}m"
+        string += f"{minutes}m"
     if seconds:
-        str += f"{seconds}s"
-    return str
+        string += f"{seconds}s"
+    return string

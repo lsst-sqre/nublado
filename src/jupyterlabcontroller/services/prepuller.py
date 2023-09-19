@@ -3,7 +3,6 @@
 import asyncio
 import re
 from pathlib import Path
-from typing import Optional
 
 from aiojobs import Scheduler
 from kubernetes_asyncio.client import (
@@ -58,8 +57,8 @@ class Prepuller:
         metadata_path: Path,
         image_service: ImageService,
         k8s_client: K8sStorageClient,
-        slack_client: Optional[SlackWebhookClient] = None,
-        pull_secret: Optional[str] = None,
+        slack_client: SlackWebhookClient | None = None,
+        pull_secret: str | None = None,
         logger: BoundLogger,
     ) -> None:
         self._namespace = namespace
@@ -71,7 +70,7 @@ class Prepuller:
         self._logger = logger
 
         # Scheduler to manage background tasks that prepull images to nodes.
-        self._scheduler: Optional[Scheduler] = None
+        self._scheduler: Scheduler | None = None
 
     async def start(self) -> None:
         if self._scheduler:

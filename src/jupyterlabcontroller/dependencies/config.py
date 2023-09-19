@@ -1,7 +1,6 @@
 """Config dependency."""
 
 from pathlib import Path
-from typing import Optional
 
 from ..config import Config
 from ..constants import CONFIGURATION_PATH
@@ -10,7 +9,7 @@ from ..constants import CONFIGURATION_PATH
 class ConfigDependency:
     def __init__(self, path: Path = CONFIGURATION_PATH) -> None:
         self._path = path
-        self._config: Optional[Config] = None
+        self._config: Config | None = None
 
     async def __call__(self) -> Config:
         return self.config

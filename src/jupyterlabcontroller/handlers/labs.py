@@ -108,14 +108,14 @@ async def delete_user_lab(
         e.location = ErrorLocation.path
         e.field_path = ["username"]
         raise
-    except Exception:
+    except Exception as e:
         # The exception was already reported to Slack at the service layer, so
         # convert it to a standard error message instead of letting it
         # propagate as an uncaught exception.
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=[{"msg": "Failed to delete lab", "type": "delete_failed"}],
-        )
+        ) from e
 
 
 @router.get(
@@ -136,7 +136,7 @@ async def get_lab_events(
     x_auth_request_user: str = Header(..., include_in_schema=False),
     context: RequestContext = Depends(context_dependency),
 ) -> EventSourceResponse:
-    """Returns the events for the lab of the given user"""
+    """Returns the events for the lab of the given user."""
     if username != x_auth_request_user:
         raise PermissionDeniedError("Permission denied")
     context.rebind_logger(user=username)

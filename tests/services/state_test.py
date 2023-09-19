@@ -215,9 +215,10 @@ async def test_spawn_timeout(
     await asyncio.sleep(0.5)
     status = await factory.lab_state.get_lab_status(user.username)
     assert status == LabStatus.FAILED
-    events = []
-    async for event in factory.lab_state.events_for_user(user.username):
-        events.append(event)
-    assert events[-2].data and events[-1].data
+    events = [
+        e async for e in factory.lab_state.events_for_user(user.username)
+    ]
+    assert events[-2].data
+    assert events[-1].data
     assert "Lab creation timed out after" in events[-2].data
     assert "Lab creation failed" in events[-1].data

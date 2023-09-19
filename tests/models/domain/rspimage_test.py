@@ -114,7 +114,7 @@ def test_resolve_alias() -> None:
     )
 
     # Can't resolve some other image type.
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Can only resolve.*"):
         image.resolve_alias(latest_daily)
 
 
@@ -173,7 +173,7 @@ def test_collection() -> None:
 
     # Test all_images, its sorting, and its filtering options.
     all_images = [i.tag for i in collection.all_images()]
-    assert all_images == ["recommended", "latest_weekly"] + tags
+    assert all_images == ["recommended", "latest_weekly", *tags]
     without_aliases = collection.all_images(hide_resolved_aliases=True)
     assert [i.tag for i in without_aliases] == tags
     assert [i.tag for i in collection.all_images(hide_aliased=True)] == [

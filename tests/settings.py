@@ -1,10 +1,11 @@
-"""Produce a test object factory"""
+"""Produce a test object factory."""
 
 from __future__ import annotations
 
 import json
 from base64 import b64encode
-from typing import Any
+from pathlib import Path
+from typing import Any, ClassVar
 
 from kubernetes_asyncio.client import (
     V1ContainerImage,
@@ -22,37 +23,39 @@ from jupyterlabcontroller.services.size import memory_string_to_int
 
 
 class TestObjectFactory:
-    _filename = ""
-    _canonicalized = False
-    test_objects: dict[str, Any] = {}
+    _filename: ClassVar[str] = ""
+    _canonicalized: ClassVar[bool] = False
+    test_objects: ClassVar[dict[str, Any]] = {}
 
-    def initialize_from_file(self, filename: str) -> None:
-        if filename and filename != self._filename:
-            with open(filename) as f:
-                self.test_objects = json.load(f)
-                self._filename = filename
-            self.canonicalize()
+    @classmethod
+    def initialize_from_file(cls, filename: str) -> None:
+        if filename and filename != cls._filename:
+            with Path(filename).open() as f:
+                cls.test_objects = json.load(f)
+                cls._filename = filename
+            cls.canonicalize()
 
-    def canonicalize(self) -> None:
-        if self._canonicalized:
+    @classmethod
+    def canonicalize(cls) -> None:
+        if cls._canonicalized:
             return
-        for idx, x in enumerate(self.test_objects["user_options"]):
+        for idx, x in enumerate(cls.test_objects["user_options"]):
             # Glue options and envs into lab specifications
-            self.test_objects["lab_specification"].append(
+            cls.test_objects["lab_specification"].append(
                 {
                     "options": x,
-                    "env": self.test_objects["env"][
-                        idx % len(self.test_objects["env"])
+                    "env": cls.test_objects["env"][
+                        idx % len(cls.test_objects["env"])
                     ],
                 }
             )
             # Set memory to bytes rather than text (e.g. "3KiB" -> 3072)
-            for q in self.test_objects["resources"]:
+            for q in cls.test_objects["resources"]:
                 for i in ("limits", "requests"):
                     memfld = q[i]["memory"]
-                    if type(memfld) is str:
+                    if isinstance(memfld, str):
                         q[i]["memory"] = memory_string_to_int(memfld)
-        self._canonicalized = True
+        cls._canonicalized = True
 
     @property
     def userinfos(self) -> dict[str, GafaelfawrUserInfo]:
@@ -108,7 +111,7 @@ class TestObjectFactory:
         """Get user information and token for a user."""
         for token, user in self.userinfos.items():
             return token, user
-        assert False, "No user information records configured"
+        raise AssertionError("No user information records configured")
 
 
 test_object_factory = TestObjectFactory()

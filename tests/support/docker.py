@@ -42,6 +42,7 @@ class MockDockerRegistry:
         tags: dict[str, str],
         realm: str,
         credentials: DockerCredentials,
+        *,
         require_bearer: bool = False,
     ) -> None:
         self.tags = tags
@@ -199,7 +200,9 @@ def register_mock_docker(
     store = DockerCredentialStore.from_path(credentials_path)
     credentials = store.get(host)
     assert credentials
-    mock = MockDockerRegistry(tags, auth_url, credentials, require_bearer)
+    mock = MockDockerRegistry(
+        tags, auth_url, credentials, require_bearer=require_bearer
+    )
 
     respx_mock.get(base_url + "/auth").mock(side_effect=mock.authenticate)
     respx_mock.get(tags_url).mock(side_effect=mock.list_tags)

@@ -6,7 +6,7 @@ loaded before it can be instantiated.
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import Depends, Request
 from safir.dependencies.logger import logger_dependency
@@ -69,7 +69,7 @@ class ContextDependency:
     """
 
     def __init__(self) -> None:
-        self._process_context: Optional[ProcessContext] = None
+        self._process_context: ProcessContext | None = None
 
     async def __call__(
         self,

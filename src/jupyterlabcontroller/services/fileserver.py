@@ -19,7 +19,6 @@ from kubernetes_asyncio.client import (
     V1PodSecurityContext,
     V1PodSpec,
     V1PodTemplateSpec,
-    V1ResourceRequirements,
     V1SecurityContext,
     V1Service,
     V1ServicePort,
@@ -28,7 +27,6 @@ from kubernetes_asyncio.client import (
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
-from ..constants import LIMIT_TO_REQUEST_RATIO
 from ..exceptions import DisabledError, MissingObjectError
 from ..models.domain.fileserver import FileserverUserMap
 from ..models.v1.lab import UserInfo
@@ -78,14 +76,14 @@ class FileserverStateManager:
         ):
             try:
                 await self._create_fileserver(user)
-            except Exception as exc:
-                self._logger.error(
-                    f"Fileserver creation for {username} failed with {exc}"
-                    + ": deleting fileserver objects."
+            except Exception:
+                msg = (
+                    f"Fileserver creation for {username} failed, deleting"
+                    " fileserver objects"
                 )
+                self._logger.exception(msg)
                 await self.delete(username)
                 raise
-        return
 
     async def _create_fileserver(self, user: UserInfo) -> None:
         """Create a fileserver for the given user.  Wait for it to be
@@ -99,7 +97,7 @@ class FileserverStateManager:
             service = self._build_fileserver_service(user.username)
             job = self._build_fileserver_job(user)
             self._logger.debug(
-                "...creating new gafawelfawrfingress for " + username
+                f"...creating new GafaelfawrIngress for {username}"
             )
             await self._k8s_client.create_fileserver_gafaelfawringress(
                 namespace, gf_ingress
@@ -185,56 +183,10 @@ class FileserverStateManager:
                 spec=pod_spec, metadata=self._build_metadata(username)
             ),
         )
-        job = V1Job(
+        return V1Job(
             metadata=self._build_metadata(username),
             spec=job_spec,
         )
-        return job
-
-    def _build_fileserver_resources(self) -> V1ResourceRequirements | None:
-        #
-        # In practice, limits of 100m CPU and 128M of memory seem fine.
-        #
-        resources = self._config.fileserver.resources
-        # Handle the degenerate cases first.
-        if resources is None:
-            return None
-        if (
-            not resources.limits.cpu
-            and not resources.limits.memory
-            and not resources.requests.cpu
-            and not resources.requests.memory
-        ):
-            return None
-        lim_dict = {}
-        req_dict = {}
-        if resources.limits.cpu:
-            lim_dict["cpu"] = str(resources.limits.cpu)
-        if resources.limits.memory:
-            lim_dict["memory"] = str(resources.limits.memory)
-        if not resources.requests.cpu:
-            if resources.limits.cpu:
-                cpu = resources.limits.cpu / LIMIT_TO_REQUEST_RATIO
-                if cpu < 0.001:
-                    cpu = 0.001  # K8s granularity limitation.
-                req_dict["cpu"] = str(cpu)
-        if not resources.requests.memory:
-            if resources.limits.memory:
-                mem = int(resources.limits.memory / LIMIT_TO_REQUEST_RATIO)
-                # Sane-architecture granularity limitation.
-                #
-                # I mean, I'm being defensive here, but let's hope that no one
-                # ever asks for a CPU limit of less than four millicores, or
-                # specifies a number of bytes that's not divisible by four
-                # for a memory limit.
-                #
-                req_dict["memory"] = str(mem)
-        else:
-            if resources.requests.cpu:
-                req_dict["cpu"] = str(resources.requests.cpu)
-            if resources.requests.memory:
-                req_dict["memory"] = str(resources.requests.memory)
-        return V1ResourceRequirements(limits=lim_dict, requests=req_dict)
 
     def _build_fileserver_pod_spec(self, user: UserInfo) -> V1PodSpec:
         """Construct the pod specification for the user's fileserver pod.
@@ -253,34 +205,26 @@ class FileserverStateManager:
         volume_data = self._builder.build_lab_config_volumes(
             username, self._config.lab.volumes, prefix="/mnt"
         )
-        volumes = [v.volume for v in volume_data]
-        mounts = [v.volume_mount for v in volume_data]
-        resource_data = self._build_fileserver_resources()
-        # Additional environment variables to set.
-        env = [
-            V1EnvVar(
-                name="WORBLEHAT_BASE_HREF",
-                value=(
-                    self._config.fileserver.path_prefix + f"/files/{username}"
-                ),
-            ),
-            V1EnvVar(
-                name="WORBLEHAT_TIMEOUT",
-                value=str(self._config.fileserver.timeout),
-            ),
-            V1EnvVar(name="WORBLEHAT_DIR", value="/mnt"),
-        ]
-        image = (
-            self._config.fileserver.image + ":" + self._config.fileserver.tag
-        )
+        image = self._config.fileserver.image
+        tag = self._config.fileserver.tag
+        url = f"{self._config.fileserver.path_prefix}/files/{username}"
+        resources = self._config.fileserver.resources
+
         # Specification for the user's container.
         container = V1Container(
             name="fileserver",
-            env=env,
-            image=image,
+            env=[
+                V1EnvVar(name="WORBLEHAT_BASE_HREF", value=url),
+                V1EnvVar(
+                    name="WORBLEHAT_TIMEOUT",
+                    value=str(self._config.fileserver.timeout),
+                ),
+                V1EnvVar(name="WORBLEHAT_DIR", value="/mnt"),
+            ],
+            image=f"{image}:{tag}",
             image_pull_policy=self._config.fileserver.pull_policy.value,
             ports=[V1ContainerPort(container_port=8000, name="http")],
-            resources=resource_data,
+            resources=resources.to_kubernetes() if resources else None,
             security_context=V1SecurityContext(
                 run_as_non_root=True,
                 run_as_user=user.uid,
@@ -288,12 +232,12 @@ class FileserverStateManager:
                 allow_privilege_escalation=False,
                 read_only_root_filesystem=True,
             ),
-            volume_mounts=mounts,
+            volume_mounts=[v.volume_mount for v in volume_data],
         )
 
         # _Build the pod specification itself.
-        # FIXME work out tolerations
-        podspec = V1PodSpec(
+        # TODO(athornton): work out tolerations
+        return V1PodSpec(
             containers=[container],
             restart_policy="Never",
             security_context=V1PodSecurityContext(
@@ -302,14 +246,13 @@ class FileserverStateManager:
                 run_as_non_root=True,
                 supplemental_groups=[x.id for x in user.groups],
             ),
-            volumes=volumes,
+            volumes=[v.volume for v in volume_data],
         )
-        return podspec
 
     def _build_custom_object_metadata(self, username: str) -> dict[str, Any]:
         obj_name = f"{username}-fs"
         apj = "argocd.argoproj.io"
-        md_obj = {
+        return {
             "name": obj_name,
             "namespace": self._namespace,
             "labels": {
@@ -322,7 +265,6 @@ class FileserverStateManager:
                 f"{apj}/sync-options": "Prune=false",
             },
         }
-        return md_obj
 
     def _build_fileserver_ingress(self, username: str) -> dict[str, Any]:
         # The Gafaelfawr Ingress is a CRD, so creating it is a bit different.
@@ -367,7 +309,7 @@ class FileserverStateManager:
         }
 
     def _build_fileserver_service(self, username: str) -> V1Service:
-        service = V1Service(
+        return V1Service(
             metadata=self._build_metadata(username),
             spec=V1ServiceSpec(
                 ports=[V1ServicePort(port=8000, target_port=8000)],
@@ -377,7 +319,6 @@ class FileserverStateManager:
                 },
             ),
         )
-        return service
 
     async def delete(self, username: str) -> None:
         if not self._started:
@@ -445,8 +386,11 @@ class FileserverStateManager:
         await self.delete(username)
 
     async def _reconcile_user_map(self) -> None:
-        """We need to run this on startup, to synchronize the
-        user map resource with observed state."""
+        """Reconcile internal state with Kubernetes.
+
+        We need to run this on startup, to synchronize the user map resource
+        with observed state.
+        """
         self._logger.debug("Reconciling fileserver user map")
         mapped_users = set(await self.list())
         observed_map = await self._k8s_client.get_observed_fileserver_state(

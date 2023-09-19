@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional, Self
+from typing import Any, Self
 
+from kubernetes_asyncio.client import V1ResourceRequirements
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ...constants import DROPDOWN_SENTINEL_VALUE, USERNAME_REGEX
@@ -118,13 +119,13 @@ class UserOptions(BaseModel):
     without modifications.
     """
 
-    image_list: Optional[str] = Field(
+    image_list: str | None = Field(
         None,
         examples=["lighthouse.ceres/library/sketchbook:w_2023_07@sha256:abcd"],
         title="Image from selection radio button",
         description="If this is set, `image_dropdown` should not be set.",
     )
-    image_dropdown: Optional[str] = Field(
+    image_dropdown: str | None = Field(
         None,
         examples=["lighthouse.ceres/library/sketchbook:w_2022_40"],
         title="Image from dropdown list",
@@ -133,7 +134,7 @@ class UserOptions(BaseModel):
             f" `{DROPDOWN_SENTINEL_VALUE}`."
         ),
     )
-    image_class: Optional[ImageClass] = Field(
+    image_class: ImageClass | None = Field(
         None,
         examples=[ImageClass.RECOMMENDED],
         title="Class of image to spawn",
@@ -145,7 +146,7 @@ class UserOptions(BaseModel):
             " using these options."
         ),
     )
-    image_tag: Optional[str] = Field(
+    image_tag: str | None = Field(
         None,
         examples=["w_2023_07"],
         title="Tag of image to spawn",
@@ -241,7 +242,7 @@ class UserOptions(BaseModel):
         # Check that exactly one of them is set.
         if len(values_set) < 1:
             raise ValueError("No image to spawn specified")
-        elif len(values_set) > 1:
+        if len(values_set) > 1:
             keys = ", ".join(sorted(values_set))
             raise ValueError(f"Image specified multiple ways ({keys})")
         return self
@@ -364,7 +365,7 @@ class ResourceQuantity(BaseModel):
         description=(
             "cf. "
             "https://kubernetes.io/docs/tasks/"
-            "configure-pod-container/assign-cpu-resource/\n"
+            "configure-pod-container/assign-cpu-resource/"
         ),
     )
     memory: int = Field(
@@ -380,6 +381,19 @@ class LabResources(BaseModel):
         ..., title="Intially-requested resources"
     )
 
+    def to_kubernetes(self) -> V1ResourceRequirements:
+        """Convert to the Kubernetes object representation."""
+        return V1ResourceRequirements(
+            limits={
+                "cpu": str(self.limits.cpu),
+                "memory": str(self.limits.memory),
+            },
+            requests={
+                "cpu": str(self.requests.cpu),
+                "memory": str(self.requests.memory),
+            },
+        )
+
 
 class UserLabState(LabSpecification):
     """Current state of the user's lab."""
@@ -389,7 +403,7 @@ class UserLabState(LabSpecification):
         ..., examples=["running"], title="Status of user container"
     )
     pod: PodState = Field(..., examples=["present"], title="User pod state")
-    internal_url: Optional[str] = Field(
+    internal_url: str | None = Field(
         None,
         examples=["http://nublado-ribbon.nb-ribbon:8888"],
         title="URL by which the Hub can access the user Pod",

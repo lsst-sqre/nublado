@@ -7,7 +7,7 @@ so it has to live in its own file separate from the rest of the configuration.
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import Field
 from safir.pydantic import CamelCaseModel
@@ -138,7 +138,7 @@ class PrepullerConfig(CamelCaseModel):
         ),
         ge=0,
     )
-    cycle: Optional[int] = Field(
+    cycle: int | None = Field(
         None,
         examples=[27],
         title="Limit to this cycle number (XML schema version)",
@@ -150,7 +150,7 @@ class PrepullerConfig(CamelCaseModel):
             " spawner menu."
         ),
     )
-    pin: Optional[list[str]] = Field(
+    pin: list[str] | None = Field(
         None,
         examples=[["d_2077_10_23"]],
         title="List of image tags to prepull and pin to the menu",

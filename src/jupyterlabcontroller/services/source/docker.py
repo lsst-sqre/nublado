@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Mapping
+from collections.abc import Mapping
 
 from structlog.stdlib import BoundLogger
 
@@ -291,7 +291,7 @@ class DockerImageSource(ImageSource):
 
         # Construct the images.
         images = []
-        for tag, digest in zip(to_prepull.all_tags(), digests):
+        for tag, digest in zip(to_prepull.all_tags(), digests, strict=True):
             image = RSPImage.from_tag(
                 registry=self._config.registry,
                 repository=self._config.repository,

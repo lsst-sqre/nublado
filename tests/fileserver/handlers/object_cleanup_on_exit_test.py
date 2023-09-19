@@ -25,7 +25,7 @@ def _find_user_pod(user: str, objects: list[Any]) -> V1Pod:
             for lbl in obj.metadata.labels:
                 if lbl == "job-name" and obj.metadata.labels[lbl] == obj_name:
                     return obj
-    assert False, f"Could not find pod for user {user}"
+    raise AssertionError(f"Could not find pod for user {user}")
 
 
 @pytest.mark.asyncio
@@ -92,8 +92,7 @@ async def test_cleanup_on_pod_exit(
     # the mock doesn't remove the ingress on GafaelfawrIngress
     # deletion like the real thing does), and will still have the
     # Namespace.  So let's check that.
-    assert len(objs) == 2 and set(x.kind for x in objs) == set(
-        ["Ingress", "Namespace"]
-    )
+    assert len(objs) == 2
+    assert {x.kind for x in objs} == {"Ingress", "Namespace"}
     # Clean up the Ingress
     await delete_ingress_for_user(mock_kubernetes, name, namespace)

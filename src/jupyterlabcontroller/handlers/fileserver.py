@@ -19,16 +19,16 @@ __all__ = ["router", "user_router"]
 
 # This router does not go under the safir path prefix, but under its own,
 # which by default is "" -- that is, user files are typically accessed as
-# "{{ base_url }}/files"
-
+# <base-url>/files
+#
 # Note that we don't care what's after /files.
-
+#
 # That's because the requesting user is identified by the header,
 # and if there is already a more specific ingress path, then that
 # ingress will handle the request and we will never see it.  That will be
 # the case if the user already has a running fileserver, since
 # /files/<username> will already be a (basic-auth) ingress for WebDAV.
-
+#
 # So either the user went to just "/files", in which case we figure
 # out whether they need an ingress, and create it (and the backing
 # fileserver) if so, or they went to "/files/<themselves>" but there
@@ -37,11 +37,11 @@ __all__ = ["router", "user_router"]
 # <someone-else>.  In the last case, we do exactly the same thing as
 # for "/files": determine whether they themselves have a fileserver'
 # and create it if it doesn't exist.
-
+#
 # In all these cases, we provide documentation of how to use the created
 # fileserver.  This should eventually move into SquareOne and be nicely
 # styled.
-
+#
 # Finally, if they go to "/files/<someone-else>" and there already
 # is an ingress (that is, someone-else already has a running fileserver)
 # then the user request will go there (and we will never see the request).

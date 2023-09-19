@@ -1,6 +1,9 @@
-"""Test fixtures for jupyterlab-controller tests that require a running
-fileserver.  This requires a different application, configuration, factory,
-and so on."""
+"""Test fixtures for testing the file server.
+
+Test fixtures for jupyterlab-controller tests that require a running
+fileserver. This requires a different application, configuration, factory, and
+so on.
+"""
 
 from __future__ import annotations
 

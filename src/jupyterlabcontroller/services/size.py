@@ -1,5 +1,4 @@
-"""Image size service.  It takes the set of lab sizes from the config
-in its constructor."""
+"""Image size service."""
 
 import bitmath
 
@@ -16,12 +15,26 @@ def memory_string_to_int(memstr: str) -> int:
 
 
 class SizeManager:
+    """Operations on image sizes.
+
+    Parameters
+    ----------
+    sizes
+        Size definitions from the lab controller configuration.
+    """
+
     def __init__(self, sizes: dict[LabSize, LabSizeDefinition]) -> None:
         self._sizes = sizes
 
     def formdata(self) -> list[FormSize]:
-        """Return the text representation of our sizes in a format suitable
-        for injecting into the user spawner form"""
+        """Return available sizes for injecting into the spawner form.
+
+        Returns
+        -------
+        list of FormSize
+            Representation of sizes suitable for injecting into the user
+            spawner form.
+        """
         return [
             FormSize(
                 name=x.value.title(),

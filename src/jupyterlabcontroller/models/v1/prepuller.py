@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Self
+from typing import Self
 
 from pydantic import BaseModel, Field
 
@@ -23,7 +23,7 @@ class Image(BaseModel):
         examples=["Latest Daily (Daily 2077_10_23)"],
         title="Human-readable version of image tag",
     )
-    digest: Optional[str] = Field(
+    digest: str | None = Field(
         None,
         examples=[
             (
@@ -77,26 +77,20 @@ class PrepulledImage(Image):
 
 
 class NodeImage(Image):
-    size: Optional[int] = Field(
+    size: int | None = Field(
         None, examples=[8675309], title="Size in bytes of image if known"
     )
     nodes: list[str] = Field([], title="Nodes on which image is cached")
-    missing: Optional[list[str]] = Field(
+    missing: list[str] | None = Field(
         None, title="Nodes not caching the image"
     )
 
 
 class SpawnerImages(BaseModel):
-    recommended: Optional[PrepulledImage] = Field(
-        None, title="Recommended image"
-    )
-    latest_weekly: Optional[PrepulledImage] = Field(
-        None, title="Latest weekly"
-    )
-    latest_daily: Optional[PrepulledImage] = Field(None, title="Latest daily")
-    latest_release: Optional[PrepulledImage] = Field(
-        None, title="Latest release"
-    )
+    recommended: PrepulledImage | None = Field(None, title="Recommended image")
+    latest_weekly: PrepulledImage | None = Field(None, title="Latest weekly")
+    latest_daily: PrepulledImage | None = Field(None, title="Latest daily")
+    latest_release: PrepulledImage | None = Field(None, title="Latest release")
     all: list[PrepulledImage] = Field(..., title="All available images")
 
 
@@ -117,7 +111,7 @@ class Node(BaseModel):
     eligible: bool = Field(
         True, examples=[True], title="Whether node is eligible for prepulling"
     )
-    comment: Optional[str] = Field(
+    comment: str | None = Field(
         None,
         examples=["Cordoned because of disk problems"],
         title="Reason for node ineligibility",
