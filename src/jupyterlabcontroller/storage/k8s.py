@@ -34,6 +34,7 @@ from kubernetes_asyncio.client import (
 from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
+from ..constants import ARGO_CD_ANNOTATIONS
 from ..exceptions import (
     DuplicateObjectError,
     KubernetesError,
@@ -287,10 +288,7 @@ class K8sStorageClient:
             labels["argocd.argoproj.io/instance"] = argo_app
         if username:
             labels["nublado.lsst.io/user"] = username
-        annotations = {
-            "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
-            "argocd.argoproj.io/sync-options": "Prune=false",
-        }
+        annotations = ARGO_CD_ANNOTATIONS.copy()
         metadata = V1ObjectMeta(
             name=name,
             labels=labels,
