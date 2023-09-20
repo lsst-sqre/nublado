@@ -1,25 +1,21 @@
 """Prepull images to Kubernetes nodes."""
 
 import asyncio
-import re
-from pathlib import Path
 
 from aiojobs import Scheduler
-from kubernetes_asyncio.client import (
-    V1Container,
-    V1LocalObjectReference,
-    V1OwnerReference,
-    V1PodSpec,
-)
 from safir.datetime import current_datetime
 from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
-from ..constants import IMAGE_REFRESH_INTERVAL
+from ..constants import IMAGE_REFRESH_INTERVAL, PREPULLER_POD_TIMEOUT
 from ..models.domain.rspimage import RSPImage
-from ..storage.k8s import K8sStorageClient
+from ..storage.kubernetes.pod import PodStorage
+from ..storage.metadata import MetadataStorage
+from .builder import PrepullerBuilder
 from .image import ImageService
+
+__all__ = ["Prepuller"]
 
 
 class Prepuller:
@@ -32,20 +28,17 @@ class Prepuller:
 
     Parameters
     ----------
-    namespace
-        Namespace in which to put prepuller pods.
-    metadata_path
-        Path to injected pod metadata used to create the owner reference for
-        prepull pods.
     image_service
         Service to query for image information. Currently, the background
         refresh thread of the image service is also managed by this class.
-    k8s_client
-        Client for talking to Kubernetes.
+    prepuller_builder
+        Service that constructs prepuller Kubernetes objects.
+    metadata_storage
+        Storage layer for Nublado controller pod metadata.
+    pod_storage
+        Storage layer for managing Kubernetes pods.
     slack_client
         Optional Slack webhook client for alerts.
-    pull_secret
-        Optional name of Secret object to use for pulling images
     logger
         Logger for messages.
     """
@@ -53,44 +46,46 @@ class Prepuller:
     def __init__(
         self,
         *,
-        namespace: str,
-        metadata_path: Path,
         image_service: ImageService,
-        k8s_client: K8sStorageClient,
+        prepuller_builder: PrepullerBuilder,
+        metadata_storage: MetadataStorage,
+        pod_storage: PodStorage,
         slack_client: SlackWebhookClient | None = None,
-        pull_secret: str | None = None,
         logger: BoundLogger,
     ) -> None:
-        self._namespace = namespace
-        self._metadata_path = metadata_path
         self._image_service = image_service
-        self._k8s_client = k8s_client
+        self._builder = prepuller_builder
+        self._metadata = metadata_storage
+        self._storage = pod_storage
         self._slack_client = slack_client
-        self._pull_secret = pull_secret
         self._logger = logger
 
         # Scheduler to manage background tasks that prepull images to nodes.
         self._scheduler: Scheduler | None = None
 
     async def start(self) -> None:
+        """Start the prepuller.
+
+        The prepuller normally runs for the lifetime of the process in the
+        background, but when first called, wait for the image data to populate
+        in the foreground. This ensures that we populate image data before
+        FastAPI completes its startup event, and therefore before we start
+        answering requests. That in turn means a more accurate health check,
+        since until we have populated image data our API is fairly useless.
+        (It also makes life easier for the test suite.)
+        """
         if self._scheduler:
             msg = "Prepuller already running, cannot start"
             self._logger.warning(msg)
             return
         self._logger.info("Starting prepuller tasks")
-
-        # Wait for the image data to populate in the foreground. This ensures
-        # that we populate image data before FastAPI completes its startup
-        # event, and therefore before we start answering requests. That in
-        # turn means a more accurate health check, since until we have
-        # populated image data our API is fairly useless. (It also makes life
-        # easier for the test suite.)
         await self._image_service.prepuller_wait()
         self._running = True
         self._scheduler = Scheduler()
         await self._scheduler.spawn(self._prepull_loop())
 
     async def stop(self) -> None:
+        """Stop the prepuller."""
         if not self._scheduler:
             self._logger.warning("Prepuller was already stopped")
             return
@@ -134,29 +129,22 @@ class Prepuller:
         await asyncio.gather(*node_tasks)
         self._logger.debug("Finished prepulling all images")
 
-    def _prepull_pod_spec(self, image: RSPImage, node: str) -> V1PodSpec:
-        """Create a spec to run a pod with a specific image on a node.
+    async def _prepull_images_for_node(
+        self, node: str, images: list[RSPImage]
+    ) -> None:
+        """Prepull a list of missing images on a single node.
 
-        The pod does nothing but sleep five seconds and then exit.  Its only
-        function is to ensure that that image gets pulled to that node.
+        This runs as a background task, working through a set of images one
+        after another until we have done them all. It runs in parallel with a
+        similar task for each node.
         """
-        podspec = V1PodSpec(
-            containers=[
-                V1Container(
-                    name="prepull",
-                    command=["/bin/sleep", "5"],
-                    image=image.reference_with_digest,
-                    working_dir="/tmp",
-                )
-            ],
-            node_name=node,
-            restart_policy="Never",
-        )
-        if self._pull_secret is not None and self._pull_secret:
-            podspec.image_pull_secrets = [
-                V1LocalObjectReference(name=self._pull_secret)
-            ]
-        return podspec
+        image_tags = [i.tag for i in images]
+        logger = self._logger.bind(images=image_tags, node=node)
+        logger.info("Beginning prepulls for node")
+        for image in images:
+            await self._prepull_image(image, node)
+            self._image_service.mark_prepulled(image, node)
+        logger.info("Finished prepulls for node")
 
     async def _prepull_image(self, image: RSPImage, node: str) -> None:
         """Prepull an image on a single node.
@@ -168,99 +156,29 @@ class Prepuller:
         node
             Node on which to prepull it.
         """
-        name = self._prepull_pod_name(image, node)
-        namespace = self._namespace
-        logger = self._logger.bind(pod=name, namespace=namespace)
-        logger.debug(f"Prepulling {image.tag} on {node}")
-        start = current_datetime()
+        namespace = self._metadata.namespace
+        start = current_datetime(microseconds=True)
+        logger = self._logger.bind(node=node, image=image.tag)
+        logger.debug("Prepulling image")
         try:
-            await self._k8s_client.create_pod(
-                name=name,
-                namespace=namespace,
-                pod_spec=self._prepull_pod_spec(image, node),
-                owner=self._prepull_pod_owner(),
-                remove_on_conflict=True,
-                category="prepuller",
+            pod = self._builder.build_pod(image, node)
+            await self._storage.create(namespace, pod, replace=True)
+            await self._storage.delete_after_completion(
+                pod.metadata.name, namespace, timeout=PREPULLER_POD_TIMEOUT
             )
-            await self._k8s_client.wait_for_pod_start(name, namespace)
-            await self._k8s_client.remove_completed_pod(name, namespace)
         except TimeoutError:
-            delay = int((current_datetime() - start).total_seconds())
-            msg = f"Timed out prepulling {image.tag} on {node} after {delay}s"
+            now = current_datetime(microseconds=True)
+            delay = (now - start).total_seconds()
+            msg = f"Timed out prepulling image after {delay}s"
             logger.warning(msg)
         except Exception as e:
-            self._logger.exception(f"Failed to prepull {image.tag} on {node}")
+            self._logger.exception("Failed to prepull image")
             if self._slack_client:
                 if isinstance(e, SlackException):
                     await self._slack_client.post_exception(e)
                 else:
                     await self._slack_client.post_uncaught_exception(e)
         else:
-            self._logger.info(f"Prepulled {image.tag} on {node}")
-
-    async def _prepull_images_for_node(
-        self, node: str, images: list[RSPImage]
-    ) -> None:
-        """Prepull a list of missing images on a single node.
-
-        This runs as a background task, working through a set of images one
-        after another until we have done them all. It runs in parallel with a
-        similar task for each node.
-        """
-        image_tags = [i.tag for i in images]
-        self._logger.info(f"Beginning prepulls for {node}", images=image_tags)
-        for image in images:
-            await self._prepull_image(image, node)
-            self._image_service.mark_prepulled(image, node)
-        self._logger.info(f"Finished prepulls for {node}", images=image_tags)
-
-    def _prepull_pod_name(self, image: RSPImage, node: str) -> str:
-        """Create the pod name to use for prepulling an image.
-
-        This embeds some information in the pod name that may be useful for
-        debugging purposes.
-
-        Parameters
-        ----------
-        image
-            Image to prepull.
-        node
-            Node on which to prepull it.
-
-        Returns
-        -------
-        str
-            Pod name to use.
-        """
-        tag_part = image.tag.replace("_", "-")
-        tag_part = re.sub(r"[^\w.-]", "", tag_part, flags=re.ASCII)
-        name = f"prepull-{tag_part}-{node}"
-
-        # Kubernetes object names may be at most 253 characters long.
-        return name[:253]
-
-    def _prepull_pod_owner(self) -> V1OwnerReference | None:
-        """Construct the owner reference to attach to prepuller pods.
-
-        We want all prepuller pods to show as owned by the lab controller,
-        both for clearer display in services such as Argo CD and also so that
-        Kubernetes will delete the pods when the lab controller restarts,
-        avoiding later conflicts.
-
-        Returns
-        -------
-        V1OwnerReference or None
-            Owner reference to use for prepuller pods or `None` if no pod
-            metadata for the lab controller is available.
-        """
-        name_path = self._metadata_path / "name"
-        uid_path = self._metadata_path / "uid"
-        if not (name_path.exists() and uid_path.exists()):
-            return None
-        return V1OwnerReference(
-            api_version="v1",
-            kind="Pod",
-            name=name_path.read_text().strip(),
-            uid=uid_path.read_text().strip(),
-            block_owner_deletion=True,
-        )
+            now = current_datetime(microseconds=True)
+            delay = (now - start).total_seconds()
+            self._logger.info("Prepulled image", delay=delay)

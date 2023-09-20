@@ -675,9 +675,6 @@ class K8sStorageClient:
     # Prepuller methods
     #
 
-    async def remove_completed_pod(self, podname: str, namespace: str) -> None:
-        await self._pod.delete_after_completion(podname, namespace)
-
     async def get_image_data(self) -> dict[str, list[KubernetesNodeImage]]:
         """Get the list of cached images from each node.
 

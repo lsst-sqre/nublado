@@ -16,7 +16,7 @@ from structlog.stdlib import BoundLogger
 
 from .config import Config
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
-from .services.builder import LabBuilder
+from .services.builder import LabBuilder, PrepullerBuilder
 from .services.fileserver import FileserverStateManager
 from .services.form import FormManager
 from .services.image import ImageService
@@ -31,6 +31,8 @@ from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.gar import GARStorageClient
 from .storage.k8s import K8sStorageClient
+from .storage.kubernetes.pod import PodStorage
+from .storage.metadata import MetadataStorage
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +121,7 @@ class ProcessContext:
         else:
             raise TypeError("Unknown prepuller configuration type")
 
+        metadata_storage = MetadataStorage(config.metadata_path)
         image_service = ImageService(
             config=config.images,
             source=source,
@@ -132,12 +135,14 @@ class ProcessContext:
             image_service=image_service,
             kubernetes_client=kubernetes_client,
             prepuller=Prepuller(
-                namespace=config.lab.namespace_prefix,
-                metadata_path=config.metadata_path,
                 image_service=image_service,
-                k8s_client=k8s_client,
+                prepuller_builder=PrepullerBuilder(
+                    metadata_storage=metadata_storage,
+                    pull_secret=config.lab.pull_secret,
+                ),
+                metadata_storage=metadata_storage,
+                pod_storage=PodStorage(kubernetes_client, logger),
                 slack_client=slack_client,
-                pull_secret=config.lab.pull_secret,
                 logger=logger,
             ),
             lab_state=LabStateManager(

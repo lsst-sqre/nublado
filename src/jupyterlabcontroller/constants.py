@@ -13,6 +13,7 @@ __all__ = [
     "KUBERNETES_REQUEST_TIMEOUT",
     "LAB_STATE_REFRESH_INTERVAL",
     "LIMIT_TO_REQUEST_RATIO",
+    "PREPULLER_POD_TIMEOUT",
     "METADATA_PATH",
     "SPAWNER_FORM_TEMPLATE",
     "USERNAME_REGEX",
@@ -56,6 +57,13 @@ to the lab spammed alert messages about missing files, presumably from the
 JavaScript calls to the lab failing. Kubespawner uses a grace period of 1s and
 appears to assume the lab will not do anything useful in repsonse to SIGTERM,
 so copy its behavior.
+"""
+
+PREPULLER_POD_TIMEOUT = timedelta(minutes=10)
+"""How long to wait for a prepuller pod to spawn and finish running.
+
+This may take a substantial amount of time if the pod image is quite large or
+the network is slow.
 """
 
 METADATA_PATH = Path("/etc/podinfo")

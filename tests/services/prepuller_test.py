@@ -91,8 +91,7 @@ async def test_docker(
 
     # The default data configures Kubernetes with missing images on some
     # nodes. Check that we created the correct prepuller pods.
-    namespace = config.lab.namespace_prefix
-    pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
+    pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
     with (std_result_dir / "prepull-objects.json").open("r") as f:
         expected = json.load(f)
     assert [strip_none(o.to_dict()) for o in pod_list.items] == expected
@@ -103,7 +102,7 @@ async def test_docker(
 
     # The prepuller should notice the status change and delete the pods.
     await asyncio.sleep(0.2)
-    pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
+    pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
     assert pod_list.items == []
 
     # And now everything should show as up-to-date because we optimistically
@@ -158,23 +157,19 @@ async def test_gar(
         expected = read_output_data("gar", "menu-before.json")
         assert seen == expected
 
-        # There should be two running pods, one for each node. Since we didn't
-        # configure any pod metadata, they should also not have owner
-        # references.
-        namespace = config.lab.namespace_prefix
-        pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
+        # There should be two running pods, one for each node.
+        pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
         tag = known_images[0]["tags"][0].replace("_", "-")
         assert [o.metadata.name for o in pod_list.items] == [
             f"prepull-{tag}-node1",
             f"prepull-{tag}-node2",
         ]
-        assert all(not p.metadata.owner_references for p in pod_list.items)
 
         # Mark those nodes as complete, and two more should be started.
         for pod in pod_list.items:
             await mark_pod_complete(mock_kubernetes, pod)
         await asyncio.sleep(0.2)
-        pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
+        pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
         tag = known_images[1]["tags"][0].replace("_", "-")
         assert sorted(o.metadata.name for o in pod_list.items) == [
             f"prepull-{tag}-node1",
@@ -185,7 +180,7 @@ async def test_gar(
         for pod in pod_list.items:
             await mark_pod_complete(mock_kubernetes, pod)
         await asyncio.sleep(0.2)
-        pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
+        pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
         assert pod_list.items == []
 
         images = factory.image_service.images()
@@ -287,7 +282,7 @@ async def test_kubernetes_error(
     await factory.start_background_services()
     await asyncio.sleep(0.2)
 
-    obj = "userlabs/prepull-d-2077-10-23-node2"
+    obj = "nublado/prepull-d-2077-10-23-node2"
     error = f"Error creating object (Pod {obj}, status 400)"
     assert mock_slack.messages == [
         {
@@ -346,23 +341,18 @@ async def test_conflict(
     std_result_dir: Path,
 ) -> None:
     """Test handling of conflicts with a pre-existing prepuller pod."""
-    namespace = config.lab.namespace_prefix
     with (std_result_dir / "prepull-conflict-objects.json").open("r") as f:
         expected = json.load(f)
 
     # Create a pod with the same name as the prepull pod that the prepuller
     # will want to create. Don't bother to try to make this a valid pod, just
     # make it something good enough to be accepted by the mock.
-    pod = V1Pod(
-        metadata=V1ObjectMeta(
-            name=expected[0]["metadata"]["name"], namespace=namespace
-        )
-    )
-    await mock_kubernetes.create_namespaced_pod(namespace, pod)
+    pod = V1Pod(metadata=V1ObjectMeta(name=expected[0]["metadata"]["name"]))
+    await mock_kubernetes.create_namespaced_pod("nublado", pod)
 
     # Now, start the prepuller and wait for it to kick off its first pods. It
     # should replace our dummy pod with the proper pod without complaining.
     await factory.start_background_services()
     await asyncio.sleep(0.2)
-    pod_list = await mock_kubernetes.list_namespaced_pod(namespace)
+    pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
     assert [strip_none(o.to_dict()) for o in pod_list.items] == expected

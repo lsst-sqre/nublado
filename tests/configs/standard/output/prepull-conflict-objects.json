@@ -3,15 +3,11 @@
     "api_version": "v1",
     "kind": "Pod",
     "metadata": {
-      "annotations": {
-        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
-        "argocd.argoproj.io/sync-options": "Prune=false"
-      },
       "labels": {
 	"nublado.lsst.io/category": "prepuller"
       },
       "name": "prepull-d-2077-10-23-node2",
-      "namespace": "userlabs",
+      "namespace": "nublado",
       "owner_references": [
         {
           "api_version": "v1",
