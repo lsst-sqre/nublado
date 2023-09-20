@@ -254,9 +254,9 @@ distlib==0.3.7 \
     --hash=sha256:2e24928bc811348f0feb63014e97aaae3037f2cf48712d51ae61df7fd6075057 \
     --hash=sha256:9dafe54b34a028eafd95039d5e5d4851a13734540f1331060d31c9916e7147a8
     # via virtualenv
-documenteer[guide]==1.0.0a7 \
-    --hash=sha256:217a3382761a5df5ee9561b70eac83c86caca8ee7bc7a85ad65ba818fa96d8ad \
-    --hash=sha256:adb3c00ecc181d0651db016e614ab9f9b3c86803fb02d43203aef9167fc8677e
+documenteer[guide]==1.0.0a8 \
+    --hash=sha256:566126dd8c798b4b4a282580b372c1b814f189f0d6a9f25b9ff1aebdd3353a0f \
+    --hash=sha256:a7889bfb8f246e01ce1af508aeb477312d4885f4ecc33fdd89ddbfaeacab5208
     # via -r requirements/dev.in
 docutils==0.19 \
     --hash=sha256:33995a6753c30b7f577febfc2c50411fec6aac7f7ffeb7c4cfe5991072dcf9e6 \
@@ -365,9 +365,9 @@ jinja2==3.1.2 \
     #   myst-parser
     #   sphinx
     #   sphinxcontrib-redoc
-jsonschema==4.19.0 \
-    --hash=sha256:043dc26a3845ff09d20e4420d6012a9c91c9aa8999fa184e7efcfeccb41e32cb \
-    --hash=sha256:6e1e7569ac13be8139b2dd2c21a55d350066ee3f80df06c608b398cdc6f30e8f
+jsonschema==4.19.1 \
+    --hash=sha256:cd5f1f9ed9444e554b38ba003af06c0a8c2868131e56bfbef0550fb450c0330e \
+    --hash=sha256:ec84cc37cfa703ef7cd4928db24f9cb31428a5d0fa77747b8b51a847458e0bbf
     # via sphinxcontrib-redoc
 jsonschema-specifications==2023.7.1 \
     --hash=sha256:05adf340b659828a004220a9613be00fa3f223f2b82002e273dee62fd50524b1 \
