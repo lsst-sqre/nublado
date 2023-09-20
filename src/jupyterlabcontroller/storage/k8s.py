@@ -10,7 +10,6 @@ from typing import Any
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (
     ApiClient,
-    ApiException,
     V1ConfigMap,
     V1Job,
     V1LabelSelector,
@@ -35,16 +34,8 @@ from structlog.stdlib import BoundLogger
 
 from ..config import LabSecret
 from ..constants import ARGO_CD_ANNOTATIONS
-from ..exceptions import (
-    DuplicateObjectError,
-    KubernetesError,
-    MissingObjectError,
-)
-from ..models.domain.kubernetes import (
-    KubernetesNodeImage,
-    PodPhase,
-    PropagationPolicy,
-)
+from ..exceptions import DuplicateObjectError, MissingObjectError
+from ..models.domain.kubernetes import PodPhase, PropagationPolicy
 from ..models.v1.lab import ResourceQuantity
 from ..util import deslashify
 from .kubernetes.creator import (
@@ -668,36 +659,6 @@ class K8sStorageClient:
             for n in await self._namespace.list()
             if n.metadata.name.startswith(f"{prefix}-")
         ]
-
-    #
-    # Prepuller methods
-    #
-
-    async def get_image_data(self) -> dict[str, list[KubernetesNodeImage]]:
-        """Get the list of cached images from each node.
-
-        Returns
-        -------
-        dict of str to list
-            Map of nodes to lists of all cached images on that node.
-        """
-        self._logger.debug("Getting node image data")
-        try:
-            nodes = await self.api.list_node()
-        except ApiException as e:
-            raise KubernetesError.from_exception(
-                "Error reading node information", e, kind="Node"
-            ) from e
-        image_data = {}
-        for node in nodes.items:
-            name = node.metadata.name
-            images = [
-                KubernetesNodeImage.from_container_image(i)
-                for i in node.status.images
-                if node.status is not None and node.status.images is not None
-            ]
-            image_data[name] = images
-        return image_data
 
     #
     # Methods for user fileservers
