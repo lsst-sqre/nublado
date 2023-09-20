@@ -89,6 +89,11 @@ class ContextDependency:
             fileserver_state=self._process_context.fileserver_state,
         )
 
+    @property
+    def is_initialized(self) -> bool:
+        """Whether the process context has been initialized."""
+        return self._process_context is not None
+
     async def initialize(self, config: Config) -> None:
         """Initialize the process-global shared context.
 

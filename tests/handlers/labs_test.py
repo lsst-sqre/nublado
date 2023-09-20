@@ -22,7 +22,6 @@ from safir.testing.slack import MockSlackWebhook
 
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.constants import DROPDOWN_SENTINEL_VALUE
-from jupyterlabcontroller.dependencies.context import context_dependency
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 
@@ -702,13 +701,9 @@ async def test_homedir_schema(
     was always :file:`/home/{username}` even if another home directory rule
     was set.
     """
+    config = await configure("homedir-schema")
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
-
-    # Reconfigure the app to use a different home directory scheme.
-    await context_dependency.aclose()
-    config = configure("homedir-schema")
-    await context_dependency.initialize(config)
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
