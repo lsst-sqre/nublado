@@ -51,7 +51,7 @@ class LabStorage:
         self._secret = SecretStorage(api_client, logger)
         self._service = ServiceStorage(api_client, logger)
 
-    async def create_lab(self, objects: LabObjects) -> None:
+    async def create(self, objects: LabObjects) -> None:
         """Create all of the Kubernetes objects for a user's lab.
 
         Parameters

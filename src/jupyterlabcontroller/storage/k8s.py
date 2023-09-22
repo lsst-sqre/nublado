@@ -4,23 +4,18 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from datetime import timedelta
-from typing import Any
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (
     ApiClient,
     V1ConfigMap,
-    V1Job,
-    V1ObjectMeta,
     V1Pod,
     V1ResourceQuota,
-    V1Service,
 )
 from structlog.stdlib import BoundLogger
 
-from ..constants import ARGO_CD_ANNOTATIONS
 from ..exceptions import DuplicateObjectError, MissingObjectError
-from ..models.domain.kubernetes import PodPhase, PropagationPolicy
+from ..models.domain.kubernetes import PodPhase
 from .kubernetes.creator import (
     ConfigMapStorage,
     PersistentVolumeClaimStorage,
@@ -213,61 +208,6 @@ class K8sStorageClient:
         async for message in self._pod.events_for_pod(pod_name, namespace):
             yield message
 
-    def standard_metadata(
-        self,
-        name: str,
-        namespace: str = "",
-        category: str = "lab",
-        username: str = "",
-    ) -> V1ObjectMeta:
-        """Create the standard metadata for an object.
-
-        Parameters
-        ----------
-        name
-            Name of the object.
-
-        namespace
-            Namespace of the object (optional, defaults to the empty string).
-
-        category
-            Category of the object (optional, defaults to ``lab``).
-
-        username
-            User for whom the object is created (optional, defaults to
-            the empty string).
-
-        Returns
-        -------
-        V1ObjectMeta
-            Metadata for the object. For labs, this primarily adds Argo CD
-            annotations to make user labs play somewhat nicely with Argo CD.
-            For fileservers, this also adds labels we can use as selectors;
-            this is necessary because all user fileservers run in a single
-            namespace.
-        """
-        argo_app = "nublado-users"
-        if category == "fileserver":
-            argo_app = "fileservers"
-        elif category == "prepuller":
-            argo_app = ""
-        labels = {
-            "nublado.lsst.io/category": category,
-        }
-        if argo_app:
-            labels["argocd.argoproj.io/instance"] = argo_app
-        if username:
-            labels["nublado.lsst.io/user"] = username
-        annotations = ARGO_CD_ANNOTATIONS.copy()
-        metadata = V1ObjectMeta(
-            name=name,
-            labels=labels,
-            annotations=annotations,
-        )
-        if namespace:
-            metadata.namespace = namespace
-        return metadata
-
     async def delete_namespace(self, name: str, *, wait: bool = False) -> None:
         """Delete a Kubernetes namespace.
 
@@ -373,64 +313,6 @@ class K8sStorageClient:
         """
         return await self._namespace.read(name) is not None
 
-    async def create_fileserver_job(self, namespace: str, job: V1Job) -> None:
-        """Create a ``Job`` for a file server.
-
-        For all of our fileserver objects, if we are being asked to create
-        them, it means we thought, based on our user map that we did not have
-        a working file server. Any objects we encounter are therefore left
-        over from a non-functional file server that wasn't cleaned up
-        properly. In that case, delete the old object and then create a new
-        one.
-        """
-        await self._job.create(
-            namespace,
-            job,
-            replace=True,
-            propagation_policy=PropagationPolicy.FOREGROUND,
-        )
-
-    async def delete_fileserver_job(
-        self, username: str, namespace: str
-    ) -> None:
-        await self._job.delete(
-            f"{username}-fs",
-            namespace,
-            propagation_policy=PropagationPolicy.FOREGROUND,
-        )
-
-    async def create_fileserver_service(
-        self, namespace: str, spec: V1Service
-    ) -> None:
-        """Create the ``Service`` for a file server.
-
-        See `create_fileserver_job` for the rationale behind retrying a
-        conflict on creation.
-        """
-        await self._service.create(namespace, spec, replace=True)
-
-    async def delete_fileserver_service(
-        self, username: str, namespace: str
-    ) -> None:
-        name = f"{username}-fs"
-        await self._service.delete(name, namespace)
-
-    async def create_fileserver_gafaelfawringress(
-        self, namespace: str, spec: dict[str, Any]
-    ) -> None:
-        """Create the ``GafaelfawrIngress`` for a file server.
-
-        See `create_fileserver_job` for the rationale behind retrying a
-        conflict on creation.
-        """
-        await self._gafaelfawr.create(namespace, spec, replace=True)
-
-    async def delete_fileserver_gafaelfawringress(
-        self, username: str, namespace: str
-    ) -> None:
-        name = f"{username}-fs"
-        await self._gafaelfawr.delete(name, namespace)
-
     async def get_observed_fileserver_state(
         self, namespace: str
     ) -> dict[str, bool]:
@@ -532,20 +414,6 @@ class K8sStorageClient:
         self._logger.debug(f"...fileserver for {username} is OK.")
         return True
 
-    async def wait_for_fileserver_object_deletion(
-        self, username: str, namespace: str
-    ) -> None:
-        """Wait for the key fileserver objects (Ingress and Job) to
-        be deleted.  We will presume that the GafaelfawrIngress deletion
-        happens basically immediately after its corresponding Ingress
-        is deleted.
-        """
-        name = f"{username}-fs"
-        self._logger.debug("Waiting for fileserver Ingress deletion")
-        await self._ingress.wait_for_deletion(name, namespace)
-        self._logger.debug("Waiting for fileserver Job deletion")
-        await self._job.wait_for_deletion(name, namespace)
-
     async def get_fileserver_pod_for_user(
         self, username: str, namespace: str
     ) -> V1Pod | None:
@@ -557,9 +425,3 @@ class K8sStorageClient:
             msg = f"Multiple pods match job {username}-fs"
             raise DuplicateObjectError(msg, kind="Pod", namespace=namespace)
         return pods[0]
-
-    async def wait_for_user_fileserver_ingress_ready(
-        self, username: str, namespace: str, timeout: timedelta
-    ) -> None:
-        name = f"{username}-fs"
-        await self._ingress.wait_for_ip_address(name, namespace, timeout)

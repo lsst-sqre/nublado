@@ -179,7 +179,7 @@ class LabManager:
 
         # Create the lab objects in Kubernetes.
         self._logger.info("Creating new lab")
-        await self._storage.create_lab(objects)
+        await self._storage.create(objects)
         await self._lab_state.publish_pod_creation(
             username, "Created Kubernetes objects for user lab", 30
         )

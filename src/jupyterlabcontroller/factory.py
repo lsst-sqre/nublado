@@ -16,6 +16,7 @@ from structlog.stdlib import BoundLogger
 
 from .config import Config
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
+from .services.builder.fileserver import FileserverBuilder
 from .services.builder.lab import LabBuilder
 from .services.builder.prepuller import PrepullerBuilder
 from .services.fileserver import FileserverStateManager
@@ -32,6 +33,7 @@ from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.gar import GARStorageClient
 from .storage.k8s import K8sStorageClient
+from .storage.kubernetes.fileserver import FileserverStorage
 from .storage.kubernetes.lab import LabStorage
 from .storage.kubernetes.node import NodeStorage
 from .storage.kubernetes.pod import PodStorage
@@ -134,6 +136,9 @@ class ProcessContext:
         )
         size_manager = SizeManager(config.lab.sizes)
         lab_builder = LabBuilder(config.lab, size_manager, config.base_url)
+        fileserver_builder = FileserverBuilder(
+            config.fileserver, config.base_url, config.lab.volumes
+        )
         return cls(
             config=config,
             http_client=http_client,
@@ -159,10 +164,13 @@ class ProcessContext:
                 logger=logger,
             ),
             fileserver_state=FileserverStateManager(
+                config=config.fileserver,
+                fileserver_builder=fileserver_builder,
+                fileserver_storage=FileserverStorage(
+                    kubernetes_client, logger
+                ),
+                k8s_client=k8s_client,
                 logger=logger,
-                config=config,
-                kubernetes=k8s_client,
-                lab_builder=lab_builder,
             ),
         )
 

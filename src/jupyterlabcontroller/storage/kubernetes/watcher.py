@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import timedelta
@@ -157,8 +158,11 @@ class KubernetesWatcher(Generic[T]):
         if resource_version:
             args["resource_version"] = resource_version
         if timeout:
-            args["timeout_seconds"] = int(timeout.total_seconds())
-            args["_request_timeout"] = int(timeout.total_seconds())
+            timeout_seconds = int(math.ceil(timeout.total_seconds()))
+            if timeout_seconds <= 0:
+                raise ValueError("Watch timeout specified but <= 0")
+            args["timeout_seconds"] = timeout_seconds
+            args["_request_timeout"] = timeout_seconds
         self._args = args
 
         # Passing in an explicit type should not be necessary, but the

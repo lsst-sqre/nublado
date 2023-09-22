@@ -131,7 +131,7 @@ class PodStorage(KubernetesObjectDeleter):
         until_not: set[PodPhase],
         timeout: timedelta | None = None,
     ) -> PodPhase | None:
-        """Waits for a pod to finish starting.
+        """Waits for a pod to exit a set of phases.
 
         Waits for the pod to reach a phase other than the ones given, and
         returns the new phase.
@@ -146,7 +146,7 @@ class PodStorage(KubernetesObjectDeleter):
             Wait until the pod is not in one of these phases (or was deleted,
             or the watch timed out).
         timeout
-            Timeout to wait for the pod to start.
+            Timeout to wait for the pod to enter another phase.
 
         Returns
         -------

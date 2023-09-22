@@ -42,4 +42,4 @@ fileserver:
   creationTimeout: 1
   namespace: fileservers
   image: ghcr.io/lsst-sqre/worblehat
-
+  application: fileservers

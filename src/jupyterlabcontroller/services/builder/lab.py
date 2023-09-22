@@ -17,7 +17,6 @@ from kubernetes_asyncio.client import (
     V1EnvFromSource,
     V1EnvVar,
     V1EnvVarSource,
-    V1HostPathVolumeSource,
     V1KeyToPath,
     V1LabelSelector,
     V1LocalObjectReference,
@@ -26,12 +25,10 @@ from kubernetes_asyncio.client import (
     V1NetworkPolicyIngressRule,
     V1NetworkPolicyPort,
     V1NetworkPolicySpec,
-    V1NFSVolumeSource,
     V1ObjectFieldSelector,
     V1ObjectMeta,
     V1PersistentVolumeClaim,
     V1PersistentVolumeClaimSpec,
-    V1PersistentVolumeClaimVolumeSource,
     V1Pod,
     V1PodSecurityContext,
     V1PodSpec,
@@ -50,15 +47,7 @@ from kubernetes_asyncio.client import (
     V1VolumeMount,
 )
 
-from ...config import (
-    FileMode,
-    HostPathVolumeSource,
-    LabConfig,
-    LabVolume,
-    NFSVolumeSource,
-    PVCVolumeSource,
-    UserHomeDirectorySchema,
-)
+from ...config import LabConfig, PVCVolumeSource, UserHomeDirectorySchema
 from ...constants import (
     ARGO_CD_ANNOTATIONS,
     LAB_COMMAND,
@@ -67,10 +56,12 @@ from ...constants import (
     MOUNT_PATH_SECRETS,
 )
 from ...models.domain.gafaelfawr import GafaelfawrUserInfo
-from ...models.domain.lab import LabObjects, LabVolumeContainer
+from ...models.domain.lab import LabObjects
 from ...models.domain.rspimage import RSPImage
+from ...models.domain.volumes import MountedVolume
 from ...models.v1.lab import LabResources, LabSpecification
 from ..size import SizeManager
+from .volumes import VolumeBuilder
 
 __all__ = ["LabBuilder"]
 
@@ -94,6 +85,7 @@ class LabBuilder:
         self._config = config
         self._size_manager = size_manager
         self._instance_url = instance_url
+        self._volume_builder = VolumeBuilder()
 
     def build_internal_url(self, username: str, env: dict[str, str]) -> str:
         """Determine the URL of a newly-spawned lab.
@@ -157,68 +149,6 @@ class LabBuilder:
             service=self._build_service(user.username),
             pod=self._build_pod(user, lab, image),
         )
-
-    def build_lab_config_volumes(
-        self,
-        username: str,
-        volumes: list[LabVolume],
-        prefix: str = "",
-    ) -> list[LabVolumeContainer]:
-        """Construct volumes and mounts for volumes in the lab configuration.
-
-        Parameters
-        ----------
-        username
-            Name of user this lab is for, used to name the PVC objects.
-        volumes
-            Configured volumes. This is a parameter rather than being taken
-            straight from the lab configuration because this method is also
-            used when constructing init containers, which use separate volume
-            lists.
-        prefix
-            Prefix to prepend to all mount paths, if given.
-
-        Returns
-        -------
-        list of LabVolumeContainer
-            List of volumes and mounts.
-        """
-        results = []
-        pvc_count = 1
-        for storage in volumes:
-            is_readonly = storage.mode == FileMode.RO
-            name = storage.container_path.replace("/", "-")[1:].lower()
-            match storage.source:
-                case HostPathVolumeSource() as source:
-                    volume = V1Volume(
-                        name=name,
-                        host_path=V1HostPathVolumeSource(path=source.path),
-                    )
-                case NFSVolumeSource() as source:
-                    volume = V1Volume(
-                        name=name,
-                        nfs=V1NFSVolumeSource(
-                            path=source.server_path,
-                            read_only=is_readonly,
-                            server=source.server,
-                        ),
-                    )
-                case PVCVolumeSource():
-                    claim = V1PersistentVolumeClaimVolumeSource(
-                        claim_name=f"{username}-nb-pvc-{pvc_count}",
-                        read_only=is_readonly,
-                    )
-                    volume = V1Volume(name=name, persistent_volume_claim=claim)
-                    pvc_count += 1
-            mount = V1VolumeMount(
-                name=name,
-                mount_path=prefix + storage.container_path,
-                sub_path=storage.sub_path,
-                read_only=is_readonly,
-            )
-            container = LabVolumeContainer(volume=volume, volume_mount=mount)
-            results.append(container)
-        return results
 
     def namespace_for_user(self, username: str) -> str:
         """Construct the namespace name for a user's lab environment.
@@ -559,14 +489,17 @@ class LabBuilder:
             annotations.update(self._config.extra_annotations)
         return annotations
 
-    def _build_pod_volumes(self, username: str) -> list[LabVolumeContainer]:
+    def _build_pod_volumes(self, username: str) -> list[MountedVolume]:
         """Construct the volumes that will be mounted by the user's pod.
 
         This stitches together the Volume and VolumeMount definitions from
         each of our sources.
         """
+        volumes_from_config = self._volume_builder.build_mounted_volumes(
+            username, self._config.volumes
+        )
         return [
-            *self.build_lab_config_volumes(username, self._config.volumes),
+            *volumes_from_config,
             *self._build_pod_file_volumes(username),
             self._build_pod_secret_volume(username),
             self._build_pod_env_volume(username),
@@ -574,9 +507,7 @@ class LabBuilder:
             self._build_pod_downward_api_volume(username),
         ]
 
-    def _build_pod_file_volumes(
-        self, username: str
-    ) -> list[LabVolumeContainer]:
+    def _build_pod_file_volumes(self, username: str) -> list[MountedVolume]:
         """Construct the volumes that mount files from a ``ConfigMap``."""
         volumes = []
         for config_file in self._config.files:
@@ -587,7 +518,7 @@ class LabBuilder:
             else:
                 config_map = f"{username}-nb-files"
             key_to_path = V1KeyToPath(mode=0o0644, key=name, path=subpath)
-            volume = LabVolumeContainer(
+            volume = MountedVolume(
                 volume=V1Volume(
                     name=name,
                     config_map=V1ConfigMapVolumeSource(
@@ -604,7 +535,7 @@ class LabBuilder:
             volumes.append(volume)
         return volumes
 
-    def _build_pod_secret_volume(self, username: str) -> LabVolumeContainer:
+    def _build_pod_secret_volume(self, username: str) -> MountedVolume:
         """Construct the volume that mounts the lab secrets.
 
         All secrets are mounted in the same directory. Secrets should
@@ -618,7 +549,7 @@ class LabBuilder:
         `_build_pod_secret_volume_extra_mounts` and included in the volume
         mounts when constructing the pod.
         """
-        return LabVolumeContainer(
+        return MountedVolume(
             volume=V1Volume(
                 name="secrets",
                 secret=V1SecretVolumeSource(secret_name=f"{username}-nb"),
@@ -645,14 +576,14 @@ class LabBuilder:
             mounts.append(mount)
         return mounts
 
-    def _build_pod_env_volume(self, username: str) -> LabVolumeContainer:
+    def _build_pod_env_volume(self, username: str) -> MountedVolume:
         """Build the volume that mounts the environment inside the pod.
 
         It's not clear whether this is necessary, but we've been doing it for
         a while so removing this would potentially break backward
         compatibility. The mount path should be configurable, but isn't yet.
         """
-        return LabVolumeContainer(
+        return MountedVolume(
             volume=V1Volume(
                 name="env",
                 config_map=V1ConfigMapVolumeSource(name=f"{username}-nb-env"),
@@ -662,18 +593,16 @@ class LabBuilder:
             ),
         )
 
-    def _build_pod_tmp_volume(self) -> LabVolumeContainer:
+    def _build_pod_tmp_volume(self) -> MountedVolume:
         """Build the volume that provides a writable tmpfs :file:`/tmp`."""
-        return LabVolumeContainer(
+        return MountedVolume(
             volume=V1Volume(empty_dir=V1EmptyDirVolumeSource(), name="tmp"),
             volume_mount=V1VolumeMount(
                 mount_path="/tmp", name="tmp", read_only=False
             ),
         )
 
-    def _build_pod_downward_api_volume(
-        self, username: str
-    ) -> LabVolumeContainer:
+    def _build_pod_downward_api_volume(self, username: str) -> MountedVolume:
         """Build the volume that mounts downward API information.
 
         This is redundant with environment variables we set that contain the
@@ -698,7 +627,7 @@ class LabBuilder:
                 path=field.replace(".", "_"),
             )
             files.append(volume_file)
-        return LabVolumeContainer(
+        return MountedVolume(
             volume=V1Volume(
                 name="runtime",
                 downward_api=V1DownwardAPIVolumeSource(items=files),
@@ -738,7 +667,9 @@ class LabBuilder:
 
         containers = []
         for spec in self._config.init_containers:
-            volumes = self.build_lab_config_volumes(username, spec.volumes)
+            volumes = self._volume_builder.build_mounted_volumes(
+                username, spec.volumes
+            )
             container = V1Container(
                 name=spec.name,
                 env=env,
