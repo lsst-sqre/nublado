@@ -21,7 +21,7 @@ jobs:
           - "3.11"
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # Ideally we would use the oldest supported version of Python to update
       # dependencies, not the matrixed Python version, since this accurately
