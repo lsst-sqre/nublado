@@ -22,12 +22,14 @@ from safir.testing.slack import MockSlackWebhook
 
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.constants import DROPDOWN_SENTINEL_VALUE
+from jupyterlabcontroller.dependencies.context import context_dependency
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 
 from ..settings import TestObjectFactory
+from ..support.config import configure
 from ..support.constants import TEST_BASE_URL
-from ..support.data import read_output_data
+from ..support.data import read_output_data, read_output_json
 
 
 async def get_lab_events(
@@ -272,7 +274,7 @@ async def test_spawn_after_failure(
     assert pod.status.phase == PodPhase.RUNNING.value
 
     # Get the events and look for the lab recreation events.
-    expected_events = read_output_data("standard", "lab-recreate-events.json")
+    expected_events = read_output_json("standard", "lab-recreate-events.json")
     assert await get_lab_events(client, user.username) == expected_events
 
 
@@ -567,7 +569,7 @@ async def test_spawn_errors(
             "read_namespaced_secret",
             "reading object",
             "Secret",
-            "userlabs/nublado-secret",
+            "userlabs/extra-secret",
         ),
         (
             "create_namespaced_secret",
@@ -579,13 +581,13 @@ async def test_spawn_errors(
             "create_namespaced_config_map",
             "creating object",
             "ConfigMap",
-            "userlabs-rachel/rachel-nb-nss",
+            "userlabs-rachel/rachel-nb-env",
         ),
         (
             "create_namespaced_network_policy",
             "creating object",
             "NetworkPolicy",
-            "userlabs-rachel/rachel-nb-env",
+            "userlabs-rachel/rachel-nb",
         ),
         (
             "create_namespaced_resource_quota",
@@ -686,3 +688,49 @@ async def test_spawn_errors(
         mock_slack.messages = []
         r = await client.delete(f"/nublado/spawner/v1/labs/{user.username}")
         assert r.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_homedir_schema(
+    client: AsyncClient,
+    mock_kubernetes: MockKubernetesApi,
+    obj_factory: TestObjectFactory,
+) -> None:
+    """Check that the home directory is constructed correctly.
+
+    Earlier versions had a bug where the working directory for the spawned pod
+    was always :file:`/home/{username}` even if another home directory rule
+    was set.
+    """
+    token, user = obj_factory.get_user()
+    lab = obj_factory.labspecs[0]
+
+    # Reconfigure the app to use a different home directory scheme.
+    await context_dependency.aclose()
+    config = configure("homedir-schema")
+    await context_dependency.initialize(config)
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers={
+            "X-Auth-Request-Token": token,
+            "X-Auth-Request-User": user.username,
+        },
+    )
+    assert r.status_code == 201
+
+    config_map = await mock_kubernetes.read_namespaced_config_map(
+        f"{user.username}-nb-nss",
+        f"{config.lab.namespace_prefix}-{user.username}",
+    )
+    expected_passwd = read_output_data("homedir-schema", "passwd")
+    assert config_map.data["passwd"] == expected_passwd
+
+    pod = await mock_kubernetes.read_namespaced_pod(
+        f"{user.username}-nb",
+        f"{config.lab.namespace_prefix}-{user.username}",
+    )
+    expected_homedir = f"/home/{user.username[0]}/{user.username}"
+    for container in pod.spec.containers:
+        assert container.working_dir == expected_homedir

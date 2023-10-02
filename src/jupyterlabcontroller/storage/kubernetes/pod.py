@@ -159,7 +159,10 @@ class PodStorage(KubernetesObjectDeleter):
             Raised if there is some failure in a Kubernetes API call.
         """
         logger = self._logger.bind(name=name, namespace=namespace)
-        logger.debug("Waiting for pod phase change", until_not=list(until_not))
+        logger.debug(
+            "Waiting for pod phase change",
+            until_not=[p.value for p in until_not],
+        )
 
         # Retrieve the object first. It's possible that it's already in the
         # correct phase, and we can return immediately. If not, we want to
@@ -192,6 +195,7 @@ class PodStorage(KubernetesObjectDeleter):
                     return None
                 phase = PodPhase(event.object.status.phase)
                 if phase not in until_not:
+                    logger.debug("Pod phase changed", status=phase.value)
                     return phase
         finally:
             await watcher.close()

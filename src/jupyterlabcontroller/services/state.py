@@ -32,7 +32,7 @@ from ..models.v1.lab import (
     UserOptions,
 )
 from ..storage.k8s import K8sStorageClient
-from .builder import LabBuilder
+from .builder.lab import LabBuilder
 from .size import SizeManager
 
 __all__ = ["LabStateManager"]
@@ -150,7 +150,7 @@ class LabStateManager:
             phase = await self._kubernetes.get_pod_phase(pod, namespace)
         except KubernetesError as e:
             self._logger.exception(
-                "Cannot get pod status",
+                "Cannot get pod phase",
                 user=username,
                 name=pod,
                 namespace=namespace,

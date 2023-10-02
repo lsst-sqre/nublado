@@ -1,0 +1,821 @@
+"""Construction of Kubernetes objects for user lab environments."""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+from kubernetes_asyncio.client import (
+    V1ConfigMap,
+    V1ConfigMapEnvSource,
+    V1ConfigMapVolumeSource,
+    V1Container,
+    V1ContainerPort,
+    V1DownwardAPIVolumeFile,
+    V1DownwardAPIVolumeSource,
+    V1EmptyDirVolumeSource,
+    V1EnvFromSource,
+    V1EnvVar,
+    V1EnvVarSource,
+    V1HostPathVolumeSource,
+    V1KeyToPath,
+    V1LabelSelector,
+    V1LocalObjectReference,
+    V1Namespace,
+    V1NetworkPolicy,
+    V1NetworkPolicyIngressRule,
+    V1NetworkPolicyPort,
+    V1NetworkPolicySpec,
+    V1NFSVolumeSource,
+    V1ObjectFieldSelector,
+    V1ObjectMeta,
+    V1PersistentVolumeClaim,
+    V1PersistentVolumeClaimSpec,
+    V1PersistentVolumeClaimVolumeSource,
+    V1Pod,
+    V1PodSecurityContext,
+    V1PodSpec,
+    V1ResourceFieldSelector,
+    V1ResourceQuota,
+    V1ResourceQuotaSpec,
+    V1ResourceRequirements,
+    V1Secret,
+    V1SecretKeySelector,
+    V1SecretVolumeSource,
+    V1SecurityContext,
+    V1Service,
+    V1ServicePort,
+    V1ServiceSpec,
+    V1Volume,
+    V1VolumeMount,
+)
+
+from ...config import (
+    FileMode,
+    HostPathVolumeSource,
+    LabConfig,
+    LabVolume,
+    NFSVolumeSource,
+    PVCVolumeSource,
+    UserHomeDirectorySchema,
+)
+from ...constants import (
+    ARGO_CD_ANNOTATIONS,
+    LAB_COMMAND,
+    MOUNT_PATH_DOWNWARD_API,
+    MOUNT_PATH_ENVIRONMENT,
+    MOUNT_PATH_SECRETS,
+)
+from ...models.domain.gafaelfawr import GafaelfawrUserInfo
+from ...models.domain.lab import LabObjects, LabVolumeContainer
+from ...models.domain.rspimage import RSPImage
+from ...models.v1.lab import LabResources, LabSpecification
+from ..size import SizeManager
+
+__all__ = ["LabBuilder"]
+
+
+class LabBuilder:
+    """Construct Kubernetes objects for user lab environments.
+
+    Parameters
+    ----------
+    config
+        Lab configuration.
+    size_manager
+        Service that handles lab size conversions.
+    instance_url
+        Base URL for this Notebook Aspect instance.
+    """
+
+    def __init__(
+        self, config: LabConfig, size_manager: SizeManager, instance_url: str
+    ) -> None:
+        self._config = config
+        self._size_manager = size_manager
+        self._instance_url = instance_url
+
+    def build_internal_url(self, username: str, env: dict[str, str]) -> str:
+        """Determine the URL of a newly-spawned lab.
+
+        The hostname and port are fixed to match the Kubernetes ``Service`` we
+        create, but the local part is normally determined by an environment
+        variable passed from JupyterHub.
+
+        Parameters
+        ----------
+        username
+            Username of lab user.
+        env
+            Environment variables from JupyterHub.
+
+        Returns
+        -------
+        str
+            URL of the newly-spawned lab.
+        """
+        namespace = self.namespace_for_user(username)
+        path = env["JUPYTERHUB_SERVICE_PREFIX"]
+        return f"http://lab.{namespace}:8888" + path
+
+    def build_lab(
+        self,
+        *,
+        user: GafaelfawrUserInfo,
+        lab: LabSpecification,
+        image: RSPImage,
+        secrets: dict[str, str],
+        pull_secret: V1Secret | None = None,
+    ) -> LabObjects:
+        """Construct the objects that make up a user's lab.
+
+        Parameters
+        ----------
+        username
+            Username of the user.
+        lab
+            Specification of the lab requested.
+        image
+            Image to use for the lab.
+        secrets
+            Dictionary of secrets to expose to the lab.
+        pull_secret
+            Optional pull secret for the lab pod.
+
+        Returns
+        -------
+        LabObjects
+            Kubernetes objects that make up the user's lab.
+        """
+        return LabObjects(
+            namespace=self._build_namespace(user.username),
+            config_maps=self._build_config_maps(user, lab, image),
+            network_policy=self._build_network_policy(user.username),
+            pvcs=self._build_pvcs(user.username),
+            quota=self._build_quota(user),
+            secrets=self._build_secrets(user.username, secrets, pull_secret),
+            service=self._build_service(user.username),
+            pod=self._build_pod(user, lab, image),
+        )
+
+    def build_lab_config_volumes(
+        self,
+        username: str,
+        volumes: list[LabVolume],
+        prefix: str = "",
+    ) -> list[LabVolumeContainer]:
+        """Construct volumes and mounts for volumes in the lab configuration.
+
+        Parameters
+        ----------
+        username
+            Name of user this lab is for, used to name the PVC objects.
+        volumes
+            Configured volumes. This is a parameter rather than being taken
+            straight from the lab configuration because this method is also
+            used when constructing init containers, which use separate volume
+            lists.
+        prefix
+            Prefix to prepend to all mount paths, if given.
+
+        Returns
+        -------
+        list of LabVolumeContainer
+            List of volumes and mounts.
+        """
+        results = []
+        pvc_count = 1
+        for storage in volumes:
+            is_readonly = storage.mode == FileMode.RO
+            name = storage.container_path.replace("/", "-")[1:].lower()
+            match storage.source:
+                case HostPathVolumeSource() as source:
+                    volume = V1Volume(
+                        name=name,
+                        host_path=V1HostPathVolumeSource(path=source.path),
+                    )
+                case NFSVolumeSource() as source:
+                    volume = V1Volume(
+                        name=name,
+                        nfs=V1NFSVolumeSource(
+                            path=source.server_path,
+                            read_only=is_readonly,
+                            server=source.server,
+                        ),
+                    )
+                case PVCVolumeSource():
+                    claim = V1PersistentVolumeClaimVolumeSource(
+                        claim_name=f"{username}-nb-pvc-{pvc_count}",
+                        read_only=is_readonly,
+                    )
+                    volume = V1Volume(name=name, persistent_volume_claim=claim)
+                    pvc_count += 1
+            mount = V1VolumeMount(
+                name=name,
+                mount_path=prefix + storage.container_path,
+                sub_path=storage.sub_path,
+                read_only=is_readonly,
+            )
+            container = LabVolumeContainer(volume=volume, volume_mount=mount)
+            results.append(container)
+        return results
+
+    def namespace_for_user(self, username: str) -> str:
+        """Construct the namespace name for a user's lab environment.
+
+        Parameters
+        ----------
+        username
+            Username of lab user.
+
+        Returns
+        -------
+        str
+            Name of their namespace.
+        """
+        return f"{self._config.namespace_prefix}-{username}"
+
+    def recreate_env(self, env: dict[str, str]) -> dict[str, str]:
+        """Recreate the JupyterHub-provided environment.
+
+        When reconciling state from Kubernetes, we need to recover the content
+        of the environment sent from JupyterHub from the ``ConfigMap`` in the
+        user's lab environment. We can't recover the exact original
+        environment, but we can recreate an equivalent one by filtering out
+        the environment variables that would be set directly by the lab
+        controller.
+
+        Parameters
+        ----------
+        env
+            Environment recovered from a ``ConfigMap``.
+
+        Returns
+        -------
+        dict of str
+            Equivalent environment sent by JupyterHub.
+
+        Notes
+        -----
+        The list of environment variables that are always added internally by
+        the lab controller must be kept in sync with the code that creates the
+        config map.
+        """
+        unwanted = {
+            "CPU_GUARANTEE",
+            "CPU_LIMIT",
+            "DEBUG",
+            "EXTERNAL_INSTANCE_URL",
+            "IMAGE_DESCRIPTION",
+            "IMAGE_DIGEST",
+            "JUPYTER_IMAGE",
+            "JUPYTER_IMAGE_SPEC",
+            "MEM_GUARANTEE",
+            "MEM_LIMIT",
+            "RESET_USER_ENV",
+            *list(self._config.env.keys()),
+        }
+        return {k: v for k, v in env.items() if k not in unwanted}
+
+    def _build_home_directory(self, username: str) -> str:
+        """Construct the home directory path for a user."""
+        match self._config.homedir_schema:
+            case UserHomeDirectorySchema.USERNAME:
+                return f"/home/{username}"
+            case UserHomeDirectorySchema.INITIAL_THEN_USERNAME:
+                return f"/home/{username[0]}/{username}"
+
+    def _build_metadata(self, name: str, username: str) -> V1ObjectMeta:
+        """Construct the metadata for an object.
+
+        This adds some standard labels and annotations providing Nublado
+        metadata and telling Argo CD how to handle this object.
+        """
+        labels = {
+            "nublado.lsst.io/category": "lab",
+            "nublado.lsst.io/user": username,
+        }
+        if self._config.application:
+            labels["argocd.argoproj.io/instance"] = self._config.application
+        annotations = ARGO_CD_ANNOTATIONS.copy()
+        return V1ObjectMeta(name=name, labels=labels, annotations=annotations)
+
+    def _build_namespace(self, username: str) -> V1Namespace:
+        """Construct the namespace object for a user's lab."""
+        name = self.namespace_for_user(username)
+        return V1Namespace(metadata=self._build_metadata(name, username))
+
+    def _build_config_maps(
+        self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
+    ) -> list[V1ConfigMap]:
+        """Build the config maps used by the user's lab pod."""
+        config_maps = [
+            self._build_env_config_map(user, lab, image),
+            self._build_nss_config_map(user),
+        ]
+        if file_config_map := self._build_file_config_map(user.username):
+            config_maps.append(file_config_map)
+        return config_maps
+
+    def _build_env_config_map(
+        self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
+    ) -> V1ConfigMap:
+        """Build the config map holding the lab environment variables."""
+        env = lab.env.copy()
+
+        # Add additional environment variables based on user options.
+        if lab.options.enable_debug:
+            env["DEBUG"] = "TRUE"
+        if lab.options.reset_user_env:
+            env["RESET_USER_ENV"] = "TRUE"
+
+        # Add standard environment variables.
+        resources = self._size_manager.resources(lab.options.size)
+        size_str = next(
+            x.description
+            for x in self._size_manager.formdata()
+            if x.name == lab.options.size.value.title()
+        )
+        env.update(
+            {
+                # We would like to deprecate this, following KubeSpawner, but
+                # it's currently used by the lab extensions.
+                "JUPYTER_IMAGE": image.reference_with_digest,
+                # Image data for display frame.
+                "JUPYTER_IMAGE_SPEC": image.reference_with_digest,
+                "IMAGE_DESCRIPTION": image.display_name,
+                "IMAGE_DIGEST": image.digest,
+                # Container data for display frame.
+                "CONTAINER_SIZE": size_str,
+                # Normally set by JupyterHub so keep compatibility.
+                "CPU_GUARANTEE": str(resources.requests.cpu),
+                "CPU_LIMIT": str(resources.limits.cpu),
+                "MEM_GUARANTEE": str(resources.requests.memory),
+                "MEM_LIMIT": str(resources.limits.memory),
+                # Get global instance URL.
+                "EXTERNAL_INSTANCE_URL": self._instance_url,
+            }
+        )
+
+        # Finally, add any environment variable settings from our
+        # configuration. Anything set here overrides anything the user sends
+        # or anything we add internally.
+        env.update(self._config.env)
+
+        # Return the resulting ConfigMap.
+        username = user.username
+        return V1ConfigMap(
+            metadata=self._build_metadata(f"{username}-nb-env", username),
+            immutable=True,
+            data=env,
+        )
+
+    def _build_file_config_map(self, username: str) -> V1ConfigMap | None:
+        """Build the config map holding supplemental mounted files."""
+        if not self._config.files:
+            return None
+        return V1ConfigMap(
+            metadata=self._build_metadata(f"{username}-nb-files", username),
+            immutable=True,
+            data={
+                re.sub(r"[_.]", "-", Path(n).name): f.contents
+                for n, f in self._config.files.items()
+                if not f.modify
+            },
+        )
+
+    def _build_nss_config_map(self, user: GafaelfawrUserInfo) -> V1ConfigMap:
+        """Build the config map holding NSS files.
+
+        The NSS ``ConfigMap`` provides the :file:`/etc/passwd` and
+        :file`/etc/group` files for the running lab. These files are
+        constructed by adding entries for the user and their groups to a base
+        file in the Nublado controller configuration.
+        """
+        etc_passwd = self._config.files["/etc/passwd"].contents
+        etc_group = self._config.files["/etc/group"].contents
+
+        # Construct the user's /etc/passwd entry. Different sites use
+        # different schemes for constructing the home directory path.
+        homedir = self._build_home_directory(user.username)
+        etc_passwd += (
+            f"{user.username}:x:{user.uid}:{user.gid}:"
+            f"{user.name}:{homedir}:/bin/bash\n"
+        )
+
+        # Construct the /etc/group entry by adding all groups that have GIDs.
+        # Add the user as an additional member of their supplemental groups.
+        # We can't do anything with groups that don't have GIDs, so ignore
+        # those.
+        for group in user.groups:
+            if not group.id:
+                continue
+            if group.id == user.gid:
+                etc_group += f"{group.name}:x:{group.id}:\n"
+            else:
+                etc_group += f"{group.name}:x:{group.id}:{user.username}\n"
+
+        # Return the resulting ConfigMap.
+        username = user.username
+        return V1ConfigMap(
+            metadata=self._build_metadata(f"{username}-nb-nss", username),
+            immutable=True,
+            data={"passwd": etc_passwd, "group": etc_group},
+        )
+
+    def _build_network_policy(self, username: str) -> V1NetworkPolicy:
+        """Construct the network policy for a user's lab."""
+        return V1NetworkPolicy(
+            metadata=self._build_metadata(f"{username}-nb", username),
+            spec=V1NetworkPolicySpec(
+                policy_types=["Ingress"],
+                pod_selector=V1LabelSelector(
+                    match_labels={"app": "jupyterhub", "component": "hub"}
+                ),
+                ingress=[
+                    V1NetworkPolicyIngressRule(
+                        ports=[V1NetworkPolicyPort(port=8888)]
+                    ),
+                ],
+            ),
+        )
+
+    def _build_pvcs(self, username: str) -> list[V1PersistentVolumeClaim]:
+        """Construct the persistent volume claims for a user's lab."""
+        pvcs: list[V1PersistentVolumeClaim] = []
+        for volume in self._config.volumes:
+            if not isinstance(volume.source, PVCVolumeSource):
+                continue
+            name = f"{username}-nb-pvc-{len(pvcs) + 1}"
+            pvc = V1PersistentVolumeClaim(
+                metadata=self._build_metadata(name, username),
+                spec=V1PersistentVolumeClaimSpec(
+                    storage_class_name=volume.source.storage_class_name,
+                    access_modes=[m.value for m in volume.source.access_modes],
+                    resources=V1ResourceRequirements(
+                        requests=volume.source.resources.requests
+                    ),
+                ),
+            )
+            pvcs.append(pvc)
+        return pvcs
+
+    def _build_quota(self, user: GafaelfawrUserInfo) -> V1ResourceQuota | None:
+        """Construct the namespace quota for a user's lab."""
+        if not user.quota or not user.quota.notebook:
+            return None
+        memory_quota = int(user.quota.notebook.memory * 1024 * 1024 * 1024)
+        username = user.username
+        return V1ResourceQuota(
+            metadata=self._build_metadata(f"{username}-nb", username),
+            spec=V1ResourceQuotaSpec(
+                hard={
+                    "limits.cpu": str(user.quota.notebook.cpu),
+                    "limits.memory": str(memory_quota),
+                }
+            ),
+        )
+
+    def _build_secrets(
+        self, username: str, data: dict[str, str], pull_secret: V1Secret | None
+    ) -> list[V1Secret]:
+        """Construct the secrets for the user's lab."""
+        secret = V1Secret(
+            metadata=self._build_metadata(f"{username}-nb", username),
+            data=data,
+            immutable=True,
+            type="Opaque",
+        )
+        secrets = [secret]
+        if pull_secret:
+            secret = V1Secret(
+                metadata=self._build_metadata("pull-secret", username),
+                data=pull_secret.data,
+                immutable=True,
+                type=pull_secret.type,
+            )
+            secrets.append(secret)
+        return secrets
+
+    def _build_service(self, username: str) -> V1Service:
+        """Construct the service for a user's lab."""
+        return V1Service(
+            metadata=self._build_metadata("lab", username),
+            spec=V1ServiceSpec(
+                ports=[V1ServicePort(port=8888, target_port=8888)],
+                selector={
+                    "nublado.lsst.io/category": "lab",
+                    "nublado.lsst.io/user": username,
+                },
+            ),
+        )
+
+    def _build_pod(
+        self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
+    ) -> V1Pod:
+        """Construct the user's lab pod."""
+        resources = self._size_manager.resources(lab.options.size)
+
+        # Construct the pull secrets.
+        pull_secrets = None
+        if self._config.pull_secret:
+            pull_secrets = [V1LocalObjectReference(name="pull-secret")]
+
+        # Construct the pod metadata.
+        metadata = self._build_metadata(f"{user.username}-nb", user.username)
+        metadata.annotations.update(self._build_pod_annotations(user))
+
+        # Gather the volume and volume mount definitions.
+        volume_data = self._build_pod_volumes(user.username)
+        mounts = [v.volume_mount for v in volume_data]
+        mounts += self._build_pod_secret_volume_extra_mounts(user.username)
+
+        # Build the pod object itself.
+        containers = self._build_pod_containers(user, mounts, resources, image)
+        init_containers = self._build_pod_init_containers(user, resources)
+        return V1Pod(
+            metadata=metadata,
+            spec=V1PodSpec(
+                containers=containers,
+                image_pull_secrets=pull_secrets,
+                init_containers=init_containers,
+                restart_policy="OnFailure",
+                security_context=V1PodSecurityContext(
+                    supplemental_groups=user.supplemental_groups
+                ),
+                volumes=[v.volume for v in volume_data],
+            ),
+        )
+
+    def _build_pod_annotations(
+        self, user: GafaelfawrUserInfo
+    ) -> dict[str, str]:
+        """Construct the annotations for the user's pod."""
+        annotations = {
+            "nublado.lsst.io/user-name": user.name,
+            "nublado.lsst.io/user-groups": user.groups_json(),
+        }
+        if self._config.extra_annotations:
+            annotations.update(self._config.extra_annotations)
+        return annotations
+
+    def _build_pod_volumes(self, username: str) -> list[LabVolumeContainer]:
+        """Construct the volumes that will be mounted by the user's pod.
+
+        This stitches together the Volume and VolumeMount definitions from
+        each of our sources.
+        """
+        return [
+            *self.build_lab_config_volumes(username, self._config.volumes),
+            *self._build_pod_file_volumes(username),
+            self._build_pod_secret_volume(username),
+            self._build_pod_env_volume(username),
+            self._build_pod_tmp_volume(),
+            self._build_pod_downward_api_volume(username),
+        ]
+
+    def _build_pod_file_volumes(
+        self, username: str
+    ) -> list[LabVolumeContainer]:
+        """Construct the volumes that mount files from a ``ConfigMap``."""
+        volumes = []
+        for config_file in self._config.files:
+            subpath = Path(config_file).name
+            name = re.sub(r"[_.]", "-", subpath)
+            if config_file in {"/etc/passwd", "/etc/group"}:
+                config_map = f"{username}-nb-nss"
+            else:
+                config_map = f"{username}-nb-files"
+            key_to_path = V1KeyToPath(mode=0o0644, key=name, path=subpath)
+            volume = LabVolumeContainer(
+                volume=V1Volume(
+                    name=name,
+                    config_map=V1ConfigMapVolumeSource(
+                        name=config_map, items=[key_to_path]
+                    ),
+                ),
+                volume_mount=V1VolumeMount(
+                    mount_path=config_file,
+                    name=name,
+                    read_only=True,
+                    sub_path=subpath,
+                ),
+            )
+            volumes.append(volume)
+        return volumes
+
+    def _build_pod_secret_volume(self, username: str) -> LabVolumeContainer:
+        """Construct the volume that mounts the lab secrets.
+
+        All secrets are mounted in the same directory. Secrets should
+        preferably be referred to by that path, although we also support
+        injecting them into environment variables and other paths for ease of
+        transition.
+
+        The mount path should be configurable, but isn't yet.
+
+        Additional mount points for this volume are defined by
+        `_build_pod_secret_volume_extra_mounts` and included in the volume
+        mounts when constructing the pod.
+        """
+        return LabVolumeContainer(
+            volume=V1Volume(
+                name="secrets",
+                secret=V1SecretVolumeSource(secret_name=f"{username}-nb"),
+            ),
+            volume_mount=V1VolumeMount(
+                mount_path=MOUNT_PATH_SECRETS, name="secrets", read_only=True
+            ),
+        )
+
+    def _build_pod_secret_volume_extra_mounts(
+        self, username: str
+    ) -> list[V1VolumeMount]:
+        """Build additional mounts of secrets into other paths."""
+        mounts = []
+        for spec in self._config.secrets:
+            if not spec.path:
+                continue
+            mount = V1VolumeMount(
+                mount_path=spec.path,
+                name="secrets",
+                read_only=True,
+                sub_path=spec.secret_key,
+            )
+            mounts.append(mount)
+        return mounts
+
+    def _build_pod_env_volume(self, username: str) -> LabVolumeContainer:
+        """Build the volume that mounts the environment inside the pod.
+
+        It's not clear whether this is necessary, but we've been doing it for
+        a while so removing this would potentially break backward
+        compatibility. The mount path should be configurable, but isn't yet.
+        """
+        return LabVolumeContainer(
+            volume=V1Volume(
+                name="env",
+                config_map=V1ConfigMapVolumeSource(name=f"{username}-nb-env"),
+            ),
+            volume_mount=V1VolumeMount(
+                mount_path=MOUNT_PATH_ENVIRONMENT, name="env", read_only=True
+            ),
+        )
+
+    def _build_pod_tmp_volume(self) -> LabVolumeContainer:
+        """Build the volume that provides a writable tmpfs :file:`/tmp`."""
+        return LabVolumeContainer(
+            volume=V1Volume(empty_dir=V1EmptyDirVolumeSource(), name="tmp"),
+            volume_mount=V1VolumeMount(
+                mount_path="/tmp", name="tmp", read_only=False
+            ),
+        )
+
+    def _build_pod_downward_api_volume(
+        self, username: str
+    ) -> LabVolumeContainer:
+        """Build the volume that mounts downward API information.
+
+        This is redundant with environment variables we set that contain the
+        same information and therefore should ideally be removed, but we've
+        been doing this for a while so removing it potentially breaks
+        backwards compatibility.
+
+        The mount path should be configurable, but isn't yet.
+        """
+        files = []
+        fields = (
+            "limits.cpu",
+            "requests.cpu",
+            "limits.memory",
+            "requests.memory",
+        )
+        for field in fields:
+            volume_file = V1DownwardAPIVolumeFile(
+                resource_field_ref=V1ResourceFieldSelector(
+                    container_name="notebook", resource=field
+                ),
+                path=field.replace(".", "_"),
+            )
+            files.append(volume_file)
+        return LabVolumeContainer(
+            volume=V1Volume(
+                name="runtime",
+                downward_api=V1DownwardAPIVolumeSource(items=files),
+            ),
+            volume_mount=V1VolumeMount(
+                mount_path=MOUNT_PATH_DOWNWARD_API,
+                name="runtime",
+                read_only=True,
+            ),
+        )
+
+    def _build_pod_init_containers(
+        self, user: GafaelfawrUserInfo, resources: LabResources
+    ) -> list[V1Container]:
+        """Build init containers for the pod."""
+        username = user.username
+        as_root = V1SecurityContext(
+            allow_privilege_escalation=True,
+            run_as_non_root=False,
+            run_as_user=0,
+        )
+        as_user = V1SecurityContext(
+            allow_privilege_escalation=False,
+            run_as_non_root=True,
+            run_as_user=user.uid,
+        )
+
+        # Use the same environment ConfigMap as the notebook container since
+        # it may contain other things we need for provisioning. Add
+        # environment variables communicating the primary UID and GID, which
+        # is our main interface to provisioning init containers.
+        env_source = V1ConfigMapEnvSource(name=f"{username}-nb-env")
+        env = [
+            V1EnvVar(name="EXTERNAL_GID", value=str(user.gid)),
+            V1EnvVar(name="EXTERNAL_UID", value=str(user.uid)),
+        ]
+
+        containers = []
+        for spec in self._config.init_containers:
+            volumes = self.build_lab_config_volumes(username, spec.volumes)
+            container = V1Container(
+                name=spec.name,
+                env=env,
+                env_from=[V1EnvFromSource(config_map_ref=env_source)],
+                image=spec.image,
+                resources=resources.to_kubernetes(),
+                security_context=as_root if spec.privileged else as_user,
+                volume_mounts=[v.volume_mount for v in volumes],
+            )
+            containers.append(container)
+
+        return containers
+
+    def _build_pod_containers(
+        self,
+        user: GafaelfawrUserInfo,
+        mounts: list[V1VolumeMount],
+        resources: LabResources,
+        image: RSPImage,
+    ) -> V1PodSpec:
+        """Construct the containers for the user's lab pod."""
+        # Additional environment variables to set, layered on top of the env
+        # ConfigMap. The ConfigMap holds public information known before the
+        # lab is spawned; these environment variables hold everything else.
+        env = [
+            # User's Gafaelfawr token.
+            V1EnvVar(
+                name="ACCESS_TOKEN",
+                value_from=V1EnvVarSource(
+                    secret_key_ref=V1SecretKeySelector(
+                        key="token", name=f"{user.username}-nb", optional=False
+                    )
+                ),
+            ),
+            # Node on which the pod is running.
+            V1EnvVar(
+                name="KUBERNETES_NODE_NAME",
+                value_from=V1EnvVarSource(
+                    field_ref=V1ObjectFieldSelector(field_path="spec.nodeName")
+                ),
+            ),
+            # Deprecated version of KUBERNETES_NODE_NAME, used by lsst.rsp
+            # 0.3.4 and earlier.
+            V1EnvVar(
+                name="K8S_NODE_NAME",
+                value_from=V1EnvVarSource(
+                    field_ref=V1ObjectFieldSelector(field_path="spec.nodeName")
+                ),
+            ),
+        ]
+        for spec in self._config.secrets:
+            if not spec.env:
+                continue
+            selector = V1SecretKeySelector(
+                key=spec.secret_key, name=f"{user.username}-nb", optional=False
+            )
+            source = V1EnvVarSource(secret_key_ref=selector)
+            variable = V1EnvVar(name=spec.env, value_from=source)
+            env.append(variable)
+
+        # Specification for the user's container.
+        env_source = V1ConfigMapEnvSource(name=f"{user.username}-nb-env")
+        container = V1Container(
+            name="notebook",
+            args=[LAB_COMMAND],
+            env=env,
+            env_from=[V1EnvFromSource(config_map_ref=env_source)],
+            image=image.reference_with_digest,
+            image_pull_policy="IfNotPresent",
+            ports=[V1ContainerPort(container_port=8888, name="jupyterlab")],
+            resources=resources.to_kubernetes(),
+            security_context=V1SecurityContext(
+                run_as_non_root=True,
+                run_as_user=user.uid,
+                run_as_group=user.gid,
+            ),
+            volume_mounts=mounts,
+            working_dir=self._build_home_directory(user.username),
+        )
+        return [container]

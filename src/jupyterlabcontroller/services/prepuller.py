@@ -12,7 +12,7 @@ from ..constants import IMAGE_REFRESH_INTERVAL, PREPULLER_POD_TIMEOUT
 from ..models.domain.rspimage import RSPImage
 from ..storage.kubernetes.pod import PodStorage
 from ..storage.metadata import MetadataStorage
-from .builder import PrepullerBuilder
+from .builder.prepuller import PrepullerBuilder
 from .image import ImageService
 
 __all__ = ["Prepuller"]

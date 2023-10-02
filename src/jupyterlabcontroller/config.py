@@ -314,6 +314,13 @@ class LabConfig(CamelCaseModel):
         {},
         title="Extra annotations for lab pod",
     )
+    application: str | None = Field(
+        None,
+        title="Argo CD application",
+        description=(
+            "An Argo CD application under which lab objects should be shown"
+        ),
+    )
 
     @field_validator("secrets")
     @classmethod

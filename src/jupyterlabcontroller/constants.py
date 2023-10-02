@@ -12,10 +12,14 @@ __all__ = [
     "IMAGE_REFRESH_INTERVAL",
     "KUBERNETES_DELETE_TIMEOUT",
     "KUBERNETES_REQUEST_TIMEOUT",
+    "LAB_COMMAND",
     "LAB_STATE_REFRESH_INTERVAL",
     "LIMIT_TO_REQUEST_RATIO",
-    "PREPULLER_POD_TIMEOUT",
     "METADATA_PATH",
+    "MOUNT_PATH_DOWNWARD_API",
+    "MOUNT_PATH_ENVIRONMENT",
+    "MOUNT_PATH_SECRETS",
+    "PREPULLER_POD_TIMEOUT",
     "SPAWNER_FORM_TEMPLATE",
     "USERNAME_REGEX",
 ]
@@ -53,6 +57,12 @@ controls how long it waits for the object to go away after deletion before it
 gives up.
 """
 
+LAB_COMMAND = "/opt/lsst/software/jupyterlab/runlab.sh"
+"""Command used to start the lab.
+
+This should be configurable but isn't yet.
+"""
+
 LAB_STATE_REFRESH_INTERVAL = timedelta(minutes=60)
 """How frequently to refresh user lab state from Kubernetes.
 
@@ -72,15 +82,33 @@ appears to assume the lab will not do anything useful in repsonse to SIGTERM,
 so copy its behavior.
 """
 
+METADATA_PATH = Path("/etc/podinfo")
+"""Default path to injected pod metadata."""
+
+MOUNT_PATH_DOWNWARD_API = "/opt/lsst/software/jupyterlab/runtime"
+"""Path at which downward API information is mounted inside the lab.
+
+This should be configurable but isn't yet.
+"""
+
+MOUNT_PATH_ENVIRONMENT = "/opt/lsst/software/jupyterlab/environment"
+"""Path at which the environment for the user is mounted inside the lab.
+
+This should be configurable but isn't yet.
+"""
+
+MOUNT_PATH_SECRETS = "/opt/lsst/software/jupyterlab/secrets"
+"""Path at which secrets are mounted inside the lab.
+
+This should be configurable but isn't yet.
+"""
+
 PREPULLER_POD_TIMEOUT = timedelta(minutes=10)
 """How long to wait for a prepuller pod to spawn and finish running.
 
 This may take a substantial amount of time if the pod image is quite large or
 the network is slow.
 """
-
-METADATA_PATH = Path("/etc/podinfo")
-"""Default path to injected pod metadata."""
 
 # These are in seconds; they're arguments to various functions, not timedeltas.
 KUBERNETES_REQUEST_TIMEOUT = 60

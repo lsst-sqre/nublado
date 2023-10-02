@@ -58,16 +58,11 @@ async def create_lab(
     UserLabState
         Expected state corresponding to the created lab.
     """
-    for secret in obj_factory.secrets:
-        await mock_kubernetes.create_namespaced_secret(
-            config.lab.namespace_prefix, secret
-        )
     token, user = obj_factory.get_user()
     user = GafaelfawrUser(token=token, **user.model_dump())
     assert user.quota
     assert user.quota.notebook
     lab = obj_factory.labspecs[0]
-    lab_manager = factory.create_lab_manager()
     size_manager = factory.create_size_manager()
     resources = size_manager.resources(lab.options.size)
     await factory.image_service.refresh()
@@ -75,21 +70,21 @@ async def create_lab(
     reference = DockerReference.from_str(lab.options.image_list)
     image = await factory.image_service.image_for_reference(reference)
     lab.options.image_list = image.reference_with_digest
+    lab_builder = factory.create_lab_builder()
+    lab_storage = factory.create_lab_storage()
 
-    # Create a lab outside of the normal creation flow by calling the internal
-    # methods to create the lab directly. It would be nice to use the
-    # higher-level lab manager function, but it reports events to the lab
+    # Create a lab outside of the normal creation flow by calling the builder
+    # and storage methods to create the lab directly. It would be nice to use
+    # the higher-level lab manager function, but it reports events to the lab
     # state manager, and we want the lab state manager to have no record of
     # anything to test reconciliation.
-    await lab_manager.create_namespace(user)
-    await lab_manager.create_secrets(user)
-    await lab_manager.create_nss(user)
-    await lab_manager.create_file_configmap(user)
-    await lab_manager.create_env(user, lab, image)
-    await lab_manager.create_network_policy(user)
-    await lab_manager.create_quota(user)
-    await lab_manager.create_lab_service(user)
-    await lab_manager.create_user_pod(user, resources, image)
+    #
+    # Create this lab with an empty set of secret data, since it shouldn't
+    # matter for what we're testing and saves some effort.
+    objects = lab_builder.build_lab(
+        user=user, lab=lab, image=image, secrets={}
+    )
+    await lab_storage.create_lab(objects)
 
     return UserLabState(
         env=lab.env,

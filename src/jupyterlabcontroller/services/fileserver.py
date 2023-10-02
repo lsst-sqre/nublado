@@ -32,7 +32,7 @@ from ..models.domain.fileserver import FileserverUserMap
 from ..models.v1.lab import UserInfo
 from ..storage.k8s import K8sStorageClient
 from ..util import metadata_to_dict
-from .builder import LabBuilder
+from .builder.lab import LabBuilder
 
 
 class FileserverStateManager:
@@ -42,6 +42,7 @@ class FileserverStateManager:
         logger: BoundLogger,
         config: Config,
         kubernetes: K8sStorageClient,
+        lab_builder: LabBuilder,
     ) -> None:
         """The FileserverStateManager is a process-wide singleton."""
         self._config = config
@@ -54,7 +55,7 @@ class FileserverStateManager:
         self._logger = logger
         self._k8s_client = kubernetes
         self._tasks: set[asyncio.Task] = set()
-        self._builder: LabBuilder = LabBuilder(config=config.lab)
+        self._builder = lab_builder
         self._started = False
         # Maps users to the tasks watching for their pods to exit
         self._watches: set[asyncio.Task] = set()

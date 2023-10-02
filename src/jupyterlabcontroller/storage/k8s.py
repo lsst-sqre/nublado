@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from base64 import b64encode
 from collections.abc import AsyncIterator
 from datetime import timedelta
 from typing import Any
@@ -12,38 +11,20 @@ from kubernetes_asyncio.client import (
     ApiClient,
     V1ConfigMap,
     V1Job,
-    V1LabelSelector,
-    V1Namespace,
-    V1NetworkPolicy,
-    V1NetworkPolicyIngressRule,
-    V1NetworkPolicyPort,
-    V1NetworkPolicySpec,
     V1ObjectMeta,
-    V1OwnerReference,
-    V1PersistentVolumeClaim,
     V1Pod,
-    V1PodSpec,
     V1ResourceQuota,
-    V1ResourceQuotaSpec,
-    V1Secret,
     V1Service,
-    V1ServicePort,
-    V1ServiceSpec,
 )
 from structlog.stdlib import BoundLogger
 
-from ..config import LabSecret
 from ..constants import ARGO_CD_ANNOTATIONS
 from ..exceptions import DuplicateObjectError, MissingObjectError
 from ..models.domain.kubernetes import PodPhase, PropagationPolicy
-from ..models.v1.lab import ResourceQuantity
-from ..util import deslashify
 from .kubernetes.creator import (
     ConfigMapStorage,
-    NetworkPolicyStorage,
     PersistentVolumeClaimStorage,
     ResourceQuotaStorage,
-    SecretStorage,
 )
 from .kubernetes.custom import GafaelfawrIngressStorage
 from .kubernetes.deleter import JobStorage, ServiceStorage
@@ -72,11 +53,9 @@ class K8sStorageClient:
         self._ingress = IngressStorage(self.k8s_api, logger)
         self._job = JobStorage(self.k8s_api, logger)
         self._namespace = NamespaceStorage(self.k8s_api, logger)
-        self._network_policy = NetworkPolicyStorage(self.k8s_api, logger)
         self._pod = PodStorage(self.k8s_api, logger)
         self._pvc = PersistentVolumeClaimStorage(self.k8s_api, logger)
         self._quota = ResourceQuotaStorage(self.k8s_api, logger)
-        self._secret = SecretStorage(self.k8s_api, logger)
         self._service = ServiceStorage(self.k8s_api, logger)
 
     #
@@ -289,264 +268,6 @@ class K8sStorageClient:
             metadata.namespace = namespace
         return metadata
 
-    #
-    # Lab object methods
-    #
-
-    async def create_user_namespace(self, name: str) -> None:
-        """Create the namespace for a user's lab.
-
-        Parameters
-        ----------
-        name
-            Name of the namespace.
-        """
-        body = V1Namespace(metadata=self.standard_metadata(name))
-        await self._namespace.create(body, replace=True)
-
-    async def create_secrets(
-        self,
-        secret_list: list[LabSecret],
-        username: str,
-        token: str,
-        source_ns: str,
-        target_ns: str,
-    ) -> None:
-        data = await self.merge_controller_secrets(
-            token, source_ns, secret_list
-        )
-        await self.create_secret(f"{username}-nb", target_ns, data)
-
-    async def copy_secret(
-        self,
-        *,
-        source_namespace: str,
-        source_secret: str,
-        target_namespace: str,
-        target_secret: str,
-    ) -> None:
-        """Copy a Kubernetes secret from one namespace to another.
-
-        Parameters
-        ----------
-        source_namespace
-            Namespace of source secret.
-        source_secret
-            Name of source secret.
-        target_namespace
-            Namespace to which to copy the secret.
-        target_secret
-            Name of secret to create.
-        """
-        secret = await self.read_secret(source_secret, source_namespace)
-        await self.create_secret(
-            name=target_secret,
-            namespace=target_namespace,
-            data=secret.data,
-            secret_type=secret.type,
-        )
-
-    async def merge_controller_secrets(
-        self, token: str, source_namespace: str, secret_list: list[LabSecret]
-    ) -> dict[str, str]:
-        """Create a user lab secret, merging together multiple data sources.
-
-        Parameters
-        ----------
-        token
-            User's Gafaelfawr token.
-        source_namespace
-            Source namespace for additional secrets.
-        secret_list
-            List of additional secrets to pull from the source namespace.
-
-        Returns
-        -------
-        dict of str to str
-            Base64-encoded secret data suitable for the ``data`` key of a
-            ``V1Secret`` Kubernetes object.
-        """
-        data = {"token": b64encode(token.encode()).decode()}
-
-        # Minor optimization: gather the name of all of our source secrets so
-        # that we only have to read each one once.
-        secret_names = [s.secret_name for s in secret_list]
-        secret_data = {}
-        for secret_name in secret_names:
-            secret = await self.read_secret(secret_name, source_namespace)
-            secret_data[secret_name] = secret.data
-
-        # Now, construct the data for the user's lab secret.
-        for spec in secret_list:
-            key = spec.secret_key
-            if key not in secret_data[spec.secret_name]:
-                name = f"{source_namespace}/{spec.secret_name}"
-                raise MissingObjectError(
-                    f"No key {key} in secret {name}",
-                    kind="Secret",
-                    name=spec.secret_name,
-                    namespace=source_namespace,
-                )
-            if key in data:
-                # Should be impossible due to the validator on our
-                # configuration, which should check for conflicts.
-                raise RuntimeError(f"Duplicate secret key {key}")
-            data[key] = secret_data[spec.secret_name][key]
-
-        # Return the results.
-        return data
-
-    async def create_secret(
-        self,
-        name: str,
-        namespace: str,
-        data: dict[str, str],
-        secret_type: str = "Opaque",
-        *,
-        immutable: bool = True,
-    ) -> None:
-        secret = V1Secret(
-            data=data,
-            type=secret_type,
-            immutable=immutable,
-            metadata=self.standard_metadata(name, namespace=namespace),
-        )
-        await self._secret.create(namespace, secret)
-
-    async def read_secret(self, name: str, namespace: str) -> V1Secret:
-        secret = await self._secret.read(name, namespace)
-        if not secret:
-            msg = "Secret does not exist"
-            self._logger.error(msg, name=name, namespace=namespace)
-            raise MissingObjectError(
-                message=f"Secret {namespace}/{name} does not exist",
-                kind="Secret",
-                name=name,
-                namespace=namespace,
-            )
-        return secret
-
-    async def create_pvcs(
-        self, pvcs: list[V1PersistentVolumeClaim], namespace: str
-    ) -> None:
-        for pvc in pvcs:
-            name = pvc.metadata.name
-            pvc.metadata = self.standard_metadata(name, namespace)
-            await self._pvc.create(namespace, pvc)
-
-    async def create_configmap(
-        self,
-        name: str,
-        namespace: str,
-        data: dict[str, str],
-        *,
-        immutable: bool = True,
-    ) -> None:
-        configmap = V1ConfigMap(
-            data={deslashify(k): v for k, v in data.items()},
-            immutable=immutable,
-            metadata=self.standard_metadata(name, namespace=namespace),
-        )
-        await self._config_map.create(namespace, configmap)
-
-    async def create_network_policy(self, name: str, namespace: str) -> None:
-        # TODO(athornton): we need to further restrict Ingress to the right
-        # pods, and Egress to ... external world, Hub, Portal, Gafaelfawr.
-        # What else?
-        policy = V1NetworkPolicy(
-            metadata=self.standard_metadata(name, namespace=namespace),
-            spec=V1NetworkPolicySpec(
-                policy_types=["Ingress"],
-                pod_selector=V1LabelSelector(
-                    match_labels={"app": "jupyterhub", "component": "hub"}
-                ),
-                ingress=[
-                    V1NetworkPolicyIngressRule(
-                        ports=[V1NetworkPolicyPort(port=8888)],
-                    ),
-                ],
-            ),
-        )
-        await self._network_policy.create(namespace, policy)
-
-    async def create_lab_service(self, username: str, namespace: str) -> None:
-        service = V1Service(
-            metadata=self.standard_metadata("lab", namespace=namespace),
-            spec=V1ServiceSpec(
-                ports=[V1ServicePort(port=8888, target_port=8888)],
-                selector={
-                    "nublado.lsst.io/user": username,
-                    "nublado.lsst.io/category": "lab",
-                },
-            ),
-        )
-        await self._service.create(namespace, service)
-
-    async def create_quota(
-        self, name: str, namespace: str, resource: ResourceQuantity
-    ) -> None:
-        quota = V1ResourceQuota(
-            metadata=self.standard_metadata(name, namespace=namespace),
-            spec=V1ResourceQuotaSpec(
-                hard={
-                    "limits.cpu": str(resource.cpu),
-                    "limits.memory": str(resource.memory),
-                }
-            ),
-        )
-        await self._quota.create(namespace, quota)
-
-    async def create_pod(
-        self,
-        name: str,
-        namespace: str,
-        pod_spec: V1PodSpec,
-        *,
-        username: str = "",
-        category: str = "lab",
-        labels: dict[str, str] | None = None,
-        annotations: dict[str, str] | None = None,
-        owner: V1OwnerReference | None = None,
-        remove_on_conflict: bool = False,
-    ) -> None:
-        """Create a new Kubernetes pod.
-
-        Parameters
-        ----------
-        name
-            Name of the pod.
-        namespace
-            Namespace of the pod.
-        pod_spec
-            ``spec`` portion of the pod.
-        username
-            If set, user the pod is for.
-        category
-            If set, category for the pod (default "lab")
-        labels
-            Additional labels to add to the pod.
-        annotations
-            Additional annotations to add to the pod.
-        owner
-            If set, add this owner reference.
-        remove_on_conflict
-            If `True` and another pod already exists with the same name,
-            delete it before creating this pod.
-        """
-        logger = self._logger.bind(name=name, namespace=namespace)
-        logger.debug("Creating pod")
-        metadata = self.standard_metadata(
-            name, namespace=namespace, username=username, category=category
-        )
-        if labels:
-            metadata.labels.update(labels)
-        if annotations:
-            metadata.annotations.update(annotations)
-        if owner:
-            metadata.owner_references = [owner]
-        pod = V1Pod(metadata=metadata, spec=pod_spec)
-        await self._pod.create(namespace, pod, replace=remove_on_conflict)
-
     async def delete_namespace(self, name: str, *, wait: bool = False) -> None:
         """Delete a Kubernetes namespace.
 
@@ -560,33 +281,6 @@ class K8sStorageClient:
             Whether to wait for the namespace to be deleted.
         """
         await self._namespace.delete(name, wait=wait)
-
-    async def delete_pod(
-        self,
-        name: str,
-        namespace: str,
-        *,
-        grace_period: timedelta | None = None,
-    ) -> None:
-        """Delete a pod.
-
-        Parameters
-        ----------
-        name
-            Name of the pod.
-        namespace
-            Namespace of the pod.
-        grace_period
-            How long to tell Kubernetes to wait between sending SIGTERM and
-            sending SIGKILL to the pod process. The default if no grace period
-            is set is 30s as of Kubernetes 1.27.1.
-
-        Raises
-        ------
-        KubernetesError
-            Raised if there is a Kubernetes API error.
-        """
-        await self._pod.delete(name, namespace, grace_period=grace_period)
 
     async def get_config_map(
         self, name: str, namespace: str

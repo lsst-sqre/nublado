@@ -6,6 +6,8 @@ possible via a PyPI library, these models are largely copied from Gafaelfawr.
 
 from __future__ import annotations
 
+import json
+
 from pydantic import BaseModel, Field
 
 from ...constants import GROUPNAME_REGEX, USERNAME_REGEX
@@ -102,6 +104,19 @@ class GafaelfawrUserInfo(BaseModel):
     )
     groups: list[UserGroup] = Field([], title="User's group memberships")
     quota: UserQuota | None = Field(None, title="User's quotas")
+
+    @property
+    def supplemental_groups(self) -> list[int]:
+        """Supplemental GIDs."""
+        return [g.id for g in self.groups if g.id]
+
+    def groups_json(self) -> str:
+        """Group membership serialized to JSON.
+
+        Groups without GIDs are omitted since we can't do anything with them
+        in the context of a user lab.
+        """
+        return json.dumps([g.model_dump() for g in self.groups if g.id])
 
 
 class GafaelfawrUser(GafaelfawrUserInfo):
