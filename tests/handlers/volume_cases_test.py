@@ -2,8 +2,6 @@ import pytest
 from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
 
-from jupyterlabcontroller.dependencies.context import context_dependency
-
 from ..settings import TestObjectFactory
 from ..support.config import configure
 
@@ -15,13 +13,9 @@ async def test_volume_cases(
     obj_factory: TestObjectFactory,
 ) -> None:
     """Check that the pod picks up extra annotations set in the config."""
+    config = await configure("volume-cases")
     token, user = obj_factory.get_user()
     lab = obj_factory.labspecs[0]
-
-    # Reconfigure the app to add annotations
-    await context_dependency.aclose()
-    config = configure("volume-cases")
-    await context_dependency.initialize(config)
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",

@@ -122,7 +122,7 @@ async def test_gar(
     mock_gar: MockArtifactRegistry, mock_kubernetes: MockKubernetesApi
 ) -> None:
     """Test the prepuller service configured to talk to GAR."""
-    config = configure("gar")
+    config = await configure("gar")
     assert isinstance(config.images.source, GARSourceConfig)
     known_images = read_input_json("gar", "known-images.json")
     for known_image in known_images:
@@ -202,7 +202,7 @@ async def test_cycle(
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    config = configure("cycle")
+    config = await configure("cycle")
     mock_docker.tags = read_input_json("cycle", "docker-tags.json")
     node_data = read_input_json("cycle", "nodes.json")
     nodes = []
@@ -241,7 +241,7 @@ async def test_gar_cycle(
     mock_gar: MockArtifactRegistry,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    config = configure("gar-cycle")
+    config = await configure("gar-cycle")
     known_images = read_input_json("gar-cycle", "known-images.json")
     for known_image in known_images:
         image = DockerImage(**known_image)

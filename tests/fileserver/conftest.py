@@ -52,7 +52,7 @@ def obj_factory(std_config_dir: Path) -> TestObjectFactory:
 @pytest_asyncio.fixture
 async def config() -> Config:
     """Construct default configuration for tests."""
-    return configure("fileserver")
+    return await configure("fileserver")
 
 
 @pytest_asyncio.fixture
