@@ -84,7 +84,7 @@ async def create_lab(
     objects = lab_builder.build_lab(
         user=user, lab=lab, image=image, secrets={}
     )
-    await lab_storage.create_lab(objects)
+    await lab_storage.create(objects)
 
     return UserLabState(
         env=lab.env,

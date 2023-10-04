@@ -6,57 +6,43 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 from datetime import timedelta
-from typing import Any
-from urllib.parse import urlparse
 
-from kubernetes_asyncio.client import (
-    V1Container,
-    V1ContainerPort,
-    V1EnvVar,
-    V1Job,
-    V1JobSpec,
-    V1ObjectMeta,
-    V1PodSecurityContext,
-    V1PodSpec,
-    V1PodTemplateSpec,
-    V1SecurityContext,
-    V1Service,
-    V1ServicePort,
-    V1ServiceSpec,
-)
 from structlog.stdlib import BoundLogger
 
-from ..config import Config
+from ..config import FileserverConfig
 from ..exceptions import DisabledError, MissingObjectError
 from ..models.domain.fileserver import FileserverUserMap
 from ..models.v1.lab import UserInfo
 from ..storage.k8s import K8sStorageClient
-from ..util import metadata_to_dict
-from .builder.lab import LabBuilder
+from ..storage.kubernetes.fileserver import FileserverStorage
+from .builder.fileserver import FileserverBuilder
 
 
 class FileserverStateManager:
     def __init__(
         self,
         *,
+        config: FileserverConfig,
+        fileserver_builder: FileserverBuilder,
+        fileserver_storage: FileserverStorage,
+        k8s_client: K8sStorageClient,
         logger: BoundLogger,
-        config: Config,
-        kubernetes: K8sStorageClient,
-        lab_builder: LabBuilder,
     ) -> None:
         """The FileserverStateManager is a process-wide singleton."""
         self._config = config
-        self._namespace = config.fileserver.namespace
-        self._user_map = FileserverUserMap()
-        # This maps usernames to locks, so we have a lock per user, and
-        # if there is no lock for that user, requesting one gets you a
-        # new lock.
-        self._lock: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+        self._builder = fileserver_builder
+        self._storage = fileserver_storage
+        self._k8s_client = k8s_client
         self._logger = logger
-        self._k8s_client = kubernetes
+
+        self._user_map = FileserverUserMap()
         self._tasks: set[asyncio.Task] = set()
-        self._builder = lab_builder
         self._started = False
+
+        # This maps usernames to locks, so we have a lock per user, and if
+        # there is no lock for that user, requesting one gets you a new lock.
+        self._lock: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+
         # Maps users to the tasks watching for their pods to exit
         self._watches: set[asyncio.Task] = set()
 
@@ -72,7 +58,7 @@ class FileserverStateManager:
         if not (
             await self._user_map.get(username)
             and await self._k8s_client.check_fileserver_present(
-                username, self._namespace
+                username, self._config.namespace
             )
         ):
             try:
@@ -91,268 +77,36 @@ class FileserverStateManager:
         operational.  If we can't build it, raise an error.
         """
         username = user.username
+        namespace = self._config.namespace
+        fileserver = self._builder.build_fileserver(user)
+        timeout = timedelta(seconds=self._config.creation_timeout)
         async with self._lock[username]:
             self._logger.info(f"Creating new fileserver for {username}")
-            namespace = self._namespace
-            gf_ingress = self._build_fileserver_ingress(user.username)
-            service = self._build_fileserver_service(user.username)
-            job = self._build_fileserver_job(user)
-            self._logger.debug(
-                f"...creating new GafaelfawrIngress for {username}"
-            )
-            await self._k8s_client.create_fileserver_gafaelfawringress(
-                namespace, gf_ingress
-            )
-            self._logger.debug(f"...creating new job for {username}")
-            await self._k8s_client.create_fileserver_job(namespace, job)
-            self._logger.debug(f"...creating new service for {username}")
-            await self._k8s_client.create_fileserver_service(
-                namespace, service
-            )
-            await self._wait_for_fileserver_start(username, namespace)
+            await self._storage.create(namespace, fileserver, timeout)
             task = asyncio.create_task(self._discard_when_done(username))
             self._watches.add(task)
             task.add_done_callback(self._watches.discard)
             await self._user_map.set(username)
 
-    async def _wait_for_fileserver_start(
-        self, username: str, namespace: str
-    ) -> None:
-        pod = await self._k8s_client.get_fileserver_pod_for_user(
-            username, namespace
-        )
-        if pod is None:
-            raise MissingObjectError(
-                message=f"No pod for job fs-{username}",
-                namespace=self._namespace,
-                kind="Pod",
-            )
-        timeout = timedelta(seconds=self._config.fileserver.creation_timeout)
-        await self._k8s_client.wait_for_pod_start(
-            pod_name=pod.metadata.name,
-            namespace=namespace,
-            timeout=timeout,
-        )
-        # The ingress is the part that typically takes longest
-        await self._k8s_client.wait_for_user_fileserver_ingress_ready(
-            username,
-            namespace,
-            timeout=timedelta(
-                seconds=self._config.fileserver.creation_timeout
-            ),
-        )
-
-    def _build_metadata(self, username: str) -> V1ObjectMeta:
-        """Construct metadata for the user's fileserver objects.
-
-        Parameters
-        ----------
-        username
-            User name
-
-        Returns
-        -------
-        V1ObjectMeta
-            Kubernetes metadata specification for that user's fileserver
-            objects.
-        """
-        return self._k8s_client.standard_metadata(
-            name=f"{username}-fs",
-            namespace=self._namespace,
-            category="fileserver",
-            username=username,
-        )
-
-    def _build_fileserver_job(self, user: UserInfo) -> V1Job:
-        """Construct the job specification for the user's fileserver
-        environment.
-
-        Parameters
-        ----------
-        user
-            User identity information.
-
-        Returns
-        -------
-        V1Job
-            Kubernetes job object for that user's fileserver environment.
-        """
-        username = user.username
-        pod_spec = self._build_fileserver_pod_spec(user)
-        job_spec = V1JobSpec(
-            template=V1PodTemplateSpec(
-                spec=pod_spec, metadata=self._build_metadata(username)
-            ),
-        )
-        return V1Job(
-            metadata=self._build_metadata(username),
-            spec=job_spec,
-        )
-
-    def _build_fileserver_pod_spec(self, user: UserInfo) -> V1PodSpec:
-        """Construct the pod specification for the user's fileserver pod.
-
-        Parameters
-        ----------
-        user
-            User identity information.
-
-        Returns
-        -------
-        V1PodSpec
-            Kubernetes pod specification for that user's fileserver pod.
-        """
-        username = user.username
-        volume_data = self._builder.build_lab_config_volumes(
-            username, self._config.lab.volumes, prefix="/mnt"
-        )
-        image = self._config.fileserver.image
-        tag = self._config.fileserver.tag
-        url = f"{self._config.fileserver.path_prefix}/files/{username}"
-        resources = self._config.fileserver.resources
-
-        # Specification for the user's container.
-        container = V1Container(
-            name="fileserver",
-            env=[
-                V1EnvVar(name="WORBLEHAT_BASE_HREF", value=url),
-                V1EnvVar(
-                    name="WORBLEHAT_TIMEOUT",
-                    value=str(self._config.fileserver.timeout),
-                ),
-                V1EnvVar(name="WORBLEHAT_DIR", value="/mnt"),
-            ],
-            image=f"{image}:{tag}",
-            image_pull_policy=self._config.fileserver.pull_policy.value,
-            ports=[V1ContainerPort(container_port=8000, name="http")],
-            resources=resources.to_kubernetes() if resources else None,
-            security_context=V1SecurityContext(
-                run_as_non_root=True,
-                run_as_user=user.uid,
-                run_as_group=user.gid,
-                allow_privilege_escalation=False,
-                read_only_root_filesystem=True,
-            ),
-            volume_mounts=[v.volume_mount for v in volume_data],
-        )
-
-        # _Build the pod specification itself.
-        # TODO(athornton): work out tolerations
-        return V1PodSpec(
-            containers=[container],
-            restart_policy="Never",
-            security_context=V1PodSecurityContext(
-                run_as_user=user.uid,
-                run_as_group=user.gid,
-                run_as_non_root=True,
-                supplemental_groups=[x.id for x in user.groups],
-            ),
-            volumes=[v.volume for v in volume_data],
-        )
-
-    def _build_custom_object_metadata(self, username: str) -> dict[str, Any]:
-        obj_name = f"{username}-fs"
-        apj = "argocd.argoproj.io"
-        return {
-            "name": obj_name,
-            "namespace": self._namespace,
-            "labels": {
-                f"{apj}/instance": "fileservers",
-                "nublado.lsst.io/category": "fileserver",
-                "nublado.lsst.io/user": username,
-            },
-            "annotations": {
-                f"{apj}/compare-options": "IgnoreExtraneous",
-                f"{apj}/sync-options": "Prune=false",
-            },
-        }
-
-    def _build_fileserver_ingress(self, username: str) -> dict[str, Any]:
-        # The Gafaelfawr Ingress is a CRD, so creating it is a bit different.
-        base_url = self._config.base_url
-        host = urlparse(base_url).hostname
-        # I feel like I should apologize for this object I'm returning.
-        # Note: camelCase, not snake_case
-        return {
-            "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
-            "kind": "GafaelfawrIngress",
-            "metadata": metadata_to_dict(self._build_metadata(username)),
-            "config": {
-                "baseUrl": base_url,
-                "scopes": {"all": ["exec:notebook"]},
-                "loginRedirect": False,
-                "authType": "basic",
-            },
-            "template": {
-                "metadata": metadata_to_dict(self._build_metadata(username)),
-                "spec": {
-                    "rules": [
-                        {
-                            "host": host,
-                            "http": {
-                                "paths": [
-                                    {
-                                        "path": f"/files/{username}",
-                                        "pathType": "Prefix",
-                                        "backend": {
-                                            "service": {
-                                                "name": f"{username}-fs",
-                                                "port": {"number": 8000},
-                                            }
-                                        },
-                                    }
-                                ]
-                            },
-                        }
-                    ]
-                },
-            },
-        }
-
-    def _build_fileserver_service(self, username: str) -> V1Service:
-        return V1Service(
-            metadata=self._build_metadata(username),
-            spec=V1ServiceSpec(
-                ports=[V1ServicePort(port=8000, target_port=8000)],
-                selector={
-                    "nublado.lsst.io/category": "fileserver",
-                    "nublado.lsst.io/user": username,
-                },
-            ),
-        )
-
     async def delete(self, username: str) -> None:
         if not self._started:
             raise DisabledError("Fileserver is not started.")
-        namespace = self._namespace
+        name = self._builder.build_fileserver_name(username)
         async with self._lock[username]:
             await self._user_map.remove(username)
-            await self._k8s_client.delete_fileserver_gafaelfawringress(
-                username, namespace
-            )
-            await self._k8s_client.delete_fileserver_service(
-                username, namespace
-            )
-            await self._k8s_client.delete_fileserver_job(username, namespace)
-            # This next bit is what takes the time--the method does not
-            # return until the fileserver objects are gone.
-            await self._k8s_client.wait_for_fileserver_object_deletion(
-                username, namespace
-            )
+            await self._storage.delete(name, self._config.namespace)
 
     async def list(self) -> list[str]:
         return await self._user_map.list()
 
     async def start(self) -> None:
-        if not self._config.fileserver.enabled:
+        if not self._config.enabled:
             raise DisabledError("Fileserver is disabled in configuration")
-        if not await self._k8s_client.check_namespace(
-            self._config.fileserver.namespace
-        ):
+        if not await self._k8s_client.check_namespace(self._config.namespace):
             raise MissingObjectError(
                 "File server namespace missing",
                 kind="Namespace",
-                name=self._config.fileserver.namespace,
+                name=self._config.namespace,
             )
         await self._reconcile_user_map()
         self._started = True
@@ -371,19 +125,8 @@ class FileserverStateManager:
             task.cancel()
 
     async def _discard_when_done(self, username: str) -> None:
-        pod = await self._k8s_client.get_fileserver_pod_for_user(
-            username, self._namespace
-        )
-        if pod is None:
-            # This would be weird, since we just saw that the user
-            # had a job with at least one active pod...
-            raise MissingObjectError(
-                message=f"No pod for job fs-{username}",
-                namespace=self._namespace,
-                kind="Pod",
-            )
-        podname = pod.metadata.name
-        await self._k8s_client.wait_for_pod_stop(podname, self._namespace)
+        name = self._builder.build_fileserver_name(username)
+        await self._storage.wait_for_pod_exit(name, self._config.namespace)
         await self.delete(username)
 
     async def _reconcile_user_map(self) -> None:
@@ -395,7 +138,7 @@ class FileserverStateManager:
         self._logger.debug("Reconciling fileserver user map")
         mapped_users = set(await self.list())
         observed_map = await self._k8s_client.get_observed_fileserver_state(
-            self._namespace
+            self._config.namespace
         )
         # Tidy up any no-longer-running users.  They aren't running, but they
         # might have some objects remaining.

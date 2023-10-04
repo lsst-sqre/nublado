@@ -387,6 +387,13 @@ class FileserverConfig(CamelCaseModel):
     creation_timeout: int = Field(
         120, title="Timeout for fileserver creation (seconds)"
     )
+    application: str | None = Field(
+        None,
+        title="Argo CD application",
+        description=(
+            "An Argo CD application under which fileservers should be shown"
+        ),
+    )
 
     # Only care if our fields are filled out if the fileserver is enabled.
     # Doing it this way saves a lot of assertions about when values

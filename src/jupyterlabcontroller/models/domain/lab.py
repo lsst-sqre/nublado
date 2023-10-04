@@ -14,8 +14,6 @@ from kubernetes_asyncio.client.models import (
     V1ResourceQuota,
     V1Secret,
     V1Service,
-    V1Volume,
-    V1VolumeMount,
 )
 from safir.asyncio import AsyncMultiQueue
 
@@ -24,7 +22,6 @@ from ..v1.lab import UserLabState
 
 __all__ = [
     "LabObjects",
-    "LabVolumeContainer",
     "UserLab",
 ]
 
@@ -56,12 +53,6 @@ class LabObjects:
 
     pod: V1Pod
     """User's lab pod."""
-
-
-@dataclass
-class LabVolumeContainer:
-    volume: V1Volume
-    volume_mount: V1VolumeMount
 
 
 @dataclass

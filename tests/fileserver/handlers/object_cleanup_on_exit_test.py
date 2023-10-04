@@ -82,17 +82,13 @@ async def test_cleanup_on_pod_exit(
             }
         ],
     )
+    # Clean up the Ingress
+    await delete_ingress_for_user(mock_kubernetes, name, namespace)
     await asyncio.sleep(0.1)
     # Check that the fileserver user map is clear
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == []
     # Check that the fileserver objects have been deleted
     objs = mock_kubernetes.get_namespace_objects_for_test(namespace=namespace)
-    # Note that namespace objects will still have the Ingress (because
-    # the mock doesn't remove the ingress on GafaelfawrIngress
-    # deletion like the real thing does), and will still have the
-    # Namespace.  So let's check that.
-    assert len(objs) == 2
-    assert {x.kind for x in objs} == {"Ingress", "Namespace"}
-    # Clean up the Ingress
-    await delete_ingress_for_user(mock_kubernetes, name, namespace)
+    assert len(objs) == 1
+    assert objs[0].kind == "Namespace"

@@ -1,8 +1,29 @@
 """Models for the fileserver state."""
 
 import contextlib
+from dataclasses import dataclass
+from typing import Any
 
-__all__ = ["FileserverUserMap"]
+from kubernetes_asyncio.client import V1Job, V1Service
+
+__all__ = [
+    "FileserverObjects",
+    "FileserverUserMap",
+]
+
+
+@dataclass
+class FileserverObjects:
+    """All of the Kubernetes objects making up a user's fileserver."""
+
+    ingress: dict[str, Any]
+    """``GafaelfawrIngress`` object for the fileserver."""
+
+    service: V1Service
+    """Service for reaching the fileserver."""
+
+    job: V1Job
+    """Job that runs the fileserver itself."""
 
 
 class FileserverUserMap:
