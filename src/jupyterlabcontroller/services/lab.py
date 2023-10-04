@@ -187,55 +187,6 @@ class LabManager:
         # Return the URL where the lab will be listening after it starts.
         return self._builder.build_internal_url(user.username, lab.env)
 
-    async def _gather_secret_data(
-        self, user: GafaelfawrUser
-    ) -> dict[str, str]:
-        """Gather the key/value pair secret data used by the lab.
-
-        Read the secrets specified in the lab configuration, extract the keys
-        and values requested by the configuration, and assemble a dictionary
-        of secrets that the lab should receive.
-
-        Parameters
-        ----------
-        user
-            Authenticated Gafaelfawr user.
-
-        Returns
-        -------
-        dict of str
-            Secret data for the lab.
-
-        Raises
-        ------
-        KubernetesError
-            Raised if there is some failure in a Kubernetes API call.
-        MissingSecretError
-            Raised if a secret does not exist.
-        """
-        namespace = self.manager_namespace
-        secret_names = {s.secret_name for s in self._config.secrets}
-        secrets = {
-            n: await self._storage.read_secret(n, namespace)
-            for n in sorted(secret_names)
-        }
-
-        # Now, construct the data for the user's lab secret.
-        data = {}
-        for spec in self._config.secrets:
-            key = spec.secret_key
-            if key not in secrets[spec.secret_name].data:
-                raise MissingSecretError(spec.secret_name, namespace, key)
-            if key in data:
-                # Conflict with another secret. Should be impossible since the
-                # validator on our configuration enforces no conflicts.
-                raise RuntimeError(f"Duplicate secret key {key}")
-            data[key] = secrets[spec.secret_name].data[key]
-
-        # Add the user's token and return the results.
-        data["token"] = b64encode(user.token.encode()).decode()
-        return data
-
     async def delete_lab(self, username: str) -> None:
         """Delete the lab environment for the given user.
 
@@ -287,3 +238,52 @@ class LabManager:
         message = f"Lab for {username} deleted"
         await self._lab_state.publish_event(username, message, end_progress)
         self._logger.info("Lab deleted")
+
+    async def _gather_secret_data(
+        self, user: GafaelfawrUser
+    ) -> dict[str, str]:
+        """Gather the key/value pair secret data used by the lab.
+
+        Read the secrets specified in the lab configuration, extract the keys
+        and values requested by the configuration, and assemble a dictionary
+        of secrets that the lab should receive.
+
+        Parameters
+        ----------
+        user
+            Authenticated Gafaelfawr user.
+
+        Returns
+        -------
+        dict of str
+            Secret data for the lab.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        MissingSecretError
+            Raised if a secret does not exist.
+        """
+        namespace = self.manager_namespace
+        secret_names = {s.secret_name for s in self._config.secrets}
+        secrets = {
+            n: await self._storage.read_secret(n, namespace)
+            for n in sorted(secret_names)
+        }
+
+        # Now, construct the data for the user's lab secret.
+        data = {}
+        for spec in self._config.secrets:
+            key = spec.secret_key
+            if key not in secrets[spec.secret_name].data:
+                raise MissingSecretError(spec.secret_name, namespace, key)
+            if key in data:
+                # Conflict with another secret. Should be impossible since the
+                # validator on our configuration enforces no conflicts.
+                raise RuntimeError(f"Duplicate secret key {key}")
+            data[key] = secrets[spec.secret_name].data[key]
+
+        # Add the user's token and return the results.
+        data["token"] = b64encode(user.token.encode()).decode()
+        return data
