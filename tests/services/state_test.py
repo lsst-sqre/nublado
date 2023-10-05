@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from safir.testing.kubernetes import MockKubernetesApi
@@ -183,9 +184,9 @@ async def test_spawn_timeout(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     for secret in obj_factory.secrets:
-        await mock_kubernetes.create_namespaced_secret(
-            config.lab.namespace_prefix, secret
-        )
+        namespace_path = Path(config.metadata_path) / "namespace"
+        namespace = namespace_path.read_text().strip()
+        await mock_kubernetes.create_namespaced_secret(namespace, secret)
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
     config.lab.spawn_timeout = timedelta(seconds=1)
     token, user = obj_factory.get_user()
