@@ -15,6 +15,7 @@ from ..models.domain.gafaelfawr import GafaelfawrUser
 from ..models.domain.rspimage import RSPImage
 from ..models.v1.lab import LabSpecification, LabStatus, UserLabState
 from ..storage.kubernetes.lab import LabStorage
+from ..storage.metadata import MetadataStorage
 from .builder.lab import LabBuilder
 from .image import ImageService
 from .size import SizeManager
@@ -27,23 +28,23 @@ class LabManager:
     def __init__(
         self,
         *,
-        manager_namespace: str,
         instance_url: str,
         lab_state: LabStateManager,
         lab_builder: LabBuilder,
         size_manager: SizeManager,
         image_service: ImageService,
+        metadata_storage: MetadataStorage,
         lab_storage: LabStorage,
         lab_config: LabConfig,
         slack_client: SlackWebhookClient | None = None,
         logger: BoundLogger,
     ) -> None:
-        self.manager_namespace = manager_namespace
         self.instance_url = instance_url
         self._lab_state = lab_state
         self._builder = lab_builder
         self._size_manager = size_manager
         self._image_service = image_service
+        self._metadata = metadata_storage
         self._storage = lab_storage
         self._config = lab_config
         self._slack_client = slack_client
@@ -162,7 +163,7 @@ class LabManager:
             secret_data = await self._gather_secret_data(user)
             if self._config.pull_secret:
                 pull_secret = await self._storage.read_secret(
-                    self._config.pull_secret, self.manager_namespace
+                    self._config.pull_secret, self._metadata.namespace
                 )
         except MissingSecretError as e:
             e.user = username
@@ -265,10 +266,9 @@ class LabManager:
         MissingSecretError
             Raised if a secret does not exist.
         """
-        namespace = self.manager_namespace
         secret_names = {s.secret_name for s in self._config.secrets}
         secrets = {
-            n: await self._storage.read_secret(n, namespace)
+            n: await self._storage.read_secret(n, self._metadata.namespace)
             for n in sorted(secret_names)
         }
 
@@ -277,6 +277,7 @@ class LabManager:
         for spec in self._config.secrets:
             key = spec.secret_key
             if key not in secrets[spec.secret_name].data:
+                namespace = self._metadata.namespace
                 raise MissingSecretError(spec.secret_name, namespace, key)
             if key in data:
                 # Conflict with another secret. Should be impossible since the

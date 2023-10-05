@@ -341,13 +341,14 @@ class Factory:
         LabManager
             Newly-created lab manager.
         """
+        metadata_storage = MetadataStorage(self._context.config.metadata_path)
         return LabManager(
             instance_url=self._context.config.base_url,
-            manager_namespace=self._context.config.lab.namespace_prefix,
             lab_state=self._context.lab_state,
             lab_builder=self.create_lab_builder(),
             image_service=self._context.image_service,
             size_manager=self.create_size_manager(),
+            metadata_storage=metadata_storage,
             lab_storage=self.create_lab_storage(),
             lab_config=self._context.config.lab,
             slack_client=self.create_slack_client(),

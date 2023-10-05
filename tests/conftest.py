@@ -66,9 +66,9 @@ async def app(
     """
     mock_kubernetes.set_nodes_for_test(obj_factory.nodecontents)
     for secret in obj_factory.secrets:
-        await mock_kubernetes.create_namespaced_secret(
-            config.lab.namespace_prefix, secret
-        )
+        namespace_path = Path(config.metadata_path) / "namespace"
+        namespace = namespace_path.read_text().strip()
+        await mock_kubernetes.create_namespaced_secret(namespace, secret)
     app = create_app()
     async with LifespanManager(app):
         yield app

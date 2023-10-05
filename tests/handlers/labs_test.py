@@ -568,7 +568,7 @@ async def test_spawn_errors(
             "read_namespaced_secret",
             "reading object",
             "Secret",
-            "userlabs/extra-secret",
+            "nublado/extra-secret",
         ),
         (
             "create_namespaced_secret",
