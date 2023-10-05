@@ -10,7 +10,7 @@ from httpx import AsyncClient
 from kubernetes_asyncio.client import V1Pod
 from safir.testing.kubernetes import MockKubernetesApi
 
-from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUser
 from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 
 from ...support.config import configure
@@ -34,8 +34,7 @@ def _find_user_pod(user: str, objects: list[Any]) -> V1Pod:
 @pytest.mark.asyncio
 async def test_cleanup_on_pod_exit(
     client: AsyncClient,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
@@ -54,7 +53,7 @@ async def test_cleanup_on_pod_exit(
         "/files",
         headers={
             "X-Auth-Request-User": user.username,
-            "X-Auth-Request-Token": token,
+            "X-Auth-Request-Token": user.token,
         },
     )
     assert r.status_code == 200

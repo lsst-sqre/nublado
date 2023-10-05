@@ -5,13 +5,13 @@ from __future__ import annotations
 import pytest
 from httpx import AsyncClient
 
-from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUser
 
 from ..support.data import read_output_data
 
 
 @pytest.mark.asyncio
-async def test_lab_form(client: AsyncClient, user: GafaelfawrUserInfo) -> None:
+async def test_lab_form(client: AsyncClient, user: GafaelfawrUser) -> None:
     r = await client.get(
         f"/nublado/spawner/v1/lab-form/{user.username}",
         headers={"X-Auth-Request-User": user.username},

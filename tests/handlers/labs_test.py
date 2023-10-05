@@ -22,7 +22,7 @@ from safir.testing.slack import MockSlackWebhook
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.constants import DROPDOWN_SENTINEL_VALUE
 from jupyterlabcontroller.factory import Factory
-from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUser
 from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 
 from ..support.config import configure
@@ -64,8 +64,7 @@ async def get_lab_events(
 async def test_lab_start_stop(
     client: AsyncClient,
     factory: Factory,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     assert user.quota
@@ -114,7 +113,7 @@ async def test_lab_start_stop(
             "env": lab.env,
         },
         headers={
-            "X-Auth-Request-Token": token,
+            "X-Auth-Request-Token": user.token,
             "X-Auth-Request-User": user.username,
         },
     )
@@ -172,7 +171,7 @@ async def test_lab_start_stop(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
-            "X-Auth-Request-Token": token,
+            "X-Auth-Request-Token": user.token,
             "X-Auth-Request-User": user.username,
         },
     )
@@ -220,8 +219,7 @@ async def test_lab_start_stop(
 async def test_spawn_after_failure(
     client: AsyncClient,
     factory: Factory,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification.json")
@@ -231,7 +229,7 @@ async def test_spawn_after_failure(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
-            "X-Auth-Request-Token": token,
+            "X-Auth-Request-Token": user.token,
             "X-Auth-Request-User": user.username,
         },
     )
@@ -264,7 +262,7 @@ async def test_spawn_after_failure(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
-            "X-Auth-Request-Token": token,
+            "X-Auth-Request-Token": user.token,
             "X-Auth-Request-User": user.username,
         },
     )
@@ -284,8 +282,7 @@ async def test_spawn_after_failure(
 async def test_delayed_spawn(
     client: AsyncClient,
     factory: Factory,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification.json")
@@ -295,7 +292,7 @@ async def test_delayed_spawn(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
-            "X-Auth-Request-Token": token,
+            "X-Auth-Request-Token": user.token,
             "X-Auth-Request-User": user.username,
         },
     )
@@ -395,8 +392,7 @@ async def test_delayed_spawn(
 async def test_lab_objects(
     client: AsyncClient,
     config: Config,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification.json")
@@ -405,7 +401,7 @@ async def test_lab_objects(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
-            "X-Auth-Request-Token": token,
+            "X-Auth-Request-Token": user.token,
             "X-Auth-Request-User": user.username,
         },
     )
@@ -423,9 +419,7 @@ async def test_lab_objects(
 
 
 @pytest.mark.asyncio
-async def test_errors(
-    client: AsyncClient, token: str, user: GafaelfawrUserInfo
-) -> None:
+async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification.json")
 
     # Wrong user.
@@ -433,7 +427,7 @@ async def test_errors(
         "/nublado/spawner/v1/labs/otheruser/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
-            "X-Auth-Request-Token": token,
+            "X-Auth-Request-Token": user.token,
             "X-Auth-Request-User": user.username,
         },
     )
@@ -471,7 +465,7 @@ async def test_errors(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": options, "env": lab.env},
         headers={
-            "X-Auth-Request-Token": token,
+            "X-Auth-Request-Token": user.token,
             "X-Auth-Request-User": user.username,
         },
     )
@@ -495,7 +489,7 @@ async def test_errors(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": options, "env": lab.env},
         headers={
-            "X-Auth-Request-Token": token,
+            "X-Auth-Request-Token": user.token,
             "X-Auth-Request-User": user.username,
         },
     )
@@ -519,7 +513,7 @@ async def test_errors(
             "env": lab.env,
         },
         headers={
-            "X-Auth-Request-Token": token,
+            "X-Auth-Request-Token": user.token,
             "X-Auth-Request-User": user.username,
         },
     )
@@ -538,8 +532,7 @@ async def test_errors(
 @pytest.mark.asyncio
 async def test_spawn_errors(
     client: AsyncClient,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
     mock_slack: MockSlackWebhook,
 ) -> None:
@@ -611,7 +604,7 @@ async def test_spawn_errors(
             f"/nublado/spawner/v1/labs/{user.username}/create",
             json={"options": lab.options.model_dump(), "env": lab.env},
             headers={
-                "X-Auth-Request-Token": token,
+                "X-Auth-Request-Token": user.token,
                 "X-Auth-Request-User": user.username,
             },
         )
@@ -690,8 +683,7 @@ async def test_spawn_errors(
 @pytest.mark.asyncio
 async def test_homedir_schema(
     client: AsyncClient,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that the home directory is constructed correctly.
@@ -707,7 +699,7 @@ async def test_homedir_schema(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
         headers={
-            "X-Auth-Request-Token": token,
+            "X-Auth-Request-Token": user.token,
             "X-Auth-Request-User": user.username,
         },
     )

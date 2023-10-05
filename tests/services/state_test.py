@@ -16,10 +16,7 @@ from safir.testing.kubernetes import MockKubernetesApi
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.models.domain.docker import DockerReference
-from jupyterlabcontroller.models.domain.gafaelfawr import (
-    GafaelfawrUser,
-    GafaelfawrUserInfo,
-)
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUser
 from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 from jupyterlabcontroller.models.v1.lab import (
     LabStatus,
@@ -39,8 +36,7 @@ from ..support.data import (
 async def create_lab(
     config: Config,
     factory: Factory,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> UserLabState:
     """Create a lab for the default test user.
@@ -56,8 +52,6 @@ async def create_lab(
         Application configuration
     factory
         Component factory.
-    token
-        Authentication token for user.
     user
         User whose lab is being created.
     mock_kubernetes
@@ -68,7 +62,6 @@ async def create_lab(
     UserLabState
         Expected state corresponding to the created lab.
     """
-    auth_user = GafaelfawrUser(token=token, **user.model_dump())
     assert user.quota
     assert user.quota.notebook
     lab = read_input_lab_specification_json("base", "lab-specification.json")
@@ -91,7 +84,7 @@ async def create_lab(
     # Create this lab with an empty set of secret data, since it shouldn't
     # matter for what we're testing and saves some effort.
     objects = lab_builder.build_lab(
-        user=auth_user, lab=lab, image=image, secrets={}
+        user=user, lab=lab, image=image, secrets={}
     )
     await lab_storage.create(objects)
 
@@ -116,11 +109,10 @@ async def create_lab(
 async def test_reconcile(
     config: Config,
     factory: Factory,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    expected = await create_lab(config, factory, token, user, mock_kubernetes)
+    expected = await create_lab(config, factory, user, mock_kubernetes)
 
     # The lab state manager should think there are no labs.
     assert await factory.lab_state.list_lab_users() == []
@@ -143,12 +135,11 @@ async def test_reconcile(
 async def test_reconcile_pending(
     config: Config,
     factory: Factory,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
-    expected = await create_lab(config, factory, token, user, mock_kubernetes)
+    expected = await create_lab(config, factory, user, mock_kubernetes)
 
     # The lab state manager shouldn't know about the pod to start with.
     assert await factory.lab_state.list_lab_users() == []
@@ -188,8 +179,7 @@ async def test_reconcile_pending(
 async def test_spawn_timeout(
     config: Config,
     factory: Factory,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     namespace = read_input_data("base", "metadata/namespace").strip()
@@ -197,13 +187,12 @@ async def test_spawn_timeout(
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
     config.lab.spawn_timeout = timedelta(seconds=1)
-    auth_user = GafaelfawrUser(token=token, **user.model_dump())
     lab = read_input_lab_specification_json("base", "lab-specification.json")
     lab_manager = factory.create_lab_manager()
     await factory.start_background_services()
 
     # Start the lab creation.
-    await lab_manager.create_lab(auth_user, lab)
+    await lab_manager.create_lab(user, lab)
     await asyncio.sleep(0.1)
     status = await factory.lab_state.get_lab_status(user.username)
     assert status == LabStatus.PENDING

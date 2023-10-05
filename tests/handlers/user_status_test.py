@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
 
 from jupyterlabcontroller.factory import Factory
-from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUser
 from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 
 from ..support.constants import TEST_BASE_URL
@@ -18,8 +18,7 @@ from ..support.data import read_input_lab_specification_json
 async def test_user_status(
     client: AsyncClient,
     factory: Factory,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     assert user.quota
@@ -50,7 +49,7 @@ async def test_user_status(
             "env": lab.env,
         },
         headers={
-            "X-Auth-Request-Token": token,
+            "X-Auth-Request-Token": user.token,
             "X-Auth-Request-User": user.username,
         },
     )
