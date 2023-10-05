@@ -33,10 +33,6 @@ images:
     type: docker
     registry: lighthouse.ceres
     repository: library/sketchbook
-  recommendedTag: recommended
-  numReleases: 1
-  numWeeklies: 2
-  numDailies: 3
 fileserver:
   enabled: true
   creationTimeout: 1

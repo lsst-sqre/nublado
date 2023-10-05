@@ -681,3 +681,27 @@ async def test_homedir_schema(
     expected_homedir = f"/home/{user.username[0]}/{user.username}"
     for container in pod.spec.containers:
         assert container.working_dir == expected_homedir
+
+
+@pytest.mark.asyncio
+async def test_extra_annotations(
+    client: AsyncClient,
+    user: GafaelfawrUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    """Check that the pod picks up extra annotations set in the config."""
+    config = await configure("extra-annotations")
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 201
+
+    namespace = f"{config.lab.namespace_prefix}-{user.username}"
+    pod_name = f"{user.username}-nb"
+    pod = await mock_kubernetes.read_namespaced_pod(pod_name, namespace)
+    for key, value in config.lab.extra_annotations.items():
+        assert pod.metadata.annotations[key] == value
