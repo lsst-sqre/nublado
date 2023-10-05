@@ -533,7 +533,7 @@ class MissingSecretError(MissingObjectError):
     """
 
     def __init__(
-        self, namespace: str, name: str, key: str | None = None
+        self, name: str, namespace: str, key: str | None = None
     ) -> None:
         if key:
             message = f"No key {key} in secret {namespace}/{name}"
