@@ -25,10 +25,7 @@ async def test_extra_annotations(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers={
-            "X-Auth-Request-Token": user.token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers=user.to_headers(),
     )
     assert r.status_code == 201
 

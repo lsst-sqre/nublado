@@ -32,23 +32,16 @@ async def test_wait_for_ingress(
     # No fileservers yet.
     assert r.json() == []
 
-    #
-    async def create_fileserver() -> None:
-        # Start a user fileserver.
-        r = await client.get(
-            "/files",
-            headers={
-                "X-Auth-Request-User": user.username,
-                "X-Auth-Request-Token": user.token,
-            },
-        )
+    async def start_fileserver() -> None:
+        r = await client.get("/files", headers=user.to_headers())
         assert r.status_code == 200
+
         # Check that it has showed up, via an admin route.
         r = await client.get("/nublado/fileserver/v1/users")
         assert r.json() == [user.username]
 
     # Start the fileserver
-    task = asyncio.create_task(create_fileserver())
+    task = asyncio.create_task(start_fileserver())
     # Check that task is running
     assert task.done() is False
     # Check there are no fileservers yet.

@@ -14,7 +14,7 @@ from ..support.data import read_output_data
 async def test_lab_form(client: AsyncClient, user: GafaelfawrUser) -> None:
     r = await client.get(
         f"/nublado/spawner/v1/lab-form/{user.username}",
-        headers={"X-Auth-Request-User": user.username},
+        headers=user.to_headers(),
     )
     assert r.status_code == 200
     assert r.headers["Content-Type"] == "text/html; charset=utf-8"

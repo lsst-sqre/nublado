@@ -49,13 +49,7 @@ async def test_cleanup_on_pod_exit(
     # life, the GafaelfawrIngress creation would trigger this.
     await create_working_ingress_for_user(mock_kubernetes, name, namespace)
     # Start a user fileserver.
-    r = await client.get(
-        "/files",
-        headers={
-            "X-Auth-Request-User": user.username,
-            "X-Auth-Request-Token": user.token,
-        },
-    )
+    r = await client.get("/files", headers=user.to_headers())
     assert r.status_code == 200
     # Check that it has showed up, via an admin route.
     r = await client.get("/nublado/fileserver/v1/users")

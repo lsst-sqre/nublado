@@ -36,13 +36,7 @@ async def test_fileserver(
     await create_working_ingress_for_user(mock_kubernetes, name, namespace)
 
     # Start a user fileserver.
-    r = await client.get(
-        "/files",
-        headers={
-            "X-Auth-Request-User": user.username,
-            "X-Auth-Request-Token": user.token,
-        },
-    )
+    r = await client.get("/files", headers=user.to_headers())
     assert r.status_code == 200
     expected = read_output_data("fileserver", "fileserver.txt")
     assert r.text == expected
@@ -53,13 +47,7 @@ async def test_fileserver(
     # Request it again; should detect that there is a user fileserver and
     # return immediately without actually doing anything.
     #
-    r = await client.get(
-        "/files",
-        headers={
-            "X-Auth-Request-User": user.username,
-            "X-Auth-Request-Token": user.token,
-        },
-    )
+    r = await client.get("/files", headers=user.to_headers())
     assert r.status_code == 200
     assert r.text == expected
     # Make sure fileserver still exists
