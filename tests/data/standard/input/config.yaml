@@ -15,14 +15,15 @@ lab:
     NO_ACTIVITY_TIMEOUT: "432000"
     TAP_ROUTE: /api/tap
 
-    # Note that other environment variables will be injected by the Lab
-    # controller (to match KubeSpawner's behavior).  These must be calculated
-    # from other Lab-spawn-time values, and include:
+    # Note that other environment variables will be injected by the controller
+    # (to match KubeSpawner's behavior). These must be calculated from other
+    # lab-spawn-time values or from the controller configuration, and include:
     #
     # ACCESS_TOKEN
     # CPU_GUARANTEE
     # CPU_LIMIT
     # DEBUG
+    # EXTERNAL_INSTANCE_URL
     # JPY_API_TOKEN
     # JUPYTERHUB_ACTIVITY_URL
     # JUPYTERHUB_CLIENT_ID
@@ -32,7 +33,7 @@ lab:
     # JUPYTERHUB_SERVICE_PREFIX
     # JUPYTERHUB_SERVICE_URL
     # JUPYTERHUB_USER
-    # JUPYTER_IMAGE         # Alias for JUPYTER_IMAGE_SPEC
+    # JUPYTER_IMAGE         # Deprecated alias for JUPYTER_IMAGE_SPEC
     # JUPYTER_IMAGE_SPEC
     # MEM_GUARANTEE  # in bytes
     # MEM_LIMIT      # in bytes
@@ -40,9 +41,6 @@ lab:
     #
     # Additionally, some environment variables will be set from the secrets
     # below.
-    #
-    # EXTERNAL_INSTANCE_URL is a special case: it's constant-per-instance, but
-    # you can't template values files
   files:
     /etc/passwd:
       modify: true
@@ -162,12 +160,12 @@ lab:
         type: nfs
         server: 10.13.105.122
         serverPath: /share1/home
-    - containerPath: /project
+    - containerPath: /PROJECT
       mode: ro
       source:
         type: hostPath
         path: /share1/project
-    - containerPath: /scratch
+    - containerPath: /ScRaTcH
       mode: rw
       source:
         type: persistentVolumeClaim

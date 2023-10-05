@@ -292,12 +292,12 @@
               "read_only": false
             },
             {
-              "mount_path": "/project",
+              "mount_path": "/PROJECT",
               "name": "project",
               "read_only": true
             },
             {
-              "mount_path": "/scratch",
+              "mount_path": "/ScRaTcH",
               "name": "scratch",
               "read_only": false
             },
