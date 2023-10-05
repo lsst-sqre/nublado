@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from pathlib import Path
 from typing import Any
 from unittest.mock import ANY
 
@@ -23,12 +22,16 @@ from safir.testing.slack import MockSlackWebhook
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.constants import DROPDOWN_SENTINEL_VALUE
 from jupyterlabcontroller.factory import Factory
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
 from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 
-from ..settings import TestObjectFactory
 from ..support.config import configure
 from ..support.constants import TEST_BASE_URL
-from ..support.data import read_output_data, read_output_json
+from ..support.data import (
+    read_input_lab_specification_json,
+    read_output_data,
+    read_output_json,
+)
 
 
 async def get_lab_events(
@@ -61,13 +64,13 @@ async def get_lab_events(
 async def test_lab_start_stop(
     client: AsyncClient,
     factory: Factory,
-    obj_factory: TestObjectFactory,
+    token: str,
+    user: GafaelfawrUserInfo,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    token, user = obj_factory.get_user()
     assert user.quota
     assert user.quota.notebook
-    lab = obj_factory.labspecs[0]
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
     size_manager = factory.create_size_manager()
     unknown_user_error = {
         "detail": [
@@ -217,11 +220,11 @@ async def test_lab_start_stop(
 async def test_spawn_after_failure(
     client: AsyncClient,
     factory: Factory,
-    obj_factory: TestObjectFactory,
+    token: str,
+    user: GafaelfawrUserInfo,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    token, user = obj_factory.get_user()
-    lab = obj_factory.labspecs[0]
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
 
     # Create a lab.
     r = await client.post(
@@ -281,12 +284,11 @@ async def test_spawn_after_failure(
 async def test_delayed_spawn(
     client: AsyncClient,
     factory: Factory,
+    token: str,
+    user: GafaelfawrUserInfo,
     mock_kubernetes: MockKubernetesApi,
-    obj_factory: TestObjectFactory,
-    std_result_dir: Path,
 ) -> None:
-    token, user = obj_factory.get_user()
-    lab = obj_factory.labspecs[0]
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
 
     r = await client.post(
@@ -350,8 +352,7 @@ async def test_delayed_spawn(
     # The listeners should now complete successfully and we should see
     # appropriate events.
     event_lists = await asyncio.gather(*listeners)
-    with (std_result_dir / "lab-spawn-events.json").open("r") as f:
-        expected_events = json.load(f)
+    expected_events = read_output_json("standard", "lab-spawn-events.json")
     expected_events = (
         expected_events[:-1]
         + [
@@ -394,12 +395,11 @@ async def test_delayed_spawn(
 async def test_lab_objects(
     client: AsyncClient,
     config: Config,
+    token: str,
+    user: GafaelfawrUserInfo,
     mock_kubernetes: MockKubernetesApi,
-    obj_factory: TestObjectFactory,
-    std_result_dir: Path,
 ) -> None:
-    token, user = obj_factory.get_user()
-    lab = obj_factory.labspecs[0]
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -418,17 +418,15 @@ async def test_lab_objects(
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
     for obj in objects:
         obj.metadata.resource_version = None
-    with (std_result_dir / "lab-objects.json").open("r") as f:
-        expected = json.load(f)
+    expected = read_output_json("standard", "lab-objects.json")
     assert [strip_none(o.to_dict()) for o in objects] == expected
 
 
 @pytest.mark.asyncio
 async def test_errors(
-    client: AsyncClient, obj_factory: TestObjectFactory
+    client: AsyncClient, token: str, user: GafaelfawrUserInfo
 ) -> None:
-    token, user = obj_factory.get_user()
-    lab = obj_factory.labspecs[0]
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
 
     # Wrong user.
     r = await client.post(
@@ -540,12 +538,12 @@ async def test_errors(
 @pytest.mark.asyncio
 async def test_spawn_errors(
     client: AsyncClient,
-    obj_factory: TestObjectFactory,
+    token: str,
+    user: GafaelfawrUserInfo,
     mock_kubernetes: MockKubernetesApi,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    token, user = obj_factory.get_user()
-    lab = obj_factory.labspecs[0]
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
     apis_to_fail = {"read_namespaced_secret"}
 
     def callback(method: str, *args: Any) -> None:
@@ -692,8 +690,9 @@ async def test_spawn_errors(
 @pytest.mark.asyncio
 async def test_homedir_schema(
     client: AsyncClient,
+    token: str,
+    user: GafaelfawrUserInfo,
     mock_kubernetes: MockKubernetesApi,
-    obj_factory: TestObjectFactory,
 ) -> None:
     """Check that the home directory is constructed correctly.
 
@@ -702,8 +701,7 @@ async def test_homedir_schema(
     was set.
     """
     config = await configure("homedir-schema")
-    token, user = obj_factory.get_user()
-    lab = obj_factory.labspecs[0]
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",

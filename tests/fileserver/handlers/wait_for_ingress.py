@@ -8,23 +8,25 @@ import pytest
 from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
 
-from jupyterlabcontroller.config import Config
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
 
-from ...settings import TestObjectFactory
+from ...support.config import configure
 from ...support.docker import MockDockerRegistry
-from ..util import create_working_ingress_for_user, delete_ingress_for_user
+from ...support.fileserver import (
+    create_working_ingress_for_user,
+    delete_ingress_for_user,
+)
 
 
 @pytest.mark.asyncio
 async def test_wait_for_ingress(
+    client: AsyncClient,
+    token: str,
+    user: GafaelfawrUserInfo,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
-    obj_factory: TestObjectFactory,
-    config: Config,
-    client: AsyncClient,
-    std_result_dir: str,
 ) -> None:
-    token, user = obj_factory.get_user()
+    config = await configure("fileserver", mock_kubernetes)
     name = user.username
     namespace = config.fileserver.namespace
     r = await client.get("/nublado/fileserver/v1/users")

@@ -8,11 +8,11 @@ import pytest
 from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
 
-from jupyterlabcontroller.config import Config
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
 
-from ...settings import TestObjectFactory
+from ...support.config import configure
 from ...support.docker import MockDockerRegistry
-from ..util import (
+from ...support.fileserver import (
     create_ingress_for_user,
     create_working_ingress_for_user,
     delete_ingress_for_user,
@@ -21,14 +21,13 @@ from ..util import (
 
 @pytest.mark.asyncio
 async def test_timeout_no_pod_start(
+    client: AsyncClient,
+    token: str,
+    user: GafaelfawrUserInfo,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
-    obj_factory: TestObjectFactory,
-    config: Config,
-    client: AsyncClient,
-    std_result_dir: str,
 ) -> None:
-    token, user = obj_factory.get_user()
+    config = await configure("fileserver", mock_kubernetes)
     name = user.username
     namespace = config.fileserver.namespace
 
@@ -74,14 +73,13 @@ async def test_timeout_no_pod_start(
 
 @pytest.mark.asyncio
 async def test_timeout_no_ingress(
+    client: AsyncClient,
+    token: str,
+    user: GafaelfawrUserInfo,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
-    obj_factory: TestObjectFactory,
-    config: Config,
-    client: AsyncClient,
-    std_result_dir: str,
 ) -> None:
-    token, user = obj_factory.get_user()
+    config = await configure("fileserver", mock_kubernetes)
     save_fs_timeout = config.fileserver.creation_timeout
     # Set low for testing
     config.fileserver.creation_timeout = 1
@@ -108,14 +106,13 @@ async def test_timeout_no_ingress(
 
 @pytest.mark.asyncio
 async def test_timeout_no_ingress_ip(
+    client: AsyncClient,
+    token: str,
+    user: GafaelfawrUserInfo,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
-    obj_factory: TestObjectFactory,
-    config: Config,
-    client: AsyncClient,
-    std_result_dir: str,
 ) -> None:
-    token, user = obj_factory.get_user()
+    config = await configure("fileserver", mock_kubernetes)
     name = user.username
     namespace = config.fileserver.namespace
     save_fs_timeout = config.fileserver.creation_timeout

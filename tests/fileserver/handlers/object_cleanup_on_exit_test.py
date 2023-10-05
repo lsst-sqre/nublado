@@ -10,12 +10,15 @@ from httpx import AsyncClient
 from kubernetes_asyncio.client import V1Pod
 from safir.testing.kubernetes import MockKubernetesApi
 
-from jupyterlabcontroller.config import Config
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
 from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 
-from ...settings import TestObjectFactory
+from ...support.config import configure
 from ...support.docker import MockDockerRegistry
-from ..util import create_working_ingress_for_user, delete_ingress_for_user
+from ...support.fileserver import (
+    create_working_ingress_for_user,
+    delete_ingress_for_user,
+)
 
 
 def _find_user_pod(user: str, objects: list[Any]) -> V1Pod:
@@ -30,14 +33,13 @@ def _find_user_pod(user: str, objects: list[Any]) -> V1Pod:
 
 @pytest.mark.asyncio
 async def test_cleanup_on_pod_exit(
+    client: AsyncClient,
+    token: str,
+    user: GafaelfawrUserInfo,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
-    obj_factory: TestObjectFactory,
-    config: Config,
-    client: AsyncClient,
-    std_result_dir: str,
 ) -> None:
-    token, user = obj_factory.get_user()
+    config = await configure("fileserver", mock_kubernetes)
     name = user.username
     namespace = config.fileserver.namespace
     r = await client.get("/nublado/fileserver/v1/users")

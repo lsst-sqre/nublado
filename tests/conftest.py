@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator
-from pathlib import Path
 
 import pytest
 import pytest_asyncio
@@ -17,31 +16,21 @@ from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.main import create_app
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
 from jupyterlabcontroller.models.v1.prepuller_config import DockerSourceConfig
 
-from .settings import TestObjectFactory, test_object_factory
 from .support.config import configure
 from .support.constants import TEST_BASE_URL
+from .support.data import (
+    read_input_data,
+    read_input_json,
+    read_input_node_json,
+    read_input_secrets_json,
+    read_input_users_json,
+)
 from .support.docker import MockDockerRegistry, register_mock_docker
 from .support.gafaelfawr import MockGafaelfawr, register_mock_gafaelfawr
 from .support.gar import MockArtifactRegistry, patch_artifact_registry
-
-
-@pytest.fixture(scope="session")
-def std_config_dir() -> Path:
-    return Path(Path(__file__).parent / "configs" / "standard" / "input")
-
-
-@pytest.fixture(scope="session")
-def std_result_dir(std_config_dir: Path) -> Path:
-    return Path(std_config_dir.parent / "output")
-
-
-@pytest.fixture(scope="session")
-def obj_factory(std_config_dir: Path) -> TestObjectFactory:
-    filename = str(std_config_dir / "test_objects.json")
-    test_object_factory.initialize_from_file(filename)
-    return test_object_factory
 
 
 @pytest_asyncio.fixture
@@ -57,17 +46,16 @@ async def app(
     mock_kubernetes: MockKubernetesApi,
     mock_gafaelfawr: MockGafaelfawr,
     mock_slack: MockSlackWebhook,
-    obj_factory: TestObjectFactory,
 ) -> AsyncIterator[FastAPI]:
     """Return a configured test application.
 
     Wraps the application in a lifespan manager so that startup and shutdown
     events are sent during test execution.
     """
-    mock_kubernetes.set_nodes_for_test(obj_factory.nodecontents)
-    for secret in obj_factory.secrets:
-        namespace_path = Path(config.metadata_path) / "namespace"
-        namespace = namespace_path.read_text().strip()
+    nodes = read_input_node_json("base", "nodes.json")
+    mock_kubernetes.set_nodes_for_test(nodes)
+    namespace = read_input_data("base", "metadata/namespace").strip()
+    for secret in read_input_secrets_json("base", "secrets.json"):
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
     app = create_app()
     async with LifespanManager(app):
@@ -87,39 +75,36 @@ async def factory(
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
     mock_slack: MockSlackWebhook,
-    obj_factory: TestObjectFactory,
 ) -> AsyncIterator[Factory]:
     """Create a component factory for tests."""
-    mock_kubernetes.set_nodes_for_test(obj_factory.nodecontents)
+    nodes = read_input_node_json("base", "nodes.json")
+    mock_kubernetes.set_nodes_for_test(nodes)
     async with Factory.standalone(config) as factory:
         yield factory
 
 
 @pytest.fixture
 def mock_docker(
-    config: Config,
-    respx_mock: respx.Router,
-    obj_factory: TestObjectFactory,
+    config: Config, respx_mock: respx.Router
 ) -> MockDockerRegistry:
     assert isinstance(config.images.source, DockerSourceConfig)
+    tags = read_input_json("base", "docker-tags.json")
     return register_mock_docker(
         respx_mock,
         host=config.images.source.registry,
         repository=config.images.source.repository,
         credentials_path=config.docker_secrets_path,
-        tags=obj_factory.repocontents,
+        tags=tags,
         require_bearer=True,
     )
 
 
 @pytest.fixture
 def mock_gafaelfawr(
-    config: Config,
-    respx_mock: respx.Router,
-    obj_factory: TestObjectFactory,
+    config: Config, respx_mock: respx.Router
 ) -> MockGafaelfawr:
-    test_users = obj_factory.userinfos
-    return register_mock_gafaelfawr(respx_mock, config.base_url, test_users)
+    users = read_input_users_json("base", "users.json")
+    return register_mock_gafaelfawr(respx_mock, config.base_url, users)
 
 
 @pytest.fixture
@@ -139,3 +124,15 @@ def mock_slack(
     config.slack_webhook = "https://slack.example.com/webhook"
     yield mock_slack_webhook(config.slack_webhook, respx_mock)
     config.slack_webhook = None
+
+
+@pytest.fixture
+def token(mock_gafaelfawr: MockGafaelfawr) -> str:
+    """Authentication token for the user returned by the `user` fixtures."""
+    return mock_gafaelfawr.get_test_token()
+
+
+@pytest.fixture
+def user(mock_gafaelfawr: MockGafaelfawr) -> GafaelfawrUserInfo:
+    """User to use for testing."""
+    return mock_gafaelfawr.get_test_user()

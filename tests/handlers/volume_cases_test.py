@@ -1,21 +1,26 @@
+"""Test case of volumes."""
+
+from __future__ import annotations
+
 import pytest
 from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
 
-from ..settings import TestObjectFactory
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
+
 from ..support.config import configure
+from ..support.data import read_input_lab_specification_json
 
 
 @pytest.mark.asyncio
 async def test_volume_cases(
     client: AsyncClient,
+    token: str,
+    user: GafaelfawrUserInfo,
     mock_kubernetes: MockKubernetesApi,
-    obj_factory: TestObjectFactory,
 ) -> None:
-    """Check that the pod picks up extra annotations set in the config."""
     config = await configure("volume-cases")
-    token, user = obj_factory.get_user()
-    lab = obj_factory.labspecs[0]
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
