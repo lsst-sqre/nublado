@@ -1,6 +1,5 @@
 """Service to manage user fileservers."""
 
-
 from __future__ import annotations
 
 import asyncio
@@ -10,7 +9,7 @@ from datetime import timedelta
 from structlog.stdlib import BoundLogger
 
 from ..config import FileserverConfig
-from ..exceptions import DisabledError, MissingObjectError
+from ..exceptions import MissingObjectError, NotConfiguredError
 from ..models.domain.fileserver import FileserverUserMap
 from ..models.v1.lab import UserInfo
 from ..storage.k8s import K8sStorageClient
@@ -53,6 +52,8 @@ class FileserverStateManager:
         This gets called by the handler when a user comes in through the
         /files ingress.
         """
+        if not self._config.enabled:
+            raise NotConfiguredError("Fileserver is disabled in configuration")
         username = user.username
         self._logger.info(f"Fileserver requested for {username}")
         if not (
@@ -90,18 +91,20 @@ class FileserverStateManager:
 
     async def delete(self, username: str) -> None:
         if not self._started:
-            raise DisabledError("Fileserver is not started.")
+            raise NotConfiguredError("Fileserver is not started")
         name = self._builder.build_fileserver_name(username)
         async with self._lock[username]:
             await self._user_map.remove(username)
             await self._storage.delete(name, self._config.namespace)
 
     async def list(self) -> list[str]:
+        if not self._config.enabled:
+            raise NotConfiguredError("Fileserver is disabled in configuration")
         return await self._user_map.list()
 
     async def start(self) -> None:
         if not self._config.enabled:
-            raise DisabledError("Fileserver is disabled in configuration")
+            raise NotConfiguredError("Fileserver is disabled in configuration")
         if not await self._k8s_client.check_namespace(self._config.namespace):
             raise MissingObjectError(
                 "File server namespace missing",

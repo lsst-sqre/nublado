@@ -21,7 +21,6 @@ from safir.slack.webhook import SlackIgnoredException
 
 __all__ = [
     "ClientRequestError",
-    "DisabledError",
     "DockerRegistryError",
     "DuplicateObjectError",
     "GafaelfawrParseError",
@@ -31,6 +30,7 @@ __all__ = [
     "KubernetesError",
     "LabExistsError",
     "MissingObjectError",
+    "NotConfiguredError",
     "SlackWebException",
     "UnknownDockerImageError",
     "UnknownUserError",
@@ -593,5 +593,8 @@ class FileserverCreationError(ClientRequestError):
     status_code = status.HTTP_400_BAD_REQUEST
 
 
-class DisabledError(SlackException):
+class NotConfiguredError(ClientRequestError):
     """An attempt was made to use a disabled service."""
+
+    error = "not_supported"
+    status_code = status.HTTP_404_NOT_FOUND
