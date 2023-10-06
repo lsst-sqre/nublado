@@ -468,7 +468,7 @@ def test_hide_aliased() -> None:
     assert [i.tag for i in images] == ["w_2077_46"]
 
 
-def test_hide_resolved_aliases() -> None:
+def test_hide_resolved() -> None:
     """Don't hide a resolved alias if its target isn't in the collection."""
     weekly = make_test_image("w_2077_46")
     recommended = RSPImage.from_tag(
