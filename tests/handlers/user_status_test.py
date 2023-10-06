@@ -7,23 +7,24 @@ from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
 
 from jupyterlabcontroller.factory import Factory
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
 from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 
-from ..settings import TestObjectFactory
 from ..support.constants import TEST_BASE_URL
+from ..support.data import read_input_lab_specification_json
 
 
 @pytest.mark.asyncio
 async def test_user_status(
     client: AsyncClient,
     factory: Factory,
-    obj_factory: TestObjectFactory,
+    token: str,
+    user: GafaelfawrUserInfo,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    token, user = obj_factory.get_user()
     assert user.quota
     assert user.quota.notebook
-    lab = obj_factory.labspecs[0]
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
     size_manager = factory.create_size_manager()
 
     # At the start, we shouldn't have any lab.

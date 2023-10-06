@@ -1,3 +1,7 @@
+"""Helper functions for fileserver tests."""
+
+from __future__ import annotations
+
 from kubernetes_asyncio.client import (
     V1Ingress,
     V1LoadBalancerIngress,
@@ -5,12 +9,22 @@ from kubernetes_asyncio.client import (
 )
 from safir.testing.kubernetes import MockKubernetesApi
 
+__all__ = [
+    "activate_ingress_for_user",
+    "create_ingress_for_user",
+    "create_working_ingress_for_user",
+    "delete_ingress_for_user",
+]
+
 
 async def create_ingress_for_user(
     mock_kubernetes: MockKubernetesApi, namespace: str, username: str
 ) -> None:
-    # Create an Ingress to match the GafaelfawrIngress.  In real
-    # life, the GafaelfawrIngress creation would trigger this.
+    """Create an ``Ingress`` to match the ``GafaelfawrIngress``.
+
+    Normally, Gafaelfawr would be running as a Kubernetes controller and do
+    this, but that isn't happening during the test suite.
+    """
     await mock_kubernetes.create_namespaced_ingress(
         namespace=namespace,
         body=V1Ingress(

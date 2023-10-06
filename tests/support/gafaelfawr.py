@@ -16,7 +16,9 @@ class MockGafaelfawr:
     Parameters
     ----------
     tokens
-        Map of tokens to mock user information.
+        Dictionary of tokens to mock user information. The first token and
+        user in the dictionary is returned by `get_test_token_and_user` as the
+        default token and user to use in tests.
     """
 
     def __init__(self, tokens: dict[str, GafaelfawrUserInfo]) -> None:
@@ -43,6 +45,14 @@ class MockGafaelfawr:
             return Response(200, json=self._tokens[token].model_dump())
         else:
             return Response(403)
+
+    def get_test_token(self) -> str:
+        """Get a token for tests."""
+        return next(iter(self._tokens))
+
+    def get_test_user(self) -> GafaelfawrUserInfo:
+        """Get a user for tests."""
+        return next(iter(self._tokens.values()))
 
 
 def register_mock_gafaelfawr(

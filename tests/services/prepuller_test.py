@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from dataclasses import asdict
-from pathlib import Path
 from typing import Any
 from unittest.mock import ANY
 
@@ -27,7 +25,6 @@ from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 from jupyterlabcontroller.models.v1.prepuller_config import GARSourceConfig
 
-from ..settings import TestObjectFactory
 from ..support.config import configure
 from ..support.data import (
     read_input_json,
@@ -65,11 +62,7 @@ async def mark_pod_complete(
 
 @pytest.mark.asyncio
 async def test_docker(
-    factory: Factory,
-    config: Config,
-    mock_kubernetes: MockKubernetesApi,
-    obj_factory: TestObjectFactory,
-    std_result_dir: Path,
+    factory: Factory, config: Config, mock_kubernetes: MockKubernetesApi
 ) -> None:
     """Test the prepuller service configured to talk to Docker."""
     await factory.image_service.start()
@@ -92,8 +85,7 @@ async def test_docker(
     # The default data configures Kubernetes with missing images on some
     # nodes. Check that we created the correct prepuller pods.
     pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-    with (std_result_dir / "prepull-objects.json").open("r") as f:
-        expected = json.load(f)
+    expected = read_output_json("standard", "prepull-objects.json")
     assert [strip_none(o.to_dict()) for o in pod_list.items] == expected
 
     # Update all of the pods to have a status of completed and send an event.
@@ -338,11 +330,9 @@ async def test_conflict(
     factory: Factory,
     config: Config,
     mock_kubernetes: MockKubernetesApi,
-    std_result_dir: Path,
 ) -> None:
     """Test handling of conflicts with a pre-existing prepuller pod."""
-    with (std_result_dir / "prepull-conflict-objects.json").open("r") as f:
-        expected = json.load(f)
+    expected = read_output_json("standard", "prepull-conflict-objects.json")
 
     # Create a pod with the same name as the prepull pod that the prepuller
     # will want to create. Don't bother to try to make this a valid pod, just
