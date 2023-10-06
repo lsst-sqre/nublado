@@ -2,7 +2,12 @@ safir:
   profile: development
   logLevel: DEBUG
 lab:
+  # The prefix and suffix have extra slashes to test the validator. Normal
+  # configurations should not have trailing slashes in the prefix and should
+  # not have leading or trailing slashes in the suffix.
+  homedirPrefix: "/u/home/"
   homedirSchema: initialThenUsername
+  homedirSuffix: "/jhome/"
   files:
     /etc/passwd:
       modify: true
@@ -17,7 +22,7 @@ lab:
       cpu: 1.0
       memory: 3Gi
   volumes:
-    - containerPath: /home
+    - containerPath: /u/home
       mode: rw
       source:
         type: nfs
