@@ -310,8 +310,8 @@ class UserInfo(BaseModel):
         title="Username for Lab user",
         pattern=USERNAME_REGEX,
     )
-    name: str = Field(
-        ...,
+    name: str | None = Field(
+        None,
         examples=["Ribbon"],
         title="Human-friendly display name for user",
         description=(
