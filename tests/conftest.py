@@ -16,7 +16,7 @@ from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.factory import Factory
 from jupyterlabcontroller.main import create_app
-from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUser
 from jupyterlabcontroller.models.v1.prepuller_config import DockerSourceConfig
 
 from .support.config import configure
@@ -127,12 +127,6 @@ def mock_slack(
 
 
 @pytest.fixture
-def token(mock_gafaelfawr: MockGafaelfawr) -> str:
-    """Authentication token for the user returned by the `user` fixtures."""
-    return mock_gafaelfawr.get_test_token()
-
-
-@pytest.fixture
-def user(mock_gafaelfawr: MockGafaelfawr) -> GafaelfawrUserInfo:
+def user(mock_gafaelfawr: MockGafaelfawr) -> GafaelfawrUser:
     """User to use for testing."""
     return mock_gafaelfawr.get_test_user()

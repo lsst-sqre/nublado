@@ -5,7 +5,10 @@ from __future__ import annotations
 import respx
 from httpx import Request, Response
 
-from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
+from jupyterlabcontroller.models.domain.gafaelfawr import (
+    GafaelfawrUser,
+    GafaelfawrUserInfo,
+)
 
 __all__ = ["MockGafaelfawr", "register_mock_gafaelfawr"]
 
@@ -46,13 +49,10 @@ class MockGafaelfawr:
         else:
             return Response(403)
 
-    def get_test_token(self) -> str:
+    def get_test_user(self) -> GafaelfawrUser:
         """Get a token for tests."""
-        return next(iter(self._tokens))
-
-    def get_test_user(self) -> GafaelfawrUserInfo:
-        """Get a user for tests."""
-        return next(iter(self._tokens.values()))
+        token, user = next(iter(self._tokens.items()))
+        return GafaelfawrUser(token=token, **user.model_dump())
 
 
 def register_mock_gafaelfawr(
