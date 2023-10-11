@@ -309,7 +309,14 @@ class LabConfig(CamelCaseModel):
     homedir_prefix: str = Field(
         "/home",
         title="Prefix for home directory path",
-        description="Portion of home directory path added before the username",
+        description=(
+            "Portion of home directory path added before the username. This"
+            " is the path *inside* the container, not the path of the volume"
+            " mounted in the container, so it need not reflect the structure"
+            " of the home directory volume source. The primary reason to set"
+            " this is to make paths inside the container match a pattern that"
+            " users are familiar with outside of Nublado."
+        ),
     )
     homedir_schema: UserHomeDirectorySchema = Field(
         UserHomeDirectorySchema.USERNAME,
@@ -335,7 +342,10 @@ class LabConfig(CamelCaseModel):
     @field_validator("homedir_prefix")
     @classmethod
     def _validate_homedir_prefix(cls, v: str) -> str:
-        return v.rstrip("/")
+        v = v.rstrip("/")
+        if not v.startswith("/") or len(v) < 2:
+            raise ValueError("Invalid home directory prefix")
+        return v
 
     @field_validator("homedir_suffix")
     @classmethod
