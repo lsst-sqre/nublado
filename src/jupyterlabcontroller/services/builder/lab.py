@@ -481,10 +481,9 @@ class LabBuilder:
         self, user: GafaelfawrUserInfo
     ) -> dict[str, str]:
         """Construct the annotations for the user's pod."""
-        annotations = {
-            "nublado.lsst.io/user-name": user.name,
-            "nublado.lsst.io/user-groups": user.groups_json(),
-        }
+        annotations = {"nublado.lsst.io/user-groups": user.groups_json()}
+        if user.name is not None:
+            annotations["nublado.lsst.io/user-name"] = user.name
         if self._config.extra_annotations:
             annotations.update(self._config.extra_annotations)
         return annotations
