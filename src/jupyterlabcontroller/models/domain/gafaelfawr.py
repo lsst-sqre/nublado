@@ -127,3 +127,14 @@ class GafaelfawrUser(GafaelfawrUserInfo):
     """
 
     token: str = Field(..., title="Notebook token")
+
+    def to_headers(self) -> dict[str, str]:
+        """Return the representation of this user as HTTP request headers.
+
+        Used primarily by the test suite for constructing authenticated
+        requests from a user.
+        """
+        return {
+            "X-Auth-Request-Token": self.token,
+            "X-Auth-Request-User": self.username,
+        }

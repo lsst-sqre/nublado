@@ -6,7 +6,7 @@ import pytest
 from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
 
-from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUser
 
 from ...support.config import configure
 from ...support.data import read_output_data
@@ -20,8 +20,7 @@ from ...support.fileserver import (
 @pytest.mark.asyncio
 async def test_fileserver(
     client: AsyncClient,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
@@ -37,13 +36,7 @@ async def test_fileserver(
     await create_working_ingress_for_user(mock_kubernetes, name, namespace)
 
     # Start a user fileserver.
-    r = await client.get(
-        "/files",
-        headers={
-            "X-Auth-Request-User": user.username,
-            "X-Auth-Request-Token": token,
-        },
-    )
+    r = await client.get("/files", headers=user.to_headers())
     assert r.status_code == 200
     expected = read_output_data("fileserver", "fileserver.txt")
     assert r.text == expected
@@ -54,13 +47,7 @@ async def test_fileserver(
     # Request it again; should detect that there is a user fileserver and
     # return immediately without actually doing anything.
     #
-    r = await client.get(
-        "/files",
-        headers={
-            "X-Auth-Request-User": user.username,
-            "X-Auth-Request-Token": token,
-        },
-    )
+    r = await client.get("/files", headers=user.to_headers())
     assert r.status_code == 200
     assert r.text == expected
     # Make sure fileserver still exists

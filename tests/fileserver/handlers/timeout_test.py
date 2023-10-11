@@ -8,7 +8,7 @@ import pytest
 from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
 
-from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUser
 
 from ...support.config import configure
 from ...support.docker import MockDockerRegistry
@@ -22,8 +22,7 @@ from ...support.fileserver import (
 @pytest.mark.asyncio
 async def test_timeout_no_pod_start(
     client: AsyncClient,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
@@ -46,13 +45,7 @@ async def test_timeout_no_pod_start(
 
     # Start a user fileserver.
     start_task = asyncio.create_task(
-        client.get(
-            "/files",
-            headers={
-                "X-Auth-Request-User": name,
-                "X-Auth-Request-Token": token,
-            },
-        )
+        client.get("/files", headers=user.to_headers())
     )
 
     # The start task will create the Job and then time out waiting for the Pod
@@ -74,8 +67,7 @@ async def test_timeout_no_pod_start(
 @pytest.mark.asyncio
 async def test_timeout_no_ingress(
     client: AsyncClient,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
@@ -90,13 +82,7 @@ async def test_timeout_no_ingress(
     # was created (in real life, creating the GafaelfawrIngress
     # ought to have created the Ingress).
     with pytest.raises(TimeoutError):
-        r = await client.get(
-            "/files",
-            headers={
-                "X-Auth-Request-User": user.username,
-                "X-Auth-Request-Token": token,
-            },
-        )
+        r = await client.get("/files", headers=user.to_headers())
     # Check that the fileserver user map is still clear
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == []
@@ -107,8 +93,7 @@ async def test_timeout_no_ingress(
 @pytest.mark.asyncio
 async def test_timeout_no_ingress_ip(
     client: AsyncClient,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_docker: MockDockerRegistry,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
@@ -122,15 +107,8 @@ async def test_timeout_no_ingress_ip(
     # No fileservers yet.
     assert r.json() == []
 
-    async def create_fileserver() -> None:
-        # Start a user fileserver.
-        await client.get(
-            "/files",
-            headers={
-                "X-Auth-Request-User": user.username,
-                "X-Auth-Request-Token": token,
-            },
-        )
+    async def start_fileserver() -> None:
+        await client.get("/files", headers=user.to_headers())
 
     # Start a user fileserver.  Expect a timeout, because the Ingress
     # did not get an IP address within the timeout.  This is a much
@@ -138,7 +116,7 @@ async def test_timeout_no_ingress_ip(
     # Ingress almost immediately but it often takes some time for the
     # ingress-nginx controller to get it correctly configured
     # Start the fileserver
-    task = asyncio.create_task(create_fileserver())
+    task = asyncio.create_task(start_fileserver())
     # Check that task is running
     assert task.done() is False
     # Check there are no fileservers yet.

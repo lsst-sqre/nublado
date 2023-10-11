@@ -6,7 +6,7 @@ import pytest
 from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
 
-from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUser
 
 from ..support.config import configure
 from ..support.data import read_input_lab_specification_json
@@ -15,8 +15,7 @@ from ..support.data import read_input_lab_specification_json
 @pytest.mark.asyncio
 async def test_extra_annotations(
     client: AsyncClient,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that the pod picks up extra annotations set in the config."""
@@ -26,10 +25,7 @@ async def test_extra_annotations(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers=user.to_headers(),
     )
     assert r.status_code == 201
 

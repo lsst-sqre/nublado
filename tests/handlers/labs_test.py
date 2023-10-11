@@ -22,7 +22,7 @@ from safir.testing.slack import MockSlackWebhook
 from jupyterlabcontroller.config import Config
 from jupyterlabcontroller.constants import DROPDOWN_SENTINEL_VALUE
 from jupyterlabcontroller.factory import Factory
-from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUserInfo
+from jupyterlabcontroller.models.domain.gafaelfawr import GafaelfawrUser
 from jupyterlabcontroller.models.domain.kubernetes import PodPhase
 
 from ..support.config import configure
@@ -64,8 +64,7 @@ async def get_lab_events(
 async def test_lab_start_stop(
     client: AsyncClient,
     factory: Factory,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     assert user.quota
@@ -91,13 +90,12 @@ async def test_lab_start_stop(
     assert r.json() == unknown_user_error
     r = await client.get(
         f"/nublado/spawner/v1/labs/{user.username}/events",
-        headers={"X-Auth-Request-User": user.username},
+        headers=user.to_headers(),
     )
     assert r.status_code == 404
     assert r.json() == unknown_user_error
     r = await client.delete(
-        f"/nublado/spawner/v1/labs/{user.username}",
-        headers={"X-Auth-Request-User": user.username},
+        f"/nublado/spawner/v1/labs/{user.username}", headers=user.to_headers()
     )
     assert r.status_code == 404
     assert r.json() == unknown_user_error
@@ -113,10 +111,7 @@ async def test_lab_start_stop(
             },
             "env": lab.env,
         },
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers=user.to_headers(),
     )
     assert r.status_code == 201
     assert r.headers["Location"] == (
@@ -129,7 +124,7 @@ async def test_lab_start_stop(
     # of the events isn't tested here in detail; we'll do that separately.
     r = await client.get(
         f"/nublado/spawner/v1/labs/{user.username}/events",
-        headers={"X-Auth-Request-User": user.username},
+        headers=user.to_headers(),
     )
     assert r.status_code == 200
     assert "Lab Kubernetes pod started" in r.text
@@ -171,10 +166,7 @@ async def test_lab_start_stop(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers=user.to_headers(),
     )
     assert r.status_code == 409
     assert r.json() == {
@@ -220,8 +212,7 @@ async def test_lab_start_stop(
 async def test_spawn_after_failure(
     client: AsyncClient,
     factory: Factory,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification.json")
@@ -230,10 +221,7 @@ async def test_spawn_after_failure(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers=user.to_headers(),
     )
     assert r.status_code == 201
     assert r.headers["Location"] == (
@@ -263,10 +251,7 @@ async def test_spawn_after_failure(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers=user.to_headers(),
     )
     assert r.status_code == 201
     assert r.headers["Location"] == (
@@ -284,8 +269,7 @@ async def test_spawn_after_failure(
 async def test_delayed_spawn(
     client: AsyncClient,
     factory: Factory,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification.json")
@@ -294,10 +278,7 @@ async def test_delayed_spawn(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers=user.to_headers(),
     )
     assert r.status_code == 201
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
@@ -395,8 +376,7 @@ async def test_delayed_spawn(
 async def test_lab_objects(
     client: AsyncClient,
     config: Config,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification.json")
@@ -404,10 +384,7 @@ async def test_lab_objects(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers=user.to_headers(),
     )
     assert r.status_code == 201
 
@@ -423,27 +400,21 @@ async def test_lab_objects(
 
 
 @pytest.mark.asyncio
-async def test_errors(
-    client: AsyncClient, token: str, user: GafaelfawrUserInfo
-) -> None:
+async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification.json")
 
     # Wrong user.
     r = await client.post(
         "/nublado/spawner/v1/labs/otheruser/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers=user.to_headers(),
     )
     assert r.status_code == 403
     assert r.json() == {
         "detail": [{"msg": "Permission denied", "type": "permission_denied"}]
     }
     r = await client.get(
-        "/nublado/spawner/v1/labs/otheruser/events",
-        headers={"X-Auth-Request-User": user.username},
+        "/nublado/spawner/v1/labs/otheruser/events", headers=user.to_headers()
     )
     assert r.status_code == 403
     assert r.json() == {
@@ -470,10 +441,7 @@ async def test_errors(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": options, "env": lab.env},
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers=user.to_headers(),
     )
     assert r.status_code == 422
     msg = 'Docker reference "lighthouse.ceres/library/sketchbook" has no tag'
@@ -494,10 +462,7 @@ async def test_errors(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": options, "env": lab.env},
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers=user.to_headers(),
     )
     assert r.status_code == 422
     msg = 'Docker reference "lighthouse.ceres/library/sketchbook" has no tag'
@@ -518,10 +483,7 @@ async def test_errors(
             "options": {"image_tag": "unknown", "size": "small"},
             "env": lab.env,
         },
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers=user.to_headers(),
     )
     assert r.status_code == 400
     assert r.json() == {
@@ -538,8 +500,7 @@ async def test_errors(
 @pytest.mark.asyncio
 async def test_spawn_errors(
     client: AsyncClient,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
     mock_slack: MockSlackWebhook,
 ) -> None:
@@ -610,10 +571,7 @@ async def test_spawn_errors(
         r = await client.post(
             f"/nublado/spawner/v1/labs/{user.username}/create",
             json={"options": lab.options.model_dump(), "env": lab.env},
-            headers={
-                "X-Auth-Request-Token": token,
-                "X-Auth-Request-User": user.username,
-            },
+            headers=user.to_headers(),
         )
         assert r.status_code == 201
         events = await get_lab_events(client, user.username)
@@ -690,8 +648,7 @@ async def test_spawn_errors(
 @pytest.mark.asyncio
 async def test_homedir_schema(
     client: AsyncClient,
-    token: str,
-    user: GafaelfawrUserInfo,
+    user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that the home directory is constructed correctly.
@@ -706,10 +663,7 @@ async def test_homedir_schema(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers={
-            "X-Auth-Request-Token": token,
-            "X-Auth-Request-User": user.username,
-        },
+        headers=user.to_headers(),
     )
     assert r.status_code == 201
 
