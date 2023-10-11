@@ -186,10 +186,6 @@ lab:
         resources:
           requests:
             storage: 1Gi
-fileserver:
-  image: docker.io/lsstsqre/worblehat
-  tag: ajt-dev
-  timeout: 86400
 images:
   source:
     type: docker
