@@ -678,7 +678,7 @@ async def test_homedir_schema(
         f"{user.username}-nb",
         f"{config.lab.namespace_prefix}-{user.username}",
     )
-    expected_homedir = f"/home/{user.username[0]}/{user.username}"
+    expected_homedir = f"/u/home/{user.username[0]}/{user.username}/jhome"
     for container in pod.spec.containers:
         assert container.working_dir == expected_homedir
 

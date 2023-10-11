@@ -306,9 +306,26 @@ class LabConfig(CamelCaseModel):
         default_factory=_get_namespace_prefix,
         title="Namespace prefix for lab environments",
     )
+    homedir_prefix: str = Field(
+        "/home",
+        title="Prefix for home directory path",
+        description=(
+            "Portion of home directory path added before the username. This"
+            " is the path *inside* the container, not the path of the volume"
+            " mounted in the container, so it need not reflect the structure"
+            " of the home directory volume source. The primary reason to set"
+            " this is to make paths inside the container match a pattern that"
+            " users are familiar with outside of Nublado."
+        ),
+    )
     homedir_schema: UserHomeDirectorySchema = Field(
         UserHomeDirectorySchema.USERNAME,
         title="Schema for user homedir construction",
+    )
+    homedir_suffix: str = Field(
+        "",
+        title="Suffix for home directory path",
+        description="Portion of home directory path added after the username",
     )
     extra_annotations: dict[str, str] = Field(
         {},
@@ -321,6 +338,19 @@ class LabConfig(CamelCaseModel):
             "An Argo CD application under which lab objects should be shown"
         ),
     )
+
+    @field_validator("homedir_prefix")
+    @classmethod
+    def _validate_homedir_prefix(cls, v: str) -> str:
+        v = v.rstrip("/")
+        if not v.startswith("/") or len(v) < 2:
+            raise ValueError("Invalid home directory prefix")
+        return v
+
+    @field_validator("homedir_suffix")
+    @classmethod
+    def _validate_homedir_suffix(cls, v: str) -> str:
+        return v.strip("/")
 
     @field_validator("secrets")
     @classmethod

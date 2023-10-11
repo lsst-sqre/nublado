@@ -209,11 +209,15 @@ class LabBuilder:
 
     def _build_home_directory(self, username: str) -> str:
         """Construct the home directory path for a user."""
+        prefix = self._config.homedir_prefix
         match self._config.homedir_schema:
             case UserHomeDirectorySchema.USERNAME:
-                return f"/home/{username}"
+                home = prefix + f"/{username}"
             case UserHomeDirectorySchema.INITIAL_THEN_USERNAME:
-                return f"/home/{username[0]}/{username}"
+                home = prefix + f"/{username[0]}/{username}"
+        if self._config.homedir_suffix:
+            home += "/" + self._config.homedir_suffix
+        return home
 
     def _build_metadata(self, name: str, username: str) -> V1ObjectMeta:
         """Construct the metadata for an object.
