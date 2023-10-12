@@ -112,8 +112,9 @@ class LabStorage:
             Raised if there is some failure in a Kubernetes API call.
         """
         grace_period = LAB_STOP_GRACE_PERIOD
+        name = names.pod
         namespace = names.namespace
-        await self._pod.delete(names.pod, namespace, grace_period=grace_period)
+        await self._pod.delete(name, namespace, grace_period=grace_period)
 
     async def list_namespaces(self, prefix: str) -> list[str]:
         """List all namespaces starting with the given prefix.
