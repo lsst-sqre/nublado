@@ -4,10 +4,11 @@ import contextlib
 from dataclasses import dataclass
 from typing import Any
 
-from kubernetes_asyncio.client import V1Job, V1Service
+from kubernetes_asyncio.client import V1Ingress, V1Job, V1Pod, V1Service
 
 __all__ = [
     "FileserverObjects",
+    "FileserverStateObjects",
     "FileserverUserMap",
 ]
 
@@ -24,6 +25,27 @@ class FileserverObjects:
 
     job: V1Job
     """Job that runs the fileserver itself."""
+
+
+@dataclass
+class FileserverStateObjects:
+    """Kubernetes objects used for inspecting the state of a fileserver.
+
+    These are used during state reconciliation to determine whether a user's
+    fileserver is operational. They're disjoint from the resources created
+    when starting a fileserver since in this case we care about the
+    ``Ingress`` and not the ``GafaelfawrIngress``, and we also care about the
+    ``Pod``.
+    """
+
+    job: V1Job
+    """Job that runs the fileserver."""
+
+    pod: V1Pod | None
+    """Pod of the running fileserver."""
+
+    ingress: V1Ingress | None
+    """Ingress of the running fileserver."""
 
 
 class FileserverUserMap:

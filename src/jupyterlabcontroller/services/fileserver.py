@@ -12,7 +12,6 @@ from ..config import FileserverConfig
 from ..exceptions import MissingObjectError, NotConfiguredError
 from ..models.domain.fileserver import FileserverUserMap
 from ..models.v1.lab import UserInfo
-from ..storage.k8s import K8sStorageClient
 from ..storage.kubernetes.fileserver import FileserverStorage
 from .builder.fileserver import FileserverBuilder
 
@@ -24,14 +23,12 @@ class FileserverStateManager:
         config: FileserverConfig,
         fileserver_builder: FileserverBuilder,
         fileserver_storage: FileserverStorage,
-        k8s_client: K8sStorageClient,
         logger: BoundLogger,
     ) -> None:
         """The FileserverStateManager is a process-wide singleton."""
         self._config = config
         self._builder = fileserver_builder
         self._storage = fileserver_storage
-        self._k8s_client = k8s_client
         self._logger = logger
 
         self._user_map = FileserverUserMap()
@@ -56,12 +53,7 @@ class FileserverStateManager:
             raise NotConfiguredError("Fileserver is disabled in configuration")
         username = user.username
         self._logger.info(f"Fileserver requested for {username}")
-        if not (
-            await self._user_map.get(username)
-            and await self._k8s_client.check_fileserver_present(
-                username, self._config.namespace
-            )
-        ):
+        if not await self._user_map.get(username):
             try:
                 await self._create_fileserver(user)
             except Exception:
@@ -79,7 +71,7 @@ class FileserverStateManager:
         """
         username = user.username
         namespace = self._config.namespace
-        fileserver = self._builder.build_fileserver(user)
+        fileserver = self._builder.build(user)
         timeout = timedelta(seconds=self._config.creation_timeout)
         async with self._lock[username]:
             self._logger.info(f"Creating new fileserver for {username}")
@@ -92,7 +84,7 @@ class FileserverStateManager:
     async def delete(self, username: str) -> None:
         if not self._started:
             raise NotConfiguredError("Fileserver is not started")
-        name = self._builder.build_fileserver_name(username)
+        name = self._builder.build_name(username)
         async with self._lock[username]:
             await self._user_map.remove(username)
             await self._storage.delete(name, self._config.namespace)
@@ -105,7 +97,7 @@ class FileserverStateManager:
     async def start(self) -> None:
         if not self._config.enabled:
             raise NotConfiguredError("Fileserver is disabled in configuration")
-        if not await self._k8s_client.check_namespace(self._config.namespace):
+        if not await self._storage.namespace_exists(self._config.namespace):
             raise MissingObjectError(
                 "File server namespace missing",
                 kind="Namespace",
@@ -128,31 +120,43 @@ class FileserverStateManager:
             task.cancel()
 
     async def _discard_when_done(self, username: str) -> None:
-        name = self._builder.build_fileserver_name(username)
+        name = self._builder.build_name(username)
         await self._storage.wait_for_pod_exit(name, self._config.namespace)
         await self.delete(username)
 
     async def _reconcile_user_map(self) -> None:
         """Reconcile internal state with Kubernetes.
 
-        We need to run this on startup, to synchronize the user map resource
-        with observed state.
+        Runs at Nublado controller startup to reconcile the initially empty
+        state map with the contents of Kubernetes.
         """
         self._logger.debug("Reconciling fileserver user map")
+        namespace = self._config.namespace
         mapped_users = set(await self.list())
-        observed_map = await self._k8s_client.get_observed_fileserver_state(
-            self._config.namespace
-        )
-        # Tidy up any no-longer-running users.  They aren't running, but they
-        # might have some objects remaining.
-        observed_users = set(observed_map.keys())
-        missing_users = mapped_users - observed_users
-        if missing_users:
-            self._logger.info(
-                f"Users {missing_users} have broken fileservers; removing."
-            )
-        for user in missing_users:
+        observed = await self._storage.read_fileserver_state(namespace)
+
+        # Check each fileserver we found to see if it's properly running. If
+        # not, delete it and remove it from the observed map.
+        to_delete = set()
+        for username, state in observed.items():
+            valid = self._builder.is_valid(username, state)
+            if not valid:
+                msg = "File server present but not running, deleteing"
+                self._logger.info(msg, user=username)
+                await self.delete(username)
+                to_delete.add(username)
+        observed = {k: v for k, v in observed.items() if k not in to_delete}
+
+        # Tidy up any no-longer-running users. They aren't running, but they
+        # might have some objects remaining. Currently, this can only happen
+        # if the fileserver is stopped and then started again. Normally, the
+        # user map will start as empty.
+        observed_users = set(observed.keys())
+        for user in mapped_users - observed_users:
+            msg = "Removing broken fileserver for user"
+            self._logger.warning(msg, user=user)
             await self.delete(user)
+
         # We know any observed users are running, so we need to create tasks
         # to clean them up when they exit, and then mark them as set in the
         # user map.
@@ -162,5 +166,5 @@ class FileserverStateManager:
                 self._watches.add(task)
                 task.add_done_callback(self._watches.discard)
                 await self._user_map.set(user)
-        self._logger.debug("Filserver user map reconciliation complete")
+        self._logger.info("Fileserver user map reconciliation complete")
         self._logger.debug(f"Users with fileservers: {observed_users}")

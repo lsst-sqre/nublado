@@ -32,7 +32,6 @@ from .services.state import LabStateManager
 from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.gar import GARStorageClient
-from .storage.k8s import K8sStorageClient
 from .storage.kubernetes.fileserver import FileserverStorage
 from .storage.kubernetes.lab import LabStorage
 from .storage.kubernetes.node import NodeStorage
@@ -95,12 +94,6 @@ class ProcessContext:
         # the request (such as the authenticated username).
         logger = structlog.get_logger(__name__)
 
-        k8s_client = K8sStorageClient(
-            kubernetes_client=kubernetes_client,
-            spawn_timeout=config.lab.spawn_timeout,
-            logger=logger,
-        )
-
         slack_client = None
         if config.slack_webhook:
             slack_client = SlackWebhookClient(
@@ -142,7 +135,10 @@ class ProcessContext:
             logger=logger,
         )
         fileserver_builder = FileserverBuilder(
-            config.fileserver, config.base_url, config.lab.volumes
+            config=config.fileserver,
+            instance_url=config.base_url,
+            volumes=config.lab.volumes,
+            logger=logger,
         )
         return cls(
             config=config,
@@ -174,7 +170,6 @@ class ProcessContext:
                 fileserver_storage=FileserverStorage(
                     kubernetes_client, logger
                 ),
-                k8s_client=k8s_client,
                 logger=logger,
             ),
         )

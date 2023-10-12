@@ -12,7 +12,32 @@ from ...models.domain.kubernetes import WatchEventType
 from .deleter import KubernetesObjectDeleter
 from .watcher import KubernetesWatcher
 
-__all__ = ["IngressStorage"]
+__all__ = [
+    "IngressStorage",
+    "ingress_has_ip_address",
+]
+
+
+def ingress_has_ip_address(ingress: V1Ingress) -> bool:
+    """Check whether an ingress has an IP address assigned.
+
+    Parameters
+    ----------
+    ingress
+        Ingress to check.
+
+    Returns
+    -------
+    bool
+        `True` if an IP address is assigned, `False` otherwise.
+    """
+    if not ingress.status:
+        return False
+    if not ingress.status.load_balancer:
+        return False
+    if not ingress.status.load_balancer.ingress:
+        return False
+    return bool(ingress.status.load_balancer.ingress[0].ip)
 
 
 class IngressStorage(KubernetesObjectDeleter):
@@ -37,27 +62,6 @@ class IngressStorage(KubernetesObjectDeleter):
             kind="Ingress",
             logger=logger,
         )
-
-    def has_ip_address(self, ingress: V1Ingress) -> bool:
-        """Check whether an ingress has an IP address assigned.
-
-        Parameters
-        ----------
-        ingress
-            Ingress to check.
-
-        Returns
-        -------
-        bool
-            `True` if an IP address is assigned, `False` otherwise.
-        """
-        if not ingress.status:
-            return False
-        if not ingress.status.load_balancer:
-            return False
-        if not ingress.status.load_balancer.ingress:
-            return False
-        return bool(ingress.status.load_balancer.ingress[0].ip)
 
     async def wait_for_ip_address(
         self, name: str, namespace: str, timeout: timedelta
@@ -86,7 +90,7 @@ class IngressStorage(KubernetesObjectDeleter):
         ingress = await self.read(name, namespace)
         resource_version = None
         if ingress:
-            if self.has_ip_address(ingress):
+            if ingress_has_ip_address(ingress):
                 return
             resource_version = ingress.metadata.resource_version
 
@@ -104,7 +108,7 @@ class IngressStorage(KubernetesObjectDeleter):
         try:
             async for event in watcher.watch():
                 if event.action != WatchEventType.DELETED:
-                    if self.has_ip_address(event.object):
+                    if ingress_has_ip_address(event.object):
                         return
         finally:
             await watcher.close()
