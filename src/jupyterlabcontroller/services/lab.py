@@ -225,17 +225,16 @@ class LabManager:
         end_progress
             Final progress percentage.
         """
-        pod = f"{username}-nb"
-        namespace = self._builder.namespace_for_user(username)
+        names = self._builder.build_object_names(username)
 
         message = "Shutting down Kubernetes pod"
         await self._lab_state.publish_event(username, message, start_progress)
-        await self._storage.delete_pod(pod, namespace)
+        await self._storage.delete_pod(names)
 
         message = "Deleting user namespace"
         progress = start_progress + int((end_progress - start_progress) / 2)
         await self._lab_state.publish_event(username, message, progress)
-        await self._storage.delete_namespace(namespace)
+        await self._storage.delete_namespace(names.namespace)
         message = f"Lab for {username} deleted"
         await self._lab_state.publish_event(username, message, end_progress)
         self._logger.info("Lab deleted")

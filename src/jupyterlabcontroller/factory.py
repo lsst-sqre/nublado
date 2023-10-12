@@ -135,7 +135,12 @@ class ProcessContext:
             logger=logger,
         )
         size_manager = SizeManager(config.lab.sizes)
-        lab_builder = LabBuilder(config.lab, size_manager, config.base_url)
+        lab_builder = LabBuilder(
+            config=config.lab,
+            size_manager=size_manager,
+            instance_url=config.base_url,
+            logger=logger,
+        )
         fileserver_builder = FileserverBuilder(
             config.fileserver, config.base_url, config.lab.volumes
         )
@@ -157,9 +162,9 @@ class ProcessContext:
             ),
             lab_state=LabStateManager(
                 config=config.lab,
-                kubernetes=k8s_client,
                 size_manager=size_manager,
                 lab_builder=lab_builder,
+                lab_storage=LabStorage(kubernetes_client, logger),
                 slack_client=slack_client,
                 logger=logger,
             ),
@@ -328,9 +333,10 @@ class Factory:
             Newly-created lab builder.
         """
         return LabBuilder(
-            self._context.config.lab,
-            self.create_size_manager(),
-            self._context.config.base_url,
+            config=self._context.config.lab,
+            size_manager=self.create_size_manager(),
+            instance_url=self._context.config.base_url,
+            logger=self._logger,
         )
 
     def create_lab_manager(self) -> LabManager:

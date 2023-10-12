@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -46,6 +47,7 @@ from kubernetes_asyncio.client import (
     V1Volume,
     V1VolumeMount,
 )
+from structlog.stdlib import BoundLogger
 
 from ...config import LabConfig, PVCVolumeSource, UserHomeDirectorySchema
 from ...constants import (
@@ -56,10 +58,20 @@ from ...constants import (
     MOUNT_PATH_SECRETS,
 )
 from ...models.domain.gafaelfawr import GafaelfawrUserInfo
-from ...models.domain.lab import LabObjects
+from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
 from ...models.domain.rspimage import RSPImage
 from ...models.domain.volumes import MountedVolume
-from ...models.v1.lab import LabResources, LabSpecification
+from ...models.v1.lab import (
+    LabResources,
+    LabSpecification,
+    LabStatus,
+    PodState,
+    ResourceQuantity,
+    UserGroup,
+    UserInfo,
+    UserLabState,
+    UserOptions,
+)
 from ..size import SizeManager
 from .volumes import VolumeBuilder
 
@@ -80,12 +92,18 @@ class LabBuilder:
     """
 
     def __init__(
-        self, config: LabConfig, size_manager: SizeManager, instance_url: str
+        self,
+        *,
+        config: LabConfig,
+        size_manager: SizeManager,
+        instance_url: str,
+        logger: BoundLogger,
     ) -> None:
         self._config = config
         self._size_manager = size_manager
         self._instance_url = instance_url
         self._volume_builder = VolumeBuilder()
+        self._logger = logger
 
     def build_internal_url(self, username: str, env: dict[str, str]) -> str:
         """Determine the URL of a newly-spawned lab.
@@ -106,9 +124,33 @@ class LabBuilder:
         str
             URL of the newly-spawned lab.
         """
-        namespace = self.namespace_for_user(username)
+        namespace = f"{self._config.namespace_prefix}-{username}"
         path = env["JUPYTERHUB_SERVICE_PREFIX"]
         return f"http://lab.{namespace}:8888" + path
+
+    def build_object_names(self, username: str) -> LabObjectNames:
+        """Construct the names of the critical lab objects for a user.
+
+        This is used to construct names to pass to the lab storage layer to
+        identify the objects used to get lab status or reconcile lab state.
+
+        Parameters
+        ----------
+        username
+            Username of the user to construct object names for.
+
+        Returns
+        -------
+        LabObjectNames
+            Names of objects for that user.
+        """
+        return LabObjectNames(
+            username=username,
+            namespace=f"{self._config.namespace_prefix}-{username}",
+            env_config_map=f"{username}-nb-env",
+            quota=f"{username}-nb",
+            pod=f"{username}-nb",
+        )
 
     def build_lab(
         self,
@@ -141,7 +183,8 @@ class LabBuilder:
         """
         return LabObjects(
             namespace=self._build_namespace(user.username),
-            config_maps=self._build_config_maps(user, lab, image),
+            env_config_map=self._build_env_config_map(user, lab, image),
+            config_maps=self._build_config_maps(user),
             network_policy=self._build_network_policy(user.username),
             pvcs=self._build_pvcs(user.username),
             quota=self._build_quota(user),
@@ -150,62 +193,92 @@ class LabBuilder:
             pod=self._build_pod(user, lab, image),
         )
 
-    def namespace_for_user(self, username: str) -> str:
-        """Construct the namespace name for a user's lab environment.
+    async def recreate_lab_state(
+        self, username: str, objects: LabStateObjects | None
+    ) -> UserLabState | None:
+        """Recreate user lab state from Kubernetes.
+
+        Given the critical objects from a user's lab, reconstruct the user's
+        lab state. This is used during reconciliation and allows us to
+        recreate internal state from whatever currently exists in Kubernetes
+        when the lab controller is restarted.
 
         Parameters
         ----------
         username
-            Username of lab user.
+            User whose lab state should be recreated.
+        objects
+            Objects for that user's lab, or `None` if any required objects
+            were not found.
 
         Returns
         -------
-        str
-            Name of their namespace.
+        UserLabState or None
+            Recreated lab state, or `None` if the user's lab environment did
+            not exist or could not be parsed.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if Kubernetes API calls fail for reasons other than the
+            resources not existing.
         """
-        return f"{self._config.namespace_prefix}-{username}"
+        if not objects:
+            return None
+        logger = self._logger.bind(user=username)
 
-    def recreate_env(self, env: dict[str, str]) -> dict[str, str]:
-        """Recreate the JupyterHub-provided environment.
+        # Find the lab container.
+        lab_container = None
+        for container in objects.pod.spec.containers:
+            if container.name == "notebook":
+                lab_container = container
+                break
+        if not lab_container:
+            error = 'No container named "notebook"'
+            logger.error("Invalid lab environment", error=error)
+            return None
 
-        When reconciling state from Kubernetes, we need to recover the content
-        of the environment sent from JupyterHub from the ``ConfigMap`` in the
-        user's lab environment. We can't recover the exact original
-        environment, but we can recreate an equivalent one by filtering out
-        the environment variables that would be set directly by the lab
-        controller.
-
-        Parameters
-        ----------
-        env
-            Environment recovered from a ``ConfigMap``.
-
-        Returns
-        -------
-        dict of str
-            Equivalent environment sent by JupyterHub.
-
-        Notes
-        -----
-        The list of environment variables that are always added internally by
-        the lab controller must be kept in sync with the code that creates the
-        config map.
-        """
-        unwanted = {
-            "CPU_GUARANTEE",
-            "CPU_LIMIT",
-            "DEBUG",
-            "EXTERNAL_INSTANCE_URL",
-            "IMAGE_DESCRIPTION",
-            "IMAGE_DIGEST",
-            "JUPYTER_IMAGE",
-            "JUPYTER_IMAGE_SPEC",
-            "MEM_GUARANTEE",
-            "MEM_LIMIT",
-            "RESET_USER_ENV",
-            *list(self._config.env.keys()),
-        }
-        return {k: v for k, v in env.items() if k not in unwanted}
+        # Gather the necessary information from the pod. If anything is
+        # missing or in an unexpected format, log an error and return None.
+        env = objects.env_config_map.data
+        pod = objects.pod
+        try:
+            resources = LabResources(
+                limits=ResourceQuantity(
+                    cpu=float(env["CPU_LIMIT"]),
+                    memory=int(env["MEM_LIMIT"]),
+                ),
+                requests=ResourceQuantity(
+                    cpu=float(env["CPU_GUARANTEE"]),
+                    memory=int(env["MEM_GUARANTEE"]),
+                ),
+            )
+            options = UserOptions(
+                image_list=env["JUPYTER_IMAGE_SPEC"],
+                size=self._size_manager.size_from_resources(resources),
+                enable_debug=env.get("DEBUG", "FALSE") == "TRUE",
+                reset_user_env=env.get("RESET_USER_ENV", "FALSE") == "TRUE",
+            )
+            user = UserInfo(
+                username=username,
+                name=pod.metadata.annotations.get("nublado.lsst.io/user-name"),
+                uid=lab_container.security_context.run_as_user,
+                gid=lab_container.security_context.run_as_group,
+                groups=self._recreate_groups(pod),
+            )
+            return UserLabState(
+                user=user,
+                options=options,
+                env=self._recreate_env(env),
+                status=LabStatus.from_phase(pod.status.phase),
+                pod=PodState.PRESENT,
+                internal_url=self.build_internal_url(username, env),
+                resources=resources,
+                quota=self._recreate_quota(objects.quota),
+            )
+        except Exception:
+            logger.exception("Invalid lab environment", error=error)
+            return None
 
     def _build_home_directory(self, username: str) -> str:
         """Construct the home directory path for a user."""
@@ -236,17 +309,14 @@ class LabBuilder:
 
     def _build_namespace(self, username: str) -> V1Namespace:
         """Construct the namespace object for a user's lab."""
-        name = self.namespace_for_user(username)
+        name = f"{self._config.namespace_prefix}-{username}"
         return V1Namespace(metadata=self._build_metadata(name, username))
 
     def _build_config_maps(
-        self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
+        self, user: GafaelfawrUserInfo
     ) -> list[V1ConfigMap]:
         """Build the config maps used by the user's lab pod."""
-        config_maps = [
-            self._build_env_config_map(user, lab, image),
-            self._build_nss_config_map(user),
-        ]
+        config_maps = [self._build_nss_config_map(user)]
         if file_config_map := self._build_file_config_map(user.username):
             config_maps.append(file_config_map)
         return config_maps
@@ -753,3 +823,92 @@ class LabBuilder:
             working_dir=self._build_home_directory(user.username),
         )
         return [container]
+
+    def _recreate_env(self, env: dict[str, str]) -> dict[str, str]:
+        """Recreate the JupyterHub-provided environment.
+
+        When reconciling state from Kubernetes, we need to recover the content
+        of the environment sent from JupyterHub from the ``ConfigMap`` in the
+        user's lab environment. We can't recover the exact original
+        environment, but we can recreate an equivalent one by filtering out
+        the environment variables that would be set directly by the lab
+        controller.
+
+        Parameters
+        ----------
+        env
+            Environment recovered from a ``ConfigMap``.
+
+        Returns
+        -------
+        dict of str
+            Equivalent environment sent by JupyterHub.
+
+        Notes
+        -----
+        The list of environment variables that are always added internally by
+        the lab controller must be kept in sync with the code that creates the
+        config map.
+        """
+        unwanted = {
+            "CPU_GUARANTEE",
+            "CPU_LIMIT",
+            "DEBUG",
+            "EXTERNAL_INSTANCE_URL",
+            "IMAGE_DESCRIPTION",
+            "IMAGE_DIGEST",
+            "JUPYTER_IMAGE",
+            "JUPYTER_IMAGE_SPEC",
+            "MEM_GUARANTEE",
+            "MEM_LIMIT",
+            "RESET_USER_ENV",
+            *list(self._config.env.keys()),
+        }
+        return {k: v for k, v in env.items() if k not in unwanted}
+
+    def _recreate_groups(self, pod: V1Pod) -> list[UserGroup]:
+        """Recreate user group information from a Kubernetes ``Pod``.
+
+        The GIDs are stored as supplemental groups, but the names of the
+        groups go into the templating of the :file:`/etc/group` file and
+        aren't easy to extract. We therefore add a serialized version of the
+        group list as a pod annotation so that we can recover it during
+        reconciliation.
+
+        Parameters
+        ----------
+        pod
+            User lab pod.
+
+        Returns
+        -------
+        list of UserGroup
+            User's group information.
+        """
+        annotation = "nublado.lsst.io/user-groups"
+        groups = json.loads(pod.metadata.annotations.get(annotation, "[]"))
+        return [UserGroup.model_validate(g) for g in groups]
+
+    def _recreate_quota(
+        self, resource_quota: V1ResourceQuota | None
+    ) -> ResourceQuantity | None:
+        """Recreate the user's quota information from Kuberentes.
+
+        Parameters
+        ----------
+        resource_quota
+            Kubernetes ``ResourceQuota`` object, or `None` if there was none
+            for this user.
+
+        Returns
+        -------
+        ResourceQuantity or None
+            Corresponding user quota object, or `None` if no resource quota
+            was found in Kubernetes.
+        """
+        if not resource_quota:
+            return None
+        return ResourceQuantity(
+            cpu=float(resource_quota.spec.hard["limits.cpu"]),
+            memory=int(resource_quota.spec.hard["limits.memory"]),
+        )
