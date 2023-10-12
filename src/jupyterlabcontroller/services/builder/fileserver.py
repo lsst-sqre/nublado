@@ -20,11 +20,16 @@ from kubernetes_asyncio.client import (
     V1ServicePort,
     V1ServiceSpec,
 )
+from structlog.stdlib import BoundLogger
 
 from ...config import FileserverConfig, LabVolume
 from ...constants import ARGO_CD_ANNOTATIONS
-from ...models.domain.fileserver import FileserverObjects
+from ...models.domain.fileserver import (
+    FileserverObjects,
+    FileserverStateObjects,
+)
 from ...models.v1.lab import UserInfo
+from ...storage.kubernetes.ingress import ingress_has_ip_address
 from .volumes import VolumeBuilder
 
 __all__ = ["FileserverBuilder"]
@@ -45,16 +50,19 @@ class FileserverBuilder:
 
     def __init__(
         self,
+        *,
         config: FileserverConfig,
         instance_url: str,
         volumes: list[LabVolume],
+        logger: BoundLogger,
     ) -> None:
         self._config = config
         self._instance_url = instance_url
         self._volumes = volumes
+        self._logger = logger
         self._volume_builder = VolumeBuilder()
 
-    def build_fileserver(self, user: UserInfo) -> FileserverObjects:
+    def build(self, user: UserInfo) -> FileserverObjects:
         """Construct the objects that make up a user's fileserver.
 
         Parameters
@@ -68,12 +76,12 @@ class FileserverBuilder:
             Kubernetes objects for the fileserver.
         """
         return FileserverObjects(
-            ingress=self._build_fileserver_ingress(user.username),
-            service=self._build_fileserver_service(user.username),
-            job=self._build_fileserver_job(user),
+            ingress=self._build_ingress(user.username),
+            service=self._build_service(user.username),
+            job=self._build_job(user),
         )
 
-    def build_fileserver_name(self, username: str) -> str:
+    def build_name(self, username: str) -> str:
         """Construct the name of fileserver objects.
 
         Parameters
@@ -88,13 +96,50 @@ class FileserverBuilder:
         """
         return f"{username}-fs"
 
+    def is_valid(self, username: str, state: FileserverStateObjects) -> bool:
+        """Determine whether a running fileserver is valid.
+
+        Parameters
+        ----------
+        username
+            Username the fileserver is for, used for logging.
+        state
+            Kubernetes objects making up the fileserver.
+
+        Returns
+        -------
+        bool
+            `True` if the fileserver is valid and running, `False` otherwise.
+        """
+        logger = self._logger.bind(user=username)
+        if not state.pod:
+            logger.info("File server pod does not exist")
+            return False
+        pod = state.pod
+        if not pod.status:
+            logger.warning("Pod has no status", name=pod.metadata.name)
+            return False
+        if pod.status.phase != "Running":
+            msg = "File server pod is not running"
+            logger.info(msg, name=pod.metadata.name, status=pod.status.phase)
+            return False
+        if not state.ingress:
+            logger.info("File server ingress does not exist")
+            return False
+        if not ingress_has_ip_address(state.ingress):
+            name = state.ingress.metadata.name
+            logger.info("Ingress does not have IP address", name=name)
+            return False
+        logger.debug("File server is running")
+        return True
+
     def _build_metadata(self, username: str) -> V1ObjectMeta:
         """Construct the metadata for an object.
 
         This adds some standard labels and annotations providing Nublado
         metadata and telling Argo CD how to handle this object.
         """
-        name = self.build_fileserver_name(username)
+        name = self.build_name(username)
         labels = {
             "nublado.lsst.io/category": "fileserver",
             "nublado.lsst.io/user": username,
@@ -104,7 +149,7 @@ class FileserverBuilder:
         annotations = ARGO_CD_ANNOTATIONS.copy()
         return V1ObjectMeta(name=name, labels=labels, annotations=annotations)
 
-    def _build_fileserver_ingress(self, username: str) -> dict[str, Any]:
+    def _build_ingress(self, username: str) -> dict[str, Any]:
         """Construct ``GafaelfawrIngress`` object for the fileserver."""
         host = urlparse(self._instance_url).hostname
         metadata = self._build_metadata(username).to_dict(serialize=True)
@@ -113,7 +158,7 @@ class FileserverBuilder:
             "pathType": "Prefix",
             "backend": {
                 "service": {
-                    "name": self.build_fileserver_name(username),
+                    "name": self.build_name(username),
                     "port": {"number": 8000},
                 }
             },
@@ -140,7 +185,7 @@ class FileserverBuilder:
             },
         }
 
-    def _build_fileserver_job(self, user: UserInfo) -> V1Job:
+    def _build_job(self, user: UserInfo) -> V1Job:
         """Construct the job for a fileserver."""
         volume_data = self._volume_builder.build_mounted_volumes(
             user.username, self._volumes, prefix="/mnt"
@@ -196,7 +241,7 @@ class FileserverBuilder:
             ),
         )
 
-    def _build_fileserver_service(self, username: str) -> V1Service:
+    def _build_service(self, username: str) -> V1Service:
         """Construct the service for a fileserver."""
         return V1Service(
             metadata=self._build_metadata(username),
