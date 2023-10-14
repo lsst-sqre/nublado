@@ -28,9 +28,11 @@ __all__ = [
     "InvalidDockerReferenceError",
     "InvalidTokenError",
     "KubernetesError",
+    "LabDeletionError",
     "LabExistsError",
     "MissingObjectError",
     "NotConfiguredError",
+    "OperationConflictError",
     "SlackWebException",
     "UnknownDockerImageError",
     "UnknownUserError",
@@ -119,6 +121,13 @@ class ClientRequestError(SlackIgnoredException):
         return result
 
 
+class FileserverCreationError(ClientRequestError):
+    """An error occured while trying to create a user fileserver."""
+
+    error = "fileserver_creation_failed"
+    status_code = status.HTTP_400_BAD_REQUEST
+
+
 class InvalidDockerReferenceError(ClientRequestError):
     """Docker reference does not contain a tag.
 
@@ -136,11 +145,22 @@ class InvalidTokenError(ClientRequestError):
     status_code = status.HTTP_401_UNAUTHORIZED
 
 
-class PermissionDeniedError(ClientRequestError):
-    """Attempt to access a resource for another user."""
+class OperationConflictError(ClientRequestError):
+    """Attempt to perform an operation when another is in progress."""
 
-    error = "permission_denied"
-    status_code = status.HTTP_403_FORBIDDEN
+    error = "operation_in_progress"
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, username: str) -> None:
+        msg = f"Conflicting operation for {username} already in progress"
+        super().__init__(msg)
+
+
+class NotConfiguredError(ClientRequestError):
+    """An attempt was made to use a disabled service."""
+
+    error = "not_supported"
+    status_code = status.HTTP_404_NOT_FOUND
 
 
 class LabExistsError(ClientRequestError):
@@ -148,6 +168,13 @@ class LabExistsError(ClientRequestError):
 
     error = "lab_exists"
     status_code = status.HTTP_409_CONFLICT
+
+
+class PermissionDeniedError(ClientRequestError):
+    """Attempt to access a resource for another user."""
+
+    error = "permission_denied"
+    status_code = status.HTTP_403_FORBIDDEN
 
 
 class UnknownDockerImageError(ClientRequestError):
@@ -164,90 +191,33 @@ class UnknownUserError(ClientRequestError):
     status_code = status.HTTP_404_NOT_FOUND
 
 
-class SlackWebException(SlackException):
-    """An HTTP request to a remote service failed.
+class DuplicateObjectError(SlackException):
+    """Multiple Kubernetes objects were found when one was expected.
 
     Parameters
     ----------
     message
-        Exception string value, which is the default Slack message.
-    failed_at
-        When the exception happened. Omit to use the current time.
-    method
-        Method of request.
-    url
-        URL of the request.
+        Summary of error.
     user
         Username on whose behalf the request is being made.
-    status
-        Status code of failure, if any.
-    body
-        Body of failure message, if any.
+    kind
+        Kind of Kubernetes object that was duplicated.
+    namespace
+        Namespace of object being acted on.
     """
-
-    @classmethod
-    def from_exception(cls, exc: HTTPError, user: str | None = None) -> Self:
-        """Create an exception from an httpx exception.
-
-        Parameters
-        ----------
-        exc
-            Exception from httpx.
-        user
-            User on whose behalf the request is being made, if known.
-
-        Returns
-        -------
-        SlackWebException
-            Newly-constructed exception.
-        """
-        if isinstance(exc, HTTPStatusError):
-            status = exc.response.status_code
-            method = exc.request.method
-            message = f"Status {status} from {method} {exc.request.url}"
-            return cls(
-                message,
-                method=exc.request.method,
-                url=str(exc.request.url),
-                user=user,
-                status=status,
-                body=exc.response.text,
-            )
-        else:
-            message = f"{type(exc).__name__}: {exc!s}"
-            if isinstance(exc, RequestError):
-                return cls(
-                    message,
-                    method=exc.request.method,
-                    url=str(exc.request.url),
-                    user=user,
-                )
-            else:
-                return cls(message, user=user)
 
     def __init__(
         self,
         message: str,
         *,
-        failed_at: datetime | None = None,
-        method: str | None = None,
-        url: str | None = None,
         user: str | None = None,
-        status: int | None = None,
-        body: str | None = None,
+        kind: str,
+        namespace: str | None = None,
     ) -> None:
+        super().__init__(message, user)
         self.message = message
-        self.method = method
-        self.url = url
-        self.status = status
-        self.body = body
-        super().__init__(message, user, failed_at=failed_at)
-
-    def __str__(self) -> str:
-        result = self.message
-        if self.body:
-            result += f"\nBody:\n{self.body}\n"
-        return result
+        self.kind = kind
+        self.namespace = namespace
 
     def to_slack(self) -> SlackMessage:
         """Convert to a Slack message for Slack alerting.
@@ -258,21 +228,9 @@ class SlackWebException(SlackException):
             Slack message suitable for posting as an alert.
         """
         message = super().to_slack()
-        if self.url:
-            text = f"{self.method} {self.url}" if self.method else self.url
-            message.blocks.append(SlackTextField(heading="URL", text=text))
-        if self.body:
-            block = SlackCodeBlock(heading="Response", code=self.body)
-            message.blocks.append(block)
+        obj = f"{self.kind} {self.namespace}" if self.namespace else self.kind
+        message.blocks.append(SlackTextBlock(heading="Object", text=obj))
         return message
-
-
-class DockerRegistryError(SlackWebException):
-    """An API call to a Docker Registry failed."""
-
-
-class GafaelfawrWebError(SlackWebException):
-    """An API call to Gafaelfawr failed."""
 
 
 class GafaelfawrParseError(SlackException):
@@ -465,6 +423,14 @@ class KubernetesError(SlackException):
         return result
 
 
+class LabDeletionError(SlackException):
+    """An error occurred when deleting a lab.
+
+    Currently, we don't have access to the underlying error. This will be
+    fixed in future work.
+    """
+
+
 class MissingObjectError(SlackException):
     """An expected Kubernetes object is missing.
 
@@ -544,33 +510,90 @@ class MissingSecretError(MissingObjectError):
         )
 
 
-class DuplicateObjectError(SlackException):
-    """Multiple Kubernetes objects were found when one was expected.
+class SlackWebException(SlackException):
+    """An HTTP request to a remote service failed.
 
     Parameters
     ----------
     message
-        Summary of error.
+        Exception string value, which is the default Slack message.
+    failed_at
+        When the exception happened. Omit to use the current time.
+    method
+        Method of request.
+    url
+        URL of the request.
     user
         Username on whose behalf the request is being made.
-    kind
-        Kind of Kubernetes object that was duplicated.
-    namespace
-        Namespace of object being acted on.
+    status
+        Status code of failure, if any.
+    body
+        Body of failure message, if any.
     """
+
+    @classmethod
+    def from_exception(cls, exc: HTTPError, user: str | None = None) -> Self:
+        """Create an exception from an httpx exception.
+
+        Parameters
+        ----------
+        exc
+            Exception from httpx.
+        user
+            User on whose behalf the request is being made, if known.
+
+        Returns
+        -------
+        SlackWebException
+            Newly-constructed exception.
+        """
+        if isinstance(exc, HTTPStatusError):
+            status = exc.response.status_code
+            method = exc.request.method
+            message = f"Status {status} from {method} {exc.request.url}"
+            return cls(
+                message,
+                method=exc.request.method,
+                url=str(exc.request.url),
+                user=user,
+                status=status,
+                body=exc.response.text,
+            )
+        else:
+            message = f"{type(exc).__name__}: {exc!s}"
+            if isinstance(exc, RequestError):
+                return cls(
+                    message,
+                    method=exc.request.method,
+                    url=str(exc.request.url),
+                    user=user,
+                )
+            else:
+                return cls(message, user=user)
 
     def __init__(
         self,
         message: str,
         *,
+        failed_at: datetime | None = None,
+        method: str | None = None,
+        url: str | None = None,
         user: str | None = None,
-        kind: str,
-        namespace: str | None = None,
+        status: int | None = None,
+        body: str | None = None,
     ) -> None:
-        super().__init__(message, user)
         self.message = message
-        self.kind = kind
-        self.namespace = namespace
+        self.method = method
+        self.url = url
+        self.status = status
+        self.body = body
+        super().__init__(message, user, failed_at=failed_at)
+
+    def __str__(self) -> str:
+        result = self.message
+        if self.body:
+            result += f"\nBody:\n{self.body}\n"
+        return result
 
     def to_slack(self) -> SlackMessage:
         """Convert to a Slack message for Slack alerting.
@@ -581,20 +604,18 @@ class DuplicateObjectError(SlackException):
             Slack message suitable for posting as an alert.
         """
         message = super().to_slack()
-        obj = f"{self.kind} {self.namespace}" if self.namespace else self.kind
-        message.blocks.append(SlackTextBlock(heading="Object", text=obj))
+        if self.url:
+            text = f"{self.method} {self.url}" if self.method else self.url
+            message.blocks.append(SlackTextField(heading="URL", text=text))
+        if self.body:
+            block = SlackCodeBlock(heading="Response", code=self.body)
+            message.blocks.append(block)
         return message
 
 
-class FileserverCreationError(ClientRequestError):
-    """An error occured while trying to create a user fileserver."""
-
-    error = "fileserver_creation_failed"
-    status_code = status.HTTP_400_BAD_REQUEST
+class DockerRegistryError(SlackWebException):
+    """An API call to a Docker Registry failed."""
 
 
-class NotConfiguredError(ClientRequestError):
-    """An attempt was made to use a disabled service."""
-
-    error = "not_supported"
-    status_code = status.HTTP_404_NOT_FOUND
+class GafaelfawrWebError(SlackWebException):
+    """An API call to Gafaelfawr failed."""

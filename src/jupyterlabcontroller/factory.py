@@ -28,7 +28,6 @@ from .services.size import SizeManager
 from .services.source.base import ImageSource
 from .services.source.docker import DockerImageSource
 from .services.source.gar import GARImageSource
-from .services.state import LabStateManager
 from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.gar import GARStorageClient
@@ -66,7 +65,7 @@ class ProcessContext:
     prepuller: Prepuller
     """Prepuller."""
 
-    lab_state: LabStateManager
+    lab_manager: LabManager
     """State management for user lab pods."""
 
     fileserver_state: FileserverStateManager
@@ -156,10 +155,12 @@ class ProcessContext:
                 slack_client=slack_client,
                 logger=logger,
             ),
-            lab_state=LabStateManager(
+            lab_manager=LabManager(
                 config=config.lab,
-                size_manager=size_manager,
                 lab_builder=lab_builder,
+                size_manager=size_manager,
+                image_service=image_service,
+                metadata_storage=metadata_storage,
                 lab_storage=LabStorage(kubernetes_client, logger),
                 slack_client=slack_client,
                 logger=logger,
@@ -182,7 +183,7 @@ class ProcessContext:
         """Start the background threads running."""
         await self.image_service.start()
         await self.prepuller.start()
-        await self.lab_state.start()
+        await self.lab_manager.start()
         if self.config.fileserver.enabled:
             await self.fileserver_state.start()
 
@@ -196,7 +197,7 @@ class ProcessContext:
             await self.fileserver_state.stop()
         await self.prepuller.stop()
         await self.image_service.stop()
-        await self.lab_state.stop()
+        await self.lab_manager.stop()
 
 
 class Factory:
@@ -251,13 +252,13 @@ class Factory:
         return self._context.image_service
 
     @property
-    def lab_state(self) -> LabStateManager:
-        """Global lab state manager, from the `ProcessContext`.
+    def lab_manager(self) -> LabManager:
+        """Global lab manager, from the `ProcessContext`.
 
-        Only used by tests; handlers have access to the lab state manager via
-        the request context.
+        Only used by tests; handlers have access to the lab manager via the
+        request context.
         """
-        return self._context.lab_state
+        return self._context.lab_manager
 
     @property
     def prepuller(self) -> Prepuller:
@@ -331,28 +332,6 @@ class Factory:
             config=self._context.config.lab,
             size_manager=self.create_size_manager(),
             instance_url=self._context.config.base_url,
-            logger=self._logger,
-        )
-
-    def create_lab_manager(self) -> LabManager:
-        """Create service to manage user labs.
-
-        Returns
-        -------
-        LabManager
-            Newly-created lab manager.
-        """
-        metadata_storage = MetadataStorage(self._context.config.metadata_path)
-        return LabManager(
-            instance_url=self._context.config.base_url,
-            lab_state=self._context.lab_state,
-            lab_builder=self.create_lab_builder(),
-            image_service=self._context.image_service,
-            size_manager=self.create_size_manager(),
-            metadata_storage=metadata_storage,
-            lab_storage=self.create_lab_storage(),
-            lab_config=self._context.config.lab,
-            slack_client=self.create_slack_client(),
             logger=self._logger,
         )
 

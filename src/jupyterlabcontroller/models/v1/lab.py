@@ -56,6 +56,7 @@ class LabStatus(Enum):
     PENDING = "pending"
     RUNNING = "running"
     TERMINATING = "terminating"
+    TERMINATED = "terminated"
     FAILED = "failed"
 
     @classmethod

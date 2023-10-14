@@ -241,7 +241,7 @@ class LabStorage:
         return secret
 
     async def wait_for_pod_start(
-        self, names: LabObjectNames, timeout: timedelta
+        self, name: str, namespace: str, timeout: timedelta
     ) -> PodPhase | None:
         """Waits for a pod to finish starting.
 
@@ -252,8 +252,10 @@ class LabStorage:
 
         Parameters
         ----------
-        names
-            Names for lab objects.
+        name
+            Name of the lab pod.
+        namespace
+            Namespace of the lab pod.
         timeout
             Timeout to wait for the pod to start.
 
@@ -268,14 +270,14 @@ class LabStorage:
             Raised if there is some failure in a Kubernetes API call.
         """
         return await self._pod.wait_for_phase(
-            names.pod,
-            names.namespace,
+            name,
+            namespace,
             until_not={PodPhase.UNKNOWN, PodPhase.PENDING},
             timeout=timeout,
         )
 
     async def watch_pod_events(
-        self, names: LabObjectNames
+        self, name: str, namespace: str
     ) -> AsyncIterator[str]:
         """Monitor the startup of a pod.
 
@@ -284,8 +286,10 @@ class LabStorage:
 
         Parameters
         ----------
-        names
-            Lab object names.
+        name
+            Name of the lab pod.
+        namespace
+            Namespace of the lab pod.
 
         Yields
         ------
@@ -297,6 +301,5 @@ class LabStorage:
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
         """
-        namespace = names.namespace
-        async for message in self._pod.events_for_pod(names.pod, namespace):
+        async for message in self._pod.events_for_pod(name, namespace):
             yield message

@@ -1,4 +1,6 @@
-"""Event model for jupyterlab-controller."""
+"""Model for lab spawn and deletion events."""
+
+from __future__ import annotations
 
 import json
 from enum import Enum
@@ -16,16 +18,32 @@ class EventType(Enum):
     ERROR = "error"
     FAILED = "failed"
     INFO = "info"
-    PROGRESS = "progress"
 
 
 class Event(BaseModel):
-    """One spawn event for a user."""
+    """One lab operation event for a user.
 
-    type: EventType = Field(..., title="Type of the event")
-    message: str = Field(..., title="Event message")
+    This model is not directly returned by any handler. Instead, it is
+    converted to a server-sent event via its `to_sse` method.
+    """
+
+    type: EventType = Field(..., title="Type", description="Type of the event")
+
+    message: str = Field(
+        ..., title="Message", description="User-visible message for this event"
+    )
+
     progress: int | None = Field(
-        None, title="Progress percentage", le=100, gt=0
+        None,
+        title="Percentage",
+        description=(
+            "Estimated competion percentage of operation. For spawn events"
+            " after the Kubernetes objects have been created, this is"
+            " a mostly meaningless number to make the progress bar move, since"
+            " we have no way to know how many events in total there will be."
+        ),
+        le=100,
+        gt=0,
     )
 
     @property

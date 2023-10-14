@@ -583,7 +583,7 @@ async def test_spawn_errors(
             "event": "error",
         }
         assert events[-1] == {
-            "data": json.dumps({"message": "Lab creation failed"}),
+            "data": json.dumps({"message": "Lab spawn failed"}),
             "event": "failed",
         }
         assert mock_slack.messages == [

@@ -31,7 +31,7 @@ async def get_lab_users(
     context: RequestContext = Depends(context_dependency),
 ) -> list[str]:
     """Returns a list of all users with running labs."""
-    return await context.lab_state.list_lab_users(only_running=True)
+    return await context.lab_manager.list_lab_users(only_running=True)
 
 
 @router.get(
@@ -47,12 +47,11 @@ async def get_lab_state(
     username: str,
     context: RequestContext = Depends(context_dependency),
 ) -> UserLabState:
-    try:
-        return await context.lab_state.get_lab_state(username)
-    except UnknownUserError as e:
-        e.location = ErrorLocation.path
-        e.field_path = ["username"]
-        raise
+    state = await context.lab_manager.get_lab_state(username)
+    if not state:
+        msg = f"Unknown user {username}"
+        raise UnknownUserError(msg, ErrorLocation.path, ["username"])
+    return state
 
 
 @router.post(
@@ -71,14 +70,12 @@ async def post_new_lab(
     context: RequestContext = Depends(context_dependency),
     user: GafaelfawrUser = Depends(user_dependency),
 ) -> None:
-    context.rebind_logger(user=username)
     if username != user.username:
         raise PermissionDeniedError("Permission denied")
 
     # The user is valid and matches the route. Attempt the lab creation.
-    lab_manager = context.factory.create_lab_manager()
     try:
-        await lab_manager.create_lab(user, lab)
+        await context.lab_manager.create_lab(user, lab)
     except (InvalidDockerReferenceError, UnknownDockerImageError) as e:
         e.location = ErrorLocation.body
         e.field_path = ["options", lab.options.image_attribute]
@@ -93,6 +90,10 @@ async def post_new_lab(
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
         404: {"description": "Lab not found", "model": ErrorModel},
+        409: {
+            "description": "Another operation in progress",
+            "model": ErrorModel,
+        },
     },
     status_code=204,
 )
@@ -100,10 +101,8 @@ async def delete_user_lab(
     username: str,
     context: RequestContext = Depends(context_dependency),
 ) -> None:
-    context.rebind_logger(user=username)
-    lab_manager = context.factory.create_lab_manager()
     try:
-        await lab_manager.delete_lab(username)
+        await context.lab_manager.delete_lab(username)
     except UnknownUserError as e:
         e.location = ErrorLocation.path
         e.field_path = ["username"]
@@ -139,9 +138,8 @@ async def get_lab_events(
     """Returns the events for the lab of the given user."""
     if username != x_auth_request_user:
         raise PermissionDeniedError("Permission denied")
-    context.rebind_logger(user=username)
     try:
-        generator = context.lab_state.events_for_user(username)
+        generator = context.lab_manager.events_for_user(username)
         return EventSourceResponse(generator)
     except UnknownUserError as e:
         e.location = ErrorLocation.path
