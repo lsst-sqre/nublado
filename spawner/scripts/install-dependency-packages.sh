@@ -31,6 +31,14 @@ apt-get update
 apt-get -y install --no-install-recommends build-essential libffi-dev \
     libpq-dev python3-dev
 
+# postgresql-client is not *strictly* necessary, but if we're using
+# CloudSQL proxy against a Cloud SQL instance that has no public IP
+# and a network policy only allowing access to the proxy from the Hub
+# pod, this is a much easier way to inspect the DB than an interactive
+# python instance.
+
+apt-get -y install --no-install-recommends postgresql-client
+
 # Delete cached files we don't need anymore:
 apt-get clean
 rm -rf /var/lib/apt/lists/*
