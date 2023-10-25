@@ -9,6 +9,7 @@ from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.user import user_dependency
 from ..exceptions import (
     InvalidDockerReferenceError,
+    OperationConflictError,
     PermissionDeniedError,
     UnknownDockerImageError,
     UnknownUserError,
@@ -106,6 +107,8 @@ async def delete_user_lab(
     except UnknownUserError as e:
         e.location = ErrorLocation.path
         e.field_path = ["username"]
+        raise
+    except OperationConflictError:
         raise
     except Exception as e:
         # The exception was already reported to Slack at the service layer, so
