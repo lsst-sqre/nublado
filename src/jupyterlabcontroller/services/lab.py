@@ -655,11 +655,13 @@ class LabManager:
 
         Notes
         -----
-        There unfortunately doesn't appear to be an API to wait for a group of
-        awaitables or tasks but return as soon as the first one succeeds or
-        fails, instead of waiting for all of them. We therefore need to do the
-        locking and coordination ourselves by having the spawner thread notify
-        the ``_spawner_done`` `asyncio.Event`.
+        Doing this properly is a bit tricky, since we have to avoid both
+        busy-waiting when no operations are in progress and not reaping
+        anything if one operation keeps running forever. The approach used
+        here is to have every spawn set the ``_spawner_done`` `asyncio.Event`
+        when it is complete, and use that as a trigger for doing a reaper
+        pass. Deletes do not do this since they're normally awaited by the
+        caller and thus don't need to be reaped separately.
         """
         while True:
             await self._spawner_done.wait()
