@@ -51,12 +51,14 @@ async def test_poll(
     spawner: RSPRestSpawner, mock_lab_controller: MockLabController
 ) -> None:
     assert await spawner.poll() == 0
-    mock_lab_controller.set_status(spawner.user.name, LabStatus.STARTING)
+    mock_lab_controller.set_status(spawner.user.name, LabStatus.PENDING)
     assert await spawner.poll() is None
     mock_lab_controller.set_status(spawner.user.name, LabStatus.RUNNING)
     assert await spawner.poll() is None
     mock_lab_controller.set_status(spawner.user.name, LabStatus.TERMINATING)
-    assert await spawner.poll() is None
+    assert await spawner.poll() == 0
+    mock_lab_controller.set_status(spawner.user.name, LabStatus.TERMINATED)
+    assert await spawner.poll() == 0
     mock_lab_controller.set_status(spawner.user.name, LabStatus.FAILED)
     assert await spawner.poll() == 1
     await spawner.stop()
