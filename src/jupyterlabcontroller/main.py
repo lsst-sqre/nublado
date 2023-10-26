@@ -1,11 +1,13 @@
 """The main application factory for the jupyterlab-controller service."""
 
+from __future__ import annotations
+
 from importlib.metadata import metadata, version
 
 import structlog
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
 from safir.dependencies.http_client import http_client_dependency
+from safir.fastapi import ClientRequestError, client_request_error_handler
 from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
@@ -14,7 +16,6 @@ from sse_starlette.sse import AppStatus
 
 from .dependencies.config import configuration_dependency
 from .dependencies.context import context_dependency
-from .exceptions import ClientRequestError
 from .handlers import fileserver, form, index, labs, prepuller, user_status
 
 __all__ = ["create_app"]
@@ -70,6 +71,9 @@ def create_app() -> FastAPI:
         SlackRouteErrorHandler.initialize(webhook, config.safir.name, logger)
         logger.debug("Initialized Slack webhook")
 
+    # Configure exception handlers.
+    app.exception_handler(ClientRequestError)(client_request_error_handler)
+
     @app.on_event("startup")
     async def startup_event() -> None:
         await initialize_kubernetes()
@@ -89,13 +93,5 @@ def create_app() -> FastAPI:
         #
         # See https://github.com/sysid/sse-starlette/issues/59
         AppStatus.should_exit_event = None
-
-    @app.exception_handler(ClientRequestError)
-    async def client_error_handler(
-        request: Request, exc: ClientRequestError
-    ) -> JSONResponse:
-        return JSONResponse(
-            status_code=exc.status_code, content={"detail": [exc.to_dict()]}
-        )
 
     return app
