@@ -454,6 +454,40 @@ async def test_abort_spawn(
 
 
 @pytest.mark.asyncio
+async def test_spawn_after_terminate(
+    client: AsyncClient,
+    factory: Factory,
+    user: GafaelfawrUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    mock_kubernetes.initial_pod_phase = PodPhase.SUCCEEDED.value
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 201
+    r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 200
+    assert r.json()["status"] == "terminated"
+
+    # We should now be able to spawn the lab again, and the controller should
+    # quietly delete the terminated lab and create a new one.
+    mock_kubernetes.initial_pod_phase = PodPhase.RUNNING.value
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 201
+    r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 200
+    assert r.json()["status"] == "running"
+
+
+@pytest.mark.asyncio
 async def test_lab_objects(
     client: AsyncClient,
     config: Config,
