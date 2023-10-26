@@ -11,6 +11,7 @@ import asyncio
 from datetime import timedelta
 
 import pytest
+from kubernetes_asyncio.client import ApiException
 from safir.testing.kubernetes import MockKubernetesApi
 
 from jupyterlabcontroller.config import Config
@@ -175,6 +176,39 @@ async def test_reconcile_pending(
     assert state
     expected.status = LabStatus.RUNNING
     assert state.model_dump() == expected.model_dump()
+
+
+@pytest.mark.asyncio
+async def test_reconcile_succeeded(
+    config: Config,
+    factory: Factory,
+    user: GafaelfawrUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    namespace = read_input_data("base", "metadata/namespace").strip()
+    for secret in read_input_secrets_json("base", "secrets.json"):
+        await mock_kubernetes.create_namespaced_secret(namespace, secret)
+    mock_kubernetes.initial_pod_phase = PodPhase.SUCCEEDED.value
+    await factory.start_background_services()
+
+    # Create a lab through the controller. It should show up in a terminated
+    # state.
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    await factory.lab_manager.create_lab(user, lab)
+    await asyncio.sleep(0.1)
+    state = await factory.lab_manager.get_lab_state(user.username)
+    assert state
+    assert state.status == LabStatus.TERMINATED
+    assert await mock_kubernetes.read_namespace(f"userlabs-{user.username}")
+
+    # Now stop and start background services to force another run. The
+    # reconciliation job should notice that the lab is in a terminated state
+    # and delete it.
+    await factory.stop_background_services()
+    await factory.start_background_services()
+    with pytest.raises(ApiException) as excinfo:
+        await mock_kubernetes.read_namespace(f"userlabs-{user.username}")
+    assert excinfo.value.status == 404
 
 
 @pytest.mark.asyncio

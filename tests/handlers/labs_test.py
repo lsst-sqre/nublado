@@ -178,14 +178,14 @@ async def test_lab_start_stop(
         ]
     }
 
-    # Change the pod phase. This should throw the lab into a failed state.
+    # Change the pod phase. This should throw the lab into a terminated state.
     name = f"{user.username}-nb"
     namespace = f"userlabs-{user.username}"
     pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
     pod.status.phase = PodPhase.FAILED.value
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
-    expected["status"] = "failed"
+    expected["status"] = "terminated"
     assert r.json() == expected
 
     # Delete the pod out from under the controller. This should also change
@@ -193,6 +193,7 @@ async def test_lab_start_stop(
     await mock_kubernetes.delete_namespaced_pod(name, namespace)
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
+    expected["status"] = "failed"
     expected["pod"] = "missing"
     assert r.json() == expected
 
@@ -228,7 +229,7 @@ async def test_spawn_after_failure(
         f"{TEST_BASE_URL}/nublado/spawner/v1/labs/{user.username}"
     )
 
-    # Change the pod phase. This should throw the lab into a failed state.
+    # Change the pod phase. This should throw the lab into a terminated state.
     name = f"{user.username}-nb"
     namespace = f"userlabs-{user.username}"
     await mock_kubernetes.patch_namespaced_pod_status(
@@ -244,7 +245,7 @@ async def test_spawn_after_failure(
     )
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
-    assert r.json()["status"] == "failed"
+    assert r.json()["status"] == "terminated"
 
     # Create the lab again. This should not fail with a conflict; instead, it
     # should delete the old lab and then create a new one.
@@ -449,7 +450,7 @@ async def test_abort_spawn(
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 404
     with pytest.raises(ApiException) as excinfo:
-        await mock_kubernetes.read_namespace(f"{user.username}-nb")
+        await mock_kubernetes.read_namespace(f"userlabs-{user.username}")
     assert excinfo.value.status == 404
 
 
@@ -756,6 +757,9 @@ async def test_spawn_errors(
             },
         ]
         mock_slack.messages = []
+        r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
+        assert r.status_code == 200
+        assert r.json()["status"] == "failed"
         r = await client.delete(f"/nublado/spawner/v1/labs/{user.username}")
         assert r.status_code == 204
 

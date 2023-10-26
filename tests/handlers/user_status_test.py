@@ -81,7 +81,7 @@ async def test_user_status(
     }
     assert r.json() == expected
 
-    # Change the pod phase. This should throw the lab into a failed state.
+    # Change the pod phase. This should throw the lab into a terminated state.
     name = f"{user.username}-nb"
     namespace = f"userlabs-{user.username}"
     pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
@@ -90,7 +90,7 @@ async def test_user_status(
         "/nublado/spawner/v1/user-status", headers=user.to_headers()
     )
     assert r.status_code == 200
-    expected["status"] = "failed"
+    expected["status"] = "terminated"
     assert r.json() == expected
 
     # Delete the pod out from under the controller. This should also change
@@ -100,5 +100,6 @@ async def test_user_status(
         "/nublado/spawner/v1/user-status", headers=user.to_headers()
     )
     assert r.status_code == 200
+    expected["status"] = "failed"
     expected["pod"] = "missing"
     assert r.json() == expected
