@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from importlib.metadata import metadata, version
 
 import structlog
@@ -29,9 +31,29 @@ def create_app() -> FastAPI:
     after the test suite has a chance to override the path to the
     configuration file.
     """
-    config = configuration_dependency.config
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        await initialize_kubernetes()
+        config = configuration_dependency.config
+        await context_dependency.initialize(config)
+
+        yield
+
+        await context_dependency.aclose()
+        await http_client_dependency.aclose()
+
+        # sse-starlette initializes this process-global variable when it is
+        # first invoked, but it's per-event-loop, and therefore breaks tests
+        # when each test is run in a separate event loop. Clear the variable
+        # to force reinitialization on app shutdown so that each event loop
+        # will get its own.
+        #
+        # See https://github.com/sysid/sse-starlette/issues/59
+        AppStatus.should_exit_event = None
 
     # Configure logging.
+    config = configuration_dependency.config
     configure_logging(
         name="jupyterlabcontroller",
         profile=config.safir.profile,
@@ -47,6 +69,7 @@ def create_app() -> FastAPI:
         openapi_url=f"{config.safir.path_prefix}/openapi.json",
         docs_url=f"{config.safir.path_prefix}/docs",
         redoc_url=f"{config.safir.path_prefix}/redoc",
+        lifespan=lifespan,
     )
 
     # Attach the routers.
@@ -73,25 +96,5 @@ def create_app() -> FastAPI:
 
     # Configure exception handlers.
     app.exception_handler(ClientRequestError)(client_request_error_handler)
-
-    @app.on_event("startup")
-    async def startup_event() -> None:
-        await initialize_kubernetes()
-        config = configuration_dependency.config
-        await context_dependency.initialize(config)
-
-    @app.on_event("shutdown")
-    async def shutdown_event() -> None:
-        await context_dependency.aclose()
-        await http_client_dependency.aclose()
-
-        # sse-starlette initializes this process-global variable when it is
-        # first invoked, but it's per-event-loop, and therefore breaks tests
-        # when each test is run in a separate event loop. Clear the variable
-        # to force reinitialization on app shutdown so that each event loop
-        # will get its own.
-        #
-        # See https://github.com/sysid/sse-starlette/issues/59
-        AppStatus.should_exit_event = None
 
     return app
