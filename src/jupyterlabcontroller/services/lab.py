@@ -311,14 +311,27 @@ class LabManager:
         # 2. No operation is in progress, in which case we start the deletion
         #    and take responsibility for clearing the lab state when it
         #    finishes.
-        # 3. A different operation (presumably a spawn) is in progress, in
-        #    which case we want to raise an error, since currently we don't
-        #    support aborting a spawn in progress by deleting the lab.
+        # 3. A spawn is already in progress, in which case we want to abort
+        #    that spawn and then do a normal delete to remove any remnants.
+        #
+        # Also handle the currently-impossible fourth case of some other
+        # operation in progress. There currently is no other operation, but
+        # do something safe in case one appears in the future.
         if lab.monitor.in_progress == _LabOperation.DELETE:
             await lab.monitor.wait()
-        elif not lab.monitor.in_progress:
-            self._builder.build_object_names(username)
+        elif lab.monitor.in_progress in (_LabOperation.SPAWN, None):
+            if lab.monitor.in_progress == _LabOperation.SPAWN:
+                await lab.monitor.cancel()
             lab.events.clear()
+
+            # A delete may have been in progress and just finished while we
+            # were waiting on cancel, thus deleting the lab state out from
+            # under us.
+            if not lab.state:
+                raise UnknownUserError(f"Unknown user {username}")
+
+            # Move forward with a delete operation.
+            self._builder.build_object_names(username)
             lab.state.status = LabStatus.TERMINATING
             lab.state.internal_url = None
             deleter = self._delete_lab(username, lab.state, lab.events)
@@ -1015,16 +1028,28 @@ class _LabMonitor:
     async def cancel(self) -> None:
         """Cancel any existing operation.
 
-        This is called during process shutdown. All operations in progress are
-        cancelled, which may strand random lab state that we will detect and
-        clean up during reconciliation.
+        This is called during process shutdown and to abort a spawn in
+        progress because a delete request was received. Any operations in
+        progress is cancelled, which may strand random lab state that we will
+        detect and clean up later.
         """
         async with self._lock:
-            if self._operation:
+            if not self._operation:
+                return
+            if not self._operation.task.done():
+                msg = "Operation aborted"
+                event = Event(type=EventType.FAILED, message=msg)
+                self._operation.events.put(event)
                 self._operation.task.cancel("Shutting down")
-                with contextlib.suppress(asyncio.CancelledError):
-                    await self._operation.task
-                self._operation = None
+            try:
+                await self._operation.task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                msg = "Uncaught exception in monitor task"
+                self._logger.exception(msg, user=self._username)
+                await self._maybe_post_slack_exception(e)
+            self._operation = None
 
     def is_done(self) -> bool:
         """Whether the current operation is complete.
@@ -1113,7 +1138,7 @@ class _LabMonitor:
             try:
                 await operation.task
             except Exception as e:
-                msg = "Uncaught exception in monitor thread"
+                msg = "Uncaught exception in monitor task"
                 self._logger.exception(msg, user=self._username)
                 await self._maybe_post_slack_exception(e)
             if self._operation == operation:
