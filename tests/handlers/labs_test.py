@@ -327,12 +327,7 @@ async def test_delayed_spawn(
     assert r.status_code == 200
     assert r.json()["status"] == "pending"
 
-    # Attempting to delete the pending lab should produce a 409 Conflict
-    # error.
-    r = await client.delete(f"/nublado/spawner/v1/labs/{user.username}")
-    assert r.status_code == 409
-
-    # As should attempting to spawn another lab.
+    # Attempting to spawn another lab should produce a 409 Conflict error.
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
@@ -425,6 +420,37 @@ async def test_delayed_spawn(
     # list and immediately complete.
     events = await get_lab_events(client, user.username)
     assert events == expected_events
+
+
+@pytest.mark.asyncio
+async def test_abort_spawn(
+    client: AsyncClient,
+    factory: Factory,
+    user: GafaelfawrUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 201
+    r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 200
+    assert r.json()["status"] == "pending"
+
+    # Deleting the lab while it is spawning should abort the spawn and clean
+    # up any remnants of the lab.
+    r = await client.delete(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 204
+    r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 404
+    with pytest.raises(ApiException) as excinfo:
+        await mock_kubernetes.read_namespace(f"{user.username}-nb")
+    assert excinfo.value.status == 404
 
 
 @pytest.mark.asyncio
@@ -560,7 +586,7 @@ async def test_spawn_errors(
     mock_slack: MockSlackWebhook,
 ) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification.json")
-    apis_to_fail = {"read_namespaced_secret"}
+    apis_to_fail = set()
 
     def callback(method: str, *args: Any) -> None:
         if method in apis_to_fail:
