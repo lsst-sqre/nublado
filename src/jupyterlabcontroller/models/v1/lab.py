@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ...constants import DROPDOWN_SENTINEL_VALUE, USERNAME_REGEX
 from ..domain.gafaelfawr import GafaelfawrUserInfo, UserGroup
+from ..domain.kubernetes import PodPhase
 
 __all__ = [
     "ImageClass",
@@ -60,14 +61,12 @@ class LabStatus(Enum):
     FAILED = "failed"
 
     @classmethod
-    def from_phase(cls, phase: str) -> LabStatus:
+    def from_phase(cls, phase: PodPhase) -> LabStatus:
         """Convert a Kubernetes pod phase to a lab status.
 
         Be aware that it is not possible to detect Kubernetes pods that are in
         the process of being terminated by looking only at the phase
-        (``Terminating`` is not a pod phase). This method will return
-        ``RUNNING`` if the container is still running or ``FAILED`` if it has
-        stopped.
+        (``Terminating`` is not a pod phase).
 
         Parameters
         ----------
@@ -79,12 +78,15 @@ class LabStatus(Enum):
         LabStatus
             Corresponding lab status.
         """
-        if phase == "Running":
-            return cls.RUNNING
-        elif phase == "Pending":
-            return cls.PENDING
-        else:
-            return cls.FAILED
+        match phase:
+            case PodPhase.PENDING:
+                return cls.PENDING
+            case PodPhase.RUNNING:
+                return cls.RUNNING
+            case PodPhase.SUCCEEDED:
+                return cls.TERMINATED
+            case PodPhase.FAILED | PodPhase.UNKNOWN:
+                return cls.FAILED
 
 
 class PodState(Enum):
@@ -453,3 +455,8 @@ class UserLabState(LabSpecification):
             resources=resources,
             quota=quota,
         )
+
+    @property
+    def is_running(self) -> bool:
+        """Whether the lab is currently running."""
+        return self.status not in (LabStatus.TERMINATED, LabStatus.FAILED)

@@ -88,6 +88,7 @@ async def create_lab(
     )
     await lab_storage.create(objects)
 
+    phase = PodPhase(mock_kubernetes.initial_pod_phase)
     return UserLabState(
         env=lab.env,
         user=UserInfo.from_gafaelfawr(user),
@@ -101,7 +102,7 @@ async def create_lab(
             memory=int(user.quota.notebook.memory * 1024 * 1024 * 1024),
         ),
         resources=resources,
-        status=LabStatus.from_phase(mock_kubernetes.initial_pod_phase),
+        status=LabStatus.from_phase(phase),
     )
 
 

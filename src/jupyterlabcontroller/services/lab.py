@@ -31,7 +31,6 @@ from ..exceptions import (
 )
 from ..models.domain.docker import DockerReference
 from ..models.domain.gafaelfawr import GafaelfawrUser
-from ..models.domain.kubernetes import PodPhase
 from ..models.domain.lab import LabObjectNames
 from ..models.domain.rspimage import RSPImage
 from ..models.v1.event import Event, EventType
@@ -238,11 +237,11 @@ class LabManager:
         # Check to see if the lab already exists. If so, but it is in a failed
         # state, we will delete the previous lab first.
         state = await self.get_lab_state(user.username)
-        delete_first = bool(state and state.status == LabStatus.FAILED)
+        delete_first = bool(state and not state.is_running)
 
         # If there is any operation already in progress, raise an error.
-        # Similarly, if the lab already exists and is not in a failed state,
-        # raise an error.
+        # Similarly, if the lab already exists and is not in a failed or
+        # terminated state, raise an error.
         #
         # This must be done after any other preliminaries that may yield
         # control, to ensure that state doesn't change between our check and
@@ -250,9 +249,19 @@ class LabManager:
         lab = self._labs[username]
         if lab.monitor.in_progress:
             operation_type = lab.monitor.in_progress.value
+            self._logger.warning(
+                "Operation in progress",
+                username=username,
+                operation=operation_type,
+            )
             msg = f"Operation in progress for {username}: {operation_type}"
             raise OperationConflictError(msg)
         if lab.state and not delete_first:
+            self._logger.warning(
+                "Lab already exists",
+                username=username,
+                status=lab.state.status.value,
+            )
             raise LabExistsError(f"Lab already exists for {username}")
 
         # Kick off the spawn and hand it off to the monitor to watch.
@@ -436,14 +445,13 @@ class LabManager:
             return state
 
         # If the pod is missing, set the state to failed. Also set the state
-        # to failed if we thought the pod was running but it's in some other
-        # state. Otherwise, go with our current state.
+        # to terminated or failed if we thought the pod was running but it's
+        # in some other state. Otherwise, go with our current state.
         if phase is None:
             state.status = LabStatus.FAILED
             state.pod = PodState.MISSING
         elif state.status == LabStatus.RUNNING:
-            if phase != PodPhase.RUNNING:
-                state.status = LabStatus.FAILED
+            state.status = LabStatus.from_phase(phase)
         return state
 
     async def list_lab_users(self, *, only_running: bool = False) -> list[str]:
