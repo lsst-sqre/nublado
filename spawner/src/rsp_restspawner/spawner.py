@@ -38,13 +38,21 @@ _CLIENT: AsyncClient | None = None
 class LabStatus(str, Enum):
     """Possible status conditions of a user's pod per the lab controller.
 
+    This is not directly equivalent to pod phases. It is instead intended to
+    capture the status of the lab from an infrastructure standpoint,
+    reflecting the current intent of the controller. Most notably, labs that
+    have stopped running for any reason (failure or success) use the
+    terminated status. The failed status is reserved for failed Kubernetes
+    operations or missing or invalid Kubernetes objects.
+
     Keep this in sync with the status values reported by the status endpoint
     of the lab controller.
     """
 
-    STARTING = "starting"
+    PENDING = "pending"
     RUNNING = "running"
     TERMINATING = "terminating"
+    TERMINATED = "terminated"
     FAILED = "failed"
 
 
@@ -277,11 +285,17 @@ class RSPRestSpawner(Spawner):
     async def poll(self) -> int | None:
         """Check if the pod is running.
 
+        Pods that are currently being terminated are reported as not running,
+        since we want to allow the user to immediately begin spawning a lab.
+        If they outrace the pod termination, we'll just join the wait for the
+        lab termination to complete.
+
         Returns
         -------
         int or None
             If the pod is starting, running, or terminating, return `None`.
-            If the pod does not exist, return 0. If the pod exists in a failed
+            If the pod does not exist, is being terminated, or was
+            successfully terminated, return 0. If the pod exists in a failed
             state, return 1.
 
         Raises
@@ -309,7 +323,12 @@ class RSPRestSpawner(Spawner):
         else:
             r.raise_for_status()
         result = r.json()
-        return 1 if result["status"] == LabStatus.FAILED else None
+        if result["status"] == LabStatus.FAILED:
+            return 1
+        elif result["status"] in (LabStatus.TERMINATING, LabStatus.TERMINATED):
+            return 0
+        else:
+            return None
 
     async def progress(self) -> AsyncIterator[dict[str, int | str]]:
         """Monitor the progress of a spawn.
@@ -473,11 +492,19 @@ class RSPRestSpawner(Spawner):
         try:
             r = await self._create_lab()
 
-            # 409 (Conflict) indicates the user already has a running pod.
+            # 409 (Conflict) indicates the user either already has a running
+            # pod (possibly in terminating status) or another spawn is already
+            # in progress.
+            #
             # Ideally, we would reuse the running pod, but unfortunately at
             # this point JupyterHub has already invalidated its OpenID Connect
             # credentials, so we'll be unable to talk to it. We therefore have
-            # to delete it and recreate it.
+            # to delete it and recreate it. If the pod was already running
+            # (including when a delete was in progress), the stop should
+            # succeed. If a spawn was in progress, the stop should abort that
+            # spawn and clean up any remnants. If the lab was in terminating
+            # status, our stop call should join the stop call already in
+            # progress and complete when it does.
             if r.status_code == 409:
                 event = SpawnEvent(
                     progress=1,
