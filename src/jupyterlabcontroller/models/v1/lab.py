@@ -52,7 +52,15 @@ class LabSize(str, Enum):
 
 
 class LabStatus(Enum):
-    """Possible states the user's lab may be in."""
+    """Possible states the user's lab may be in.
+
+    This is not directly equivalent to pod phases. It is instead intended to
+    capture the status of the lab from an infrastructure standpoint,
+    reflecting the current intent of the controller. Most notably, labs that
+    have stopped running for any reason (failure or success) use the
+    terminated status. The failed status is reserved for failed Kubernetes
+    operations or missing or invalid Kubernetes objects.
+    """
 
     PENDING = "pending"
     RUNNING = "running"
@@ -83,9 +91,9 @@ class LabStatus(Enum):
                 return cls.PENDING
             case PodPhase.RUNNING:
                 return cls.RUNNING
-            case PodPhase.SUCCEEDED:
+            case PodPhase.SUCCEEDED | PodPhase.FAILED:
                 return cls.TERMINATED
-            case PodPhase.FAILED | PodPhase.UNKNOWN:
+            case PodPhase.UNKNOWN:
                 return cls.FAILED
 
 

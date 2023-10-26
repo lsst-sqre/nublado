@@ -396,3 +396,15 @@ class Factory:
         """
         await self._context.start()
         self._background_services_started = True
+
+    async def stop_background_services(self) -> None:
+        """Stop global background services managed by the process context.
+
+        These are normally stopped when closing down the global context, but
+        the test suite may want to stop and start them independently.
+
+        Only used by the test suite.
+        """
+        if self._background_services_started:
+            await self._context.stop()
+        self._background_services_started = False

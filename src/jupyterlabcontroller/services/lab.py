@@ -561,6 +561,20 @@ class LabManager:
         events.put(Event(type=EventType.INFO, message=msg, progress=progress))
         state.status = LabStatus.TERMINATED
 
+    async def _delete_completed_labs(self) -> None:
+        """Delete all labs that have stopped running.
+
+        Run from the background reconciliation thread, which will have just
+        updated the lab status in our internal state. Any labs in a terminated
+        state are no longer running and should be garbage-collected, as long
+        as the user hasn't already started a new operation on that lab.
+        """
+        for username, lab in self._labs.items():
+            if lab.state and not lab.state.is_running:
+                if not lab.monitor.in_progress:
+                    with contextlib.suppress(UnknownUserError):
+                        await self.delete_lab(username)
+
     async def _gather_secret_data(
         self, user: GafaelfawrUser
     ) -> dict[str, str]:
@@ -764,17 +778,21 @@ class LabManager:
                 lab.state.status = LabStatus.FAILED
             else:
                 observed_state = observed[username]
-                if observed_state.status != lab.state.status:
-                    self._logger.warning(
-                        f"Expected status for {username} is"
-                        f" {lab.state.status}, but observed status is"
-                        f" {observed_state.status}"
-                    )
-                    lab.state.status = observed_state.status
+                if observed_state.status == lab.state.status:
+                    continue
 
-                # If we discovered the pod was actually in pending state, kick
-                # off a monitoring job to wait for it to become ready and
-                # handle timeouts if it never does.
+                # The discovered state was not what we expected. Update our
+                # state.
+                self._logger.warning(
+                    f"Expected status for {username} is"
+                    f" {lab.state.status}, but observed status is"
+                    f" {observed_state.status}"
+                )
+                lab.state.status = observed_state.status
+
+                # If we discovered the pod was actually in pending state,
+                # kick off a monitoring job to wait for it to become ready
+                # and handle timeouts if it never does.
                 if observed_state.status == LabStatus.PENDING:
                     to_monitor.append(username)
 
@@ -782,20 +800,21 @@ class LabManager:
         # state. This is the normal case after a restart of the lab
         # controller.
         for username in set(observed.keys()) - known_users:
-            if username not in self._labs:
-                msg = f"Creating record for user {username} from Kubernetes"
-                self._logger.info(msg)
-                self._labs[username] = _State(
-                    state=observed[username],
-                    monitor=_LabMonitor(
-                        username=username,
-                        timeout=self._config.spawn_timeout,
-                        slack_client=self._slack,
-                        logger=self._logger,
-                    ),
-                )
-                if observed[username].status == LabStatus.PENDING:
-                    to_monitor.append(username)
+            if username in self._labs:
+                continue
+            msg = f"Creating record for user {username} from Kubernetes"
+            self._logger.info(msg)
+            self._labs[username] = _State(
+                state=observed[username],
+                monitor=_LabMonitor(
+                    username=username,
+                    timeout=self._config.spawn_timeout,
+                    slack_client=self._slack,
+                    logger=self._logger,
+                ),
+            )
+            if observed[username].status == LabStatus.PENDING:
+                to_monitor.append(username)
 
         # If we discovered any pods unexpectedly in the pending state, kick
         # off monitoring jobs to wait for them to become ready and handle
@@ -803,6 +822,12 @@ class LabManager:
         # safe to do asyncio operations again.
         for username in to_monitor:
             await self._monitor_pending_spawn(username)
+
+        # Finally, for all labs in failed or terminated state (spawn failed,
+        # killed by the idle culler, killed by the OOM killer, etc.), clean up
+        # the lab as long as the user hasn't started some other operation in
+        # the meantime.
+        await self._delete_completed_labs()
 
     async def _reconcile_loop(self) -> None:
         """Run in the background by `start`, stopped with `stop`."""
