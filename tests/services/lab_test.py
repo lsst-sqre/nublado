@@ -41,10 +41,10 @@ async def create_lab(
 ) -> UserLabState:
     """Create a lab for the default test user.
 
-    This matches the behavior of the lab manager, but works below the level of
-    the lab manager and the lab state manager. It is used to simulate labs
-    that were already created when the lab controller started, and should be
-    analyzed for reconciliation.
+    This matches the behavior of the lab manager, but works behind its back so
+    that it's not aware of the lab that was created. It is used to simulate
+    labs that were already created when the lab controller started, and should
+    be analyzed for reconciliation.
 
     Parameters
     ----------
@@ -115,7 +115,7 @@ async def test_reconcile(
     expected = await create_lab(config, factory, user, mock_kubernetes)
 
     # The lab state manager should think there are no labs.
-    assert await factory.lab_state.list_lab_users() == []
+    assert await factory.lab_manager.list_lab_users() == []
 
     # Now, start the background reconciliation thread. It should do an initial
     # reconciliation in the foreground, so when this returns, reconciliation
@@ -124,11 +124,10 @@ async def test_reconcile(
 
     # We should have picked up the manually-created pod and autodiscovered all
     # of its state.
-    assert await factory.lab_state.list_lab_users() == [user.username]
-    state = await factory.lab_state.get_lab_state(user.username)
+    assert await factory.lab_manager.list_lab_users() == [user.username]
+    state = await factory.lab_manager.get_lab_state(user.username)
+    assert state
     assert state.model_dump() == expected.model_dump()
-    status = await factory.lab_state.get_lab_status(user.username)
-    assert status == LabStatus.RUNNING
 
 
 @pytest.mark.asyncio
@@ -142,13 +141,14 @@ async def test_reconcile_pending(
     expected = await create_lab(config, factory, user, mock_kubernetes)
 
     # The lab state manager shouldn't know about the pod to start with.
-    assert await factory.lab_state.list_lab_users() == []
+    assert await factory.lab_manager.list_lab_users() == []
 
     # Start the background processing. It should discover the pod on reconcile
     # and put it into pending status.
     await factory.start_background_services()
     await asyncio.sleep(0.1)
-    state = await factory.lab_state.get_lab_state(user.username)
+    state = await factory.lab_manager.get_lab_state(user.username)
+    assert state
     assert state.status == LabStatus.PENDING
     assert state.model_dump() == expected.model_dump()
 
@@ -170,7 +170,8 @@ async def test_reconcile_pending(
     # Wait a little bit for the task to pick up the change and then check to
     # make sure the status updated.
     await asyncio.sleep(0.1)
-    state = await factory.lab_state.get_lab_state(user.username)
+    state = await factory.lab_manager.get_lab_state(user.username)
+    assert state
     expected.status = LabStatus.RUNNING
     assert state.model_dump() == expected.model_dump()
 
@@ -188,29 +189,29 @@ async def test_spawn_timeout(
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
     config.lab.spawn_timeout = timedelta(seconds=1)
     lab = read_input_lab_specification_json("base", "lab-specification.json")
-    lab_manager = factory.create_lab_manager()
     await factory.start_background_services()
 
     # Start the lab creation.
-    await lab_manager.create_lab(user, lab)
+    await factory.lab_manager.create_lab(user, lab)
     await asyncio.sleep(0.1)
-    status = await factory.lab_state.get_lab_status(user.username)
-    assert status == LabStatus.PENDING
+    state = await factory.lab_manager.get_lab_state(user.username)
+    assert state
+    assert state.status == LabStatus.PENDING
 
     # Wait for half the timeout and the status should still be pending.
     await asyncio.sleep(0.5)
-    status = await factory.lab_state.get_lab_status(user.username)
-    assert status == LabStatus.PENDING
+    state = await factory.lab_manager.get_lab_state(user.username)
+    assert state
+    assert state.status == LabStatus.PENDING
 
     # Wait for the timeout. The lab creation should have failed with an
     # appropriate event.
     await asyncio.sleep(0.5)
-    status = await factory.lab_state.get_lab_status(user.username)
-    assert status == LabStatus.FAILED
+    state = await factory.lab_manager.get_lab_state(user.username)
+    assert state
+    assert state.status == LabStatus.FAILED
     events = [
-        e async for e in factory.lab_state.events_for_user(user.username)
+        e async for e in factory.lab_manager.events_for_user(user.username)
     ]
-    assert events[-2].data
     assert events[-1].data
-    assert "Lab creation timed out after" in events[-2].data
-    assert "Lab creation failed" in events[-1].data
+    assert "Lab spawn timed out after" in events[-1].data

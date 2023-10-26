@@ -16,7 +16,7 @@ from ..config import Config
 from ..factory import Factory, ProcessContext
 from ..services.fileserver import FileserverStateManager
 from ..services.image import ImageService
-from ..services.state import LabStateManager
+from ..services.lab import LabManager
 
 
 @dataclass(slots=True)
@@ -41,7 +41,7 @@ class RequestContext:
     image_service: ImageService
     """Global image service."""
 
-    lab_state: LabStateManager
+    lab_manager: LabManager
     """User lab state."""
 
     fileserver_state: FileserverStateManager
@@ -85,7 +85,7 @@ class ContextDependency:
             logger=logger,
             factory=factory,
             image_service=self._process_context.image_service,
-            lab_state=self._process_context.lab_state,
+            lab_manager=self._process_context.lab_manager,
             fileserver_state=self._process_context.fileserver_state,
         )
 

@@ -266,6 +266,48 @@ async def test_spawn_after_failure(
 
 
 @pytest.mark.asyncio
+async def test_multiple_delete(
+    client: AsyncClient,
+    factory: Factory,
+    user: GafaelfawrUser,
+    mock_slack: MockSlackWebhook,
+) -> None:
+    lab = read_input_lab_specification_json("base", "lab-specification.json")
+
+    # Create a lab.
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 201
+
+    # Now, attempt to delete it five times simultaneously. Every one of these
+    # should either return 204 (if they made it into the queue before any of
+    # them finish) or 404 (if they lost the race).
+    #
+    # Adding a way to delay deletion to the mock would make this test more
+    # reliable, but in practice all five deletes normally make it to the wait
+    # stage before the delete finishes.
+    results = await asyncio.gather(
+        client.delete(f"/nublado/spawner/v1/labs/{user.username}"),
+        client.delete(f"/nublado/spawner/v1/labs/{user.username}"),
+        client.delete(f"/nublado/spawner/v1/labs/{user.username}"),
+        client.delete(f"/nublado/spawner/v1/labs/{user.username}"),
+        client.delete(f"/nublado/spawner/v1/labs/{user.username}"),
+    )
+    for r in results:
+        assert r.status_code in (204, 404)
+
+    # Running delete one more time should always result in a 404.
+    r = await client.delete(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 404
+
+    # None of this should have produced Slack error messages.
+    assert mock_slack.messages == []
+
+
+@pytest.mark.asyncio
 async def test_delayed_spawn(
     client: AsyncClient,
     factory: Factory,
@@ -284,6 +326,19 @@ async def test_delayed_spawn(
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
     assert r.json()["status"] == "pending"
+
+    # Attempting to delete the pending lab should produce a 409 Conflict
+    # error.
+    r = await client.delete(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 409
+
+    # As should attempting to spawn another lab.
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 409
 
     # Start event listeners to collect pod spawn events. We should be able to
     # listen for events for the same pod any number of times, and all of the
@@ -583,7 +638,7 @@ async def test_spawn_errors(
             "event": "error",
         }
         assert events[-1] == {
-            "data": json.dumps({"message": "Lab creation failed"}),
+            "data": json.dumps({"message": "Lab spawn failed"}),
             "event": "failed",
         }
         assert mock_slack.messages == [
