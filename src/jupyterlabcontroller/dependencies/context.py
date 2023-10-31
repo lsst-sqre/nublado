@@ -13,8 +13,9 @@ from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
+from ..exceptions import NotConfiguredError
 from ..factory import Factory, ProcessContext
-from ..services.fileserver import FileserverStateManager
+from ..services.fileserver import FileserverManager
 from ..services.image import ImageService
 from ..services.lab import LabManager
 
@@ -44,8 +45,15 @@ class RequestContext:
     lab_manager: LabManager
     """User lab state."""
 
-    fileserver_state: FileserverStateManager
+    _fileserver_manager: FileserverManager | None
     """User fileserver state."""
+
+    @property
+    def fileserver_manager(self) -> FileserverManager:
+        """File server manager, if file servers are configured."""
+        if not self._fileserver_manager:
+            raise NotConfiguredError("Fileserver is disabled in configuration")
+        return self._fileserver_manager
 
     def rebind_logger(self, **values: Any) -> None:
         """Add the given values to the logging context.
@@ -80,13 +88,16 @@ class ContextDependency:
         if not self._process_context:
             raise RuntimeError("ContextDependency not initialized")
         factory = Factory(self._process_context, logger)
+        fileserver_manager = None
+        if self._process_context.config.fileserver.enabled:
+            fileserver_manager = self._process_context.fileserver_manager
         return RequestContext(
             request=request,
             logger=logger,
             factory=factory,
             image_service=self._process_context.image_service,
             lab_manager=self._process_context.lab_manager,
-            fileserver_state=self._process_context.fileserver_state,
+            _fileserver_manager=fileserver_manager,
         )
 
     @property

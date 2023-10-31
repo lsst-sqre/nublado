@@ -15,11 +15,12 @@ from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from .config import Config
+from .exceptions import NotConfiguredError
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
 from .services.builder.fileserver import FileserverBuilder
 from .services.builder.lab import LabBuilder
 from .services.builder.prepuller import PrepullerBuilder
-from .services.fileserver import FileserverStateManager
+from .services.fileserver import FileserverManager
 from .services.form import FormManager
 from .services.image import ImageService
 from .services.lab import LabManager
@@ -68,8 +69,8 @@ class ProcessContext:
     lab_manager: LabManager
     """State management for user lab pods."""
 
-    fileserver_state: FileserverStateManager
-    """State management for user fileservers."""
+    _fileserver_manager: FileserverManager | None
+    """State management for user file servers."""
 
     @classmethod
     async def from_config(cls, config: Config) -> Self:
@@ -118,6 +119,23 @@ class ProcessContext:
         else:
             raise TypeError("Unknown prepuller configuration type")
 
+        fileserver_manager = None
+        if config.fileserver.enabled:
+            fileserver_builder = FileserverBuilder(
+                config=config.fileserver,
+                instance_url=config.base_url,
+                volumes=config.lab.volumes,
+                logger=logger,
+            )
+            fileserver_manager = FileserverManager(
+                config=config.fileserver,
+                fileserver_builder=fileserver_builder,
+                fileserver_storage=FileserverStorage(
+                    kubernetes_client, logger
+                ),
+                logger=logger,
+            )
+
         metadata_storage = MetadataStorage(config.metadata_path)
         image_service = ImageService(
             config=config.images,
@@ -131,12 +149,6 @@ class ProcessContext:
             config=config.lab,
             size_manager=size_manager,
             instance_url=config.base_url,
-            logger=logger,
-        )
-        fileserver_builder = FileserverBuilder(
-            config=config.fileserver,
-            instance_url=config.base_url,
-            volumes=config.lab.volumes,
             logger=logger,
         )
         return cls(
@@ -165,15 +177,15 @@ class ProcessContext:
                 slack_client=slack_client,
                 logger=logger,
             ),
-            fileserver_state=FileserverStateManager(
-                config=config.fileserver,
-                fileserver_builder=fileserver_builder,
-                fileserver_storage=FileserverStorage(
-                    kubernetes_client, logger
-                ),
-                logger=logger,
-            ),
+            _fileserver_manager=fileserver_manager,
         )
+
+    @property
+    def fileserver_manager(self) -> FileserverManager:
+        """File server manager, if file servers are configured."""
+        if not self._fileserver_manager:
+            raise NotConfiguredError("Fileserver is disabled in configuration")
+        return self._fileserver_manager
 
     async def aclose(self) -> None:
         """Free allocated resources."""
@@ -184,8 +196,8 @@ class ProcessContext:
         await self.image_service.start()
         await self.prepuller.start()
         await self.lab_manager.start()
-        if self.config.fileserver.enabled:
-            await self.fileserver_state.start()
+        if self._fileserver_manager:
+            await self._fileserver_manager.start()
 
     async def stop(self) -> None:
         """Clean up a process context.
@@ -193,8 +205,8 @@ class ProcessContext:
         Called during shutdown, or before recreating the process context using
         a different configuration.
         """
-        if self.config.fileserver.enabled:
-            await self.fileserver_state.stop()
+        if self._fileserver_manager:
+            await self._fileserver_manager.stop()
         await self.prepuller.stop()
         await self.image_service.stop()
         await self.lab_manager.stop()
