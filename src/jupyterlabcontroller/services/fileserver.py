@@ -16,7 +16,30 @@ from ..storage.kubernetes.fileserver import FileserverStorage
 from .builder.fileserver import FileserverBuilder
 
 
-class FileserverStateManager:
+class FileserverManager:
+    """Manage user file servers.
+
+    Unlike with labs, file servers are not normally explicitly shut down.
+    Instead, the file server has an internal idle timeout and exits once that
+    has expired with no activity. A background task watches for exited file
+    servers, deletes the associated resources, and updates the internal state.
+
+    This class is a process-wide singleton that manages that background task
+    and the user file server state.
+
+    Parameters
+    ----------
+    config
+        Configuration for file servers. File servers are guaranteed to be
+        enabled by `~jupyterlabcontroller.factory.ProcessContext`.
+    fileserver_builder
+        Builder that constructs file server Kubernetes objects.
+    fileserver_storage
+        Kubernetes storage layer for file servers.
+    logger
+        Logger to use.
+    """
+
     def __init__(
         self,
         *,
@@ -25,11 +48,13 @@ class FileserverStateManager:
         fileserver_storage: FileserverStorage,
         logger: BoundLogger,
     ) -> None:
-        """The FileserverStateManager is a process-wide singleton."""
         self._config = config
         self._builder = fileserver_builder
         self._storage = fileserver_storage
         self._logger = logger
+
+        if not self._config.enabled:
+            raise NotConfiguredError("Fileserver is disabled in configuration")
 
         self._user_map = FileserverUserMap()
         self._tasks: set[asyncio.Task] = set()
@@ -49,8 +74,6 @@ class FileserverStateManager:
         This gets called by the handler when a user comes in through the
         /files ingress.
         """
-        if not self._config.enabled:
-            raise NotConfiguredError("Fileserver is disabled in configuration")
         username = user.username
         self._logger.info(f"Fileserver requested for {username}")
         if not await self._user_map.get(username):
@@ -82,21 +105,15 @@ class FileserverStateManager:
             await self._user_map.set(username)
 
     async def delete(self, username: str) -> None:
-        if not self._started:
-            raise NotConfiguredError("Fileserver is not started")
         name = self._builder.build_name(username)
         async with self._lock[username]:
             await self._user_map.remove(username)
             await self._storage.delete(name, self._config.namespace)
 
     async def list(self) -> list[str]:
-        if not self._config.enabled:
-            raise NotConfiguredError("Fileserver is disabled in configuration")
         return await self._user_map.list()
 
     async def start(self) -> None:
-        if not self._config.enabled:
-            raise NotConfiguredError("Fileserver is disabled in configuration")
         if not await self._storage.namespace_exists(self._config.namespace):
             raise MissingObjectError(
                 "File server namespace missing",

@@ -61,16 +61,12 @@ async def route_user(
     config: Config = Depends(configuration_dependency),
     user: UserInfo = Depends(user_dependency),
 ) -> str:
-    username = user.username
-    context.rebind_logger(user=username)
-    fileserver_state = context.fileserver_state
-    timeout = config.fileserver.timeout
-    base_url = config.base_url
-    await fileserver_state.create(user)
+    context.rebind_logger(user=user.username)
+    await context.fileserver_manager.create(user)
     return FILESERVER_TEMPLATE.format(
         username=user.username,
-        base_url=base_url,
-        timeout=seconds_to_phrase(timeout),
+        base_url=config.base_url,
+        timeout=seconds_to_phrase(config.fileserver.timeout),
     )
 
 
@@ -86,7 +82,7 @@ async def route_user(
 async def get_fileserver_users(
     context: RequestContext = Depends(context_dependency),
 ) -> list[str]:
-    return await context.fileserver_state.list()
+    return await context.fileserver_manager.list()
 
 
 @router.delete(
@@ -99,4 +95,4 @@ async def remove_fileserver(
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     context.rebind_logger(user=username)
-    await context.fileserver_state.delete(username)
+    await context.fileserver_manager.delete(username)
