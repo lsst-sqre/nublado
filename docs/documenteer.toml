@@ -3,7 +3,7 @@ title = "Nublado"
 copyright = "2022-2023 Association of Universities for Research in Astronomy, Inc. (AURA)"
 
 [project.python]
-package = "jupyterlab-controller"
+package = "controller"
 
 [sphinx]
 nitpicky = true

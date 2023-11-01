@@ -25,16 +25,28 @@ jobs:
       # Use the oldest supported version of Python to update dependencies,
       # not the matrixed Python version, since this accurately reflects
       # how dependencies should later be updated.
+
       - uses: lsst-sqre/run-neophile@v1
         with:
           python-version: "3.11"
           mode: update
+          types: pre-commit
 
-      - uses: lsst-sqre/run-tox@v1
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python }}
-          tox-envs: "lint,typing,py"
-          use-cache: false
+          python-version: "3.11"
+
+      - name: Install nox
+        run: |
+          pip install --upgrade pip
+          pip install --upgrade nox
+
+      - name: Update dependencies
+        run: "nox -s update-deps"
+
+      - name: Run tests with nox
+        run: "nox -s lint typing test"
 
       - name: Report status
         if: always()

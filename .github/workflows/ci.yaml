@@ -7,9 +7,10 @@ name: CI
     branches-ignore:
       # These should always correspond to pull requests, so ignore them for
       # the push trigger and let them be triggered by the pull_request
-      # trigger, avoiding running the workflow twice.  This is a minor
+      # trigger, avoiding running the workflow twice. This is a minor
       # optimization so there's no need to ensure this is comprehensive.
       - "dependabot/**"
+      - "gh-readonly-queue/**"
       - "renovate/**"
       - "tickets/**"
       - "u/**"
@@ -44,11 +45,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run tox
-        uses: lsst-sqre/run-tox@v1
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python }}
-          tox-envs: "py,coverage-report,typing"
+
+      - name: Install nox
+        run: |
+          pip install --upgrade pip
+          pip install --upgrade nox
+
+      - name: Run nox
+        run: "nox -s typing test"
 
   docs:
     runs-on: ubuntu-latest
@@ -60,12 +68,24 @@ jobs:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
 
-      - name: Run tox
-        uses: lsst-sqre/run-tox@v1
+      - name: Update package lists
+        run: sudo apt-get update
+
+      - name: Install extra packages
+        run: sudo apt install -y graphviz
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: "3.11"
-          tox-envs: "docs"
-          cache-key-prefix: "docs"
+
+      - name: Install nox
+        run: |
+          pip install --upgrade pip
+          pip install --upgrade nox
+
+      - name: Run nox
+        run: "nox -s docs"
 
       # Only attempt documentation uploads for long-lived branches, tagged
       # releases, and pull requests from ticket branches.  This avoids version
@@ -89,7 +109,7 @@ jobs:
     timeout-minutes: 15
 
     # Only do Docker builds of tagged releases and pull requests from ticket
-    # branches.  This will still trigger on pull requests from untrusted
+    # branches. This will still trigger on pull requests from untrusted
     # repositories whose branch names match our tickets/* branch convention,
     # but in this case the build will fail with an error since the secret
     # won't be set.
@@ -100,32 +120,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Full history is required for setuptools_scm versioning.
           fetch-depth: 0
 
-      - name: Define the Docker tag
-        id: vars
-        run: echo ::set-output name=tag::$(scripts/docker-tag.sh)
-
-      - name: Print the tag
-        id: print
-        run: echo ${{ steps.vars.outputs.tag }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - uses: lsst-sqre/build-and-push-to-ghcr@v1
+        id: build
         with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          image: ${{ github.repository }}-controller
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/lsst-sqre/jupyterlab-controller:${{ steps.vars.outputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Report result
+        run: |
+          echo Pushed ghcr.io/${{ github.repository }}/${{ steps.build.outputs.tag }}
