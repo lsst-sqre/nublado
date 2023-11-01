@@ -3,17 +3,38 @@
 from __future__ import annotations
 
 import asyncio
-from collections import defaultdict
+import contextlib
+from dataclasses import dataclass, field
 from datetime import timedelta
 
+from aiojobs import Scheduler
+from safir.datetime import current_datetime
+from safir.slack.blockkit import SlackException
+from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..config import FileserverConfig
-from ..exceptions import MissingObjectError, NotConfiguredError
-from ..models.domain.fileserver import FileserverUserMap
+from ..constants import FILE_SERVER_REFRESH_INTERVAL
+from ..exceptions import (
+    MissingObjectError,
+    NotConfiguredError,
+    UnknownUserError,
+)
+from ..models.domain.kubernetes import PodPhase
 from ..models.v1.lab import UserInfo
 from ..storage.kubernetes.fileserver import FileserverStorage
 from .builder.fileserver import FileserverBuilder
+
+
+@dataclass
+class _State:
+    """State of the file server for a given user."""
+
+    running: bool
+    """Whether the file server is running."""
+
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    """Lock to prevent two operations from happening at once."""
 
 
 class FileserverManager:
@@ -46,142 +67,261 @@ class FileserverManager:
         config: FileserverConfig,
         fileserver_builder: FileserverBuilder,
         fileserver_storage: FileserverStorage,
+        slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._builder = fileserver_builder
         self._storage = fileserver_storage
+        self._slack = slack_client
         self._logger = logger
 
         if not self._config.enabled:
             raise NotConfiguredError("Fileserver is disabled in configuration")
 
-        self._user_map = FileserverUserMap()
-        self._tasks: set[asyncio.Task] = set()
-        self._started = False
+        # Background task management.
+        self._scheduler: Scheduler | None = None
 
-        # This maps usernames to locks, so we have a lock per user, and if
-        # there is no lock for that user, requesting one gets you a new lock.
-        self._lock: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
-
-        # Maps users to the tasks watching for their pods to exit
-        self._watches: set[asyncio.Task] = set()
+        # Mapping of usernames to internal state.
+        self._servers: dict[str, _State] = {}
 
     async def create(self, user: UserInfo) -> None:
-        """If the user doesn't have a fileserver, create it.  If the user
-        already has a fileserver, just return.
+        """Ensure a file server exists for the given user.
 
-        This gets called by the handler when a user comes in through the
-        /files ingress.
+        If the user doesn't have a fileserver, create it.  If the user already
+        has a fileserver, just return. This gets called by the handler when a
+        user comes in through the ``/files`` ingress.
+
+        Parameters
+        ----------
+        user
+            User for which to create a file server.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
         """
-        username = user.username
-        self._logger.info(f"Fileserver requested for {username}")
-        if not await self._user_map.get(username):
+        logger = self._logger.bind(user=user.username)
+        self._logger.info("File server requested")
+        if user.username not in self._servers:
+            self._servers[user.username] = _State(running=False)
+        state = self._servers[user.username]
+        async with state.lock:
+            if state.running:
+                return
             try:
-                await self._create_fileserver(user)
-            except Exception:
-                msg = (
-                    f"Fileserver creation for {username} failed, deleting"
-                    " fileserver objects"
-                )
-                self._logger.exception(msg)
-                await self.delete(username)
+                await self._create_file_server(user)
+            except Exception as e:
+                logger.exception("File server creation failed")
+                await self._maybe_post_slack_exception(e, user.username)
+                logger.info("Cleaning up orphaned file server objects")
+                await self._delete_file_server(user.username)
                 raise
-
-    async def _create_fileserver(self, user: UserInfo) -> None:
-        """Create a fileserver for the given user.  Wait for it to be
-        operational.  If we can't build it, raise an error.
-        """
-        username = user.username
-        namespace = self._config.namespace
-        fileserver = self._builder.build(user)
-        timeout = timedelta(seconds=self._config.creation_timeout)
-        async with self._lock[username]:
-            self._logger.info(f"Creating new fileserver for {username}")
-            await self._storage.create(namespace, fileserver, timeout)
-            task = asyncio.create_task(self._discard_when_done(username))
-            self._watches.add(task)
-            task.add_done_callback(self._watches.discard)
-            await self._user_map.set(username)
+            state.running = True
 
     async def delete(self, username: str) -> None:
-        name = self._builder.build_name(username)
-        async with self._lock[username]:
-            await self._user_map.remove(username)
-            await self._storage.delete(name, self._config.namespace)
+        """Delete the file server for a user.
+
+        Parameters
+        ----------
+        username
+            Username of user.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        """
+        if username not in self._servers:
+            raise UnknownUserError(f"Unknown user {username}")
+        state = self._servers[username]
+        async with state.lock:
+            if not state.running:
+                msg = f"File server for {username} not running"
+                raise UnknownUserError(msg)
+            await self._delete_file_server(username)
+            state.running = False
 
     async def list(self) -> list[str]:
-        return await self._user_map.list()
+        """List users with running file servers."""
+        return [u for u, s in self._servers.items() if s.running]
 
     async def start(self) -> None:
-        if not await self._storage.namespace_exists(self._config.namespace):
+        """Start the background file server tasks.
+
+        Reconstructs the user state map in the foreground before backgrounding
+        the reconciliation and monitor tasks.
+        """
+        namespace = self._config.namespace
+        if not await self._storage.namespace_exists(namespace):
             raise MissingObjectError(
                 "File server namespace missing",
                 kind="Namespace",
-                name=self._config.namespace,
+                name=namespace,
             )
-        await self._reconcile_user_map()
-        self._started = True
+        await self._reconcile_file_servers()
+        self._scheduler = Scheduler()
+        self._logger.info("Starting file server watcher task")
+        await self._scheduler.spawn(self._watch_file_servers())
+        self._logger.info("Starting file server periodic reconciliation task")
+        await self._scheduler.spawn(self._reconcile_loop())
 
     async def stop(self) -> None:
-        # If you call this when it's already stopped or stopping it doesn't
-        # care.
-        #
-        # We want to leave started fileservers running.  We will find them
-        # again on our next restart, and user service will not be interrupted.
-        #
-        # No one can start a new server while self._started is False.
-        self._started = False
-        # Remove all pending fileserver watch tasks
-        for task in self._watches:
-            task.cancel()
+        """Stop background file server tasks.
 
-    async def _discard_when_done(self, username: str) -> None:
+        Any started file servers will keep running.
+        """
+        if not self._scheduler:
+            msg = "File server background tasks were already stopped"
+            self._logger.warning(msg)
+            return
+        self._logger.info("Stopping file server background tasks")
+        await self._scheduler.close()
+        self._scheduler = None
+
+    async def _create_file_server(self, user: UserInfo) -> None:
+        """Create a fileserver for the given user.
+
+        Waits for the file server to be operational. Should be called with
+        the user's lock held.
+
+        Parameters
+        ----------
+        user
+            User for which to create a file server.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        """
+        fileserver = self._builder.build(user)
+        timeout = timedelta(seconds=self._config.creation_timeout)
+        self._logger.info("Creating new file server", user=user.username)
+        await self._storage.create(self._config.namespace, fileserver, timeout)
+
+    async def _delete_file_server(self, username: str) -> None:
+        """Delete any file server objects for the given user.
+
+        Should be called with the user's lock held.
+
+        Parameters
+        ----------
+        username
+            Username of user.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        """
         name = self._builder.build_name(username)
-        await self._storage.wait_for_pod_exit(name, self._config.namespace)
-        await self.delete(username)
+        try:
+            await self._storage.delete(name, self._config.namespace)
+        except Exception as e:
+            msg = "Error deleting file server"
+            self._logger.exception(msg, user=username)
+            await self._maybe_post_slack_exception(e, username)
+            raise
 
-    async def _reconcile_user_map(self) -> None:
+    async def _maybe_post_slack_exception(
+        self, exc: Exception, username: str | None = None
+    ) -> None:
+        """Post an exception to Slack if Slack reporting is configured.
+
+        Parameters
+        ----------
+        exc
+            Exception to report.
+        username
+            Username that triggered the exception, if known.
+        """
+        if not self._slack:
+            return
+        if isinstance(exc, SlackException):
+            if username:
+                exc.user = username
+            await self._slack.post_exception(exc)
+        else:
+            await self._slack.post_uncaught_exception(exc)
+
+    async def _reconcile_file_servers(self) -> None:
         """Reconcile internal state with Kubernetes.
 
         Runs at Nublado controller startup to reconcile the initially empty
         state map with the contents of Kubernetes.
         """
-        self._logger.debug("Reconciling fileserver user map")
+        self._logger.debug("Reconciling file server state")
         namespace = self._config.namespace
-        mapped_users = set(await self.list())
         observed = await self._storage.read_fileserver_state(namespace)
+        mapped_users = set(self._servers.keys())
 
         # Check each fileserver we found to see if it's properly running. If
         # not, delete it and remove it from the observed map.
         to_delete = set()
         for username, state in observed.items():
             valid = self._builder.is_valid(username, state)
+            if username not in self._servers:
+                self._servers[username] = _State(running=valid)
             if not valid:
                 msg = "File server present but not running, deleteing"
                 self._logger.info(msg, user=username)
-                await self.delete(username)
                 to_delete.add(username)
         observed = {k: v for k, v in observed.items() if k not in to_delete}
+        for username in to_delete:
+            name = self._builder.build_name(username)
+            await self._storage.delete(name, self._config.namespace)
 
         # Tidy up any no-longer-running users. They aren't running, but they
-        # might have some objects remaining. Currently, this can only happen
-        # if the fileserver is stopped and then started again. Normally, the
-        # user map will start as empty.
+        # might have some objects remaining. This should only be possible if
+        # something outside of the controller deleted resources.
         observed_users = set(observed.keys())
         for user in mapped_users - observed_users:
             msg = "Removing broken fileserver for user"
             self._logger.warning(msg, user=user)
             await self.delete(user)
+        self._logger.debug("File server reconciliation complete")
 
-        # We know any observed users are running, so we need to create tasks
-        # to clean them up when they exit, and then mark them as set in the
-        # user map.
-        for user in observed_users:
-            async with self._lock[user]:
-                task = asyncio.create_task(self._discard_when_done(user))
-                self._watches.add(task)
-                task.add_done_callback(self._watches.discard)
-                await self._user_map.set(user)
-        self._logger.info("Fileserver user map reconciliation complete")
-        self._logger.debug(f"Users with fileservers: {observed_users}")
+    async def _reconcile_loop(self) -> None:
+        """Run in the background by `start`, stopped with `stop`."""
+        while True:
+            start = current_datetime(microseconds=True)
+            try:
+                await self._reconcile_file_servers()
+            except Exception as e:
+                self._logger.exception("Unable to reconcile file servers")
+                await self._maybe_post_slack_exception(e)
+            now = current_datetime(microseconds=True)
+            delay = FILE_SERVER_REFRESH_INTERVAL - (now - start)
+            if delay.total_seconds() < 1:
+                msg = "File server reconciliation is running continuously"
+                self._logger.warning(msg)
+            else:
+                await asyncio.sleep(delay.total_seconds())
+
+    async def _watch_file_servers(self) -> None:
+        """Watch the file server namespace for completed file servers.
+
+        Each file server has a timeout, after which it exits. When one exits,
+        we want to clean up its Kubernetes objects and update its state. This
+        method runs as a background task watching for changes and triggers the
+        delete when appropriate.
+        """
+        namespace = self._config.namespace
+        try:
+            async for change in self._storage.watch_pods(namespace):
+                if change.phase in (PodPhase.FAILED, PodPhase.SUCCEEDED):
+                    username = self._builder.get_username_for_pod(change.pod)
+                    if not username:
+                        continue
+                    self._logger.info(
+                        "File server exited, cleaning up",
+                        phase=change.phase.value,
+                        user=username,
+                    )
+                    with contextlib.suppress(UnknownUserError):
+                        await self.delete(username)
+        except Exception as e:
+            self._logger.exception("Error watching file server pod phase")
+            await self._maybe_post_slack_exception(e)

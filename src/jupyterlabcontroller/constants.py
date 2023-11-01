@@ -9,6 +9,7 @@ __all__ = [
     "DOCKER_SECRETS_PATH",
     "DROPDOWN_SENTINEL_VALUE",
     "GROUPNAME_REGEX",
+    "FILE_SERVER_REFRESH_INTERVAL",
     "IMAGE_REFRESH_INTERVAL",
     "KUBERNETES_DELETE_TIMEOUT",
     "KUBERNETES_REQUEST_TIMEOUT",
@@ -44,6 +45,13 @@ DOCKER_SECRETS_PATH = Path("/etc/secrets/.dockerconfigjson")
 
 DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 """Used in the lab form for ``image_list`` when ``image_dropdown`` is used."""
+
+FILE_SERVER_REFRESH_INTERVAL = timedelta(minutes=60)
+"""How frequently to refresh file server state from Kubernetes.
+
+This will detect when file servers disappear out from under us, such as being
+terminated by Kubernetes node replacements or upgrades.
+"""
 
 IMAGE_REFRESH_INTERVAL = timedelta(minutes=5)
 """How frequently to refresh the list of remote and cached images."""

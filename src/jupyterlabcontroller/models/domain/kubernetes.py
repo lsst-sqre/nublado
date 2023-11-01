@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Self
 
-from kubernetes_asyncio.client import V1ContainerImage, V1ObjectMeta
+from kubernetes_asyncio.client import V1ContainerImage, V1ObjectMeta, V1Pod
 from typing_extensions import Protocol
 
 from .docker import DockerReference
@@ -112,3 +112,14 @@ class PodPhase(str, Enum):
     SUCCEEDED = "Succeeded"
     FAILED = "Failed"
     UNKNOWN = "Unknown"
+
+
+@dataclass
+class PodChange:
+    """Represents a change (not creation or deletion) of a pod."""
+
+    phase: PodPhase
+    """New phase of the pod."""
+
+    pod: V1Pod
+    """Full object for the pod that changed."""

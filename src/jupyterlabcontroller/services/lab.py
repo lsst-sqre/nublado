@@ -832,14 +832,15 @@ class LabManager:
     async def _reconcile_loop(self) -> None:
         """Run in the background by `start`, stopped with `stop`."""
         while True:
-            start = current_datetime()
+            start = current_datetime(microseconds=True)
             try:
                 await self._reconcile_lab_state()
             except Exception as e:
                 self._logger.exception("Unable to reconcile user lab state")
                 if self._slack:
                     await self._slack.post_uncaught_exception(e)
-            delay = LAB_STATE_REFRESH_INTERVAL - (current_datetime() - start)
+            now = current_datetime(microseconds=True)
+            delay = LAB_STATE_REFRESH_INTERVAL - (now - start)
             if delay.total_seconds() < 1:
                 msg = "User lab state reconciliation is running continuously"
                 self._logger.warning(msg)

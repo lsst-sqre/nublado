@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import timedelta
 
 from kubernetes_asyncio.client import ApiClient, V1Pod
@@ -13,7 +14,7 @@ from ...models.domain.fileserver import (
     FileserverObjects,
     FileserverStateObjects,
 )
-from ...models.domain.kubernetes import PodPhase
+from ...models.domain.kubernetes import PodChange, PodPhase
 from .custom import GafaelfawrIngressStorage
 from .deleter import JobStorage, ServiceStorage
 from .ingress import IngressStorage
@@ -199,27 +200,33 @@ class FileserverStorage:
         # Return the state map of everything we found.
         return state
 
-    async def wait_for_pod_exit(self, name: str, namespace: str) -> None:
-        """Wait for the fileserver pod spawned by the job to exit.
+    async def watch_pods(self, namespace: str) -> AsyncIterator[PodChange]:
+        """Watches the file server namespace for pod phase changes.
+
+        Technically, this iterator detects any change to a pod and returns its
+        current phase. The change may not be a phase change. That's good
+        enough for our purposes.
+
+        It will continue forever until cancelled. It is meant to be run from a
+        background task handling file server pod phase changes.
 
         Parameters
         ----------
-        name
-            Name of the fileserver job.
         namespace
-            Namespace in which fileservers run.
+            Namespace to watch for changes.
+
+        Yields
+        ------
+        PodChange
+            Phase change of a pod in this namespace.
 
         Raises
         ------
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
         """
-        pod = await self._get_pod_for_job(name, namespace)
-        await self._pod.wait_for_phase(
-            pod.metadata.name,
-            namespace,
-            until_not={PodPhase.UNKNOWN, PodPhase.PENDING, PodPhase.RUNNING},
-        )
+        async for change in self._pod.watch_pod_changes(namespace):
+            yield change
 
     async def _get_pod_for_job(self, name: str, namespace: str) -> V1Pod:
         """Get the ``Pod`` corresponding to a ``Job``.

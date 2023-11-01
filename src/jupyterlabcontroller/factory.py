@@ -133,6 +133,7 @@ class ProcessContext:
                 fileserver_storage=FileserverStorage(
                     kubernetes_client, logger
                 ),
+                slack_client=slack_client,
                 logger=logger,
             )
 
