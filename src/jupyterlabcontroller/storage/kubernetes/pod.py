@@ -9,7 +9,7 @@ from kubernetes_asyncio import client
 from kubernetes_asyncio.client import ApiClient, CoreV1Event, V1Pod
 from structlog.stdlib import BoundLogger
 
-from ...models.domain.kubernetes import PodPhase, WatchEventType
+from ...models.domain.kubernetes import PodChange, PodPhase, WatchEventType
 from .deleter import KubernetesObjectDeleter
 from .watcher import KubernetesWatcher
 
@@ -202,3 +202,52 @@ class PodStorage(KubernetesObjectDeleter):
 
         # This should be impossible; someone called stop on the watcher.
         raise RuntimeError("Wait for pod phase change unexpectedly stopped")
+
+    async def watch_pod_changes(
+        self, namespace: str
+    ) -> AsyncIterator[PodChange]:
+        """Watches a namespace for pod changes (not creation or deletion).
+
+        This watch will continue forever until cancelled. It is meant to be
+        run from a background task handling pod changes continuously.
+
+        Parameters
+        ----------
+        namespace
+            Namespace to watch for changes.
+
+        Yields
+        ------
+        PodChange
+            Change to a pod in this namespace.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        """
+        logger = self._logger.bind(namespace=namespace)
+        logger.debug("Waiting for pod changes")
+        watcher = KubernetesWatcher(
+            method=self._list,
+            object_type=V1Pod,
+            kind="Pod",
+            namespace=namespace,
+            logger=logger,
+        )
+        try:
+            async for event in watcher.watch():
+                if event.action != WatchEventType.MODIFIED:
+                    continue
+                phase = PodPhase(event.object.status.phase)
+                logger.debug(
+                    "Saw modified pod",
+                    name=event.object.metadata.name,
+                    phase=phase.value,
+                )
+                yield PodChange(pod=event.object, phase=phase)
+        finally:
+            await watcher.close()
+
+        # This should be impossible; someone called stop on the watcher.
+        raise RuntimeError("Wait for pod changes unexpectedly stopped")

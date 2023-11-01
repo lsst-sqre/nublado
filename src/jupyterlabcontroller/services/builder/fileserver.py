@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 from urllib.parse import urlparse
 
@@ -12,6 +13,7 @@ from kubernetes_asyncio.client import (
     V1Job,
     V1JobSpec,
     V1ObjectMeta,
+    V1Pod,
     V1PodSecurityContext,
     V1PodSpec,
     V1PodTemplateSpec,
@@ -95,6 +97,28 @@ class FileserverBuilder:
             Name of all Kubernetes objects for that fileserver.
         """
         return f"{username}-fs"
+
+    def get_username_for_pod(self, pod: V1Pod) -> str | None:
+        """Determine the username for a file server pod.
+
+        Parameters
+        ----------
+        pod
+            Pod object.
+
+        Returns
+        -------
+        str
+            Username corresponding to that file server pod, or `None` if no
+            username information could be found.
+        """
+        labels = pod.metadata.labels
+        if labels and "nublado.lsst.io/user" in labels:
+            return labels["nublado.lsst.io/user"]
+        elif m := re.match("^(.*)-fs$", pod.metadata.name):
+            return m.group(1)
+        else:
+            return None
 
     def is_valid(self, username: str, state: FileserverStateObjects) -> bool:
         """Determine whether a running fileserver is valid.
