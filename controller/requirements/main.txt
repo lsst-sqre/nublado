@@ -402,9 +402,9 @@ google-auth==2.23.4 \
     --hash=sha256:79905d6b1652187def79d491d6e23d0cbb3a21d3c7ba0dbaa9c8a01906b13ff3 \
     --hash=sha256:d4bbc92fe4b8bfd2f3e8d88e5ba7085935da208ee38a134fc280e7ce682a05f2
     # via google-api-core
-google-cloud-artifact-registry==1.8.4 \
-    --hash=sha256:2deba5c9c0065cf8e2e63c547e93a4921867d57261d57d4a756be1031529e228 \
-    --hash=sha256:a5066555fe8324cc6e8498014b054b1d3e87a8f9e1b0fa1e47ba3bbc3daaa581
+google-cloud-artifact-registry==1.9.0 \
+    --hash=sha256:3484d2a2c04fadfa480be16a554d01e47e4c4f4b5a123cd3725e865b4dd7f325 \
+    --hash=sha256:aeee14226b1636e7bc043476cff756876068872bda3246a3b124c39d3f4e3be8
     # via -r controller/requirements/main.in
 googleapis-common-protos[grpc]==1.61.0 \
     --hash=sha256:22f1915393bb3245343f6efe87f6fe868532efc12aa26b391b15132e1279f1c0 \

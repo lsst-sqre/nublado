@@ -31,3 +31,6 @@ kubernetes_asyncio
 # JupyterHub image currently uses.
 exceptiongroup
 ruamel.yaml.clib
+
+# anyio 4 currently conflicts with FastAPI.
+anyio<4
