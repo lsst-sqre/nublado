@@ -1,6 +1,6 @@
-# This is a separate documentation build just to check links.  We don't check
+# This is a separate documentation build just to check links. We don't check
 # links as part of the normal documentation build since, unlike Sphinx errors
-# and warnings, we don't want broken links to block a merge.  (Sometimes they
+# and warnings, we don't want broken links to block a merge. (Sometimes they
 # will be fixed by the same merge, sometimes they're temporary rate limit
 # issues.)
 #
@@ -16,7 +16,7 @@ name: Link Check
     branches-ignore:
       # These should always correspond to pull requests, so ignore them for
       # the push trigger and let them be triggered by the pull_request
-      # trigger, avoiding running the workflow twice.  This is a minor
+      # trigger, avoiding running the workflow twice. This is a minor
       # optimization so there's no need to ensure this is comprehensive.
       - "dependabot/**"
       - "gh-readonly-queue/**"
@@ -37,8 +37,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check links
-        uses: lsst-sqre/run-tox@v1
+      - name: Update package lists
+        run: sudo apt-get update
+
+      - name: Install extra packages
+        run: sudo apt install -y graphviz
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: "3.11"
-          tox-envs: "docs-linkcheck"
+
+      - name: Install nox
+        run: |
+          pip install --upgrade pip
+          pip install --upgrade nox
+
+      - name: Run nox
+        run: "nox -s docs-linkcheck"

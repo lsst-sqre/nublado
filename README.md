@@ -1,18 +1,15 @@
-# jupyterlab-controller (aka Nublado v3)
+# Nublado
 
-This is a controller for management of Notebook Aspect resources in the RSP.
+Nublado (taken from the Spanish word for cloud) provides the user notebook service and related user-spawned Kubernetes pods for the Rubin Science Platform.
+Currently, it provides authentication and lab pod spawning for user science notebooks and WebDAV-based file servers so that users can easily manipulate their files.
 
-The third attempt at our Notebook Aspect controller is defined in [SQR-066](https://sqr-066.lsst.io).
-This is an implementation of that design.
+For full documentation, see [nublado.lsst.io](https://nublado.lsst.io).
 
-There are three fundamental functions, interrelated but distinct, that the controller provides:
-
-* Lab resource control
-* Prepulling of desired images to nodes
-* Construction of the options form supplied to the user by JupyterHub
+For more information about the current Nublado Kubernetes controller design, see [SQR-066](https://sqr-066.lsst.io).
 
 ## Source organization
 
-The [source for the controller](https://github.com/lsst-sqre/jupyterlab-controller) follows the organization pattern described in [SQR-072](https://sqr-072.lsst.io).
+This repository uses the vertical monorepo layout described in [SQR-075](https://sqr-075.lsst.io).
+It uses [nox](https://nox.thea.codes/en/stable/) as its build system, since nox works better with monorepos than the build systems used by other Rubin Science Platform projects.
 
-The jupyterlab-controller application is developed with [FastAPI](https://fastapi.tiangolo.com) and [Safir](https://safir.lsst.io).
+For details on how to use the development repository, see [the development guide](https://nublado.lsst.io/dev/development.html).
