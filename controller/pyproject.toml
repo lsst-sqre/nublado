@@ -60,7 +60,7 @@ exclude_lines = [
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
 filterwarnings = [
-    # Google modules call a deprecated pkg_resources API.
+    # Google modules and a Sphinx module call a deprecated pkg_resources API.
     "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
     "ignore:.*pkg_resources\\.declare_namespace:DeprecationWarning",
 ]
