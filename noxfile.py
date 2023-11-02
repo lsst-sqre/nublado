@@ -84,13 +84,20 @@ def typing(session: nox.Session) -> None:
 def test(session: nox.Session) -> None:
     """Run tests."""
     _install(session)
+
+    # This will need to be more sophisticated once there are multiple
+    # subdirectories with their own tests and we have to decide which
+    # subdirectories to execute tests in based on the arguments.
     with session.chdir("controller"):
+        controller_args = [
+            a.removeprefix("controller/") for a in session.posargs
+        ]
         session.run(
             "pytest",
             "--cov=controller",
             "--cov-branch",
             "--cov-report=",
-            *session.posargs,
+            *controller_args,
         )
 
 
