@@ -126,6 +126,7 @@ jobs:
       - uses: lsst-sqre/build-and-push-to-ghcr@v1
         id: build
         with:
+          dockerfile: Dockerfile.controller
           image: ${{ github.repository }}-controller
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
