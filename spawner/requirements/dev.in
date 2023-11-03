@@ -1,0 +1,26 @@
+# -*- conf -*-
+#
+# Editable development dependencies
+# Add direct development, test, and documentation dependencies here, as well
+# as implicit dev dependencies with constrained versions.
+#
+# After editing, update requirements/dev.txt by running:
+#     make update-deps
+
+-c main.txt
+
+coverage[toml]
+mypy
+pre-commit
+pytest
+pytest-asyncio
+pytest-cov
+pytest-sugar
+respx
+types-PyYAML
+
+# These dependencies aren't required in Python 3.11 but are required in 3.10.
+# Pin them so that we can run tests with Python 3.10 when the dependencies
+# have been regenerated with Python 3.11.
+exceptiongroup
+tomli

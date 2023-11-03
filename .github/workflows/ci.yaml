@@ -124,11 +124,23 @@ jobs:
           fetch-depth: 0
 
       - uses: lsst-sqre/build-and-push-to-ghcr@v1
-        id: build
+        id: build1
         with:
+          dockerfile: Dockerfile.controller
           image: ${{ github.repository }}-controller
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Report result
         run: |
-          echo Pushed ghcr.io/${{ github.repository }}-controller:${{ steps.build.outputs.tag }}
+          echo Pushed ghcr.io/${{ github.repository }}-controller:${{ steps.build1.outputs.tag }}
+
+      - uses: lsst-sqre/build-and-push-to-ghcr@v1
+        id: build2
+        with:
+          dockerfile: Dockerfile.controller
+          image: ${{ github.repository }}-jupyterhub
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report result
+        run: |
+          echo Pushed ghcr.io/${{ github.repository }}-jupyterhub:${{ steps.build2.outputs.tag }}
