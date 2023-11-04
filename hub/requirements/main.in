@@ -11,7 +11,7 @@
 # same version that Dockerfile uses.
 jupyterhub==4.0.2
 
-# Dependencies used directly by the code added by this package.
+# Dependencies used directly by the authenticator and spawner.
 httpx
 httpx-sse
 PyYAML
@@ -31,6 +31,3 @@ kubernetes_asyncio
 # JupyterHub image currently uses.
 exceptiongroup
 ruamel.yaml.clib
-
-# anyio 4 currently conflicts with FastAPI.
-anyio<4

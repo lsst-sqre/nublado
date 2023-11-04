@@ -12,10 +12,9 @@ PIP_DEPENDENCIES = [
     ("--upgrade", "pip", "setuptools", "wheel"),
     ("-r", "controller/requirements/main.txt"),
     ("-r", "controller/requirements/dev.txt"),
+    ("-e", "authenticator[dev]"),
     ("-e", "controller"),
-    ("-r", "spawner/requirements/main.txt"),
-    ("-r", "spawner/requirements/dev.txt"),
-    ("-e", "spawner"),
+    ("-e", "spawner[dev]"),
 ]
 
 
@@ -39,6 +38,24 @@ def _install_dev(session: nox.Session, bin_prefix: str = "") -> None:
 
     # Install pre-commit hooks
     session.run(precommit, "install", external=True)
+
+
+def _pytest(session: nox.Session, directory: str, module: str) -> None:
+    """Run pytest for the given directory and module, if needed."""
+    args = [
+        a.removeprefix(f"{directory}/")
+        for a in session.posargs
+        if a.startswith(("-", f"{directory}/"))
+    ]
+    if not session.posargs or args:
+        with session.chdir(directory):
+            session.run(
+                "pytest",
+                f"--cov={module}",
+                "--cov-branch",
+                "--cov-report=",
+                *args,
+            )
 
 
 @nox.session(name="venv-init")
@@ -76,19 +93,27 @@ def typing(session: nox.Session) -> None:
     session.run(
         "mypy",
         *session.posargs,
-        "noxfile.py",
-        "controller/src",
-        "spawner/src",
+        "--namespace-packages",
+        "--explicit-package-bases",
+        "authenticator/src",
+        "authenticator/tests",
+        env={"MYPYPATH": "authenticator/src:authenticator"},
     )
     session.run(
         "mypy",
         *session.posargs,
+        "noxfile.py",
+        "controller/src",
         "controller/tests",
     )
     session.run(
         "mypy",
         *session.posargs,
+        "--namespace-packages",
+        "--explicit-package-bases",
+        "spawner/src",
         "spawner/tests",
+        env={"MYPYPATH": "spawner/src:spawner"},
     )
 
 
@@ -96,34 +121,9 @@ def typing(session: nox.Session) -> None:
 def test(session: nox.Session) -> None:
     """Run tests."""
     _install(session)
-    with session.chdir("controller"):
-        controller_args = [
-            a.removeprefix("controller/")
-            for a in session.posargs
-            if a.startswith(("-", "controller/"))
-        ]
-        if not session.posargs or controller_args:
-            session.run(
-                "pytest",
-                "--cov=controller",
-                "--cov-branch",
-                "--cov-report=",
-                *controller_args,
-            )
-    with session.chdir("spawner"):
-        spawner_args = [
-            a.removeprefix("spawner/")
-            for a in session.posargs
-            if a.startswith(("-", "spawner/"))
-        ]
-        if not session.posargs or spawner_args:
-            session.run(
-                "pytest",
-                "--cov=rsp_restspawner",
-                "--cov-branch",
-                "--cov-report=",
-                *spawner_args,
-            )
+    _pytest(session, "authenticator", "rubin.nublado.authenticator")
+    _pytest(session, "controller", "controller")
+    _pytest(session, "spawner", "rubin.nublado.spawner")
 
 
 @nox.session
@@ -174,29 +174,39 @@ def update_deps(session: nox.Session) -> None:
         "--upgrade", "pip-tools", "pip", "setuptools", "wheel", "pre-commit"
     )
     session.run("pre-commit", "autoupdate")
-    for subdir in ("controller", "spawner"):
-        session.run(
-            "pip-compile",
-            "--upgrade",
-            "--resolver=backtracking",
-            "--build-isolation",
-            "--allow-unsafe",
-            "--generate-hashes",
-            "--output-file",
-            f"{subdir}/requirements/main.txt",
-            f"{subdir}/requirements/main.in",
-        )
-        session.run(
-            "pip-compile",
-            "--upgrade",
-            "--resolver=backtracking",
-            "--build-isolation",
-            "--allow-unsafe",
-            "--generate-hashes",
-            "--output-file",
-            f"{subdir}/requirements/dev.txt",
-            f"{subdir}/requirements/dev.in",
-        )
+    session.run(
+        "pip-compile",
+        "--upgrade",
+        "--resolver=backtracking",
+        "--build-isolation",
+        "--allow-unsafe",
+        "--generate-hashes",
+        "--output-file",
+        "controller/requirements/main.txt",
+        "controller/requirements/main.in",
+    )
+    session.run(
+        "pip-compile",
+        "--upgrade",
+        "--resolver=backtracking",
+        "--build-isolation",
+        "--allow-unsafe",
+        "--generate-hashes",
+        "--output-file",
+        "controller/requirements/dev.txt",
+        "controller/requirements/dev.in",
+    )
+    session.run(
+        "pip-compile",
+        "--upgrade",
+        "--resolver=backtracking",
+        "--build-isolation",
+        "--allow-unsafe",
+        "--generate-hashes",
+        "--output-file",
+        "hub/requirements/main.txt",
+        "hub/requirements/main.in",
+    )
 
     print("\nTo refresh the development venv, run:\n\n\tnox -s init\n")
 

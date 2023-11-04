@@ -1,7 +1,7 @@
 [project]
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
-name = "rubin.nublado.spawner"
-description = "JupyterHub spawner using Nublado lab controller REST API."
+name = "rubin.nublado.authenticator"
+description = "JupyterHub Authenticator class supporting Gafaelfawr."
 license = { file = "LICENSE" }
 readme = "README.md"
 keywords = ["rubin", "lsst"]
@@ -18,13 +18,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 requires-python = ">=3.10"
-dependencies = [
-    "httpx<0.26",
-    "httpx-sse<0.4",
-    "jupyterhub<4",
-    "PyYAML<7",
-    "traitlets<6",
-]
+dependencies = ["jupyterhub<5", "tornado<7"]
 dynamic = ["version"]
 
 [project.optional-dependencies]
@@ -34,10 +28,6 @@ dev = [
     "pytest-asyncio",
     "pytest-cov",
     "pytest-sugar",
-    "respx",
-
-    # Type checking
-    "types-PyYAML",
 ]
 
 [project.urls]
@@ -48,13 +38,16 @@ Source = "https://github.com/lsst-sqre/nublado"
 requires = ["setuptools>=61", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = 'setuptools.build_meta'
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.setuptools_scm]
 root = ".."
 
 [tool.coverage.run]
 parallel = true
 branch = true
-source = ["rubin.nublado.spawner"]
+source = ["rubin.nublado.authenticator"]
 
 [tool.coverage.paths]
 source = ["src"]

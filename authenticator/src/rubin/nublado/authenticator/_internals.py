@@ -30,6 +30,50 @@ def _build_auth_info(headers: HTTPHeaders) -> AuthInfo:
     return {"name": username, "auth_state": {"token": token}}
 
 
+class _GafaelfawrLogoutHandler(LogoutHandler):
+    """Logout handler for Gafaelfawr authentication.
+
+    A logout should always stop all running servers, and then redirect to the
+    RSP logout page.
+    """
+
+    @property
+    def shutdown_on_logout(self) -> bool:
+        """Unconditionally true for Gafaelfawr logout."""
+        return True
+
+    async def render_logout_page(self) -> None:
+        self.redirect("/logout", permanent=False)
+
+
+class _GafaelfawrLoginHandler(BaseHandler):
+    """Login handler for Gafaelfawr authentication.
+
+    This retrieves the authentication token from the headers, makes an API
+    call to get its metadata, constructs an authentication state, and then
+    redirects to the next URL.
+    """
+
+    async def get(self) -> None:
+        """Handle GET to the login page."""
+        auth_info = _build_auth_info(self.request.headers)
+
+        # Store the ancillary user information in the user database and create
+        # or return the user object. This call is unfortunately undocumented,
+        # but it's what BaseHandler calls to record the auth_state information
+        # after a form-based login. Hopefully this is a stable interface.
+        user = await self.auth_to_user(auth_info)
+
+        # Tell JupyterHub to set its login cookie (also undocumented).
+        self.set_login_cookie(user)
+
+        # Redirect to the next URL, which is under the control of JupyterHub
+        # and opaque to the authenticator. In practice, it will normally be
+        # whatever URL the user was trying to go to when JupyterHub decided
+        # they needed to be authenticated.
+        self.redirect(self.get_next_url(user))
+
+
 class GafaelfawrAuthenticator(Authenticator):
     """JupyterHub authenticator using Gafaelfawr headers.
 
@@ -54,11 +98,10 @@ class GafaelfawrAuthenticator(Authenticator):
     ``auto_login`` setting on the configured authenticator. This setting tells
     the built-in login page to, instead of presenting a login form, redirect
     the user to whatever URL is returned by ``login_url``. In our case, this
-    will be ``/hub/gafaelfawr/login``, served by `GafaelfawrLoginHandler`.
-    This simple handler will read the token from the header, retrieve its
-    metadata, create the session and cookie, and then make the same redirect
-    call the login form handler would normally have made after the
-    ``authenticate`` method returned.
+    will be ``/hub/gafaelfawr/login``. This simple handler will read the token
+    from the header, retrieve its metadata, create the session and cookie, and
+    then make the same redirect call the login form handler would normally
+    have made after the ``authenticate`` method returned.
 
     In this model, the ``authenticate`` method is not used, since the login
     handler never receives a form submission.
@@ -107,8 +150,8 @@ class GafaelfawrAuthenticator(Authenticator):
     def get_handlers(self, app: JupyterHub) -> list[Route]:
         """Register the header-only login and the logout handlers."""
         return [
-            ("/gafaelfawr/login", GafaelfawrLoginHandler),
-            ("/logout", GafaelfawrLogoutHandler),
+            ("/gafaelfawr/login", _GafaelfawrLoginHandler),
+            ("/logout", _GafaelfawrLogoutHandler),
         ]
 
     def login_url(self, base_url: str) -> str:
@@ -152,47 +195,3 @@ class GafaelfawrAuthenticator(Authenticator):
             return True
         else:
             return _build_auth_info(handler.request.headers)
-
-
-class GafaelfawrLogoutHandler(LogoutHandler):
-    """Logout handler for Gafaelfawr authentication.
-
-    A logout should always stop all running servers, and then redirect to the
-    RSP logout page.
-    """
-
-    @property
-    def shutdown_on_logout(self) -> bool:
-        """Unconditionally true for Gafaelfawr logout."""
-        return True
-
-    async def render_logout_page(self) -> None:
-        self.redirect("/logout", permanent=False)
-
-
-class GafaelfawrLoginHandler(BaseHandler):
-    """Login handler for Gafaelfawr authentication.
-
-    This retrieves the authentication token from the headers, makes an API
-    call to get its metadata, constructs an authentication state, and then
-    redirects to the next URL.
-    """
-
-    async def get(self) -> None:
-        """Handle GET to the login page."""
-        auth_info = _build_auth_info(self.request.headers)
-
-        # Store the ancillary user information in the user database and create
-        # or return the user object. This call is unfortunately undocumented,
-        # but it's what BaseHandler calls to record the auth_state information
-        # after a form-based login. Hopefully this is a stable interface.
-        user = await self.auth_to_user(auth_info)
-
-        # Tell JupyterHub to set its login cookie (also undocumented).
-        self.set_login_cookie(user)
-
-        # Redirect to the next URL, which is under the control of JupyterHub
-        # and opaque to the authenticator. In practice, it will normally be
-        # whatever URL the user was trying to go to when JupyterHub decided
-        # they needed to be authenticated.
-        self.redirect(self.get_next_url(user))
