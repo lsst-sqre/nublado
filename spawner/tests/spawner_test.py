@@ -7,9 +7,9 @@ from datetime import timedelta
 
 import pytest
 
-from rsp_restspawner import RSPRestSpawner
-from rsp_restspawner.exceptions import SpawnFailedError
-from rsp_restspawner.spawner import LabStatus
+from rubin.nublado.spawner import RSPRestSpawner
+from rubin.nublado.spawner._exceptions import SpawnFailedError
+from rubin.nublado.spawner._models import LabStatus
 
 from .support.controller import MockLabController
 

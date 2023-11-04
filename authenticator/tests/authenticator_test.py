@@ -13,11 +13,11 @@ import pytest
 from tornado import web
 from tornado.httputil import HTTPHeaders
 
-from rsp_restspawner import GafaelfawrAuthenticator
-from rsp_restspawner.auth import (
-    GafaelfawrLoginHandler,
-    GafaelfawrLogoutHandler,
+from rubin.nublado.authenticator import GafaelfawrAuthenticator
+from rubin.nublado.authenticator._internals import (
     _build_auth_info,
+    _GafaelfawrLoginHandler,
+    _GafaelfawrLogoutHandler,
 )
 
 
@@ -25,8 +25,8 @@ from rsp_restspawner.auth import (
 async def test_authenticator() -> None:
     authenticator = GafaelfawrAuthenticator()
     assert authenticator.get_handlers(MagicMock()) == [
-        ("/gafaelfawr/login", GafaelfawrLoginHandler),
-        ("/logout", GafaelfawrLogoutHandler),
+        ("/gafaelfawr/login", _GafaelfawrLoginHandler),
+        ("/logout", _GafaelfawrLogoutHandler),
     ]
 
     assert authenticator.login_url("/hub") == "/hub/gafaelfawr/login"

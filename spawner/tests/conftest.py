@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import respx
 
-from rsp_restspawner.spawner import RSPRestSpawner
+from rubin.nublado.spawner import RSPRestSpawner
 
 from .support.controller import MockLabController, register_mock_lab_controller
 from .support.jupyterhub import MockHub, MockUser

@@ -127,7 +127,12 @@ target-version = "py311"
 ]
 
 [tool.ruff.isort]
-known-first-party = ["controller", "rsp_restspawner", "tests"]
+known-first-party = [
+    "controller",
+    "rubin.nublado.authenticator",
+    "rubin.nublado.spawner",
+    "tests",
+]
 split-on-trailing-comma = false
 
 [tool.ruff.flake8-bugbear]
