@@ -369,6 +369,8 @@ class UserInfo(BaseModel):
 
 
 class ResourceQuantity(BaseModel):
+    """A Kubernetes resource request or limit."""
+
     cpu: float = Field(
         ...,
         examples=[1.5],
@@ -387,6 +389,8 @@ class ResourceQuantity(BaseModel):
 
 
 class LabResources(BaseModel):
+    """Resource requests and limits for a lab."""
+
     limits: ResourceQuantity = Field(..., title="Maximum allowed resources")
     requests: ResourceQuantity = Field(
         ..., title="Intially-requested resources"

@@ -209,7 +209,7 @@ class RSPImageTag:
     def _from_match(
         cls, image_type: RSPImageType, match: re.Match, tag: str
     ) -> Self:
-        """Helper function to create an `RSPImageTag` from a regex match.
+        """Create an `RSPImageTag` from a regex match.
 
         Parameters
         ----------

@@ -1,3 +1,5 @@
+"""nox build configuration for Nublado."""
+
 import nox
 
 # Default sessions

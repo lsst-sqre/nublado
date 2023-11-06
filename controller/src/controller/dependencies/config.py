@@ -7,6 +7,18 @@ from ..constants import CONFIGURATION_PATH
 
 
 class ConfigDependency:
+    """Dependency to manage a cached Nublado controller configuration.
+
+    The controller configuration is read on first request, cached, and
+    returned to all dependency callers unless `set_path` is called to change
+    the configuration.
+
+    Parameters
+    ----------
+    path
+        Path to the Nublado controller configuration.
+    """
+
     def __init__(self, path: Path = CONFIGURATION_PATH) -> None:
         self._path = path
         self._config: Config | None = None
@@ -28,7 +40,13 @@ class ConfigDependency:
         return self._config
 
     def set_path(self, path: Path) -> None:
-        """Change the configuration path and reload."""
+        """Change the configuration path and reload.
+
+        Parameters
+        ----------
+        path
+            New configuration path.
+        """
         self._path = path
         self._config = Config.from_file(path)
 

@@ -11,6 +11,8 @@ from .prepuller_config import PrepullerConfig
 
 
 class Image(BaseModel):
+    """A single Docker image that is available or prepulled."""
+
     reference: str = Field(
         ...,
         title="Docker reference of image",
@@ -77,6 +79,8 @@ class PrepulledImage(Image):
 
 
 class NodeImage(Image):
+    """An available image present on at least some Kubernetes nodes."""
+
     size: int | None = Field(
         None, examples=[8675309], title="Size in bytes of image if known"
     )
@@ -87,6 +91,8 @@ class NodeImage(Image):
 
 
 class SpawnerImages(BaseModel):
+    """Images known to the Nublado controller and available for spawning."""
+
     recommended: PrepulledImage | None = Field(None, title="Recommended image")
     latest_weekly: PrepulledImage | None = Field(None, title="Latest weekly")
     latest_daily: PrepulledImage | None = Field(None, title="Latest daily")
@@ -95,6 +101,8 @@ class SpawnerImages(BaseModel):
 
 
 class PrepullerImageStatus(BaseModel):
+    """Status of the images being prepulled."""
+
     prepulled: list[NodeImage] = Field([], title="Successfully cached images")
     pending: list[NodeImage] = Field(
         [],
@@ -103,6 +111,8 @@ class PrepullerImageStatus(BaseModel):
 
 
 class Node(BaseModel):
+    """Information about available images on a single Kubernetes node."""
+
     name: str = Field(
         ...,
         examples=["gke-science-platform-d-core-pool-78ee-03baf5c9-7w75"],
@@ -120,6 +130,8 @@ class Node(BaseModel):
 
 
 class PrepullerStatus(BaseModel):
+    """Status of the image prepuller."""
+
     config: PrepullerConfig = Field(..., title="Prepuller configuration")
     images: PrepullerImageStatus = Field(
         ..., title="Prepuller status by image"

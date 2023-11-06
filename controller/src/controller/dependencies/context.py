@@ -84,7 +84,7 @@ class ContextDependency:
         request: Request,
         logger: BoundLogger = Depends(logger_dependency),
     ) -> RequestContext:
-        """Creates a per-request context and returns it."""
+        """Create a per-request context and return it."""
         if not self._process_context:
             raise RuntimeError("ContextDependency not initialized")
         factory = Factory(self._process_context, logger)

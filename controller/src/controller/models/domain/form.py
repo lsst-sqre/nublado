@@ -1,8 +1,20 @@
+"""Internal models for spawner form construction."""
+
+from __future__ import annotations
+
 from dataclasses import dataclass
+
+__all__ = [
+    "FormSize",
+    "MenuImage",
+    "MenuImages",
+]
 
 
 @dataclass
 class FormSize:
+    """Holds a representation of an image size for spawner forms."""
+
     name: str
     cpu: str
     memory: str
@@ -14,6 +26,8 @@ class FormSize:
 
 @dataclass(frozen=True, slots=True)
 class MenuImage:
+    """A single spawnable image."""
+
     reference: str
     """Docker reference."""
 
@@ -23,6 +37,8 @@ class MenuImage:
 
 @dataclass(frozen=True, slots=True)
 class MenuImages:
+    """All available spawnable images."""
+
     menu: list[MenuImage]
     """Images that should appear as regular menu choices."""
 

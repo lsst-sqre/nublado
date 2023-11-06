@@ -1,3 +1,7 @@
+"""Tests for the ``GafaelfawrUserInfo`` model."""
+
+from __future__ import annotations
+
 from ...support.data import read_input_users_json
 
 

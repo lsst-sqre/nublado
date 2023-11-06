@@ -358,7 +358,7 @@ class LabManager:
             raise LabDeletionError(msg, username)
 
     def events_for_user(self, username: str) -> AsyncIterator[ServerSentEvent]:
-        """Iterator over the events for a user.
+        """Construct an iterator over the events for a user.
 
         Parameters
         ----------
@@ -575,6 +575,45 @@ class LabManager:
                     with contextlib.suppress(UnknownUserError):
                         await self.delete_lab(username)
 
+    async def _gather_current_state(self) -> dict[str, UserLabState]:
+        """Gather lab state from extant Kubernetes resources.
+
+        Called during reconciliation, this method determines the current lab
+        state by scanning the resources in Kubernetes. Malformed labs that do
+        not have an existing entry in our state mapping will be deleted.
+
+        Returns
+        -------
+        dict of UserLabState
+            Dictionary mapping usernames to the discovered lab state.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        """
+        prefix = self._config.namespace_prefix + "-"
+
+        observed = {}
+        for namespace in await self._storage.list_namespaces(prefix):
+            username = namespace.removeprefix(prefix)
+            names = self._builder.build_object_names(username)
+            objects = await self._storage.read_lab_objects(names)
+            state = await self._builder.recreate_lab_state(username, objects)
+
+            # Only delete malformed labs with no entry or no current operation
+            # in progress. Do this check immediately before the deletion since
+            # the above await calls yield control and the internal state may
+            # change during that time.
+            lab = self._labs.get(username)
+            if state:
+                observed[username] = state
+            elif not lab or not lab.monitor.in_progress:
+                msg = "Deleting incomplete namespace"
+                self._logger.warning(msg, user=username, namespace=namespace)
+                await self._storage.delete_namespace(namespace)
+        return observed
+
     async def _gather_secret_data(
         self, user: GafaelfawrUser
     ) -> dict[str, str]:
@@ -712,6 +751,67 @@ class LabManager:
                         if lab.state:
                             lab.state.status = LabStatus.FAILED
 
+    def _reconcile_known_users(
+        self, observed: dict[str, UserLabState]
+    ) -> set[str]:
+        """Reconcile observed lab state against already-known users.
+
+        Check all users already recorded in internal state against data
+        observed from Kubernetes and correct them if needed.
+
+        Parameters
+        ----------
+        observed
+            Observed lab state.
+
+        Returns
+        -------
+        set of str
+            Usernames of users with pending lab spawns that are not currently
+            being monitored and should be.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+
+        Notes
+        -----
+        This method must not be async to ensure that it does not yield control
+        to other threads that could change internal state while performing
+        this analysis.
+        """
+        to_monitor = set()
+        for username, lab in self._labs.items():
+            if lab.monitor.in_progress or not lab.state:
+                continue
+            if lab.state.status == LabStatus.FAILED:
+                continue
+            if username not in observed:
+                msg = f"Expected user {username} not found in Kubernetes"
+                self._logger.warning(msg)
+                lab.state.status = LabStatus.FAILED
+            else:
+                observed_state = observed[username]
+                if observed_state.status == lab.state.status:
+                    continue
+
+                # The discovered state was not what we expected. Update our
+                # state.
+                msg = (
+                    f"Expected status is {lab.state.status}, but observed"
+                    f" status is {observed_state.status}"
+                )
+                self._logger.warning(msg, user=username)
+                lab.state.status = observed_state.status
+
+                # If we discovered the pod was actually in pending state,
+                # kick off a monitoring job to wait for it to become ready
+                # and handle timeouts if it never does.
+                if observed_state.status == LabStatus.PENDING:
+                    to_monitor.add(username)
+        return to_monitor
+
     async def _reconcile_lab_state(self) -> None:
         """Reconcile user lab state with Kubernetes.
 
@@ -727,28 +827,10 @@ class LabManager:
         """
         self._logger.info("Reconciling user lab state with Kubernetes")
         known_users = set(self._labs.keys())
-        prefix = self._config.namespace_prefix + "-"
-        to_monitor = []
 
-        # Gather information about all extant Kubernetes namespaces. Check
-        # whether an operation is already in progress after reading all the
-        # data from Kubernetes, since we yield control while reading data and
-        # the internal state may change during that time.
-        observed = {}
-        for namespace in await self._storage.list_namespaces(prefix):
-            username = namespace.removeprefix(prefix)
-            names = self._builder.build_object_names(username)
-            objects = await self._storage.read_lab_objects(names)
-            state = await self._builder.recreate_lab_state(username, objects)
-            lab = self._labs.get(username)
-            if lab and lab.monitor.in_progress:
-                continue
-            if state:
-                observed[username] = state
-            elif not lab:
-                msg = "Deleting incomplete namespace"
-                self._logger.warning(msg, user=username, namespace=namespace)
-                await self._storage.delete_namespace(namespace)
+        # Gather information about all extant Kubernetes namespaces and delete
+        # any malformed namespaces for which no operation is in progress.
+        observed = await self._gather_current_state()
 
         # If the set of users we expected to see changed during
         # reconciliation, that means someone added a new user while we were
@@ -765,43 +847,12 @@ class LabManager:
 
         # First pass: check all users already recorded in internal state
         # against Kubernetes and correct them (or remove them) if needed.
-        for username, lab in self._labs.items():
-            if lab.monitor.in_progress:
-                continue
-            if not lab.state:
-                continue
-            if lab.state.status == LabStatus.FAILED:
-                continue
-            if username not in observed:
-                msg = f"Expected user {username} not found in Kubernetes"
-                self._logger.warning(msg)
-                lab.state.status = LabStatus.FAILED
-            else:
-                observed_state = observed[username]
-                if observed_state.status == lab.state.status:
-                    continue
-
-                # The discovered state was not what we expected. Update our
-                # state.
-                self._logger.warning(
-                    f"Expected status for {username} is"
-                    f" {lab.state.status}, but observed status is"
-                    f" {observed_state.status}"
-                )
-                lab.state.status = observed_state.status
-
-                # If we discovered the pod was actually in pending state,
-                # kick off a monitoring job to wait for it to become ready
-                # and handle timeouts if it never does.
-                if observed_state.status == LabStatus.PENDING:
-                    to_monitor.append(username)
+        to_monitor = self._reconcile_known_users(observed)
 
         # Second pass: take observed state and create any missing internal
         # state. This is the normal case after a restart of the lab
         # controller.
         for username in set(observed.keys()) - known_users:
-            if username in self._labs:
-                continue
             msg = f"Creating record for user {username} from Kubernetes"
             self._logger.info(msg)
             self._labs[username] = _State(
@@ -814,13 +865,13 @@ class LabManager:
                 ),
             )
             if observed[username].status == LabStatus.PENDING:
-                to_monitor.append(username)
+                to_monitor.add(username)
 
         # If we discovered any pods unexpectedly in the pending state, kick
         # off monitoring jobs to wait for them to become ready and handle
         # timeouts if they never do. We've now fixed internal state, so it's
         # safe to do asyncio operations again.
-        for username in to_monitor:
+        for username in sorted(to_monitor):
             await self._monitor_pending_spawn(username)
 
         # Finally, for all labs in failed or terminated state (spawn failed,
