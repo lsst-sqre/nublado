@@ -114,6 +114,9 @@ target-version = "py311"
 "noxfile.py" = [
     "T201",    # print makes sense as output from nox rules
 ]
+"spawner/tests/**" = [
+    "UP017",   # spawner has to support Python 3.10, UTC was added in 3.11
+]
 "*/tests/**" = [
     "C901",    # tests are allowed to be complex, sometimes that's convenient
     "D101",    # tests don't need docstrings

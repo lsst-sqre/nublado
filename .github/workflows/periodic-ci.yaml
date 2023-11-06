@@ -48,6 +48,22 @@ jobs:
       - name: Run tests with nox
         run: "nox -s lint typing test"
 
+      # The Hub code has to be tested with Python 3.10 because that's what the
+      # JupyterHub image uses.
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install nox
+        run: |
+          pip install --upgrade pip
+          pip install --upgrade nox
+
+      - name: Run hub tests with nox
+        run: "nox -s test-hub"
+
       - name: Report status
         if: always()
         uses: ravsamhq/notify-slack-action@v2

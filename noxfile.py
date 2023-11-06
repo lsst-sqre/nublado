@@ -126,6 +126,16 @@ def test(session: nox.Session) -> None:
     _pytest(session, "spawner", "rubin.nublado.spawner")
 
 
+@nox.session(name="test-hub")
+def test_hub(session: nox.Session) -> None:
+    """Run only tests affecting JupyterHub with its frozen dependencies."""
+    session.install("-e", "authenticator[dev]")
+    session.install("-e", "spawner[dev]")
+    session.install("-r", "hub/requirements/main.txt")
+    _pytest(session, "authenticator", "rubin.nublado.authenticator")
+    _pytest(session, "spawner", "rubin.nublado.spawner")
+
+
 @nox.session
 def docs(session: nox.Session) -> None:
     """Build the documentation."""
