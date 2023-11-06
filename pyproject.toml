@@ -90,6 +90,23 @@ ignore = [
     "TID252",  # if we're going to use relative imports, use them always
     "TRY003",  # good general advice but lint is way too aggressive
     "TRY301",  # sometimes raising exceptions inside try is the best flow
+
+    # The following settings should be disabled when using ruff format
+    # per https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+    "ISC001",
+    "ISC002",
 ]
 select = ["ALL"]
 target-version = "py311"
@@ -126,7 +143,6 @@ known-first-party = [
     "rubin.nublado.spawner",
     "tests",
 ]
-split-on-trailing-comma = false
 
 [tool.ruff.flake8-bugbear]
 extend-immutable-calls = [
