@@ -1032,31 +1032,38 @@ class LabManager:
         between 35% and 75%. The last 25% is reserved for waiting for the lab
         to respond, which is done internally by JupyterHub.
 
+        Watching spawn events is not critical to spawning a lab, so if the
+        event watcher fails for any reason, report that error but then swallow
+        it and allow the lab to still successfully spawn.
+
         Parameters
         ----------
         names
             Names of the lab objects.
         events
             Event queue to which to report events.
-
-        Raises
-        ------
-        KubernetesError
-            Raised if there is an API error watching events.
         """
         name = names.pod
         namespace = names.namespace
         progress = 35
-        async for msg in self._storage.watch_pod_events(name, namespace):
-            events.put(
-                Event(type=EventType.INFO, message=msg, progress=progress)
-            )
-            self._logger.debug(f"Spawning event: {msg}", progress=progress)
+        try:
+            async for msg in self._storage.watch_pod_events(name, namespace):
+                events.put(
+                    Event(type=EventType.INFO, message=msg, progress=progress)
+                )
+                self._logger.debug(f"Spawning event: {msg}", progress=progress)
 
-            # We don't know how many startup events we'll see, so we will do
-            # the same thing Kubespawner does and move one-third closer to 75%
-            # each time.
-            progress = int(progress + (75 - progress) / 3)
+                # We don't know how many startup events we'll see, so we will
+                # do the same thing Kubespawner does and move one-third closer
+                # to 75% each time.
+                progress = int(progress + (75 - progress) / 3)
+        except KubernetesError as e:
+            # Report any failures, but then swallow them and let the event
+            # watcher thread silently exit, since watching pod spawn events is
+            # not critical to spawning.
+            username = names.username
+            self._logger.exception("Error watching lab events", user=username)
+            await self._maybe_post_slack_exception(e, username)
 
 
 class _LabMonitor:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import math
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
@@ -250,6 +251,20 @@ class KubernetesWatcher(Generic[T]):
                     self._logger.info(msg)
                     del args["resource_version"]
                     continue
+
+                # We have seen one instance where Kubernetes returned a 410
+                # error even though no resourceVersion was set in the call.
+                # The Kubernetes documentation implies that this can happen if
+                # there are long delays between reportable events. Retry those
+                # as well, relying on our timeout to stop us, but wait one
+                # second so that we don't spam the Kubernetes controller with
+                # requests if every request is returning 410.
+                if e.status == 410 and self._timeout:
+                    msg = "Watch expired (no resource version), retrying"
+                    self._logger.info(msg)
+                    await asyncio.sleep(1)
+                    continue
+
                 raise KubernetesError.from_exception(
                     "Error watching objects",
                     e,

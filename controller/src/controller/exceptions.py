@@ -303,7 +303,11 @@ class KubernetesError(SlackException):
                 obj = f"{kind}{self.name}"
             message.blocks.append(SlackTextBlock(heading="Object", text=obj))
         elif self.kind:
-            block = SlackTextBlock(heading="Object", text=self.kind)
+            if self.namespace:
+                obj = f"{self.kind} in namespace {self.namespace}"
+            else:
+                obj = self.kind
+            block = SlackTextBlock(heading="Object", text=obj)
             message.blocks.append(block)
         if self.body:
             code = SlackCodeBlock(heading="Error", code=self.body)
