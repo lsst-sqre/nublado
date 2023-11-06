@@ -16,6 +16,7 @@ __all__ = [
     "KubernetesNodeImage",
     "PodPhase",
     "PropagationPolicy",
+    "PullPolicy",
     "WatchEventType",
 ]
 
@@ -37,6 +38,14 @@ class PropagationPolicy(Enum):
     FOREGROUND = "Foreground"
     BACKGROUND = "Background"
     ORPHAN = "Orphan"
+
+
+class PullPolicy(Enum):
+    """Pull policy for Docker images in Kubernetes."""
+
+    ALWAYS = "Always"
+    IFNOTPRESENT = "IfNotPresent"
+    NEVER = "Never"
 
 
 class WatchEventType(Enum):

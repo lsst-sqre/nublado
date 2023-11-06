@@ -266,7 +266,7 @@ class ImageService:
         return result
 
     def prepull_status(self) -> PrepullerStatus:
-        """Current prepuller status.
+        """Construct current prepuller status.
 
         Returns
         -------

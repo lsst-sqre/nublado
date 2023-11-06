@@ -1,3 +1,7 @@
+"""Construct the spawner form."""
+
+from __future__ import annotations
+
 from jinja2 import Template
 from structlog.stdlib import BoundLogger
 
@@ -7,8 +11,22 @@ from ..models.domain.form import FormSize
 from ..models.v1.lab import LabSize
 from .image import ImageService
 
+__all__ = ["FormManager"]
+
 
 class FormManager:
+    """Service to construct the spawner form.
+
+    Parameters
+    ----------
+    image_service
+        Image service.
+    lab_sizes
+        Configured lab sizes.
+    logger
+        Logger to use.
+    """
+
     def __init__(
         self,
         image_service: ImageService,
@@ -20,6 +38,7 @@ class FormManager:
         self._lab_sizes = lab_sizes
 
     def generate_user_lab_form(self) -> str:
+        """Generate the spawner form in HTML."""
         options_template = Template(SPAWNER_FORM_TEMPLATE)
         images = self._image_service.menu_images()
         sizes = self._extract_sizes()
@@ -31,6 +50,7 @@ class FormManager:
         )
 
     def _extract_sizes(self) -> list[FormSize]:
+        """Create the lab sizes used in the spawner form."""
         sz = self._lab_sizes
         szlist = [
             FormSize(

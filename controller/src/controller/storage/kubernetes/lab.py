@@ -243,7 +243,7 @@ class LabStorage:
     async def wait_for_pod_start(
         self, name: str, namespace: str, timeout: timedelta
     ) -> PodPhase | None:
-        """Waits for a pod to finish starting.
+        """Wait for a pod to finish starting.
 
         Waits for the pod to reach a phase other than pending or unknown, and
         returns the new phase. We treat unknown like pending since we're

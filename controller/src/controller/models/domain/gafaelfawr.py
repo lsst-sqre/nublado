@@ -22,6 +22,8 @@ __all__ = [
 
 
 class UserGroup(BaseModel):
+    """Gafaelfawr's representation of a single group."""
+
     name: str = Field(
         ...,
         examples=["ferrymen"],

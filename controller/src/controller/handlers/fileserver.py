@@ -1,3 +1,5 @@
+"""Rounte handlers for user file servers."""
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
 from safir.models import ErrorModel

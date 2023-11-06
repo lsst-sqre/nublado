@@ -9,6 +9,18 @@ from ..models.v1.lab import LabResources, LabSize, ResourceQuantity
 
 
 def memory_string_to_int(memstr: str) -> int:
+    """Convert a human-readable size string to a number of bytes.
+
+    Parameters
+    ----------
+    memstr
+        Human-readable size with possible SI suffixes.
+
+    Returns
+    -------
+    int
+        Equivalent as number of bytes.
+    """
     if not memstr.endswith("B"):
         memstr += "B"  # This makes bitmath happy
     return int(bitmath.parse_string(memstr).bytes)

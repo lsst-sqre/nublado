@@ -15,6 +15,7 @@ from safir.logging import LogLevel, Profile
 from safir.pydantic import CamelCaseModel, to_camel_case
 
 from .constants import DOCKER_SECRETS_PATH, METADATA_PATH
+from .models.domain.kubernetes import PullPolicy
 from .models.v1.lab import LabResources, LabSize
 from .models.v1.prepuller_config import PrepullerConfig
 
@@ -80,6 +81,8 @@ class SafirConfig(CamelCaseModel):
 
 
 class LabSizeDefinition(CamelCaseModel):
+    """Defines a size of lab."""
+
     cpu: float = Field(
         ...,
         title="Number of CPU resource units for container",
@@ -176,6 +179,8 @@ class PVCVolumeSource(BaseVolumeSource):
 
 
 class LabVolume(CamelCaseModel):
+    """Defines a volume to mount inside a lab container."""
+
     container_path: str = Field(
         ...,
         examples=["/home"],
@@ -199,6 +204,8 @@ class LabVolume(CamelCaseModel):
 
 
 class LabInitContainer(CamelCaseModel):
+    """Defines a volume to mount inside a lab init container."""
+
     name: str = Field(
         ...,
         examples=["multus-init"],
@@ -225,6 +232,8 @@ class LabInitContainer(CamelCaseModel):
 
 
 class LabSecret(CamelCaseModel):
+    """Defines a secret to make available to lab containers."""
+
     secret_name: str = Field(
         ...,
         title="Source secret name",
@@ -257,6 +266,8 @@ class LabSecret(CamelCaseModel):
 
 
 class LabFile(CamelCaseModel):
+    """Defines a file to mount inside a lab container."""
+
     contents: str = Field(
         ...,
         examples=[
@@ -276,6 +287,8 @@ class LabFile(CamelCaseModel):
 
 
 class LabConfig(CamelCaseModel):
+    """Configuration for spawning user labs."""
+
     spawn_timeout: timedelta = Field(
         timedelta(minutes=10), title="Timeout for lab spawning"
     )
@@ -378,13 +391,9 @@ class LabConfig(CamelCaseModel):
 #
 
 
-class PullPolicy(Enum):
-    ALWAYS = "Always"
-    IFNOTPRESENT = "IfNotPresent"
-    NEVER = "Never"
-
-
 class FileserverConfig(CamelCaseModel):
+    """Configuration for user file servers."""
+
     enabled: bool = Field(
         False, title="Whether to enable fileserver capability"
     )
@@ -444,6 +453,8 @@ class FileserverConfig(CamelCaseModel):
 
 
 class Config(BaseSettings):
+    """Nublado controller configuration."""
+
     safir: SafirConfig
     lab: LabConfig
     fileserver: FileserverConfig = Field(

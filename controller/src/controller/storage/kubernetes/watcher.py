@@ -95,7 +95,7 @@ class KubernetesWatcher(Generic[T]):
     kind
         Kubernetes kind of object being watched, for error reporting.
     name
-        Name of object to watch.
+        Name of object to watch. Cannot be used with ``involved_object``.
     namespace
         Namespace to watch.
     group
@@ -105,13 +105,20 @@ class KubernetesWatcher(Generic[T]):
     plural
         Plural of custom object.
     involved_object
-        Involved object to watch (used when watching events).
+        Involved object to watch (used when watching events). Cannot be used
+        with ``name``.
     resource_version
         Resource version at which to start the watch.
     timeout
         Timeout for the watch.
     logger
         Logger to use.
+
+    Raises
+    ------
+    ValueError
+        Raised if ``name`` and ``involved_object`` are both specified, or if
+        ``timeout`` is specified but is less than zero.
     """
 
     def __init__(
@@ -140,30 +147,29 @@ class KubernetesWatcher(Generic[T]):
         self._stopped = False
 
         # Build the arguments to the method being watched.
-        args: dict[str, str | int] = {}
-        if name:
-            args["field_selector"] = f"metadata.name={name}"
-        if group:
-            args["group"] = group
-        if version:
-            args["version"] = version
-        if plural:
-            args["plural"] = plural
-        if involved_object:
-            if name:
-                raise ValueError("name and involved_object both specified")
-            args["field_selector"] = f"involvedObject.name={involved_object}"
-        if namespace:
-            args["namespace"] = namespace
-        if resource_version:
-            args["resource_version"] = resource_version
         if timeout:
             timeout_seconds = int(math.ceil(timeout.total_seconds()))
             if timeout_seconds <= 0:
                 raise ValueError("Watch timeout specified but <= 0")
-            args["timeout_seconds"] = timeout_seconds
-            args["_request_timeout"] = timeout_seconds
-        self._args = args
+        if name:
+            if involved_object:
+                raise ValueError("name and involved_object both specified")
+            field_selector = f"metadata.name={name}"
+        elif involved_object:
+            field_selector = f"involvedObject.name={involved_object}"
+        else:
+            field_selector = None
+        args = {
+            "field_selector": field_selector,
+            "group": group,
+            "version": version,
+            "plural": plural,
+            "namespace": namespace,
+            "resource_version": resource_version,
+            "timeout_seconds": timeout_seconds if timeout else None,
+            "_request_timeout": timeout_seconds if timeout else None,
+        }
+        self._args = {k: v for k, v in args.items() if v is not None}
 
         # Passing in an explicit type should not be necessary, but the
         # kubernetes_asyncio module determines the type of a method by parsing
