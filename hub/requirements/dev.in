@@ -1,0 +1,24 @@
+# -*- conf -*-
+#
+# Editable development dependencies for the JupyterHub Docker image. Add
+# direct development, test, and documentation dependencies here, as well as
+# implicit dev dependencies with constrained versions. This must include all
+# of the development dependencies of the authenticator and spawner modules.
+#
+# After editing, update requirements/dev.txt by running:
+#     nox -s update-deps
+
+-c main.txt
+
+# Testing
+pytest
+pytest-asyncio
+pytest-cov
+pytest-sugar
+respx
+
+# These dependencies aren't required in Python 3.11 but are required in 3.10.
+# Pin them so that we can regenerate dependencies with Python 3.11 and still
+# successfully test using Python 3.10, which the base JupyterHub image
+# currently uses.
+tomli

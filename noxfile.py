@@ -129,9 +129,11 @@ def test(session: nox.Session) -> None:
 @nox.session(name="test-hub")
 def test_hub(session: nox.Session) -> None:
     """Run only tests affecting JupyterHub with its frozen dependencies."""
-    session.install("-e", "authenticator[dev]")
-    session.install("-e", "spawner[dev]")
+    session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install("-r", "hub/requirements/main.txt")
+    session.install("-r", "hub/requirements/dev.txt")
+    session.install("--no-deps", "-e", "authenticator[dev]")
+    session.install("--no-deps", "-e", "spawner[dev]")
     _pytest(session, "authenticator", "rubin.nublado.authenticator")
     _pytest(session, "spawner", "rubin.nublado.spawner")
 
@@ -184,39 +186,29 @@ def update_deps(session: nox.Session) -> None:
         "--upgrade", "pip-tools", "pip", "setuptools", "wheel", "pre-commit"
     )
     session.run("pre-commit", "autoupdate")
-    session.run(
-        "pip-compile",
-        "--upgrade",
-        "--resolver=backtracking",
-        "--build-isolation",
-        "--allow-unsafe",
-        "--generate-hashes",
-        "--output-file",
-        "controller/requirements/main.txt",
-        "controller/requirements/main.in",
-    )
-    session.run(
-        "pip-compile",
-        "--upgrade",
-        "--resolver=backtracking",
-        "--build-isolation",
-        "--allow-unsafe",
-        "--generate-hashes",
-        "--output-file",
-        "controller/requirements/dev.txt",
-        "controller/requirements/dev.in",
-    )
-    session.run(
-        "pip-compile",
-        "--upgrade",
-        "--resolver=backtracking",
-        "--build-isolation",
-        "--allow-unsafe",
-        "--generate-hashes",
-        "--output-file",
-        "hub/requirements/main.txt",
-        "hub/requirements/main.in",
-    )
+    for directory in ("controller", "hub"):
+        session.run(
+            "pip-compile",
+            "--upgrade",
+            "--resolver=backtracking",
+            "--build-isolation",
+            "--allow-unsafe",
+            "--generate-hashes",
+            "--output-file",
+            f"{directory}/requirements/main.txt",
+            f"{directory}/requirements/main.in",
+        )
+        session.run(
+            "pip-compile",
+            "--upgrade",
+            "--resolver=backtracking",
+            "--build-isolation",
+            "--allow-unsafe",
+            "--generate-hashes",
+            "--output-file",
+            f"{directory}/requirements/dev.txt",
+            f"{directory}/requirements/dev.in",
+        )
 
     print("\nTo refresh the development venv, run:\n\n\tnox -s init\n")
 
