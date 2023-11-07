@@ -119,10 +119,13 @@ class FileserverStorage:
         ------
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if the deletion of any individual object took longer than
+            the Kubernetes delete timeout.
         """
         await self._gafaelfawr.delete(name, namespace, wait=True)
         await self._ingress.wait_for_deletion(name, namespace)
-        await self._service.delete(name, namespace)
+        await self._service.delete(name, namespace, wait=True)
         await self._job.delete(name, namespace, wait=True)
 
     async def namespace_exists(self, name: str) -> bool:

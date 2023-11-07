@@ -95,6 +95,9 @@ class LabStorage:
         ------
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if the namespace deletion took longer than the Kubernetes
+            delete timeout.
         """
         await self._namespace.delete(name, wait=True)
 
@@ -111,10 +114,12 @@ class LabStorage:
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
         """
-        grace_period = LAB_STOP_GRACE_PERIOD
-        name = names.pod
-        namespace = names.namespace
-        await self._pod.delete(name, namespace, grace_period=grace_period)
+        await self._pod.delete(
+            names.pod,
+            names.namespace,
+            wait=True,
+            grace_period=LAB_STOP_GRACE_PERIOD,
+        )
 
     async def list_namespaces(self, prefix: str) -> list[str]:
         """List all namespaces starting with the given prefix.
@@ -277,7 +282,7 @@ class LabStorage:
         )
 
     async def watch_pod_events(
-        self, name: str, namespace: str
+        self, name: str, namespace: str, timeout: timedelta
     ) -> AsyncIterator[str]:
         """Monitor the startup of a pod.
 
@@ -290,6 +295,8 @@ class LabStorage:
             Name of the lab pod.
         namespace
             Namespace of the lab pod.
+        timeout
+            How long to watch pod startup events.
 
         Yields
         ------
@@ -300,6 +307,8 @@ class LabStorage:
         ------
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if the timeout expires.
         """
-        async for message in self._pod.events_for_pod(name, namespace):
-            yield message
+        async for msg in self._pod.events_for_pod(name, namespace, timeout):
+            yield msg

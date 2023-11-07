@@ -9,6 +9,7 @@ classes with other operations are defined in their own modules.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import Any, Generic, TypeVar
@@ -246,7 +247,12 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             ) from e
         return objs.items
 
-    async def wait_for_deletion(self, name: str, namespace: str) -> None:
+    async def wait_for_deletion(
+        self,
+        name: str,
+        namespace: str,
+        timeout: timedelta = KUBERNETES_DELETE_TIMEOUT,
+    ) -> None:
         """Wait for an object deletion to complete.
 
         Parameters
@@ -255,6 +261,8 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             Name of the object.
         namespace
             Namespace of the object.
+        timeout
+            How long to wait for the object to be deleted.
 
         Raises
         ------
@@ -276,13 +284,14 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             name=name,
             namespace=namespace,
             resource_version=obj.metadata.resource_version,
-            timeout=KUBERNETES_DELETE_TIMEOUT,
+            timeout=timeout,
             logger=logger,
         )
         try:
-            async for event in watcher.watch():
-                if event.action == WatchEventType.DELETED:
-                    return
+            async with asyncio.timeout(timeout.total_seconds()):
+                async for event in watcher.watch():
+                    if event.action == WatchEventType.DELETED:
+                        return
         except TimeoutError:
             # If the watch had to be restarted because the resource version
             # was too old and the object was deleted while the watch was

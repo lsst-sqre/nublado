@@ -1045,9 +1045,12 @@ class LabManager:
         """
         name = names.pod
         namespace = names.namespace
+        timeout = self._config.spawn_timeout
+        iterator = self._storage.watch_pod_events(name, namespace, timeout)
         progress = 35
+        start = current_datetime(microseconds=True)
         try:
-            async for msg in self._storage.watch_pod_events(name, namespace):
+            async for msg in iterator:
                 events.put(
                     Event(type=EventType.INFO, message=msg, progress=progress)
                 )
@@ -1064,6 +1067,11 @@ class LabManager:
             username = names.username
             self._logger.exception("Error watching lab events", user=username)
             await self._maybe_post_slack_exception(e, username)
+        except TimeoutError:
+            now = current_datetime(microseconds=True)
+            elapsed = (now - start).total_seconds()
+            msg = f"Watching for lab events timeed out after {elapsed}s"
+            self._logger.exception(msg, user=username)
 
 
 class _LabMonitor:
