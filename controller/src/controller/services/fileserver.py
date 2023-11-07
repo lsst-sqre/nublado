@@ -309,19 +309,22 @@ class FileserverManager:
         delete when appropriate.
         """
         namespace = self._config.namespace
-        try:
-            async for change in self._storage.watch_pods(namespace):
-                if change.phase in (PodPhase.FAILED, PodPhase.SUCCEEDED):
-                    username = self._builder.get_username_for_pod(change.pod)
-                    if not username:
-                        continue
-                    self._logger.info(
-                        "File server exited, cleaning up",
-                        phase=change.phase.value,
-                        user=username,
-                    )
-                    with contextlib.suppress(UnknownUserError):
-                        await self.delete(username)
-        except Exception as e:
-            self._logger.exception("Error watching file server pod phase")
-            await self._maybe_post_slack_exception(e)
+        while True:
+            try:
+                async for change in self._storage.watch_pods(namespace):
+                    if change.phase in (PodPhase.FAILED, PodPhase.SUCCEEDED):
+                        pod = change.pod
+                        username = self._builder.get_username_for_pod(pod)
+                        if not username:
+                            continue
+                        self._logger.info(
+                            "File server exited, cleaning up",
+                            phase=change.phase.value,
+                            user=username,
+                        )
+                        with contextlib.suppress(UnknownUserError):
+                            await self.delete(username)
+            except Exception as e:
+                self._logger.exception("Error watching file server pod phase")
+                await self._maybe_post_slack_exception(e)
+                await asyncio.sleep(1)
