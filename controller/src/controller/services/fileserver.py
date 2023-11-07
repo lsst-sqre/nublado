@@ -107,11 +107,22 @@ class FileserverManager:
         if user.username not in self._servers:
             self._servers[user.username] = _State(running=False)
         state = self._servers[user.username]
+        timeout = timedelta(seconds=self._config.creation_timeout)
+        start = current_datetime(microseconds=True)
         async with state.lock:
             if state.running:
                 return
             try:
-                await self._create_file_server(user)
+                async with asyncio.timeout(timeout.total_seconds()):
+                    await self._create_file_server(user, timeout)
+            except TimeoutError:
+                now = current_datetime(microseconds=True)
+                elapsed = (now - start).total_seconds()
+                msg = f"File server creation timed out after {elapsed}s"
+                logger.exception(msg)
+                logger.info("Cleaning up orphaned file server objects")
+                await self._delete_file_server(user.username)
+                raise
             except Exception as e:
                 logger.exception("File server creation failed")
                 await self._maybe_post_slack_exception(e, user.username)
@@ -180,7 +191,9 @@ class FileserverManager:
         await self._scheduler.close()
         self._scheduler = None
 
-    async def _create_file_server(self, user: UserInfo) -> None:
+    async def _create_file_server(
+        self, user: UserInfo, timeout: timedelta
+    ) -> None:
         """Create a fileserver for the given user.
 
         Waits for the file server to be operational. Should be called with
@@ -190,6 +203,8 @@ class FileserverManager:
         ----------
         user
             User for which to create a file server.
+        timeout
+            How long to wait for the file server to start.
 
         Raises
         ------
@@ -197,7 +212,6 @@ class FileserverManager:
             Raised if there is some failure in a Kubernetes API call.
         """
         fileserver = self._builder.build(user)
-        timeout = timedelta(seconds=self._config.creation_timeout)
         self._logger.info("Creating new file server", user=user.username)
         await self._storage.create(self._config.namespace, fileserver, timeout)
 
