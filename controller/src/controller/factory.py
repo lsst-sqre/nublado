@@ -100,24 +100,23 @@ class ProcessContext:
                 config.slack_webhook, config.safir.name, logger
             )
 
-        if isinstance(config.images.source, DockerSourceConfig):
-            docker_client = DockerStorageClient(
-                credentials_path=config.docker_secrets_path,
-                http_client=http_client,
-                logger=logger,
-            )
-            source: ImageSource = DockerImageSource(
-                config=config.images.source,
-                docker=docker_client,
-                logger=logger,
-            )
-        elif isinstance(config.images.source, GARSourceConfig):
-            gar_client = GARStorageClient(logger)
-            source = GARImageSource(
-                config=config.images.source, gar=gar_client, logger=logger
-            )
-        else:
-            raise TypeError("Unknown prepuller configuration type")
+        match config.images.source:
+            case DockerSourceConfig():
+                docker_client = DockerStorageClient(
+                    credentials_path=config.docker_secrets_path,
+                    http_client=http_client,
+                    logger=logger,
+                )
+                source: ImageSource = DockerImageSource(
+                    config=config.images.source,
+                    docker=docker_client,
+                    logger=logger,
+                )
+            case GARSourceConfig():
+                gar_client = GARStorageClient(logger)
+                source = GARImageSource(
+                    config=config.images.source, gar=gar_client, logger=logger
+                )
 
         fileserver_manager = None
         if config.fileserver.enabled:
