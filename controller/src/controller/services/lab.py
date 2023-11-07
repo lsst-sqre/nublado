@@ -33,7 +33,7 @@ from ..models.domain.docker import DockerReference
 from ..models.domain.gafaelfawr import GafaelfawrUser
 from ..models.domain.lab import Event, EventType, LabObjectNames
 from ..models.domain.rspimage import RSPImage
-from ..models.v1.lab import LabSpecification, LabStatus, PodState, UserLabState
+from ..models.v1.lab import LabSpecification, LabStatus, UserLabState
 from ..storage.kubernetes.lab import LabStorage
 from ..storage.metadata import MetadataStorage
 from .builder.lab import LabBuilder
@@ -448,7 +448,6 @@ class LabManager:
         # in some other state. Otherwise, go with our current state.
         if phase is None:
             state.status = LabStatus.FAILED
-            state.pod = PodState.MISSING
         elif state.status == LabStatus.RUNNING:
             state.status = LabStatus.from_phase(phase)
         return state
@@ -975,7 +974,6 @@ class LabManager:
         msg = "Created Kubernetes objects for user lab"
         events.put(Event(type=EventType.INFO, message=msg, progress=30))
         state.internal_url = internal_url
-        state.pod = PodState.PRESENT
 
         # Monitor for lab events while waiting for the pod to start.
         await self._watch_lab_spawn(state, events)

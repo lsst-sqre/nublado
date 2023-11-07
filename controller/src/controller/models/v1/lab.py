@@ -18,7 +18,6 @@ __all__ = [
     "LabSize",
     "LabSpecification",
     "LabStatus",
-    "PodState",
     "ResourceQuantity",
     "UserGroup",
     "UserInfo",
@@ -95,13 +94,6 @@ class LabStatus(Enum):
                 return cls.TERMINATED
             case PodPhase.UNKNOWN:
                 return cls.FAILED
-
-
-class PodState(Enum):
-    """Possible states the user's pod may be in."""
-
-    PRESENT = "present"
-    MISSING = "missing"
 
 
 class ImageClass(Enum):
@@ -505,8 +497,6 @@ class UserLabState(LabSpecification):
         examples=[LabStatus.RUNNING],
     )
 
-    pod: PodState = Field(..., examples=["present"], title="User pod state")
-
     internal_url: str | None = Field(
         None,
         title="URL for user's lab",
@@ -569,7 +559,6 @@ class UserLabState(LabSpecification):
             options=lab.options,
             env=lab.env,
             status=LabStatus.PENDING,
-            pod=PodState.MISSING,
             resources=resources,
             quota=quota,
         )

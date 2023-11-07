@@ -21,7 +21,6 @@ from controller.models.domain.gafaelfawr import GafaelfawrUser
 from controller.models.domain.kubernetes import PodPhase
 from controller.models.v1.lab import (
     LabStatus,
-    PodState,
     ResourceQuantity,
     UserInfo,
     UserLabState,
@@ -97,7 +96,6 @@ async def create_lab(
             f"http://lab.userlabs-{user.username}:8888/nb/user/rachel/"
         ),
         options=lab.options,
-        pod=PodState.PRESENT,
         quota=ResourceQuantity(
             cpu=user.quota.notebook.cpu,
             memory=int(user.quota.notebook.memory * 1024 * 1024 * 1024),
