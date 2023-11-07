@@ -31,6 +31,7 @@ class UserGroup(BaseModel):
         description="Should follow Unix naming conventions",
         pattern=GROUPNAME_REGEX,
     )
+
     id: int | None = Field(
         None,
         examples=[2023],
@@ -82,6 +83,7 @@ class GafaelfawrUserInfo(BaseModel):
         title="Username for Lab user",
         pattern=USERNAME_REGEX,
     )
+
     name: str | None = Field(
         None,
         examples=["Ribbon"],
@@ -92,19 +94,23 @@ class GafaelfawrUserInfo(BaseModel):
             " other humans."
         ),
     )
+
     uid: int = Field(
         ...,
         examples=[1104],
         title="Numeric UID for user (POSIX)",
         description="32-bit unsigned integer",
     )
+
     gid: int = Field(
         ...,
         examples=[1104],
         title="Numeric GID for user's primary group (POSIX)",
         description="32-bit unsigned integer",
     )
+
     groups: list[UserGroup] = Field([], title="User's group memberships")
+
     quota: UserQuota | None = Field(None, title="User's quotas")
 
     @property

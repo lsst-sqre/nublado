@@ -16,24 +16,38 @@ class Image(BaseModel):
     reference: str = Field(
         ...,
         title="Docker reference of image",
+        description=(
+            "Reference of image, which includes the registry host name,"
+            " the normally-two-part image name within that registry,"
+            " and the tag or hash of the specific version of that image."
+        ),
         examples=["lighthouse.ceres/library/sketchbook:latest_daily"],
-        description="cf. https://docs.docker.com/registry/introduction/",
     )
-    tag: str = Field(..., title="Image tag", examples=["w_2023_04"])
+
+    tag: str = Field(
+        ...,
+        title="Image tag",
+        description="Tag portion of the image reference",
+        examples=["w_2023_04"],
+    )
+
     name: str = Field(
         ...,
+        title="Human-readable tag",
+        description="Tag of the image formatted for humans",
         examples=["Latest Daily (Daily 2077_10_23)"],
-        title="Human-readable version of image tag",
     )
+
     digest: str | None = Field(
         None,
+        title="Digest of image",
+        description="Full digest of image if known",
         examples=[
             (
                 "sha256:e693782192ecef4f7846ad2b21"
                 "b1574682e700747f94c5a256b5731331a2eec2"
             )
         ],
-        title="Digest of image",
     )
 
 
@@ -41,12 +55,19 @@ class PrepulledImage(Image):
     """Used to display available images."""
 
     aliases: list[str] = Field(
-        [], title="Other aliases", examples=[["recommended", "latest_weekly"]]
+        [],
+        title="Other aliases",
+        description="Other tags that reference the same image",
+        examples=[["recommended", "latest_weekly"]],
     )
+
     prepulled: bool = Field(
         False,
+        title="Whether image is prepulled",
+        description=(
+            "Whether the image has been prepulled to all eligible nodes"
+        ),
         examples=[True],
-        title="Whether image is prepulled to all eligible nodes",
     )
 
     @classmethod
@@ -82,22 +103,25 @@ class NodeImage(Image):
     """An available image present on at least some Kubernetes nodes."""
 
     size: int | None = Field(
-        None, examples=[8675309], title="Size in bytes of image if known"
+        None,
+        title="Size in bytes",
+        description="Size of the image in bytes if reported by the node",
+        examples=[8675309],
     )
-    nodes: list[str] = Field([], title="Nodes on which image is cached")
+
+    nodes: list[str] = Field(
+        [],
+        title="Nodes caching image",
+        description="Nodes on which this image is cached",
+        examples=[["node-1", "node-2"]],
+    )
+
     missing: list[str] | None = Field(
-        None, title="Nodes not caching the image"
+        None,
+        title="Nodes not caching image",
+        description="Nodes on which the image should be cached but isn't",
+        examples=[["node-3"]],
     )
-
-
-class SpawnerImages(BaseModel):
-    """Images known to the Nublado controller and available for spawning."""
-
-    recommended: PrepulledImage | None = Field(None, title="Recommended image")
-    latest_weekly: PrepulledImage | None = Field(None, title="Latest weekly")
-    latest_daily: PrepulledImage | None = Field(None, title="Latest daily")
-    latest_release: PrepulledImage | None = Field(None, title="Latest release")
-    all: list[PrepulledImage] = Field(..., title="All available images")
 
 
 class PrepullerImageStatus(BaseModel):
@@ -106,7 +130,8 @@ class PrepullerImageStatus(BaseModel):
     prepulled: list[NodeImage] = Field([], title="Successfully cached images")
     pending: list[NodeImage] = Field(
         [],
-        title="Images not yet cached on all eligible nodes",
+        title="Images not yet cached",
+        description="Images that are missing on at least one eligible node",
     )
 
 
@@ -115,22 +140,54 @@ class Node(BaseModel):
 
     name: str = Field(
         ...,
-        examples=["gke-science-platform-d-core-pool-78ee-03baf5c9-7w75"],
         title="Name of node",
+        description="Hostname of the Kubernetes node",
+        examples=["gke-science-platform-d-core-pool-78ee-03baf5c9-7w75"],
     )
+
     eligible: bool = Field(
-        True, examples=[True], title="Whether node is eligible for prepulling"
+        True,
+        title="Eligible for prepulling",
+        description="Whether images should be prepulled to this node",
+        examples=[True],
     )
+
     comment: str | None = Field(
         None,
-        examples=["Cordoned because of disk problems"],
         title="Reason for node ineligibility",
+        description=(
+            "If this node is not eligible for prepulling, this field contains"
+            " the reason why"
+        ),
+        examples=["Cordoned because of disk problems"],
     )
-    cached: list[str] = Field([], title="Image references cached on this node")
+
+    cached: list[str] = Field(
+        [],
+        title="Cached images",
+        description="References of images cached on this node",
+        examples=[["lighthouse.ceres/library/sketchbook:latest_daily"]],
+    )
+
+
+class SpawnerImages(BaseModel):
+    """Images known to the Nublado controller and available for spawning.
+
+    This model is returned by the ``/spawner/v1/images`` route.
+    """
+
+    recommended: PrepulledImage | None = Field(None, title="Recommended image")
+    latest_weekly: PrepulledImage | None = Field(None, title="Latest weekly")
+    latest_daily: PrepulledImage | None = Field(None, title="Latest daily")
+    latest_release: PrepulledImage | None = Field(None, title="Latest release")
+    all: list[PrepulledImage] = Field(..., title="All available images")
 
 
 class PrepullerStatus(BaseModel):
-    """Status of the image prepuller."""
+    """Status of the image prepuller.
+
+    This model is returned by the ``/spawner/v1/prepulls`` route.
+    """
 
     config: PrepullerConfig = Field(..., title="Prepuller configuration")
     images: PrepullerImageStatus = Field(

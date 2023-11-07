@@ -104,9 +104,6 @@ class PodState(Enum):
     MISSING = "missing"
 
 
-"""POST /nublado/spawner/v1/labs/<username>/create"""
-
-
 class ImageClass(Enum):
     """Supported classes of images.
 
@@ -124,30 +121,41 @@ class ImageClass(Enum):
 class UserOptions(BaseModel):
     """User-provided lab configuration options.
 
-    All values to this model can instead be given as lists of length one with
-    boolean values converted to the strings ``true`` or ``false``. This allows
-    JupyterHub to pass its form submission directly to the lab controller
-    without modifications.
+    This model represents the form submission to the spawner HTML form
+    presented to the user by JupyterHub.
+
+    All values to this model can instead be given as lists of length one, with
+    boolean values converted to the strings ``true`` or ``false``. This is the
+    form in which the values are received by the JupyterHub spawner form
+    processing code, and allows JupyterHub to pass its form submission
+    directly to the lab controller without modifications.
     """
 
     image_list: str | None = Field(
         None,
-        examples=["lighthouse.ceres/library/sketchbook:w_2023_07@sha256:abcd"],
         title="Image from selection radio button",
-        description="If this is set, `image_dropdown` should not be set.",
+        description=(
+            "Selected image from the radio button part of the image menu, or"
+            f" the special value `{DROPDOWN_SENTINEL_VALUE}`. If this is set,"
+            f" to a value other than `{DROPDOWN_SENTINEL_VALUE}`,"
+            " `image_dropdown` should not be set."
+        ),
+        examples=["lighthouse.ceres/library/sketchbook:w_2023_07@sha256:abcd"],
     )
+
     image_dropdown: str | None = Field(
         None,
-        examples=["lighthouse.ceres/library/sketchbook:w_2022_40"],
         title="Image from dropdown list",
         description=(
-            "If this is set, `image_list` should be omitted or set to"
+            "Selected image from the dropdown part of the image menu. If this"
+            f" is set, `image_list` should be omitted or set to"
             f" `{DROPDOWN_SENTINEL_VALUE}`."
         ),
+        examples=["lighthouse.ceres/library/sketchbook:w_2022_40"],
     )
+
     image_class: ImageClass | None = Field(
         None,
-        examples=[ImageClass.RECOMMENDED],
         title="Class of image to spawn",
         description=(
             "Spawn a class of image determined by the lab controller. Not"
@@ -156,10 +164,11 @@ class UserOptions(BaseModel):
             " neither `image_list` nor `image_dropdown` should be set when"
             " using these options."
         ),
+        examples=[ImageClass.RECOMMENDED],
     )
+
     image_tag: str | None = Field(
         None,
-        examples=["w_2023_07"],
         title="Tag of image to spawn",
         description=(
             "Spawn the image with the given tag. Not used by the user form,"
@@ -167,17 +176,40 @@ class UserOptions(BaseModel):
             " `image_tag` may be given, and neither `image_list` nor"
             " `image_dropdown` should be set when using these options."
         ),
+        examples=["w_2023_07"],
     )
-    size: LabSize = Field(..., examples=[LabSize.MEDIUM], title="Image size")
+
+    size: LabSize = Field(
+        ...,
+        title="Image size",
+        description=(
+            "Size of image, chosen from sizes specified in the controller"
+            " configuration"
+        ),
+        examples=[LabSize.MEDIUM],
+    )
+
     enable_debug: bool = Field(
         False,
-        examples=[True],
         title="Enable debugging in spawned Lab",
+        description=(
+            "If true, set the `DEBUG` environment variable when spawning the"
+            " lab, which enables additional debug logging"
+        ),
+        examples=[True],
     )
+
     reset_user_env: bool = Field(
         False,
+        title="Move aside user environment",
+        description=(
+            "If true, set the `RESET_USER_ENV` environment variable when"
+            " spawning the lab, which tells the lab to move aside the user"
+            " environment directories (`.cache`, `.jupyter`, `.local`). This"
+            " can be used to recover from user configuration errors that"
+            " break lab startup."
+        ),
         examples=[True],
-        title="Relocate user environment (`.cache`, `.jupyter`, `.local`)",
     )
 
     @property
@@ -284,32 +316,34 @@ class UserOptions(BaseModel):
 
 
 class LabSpecification(BaseModel):
-    """Specification of lab to spawn, sent by the JupyterHub spawner."""
+    """Specification of lab to spawn, sent by the JupyterHub spawner.
+
+    This model is used for the POST body of the
+    :samp:`/spawner/v1/labs/{username}/create` route.
+    """
 
     options: UserOptions = Field(
         ...,
         title="User-chosen lab options",
         description="Represents the choices made on the spawner form",
     )
+
     env: dict[str, str] = Field(
         ...,
         title="Environment variables",
         description=(
-            "Environment variables from JupyterHub. JUPYTERHUB_SERVICE_PREFIX"
-            " must be set"
+            "Environment variables from JupyterHub. The variable"
+            " `JUPYTERHUB_SERVICE_PREFIX` must be set."
         ),
     )
 
     @field_validator("env")
     @classmethod
     def _validate_env(cls, v: dict[str, str]) -> dict[str, str]:
+        """Ensure ``JUPYTERHUB_SERVICE_PREFIX`` is set."""
         if "JUPYTERHUB_SERVICE_PREFIX" not in v:
             raise ValueError("JUPYTERHUB_SERVICE_PREFIX must be set")
         return v
-
-
-"""GET /nublado/spawner/v1/labs/<username>"""
-"""GET /nublado/spawner/v1/user-status"""
 
 
 class UserInfo(BaseModel):
@@ -317,37 +351,59 @@ class UserInfo(BaseModel):
 
     username: str = Field(
         ...,
+        title="Username",
+        description="Username of the owner of this lab",
         examples=["ribbon"],
-        title="Username for Lab user",
         pattern=USERNAME_REGEX,
     )
+
     name: str | None = Field(
         None,
-        examples=["Ribbon"],
-        title="Human-friendly display name for user",
+        title="Display name for user",
         description=(
-            "May contain spaces, capital letters, and non-ASCII characters."
-            " Should be the user's preferred representation of their name to"
-            " other humans."
+            "Preferred human-readable name for the user. May contain spaces,"
+            " capital letters, and non-ASCII Unicode characters. Should be"
+            " the user's preferred representation of their name to other"
+            " humans."
         ),
+        examples=["Ribbon"],
     )
+
     uid: int = Field(
         ...,
+        title="Numeric UID",
+        description=(
+            "POSIX numeric UID for the user as a 32-bit unsigned integer"
+        ),
         examples=[1104],
-        title="Numeric UID for user (POSIX)",
-        description="32-bit unsigned integer",
     )
+
     gid: int = Field(
         ...,
+        title="Numeric GID of primary group",
+        description=(
+            "POSIX numeric GID for user's primary group as a 32-bit unsigned"
+            " integer"
+        ),
         examples=[1104],
-        title="Numeric GID for user's primary group (POSIX)",
-        description="32-bit unsigned integer",
     )
-    groups: list[UserGroup] = Field([], title="User's group memberships")
+
+    groups: list[UserGroup] = Field(
+        [],
+        title="User's group memberships",
+        description=(
+            "All POSIX group memberships of the user with associated GIDs,"
+            " used to set the user's supplemental groups"
+        ),
+    )
 
     @classmethod
     def from_gafaelfawr(cls, user: GafaelfawrUserInfo) -> Self:
         """Convert Gafaelfawr's user metadata model to this model.
+
+        Groups without GIDs will be ignored, since they cannot be used by the
+        lab spawner to set supplemental groups and cannot be referenced in the
+        lab :file:`/etc/group` file.
 
         Parameters
         ----------
@@ -373,27 +429,40 @@ class ResourceQuantity(BaseModel):
 
     cpu: float = Field(
         ...,
+        title="CPU",
+        description="Number of CPU cores",
         examples=[1.5],
-        title="Kubernetes CPU resource quantity",
-        description=(
-            "cf. "
-            "https://kubernetes.io/docs/tasks/"
-            "configure-pod-container/assign-cpu-resource/"
-        ),
     )
+
     memory: int = Field(
         ...,
+        title="Memory",
+        description="Amount of memory in bytes",
         examples=[1073741824],
-        title="Kubernetes memory resource in bytes",
     )
 
 
 class LabResources(BaseModel):
     """Resource requests and limits for a lab."""
 
-    limits: ResourceQuantity = Field(..., title="Maximum allowed resources")
+    limits: ResourceQuantity = Field(
+        ...,
+        title="Maximum allowed resources",
+        description=(
+            "If the user's pod exceeds this CPU limit, it will be throttled."
+            " If it exceeds this memory limit, it will usually be killed"
+            " with an out-of-memory error."
+        ),
+    )
+
     requests: ResourceQuantity = Field(
-        ..., title="Intially-requested resources"
+        ...,
+        title="Minimum requested resources",
+        description=(
+            "Guaranteed minimum resources available to the user's lab. If"
+            " these resources are not available, the cluster will autoscale"
+            " or the lab spawn will fail."
+        ),
     )
 
     def to_kubernetes(self) -> V1ResourceRequirements:
@@ -411,21 +480,58 @@ class LabResources(BaseModel):
 
 
 class UserLabState(LabSpecification):
-    """Current state of the user's lab."""
+    """Current state of the user's lab.
 
-    user: UserInfo = Field(..., title="User who owns the lab")
-    status: LabStatus = Field(
-        ..., examples=["running"], title="Status of user container"
+    This model is returned by the :samp:`/spawner/v1/labs/{username}` and
+    `/spawner/v1/user-status` routes.
+    """
+
+    user: UserInfo = Field(
+        ...,
+        title="Owner",
+        description="Metadata for the user who owns the lab",
     )
+
+    status: LabStatus = Field(
+        ...,
+        title="Status of user lab",
+        description=(
+            "Current status of the user's lab. This is primarily based on"
+            " the Kubernetes pod phase, but does not have a one-to-one"
+            " correspondence. Labs may be in `failed` state for a variety"
+            " of reasons regardless of the pod phase, and completed pods"
+            " are shown as `terminated`."
+        ),
+        examples=[LabStatus.RUNNING],
+    )
+
     pod: PodState = Field(..., examples=["present"], title="User pod state")
+
     internal_url: str | None = Field(
         None,
+        title="URL for user's lab",
+        description=(
+            "URL used by JupyterHub and its proxy to access the user's lab."
+            " This is a cluster-internal URL that will not be meaningful"
+            " outside of the cluster."
+        ),
         examples=["http://nublado-ribbon.nb-ribbon:8888"],
-        title="URL by which the Hub can access the user Pod",
     )
-    resources: LabResources = Field(..., title="Resource limits and requests")
+
+    resources: LabResources = Field(
+        ...,
+        title="Lab resource limits and requests",
+        description="Resource limits and requests for the lab pod",
+    )
+
     quota: ResourceQuantity | None = Field(
-        None, title="Quota for all user resources"
+        None,
+        title="Quota for all user resources",
+        description=(
+            "Namespace quota for the user. Unlike `resources`, these limits"
+            " are applied to the entire namespace, including worker pods"
+            " spawned by the user."
+        ),
     )
 
     @classmethod

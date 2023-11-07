@@ -31,9 +31,8 @@ from ..exceptions import (
 )
 from ..models.domain.docker import DockerReference
 from ..models.domain.gafaelfawr import GafaelfawrUser
-from ..models.domain.lab import LabObjectNames
+from ..models.domain.lab import Event, EventType, LabObjectNames
 from ..models.domain.rspimage import RSPImage
-from ..models.v1.event import Event, EventType
 from ..models.v1.lab import LabSpecification, LabStatus, PodState, UserLabState
 from ..storage.kubernetes.lab import LabStorage
 from ..storage.metadata import MetadataStorage
