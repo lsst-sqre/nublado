@@ -157,7 +157,9 @@ class NamespaceStorage:
                 "Error reading namespace", e, kind="Namespace", name=name
             ) from e
 
-    async def wait_for_deletion(self, name: str, timeout: timedelta) -> None:
+    async def wait_for_deletion(
+        self, name: str, timeout: timedelta = KUBERNETES_DELETE_TIMEOUT
+    ) -> None:
         """Wait for a namespace deletion to complete.
 
         Parameters
@@ -187,9 +189,10 @@ class NamespaceStorage:
             logger=self._logger,
         )
         try:
-            async for event in watcher.watch():
-                if event.action == WatchEventType.DELETED:
-                    return
+            async with asyncio.timeout(timeout.total_seconds()):
+                async for event in watcher.watch():
+                    if event.action == WatchEventType.DELETED:
+                        return
         except TimeoutError:
             # If the watch had to be restarted because the resource version
             # was too old and the object was deleted while the watch was

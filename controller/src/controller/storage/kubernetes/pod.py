@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from datetime import timedelta
 
@@ -40,7 +41,7 @@ class PodStorage(KubernetesObjectDeleter):
         )
 
     async def delete_after_completion(
-        self, name: str, namespace: str, *, timeout: timedelta | None = None
+        self, name: str, namespace: str, *, timeout: timedelta
     ) -> None:
         """Wait for a pod to complete and then delete it.
 
@@ -55,7 +56,7 @@ class PodStorage(KubernetesObjectDeleter):
         namespace
             Namespace of the pod.
         timeout
-            How long to wait for the pod to start and then stop.  This timeout
+            How long to wait for the pod to start and then stop. This timeout
             is not applied to the deletion.
 
         Raises
@@ -80,7 +81,7 @@ class PodStorage(KubernetesObjectDeleter):
         await self.delete(name, namespace)
 
     async def events_for_pod(
-        self, name: str, namespace: str
+        self, name: str, namespace: str, timeout: timedelta
     ) -> AsyncIterator[str]:
         """Iterate over Kubernetes events involving a pod.
 
@@ -93,6 +94,8 @@ class PodStorage(KubernetesObjectDeleter):
             Name of the pod.
         namespace
             Namespace in which the pod is located.
+        timeout
+            How long to watch events for.
 
         Yields
         ------
@@ -112,24 +115,25 @@ class PodStorage(KubernetesObjectDeleter):
             kind="Event",
             involved_object=name,
             namespace=namespace,
+            timeout=timeout,
             logger=logger,
         )
         try:
-            async for event in watcher.watch():
-                yield event.object.message
+            async with asyncio.timeout(timeout.total_seconds()):
+                async for event in watcher.watch():
+                    yield event.object.message
+        except TimeoutError:
+            pass
         finally:
             await watcher.close()
-
-        # This should be impossible; someone called stop on the watcher.
-        raise RuntimeError("Wait for pod events unexpectedly stopped")
 
     async def wait_for_phase(
         self,
         name: str,
         namespace: str,
+        timeout: timedelta,
         *,
         until_not: set[PodPhase],
-        timeout: timedelta | None = None,
     ) -> PodPhase | None:
         """Wait for a pod to exit a set of phases.
 
@@ -142,11 +146,11 @@ class PodStorage(KubernetesObjectDeleter):
             Name of the pod.
         namespace
             Namespace in which the pod is located.
+        timeout
+            Timeout to wait for the pod to enter another phase.
         until_not
             Wait until the pod is not in one of these phases (or was deleted,
             or the watch timed out).
-        timeout
-            Timeout to wait for the pod to enter another phase.
 
         Returns
         -------
@@ -157,6 +161,9 @@ class PodStorage(KubernetesObjectDeleter):
         ------
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if the pod does not leave the desired phases before the
+            timeout has expired.
         """
         logger = self._logger.bind(name=name, namespace=namespace)
         logger.debug(
@@ -190,13 +197,14 @@ class PodStorage(KubernetesObjectDeleter):
             logger=logger,
         )
         try:
-            async for event in watcher.watch():
-                if event.action == WatchEventType.DELETED:
-                    return None
-                phase = PodPhase(event.object.status.phase)
-                if phase not in until_not:
-                    logger.debug("Pod phase changed", status=phase.value)
-                    return phase
+            async with asyncio.timeout(timeout.total_seconds()):
+                async for event in watcher.watch():
+                    if event.action == WatchEventType.DELETED:
+                        return None
+                    phase = PodPhase(event.object.status.phase)
+                    if phase not in until_not:
+                        logger.debug("Pod phase changed", status=phase.value)
+                        return phase
         finally:
             await watcher.close()
 
@@ -233,6 +241,7 @@ class PodStorage(KubernetesObjectDeleter):
             object_type=V1Pod,
             kind="Pod",
             namespace=namespace,
+            timeout=None,
             logger=logger,
         )
         try:

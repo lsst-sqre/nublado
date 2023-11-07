@@ -111,7 +111,8 @@ class KubernetesWatcher(Generic[T]):
     resource_version
         Resource version at which to start the watch.
     timeout
-        Timeout for the watch.
+        Timeout for the watch. This may be `None`, in which case the watch
+        continues until cancelled or until the iterator is no longer called.
     logger
         Logger to use.
 
@@ -135,7 +136,7 @@ class KubernetesWatcher(Generic[T]):
         plural: str | None = None,
         involved_object: str | None = None,
         resource_version: str | None = None,
-        timeout: timedelta | None = None,
+        timeout: timedelta | None,
         logger: BoundLogger,
     ) -> None:
         self._method = method

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from datetime import timedelta
 from typing import Any
 
 from kubernetes_asyncio import client
@@ -199,7 +201,12 @@ class CustomStorage:
                 name=name,
             ) from e
 
-    async def wait_for_deletion(self, name: str, namespace: str) -> None:
+    async def wait_for_deletion(
+        self,
+        name: str,
+        namespace: str,
+        timeout: timedelta = KUBERNETES_DELETE_TIMEOUT,
+    ) -> None:
         """Wait for a custom object deletion to complete.
 
         Parameters
@@ -208,6 +215,8 @@ class CustomStorage:
             Name of the custom object.
         namespace
             Namespace of the custom object.
+        timeout
+            How long to wait for the object to be deleted.
 
         Raises
         ------
@@ -229,13 +238,14 @@ class CustomStorage:
             version=self._version,
             plural=self._plural,
             resource_version=obj["metadata"].get("resource_version"),
-            timeout=KUBERNETES_DELETE_TIMEOUT,
+            timeout=timeout,
             logger=self._logger,
         )
         try:
-            async for event in watcher.watch():
-                if event.action == WatchEventType.DELETED:
-                    return
+            async with asyncio.timeout(timeout.total_seconds()):
+                async for event in watcher.watch():
+                    if event.action == WatchEventType.DELETED:
+                        return
         except TimeoutError:
             # If the watch had to be restarted because the resource version
             # was too old and the object was deleted while the watch was
