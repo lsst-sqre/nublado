@@ -16,12 +16,17 @@ class FormSize:
     """Holds a representation of an image size for spawner forms."""
 
     name: str
+    """Human-readable name for this lab size."""
+
     cpu: str
+    """CPU limit."""
+
     memory: str
+    """Memory limit."""
 
     @property
     def description(self) -> str:
-        return f"{self.name} ({self.cpu} CPU, {self.memory } RAM)"
+        return f"{self.name} ({self.cpu} CPU, {self.memory} RAM)"
 
 
 @dataclass(frozen=True, slots=True)

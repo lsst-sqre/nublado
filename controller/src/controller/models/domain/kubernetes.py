@@ -32,6 +32,16 @@ class KubernetesModel(Protocol):
     metadata: V1ObjectMeta
 
 
+class PodPhase(str, Enum):
+    """One of the valid phases reported in the status section of a Pod."""
+
+    PENDING = "Pending"
+    RUNNING = "Running"
+    SUCCEEDED = "Succeeded"
+    FAILED = "Failed"
+    UNKNOWN = "Unknown"
+
+
 class PropagationPolicy(Enum):
     """Possible values for the ``propagationPolicy`` parameter to delete."""
 
@@ -111,16 +121,6 @@ class KubernetesNodeImage:
             if parsed_reference.digest is not None:
                 return parsed_reference.digest
         return None
-
-
-class PodPhase(str, Enum):
-    """One of the valid phases reported in the status section of a Pod."""
-
-    PENDING = "Pending"
-    RUNNING = "Running"
-    SUCCEEDED = "Succeeded"
-    FAILED = "Failed"
-    UNKNOWN = "Unknown"
 
 
 @dataclass
