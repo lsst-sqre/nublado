@@ -64,7 +64,6 @@ async def test_user_status(
         "env": lab.env,
         "internal_url": "http://lab.userlabs-rachel:8888/nb/user/rachel/",
         "options": lab.options.model_dump(),
-        "pod": "present",
         "quota": {
             "cpu": user.quota.notebook.cpu,
             "memory": int(user.quota.notebook.memory * 1024 * 1024 * 1024),
@@ -101,5 +100,4 @@ async def test_user_status(
     )
     assert r.status_code == 200
     expected["status"] = "failed"
-    expected["pod"] = "missing"
     assert r.json() == expected

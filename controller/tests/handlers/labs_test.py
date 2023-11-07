@@ -145,7 +145,6 @@ async def test_lab_start_stop(
             f"http://lab.userlabs-{user.username}:8888/nb/user/rachel/"
         ),
         "options": expected_options,
-        "pod": "present",
         "quota": {
             "cpu": user.quota.notebook.cpu,
             "memory": int(user.quota.notebook.memory * 1024 * 1024 * 1024),
@@ -194,7 +193,6 @@ async def test_lab_start_stop(
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
     expected["status"] = "failed"
-    expected["pod"] = "missing"
     assert r.json() == expected
 
     # Stop the lab.
