@@ -6,6 +6,7 @@ import asyncio
 
 import pytest
 from httpx import AsyncClient
+from safir.models import ErrorModel
 from safir.testing.kubernetes import MockKubernetesApi
 
 from controller.models.domain.gafaelfawr import GafaelfawrUser
@@ -194,8 +195,10 @@ async def test_timeout_no_pod_start(
     await delete_ingress_for_user(mock_kubernetes, username, namespace)
 
     # Check that the start call raised a timeout error as expected.
-    with pytest.raises(TimeoutError):
-        await task
+    r = await task
+    assert r.status_code == 500
+    error = ErrorModel.model_validate(r.json())
+    assert "File server creation timed out" in error.detail[0].msg
 
     # Check that the fileserver user map is still clear.
     r = await client.get("/nublado/fileserver/v1/users")
@@ -216,8 +219,10 @@ async def test_timeout_no_ingress(
 
     # Start a user fileserver. Expect a timeout, because no Ingress was
     # created.
-    with pytest.raises(TimeoutError):
-        r = await client.get("/files", headers=user.to_headers())
+    r = await client.get("/files", headers=user.to_headers())
+    assert r.status_code == 500
+    error = ErrorModel.model_validate(r.json())
+    assert "File server creation timed out" in error.detail[0].msg
 
     # Check that the fileserver user map is still clear.
     r = await client.get("/nublado/fileserver/v1/users")
@@ -248,7 +253,9 @@ async def test_timeout_no_ingress_ip(
     # Create an Ingress that doesn't have an IP address. Expect a timeout when
     # the Ingress did not get an IP address within the timeout.
     await create_ingress_for_user(mock_kubernetes, user.username, namespace)
+    r = await task
+    assert r.status_code == 500
+    error = ErrorModel.model_validate(r.json())
+    assert "File server creation timed out" in error.detail[0].msg
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == []
-    with pytest.raises(TimeoutError):
-        await task

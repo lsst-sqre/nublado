@@ -1,6 +1,6 @@
 """Rounte handlers for user file servers."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
@@ -10,6 +10,7 @@ from ..constants import FILESERVER_TEMPLATE
 from ..dependencies.config import configuration_dependency
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.user import user_dependency
+from ..exceptions import UnknownUserError
 from ..models.v1.lab import UserInfo
 from ..util import seconds_to_phrase
 
@@ -64,7 +65,21 @@ async def route_user(
     user: UserInfo = Depends(user_dependency),
 ) -> str:
     context.rebind_logger(user=user.username)
-    await context.fileserver_manager.create(user)
+    try:
+        await context.fileserver_manager.create(user)
+    except Exception as e:
+        # The exception was already reported to Slack at the service layer, so
+        # convert it to a standard error message instead of letting it
+        # propagate as an uncaught exception.
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=[
+                {
+                    "msg": f"Failed to create file server: {e!s}",
+                    "type": "file_server_create_failed",
+                }
+            ],
+        ) from e
     return FILESERVER_TEMPLATE.format(
         username=user.username,
         base_url=config.base_url,
@@ -97,4 +112,20 @@ async def remove_fileserver(
     context: RequestContext = Depends(context_dependency),
 ) -> None:
     context.rebind_logger(user=username)
-    await context.fileserver_manager.delete(username)
+    try:
+        await context.fileserver_manager.delete(username)
+    except UnknownUserError:
+        raise
+    except Exception as e:
+        # The exception was already reported to Slack at the service layer, so
+        # convert it to a standard error message instead of letting it
+        # propagate as an uncaught exception.
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=[
+                {
+                    "msg": f"Failed to delete file server: {e!s}",
+                    "type": "file_server_delete_failed",
+                }
+            ],
+        ) from e

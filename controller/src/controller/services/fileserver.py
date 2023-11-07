@@ -101,6 +101,9 @@ class FileserverManager:
         ------
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if the file server could not be created within its creation
+            timeout.
         """
         logger = self._logger.bind(user=user.username)
         self._logger.info("File server requested")
@@ -115,14 +118,14 @@ class FileserverManager:
             try:
                 async with asyncio.timeout(timeout.total_seconds()):
                     await self._create_file_server(user, timeout)
-            except TimeoutError:
+            except TimeoutError as e:
                 now = current_datetime(microseconds=True)
                 elapsed = (now - start).total_seconds()
                 msg = f"File server creation timed out after {elapsed}s"
                 logger.exception(msg)
                 logger.info("Cleaning up orphaned file server objects")
                 await self._delete_file_server(user.username)
-                raise
+                raise TimeoutError(msg) from e
             except Exception as e:
                 logger.exception("File server creation failed")
                 await self._maybe_post_slack_exception(e, user.username)
@@ -229,10 +232,19 @@ class FileserverManager:
         ------
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if deletion of the file server timed out.
         """
         name = self._builder.build_name(username)
+        start = current_datetime(microseconds=True)
         try:
             await self._storage.delete(name, self._config.namespace)
+        except TimeoutError as e:
+            now = current_datetime(microseconds=True)
+            elapsed = (now - start).total_seconds()
+            msg = f"File server deletion timed out after {elapsed}s"
+            self._logger.exception(msg, user=username)
+            raise TimeoutError(msg) from e
         except Exception as e:
             msg = "Error deleting file server"
             self._logger.exception(msg, user=username)
