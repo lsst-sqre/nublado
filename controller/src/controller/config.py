@@ -8,15 +8,20 @@ from enum import Enum
 from pathlib import Path
 from typing import Literal, Self
 
+import bitmath
 import yaml
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from safir.logging import LogLevel, Profile
 from safir.pydantic import CamelCaseModel, to_camel_case
 
-from .constants import DOCKER_SECRETS_PATH, METADATA_PATH
+from .constants import (
+    DOCKER_SECRETS_PATH,
+    LIMIT_TO_REQUEST_RATIO,
+    METADATA_PATH,
+)
 from .models.domain.kubernetes import PullPolicy
-from .models.v1.lab import LabResources, LabSize
+from .models.v1.lab import LabResources, LabSize, ResourceQuantity
 from .models.v1.prepuller_config import PrepullerConfig
 
 
@@ -105,6 +110,24 @@ class LabSizeDefinition(CamelCaseModel):
 
     def __str__(self) -> str:
         return f"{self.cpu} CPU, {self.memory} RAM"
+
+    @property
+    def memory_bytes(self) -> int:
+        """Amount of memory in bytes."""
+        memory = self.memory
+        if not memory.endswith("B"):
+            memory += "B"
+        return int(bitmath.parse_string(memory).bytes)
+
+    def to_lab_resources(self) -> LabResources:
+        """Convert to the equivalent lab resources model."""
+        return LabResources(
+            limits=ResourceQuantity(cpu=self.cpu, memory=self.memory_bytes),
+            requests=ResourceQuantity(
+                cpu=self.cpu / LIMIT_TO_REQUEST_RATIO,
+                memory=int(self.memory_bytes / LIMIT_TO_REQUEST_RATIO),
+            ),
+        )
 
 
 class UserHomeDirectorySchema(Enum):

@@ -332,8 +332,8 @@ class LabBuilder:
             env["RESET_USER_ENV"] = "TRUE"
 
         # Add standard environment variables.
-        resources = self._size_manager.resources(lab.options.size)
         size = self._config.sizes[lab.options.size]
+        resources = size.to_lab_resources()
         env.update(
             {
                 # We would like to deprecate this, following KubeSpawner, but
@@ -512,7 +512,7 @@ class LabBuilder:
         self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
     ) -> V1Pod:
         """Construct the user's lab pod."""
-        resources = self._size_manager.resources(lab.options.size)
+        resources = self._config.sizes[lab.options.size].to_lab_resources()
 
         # Construct the pull secrets.
         pull_secrets = None

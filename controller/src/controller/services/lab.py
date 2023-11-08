@@ -38,7 +38,6 @@ from ..storage.kubernetes.lab import LabStorage
 from ..storage.metadata import MetadataStorage
 from .builder.lab import LabBuilder
 from .image import ImageService
-from .size import SizeManager
 
 __all__ = ["LabManager"]
 
@@ -136,8 +135,6 @@ class LabManager:
         Configuration for user labs.
     lab_builder
         Builder for Kubernetes lab objects.
-    size_manager
-        Translates requested lab sizes into resource requests and limits.
     image_service
         Tracks all available images and resolves the parameters of a request
         for a new lab to a specific Docker image.
@@ -156,7 +153,6 @@ class LabManager:
         *,
         config: LabConfig,
         lab_builder: LabBuilder,
-        size_manager: SizeManager,
         image_service: ImageService,
         metadata_storage: MetadataStorage,
         lab_storage: LabStorage,
@@ -165,7 +161,6 @@ class LabManager:
     ) -> None:
         self._config = config
         self._builder = lab_builder
-        self._size_manager = size_manager
         self._image_service = image_service
         self._metadata = metadata_storage
         self._storage = lab_storage
@@ -272,7 +267,7 @@ class LabManager:
         # OperationConflictError. This ordering ensures that only the
         # successful call is able to update the user's lab state.
         lab.events.clear()
-        resources = self._size_manager.resources(spec.options.size)
+        resources = self._config.sizes[spec.options.size].to_lab_resources()
         state = UserLabState.from_request(user, spec, resources)
         spawner = self._spawn_lab(
             user=user,

@@ -65,8 +65,7 @@ async def create_lab(
     assert user.quota
     assert user.quota.notebook
     lab = read_input_lab_specification_json("base", "lab-specification.json")
-    size_manager = factory.create_size_manager()
-    resources = size_manager.resources(lab.options.size)
+    resources = config.lab.sizes[lab.options.size].to_lab_resources()
     await factory.image_service.refresh()
     assert lab.options.image_list
     reference = DockerReference.from_str(lab.options.image_list)
