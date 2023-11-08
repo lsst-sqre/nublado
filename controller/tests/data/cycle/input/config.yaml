@@ -1,6 +1,5 @@
-safir:
-  profile: development
-  logLevel: DEBUG
+logLevel: DEBUG
+profile: development
 lab:
   sizes:
     small:

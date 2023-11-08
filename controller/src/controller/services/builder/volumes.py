@@ -11,7 +11,6 @@ from kubernetes_asyncio.client import (
 )
 
 from ...config import (
-    FileMode,
     HostPathVolumeSource,
     LabVolume,
     NFSVolumeSource,
@@ -79,7 +78,6 @@ class VolumeBuilder:
         results = []
         pvc_count = 1
         for spec in volumes:
-            is_readonly = spec.mode == FileMode.RO
             name = self._build_volume_name(spec)
             match spec.source:
                 case HostPathVolumeSource() as source:
@@ -90,14 +88,14 @@ class VolumeBuilder:
                         name=name,
                         nfs=V1NFSVolumeSource(
                             path=source.server_path,
-                            read_only=is_readonly,
+                            read_only=spec.read_only,
                             server=source.server,
                         ),
                     )
                 case PVCVolumeSource():
                     claim = V1PersistentVolumeClaimVolumeSource(
                         claim_name=f"{username}-nb-pvc-{pvc_count}",
-                        read_only=is_readonly,
+                        read_only=spec.read_only,
                     )
                     volume = V1Volume(name=name, persistent_volume_claim=claim)
                     pvc_count += 1
@@ -126,7 +124,7 @@ class VolumeBuilder:
                 name=self._build_volume_name(v),
                 mount_path=prefix + v.container_path,
                 sub_path=v.sub_path,
-                read_only=v.mode == FileMode.RO,
+                read_only=v.read_only,
             )
             for v in volumes
         ]

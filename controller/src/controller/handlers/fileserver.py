@@ -9,7 +9,7 @@ from ..config import Config
 from ..dependencies.config import config_dependency
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.user import user_dependency
-from ..exceptions import UnknownUserError
+from ..exceptions import NotConfiguredError, UnknownUserError
 from ..models.v1.lab import UserInfo
 from ..templates import templates
 
@@ -64,6 +64,8 @@ async def route_user(
     user: UserInfo = Depends(user_dependency),
 ) -> Response:
     context.rebind_logger(user=user.username)
+    if not config.fileserver.enabled:
+        raise NotConfiguredError("Fileserver is disabled in configuration")
 
     # Spawn the file server if necessary.
     try:

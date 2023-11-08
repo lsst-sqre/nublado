@@ -1,6 +1,5 @@
-safir:
-  profile: development
-  logLevel: DEBUG
+logLevel: DEBUG
+profile: development
 lab:
   spawnTimeout: 10
   extraAnnotations:
@@ -20,7 +19,6 @@ lab:
       memory: 3Gi
   volumes:
     - containerPath: /home
-      mode: rw
       source:
         type: nfs
         server: 10.13.105.122

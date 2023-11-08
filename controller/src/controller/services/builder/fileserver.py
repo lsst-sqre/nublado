@@ -24,7 +24,7 @@ from kubernetes_asyncio.client import (
 )
 from structlog.stdlib import BoundLogger
 
-from ...config import FileserverConfig, LabVolume
+from ...config import EnabledFileserverConfig, LabVolume
 from ...constants import ARGO_CD_ANNOTATIONS
 from ...models.domain.fileserver import (
     FileserverObjects,
@@ -53,7 +53,7 @@ class FileserverBuilder:
     def __init__(
         self,
         *,
-        config: FileserverConfig,
+        config: EnabledFileserverConfig,
         base_url: str,
         volumes: list[LabVolume],
         logger: BoundLogger,
@@ -226,8 +226,8 @@ class FileserverBuilder:
                 V1EnvVar(name="WORBLEHAT_TIMEOUT", value=timeout),
                 V1EnvVar(name="WORBLEHAT_DIR", value="/mnt"),
             ],
-            image=f"{self._config.image}:{self._config.tag}",
-            image_pull_policy=self._config.pull_policy.value,
+            image=f"{self._config.image.repository}:{self._config.image.tag}",
+            image_pull_policy=self._config.image.pull_policy.value,
             ports=[V1ContainerPort(container_port=8000, name="http")],
             resources=resources.to_kubernetes() if resources else None,
             security_context=V1SecurityContext(

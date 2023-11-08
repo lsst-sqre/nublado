@@ -1,6 +1,5 @@
-safir:
-  profile: development
-  logLevel: DEBUG
+logLevel: DEBUG
+profile: development
 lab:
   # The prefix and suffix have extra slashes to test the validator. Normal
   # configurations should not have trailing slashes in the prefix and should
@@ -23,7 +22,6 @@ lab:
       memory: 3Gi
   volumes:
     - containerPath: /u/home
-      mode: rw
       source:
         type: nfs
         server: 10.13.105.122

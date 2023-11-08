@@ -10,7 +10,7 @@ from typing import Literal, Self
 
 import bitmath
 import yaml
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from safir.logging import LogLevel, Profile
 from safir.pydantic import CamelCaseModel, to_camel_case
@@ -20,9 +20,29 @@ from .constants import (
     LIMIT_TO_REQUEST_RATIO,
     METADATA_PATH,
 )
-from .models.domain.kubernetes import PullPolicy
+from .models.domain.kubernetes import PullPolicy, VolumeAccessMode
 from .models.v1.lab import LabResources, LabSize, ResourceQuantity
 from .models.v1.prepuller_config import PrepullerConfig
+
+__all__ = [
+    "BaseVolumeSource",
+    "Config",
+    "ContainerImage",
+    "DisabledFileserverConfig",
+    "EnabledFileserverConfig",
+    "FileserverConfig",
+    "HostPathVolumeSource",
+    "LabConfig",
+    "LabFile",
+    "LabInitContainer",
+    "LabSecret",
+    "LabSizeDefinition",
+    "LabVolume",
+    "NFSVolumeSource",
+    "PVCVolumeResources",
+    "PVCVolumeSource",
+    "UserHomeDirectorySchema",
+]
 
 
 def _get_namespace_prefix() -> str:
@@ -47,51 +67,47 @@ def _get_namespace_prefix() -> str:
         return "userlabs"
 
 
-#
-# Safir
-#
+class ContainerImage(CamelCaseModel):
+    """Docker image that may be run as a container.
 
+    The structure of this model should follow the normal Helm chart
+    conventions so that `Mend Renovate`_ can detect that this is a Docker
+    image reference and create pull requests to update it automatically.
+    """
 
-class SafirConfig(CamelCaseModel):
-    """Config common to most Safir-based applications."""
-
-    name: str = Field(
-        "Nublado",
-        title="Name of application",
-        validation_alias="SAFIR_NAME",
+    repository: str = Field(
+        ...,
+        title="Repository",
+        description="Docker repository from which to pull the image",
+        examples=["docker.io/lsstit/ddsnet4u"],
     )
 
-    path_prefix: str = Field(
-        "/nublado",
-        title="URL prefix for application API",
-        validation_alias="SAFIR_PATH_PREFIX",
+    pull_policy: PullPolicy = Field(
+        PullPolicy.IF_NOT_PRESENT,
+        title="Pull policy",
+        description=(
+            "Kubernetes image pull policy. Set to `Always` when testing"
+            " images that reuse the same tag."
+        ),
+        examples=[PullPolicy.ALWAYS],
     )
 
-    profile: Profile = Field(
-        Profile.production,
-        title="Application logging profile",
-        validation_alias="SAFIR_PROFILE",
+    tag: str = Field(
+        ...,
+        title="Image tag",
+        description="Tag of image to use (conventionally the version)",
+        examples=["1.4.2"],
     )
-
-    log_level: LogLevel = Field(
-        LogLevel.INFO,
-        examples=[LogLevel.INFO],
-        title="Application log level",
-    )
-
-
-#
-# Lab
-#
 
 
 class LabSizeDefinition(CamelCaseModel):
-    """Defines a size of lab.
+    """Possible size of lab.
 
     This will be used as the resource limits in Kubernetes, meaning that using
     more than this amount of CPU will result in throttling and more than this
     amount of memory may result in the lab being killed with an out-of-memory
-    error.
+    error. Requests will be less than this, adjusted by
+    ``LIMIT_TO_REQUEST_RATIO``.
     """
 
     cpu: float = Field(
@@ -131,17 +147,13 @@ class LabSizeDefinition(CamelCaseModel):
 
 
 class UserHomeDirectorySchema(Enum):
-    """Possible ways a homedir may be constructed."""
+    """Algorithm for building a user's home directory path."""
 
-    USERNAME = "username"  # /home/rachel
-    INITIAL_THEN_USERNAME = "initialThenUsername"  # /home/r/rachel
+    USERNAME = "username"
+    """Paths like ``/home/rachel``."""
 
-
-class FileMode(Enum):
-    """Possible read/write modes with which a file may be mounted."""
-
-    RW = "rw"
-    RO = "ro"
+    INITIAL_THEN_USERNAME = "initialThenUsername"
+    """Paths like ``/home/r/rachel``."""
 
 
 class BaseVolumeSource(CamelCaseModel):
@@ -155,40 +167,38 @@ class BaseVolumeSource(CamelCaseModel):
 
 
 class HostPathVolumeSource(BaseVolumeSource):
-    """A hostPath volume to be mounted in the container."""
+    """Path on Kubernetes node to mount in the container."""
 
     type: Literal["hostPath"] = Field(..., title="Type of volume to mount")
+
     path: str = Field(
         ...,
-        title="Absolute host path to mount in the container",
+        title="Host path",
+        description="Absolute host path to mount in the container",
         examples=["/home"],
         pattern="^/.*",
     )
 
 
 class NFSVolumeSource(BaseVolumeSource):
-    """An NFS volume to be mounted in the container."""
+    """NFS volume to mount in the container."""
 
     type: Literal["nfs"] = Field(..., title="Type of volume to mount")
+
     server: str = Field(
         ...,
-        title="Name or address of the server providing the volume",
+        title="NFS server",
+        description="Name or IP address of the server providing the volume",
         examples=["10.13.105.122"],
     )
+
     server_path: str = Field(
         ...,
-        title="Absolute path where the volume is exported from the NFS server",
+        title="Export path",
+        description="Absolute path of NFS server export of the volume",
         examples=["/share1/home"],
         pattern="^/.*",
     )
-
-
-class VolumeAccessMode(str, Enum):
-    """Access mode for a persistent volume."""
-
-    ReadWriteOnce = "ReadWriteOnce"
-    ReadOnlyMany = "ReadOnlyMany"
-    ReadWriteMany = "ReadWriteMany"
 
 
 class PVCVolumeResources(CamelCaseModel):
@@ -203,103 +213,134 @@ class PVCVolumeSource(BaseVolumeSource):
     type: Literal["persistentVolumeClaim"] = Field(
         ..., title="Type of volume to mount"
     )
+
     access_modes: list[VolumeAccessMode] = Field(..., title="Access mode")
+
     storage_class_name: str = Field(..., title="Storage class")
+
     resources: PVCVolumeResources = Field(..., title="Resources for volume")
 
 
 class LabVolume(CamelCaseModel):
-    """Defines a volume to mount inside a lab container."""
+    """A volume to mount inside a lab container."""
 
     container_path: str = Field(
         ...,
+        title="Path inside container",
+        description=(
+            "Absolute path at which to mount the volume in the lab container"
+        ),
         examples=["/home"],
-        title="Absolute path of the volume mounted inside the Lab container",
         pattern="^/.*",
     )
+
     sub_path: str | None = Field(
         None,
+        title="Sub-path of source to mount",
+        description="Mount only this sub-path of the volume source",
         examples=["groups"],
-        title="Mount only this subpath of the volume source",
     )
-    mode: FileMode = Field(
-        FileMode.RW,
-        examples=["ro"],
-        title="File permissions when mounted",
-        description="`rw` is read/write and `ro` is read-only",
+
+    read_only: bool = Field(
+        False,
+        title="Is read-only",
+        description=(
+            "Whether the volume should be mounted read-only in the container"
+        ),
+        examples=[True],
     )
+
     source: HostPathVolumeSource | NFSVolumeSource | PVCVolumeSource = Field(
         ..., title="Source of volume"
     )
 
 
 class LabInitContainer(CamelCaseModel):
-    """Defines a volume to mount inside a lab init container."""
+    """A container to run as an init container before the user's lab."""
 
     name: str = Field(
         ...,
+        title="Name of container",
+        description=(
+            "Name of the init container run before the user lab starts. Must"
+            " be unique across all init containers."
+        ),
         examples=["multus-init"],
-        title="Name of an initContainer run before the user Lab starts",
     )
-    image: str = Field(
-        ...,
-        examples=["docker.io/lsstit/ddsnet4u:latest"],
-        title="Docker registry path to initContainer image",
-    )
+
+    image: ContainerImage = Field(..., title="Image to run")
+
     privileged: bool = Field(
         False,
-        examples=[False],
-        title="Whether the initContainer needs privilege to do its job",
+        title="Run container privileged",
         description=(
-            "For example, permission to configure networking or "
-            "provision filesystems"
+            "Whether the init container needs to run privileged to do its job."
+            " Set to true if, for example, it has to configure networking or"
+            " change ownership of files or directories."
         ),
+        examples=[False],
     )
+
     volumes: list[LabVolume] = Field(
         [],
-        title="Volumes mounted by this initContainer",
+        title="Volumes to mount",
+        description="Volumes mounted inside this init container",
     )
 
 
 class LabSecret(CamelCaseModel):
-    """Defines a secret to make available to lab containers."""
+    """A secret to make available to lab containers."""
 
     secret_name: str = Field(
         ...,
         title="Source secret name",
         description=(
-            "Must name a secret in the same namespace as the lab controller"
-            " pod."
+            "Must name a `Secret` resource in the same namespace as the"
+            " Nublado controller pod"
         ),
         examples=["credentials"],
     )
+
     secret_key: str = Field(
         ...,
-        title="Key of source secret within `secret_name`",
+        title="Key of secret",
         description=(
-            "Each secret key must be unique across all secrets in the list"
-            " of source secrets, since it is also used as the key for the"
-            " entry in the secret created in the user's lab environment."
+            "Name of field inside the `Secret` named `secretName` containing"
+            " the secret. Each secret key must be unique across all secrets"
+            " in the list of source secrets, since it is also used as the key"
+            " for the entry in the secret created in the user's lab"
+            " environment."
         ),
         examples=["butler-credentials"],
     )
+
     env: str | None = Field(
         None,
-        title="Environment variable to set to secret value",
+        title="Environment variable to set",
+        description=(
+            "If set, also inject the value of this secret into the lab"
+            " environment variable of this name"
+        ),
         examples=["BUTLER_CREDENTIALS"],
     )
+
     path: str | None = Field(
         None,
-        title="Path inside lab at which to mount secret",
+        title="Path at which to mount secret",
+        description=(
+            "If set, also mount the secret at this path inside the lab"
+            " container"
+        ),
         examples=["/opt/lsst/software/jupyterlab/butler-secret"],
     )
 
 
 class LabFile(CamelCaseModel):
-    """Defines a file to mount inside a lab container."""
+    """A file to create inside lab containers."""
 
     contents: str = Field(
         ...,
+        title="Contents of file",
         examples=[
             (
                 "root:x:0:0:root:/root:/bin/bash\n"
@@ -307,48 +348,55 @@ class LabFile(CamelCaseModel):
                 "...",
             )
         ],
-        title="Contents of file",
     )
+
     modify: bool = Field(
         False,
-        examples=[False],
         title="Whether to modify this file before injection",
+        examples=[False],
     )
 
 
 class LabConfig(CamelCaseModel):
     """Configuration for spawning user labs."""
 
-    spawn_timeout: timedelta = Field(
-        timedelta(minutes=10), title="Timeout for lab spawning"
-    )
-    sizes: dict[LabSize, LabSizeDefinition] = Field(
-        {}, title="Lab sizes users may choose from"
-    )
-    env: dict[str, str] = Field(
-        {}, title="Environment variables to set in user lab"
-    )
-    secrets: list[LabSecret] = Field(
-        [], title="Secrets to make available inside lab"
-    )
-    files: dict[str, LabFile] = Field({}, title="Files to mount inside lab")
-    volumes: list[LabVolume] = Field([], title="Volumes to mount inside lab")
-    init_containers: list[LabInitContainer] = Field(
-        [], title="Initialization containers to run before user's lab starts"
-    )
-    pull_secret: str | None = Field(
+    application: str | None = Field(
         None,
-        title="Pull secret to use for lab pods",
+        title="Argo CD application",
         description=(
-            "If set, must be the name of a secret in the same namespace as"
-            " the lab controller. This secret is copied to the user's lab"
-            " namespace and referenced as a pull secret in the pod object."
+            "An Argo CD application under which lab objects should be shown"
         ),
     )
-    namespace_prefix: str = Field(
-        default_factory=_get_namespace_prefix,
-        title="Namespace prefix for lab environments",
+
+    env: dict[str, str] = Field(
+        {},
+        title="Additional lab environment variables",
+        description=(
+            "Additional environment variables to set in all spawned user"
+            " labs. These override any environment variables set by"
+            " JupyterHub."
+        ),
     )
+
+    extra_annotations: dict[str, str] = Field(
+        {},
+        title="Extra annotations for lab pod",
+        description=(
+            "These annotations will be added to the Kubernetes `Pod` resource"
+            " in addition to annotations used by Nublado itself to track"
+            " metadata about the pod"
+        ),
+    )
+
+    files: dict[str, LabFile] = Field(
+        {},
+        title="Files to create inside the lab",
+        description=(
+            "The key is the path inside the lab at which to mount the file,"
+            " and the value describes the contents of the file."
+        ),
+    )
+
     homedir_prefix: str = Field(
         "/home",
         title="Prefix for home directory path",
@@ -360,27 +408,94 @@ class LabConfig(CamelCaseModel):
             " this is to make paths inside the container match a pattern that"
             " users are familiar with outside of Nublado."
         ),
+        examples=["/home", "/u"],
     )
+
     homedir_schema: UserHomeDirectorySchema = Field(
         UserHomeDirectorySchema.USERNAME,
         title="Schema for user homedir construction",
+        description=(
+            "Determines how the username portion of the home directory path"
+            " is constructed."
+        ),
     )
+
     homedir_suffix: str = Field(
         "",
         title="Suffix for home directory path",
-        description="Portion of home directory path added after the username",
-    )
-    extra_annotations: dict[str, str] = Field(
-        {},
-        title="Extra annotations for lab pod",
-    )
-    application: str | None = Field(
-        None,
-        title="Argo CD application",
         description=(
-            "An Argo CD application under which lab objects should be shown"
+            "Portion of home directory path added after the username. This"
+            " is primarily used for environments that want the user's"
+            " Nublado home directory to be a subdirectory of their regular"
+            " home directory outside of Nublado. This configuration is"
+            " strongly recommended in environments that change home"
+            " directories, since Nublado often has different needs for"
+            " dot files and other configuration."
+        ),
+        examples=["nublado", "jhome"],
+    )
+
+    init_containers: list[LabInitContainer] = Field(
+        [],
+        title="Lab init containers",
+        description=(
+            "Kubernetes init containers to run before user's lab starts. Use"
+            " these containers to do any required setup, particularly any"
+            " actions that require privileges, since init containers can be"
+            " run as privileged and the lab container is always run as the"
+            " user."
         ),
     )
+
+    namespace_prefix: str = Field(
+        default_factory=_get_namespace_prefix,
+        title="Namespace prefix for lab environments",
+        description=(
+            "The namespace for the user's lab will start with this string,"
+            " a hyphen (`-`), and the user's username."
+        ),
+    )
+
+    pull_secret: str | None = Field(
+        None,
+        title="Pull secret to use for lab pods",
+        description=(
+            "If set, must be the name of a secret in the same namespace as"
+            " the lab controller. This secret is copied to the user's lab"
+            " namespace and referenced as a pull secret in the pod object."
+        ),
+    )
+
+    secrets: list[LabSecret] = Field(
+        [],
+        title="Lab secrets",
+        description="Secrets to make available inside lab",
+    )
+
+    sizes: dict[LabSize, LabSizeDefinition] = Field(
+        {},
+        title="Possible lab sizes",
+        description=(
+            "Only these sizes will be present in the menu, in the order in"
+            " which they're defined in the configuration file. The first"
+            " size defined will be the default."
+        ),
+    )
+
+    spawn_timeout: timedelta = Field(
+        timedelta(minutes=10),
+        title="Timeout for lab spawning",
+        description=(
+            "Creation of the lab will fail if it takes longer than this for"
+            " the lab pod to be created and start running. This does not"
+            " include the time spent by JupyterHub waiting for the lab to"
+            " start listening to the network. It should generally be shorter"
+            " than the spawn timeout set in JupyterHub."
+        ),
+        examples=[300],
+    )
+
+    volumes: list[LabVolume] = Field([], title="Volumes to mount inside lab")
 
     @field_validator("homedir_prefix")
     @classmethod
@@ -410,19 +525,13 @@ class LabConfig(CamelCaseModel):
         return v
 
 
-#
-# Prepuller
-#
-
-# See models.v1.prepuller_config
-
-#
-# Fileserver
-#
-
-
 class FileserverConfig(CamelCaseModel):
-    """Configuration for user file servers."""
+    """Base configuration for user file servers.
+
+    This base model contains only the boolean setting for whether the file
+    server is enabled, allowing code to determine whether the configuration
+    object is actually `FileserverConfigEnabled`.
+    """
 
     enabled: bool = Field(
         False,
@@ -433,44 +542,27 @@ class FileserverConfig(CamelCaseModel):
         ),
     )
 
-    namespace: str = Field(
-        "",
-        title="Namespace for user fileservers",
-    )
-    image: str = Field(
-        "",
-        examples=["docker.io/lsstsqre/worblehat"],
-        title="Docker registry path to fileserver image",
-    )
-    tag: str = Field(
-        "latest", examples=["0.1.0"], title="Tag of fileserver image to use"
-    )
-    pull_policy: PullPolicy = Field(
-        PullPolicy.IFNOTPRESENT,
-        examples=["Always"],
-        title="Pull policy for the fileserver image",
-    )
-    idle_timeout: timedelta = Field(
-        timedelta(hours=1),
-        title="File server inactivity timeout",
-        description=(
-            "After this length of time, inactive file servers will shut down"
-        ),
-    )
     path_prefix: str = Field(
-        "", title="Fileserver prefix path, to which '/files' is appended"
-    )
-    resources: LabResources | None = Field(
-        None, title="Resource requests and limits"
-    )
-    creation_timeout: timedelta = Field(
-        timedelta(minutes=2),
-        title="File server creation timeout",
+        "",
+        title="Path prefix for file server route",
         description=(
-            "How long to wait for a file server to start before returning an"
-            " error to the user"
+            "If set, this will be added to the front of `/files` to form the"
+            " route at which users spawn new user file servers"
         ),
     )
+
+
+class DisabledFileserverConfig(FileserverConfig):
+    """Configuration when user file servers are disabled."""
+
+    enabled: Literal[False] = False
+
+
+class EnabledFileserverConfig(FileserverConfig):
+    """Configuration for enabled user file servers."""
+
+    enabled: Literal[True]
+
     application: str | None = Field(
         None,
         title="Argo CD application",
@@ -479,57 +571,136 @@ class FileserverConfig(CamelCaseModel):
         ),
     )
 
-    # Only care if our fields are filled out if the fileserver is enabled.
-    # Doing it this way saves a lot of assertions about when values
-    # are not None down the line.
-    @model_validator(mode="after")
-    def validate_namespace(self) -> Self:
-        if self.enabled:
-            if not self.namespace:
-                raise ValueError("namespace must be specified")
-            if not self.image:
-                raise ValueError("image must be specified")
-        return self
+    creation_timeout: timedelta = Field(
+        timedelta(minutes=2),
+        title="File server creation timeout",
+        description=(
+            "How long to wait for a file server to start before returning an"
+            " error to the user"
+        ),
+    )
 
+    idle_timeout: timedelta = Field(
+        timedelta(hours=1),
+        title="File server inactivity timeout",
+        description=(
+            "After this length of time, inactive file servers will shut down"
+        ),
+    )
 
-#
-# Config
-#
+    image: ContainerImage = Field(
+        ...,
+        title="File server Docker image",
+        description=(
+            "Docker image to run as a user file server. This must follow the"
+            " same API as worblehat."
+        ),
+    )
+
+    namespace: str = Field(
+        ...,
+        title="Namespace for user fileservers",
+        description=(
+            "All file servers for any user will be created in this namespace"
+        ),
+    )
+
+    resources: LabResources | None = Field(
+        None,
+        title="Resource requests and limits",
+        description=(
+            "Kubernetes resource requests and limits for uesr file server"
+            " pods"
+        ),
+    )
 
 
 class Config(BaseSettings):
     """Nublado controller configuration."""
 
-    safir: SafirConfig
-    lab: LabConfig
-    fileserver: FileserverConfig = Field(
-        FileserverConfig(), title="Fileserver configuration"
-    )
-    images: PrepullerConfig = Field(..., title="Prepuller configuration")
     base_url: str = Field(
         "http://127.0.0.1:8080",
         title="Base URL for Science Platform",
-        validation_alias="EXTERNAL_INSTANCE_URL",
         description="Injected into the lab pod as EXTERNAL_INSTANCE_URL",
+        validation_alias="EXTERNAL_INSTANCE_URL",
     )
-    docker_secrets_path: Path = Field(
-        DOCKER_SECRETS_PATH, title="Path to Docker API credentials"
+
+    log_level: LogLevel = Field(
+        LogLevel.INFO,
+        title="Log level",
+        description="Python logging level",
+        examples=[LogLevel.INFO],
     )
+
     metadata_path: Path = Field(
         METADATA_PATH,
         title="Path to injected pod metadata",
         description=(
-            "This directory should contain files named `name` and `uid`, which"
-            " should contain the name and UUID of the lab controller pod,"
-            " respectively. (Normally this is done via the Kubernetes"
-            " `downwardAPI`.) These are used to set ownership information on"
-            " pods spawned by the prepuller."
+            "This directory should contain files named `name`, `namespace`,"
+            " and `uid`, which should contain the name, namespace, and UUID"
+            " of the lab controller pod, respectively. Normally this is done"
+            " via the Kubernetes `downwardAPI`.) These are used to set"
+            " ownership information on pods spawned by the prepuller and to"
+            " find secrets to inject into the lab."
         ),
     )
+
+    name: str = Field(
+        "Nublado",
+        title="Name of application",
+        description="Used when reporting problems to Slack",
+    )
+
+    path_prefix: str = Field(
+        "/nublado",
+        title="URL prefix for controller API",
+        description=(
+            "This prefix is used for all APIs except for the API to spawn a"
+            " user file server. That is controlled by"
+            " `fileserver.path_prefix`."
+        ),
+    )
+
+    profile: Profile = Field(
+        Profile.production,
+        title="Application logging profile",
+        description=(
+            "`production` uses JSON logging. `development` uses logging that"
+            " may be easier for humans to read but that cannot be easily"
+            " parsed by computers or Google Log Explorer."
+        ),
+        examples=[Profile.development],
+    )
+
     slack_webhook: str | None = Field(
         None,
-        title="Slack webhook to which to post alerts",
+        title="Slack webhook for alerts",
+        description=(
+            "If set, failures creating user labs or file servers and any"
+            " uncaught exceptions in the Nublado controller will be reported"
+            " to Slack via this webhook"
+        ),
         validation_alias="NUBLADO_SLACK_WEBHOOK",
+    )
+
+    fileserver: DisabledFileserverConfig | EnabledFileserverConfig = Field(
+        DisabledFileserverConfig(), title="User file server configuration"
+    )
+
+    images: PrepullerConfig = Field(
+        ...,
+        title="Available lab images",
+        description=(
+            "Configuration for which images to prepull and which images to"
+            " display in the spawner menu for users to choose from when"
+            " spawning labs"
+        ),
+    )
+
+    lab: LabConfig = Field(..., title="User lab configuration")
+
+    docker_secrets_path: Path = Field(
+        DOCKER_SECRETS_PATH, title="Path to Docker API credentials"
     )
 
     # CamelCaseModel conflicts with BaseSettings, so do this manually.

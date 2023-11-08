@@ -28,6 +28,7 @@ async def test_fileserver(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("fileserver", mock_kubernetes)
+    assert config.fileserver.enabled
     username = user.username
     namespace = config.fileserver.namespace
 
@@ -70,6 +71,7 @@ async def test_cleanup_on_pod_exit(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("fileserver", mock_kubernetes)
+    assert config.fileserver.enabled
     username = user.username
     namespace = config.fileserver.namespace
 
@@ -124,6 +126,7 @@ async def test_wait_for_ingress(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("fileserver", mock_kubernetes)
+    assert config.fileserver.enabled
     username = user.username
     namespace = config.fileserver.namespace
 
@@ -170,6 +173,7 @@ async def test_timeout_no_pod_start(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("fileserver", mock_kubernetes)
+    assert config.fileserver.enabled
     username = user.username
     namespace = config.fileserver.namespace
 
@@ -236,6 +240,7 @@ async def test_timeout_no_ingress_ip(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("fileserver", mock_kubernetes)
+    assert config.fileserver.enabled
     namespace = config.fileserver.namespace
 
     # Confirm there are no fileservers running at the start of the test.
