@@ -7,7 +7,7 @@ from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..config import Config
 from ..constants import FILESERVER_TEMPLATE
-from ..dependencies.config import configuration_dependency
+from ..dependencies.config import config_dependency
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.user import user_dependency
 from ..exceptions import UnknownUserError
@@ -61,7 +61,7 @@ __all__ = ["router", "user_router"]
 )
 async def route_user(
     context: RequestContext = Depends(context_dependency),
-    config: Config = Depends(configuration_dependency),
+    config: Config = Depends(config_dependency),
     user: UserInfo = Depends(user_dependency),
 ) -> str:
     context.rebind_logger(user=user.username)

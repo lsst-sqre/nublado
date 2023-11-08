@@ -5,6 +5,11 @@ from pathlib import Path
 from ..config import Config
 from ..constants import CONFIGURATION_PATH
 
+__all__ = [
+    "ConfigDependency",
+    "config_dependency",
+]
+
 
 class ConfigDependency:
     """Dependency to manage a cached Nublado controller configuration.
@@ -51,4 +56,4 @@ class ConfigDependency:
         self._config = Config.from_file(path)
 
 
-configuration_dependency = ConfigDependency()
+config_dependency = ConfigDependency()
