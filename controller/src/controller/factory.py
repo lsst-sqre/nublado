@@ -122,7 +122,7 @@ class ProcessContext:
         if config.fileserver.enabled:
             fileserver_builder = FileserverBuilder(
                 config=config.fileserver,
-                instance_url=config.base_url,
+                base_url=config.base_url,
                 volumes=config.lab.volumes,
                 logger=logger,
             )
