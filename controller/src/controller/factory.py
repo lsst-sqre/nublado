@@ -367,23 +367,6 @@ class Factory:
         """
         return SizeManager(self._context.config.lab.sizes)
 
-    def create_slack_client(self) -> SlackWebhookClient | None:
-        """Create a client for sending messages to Slack.
-
-        Returns
-        -------
-        SlackWebhookClient or None
-            Configured Slack client if a Slack webhook was configured,
-            otherwise `None`.
-        """
-        if not self._context.config.slack_webhook:
-            return None
-        return SlackWebhookClient(
-            self._context.config.slack_webhook,
-            self._context.config.safir.name,
-            self._logger,
-        )
-
     def set_logger(self, logger: BoundLogger) -> None:
         """Replace the internal logger.
 
