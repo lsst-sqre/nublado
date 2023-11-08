@@ -9,7 +9,6 @@ from kubernetes_asyncio.client import V1ObjectMeta
 __all__ = [
     "deslashify",
     "metadata_to_dict",
-    "seconds_to_phrase",
 ]
 
 
@@ -41,33 +40,3 @@ def metadata_to_dict(metadata_object: V1ObjectMeta) -> dict[str, Any]:
     if metadata_object.namespace:
         md_obj["namespace"] = metadata_object.namespace
     return md_obj
-
-
-def seconds_to_phrase(seconds: int) -> str:
-    """Format seconds as a human-readable string.
-
-    Parameters
-    ----------
-    seconds
-        Duration in seconds.
-
-    Returns
-    -------
-    str
-        Human-readable equivalent using ``d`` for days, ``h`` for hours, ``m``
-        for minutes, and ``s`` for seconds. Daylight saving time transitions
-        are not taken into account.
-    """
-    days, seconds = divmod(seconds, 86400)
-    hours, seconds = divmod(seconds, 3600)
-    minutes, seconds = divmod(seconds, 60)
-    string = ""
-    if days:
-        string = f"{days}d"
-    if hours:
-        string += f"{hours}h"
-    if minutes:
-        string += f"{minutes}m"
-    if seconds:
-        string += f"{seconds}s"
-    return string

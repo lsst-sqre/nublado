@@ -1,18 +1,17 @@
 """Rounte handlers for user file servers."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..config import Config
-from ..constants import FILESERVER_TEMPLATE
 from ..dependencies.config import config_dependency
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.user import user_dependency
 from ..exceptions import UnknownUserError
 from ..models.v1.lab import UserInfo
-from ..util import seconds_to_phrase
+from ..templates import templates
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 user_router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -63,14 +62,16 @@ async def route_user(
     context: RequestContext = Depends(context_dependency),
     config: Config = Depends(config_dependency),
     user: UserInfo = Depends(user_dependency),
-) -> str:
+) -> Response:
     context.rebind_logger(user=user.username)
+
+    # Spawn the file server if necessary.
     try:
         await context.fileserver_manager.create(user)
     except Exception as e:
-        # The exception was already reported to Slack at the service layer, so
-        # convert it to a standard error message instead of letting it
-        # propagate as an uncaught exception.
+        # The exception (other than timeout errors) was already reported to
+        # Slack at the service layer, so convert it to a standard error
+        # message instead of letting it propagate as an uncaught exception.
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=[
@@ -80,10 +81,17 @@ async def route_user(
                 }
             ],
         ) from e
-    return FILESERVER_TEMPLATE.format(
-        username=user.username,
-        base_url=config.base_url,
-        timeout=seconds_to_phrase(config.fileserver.timeout),
+
+    # Construct and return the instructions page.
+    return templates.TemplateResponse(
+        "fileserver.html.jinja",
+        {
+            "request": context.request,
+            "username": user.username,
+            "base_url": config.base_url,
+            "path_prefix": config.fileserver.path_prefix,
+            "timeout": config.fileserver.idle_timeout,
+        },
     )
 
 
