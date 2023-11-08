@@ -8,7 +8,7 @@ from kubernetes_asyncio.client import V1Namespace, V1ObjectMeta
 from safir.testing.kubernetes import MockKubernetesApi
 
 from controller.config import Config
-from controller.dependencies.config import configuration_dependency
+from controller.dependencies.config import config_dependency
 from controller.dependencies.context import context_dependency
 
 __all__ = ["configure"]
@@ -37,8 +37,8 @@ async def configure(
     """
     config_path = Path(__file__).parent.parent / "data" / directory / "input"
     base_path = Path(__file__).parent.parent / "data" / "base" / "input"
-    configuration_dependency.set_path(config_path / "config.yaml")
-    config = configuration_dependency.config
+    config_dependency.set_path(config_path / "config.yaml")
+    config = config_dependency.config
 
     # Adjust the configuration to point to external objects if they're present
     # in the configuration directory.
@@ -71,4 +71,4 @@ async def configure(
         await context_dependency.initialize(config)
 
     # Return the new configuration.
-    return configuration_dependency.config
+    return config_dependency.config

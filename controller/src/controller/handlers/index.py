@@ -5,7 +5,7 @@ from safir.metadata import Metadata, get_metadata
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..config import Config
-from ..dependencies.config import configuration_dependency
+from ..dependencies.config import config_dependency
 from ..models.index import Index
 
 internal_router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -24,7 +24,7 @@ __all__ = ["external_router", "internal_router"]
     summary="Application metadata",
 )
 async def get_index(
-    config: Config = Depends(configuration_dependency),
+    config: Config = Depends(config_dependency),
 ) -> Index:
     metadata = get_metadata(
         package_name="controller",
@@ -46,7 +46,7 @@ async def get_index(
     summary="Application metadata (internal)",
 )
 async def get_internal_index(
-    config: Config = Depends(configuration_dependency),
+    config: Config = Depends(config_dependency),
 ) -> Metadata:
     return get_metadata(
         package_name="controller",

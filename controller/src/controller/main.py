@@ -16,7 +16,7 @@ from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.slack.webhook import SlackRouteErrorHandler
 from sse_starlette.sse import AppStatus
 
-from .dependencies.config import configuration_dependency
+from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
 from .handlers import fileserver, form, index, labs, prepuller, user_status
 
@@ -35,7 +35,7 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await initialize_kubernetes()
-        config = configuration_dependency.config
+        config = config_dependency.config
         await context_dependency.initialize(config)
 
         yield
@@ -53,7 +53,7 @@ def create_app() -> FastAPI:
         AppStatus.should_exit_event = None
 
     # Configure logging.
-    config = configuration_dependency.config
+    config = config_dependency.config
     configure_logging(
         name="controller",
         profile=config.safir.profile,
