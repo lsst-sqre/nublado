@@ -420,8 +420,12 @@ class FileserverConfig(CamelCaseModel):
         examples=["Always"],
         title="Pull policy for the fileserver image",
     )
-    timeout: int = Field(
-        3600, title="Inactivity timeout for the fileserver container (seconds)"
+    idle_timeout: timedelta = Field(
+        timedelta(hours=1),
+        title="File server inactivity timeout",
+        description=(
+            "After this length of time, inactive file servers will shut down"
+        ),
     )
     path_prefix: str = Field(
         "", title="Fileserver prefix path, to which '/files' is appended"
@@ -429,8 +433,13 @@ class FileserverConfig(CamelCaseModel):
     resources: LabResources | None = Field(
         None, title="Resource requests and limits"
     )
-    creation_timeout: int = Field(
-        120, title="Timeout for fileserver creation (seconds)"
+    creation_timeout: timedelta = Field(
+        timedelta(minutes=2),
+        title="File server creation timeout",
+        description=(
+            "How long to wait for a file server to start before returning an"
+            " error to the user"
+        ),
     )
     application: str | None = Field(
         None,

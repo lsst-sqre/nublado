@@ -40,7 +40,7 @@ async def test_fileserver(
     await create_working_ingress_for_user(mock_kubernetes, username, namespace)
     r = await client.get("/files", headers=user.to_headers())
     assert r.status_code == 200
-    expected = read_output_data("fileserver", "fileserver.txt")
+    expected = read_output_data("fileserver", "fileserver.html").strip()
     assert r.text == expected
 
     # Check that it has showed up, via an admin route.

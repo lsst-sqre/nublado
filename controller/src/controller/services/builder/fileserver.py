@@ -216,7 +216,7 @@ class FileserverBuilder:
         )
         url = f"{self._config.path_prefix}/files/{user.username}"
         resources = self._config.resources
-        timeout = str(self._config.timeout)
+        timeout = str(int(self._config.idle_timeout.total_seconds()))
 
         # Specification for the user's container.
         container = V1Container(

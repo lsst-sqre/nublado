@@ -128,6 +128,7 @@ class ProcessContext:
             )
             fileserver_manager = FileserverManager(
                 config=config.fileserver,
+                base_url=config.base_url,
                 fileserver_builder=fileserver_builder,
                 fileserver_storage=FileserverStorage(
                     kubernetes_client, logger

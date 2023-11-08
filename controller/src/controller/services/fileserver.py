@@ -25,6 +25,8 @@ from ..models.v1.lab import UserInfo
 from ..storage.kubernetes.fileserver import FileserverStorage
 from .builder.fileserver import FileserverBuilder
 
+__all__ = ["FileserverManager"]
+
 
 @dataclass
 class _State:
@@ -53,6 +55,9 @@ class FileserverManager:
     config
         Configuration for file servers. File servers are guaranteed to be
         enabled by `~controller.factory.ProcessContext`.
+    base_url
+        Base URL for this Phalanx installation, used in the template presented
+        to the user after a file server has been created.
     fileserver_builder
         Builder that constructs file server Kubernetes objects.
     fileserver_storage
@@ -65,12 +70,14 @@ class FileserverManager:
         self,
         *,
         config: FileserverConfig,
+        base_url: str,
         fileserver_builder: FileserverBuilder,
         fileserver_storage: FileserverStorage,
         slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
+        self._base_url = base_url
         self._builder = fileserver_builder
         self._storage = fileserver_storage
         self._slack = slack_client
@@ -106,11 +113,11 @@ class FileserverManager:
             timeout.
         """
         logger = self._logger.bind(user=user.username)
-        self._logger.info("File server requested")
+        logger.info("File server requested")
         if user.username not in self._servers:
             self._servers[user.username] = _State(running=False)
         state = self._servers[user.username]
-        timeout = timedelta(seconds=self._config.creation_timeout)
+        timeout = self._config.creation_timeout
         start = current_datetime(microseconds=True)
         async with state.lock:
             if state.running:

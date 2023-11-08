@@ -127,10 +127,6 @@ SPAWNER_FORM_TEMPLATE = (
     Path(__file__).parent / "assets" / "form_template.txt"
 ).read_text()
 
-FILESERVER_TEMPLATE = (
-    Path(__file__).parent / "assets" / "fileserver_template.txt"
-).read_text()
-
 # These must be kept in sync with Gafaelfawr until we can import the models
 # from Gafaelfawr directly.
 
