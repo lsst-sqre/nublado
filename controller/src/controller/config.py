@@ -395,8 +395,14 @@ class FileserverConfig(CamelCaseModel):
     """Configuration for user file servers."""
 
     enabled: bool = Field(
-        False, title="Whether to enable fileserver capability"
+        False,
+        title="Whether file servers are enabled",
+        description=(
+            "If set to false, file servers will be disabled and the routes"
+            " to create or manage file servers will return 404 errors"
+        ),
     )
+
     namespace: str = Field(
         "",
         title="Namespace for user fileservers",
