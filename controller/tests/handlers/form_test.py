@@ -19,7 +19,7 @@ async def test_lab_form(client: AsyncClient, user: GafaelfawrUser) -> None:
     assert r.status_code == 200
     assert r.headers["Content-Type"] == "text/html; charset=utf-8"
 
-    expected = read_output_data("standard", "lab_form.txt").strip()
+    expected = read_output_data("standard", "lab-form.html").strip()
     assert r.text == expected
 
 
