@@ -81,23 +81,30 @@ class SafirConfig(CamelCaseModel):
 
 
 class LabSizeDefinition(CamelCaseModel):
-    """Defines a size of lab."""
+    """Defines a size of lab.
+
+    This will be used as the resource limits in Kubernetes, meaning that using
+    more than this amount of CPU will result in throttling and more than this
+    amount of memory may result in the lab being killed with an out-of-memory
+    error.
+    """
 
     cpu: float = Field(
         ...,
-        title="Number of CPU resource units for container",
+        title="CPU",
+        description="Number of CPU cores",
         examples=[0.5],
-        description=(
-            "See https://kubernetes.io/docs/concepts/configuration/"
-            "manage-resources-containers/"
-        ),
     )
+
     memory: str = Field(
         ...,
-        title="Amount of memory for Lab container.",
+        title="Memory",
+        description="Amount of memory in bytes (SI suffixes allowed)",
         examples=["1536MiB"],
-        description="Must be specified as a text string (e.g. '1536MiB')",
     )
+
+    def __str__(self) -> str:
+        return f"{self.cpu} CPU, {self.memory} RAM"
 
 
 class UserHomeDirectorySchema(Enum):

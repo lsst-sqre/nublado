@@ -21,7 +21,6 @@ __all__ = [
     "MOUNT_PATH_ENVIRONMENT",
     "MOUNT_PATH_SECRETS",
     "PREPULLER_POD_TIMEOUT",
-    "SPAWNER_FORM_TEMPLATE",
     "USERNAME_REGEX",
 ]
 
@@ -122,10 +121,6 @@ the network is slow.
 KUBERNETES_REQUEST_TIMEOUT = 60
 
 LIMIT_TO_REQUEST_RATIO: float = 4.0  # Seems to work well so far.
-
-SPAWNER_FORM_TEMPLATE = (
-    Path(__file__).parent / "assets" / "form_template.txt"
-).read_text()
 
 # These must be kept in sync with Gafaelfawr until we can import the models
 # from Gafaelfawr directly.

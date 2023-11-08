@@ -21,7 +21,6 @@ from .services.builder.fileserver import FileserverBuilder
 from .services.builder.lab import LabBuilder
 from .services.builder.prepuller import PrepullerBuilder
 from .services.fileserver import FileserverManager
-from .services.form import FormManager
 from .services.image import ImageService
 from .services.lab import LabManager
 from .services.prepuller import Prepuller
@@ -302,20 +301,6 @@ class Factory:
         return DockerStorageClient(
             credentials_path=self._context.config.docker_secrets_path,
             http_client=self._context.http_client,
-            logger=self._logger,
-        )
-
-    def create_form_manager(self) -> FormManager:
-        """Create service to generate lab spawning forms.
-
-        Returns
-        -------
-        FormManager
-            Newly-created form manager.
-        """
-        return FormManager(
-            image_service=self._context.image_service,
-            lab_sizes=self._context.config.lab.sizes,
             logger=self._logger,
         )
 

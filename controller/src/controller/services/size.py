@@ -4,7 +4,6 @@ import bitmath
 
 from ..config import LabSizeDefinition
 from ..constants import LIMIT_TO_REQUEST_RATIO
-from ..models.domain.form import FormSize
 from ..models.v1.lab import LabResources, LabSize, ResourceQuantity
 
 
@@ -37,24 +36,6 @@ class SizeManager:
 
     def __init__(self, sizes: dict[LabSize, LabSizeDefinition]) -> None:
         self._sizes = sizes
-
-    def formdata(self) -> list[FormSize]:
-        """Return available sizes for injecting into the spawner form.
-
-        Returns
-        -------
-        list of FormSize
-            Representation of sizes suitable for injecting into the user
-            spawner form.
-        """
-        return [
-            FormSize(
-                name=x.value.title(),
-                cpu=str((self._sizes[x]).cpu),
-                memory=str((self._sizes[x]).memory),
-            )
-            for x in self._sizes
-        ]
 
     def resources(self, size: LabSize) -> LabResources:
         cpu = self._sizes[size].cpu

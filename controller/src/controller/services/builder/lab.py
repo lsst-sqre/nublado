@@ -333,11 +333,7 @@ class LabBuilder:
 
         # Add standard environment variables.
         resources = self._size_manager.resources(lab.options.size)
-        size_str = next(
-            x.description
-            for x in self._size_manager.formdata()
-            if x.name == lab.options.size.value.title()
-        )
+        size = self._config.sizes[lab.options.size]
         env.update(
             {
                 # We would like to deprecate this, following KubeSpawner, but
@@ -348,7 +344,7 @@ class LabBuilder:
                 "IMAGE_DESCRIPTION": image.display_name,
                 "IMAGE_DIGEST": image.digest,
                 # Container data for display frame.
-                "CONTAINER_SIZE": size_str,
+                "CONTAINER_SIZE": f"{lab.options.size.value.title()} ({size})",
                 # Normally set by JupyterHub so keep compatibility.
                 "CPU_GUARANTEE": str(resources.requests.cpu),
                 "CPU_LIMIT": str(resources.limits.cpu),
