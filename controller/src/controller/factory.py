@@ -126,7 +126,6 @@ class ProcessContext:
             )
             fileserver_manager = FileserverManager(
                 config=config.fileserver,
-                base_url=config.base_url,
                 fileserver_builder=fileserver_builder,
                 fileserver_storage=FileserverStorage(
                     kubernetes_client, logger
@@ -141,11 +140,6 @@ class ProcessContext:
             source=source,
             node_storage=NodeStorage(kubernetes_client, logger),
             slack_client=slack_client,
-            logger=logger,
-        )
-        lab_builder = LabBuilder(
-            config=config.lab,
-            instance_url=config.base_url,
             logger=logger,
         )
         return cls(
@@ -166,8 +160,8 @@ class ProcessContext:
             ),
             lab_manager=LabManager(
                 config=config.lab,
-                lab_builder=lab_builder,
                 image_service=image_service,
+                lab_builder=LabBuilder(config.lab, config.base_url, logger),
                 metadata_storage=metadata_storage,
                 lab_storage=LabStorage(kubernetes_client, logger),
                 slack_client=slack_client,
@@ -317,19 +311,23 @@ class Factory:
     def create_lab_builder(self) -> LabBuilder:
         """Create builder service for user labs.
 
+        Only used by the test suite.
+
         Returns
         -------
         LabBuilder
             Newly-created lab builder.
         """
         return LabBuilder(
-            config=self._context.config.lab,
-            instance_url=self._context.config.base_url,
-            logger=self._logger,
+            self._context.config.lab,
+            self._context.config.base_url,
+            self._logger,
         )
 
     def create_lab_storage(self) -> LabStorage:
         """Create Kubernetes storage object for user labs.
+
+        Only used by the test suite.
 
         Returns
         -------

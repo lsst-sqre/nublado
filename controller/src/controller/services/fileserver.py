@@ -55,9 +55,6 @@ class FileserverManager:
     config
         Configuration for file servers. File servers are guaranteed to be
         enabled by `~controller.factory.ProcessContext`.
-    base_url
-        Base URL for this Phalanx installation, used in the template presented
-        to the user after a file server has been created.
     fileserver_builder
         Builder that constructs file server Kubernetes objects.
     fileserver_storage
@@ -70,14 +67,12 @@ class FileserverManager:
         self,
         *,
         config: FileserverConfig,
-        base_url: str,
         fileserver_builder: FileserverBuilder,
         fileserver_storage: FileserverStorage,
         slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
-        self._base_url = base_url
         self._builder = fileserver_builder
         self._storage = fileserver_storage
         self._slack = slack_client

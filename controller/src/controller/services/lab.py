@@ -133,11 +133,11 @@ class LabManager:
     ----------
     config
         Configuration for user labs.
-    lab_builder
-        Builder for Kubernetes lab objects.
     image_service
         Tracks all available images and resolves the parameters of a request
         for a new lab to a specific Docker image.
+    lab_builder
+        Builder for Kubernetes lab objects.
     metadata_storage
         Storage for metadata about the running controller.
     lab_storage
@@ -152,16 +152,16 @@ class LabManager:
         self,
         *,
         config: LabConfig,
-        lab_builder: LabBuilder,
         image_service: ImageService,
+        lab_builder: LabBuilder,
         metadata_storage: MetadataStorage,
         lab_storage: LabStorage,
         slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
-        self._builder = lab_builder
         self._image_service = image_service
+        self._builder = lab_builder
         self._metadata = metadata_storage
         self._storage = lab_storage
         self._slack = slack_client
