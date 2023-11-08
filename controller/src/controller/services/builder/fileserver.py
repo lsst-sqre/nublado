@@ -44,7 +44,7 @@ class FileserverBuilder:
     ----------
     config
         Fileserver configuration.
-    instance_url
+    base_url
         Base URL for this Notebook Aspect instance.
     volumes
         Volumes to mount in the user's fileserver.
@@ -54,12 +54,12 @@ class FileserverBuilder:
         self,
         *,
         config: FileserverConfig,
-        instance_url: str,
+        base_url: str,
         volumes: list[LabVolume],
         logger: BoundLogger,
     ) -> None:
         self._config = config
-        self._instance_url = instance_url
+        self._base_url = base_url
         self._volumes = volumes
         self._logger = logger
         self._volume_builder = VolumeBuilder()
@@ -175,7 +175,7 @@ class FileserverBuilder:
 
     def _build_ingress(self, username: str) -> dict[str, Any]:
         """Construct ``GafaelfawrIngress`` object for the fileserver."""
-        host = urlparse(self._instance_url).hostname
+        host = urlparse(self._base_url).hostname
         metadata = self._build_metadata(username).to_dict(serialize=True)
         path = {
             "path": f"/files/{username}",
@@ -192,7 +192,7 @@ class FileserverBuilder:
             "kind": "GafaelfawrIngress",
             "metadata": metadata,
             "config": {
-                "baseUrl": self._instance_url,
+                "baseUrl": self._base_url,
                 "scopes": {"all": ["exec:notebook"]},
                 "loginRedirect": False,
                 "authType": "basic",
