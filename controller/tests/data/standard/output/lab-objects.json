@@ -386,6 +386,7 @@
             }
           ],
           "image": "ghcr.io/lsst-sqre/initdir:0.0.3",
+          "image_pull_policy": "IfNotPresent",
           "name": "initdir",
           "resources": {
             "limits": {

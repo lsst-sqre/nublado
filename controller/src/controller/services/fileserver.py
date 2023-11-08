@@ -13,11 +13,10 @@ from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
-from ..config import FileserverConfig
+from ..config import EnabledFileserverConfig
 from ..constants import FILE_SERVER_REFRESH_INTERVAL
 from ..exceptions import (
     MissingObjectError,
-    NotConfiguredError,
     UnknownUserError,
 )
 from ..models.domain.kubernetes import PodPhase
@@ -66,7 +65,7 @@ class FileserverManager:
     def __init__(
         self,
         *,
-        config: FileserverConfig,
+        config: EnabledFileserverConfig,
         fileserver_builder: FileserverBuilder,
         fileserver_storage: FileserverStorage,
         slack_client: SlackWebhookClient | None,
@@ -77,9 +76,6 @@ class FileserverManager:
         self._storage = fileserver_storage
         self._slack = slack_client
         self._logger = logger
-
-        if not self._config.enabled:
-            raise NotConfiguredError("Fileserver is disabled in configuration")
 
         # Background task management.
         self._scheduler: Scheduler | None = None

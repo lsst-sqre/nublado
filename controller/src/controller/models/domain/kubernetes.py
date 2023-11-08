@@ -17,6 +17,7 @@ __all__ = [
     "PodPhase",
     "PropagationPolicy",
     "PullPolicy",
+    "VolumeAccessMode",
     "WatchEventType",
 ]
 
@@ -54,8 +55,16 @@ class PullPolicy(Enum):
     """Pull policy for Docker images in Kubernetes."""
 
     ALWAYS = "Always"
-    IFNOTPRESENT = "IfNotPresent"
+    IF_NOT_PRESENT = "IfNotPresent"
     NEVER = "Never"
+
+
+class VolumeAccessMode(str, Enum):
+    """Access mode for a persistent volume."""
+
+    READ_WRITE_ONCE = "ReadWriteOnce"
+    READ_ONLY_MANY = "ReadOnlyMany"
+    READ_WRITE_MANY = "ReadWriteMany"
 
 
 class WatchEventType(Enum):

@@ -55,34 +55,32 @@ def create_app() -> FastAPI:
     # Configure logging.
     config = config_dependency.config
     configure_logging(
-        name="controller",
-        profile=config.safir.profile,
-        log_level=config.safir.log_level,
+        name="controller", profile=config.profile, log_level=config.log_level
     )
-    configure_uvicorn_logging(config.safir.log_level)
+    configure_uvicorn_logging(config.log_level)
 
     # Create the application object.
     app = FastAPI(
-        title=config.safir.name,
+        title=config.name,
         description=metadata("controller")["Summary"],
         version=version("controller"),
-        openapi_url=f"{config.safir.path_prefix}/openapi.json",
-        docs_url=f"{config.safir.path_prefix}/docs",
-        redoc_url=f"{config.safir.path_prefix}/redoc",
+        openapi_url=f"{config.path_prefix}/openapi.json",
+        docs_url=f"{config.path_prefix}/docs",
+        redoc_url=f"{config.path_prefix}/redoc",
         lifespan=lifespan,
     )
 
     # Attach the routers.
     app.include_router(index.internal_router)
-    app.include_router(index.external_router, prefix=config.safir.path_prefix)
-    app.include_router(form.router, prefix=config.safir.path_prefix)
-    app.include_router(labs.router, prefix=config.safir.path_prefix)
-    app.include_router(prepuller.router, prefix=config.safir.path_prefix)
-    app.include_router(user_status.router, prefix=config.safir.path_prefix)
+    app.include_router(index.external_router, prefix=config.path_prefix)
+    app.include_router(form.router, prefix=config.path_prefix)
+    app.include_router(labs.router, prefix=config.path_prefix)
+    app.include_router(prepuller.router, prefix=config.path_prefix)
+    app.include_router(user_status.router, prefix=config.path_prefix)
     app.include_router(
         fileserver.user_router, prefix=config.fileserver.path_prefix
     )
-    app.include_router(fileserver.router, prefix=config.safir.path_prefix)
+    app.include_router(fileserver.router, prefix=config.path_prefix)
 
     # Register middleware.
     app.add_middleware(XForwardedMiddleware)
@@ -91,7 +89,7 @@ def create_app() -> FastAPI:
     logger = structlog.get_logger(__name__)
     if config.slack_webhook:
         webhook = config.slack_webhook
-        SlackRouteErrorHandler.initialize(webhook, config.safir.name, logger)
+        SlackRouteErrorHandler.initialize(webhook, config.name, logger)
         logger.debug("Initialized Slack webhook")
 
     # Configure exception handlers.

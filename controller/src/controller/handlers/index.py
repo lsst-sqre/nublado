@@ -27,8 +27,7 @@ async def get_index(
     config: Config = Depends(config_dependency),
 ) -> Index:
     metadata = get_metadata(
-        package_name="controller",
-        application_name=config.safir.name,
+        package_name="controller", application_name=config.name
     )
     return Index(metadata=metadata)
 
@@ -49,6 +48,5 @@ async def get_internal_index(
     config: Config = Depends(config_dependency),
 ) -> Metadata:
     return get_metadata(
-        package_name="controller",
-        application_name=config.safir.name,
+        package_name="controller", application_name=config.name
     )

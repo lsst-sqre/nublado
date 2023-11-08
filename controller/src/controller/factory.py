@@ -95,7 +95,7 @@ class ProcessContext:
         slack_client = None
         if config.slack_webhook:
             slack_client = SlackWebhookClient(
-                config.slack_webhook, config.safir.name, logger
+                config.slack_webhook, config.name, logger
             )
 
         match config.images.source:
@@ -118,15 +118,14 @@ class ProcessContext:
 
         fileserver_manager = None
         if config.fileserver.enabled:
-            fileserver_builder = FileserverBuilder(
-                config=config.fileserver,
-                base_url=config.base_url,
-                volumes=config.lab.volumes,
-                logger=logger,
-            )
             fileserver_manager = FileserverManager(
                 config=config.fileserver,
-                fileserver_builder=fileserver_builder,
+                fileserver_builder=FileserverBuilder(
+                    config=config.fileserver,
+                    base_url=config.base_url,
+                    volumes=config.lab.volumes,
+                    logger=logger,
+                ),
                 fileserver_storage=FileserverStorage(
                     kubernetes_client, logger
                 ),

@@ -1,9 +1,8 @@
-safir:
-  profile: development
-  logLevel: DEBUG
+logLevel: DEBUG
+profile: development
 lab:
-  spawnTimeout: 10
   application: "nublado-users"
+  spawnTimeout: 10
   env:
     API_ROUTE: /api
     AUTO_REPO_SPECS: "https://github.com/lsst-sqre/system-test@prod"
@@ -126,7 +125,9 @@ lab:
         cacher_dir = /data/idds
   initContainers:
     - name: initdir
-      image: ghcr.io/lsst-sqre/initdir:0.0.3
+      image:
+        repository: ghcr.io/lsst-sqre/initdir
+        tag: 0.0.3
       privileged: true
       volumes:
         - containerPath: /home
@@ -155,18 +156,16 @@ lab:
       memory: 12Gi
   volumes:
     - containerPath: /home
-      mode: rw
       source:
         type: nfs
         server: 10.13.105.122
         serverPath: /share1/home
     - containerPath: /PROJECT
-      mode: ro
+      readOnly: true
       source:
         type: hostPath
         path: /share1/project
     - containerPath: /ScRaTcH
-      mode: rw
       source:
         type: persistentVolumeClaim
         storageClassName: sdf-home
@@ -177,7 +176,6 @@ lab:
             storage: 1Gi
     - containerPath: /temporary
       subPath: temporary
-      mode: rw
       source:
         type: persistentVolumeClaim
         storageClassName: sdf-home
