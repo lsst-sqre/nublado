@@ -84,23 +84,19 @@ class LabBuilder:
     ----------
     config
         Lab configuration.
-    instance_url
+    base_url
         Base URL for this Notebook Aspect instance.
     logger
         Logger to use.
     """
 
     def __init__(
-        self,
-        *,
-        config: LabConfig,
-        instance_url: str,
-        logger: BoundLogger,
+        self, config: LabConfig, base_url: str, logger: BoundLogger
     ) -> None:
         self._config = config
-        self._instance_url = instance_url
-        self._volume_builder = VolumeBuilder()
+        self._base_url = base_url
         self._logger = logger
+        self._volume_builder = VolumeBuilder()
 
     def build_internal_url(self, username: str, env: dict[str, str]) -> str:
         """Determine the URL of a newly-spawned lab.
@@ -348,8 +344,8 @@ class LabBuilder:
                 "CPU_LIMIT": str(resources.limits.cpu),
                 "MEM_GUARANTEE": str(resources.requests.memory),
                 "MEM_LIMIT": str(resources.limits.memory),
-                # Get global instance URL.
-                "EXTERNAL_INSTANCE_URL": self._instance_url,
+                # Used by code running in the lab to find other services.
+                "EXTERNAL_INSTANCE_URL": self._base_url,
             }
         )
 
