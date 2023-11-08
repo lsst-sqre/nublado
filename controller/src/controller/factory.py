@@ -24,7 +24,6 @@ from .services.fileserver import FileserverManager
 from .services.image import ImageService
 from .services.lab import LabManager
 from .services.prepuller import Prepuller
-from .services.size import SizeManager
 from .services.source.base import ImageSource
 from .services.source.docker import DockerImageSource
 from .services.source.gar import GARImageSource
@@ -146,7 +145,6 @@ class ProcessContext:
         )
         lab_builder = LabBuilder(
             config=config.lab,
-            size_manager=SizeManager(config.lab.sizes),
             instance_url=config.base_url,
             logger=logger,
         )
@@ -326,7 +324,6 @@ class Factory:
         """
         return LabBuilder(
             config=self._context.config.lab,
-            size_manager=SizeManager(self._context.config.lab.sizes),
             instance_url=self._context.config.base_url,
             logger=self._logger,
         )

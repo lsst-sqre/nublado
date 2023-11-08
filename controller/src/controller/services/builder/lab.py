@@ -63,6 +63,7 @@ from ...models.domain.rspimage import RSPImage
 from ...models.domain.volumes import MountedVolume
 from ...models.v1.lab import (
     LabResources,
+    LabSize,
     LabSpecification,
     LabStatus,
     ResourceQuantity,
@@ -71,7 +72,6 @@ from ...models.v1.lab import (
     UserLabState,
     UserOptions,
 )
-from ..size import SizeManager
 from .volumes import VolumeBuilder
 
 __all__ = ["LabBuilder"]
@@ -84,22 +84,20 @@ class LabBuilder:
     ----------
     config
         Lab configuration.
-    size_manager
-        Service that handles lab size conversions.
     instance_url
         Base URL for this Notebook Aspect instance.
+    logger
+        Logger to use.
     """
 
     def __init__(
         self,
         *,
         config: LabConfig,
-        size_manager: SizeManager,
         instance_url: str,
         logger: BoundLogger,
     ) -> None:
         self._config = config
-        self._size_manager = size_manager
         self._instance_url = instance_url
         self._volume_builder = VolumeBuilder()
         self._logger = logger
@@ -254,7 +252,7 @@ class LabBuilder:
             )
             options = UserOptions(
                 image_list=env["JUPYTER_IMAGE_SPEC"],
-                size=self._size_manager.size_from_resources(resources),
+                size=self._recreate_size(resources),
                 enable_debug=env.get("DEBUG", "FALSE") == "TRUE",
                 reset_user_env=env.get("RESET_USER_ENV", "FALSE") == "TRUE",
             )
@@ -906,3 +904,24 @@ class LabBuilder:
             cpu=float(resource_quota.spec.hard["limits.cpu"]),
             memory=int(resource_quota.spec.hard["limits.memory"]),
         )
+
+    def _recreate_size(self, resources: LabResources) -> LabSize:
+        """Recreate the lab size from the resources.
+
+        Parameters
+        ----------
+        resources
+            Discovered lab resources from Kubernetes.
+
+        Returns
+        -------
+        LabSize
+            The corresponding lab size if one of the known sizes matches. If
+            not, returns ``LabSize.CUSTOM``.
+        """
+        limits = resources.limits
+        for size, definition in self._config.sizes.items():
+            memory = definition.memory_bytes
+            if definition.cpu == limits.cpu and memory == limits.memory:
+                return size
+        return LabSize.CUSTOM
