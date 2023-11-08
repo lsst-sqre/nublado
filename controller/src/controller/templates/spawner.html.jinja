@@ -1,18 +1,18 @@
 <script>
 function selectDropdown() {
-    document.getElementById('{{ dropdown_sentinel }}').checked = true;
+  document.getElementById('{{ dropdown_sentinel }}').checked = true;
 }
 </script>
 <style>
-    td {
-        border: 1px solid black;
-        padding: 2%;
-        vertical-align: top;
-    }
-    .radio label,
-    .checkbox label {
-        padding-left: 0px;
-    }
+  td {
+    border: 1px solid black;
+    padding: 2%;
+    vertical-align: top;
+  }
+  .radio label,
+  .checkbox label {
+    padding-left: 0px;
+  }
 </style>
 <table width="100%">
 <tr>
@@ -22,39 +22,31 @@ function selectDropdown() {
 <tr>
 <td width="50%">
   <div class="radio radio-inline">
-{% for i in cached_images -%}
-    <input type="radio" name="image_list"
-     id="image{{ loop.index }}" value="{{ i.reference }}"
-     {% if loop.first %} checked {%- endif -%}
-    >
+{%- for i in cached_images %}
+    <input type="radio" name="image_list" id="image{{ loop.index }}" value="{{ i.reference }}"{% if loop.first %} checked{% endif %}>
     <label for="image{{ loop.index }}">{{ i.name }}</label><br />
-{% endfor %}
-    <input type="radio" name="image_list"
-        id="{{ dropdown_sentinel }}"
-        value="{{ dropdown_sentinel }}"
-        {% if not cached_images %} checked {%- endif -%}
-    >
+{%- endfor %}
+
+    <input type="radio" name="image_list" id="{{ dropdown_sentinel }}" value="{{ dropdown_sentinel }}"{% if not cached_images %} checked{% endif %}>
     <label for="{{ dropdown_sentinel }}">
       Select uncached image (slower start):
     </label><br />
+
     <select name="image_dropdown" onchange="selectDropdown()">
-{% for i in all_images -%}
-        <option value="{{ i.reference }}">{{ i.name }}</option>
-{% endfor %}
+{%- for i in all_images %}
+      <option value="{{ i.reference }}">{{ i.name }}</option>
+{%- endfor %}
     </select>
   </div>
 </td>
 <td width="50%">
   <div class="radio radio-inline">
-{% for key, value in sizes.items() -%}
-    <input type="radio" name="size"
-     id="{{ key.value }}" value="{{ key.value }}"
-     {% if loop.first %} checked {%- endif -%}
-    >
+{%- for key, value in sizes.items() %}
+    <input type="radio" name="size" id="{{ key.value }}" value="{{ key.value }}"{% if loop.first %} checked{% endif %}>
     <label for="{{ key.value }}">
       {{ key.value.title() }} ({{ value }})
     </label><br />
-{% endfor %}
+{%- endfor %}
   </div>
   <br />
   <br />
