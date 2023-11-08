@@ -63,6 +63,7 @@ async def get_lab_events(
 @pytest.mark.asyncio
 async def test_lab_start_stop(
     client: AsyncClient,
+    config: Config,
     factory: Factory,
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
@@ -70,7 +71,6 @@ async def test_lab_start_stop(
     assert user.quota
     assert user.quota.notebook
     lab = read_input_lab_specification_json("base", "lab-specification.json")
-    size_manager = factory.create_size_manager()
     unknown_user_error = {
         "detail": [
             {
@@ -135,7 +135,7 @@ async def test_lab_start_stop(
     assert r.json() == [user.username]
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
-    expected_resources = size_manager.resources(lab.options.size)
+    expected_resources = config.lab.sizes[lab.options.size].to_lab_resources()
     expected_options = lab.options.model_dump()
     expected_options["image_dropdown"] = expected_options["image_list"]
     expected_options["image_list"] = None

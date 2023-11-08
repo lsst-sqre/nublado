@@ -144,10 +144,9 @@ class ProcessContext:
             slack_client=slack_client,
             logger=logger,
         )
-        size_manager = SizeManager(config.lab.sizes)
         lab_builder = LabBuilder(
             config=config.lab,
-            size_manager=size_manager,
+            size_manager=SizeManager(config.lab.sizes),
             instance_url=config.base_url,
             logger=logger,
         )
@@ -170,7 +169,6 @@ class ProcessContext:
             lab_manager=LabManager(
                 config=config.lab,
                 lab_builder=lab_builder,
-                size_manager=size_manager,
                 image_service=image_service,
                 metadata_storage=metadata_storage,
                 lab_storage=LabStorage(kubernetes_client, logger),
@@ -328,7 +326,7 @@ class Factory:
         """
         return LabBuilder(
             config=self._context.config.lab,
-            size_manager=self.create_size_manager(),
+            size_manager=SizeManager(self._context.config.lab.sizes),
             instance_url=self._context.config.base_url,
             logger=self._logger,
         )
@@ -342,16 +340,6 @@ class Factory:
             Newly-created lab storage.
         """
         return LabStorage(self._context.kubernetes_client, self._logger)
-
-    def create_size_manager(self) -> SizeManager:
-        """Create service to map between named sizes and resource amounts.
-
-        Returns
-        -------
-        SizeManager
-            Newly-created size manager.
-        """
-        return SizeManager(self._context.config.lab.sizes)
 
     def set_logger(self, logger: BoundLogger) -> None:
         """Replace the internal logger.

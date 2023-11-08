@@ -6,6 +6,7 @@ import pytest
 from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
 
+from controller.config import Config
 from controller.factory import Factory
 from controller.models.domain.gafaelfawr import GafaelfawrUser
 from controller.models.domain.kubernetes import PodPhase
@@ -17,6 +18,7 @@ from ..support.data import read_input_lab_specification_json
 @pytest.mark.asyncio
 async def test_user_status(
     client: AsyncClient,
+    config: Config,
     factory: Factory,
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
@@ -24,7 +26,6 @@ async def test_user_status(
     assert user.quota
     assert user.quota.notebook
     lab = read_input_lab_specification_json("base", "lab-specification.json")
-    size_manager = factory.create_size_manager()
 
     # At the start, we shouldn't have any lab.
     r = await client.get(
@@ -59,7 +60,7 @@ async def test_user_status(
         "/nublado/spawner/v1/user-status", headers=user.to_headers()
     )
     assert r.status_code == 200
-    expected_resources = size_manager.resources(lab.options.size)
+    expected_resources = config.lab.sizes[lab.options.size].to_lab_resources()
     expected = {
         "env": lab.env,
         "internal_url": "http://lab.userlabs-rachel:8888/nb/user/rachel/",
