@@ -131,7 +131,6 @@ lab:
       privileged: true
       volumes:
         - containerPath: /home
-          mode: rw
           source:
             type: nfs
             serverPath: /share1/home

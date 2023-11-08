@@ -10,10 +10,10 @@ from typing import Literal, Self
 
 import bitmath
 import yaml
-from pydantic import Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic.alias_generators import to_camel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from safir.logging import LogLevel, Profile
-from safir.pydantic import CamelCaseModel, to_camel_case
 
 from .constants import (
     DOCKER_SECRETS_PATH,
@@ -67,7 +67,7 @@ def _get_namespace_prefix() -> str:
         return "userlabs"
 
 
-class ContainerImage(CamelCaseModel):
+class ContainerImage(BaseModel):
     """Docker image that may be run as a container.
 
     The structure of this model should follow the normal Helm chart
@@ -99,8 +99,12 @@ class ContainerImage(CamelCaseModel):
         examples=["1.4.2"],
     )
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
-class LabSizeDefinition(CamelCaseModel):
+
+class LabSizeDefinition(BaseModel):
     """Possible size of lab.
 
     This will be used as the resource limits in Kubernetes, meaning that using
@@ -122,6 +126,10 @@ class LabSizeDefinition(CamelCaseModel):
         title="Memory",
         description="Amount of memory in bytes (SI suffixes allowed)",
         examples=["1536MiB"],
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
     def __str__(self) -> str:
@@ -156,7 +164,7 @@ class UserHomeDirectorySchema(Enum):
     """Paths like ``/home/r/rachel``."""
 
 
-class BaseVolumeSource(CamelCaseModel):
+class BaseVolumeSource(BaseModel):
     """Source of a volume to be mounted in the lab.
 
     This is a base class that must be subclassed by the different supported
@@ -164,6 +172,10 @@ class BaseVolumeSource(CamelCaseModel):
     """
 
     type: str = Field(..., title="Type of volume to mount", examples=["nfs"])
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
 
 class HostPathVolumeSource(BaseVolumeSource):
@@ -201,10 +213,14 @@ class NFSVolumeSource(BaseVolumeSource):
     )
 
 
-class PVCVolumeResources(CamelCaseModel):
+class PVCVolumeResources(BaseModel):
     """Resources for a persistent volume claim."""
 
     requests: dict[str, str] = Field(..., title="Resource requests")
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
 
 class PVCVolumeSource(BaseVolumeSource):
@@ -221,7 +237,7 @@ class PVCVolumeSource(BaseVolumeSource):
     resources: PVCVolumeResources = Field(..., title="Resources for volume")
 
 
-class LabVolume(CamelCaseModel):
+class LabVolume(BaseModel):
     """A volume to mount inside a lab container."""
 
     container_path: str = Field(
@@ -254,8 +270,12 @@ class LabVolume(CamelCaseModel):
         ..., title="Source of volume"
     )
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
-class LabInitContainer(CamelCaseModel):
+
+class LabInitContainer(BaseModel):
     """A container to run as an init container before the user's lab."""
 
     name: str = Field(
@@ -287,8 +307,12 @@ class LabInitContainer(CamelCaseModel):
         description="Volumes mounted inside this init container",
     )
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
-class LabSecret(CamelCaseModel):
+
+class LabSecret(BaseModel):
     """A secret to make available to lab containers."""
 
     secret_name: str = Field(
@@ -334,8 +358,12 @@ class LabSecret(CamelCaseModel):
         examples=["/opt/lsst/software/jupyterlab/butler-secret"],
     )
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
-class LabFile(CamelCaseModel):
+
+class LabFile(BaseModel):
     """A file to create inside lab containers."""
 
     contents: str = Field(
@@ -356,8 +384,12 @@ class LabFile(CamelCaseModel):
         examples=[False],
     )
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
-class LabConfig(CamelCaseModel):
+
+class LabConfig(BaseModel):
     """Configuration for spawning user labs."""
 
     application: str | None = Field(
@@ -497,6 +529,10 @@ class LabConfig(CamelCaseModel):
 
     volumes: list[LabVolume] = Field([], title="Volumes to mount inside lab")
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
     @field_validator("homedir_prefix")
     @classmethod
     def _validate_homedir_prefix(cls, v: str) -> str:
@@ -525,12 +561,14 @@ class LabConfig(CamelCaseModel):
         return v
 
 
-class FileserverConfig(CamelCaseModel):
+class FileserverConfig(BaseModel):
     """Base configuration for user file servers.
 
     This base model contains only the boolean setting for whether the file
-    server is enabled, allowing code to determine whether the configuration
-    object is actually `FileserverConfigEnabled`.
+    server is enabled and a few settings with defaults that are referenced
+    even if the file server is disabled (mostly to make code simpler),
+    allowing code to determine whether the configuration object is actually
+    `FileserverConfigEnabled`.
     """
 
     enabled: bool = Field(
@@ -549,6 +587,10 @@ class FileserverConfig(CamelCaseModel):
             "If set, this will be added to the front of `/files` to form the"
             " route at which users spawn new user file servers"
         ),
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
 
@@ -703,9 +745,8 @@ class Config(BaseSettings):
         DOCKER_SECRETS_PATH, title="Path to Docker API credentials"
     )
 
-    # CamelCaseModel conflicts with BaseSettings, so do this manually.
     model_config = SettingsConfigDict(
-        alias_generator=to_camel_case, populate_by_name=True
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
     @classmethod

@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
-from safir.pydantic import CamelCaseModel
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 __all__ = [
     "DockerSourceConfig",
@@ -19,7 +19,7 @@ __all__ = [
 ]
 
 
-class DockerSourceConfig(CamelCaseModel):
+class DockerSourceConfig(BaseModel):
     """Docker Registry from which to get images."""
 
     type: Literal["docker"] = Field(..., title="Type of image source")
@@ -44,8 +44,12 @@ class DockerSourceConfig(CamelCaseModel):
         examples=["library/sketchbook"],
     )
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
-class GARSourceConfig(CamelCaseModel):
+
+class GARSourceConfig(BaseModel):
     """Google Artifact Registry from which to get images.
 
     The Google Artifact Repository naming convention is unfortunate. It uses
@@ -93,6 +97,10 @@ class GARSourceConfig(CamelCaseModel):
         examples=["sketchbook"],
     )
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
     @property
     def registry(self) -> str:
         """Hostname holding the registry."""
@@ -112,7 +120,7 @@ class GARSourceConfig(CamelCaseModel):
         return f"{self.project_id}/{self.repository}/{self.image}"
 
 
-class PrepullerConfig(CamelCaseModel):
+class PrepullerConfig(BaseModel):
     """Configuration for the prepuller.
 
     This model is used as both the model for the `images` key in the Nublado
@@ -202,4 +210,8 @@ class PrepullerConfig(CamelCaseModel):
             " human-readable descriptions."
         ),
         examples=[["recommended_cycle0027"]],
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
