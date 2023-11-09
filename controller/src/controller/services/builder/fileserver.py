@@ -178,7 +178,7 @@ class FileserverBuilder:
         host = urlparse(self._base_url).hostname
         metadata = self._build_metadata(username).to_dict(serialize=True)
         path = {
-            "path": f"/files/{username}",
+            "path": f"{self._config.path_prefix}/{username}",
             "pathType": "Prefix",
             "backend": {
                 "service": {
@@ -214,7 +214,7 @@ class FileserverBuilder:
         volume_data = self._volume_builder.build_mounted_volumes(
             user.username, self._volumes, prefix="/mnt"
         )
-        url = f"{self._config.path_prefix}/files/{user.username}"
+        url = f"{self._config.path_prefix}/{user.username}"
         resources = self._config.resources
         timeout = str(int(self._config.idle_timeout.total_seconds()))
 
