@@ -10,6 +10,7 @@ from safir.testing.kubernetes import MockKubernetesApi
 from controller.config import Config
 from controller.dependencies.config import config_dependency
 from controller.dependencies.context import context_dependency
+from controller.models.v1.prepuller_config import DockerSourceConfig
 
 __all__ = ["configure"]
 
@@ -42,14 +43,16 @@ async def configure(
 
     # Adjust the configuration to point to external objects if they're present
     # in the configuration directory.
-    if (config_path / "docker-creds.json").exists():
-        config.docker_secrets_path = config_path / "docker-creds.json"
-    else:
-        config.docker_secrets_path = base_path / "docker-creds.json"
     if (config_path / "metadata").exists():
         config.metadata_path = config_path / "metadata"
     else:
         config.metadata_path = base_path / "metadata"
+    if isinstance(config.images.source, DockerSourceConfig):
+        if (config_path / "docker-creds.json").exists():
+            credentials_path = config_path / "docker-creds.json"
+        else:
+            credentials_path = base_path / "docker-creds.json"
+        config.images.source.credentials_path = credentials_path
 
     # If the new configuration enables fileservers, create the namespace for
     # the fileserver pods. Existence of the fileserver namespace is checked

@@ -101,7 +101,7 @@ class ProcessContext:
         match config.images.source:
             case DockerSourceConfig():
                 docker_client = DockerStorageClient(
-                    credentials_path=config.docker_secrets_path,
+                    credentials_path=config.images.source.credentials_path,
                     http_client=http_client,
                     logger=logger,
                 )
@@ -282,13 +282,23 @@ class Factory:
     def create_docker_storage(self) -> DockerStorageClient:
         """Create a Docker storage client.
 
+        Only used by the test suite.
+
         Returns
         -------
         DockerStorageClient
             Newly-created Docker storage client.
+
+        Raises
+        ------
+        NotConfiguredError
+            Raised if the image source is not configured to use Docker.
         """
+        if self._context.config.images.source.type != "docker":
+            raise NotConfiguredError("Docker image source not configured")
+        credentials_path = self._context.config.images.source.credentials_path
         return DockerStorageClient(
-            credentials_path=self._context.config.docker_secrets_path,
+            credentials_path=credentials_path,
             http_client=self._context.http_client,
             logger=self._logger,
         )

@@ -7,10 +7,13 @@ so it is defined in a separate model that can be included by both.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+
+from ...constants import DOCKER_CREDENTIALS_PATH
 
 __all__ = [
     "DockerSourceConfig",
@@ -42,6 +45,18 @@ class DockerSourceConfig(BaseModel):
             " This is sometimes called the image name."
         ),
         examples=["library/sketchbook"],
+    )
+
+    credentials_path: Path = Field(
+        DOCKER_CREDENTIALS_PATH,
+        title="Path to Docker API credentials",
+        description=(
+            "Path to a file containing a JSON-encoded dictionary of Docker"
+            " credentials for various registries, in the same format as"
+            " the Docker configuration file and the value of a Kubernetes"
+            " pull secret"
+        ),
+        exclude=True,
     )
 
     model_config = ConfigDict(
