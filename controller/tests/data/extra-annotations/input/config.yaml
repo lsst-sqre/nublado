@@ -1,6 +1,7 @@
 logLevel: DEBUG
 profile: development
 lab:
+  namespacePrefix: userlabs
   spawnTimeout: 10
   extraAnnotations:
     k8s.v1.cni.cncf.io/networks: "kube-system/dds"

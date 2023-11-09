@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from datetime import timedelta
 from enum import Enum
 from pathlib import Path
@@ -42,28 +41,6 @@ __all__ = [
     "PVCVolumeSource",
     "UserHomeDirectorySchema",
 ]
-
-
-def _get_namespace_prefix() -> str:
-    """Determine the prefix to use for namespaces for lab environments.
-
-    Use the namespace of the running pod as the prefix if we can determine
-    what it is, otherwise falls back on ``userlabs``.
-
-    Returns
-    -------
-    str
-        Namespace prefix to use for namespaces for lab environments.
-    """
-    if prefix := os.getenv("USER_NAMESPACE_PREFIX"):
-        return prefix
-
-    # Kubernetes puts the running pod namespace here.
-    path = Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-    if path.exists():
-        return path.read_text().strip()
-    else:
-        return "userlabs"
 
 
 class ContainerImage(BaseModel):
@@ -572,11 +549,11 @@ class LabConfig(BaseModel):
     )
 
     namespace_prefix: str = Field(
-        default_factory=_get_namespace_prefix,
+        ...,
         title="Namespace prefix for lab environments",
         description=(
             "The namespace for the user's lab will start with this string,"
-            " a hyphen (`-`), and the user's username."
+            " a hyphen (`-`), and the user's username"
         ),
     )
 

@@ -7,6 +7,7 @@ lab:
   homedirPrefix: "/u/home/"
   homedirSchema: initialThenUsername
   homedirSuffix: "/jhome/"
+  namespacePrefix: userlabs
   files:
     /etc/passwd:
       modify: true
