@@ -5,15 +5,6 @@ lab:
   spawnTimeout: 10
   extraAnnotations:
     k8s.v1.cni.cncf.io/networks: "kube-system/dds"
-  files:
-    /etc/passwd:
-      modify: true
-      contents: |
-        root:x:0:0:root:/root:/bin/bash
-    /etc/group:
-      modify: true
-      contents: |
-        root:x:0:
   sizes:
     small:
       cpu: 1.0
