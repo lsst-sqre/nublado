@@ -1,12 +1,14 @@
 """Routes for lab manipulation (start, stop, get status, see events)."""
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from safir.models import ErrorLocation, ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 from sse_starlette import EventSourceResponse
 
 from ..dependencies.context import RequestContext, context_dependency
-from ..dependencies.user import user_dependency
+from ..dependencies.user import user_dependency, username_path_dependency
 from ..exceptions import (
     InvalidDockerReferenceError,
     OperationConflictError,
@@ -29,7 +31,7 @@ __all__ = ["router"]
     summary="List all users with running labs",
 )
 async def get_lab_users(
-    context: RequestContext = Depends(context_dependency),
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> list[str]:
     return await context.lab_manager.list_lab_users(only_running=True)
 
@@ -45,7 +47,7 @@ async def get_lab_users(
 )
 async def get_lab_state(
     username: str,
-    context: RequestContext = Depends(context_dependency),
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> UserLabState:
     state = await context.lab_manager.get_lab_state(username)
     if not state:
@@ -66,9 +68,9 @@ async def get_lab_state(
 async def post_new_lab(
     username: str,
     lab: LabSpecification,
+    context: Annotated[RequestContext, Depends(context_dependency)],
+    user: Annotated[GafaelfawrUser, Depends(user_dependency)],
     response: Response,
-    context: RequestContext = Depends(context_dependency),
-    user: GafaelfawrUser = Depends(user_dependency),
 ) -> None:
     if username != user.username:
         raise PermissionDeniedError("Permission denied")
@@ -99,7 +101,7 @@ async def post_new_lab(
 )
 async def delete_user_lab(
     username: str,
-    context: RequestContext = Depends(context_dependency),
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> None:
     try:
         await context.lab_manager.delete_lab(username)
@@ -133,12 +135,9 @@ async def delete_user_lab(
     },
 )
 async def get_lab_events(
-    username: str,
-    x_auth_request_user: str = Header(..., include_in_schema=False),
-    context: RequestContext = Depends(context_dependency),
+    username: Annotated[str, Depends(username_path_dependency)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> EventSourceResponse:
-    if username != x_auth_request_user:
-        raise PermissionDeniedError("Permission denied")
     try:
         generator = context.lab_manager.events_for_user(username)
         return EventSourceResponse(generator)

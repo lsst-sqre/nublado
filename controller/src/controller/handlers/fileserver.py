@@ -1,5 +1,7 @@
 """Rounte handlers for user file servers."""
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, Response
 from safir.models import ErrorModel
@@ -59,9 +61,9 @@ __all__ = ["router", "user_router"]
     response_class=HTMLResponse,
 )
 async def route_user(
-    context: RequestContext = Depends(context_dependency),
-    config: Config = Depends(config_dependency),
-    user: UserInfo = Depends(user_dependency),
+    context: Annotated[RequestContext, Depends(context_dependency)],
+    config: Annotated[Config, Depends(config_dependency)],
+    user: Annotated[UserInfo, Depends(user_dependency)],
 ) -> Response:
     context.rebind_logger(user=user.username)
     if not config.fileserver.enabled:
@@ -107,7 +109,7 @@ async def route_user(
     summary="List all users with running fileservers",
 )
 async def get_fileserver_users(
-    context: RequestContext = Depends(context_dependency),
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> list[str]:
     return await context.fileserver_manager.list()
 
@@ -119,7 +121,7 @@ async def get_fileserver_users(
 )
 async def remove_fileserver(
     username: str,
-    context: RequestContext = Depends(context_dependency),
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> None:
     context.rebind_logger(user=username)
     try:

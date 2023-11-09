@@ -1,6 +1,8 @@
 """Routes for generating spawner forms."""
 
-from fastapi import APIRouter, Depends, Header
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse, Response
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
@@ -9,7 +11,7 @@ from ..config import Config
 from ..constants import DROPDOWN_SENTINEL_VALUE
 from ..dependencies.config import config_dependency
 from ..dependencies.context import RequestContext, context_dependency
-from ..exceptions import PermissionDeniedError
+from ..dependencies.user import username_path_dependency
 from ..templates import templates
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -25,13 +27,10 @@ __all__ = ["router"]
     responses={403: {"description": "Forbidden", "model": ErrorModel}},
 )
 async def get_user_lab_form(
-    username: str,
-    x_auth_request_user: str = Header(..., include_in_schema=False),
-    config: Config = Depends(config_dependency),
-    context: RequestContext = Depends(context_dependency),
+    username: Annotated[str, Depends(username_path_dependency)],
+    config: Annotated[Config, Depends(config_dependency)],
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> Response:
-    if username != x_auth_request_user:
-        raise PermissionDeniedError("Permission denied")
     images = context.image_service.menu_images()
     return templates.TemplateResponse(
         "spawner.html.jinja",

@@ -1,5 +1,7 @@
 """Handlers for the app's root, ``/``."""
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from safir.metadata import Metadata, get_metadata
 from safir.slack.webhook import SlackRouteErrorHandler
@@ -24,7 +26,7 @@ __all__ = ["external_router", "internal_router"]
     summary="Application metadata",
 )
 async def get_index(
-    config: Config = Depends(config_dependency),
+    config: Annotated[Config, Depends(config_dependency)],
 ) -> Index:
     metadata = get_metadata(
         package_name="controller", application_name=config.name
@@ -45,7 +47,7 @@ async def get_index(
     summary="Application metadata (internal)",
 )
 async def get_internal_index(
-    config: Config = Depends(config_dependency),
+    config: Annotated[Config, Depends(config_dependency)],
 ) -> Metadata:
     return get_metadata(
         package_name="controller", application_name=config.name
