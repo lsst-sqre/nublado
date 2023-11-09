@@ -278,14 +278,7 @@ class ImageService:
         prepulled = []
         pending = []
         for image in self._to_prepull.all_images(hide_resolved_aliases=True):
-            node_image = NodeImage(
-                reference=image.reference,
-                tag=image.tag,
-                name=image.display_name,
-                digest=image.digest,
-                size=image.size,
-                nodes=sorted(image.nodes),
-            )
+            node_image = NodeImage.from_rsp_image(image)
             if image.nodes >= all_nodes:
                 prepulled.append(node_image)
             else:

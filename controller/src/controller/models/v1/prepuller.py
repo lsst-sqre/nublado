@@ -123,6 +123,29 @@ class NodeImage(Image):
         examples=[["node-3"]],
     )
 
+    @classmethod
+    def from_rsp_image(cls, image: RSPImage) -> Self:
+        """Convert from an `~jupyterhub.models.domain.RSPImage`.
+
+        Parameters
+        ----------
+        image
+            Source image.
+
+        Returns
+        -------
+        NodeImage
+            Converted image.
+        """
+        return cls(
+            reference=image.reference,
+            tag=image.tag,
+            name=image.display_name,
+            digest=image.digest,
+            size=image.size,
+            nodes=sorted(image.nodes),
+        )
+
 
 class PrepullerImageStatus(BaseModel):
     """Status of the images being prepulled."""
