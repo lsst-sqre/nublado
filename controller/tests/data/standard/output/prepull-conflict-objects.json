@@ -23,8 +23,7 @@
       "containers": [
         {
           "command": [
-            "/bin/sleep",
-            "5"
+            "/bin/true"
           ],
           "image": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
           "name": "prepull",
