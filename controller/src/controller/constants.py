@@ -12,7 +12,6 @@ __all__ = [
     "FILE_SERVER_REFRESH_INTERVAL",
     "IMAGE_REFRESH_INTERVAL",
     "KUBERNETES_DELETE_TIMEOUT",
-    "KUBERNETES_REQUEST_TIMEOUT",
     "LAB_COMMAND",
     "LAB_STATE_REFRESH_INTERVAL",
     "LIMIT_TO_REQUEST_RATIO",
@@ -116,9 +115,6 @@ PREPULLER_POD_TIMEOUT = timedelta(minutes=10)
 This may take a substantial amount of time if the pod image is quite large or
 the network is slow.
 """
-
-# These are in seconds; they're arguments to various functions, not timedeltas.
-KUBERNETES_REQUEST_TIMEOUT = 60
 
 LIMIT_TO_REQUEST_RATIO: float = 4.0  # Seems to work well so far.
 
