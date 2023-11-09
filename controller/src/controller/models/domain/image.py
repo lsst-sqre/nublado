@@ -1,4 +1,4 @@
-"""Internal models for spawner form construction."""
+"""Internal models returned by image service methods."""
 
 from __future__ import annotations
 

@@ -9,7 +9,7 @@ from structlog.stdlib import BoundLogger
 
 from ...exceptions import InvalidDockerReferenceError, UnknownDockerImageError
 from ...models.domain.docker import DockerReference
-from ...models.domain.form import MenuImage
+from ...models.domain.image import MenuImage
 from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.domain.rsptag import RSPImageTagCollection
