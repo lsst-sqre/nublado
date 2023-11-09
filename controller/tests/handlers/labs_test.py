@@ -610,6 +610,26 @@ async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
         ]
     }
 
+    # Test requesting a lab size that doesn't exist.
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={
+            "options": {"image_tag": "recommended", "size": "gargantuan"},
+            "env": lab.env,
+        },
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 422
+    assert r.json() == {
+        "detail": [
+            {
+                "loc": ["body", "options", "size"],
+                "msg": 'Invalid lab size "gargantuan"',
+                "type": "invalid_lab_size",
+            }
+        ]
+    }
+
 
 @pytest.mark.asyncio
 async def test_spawn_errors(
