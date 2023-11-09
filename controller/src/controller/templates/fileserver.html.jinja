@@ -6,7 +6,7 @@ User Fileserver Created
 </head>
 </body>
 <h1>
-Your <a href="{{ base_url }}{{ path_prefix }}/files/{{ username }}">fileserver</a> is ready.
+Your <a href="{{ base_url }}{{ path_prefix }}/{{ username }}">fileserver</a> is ready.
 <h1>
 
 <h2>
@@ -14,7 +14,7 @@ Access Token
 </h2>
 
 <p> If you do not have an access token, go to <a
-href="{{ base_url }}/auth/tokens/">the Gafaelfawr tokens page</a> and press
+href="{{ base_url }}/auth/tokens">the Gafaelfawr tokens page</a> and press
 the "Create Token" button.  </p>
 
 <p>
@@ -46,7 +46,7 @@ almost any Unix-like system and will work.
 
 <p>
 Connect to
-<a href="{{ base_url }}{{ path_prefix }}/files/{{ username }}">{{ base_url }}{{ path_prefix }}/files/{{ username }}</a>
+<a href="{{ base_url }}{{ path_prefix }}/{{ username }}">{{ base_url }}{{ path_prefix }}/{{ username }}</a>
 with your WebDAV client (for Konqueror, use "webdav" or "webdavs" rather
 than "http" or "https" as the protocol).  Use the token you acquired
 earlier as the password.  You can use any string for your username
@@ -57,7 +57,7 @@ would be both accurate and traditional.
 <p>
 If you make no requests in {{ timeout | format_timedelta }}, the fileserver will shut
 down.  If that occurs, simply go back to
-<a href="{{ base_url }}{{ path_prefix }}/files">{{ base_url }}{{ path_prefix }}/files</a>
+<a href="{{ base_url }}{{ path_prefix }}">{{ base_url }}{{ path_prefix }}</a>
 and a new fileserver will be created for you.
 </p>
 </body>

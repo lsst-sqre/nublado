@@ -53,7 +53,7 @@ __all__ = ["router", "user_router"]
 
 
 @user_router.get(
-    "/files",
+    "",
     summary="Allow user to access files, spawning new fileserver if needed.",
     responses={403: {"description": "Forbidden", "model": ErrorModel}},
     response_class=HTMLResponse,

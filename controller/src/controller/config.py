@@ -103,6 +103,99 @@ class ContainerImage(BaseModel):
     )
 
 
+class FileserverConfig(BaseModel):
+    """Base configuration for user file servers.
+
+    This base model contains only the boolean setting for whether the file
+    server is enabled and a few settings with defaults that are referenced
+    even if the file server is disabled (mostly to make code simpler),
+    allowing code to determine whether the configuration object is actually
+    `FileserverConfigEnabled`.
+    """
+
+    enabled: bool = Field(
+        False,
+        title="Whether file servers are enabled",
+        description=(
+            "If set to false, file servers will be disabled and the routes"
+            " to create or manage file servers will return 404 errors"
+        ),
+    )
+
+    path_prefix: str = Field(
+        "/files",
+        title="Path prefix for file server route",
+        description="The route at which users spawn new user file servers",
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+
+class DisabledFileserverConfig(FileserverConfig):
+    """Configuration when user file servers are disabled."""
+
+    enabled: Literal[False] = False
+
+
+class EnabledFileserverConfig(FileserverConfig):
+    """Configuration for enabled user file servers."""
+
+    enabled: Literal[True]
+
+    application: str | None = Field(
+        None,
+        title="Argo CD application",
+        description=(
+            "An Argo CD application under which fileservers should be shown"
+        ),
+    )
+
+    creation_timeout: timedelta = Field(
+        timedelta(minutes=2),
+        title="File server creation timeout",
+        description=(
+            "How long to wait for a file server to start before returning an"
+            " error to the user"
+        ),
+    )
+
+    idle_timeout: timedelta = Field(
+        timedelta(hours=1),
+        title="File server inactivity timeout",
+        description=(
+            "After this length of time, inactive file servers will shut down"
+        ),
+    )
+
+    image: ContainerImage = Field(
+        ...,
+        title="File server Docker image",
+        description=(
+            "Docker image to run as a user file server. This must follow the"
+            " same API as worblehat."
+        ),
+    )
+
+    namespace: str = Field(
+        ...,
+        title="Namespace for user fileservers",
+        description=(
+            "All file servers for any user will be created in this namespace"
+        ),
+    )
+
+    resources: LabResources | None = Field(
+        None,
+        title="Resource requests and limits",
+        description=(
+            "Kubernetes resource requests and limits for uesr file server"
+            " pods"
+        ),
+    )
+
+
 class LabSizeDefinition(BaseModel):
     """Possible size of lab.
 
@@ -558,102 +651,6 @@ class LabConfig(BaseModel):
                 raise ValueError(msg)
             keys.add(secret.secret_key)
         return v
-
-
-class FileserverConfig(BaseModel):
-    """Base configuration for user file servers.
-
-    This base model contains only the boolean setting for whether the file
-    server is enabled and a few settings with defaults that are referenced
-    even if the file server is disabled (mostly to make code simpler),
-    allowing code to determine whether the configuration object is actually
-    `FileserverConfigEnabled`.
-    """
-
-    enabled: bool = Field(
-        False,
-        title="Whether file servers are enabled",
-        description=(
-            "If set to false, file servers will be disabled and the routes"
-            " to create or manage file servers will return 404 errors"
-        ),
-    )
-
-    path_prefix: str = Field(
-        "",
-        title="Path prefix for file server route",
-        description=(
-            "If set, this will be added to the front of `/files` to form the"
-            " route at which users spawn new user file servers"
-        ),
-    )
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
-    )
-
-
-class DisabledFileserverConfig(FileserverConfig):
-    """Configuration when user file servers are disabled."""
-
-    enabled: Literal[False] = False
-
-
-class EnabledFileserverConfig(FileserverConfig):
-    """Configuration for enabled user file servers."""
-
-    enabled: Literal[True]
-
-    application: str | None = Field(
-        None,
-        title="Argo CD application",
-        description=(
-            "An Argo CD application under which fileservers should be shown"
-        ),
-    )
-
-    creation_timeout: timedelta = Field(
-        timedelta(minutes=2),
-        title="File server creation timeout",
-        description=(
-            "How long to wait for a file server to start before returning an"
-            " error to the user"
-        ),
-    )
-
-    idle_timeout: timedelta = Field(
-        timedelta(hours=1),
-        title="File server inactivity timeout",
-        description=(
-            "After this length of time, inactive file servers will shut down"
-        ),
-    )
-
-    image: ContainerImage = Field(
-        ...,
-        title="File server Docker image",
-        description=(
-            "Docker image to run as a user file server. This must follow the"
-            " same API as worblehat."
-        ),
-    )
-
-    namespace: str = Field(
-        ...,
-        title="Namespace for user fileservers",
-        description=(
-            "All file servers for any user will be created in this namespace"
-        ),
-    )
-
-    resources: LabResources | None = Field(
-        None,
-        title="Resource requests and limits",
-        description=(
-            "Kubernetes resource requests and limits for uesr file server"
-            " pods"
-        ),
-    )
 
 
 class Config(BaseSettings):
