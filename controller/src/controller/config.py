@@ -7,7 +7,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Literal, Self
 
-import bitmath
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
@@ -21,6 +20,7 @@ from .constants import (
 from .models.domain.kubernetes import PullPolicy, VolumeAccessMode
 from .models.v1.lab import LabResources, LabSize, ResourceQuantity
 from .models.v1.prepuller_config import PrepullerConfig
+from .units import memory_to_bytes
 
 __all__ = [
     "BaseVolumeSource",
@@ -207,10 +207,7 @@ class LabSizeDefinition(BaseModel):
     @property
     def memory_bytes(self) -> int:
         """Amount of memory in bytes."""
-        memory = self.memory
-        if not memory.endswith("B"):
-            memory += "B"
-        return int(bitmath.parse_string(memory).bytes)
+        return memory_to_bytes(self.memory)
 
     def to_lab_resources(self) -> LabResources:
         """Convert to the equivalent lab resources model."""

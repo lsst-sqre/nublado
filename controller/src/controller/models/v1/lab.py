@@ -9,6 +9,7 @@ from kubernetes_asyncio.client import V1ResourceRequirements
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ...constants import DROPDOWN_SENTINEL_VALUE, USERNAME_REGEX
+from ...units import memory_to_bytes
 from ..domain.gafaelfawr import GafaelfawrUserInfo, UserGroup
 from ..domain.kubernetes import PodPhase
 
@@ -429,9 +430,23 @@ class ResourceQuantity(BaseModel):
     memory: int = Field(
         ...,
         title="Memory",
-        description="Amount of memory in bytes",
-        examples=[1073741824],
+        description=(
+            "Amount of memory in bytes. Also accepts strings with SI"
+            " suffixes, which will be converted to bytes. Be sure to use"
+            " the suffix with `i` to indicate powers of two (1024 rather"
+            " than 1000) if that is desired."
+        ),
+        examples=[1073741824, "1Gi"],
     )
+
+    @field_validator("memory", mode="before")
+    @classmethod
+    def _validate_memory(cls, v: int | str) -> int:
+        """Convert strings with SI units to memory in bytes."""
+        if isinstance(v, str):
+            return memory_to_bytes(v)
+        else:
+            return v
 
 
 class LabResources(BaseModel):

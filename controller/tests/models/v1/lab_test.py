@@ -6,7 +6,20 @@ import pytest
 from pydantic import ValidationError
 
 from controller.constants import DROPDOWN_SENTINEL_VALUE
-from controller.models.v1.lab import ImageClass, LabSize, UserOptions
+from controller.models.v1.lab import (
+    ImageClass,
+    LabSize,
+    ResourceQuantity,
+    UserOptions,
+)
+
+
+def test_resource_quantity() -> None:
+    quantity = ResourceQuantity.model_validate({"cpu": 0.4, "memory": "1Gi"})
+    assert quantity.memory == 1024 * 1024 * 1024
+
+    with pytest.raises(ValidationError):
+        ResourceQuantity.model_validate({"cpu": 1.0, "memory": "24D"})
 
 
 def test_user_options() -> None:
