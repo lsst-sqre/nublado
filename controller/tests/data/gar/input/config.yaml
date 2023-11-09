@@ -1,6 +1,7 @@
 logLevel: DEBUG
 profile: development
 lab:
+  namespacePrefix: userlabs
   sizes:
     small:
       cpu: 1.0

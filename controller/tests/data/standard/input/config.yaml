@@ -2,6 +2,7 @@ logLevel: DEBUG
 profile: development
 lab:
   application: "nublado-users"
+  namespacePrefix: userlabs
   spawnTimeout: 10
   env:
     API_ROUTE: /api
