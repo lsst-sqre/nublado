@@ -16,7 +16,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from safir.logging import LogLevel, Profile
 
 from .constants import (
-    DOCKER_SECRETS_PATH,
     LIMIT_TO_REQUEST_RATIO,
     METADATA_PATH,
 )
@@ -740,10 +739,6 @@ class Config(BaseSettings):
     )
 
     lab: LabConfig = Field(..., title="User lab configuration")
-
-    docker_secrets_path: Path = Field(
-        DOCKER_SECRETS_PATH, title="Path to Docker API credentials"
-    )
 
     model_config = SettingsConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True

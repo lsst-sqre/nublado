@@ -93,7 +93,7 @@ def mock_docker(
         respx_mock,
         host=config.images.source.registry,
         repository=config.images.source.repository,
-        credentials_path=config.docker_secrets_path,
+        credentials_path=config.images.source.credentials_path,
         tags=tags,
         require_bearer=True,
     )

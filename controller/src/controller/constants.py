@@ -6,7 +6,7 @@ from pathlib import Path
 __all__ = [
     "ARGO_CD_ANNOTATIONS",
     "CONFIGURATION_PATH",
-    "DOCKER_SECRETS_PATH",
+    "DOCKER_CREDENTIALS_PATH",
     "DROPDOWN_SENTINEL_VALUE",
     "GROUPNAME_REGEX",
     "FILE_SERVER_REFRESH_INTERVAL",
@@ -39,7 +39,7 @@ should not manage them.
 CONFIGURATION_PATH = Path("/etc/nublado/config.yaml")
 """Default path to controller configuration."""
 
-DOCKER_SECRETS_PATH = Path("/etc/secrets/.dockerconfigjson")
+DOCKER_CREDENTIALS_PATH = Path("/etc/secrets/.dockerconfigjson")
 """Default path to the Docker API secrets."""
 
 DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
