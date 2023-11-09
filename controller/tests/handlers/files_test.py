@@ -22,7 +22,7 @@ from ..support.fileserver import (
 
 
 @pytest.mark.asyncio
-async def test_fileserver(
+async def test_create_delete(
     client: AsyncClient,
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
