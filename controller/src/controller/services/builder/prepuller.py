@@ -63,7 +63,7 @@ class PrepullerBuilder:
                 containers=[
                     V1Container(
                         name="prepull",
-                        command=["/bin/sleep", "5"],
+                        command=["/bin/true"],
                         image=image.reference_with_digest,
                         working_dir="/tmp",
                     )
