@@ -55,9 +55,10 @@ class GafaelfawrStorageClient:
 
         Raises
         ------
-        GafaelfawrError
-            Raised if some error occurred talking to Gafaelfawr or if the
-            response from Gafaelfawr could not be parsed.
+        GafaelfawrParseError
+            Raised if the Gafaelfawr response could not be parsed.
+        GafaelfawrWebError
+            Raised if the token could not be validated with Gafaelfawr.
         InvalidTokenError
             Raised if the token was rejected by Gafaelfawr.
         """

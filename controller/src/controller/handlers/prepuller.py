@@ -1,5 +1,7 @@
 """Routes for prepulling and available image information."""
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from safir.slack.webhook import SlackRouteErrorHandler
 
@@ -19,7 +21,7 @@ __all__ = ["router"]
     response_model_exclude_none=True,
 )
 async def get_images(
-    context: RequestContext = Depends(context_dependency),
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> SpawnerImages:
     return context.image_service.images()
 
@@ -31,6 +33,6 @@ async def get_images(
     response_model_by_alias=False,
 )
 async def get_prepulls(
-    context: RequestContext = Depends(context_dependency),
+    context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> PrepullerStatus:
     return context.image_service.prepull_status()
