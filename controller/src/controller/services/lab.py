@@ -22,6 +22,7 @@ from structlog.stdlib import BoundLogger
 from ..config import LabConfig
 from ..constants import LAB_STATE_REFRESH_INTERVAL
 from ..exceptions import (
+    InvalidLabSizeError,
     KubernetesError,
     LabDeletionError,
     LabExistsError,
@@ -197,6 +198,9 @@ class LabManager:
         InvalidDockerReferenceError
             Raised if the Docker image reference in the lab specification is
             invalid.
+        InvalidLabSizeError
+            Raised if the requested lab size is not one of the configured
+            sizes.
         LabExistsError
             Raised if this user already has a lab.
         OperationConflictError
@@ -227,6 +231,11 @@ class LabManager:
         elif spec.options.image_tag:
             tag = spec.options.image_tag
             image = await self._image_service.image_for_tag_name(tag)
+
+        # Determine the resources to assign to the lab.
+        if spec.options.size not in self._config.sizes:
+            raise InvalidLabSizeError(spec.options.size)
+        resources = self._config.sizes[spec.options.size].to_lab_resources()
 
         # Check to see if the lab already exists. If so, but it is in a failed
         # state, we will delete the previous lab first.
@@ -267,7 +276,6 @@ class LabManager:
         # OperationConflictError. This ordering ensures that only the
         # successful call is able to update the user's lab state.
         lab.events.clear()
-        resources = self._config.sizes[spec.options.size].to_lab_resources()
         state = UserLabState.from_request(user, spec, resources)
         spawner = self._spawn_lab(
             user=user,

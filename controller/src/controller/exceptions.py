@@ -8,6 +8,7 @@ from fastapi import status
 from kubernetes_asyncio.client import ApiException
 from pydantic import ValidationError
 from safir.fastapi import ClientRequestError
+from safir.models import ErrorLocation
 from safir.slack.blockkit import (
     SlackCodeBlock,
     SlackException,
@@ -17,12 +18,15 @@ from safir.slack.blockkit import (
     SlackWebException,
 )
 
+from .models.v1.lab import LabSize
+
 __all__ = [
     "DockerRegistryError",
     "DuplicateObjectError",
     "GafaelfawrParseError",
     "GafaelfawrWebError",
     "InvalidDockerReferenceError",
+    "InvalidLabSizeError",
     "InvalidTokenError",
     "KubernetesError",
     "LabDeletionError",
@@ -50,6 +54,16 @@ class InvalidDockerReferenceError(ClientRequestError):
     """
 
     error = "invalid_docker_reference"
+
+
+class InvalidLabSizeError(ClientRequestError):
+    """The provided lab size is not one of the configured sizes."""
+
+    error = "invalid_lab_size"
+
+    def __init__(self, size: LabSize) -> None:
+        msg = f'Invalid lab size "{size.value}"'
+        super().__init__(msg, ErrorLocation.body, ["options", "size"])
 
 
 class InvalidTokenError(ClientRequestError):
