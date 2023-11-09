@@ -31,8 +31,8 @@ __all__ = [
     "FileserverConfig",
     "HostPathVolumeSource",
     "LabConfig",
-    "LabFile",
     "LabInitContainer",
+    "LabNSSFiles",
     "LabSecret",
     "LabSizeDefinition",
     "LabVolume",
@@ -432,25 +432,28 @@ class LabSecret(BaseModel):
     )
 
 
-class LabFile(BaseModel):
-    """A file to create inside lab containers."""
+class LabNSSFiles(BaseModel):
+    """Rules for :file:`/etc/passwd` and :file:`/etc/group` inside the lab."""
 
-    contents: str = Field(
-        ...,
-        title="Contents of file",
-        examples=[
-            (
-                "root:x:0:0:root:/root:/bin/bash\n"
-                "bin:x:1:1:bin:/bin:/sbin/nologin\n",
-                "...",
-            )
-        ],
+    base_passwd: str = Field(
+        "root:x:0:0:root:/root:/bin/bash\n",
+        title="Base contents of `/etc/passwd`",
+        description=(
+            "These contents will be copied verbatim to `/etc/passwd` inside"
+            " the lab, and then an entry for the user will be appended"
+        ),
+        examples=["root:x:0:0:root:/root:/bin/bash\n"],
     )
 
-    modify: bool = Field(
-        False,
-        title="Whether to modify this file before injection",
-        examples=[False],
+    base_group: str = Field(
+        "root:x:0\n",
+        title="Base contents of `/etc/group`",
+        description=(
+            "These contents will be copied verbatim to `/etc/group` inside"
+            " the lab, and then entries for the user's groups will be"
+            " appended"
+        ),
+        examples=["root:x:0\n"],
     )
 
     model_config = ConfigDict(
@@ -489,7 +492,7 @@ class LabConfig(BaseModel):
         ),
     )
 
-    files: dict[str, LabFile] = Field(
+    files: dict[str, str] = Field(
         {},
         title="Files to create inside the lab",
         description=(
@@ -557,6 +560,15 @@ class LabConfig(BaseModel):
         ),
     )
 
+    nss: LabNSSFiles = Field(
+        default_factory=LabNSSFiles,
+        title="passwd and group contents for lab",
+        description=(
+            "Configuration for the `/etc/passwd` and `/etc/group` files inside"
+            " the lab"
+        ),
+    )
+
     pull_secret: str | None = Field(
         None,
         title="Pull secret to use for lab pods",
@@ -601,6 +613,14 @@ class LabConfig(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    @field_validator("files")
+    @classmethod
+    def _validate_files(cls, v: dict[str, str]) -> dict[str, str]:
+        for path in v:
+            if path in {"/etc/passwd", "/etc/group"}:
+                raise ValueError(f"Cannot mount a file over {path}")
+        return v
 
     @field_validator("homedir_prefix")
     @classmethod

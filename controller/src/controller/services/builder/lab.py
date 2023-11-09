@@ -370,9 +370,8 @@ class LabBuilder:
             metadata=self._build_metadata(f"{username}-nb-files", username),
             immutable=True,
             data={
-                re.sub(r"[_.]", "-", Path(n).name): f.contents
-                for n, f in self._config.files.items()
-                if not f.modify
+                re.sub(r"[_.]", "-", Path(k).name): v
+                for k, v in self._config.files.items()
             },
         )
 
@@ -384,8 +383,8 @@ class LabBuilder:
         constructed by adding entries for the user and their groups to a base
         file in the Nublado controller configuration.
         """
-        etc_passwd = self._config.files["/etc/passwd"].contents
-        etc_group = self._config.files["/etc/group"].contents
+        etc_passwd = self._config.nss.base_passwd
+        etc_group = self._config.nss.base_group
 
         # Construct the user's /etc/passwd entry. Different sites use
         # different schemes for constructing the home directory path.
@@ -561,6 +560,7 @@ class LabBuilder:
         )
         return [
             *volumes_from_config,
+            *self._build_pod_nss_volumes(username),
             *self._build_pod_file_volumes(username),
             self._build_pod_secret_volume(username),
             self._build_pod_env_volume(username),
@@ -568,33 +568,41 @@ class LabBuilder:
             self._build_pod_downward_api_volume(username),
         ]
 
+    def _build_pod_config_map_volume(
+        self, config_map: str, path: str
+    ) -> MountedVolume:
+        """Construct the mounted volume for a file from a ``ConfigMap``."""
+        subpath = Path(path).name
+        name = re.sub(r"[_.]", "-", subpath)
+        key_to_path = V1KeyToPath(mode=0o0644, key=name, path=subpath)
+        return MountedVolume(
+            volume=V1Volume(
+                name=name,
+                config_map=V1ConfigMapVolumeSource(
+                    name=config_map, items=[key_to_path]
+                ),
+            ),
+            volume_mount=V1VolumeMount(
+                mount_path=path,
+                name=name,
+                read_only=True,
+                sub_path=subpath,
+            ),
+        )
+
     def _build_pod_file_volumes(self, username: str) -> list[MountedVolume]:
         """Construct the volumes that mount files from a ``ConfigMap``."""
-        volumes = []
-        for config_file in self._config.files:
-            subpath = Path(config_file).name
-            name = re.sub(r"[_.]", "-", subpath)
-            if config_file in {"/etc/passwd", "/etc/group"}:
-                config_map = f"{username}-nb-nss"
-            else:
-                config_map = f"{username}-nb-files"
-            key_to_path = V1KeyToPath(mode=0o0644, key=name, path=subpath)
-            volume = MountedVolume(
-                volume=V1Volume(
-                    name=name,
-                    config_map=V1ConfigMapVolumeSource(
-                        name=config_map, items=[key_to_path]
-                    ),
-                ),
-                volume_mount=V1VolumeMount(
-                    mount_path=config_file,
-                    name=name,
-                    read_only=True,
-                    sub_path=subpath,
-                ),
-            )
-            volumes.append(volume)
-        return volumes
+        return [
+            self._build_pod_config_map_volume(f"{username}-nb-files", f)
+            for f in self._config.files
+        ]
+
+    def _build_pod_nss_volumes(self, username: str) -> list[MountedVolume]:
+        """Construct the volumes for NSS files."""
+        return [
+            self._build_pod_config_map_volume(f"{username}-nb-nss", f)
+            for f in ("/etc/passwd", "/etc/group")
+        ]
 
     def _build_pod_secret_volume(self, username: str) -> MountedVolume:
         """Construct the volume that mounts the lab secrets.

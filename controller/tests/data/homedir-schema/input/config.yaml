@@ -8,15 +8,6 @@ lab:
   homedirSchema: initialThenUsername
   homedirSuffix: "/jhome/"
   namespacePrefix: userlabs
-  files:
-    /etc/passwd:
-      modify: true
-      contents: |
-        root:x:0:0:root:/root:/bin/bash
-    /etc/group:
-      modify: true
-      contents: |
-        root:x:0:
   sizes:
     small:
       cpu: 1.0
