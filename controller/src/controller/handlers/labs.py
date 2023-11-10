@@ -10,6 +10,7 @@ from sse_starlette import EventSourceResponse
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.user import user_dependency, username_path_dependency
 from ..exceptions import (
+    InsufficientQuotaError,
     InvalidDockerReferenceError,
     OperationConflictError,
     PermissionDeniedError,
@@ -78,6 +79,10 @@ async def post_new_lab(
     # The user is valid and matches the route. Attempt the lab creation.
     try:
         await context.lab_manager.create_lab(user, lab)
+    except InsufficientQuotaError as e:
+        e.location = ErrorLocation.body
+        e.field_path = ["options", "size"]
+        raise
     except (InvalidDockerReferenceError, UnknownDockerImageError) as e:
         e.location = ErrorLocation.body
         e.field_path = ["options", lab.options.image_attribute]
