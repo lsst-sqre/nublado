@@ -60,6 +60,39 @@ def _pytest(session: nox.Session, directory: str, module: str) -> None:
             )
 
 
+def _update_deps(
+    session: nox.Session, *, generate_hashes: bool = True
+) -> None:
+    session.install(
+        "--upgrade", "pip-tools", "pip", "setuptools", "wheel", "pre-commit"
+    )
+    session.run("pre-commit", "autoupdate")
+    for directory in ("controller", "hub"):
+        command = [
+            "pip-compile",
+            "--upgrade",
+            "--resolver=backtracking",
+            "--build-isolation",
+            "--allow-unsafe",
+        ]
+        if generate_hashes:
+            command.append("--generate-hashes")
+        session.run(
+            *command,
+            "--output-file",
+            f"{directory}/requirements/main.txt",
+            f"{directory}/requirements/main.in",
+        )
+        session.run(
+            *command,
+            "--output-file",
+            f"{directory}/requirements/dev.txt",
+            f"{directory}/requirements/dev.in",
+        )
+
+    print("\nTo refresh the development venv, run:\n\n\tnox -s init\n")
+
+
 @nox.session(name="venv-init")
 def venv_init(session: nox.Session) -> None:
     """Set up a development venv.
@@ -184,35 +217,17 @@ def docs_linkcheck(session: nox.Session) -> None:
 @nox.session(name="update-deps")
 def update_deps(session: nox.Session) -> None:
     """Update pinned server dependencies and pre-commit hooks."""
-    session.install(
-        "--upgrade", "pip-tools", "pip", "setuptools", "wheel", "pre-commit"
-    )
-    session.run("pre-commit", "autoupdate")
-    for directory in ("controller", "hub"):
-        session.run(
-            "pip-compile",
-            "--upgrade",
-            "--resolver=backtracking",
-            "--build-isolation",
-            "--allow-unsafe",
-            "--generate-hashes",
-            "--output-file",
-            f"{directory}/requirements/main.txt",
-            f"{directory}/requirements/main.in",
-        )
-        session.run(
-            "pip-compile",
-            "--upgrade",
-            "--resolver=backtracking",
-            "--build-isolation",
-            "--allow-unsafe",
-            "--generate-hashes",
-            "--output-file",
-            f"{directory}/requirements/dev.txt",
-            f"{directory}/requirements/dev.in",
-        )
+    _update_deps(session)
 
-    print("\nTo refresh the development venv, run:\n\n\tnox -s init\n")
+
+@nox.session(name="update-deps-no-hashes")
+def update_deps_no_hashes(session: nox.Session) -> None:
+    """Update pinned server dependencies without hashes.
+
+    Used when testing against unreleased dependencies, such as a Git version
+    of Safir.
+    """
+    _update_deps(session, generate_hashes=False)
 
 
 @nox.session(name="run")
