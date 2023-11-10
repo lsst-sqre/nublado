@@ -88,6 +88,17 @@ appears to assume the lab will not do anything useful in repsonse to SIGTERM,
 so copy its behavior.
 """
 
+LIMIT_TO_REQUEST_RATIO = 4.0
+"""Ratio of lab resource limits to requests.
+
+The controller configuration only includes the Kubernetes limits. The resource
+requests, which are the resources that must be aviailable for the lab to spawn
+and which are used to determine autoscaling, are determined by dividing the
+limits by this factor. Another way of looking at this value is that it's the
+overcommit factor for labs, assuming many labs will not use their full
+available resources.
+"""
+
 METADATA_PATH = Path("/etc/podinfo")
 """Default path to injected pod metadata."""
 
@@ -116,7 +127,11 @@ This may take a substantial amount of time if the pod image is quite large or
 the network is slow.
 """
 
-LIMIT_TO_REQUEST_RATIO: float = 4.0  # Seems to work well so far.
+RESERVED_PATHS = {"/etc/group", "/etc/passwd", "/tmp"}
+"""Paths within the lab that are reserved for special purposes.
+
+No files or volumes may be mounted over these paths.
+"""
 
 # These must be kept in sync with Gafaelfawr until we can import the models
 # from Gafaelfawr directly.

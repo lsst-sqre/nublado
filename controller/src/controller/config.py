@@ -13,10 +13,7 @@ from pydantic.alias_generators import to_camel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from safir.logging import LogLevel, Profile
 
-from .constants import (
-    LIMIT_TO_REQUEST_RATIO,
-    METADATA_PATH,
-)
+from .constants import LIMIT_TO_REQUEST_RATIO, METADATA_PATH, RESERVED_PATHS
 from .models.domain.kubernetes import PullPolicy, VolumeAccessMode
 from .models.v1.lab import LabResources, LabSize, ResourceQuantity
 from .models.v1.prepuller_config import PrepullerConfig
@@ -340,6 +337,13 @@ class LabVolume(BaseModel):
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
+    @field_validator("container_path")
+    @classmethod
+    def _validate_container_path(cls, v: str) -> str:
+        if v in RESERVED_PATHS:
+            raise ValueError(f"Cannot mount volume over {v}")
+        return v
+
 
 class LabInitContainer(BaseModel):
     """A container to run as an init container before the user's lab."""
@@ -615,7 +619,7 @@ class LabConfig(BaseModel):
     @classmethod
     def _validate_files(cls, v: dict[str, str]) -> dict[str, str]:
         for path in v:
-            if path in {"/etc/passwd", "/etc/group"}:
+            if path in RESERVED_PATHS:
                 raise ValueError(f"Cannot mount a file over {path}")
         return v
 
