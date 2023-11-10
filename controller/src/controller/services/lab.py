@@ -14,7 +14,7 @@ from typing import Self
 from aiojobs import Scheduler
 from safir.asyncio import AsyncMultiQueue
 from safir.datetime import current_datetime
-from safir.slack.blockkit import SlackException
+from safir.slack.blockkit import SlackException, SlackMessage, SlackTextField
 from safir.slack.webhook import SlackWebhookClient
 from sse_starlette import ServerSentEvent
 from structlog.stdlib import BoundLogger
@@ -1292,6 +1292,14 @@ class _LabMonitor:
             delay = int((now - start).total_seconds())
             msg = f"Lab {operation.operation.value} timed out after {delay}s"
             self._logger.exception(msg)
+            if self._slack:
+                message = SlackMessage(
+                    message=msg,
+                    fields=[
+                        SlackTextField(heading="User", text=self._username)
+                    ],
+                )
+                await self._slack.post(message)
             operation.events.put(Event(type=EventType.FAILED, message=msg))
             operation.state.status = LabStatus.FAILED
         except Exception as e:

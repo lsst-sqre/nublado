@@ -9,7 +9,7 @@ from datetime import timedelta
 
 from aiojobs import Scheduler
 from safir.datetime import current_datetime
-from safir.slack.blockkit import SlackException
+from safir.slack.blockkit import SlackException, SlackMessage, SlackTextField
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
@@ -121,6 +121,14 @@ class FileserverManager:
                 elapsed = (now - start).total_seconds()
                 msg = f"File server creation timed out after {elapsed}s"
                 logger.exception(msg)
+                if self._slack:
+                    message = SlackMessage(
+                        message=msg,
+                        fields=[
+                            SlackTextField(heading="User", text=user.username)
+                        ],
+                    )
+                    await self._slack.post(message)
                 logger.info("Cleaning up orphaned file server objects")
                 await self._delete_file_server(user.username)
                 raise TimeoutError(msg) from e
