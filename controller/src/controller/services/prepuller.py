@@ -4,7 +4,7 @@ import asyncio
 
 from aiojobs import Scheduler
 from safir.datetime import current_datetime
-from safir.slack.blockkit import SlackException
+from safir.slack.blockkit import SlackException, SlackMessage, SlackTextBlock
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
@@ -56,7 +56,7 @@ class Prepuller:
         self._builder = prepuller_builder
         self._metadata = metadata_storage
         self._storage = pod_storage
-        self._slack_client = slack_client
+        self._slack = slack_client
         self._logger = logger
 
         # Scheduler to manage background tasks that prepull images to nodes.
@@ -105,8 +105,8 @@ class Prepuller:
                 await self._image_service.prepuller_wait()
             except Exception as e:
                 self._logger.exception("Uncaught exception in prepuller")
-                if self._slack_client:
-                    await self._slack_client.post_uncaught_exception(e)
+                if self._slack:
+                    await self._slack.post_uncaught_exception(e)
                 pause = IMAGE_REFRESH_INTERVAL.total_seconds()
                 self._logger.warning("Pausing failed prepuller for {pause}s")
                 await asyncio.sleep(pause)
@@ -159,24 +159,34 @@ class Prepuller:
         start = current_datetime(microseconds=True)
         logger = self._logger.bind(node=node, image=image.tag)
         logger.debug("Prepulling image")
+        pod = self._builder.build_pod(image, node)
         try:
-            pod = self._builder.build_pod(image, node)
-            await self._storage.create(namespace, pod, replace=True)
-            await self._storage.delete_after_completion(
-                pod.metadata.name, namespace, timeout=PREPULLER_POD_TIMEOUT
-            )
+            async with asyncio.timeout(PREPULLER_POD_TIMEOUT.total_seconds()):
+                await self._storage.create(namespace, pod, replace=True)
+                await self._storage.delete_after_completion(
+                    pod.metadata.name, namespace, timeout=PREPULLER_POD_TIMEOUT
+                )
         except TimeoutError:
             now = current_datetime(microseconds=True)
             delay = (now - start).total_seconds()
             msg = f"Timed out prepulling image after {delay}s"
             logger.warning(msg)
+            if self._slack:
+                message = SlackMessage(
+                    message=msg,
+                    blocks=[
+                        SlackTextBlock(heading="Node", text=node),
+                        SlackTextBlock(heading="Image", text=image.reference),
+                    ],
+                )
+                await self._slack.post(message)
         except Exception as e:
             self._logger.exception("Failed to prepull image")
-            if self._slack_client:
+            if self._slack:
                 if isinstance(e, SlackException):
-                    await self._slack_client.post_exception(e)
+                    await self._slack.post_exception(e)
                 else:
-                    await self._slack_client.post_uncaught_exception(e)
+                    await self._slack.post_uncaught_exception(e)
         else:
             now = current_datetime(microseconds=True)
             delay = (now - start).total_seconds()
