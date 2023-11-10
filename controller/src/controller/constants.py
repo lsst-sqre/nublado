@@ -20,6 +20,8 @@ __all__ = [
     "MOUNT_PATH_ENVIRONMENT",
     "MOUNT_PATH_SECRETS",
     "PREPULLER_POD_TIMEOUT",
+    "RESERVED_ENV",
+    "RESERVED_PATHS",
     "USERNAME_REGEX",
 ]
 
@@ -125,6 +127,31 @@ PREPULLER_POD_TIMEOUT = timedelta(minutes=10)
 
 This may take a substantial amount of time if the pod image is quite large or
 the network is slow.
+"""
+
+RESERVED_ENV = {
+    "ACCESS_TOKEN",
+    "DEBUG",
+    "CONTAINER_SIZE",
+    "CPU_GUARANTEE",
+    "CPU_LIMIT",
+    "EXTERNAL_INSTANCE_URL",
+    "IMAGE_DIGEST",
+    "IMAGE_DESCRIPTION",
+    "JPY_API_TOKEN",
+    "JUPYTER_IMAGE",
+    "JUPYTER_IMAGE_SPEC",
+    "KUBERNETES_NODE_NAME",
+    "MEM_GUARANTEE",
+    "MEM_LIMIT",
+    "RESET_USER_ENV",
+}
+"""Environment variables reserved to the controller or JupyterHub.
+
+These environment variables may not be set for labs in the Nublado controller
+configuration since they must be set by the controller or by JupyterHub for
+correct behavior. All environment variables starting with ``JUPYTERHUB_`` will
+also be forbidden.
 """
 
 RESERVED_PATHS = {"/etc/group", "/etc/passwd", "/tmp"}

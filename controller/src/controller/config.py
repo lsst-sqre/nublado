@@ -13,7 +13,12 @@ from pydantic.alias_generators import to_camel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from safir.logging import LogLevel, Profile
 
-from .constants import LIMIT_TO_REQUEST_RATIO, METADATA_PATH, RESERVED_PATHS
+from .constants import (
+    LIMIT_TO_REQUEST_RATIO,
+    METADATA_PATH,
+    RESERVED_ENV,
+    RESERVED_PATHS,
+)
 from .models.domain.kubernetes import PullPolicy, VolumeAccessMode
 from .models.v1.lab import LabResources, LabSize, ResourceQuantity
 from .models.v1.prepuller_config import PrepullerConfig
@@ -477,9 +482,7 @@ class LabConfig(BaseModel):
         {},
         title="Additional lab environment variables",
         description=(
-            "Additional environment variables to set in all spawned user"
-            " labs. These override any environment variables set by"
-            " JupyterHub."
+            "Additional environment variables to set in all spawned user labs"
         ),
     )
 
@@ -614,6 +617,24 @@ class LabConfig(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    @field_validator("env")
+    @classmethod
+    def _validate_env(cls, v: dict[str, str]) -> dict[str, str]:
+        for key in v:
+            if key in RESERVED_ENV:
+                msg = (
+                    f"Lab environment variable {key} reserved for the Nublado"
+                    " controller or JupyterHub"
+                )
+                raise ValueError(msg)
+            if key.startswith("JUPYTERHUB_"):
+                msg = (
+                    "Environment variables starting with JUPYTERHUB_ reserved"
+                    " for JupyterHub"
+                )
+                raise ValueError(msg)
+        return v
 
     @field_validator("files")
     @classmethod
