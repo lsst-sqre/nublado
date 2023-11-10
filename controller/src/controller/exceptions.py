@@ -25,6 +25,7 @@ __all__ = [
     "DuplicateObjectError",
     "GafaelfawrParseError",
     "GafaelfawrWebError",
+    "InsufficientQuotaError",
     "InvalidDockerReferenceError",
     "InvalidLabSizeError",
     "InvalidTokenError",
@@ -44,6 +45,13 @@ class FileserverCreationError(ClientRequestError):
 
     error = "fileserver_creation_failed"
     status_code = status.HTTP_400_BAD_REQUEST
+
+
+class InsufficientQuotaError(ClientRequestError):
+    """The user's quota is insufficient to satisfy this request."""
+
+    error = "insufficient_quota"
+    status_code = status.HTTP_403_FORBIDDEN
 
 
 class InvalidDockerReferenceError(ClientRequestError):

@@ -22,6 +22,7 @@ from structlog.stdlib import BoundLogger
 from ..config import LabConfig
 from ..constants import LAB_STATE_REFRESH_INTERVAL
 from ..exceptions import (
+    InsufficientQuotaError,
     InvalidLabSizeError,
     KubernetesError,
     LabDeletionError,
@@ -235,7 +236,13 @@ class LabManager:
         # Determine the resources to assign to the lab.
         if spec.options.size not in self._config.sizes:
             raise InvalidLabSizeError(spec.options.size)
-        resources = self._config.sizes[spec.options.size].to_lab_resources()
+        size = self._config.sizes[spec.options.size]
+        if user.quota and user.quota.notebook:
+            quota = user.quota.notebook
+            if quota.memory_bytes < size.memory_bytes or quota.cpu < size.cpu:
+                msg = "Insufficient quota to spawn requested lab"
+                raise InsufficientQuotaError(msg)
+        resources = size.to_lab_resources()
 
         # Check to see if the lab already exists. If so, but it is in a failed
         # state, we will delete the previous lab first.

@@ -24,10 +24,10 @@ async def test_lab_form(client: AsyncClient, user: GafaelfawrUser) -> None:
 
 
 @pytest.mark.asyncio
-async def test_errors(client: AsyncClient) -> None:
+async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
     r = await client.get(
-        "/nublado/spawner/v1/lab-form/someuser",
-        headers={"X-Auth-Request-User": "otheruser"},
+        "/nublado/spawner/v1/lab-form/otheruser",
+        headers=user.to_headers(),
     )
     assert r.status_code == 403
     assert r.json() == {

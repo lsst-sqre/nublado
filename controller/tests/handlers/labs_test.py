@@ -630,6 +630,26 @@ async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
         ]
     }
 
+    # Test requesting a lab size too large for the user's quota.
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={
+            "options": {"image_tag": "recommended", "size": "huge"},
+            "env": lab.env,
+        },
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 403
+    assert r.json() == {
+        "detail": [
+            {
+                "loc": ["body", "options", "size"],
+                "msg": "Insufficient quota to spawn requested lab",
+                "type": "insufficient_quota",
+            }
+        ]
+    }
+
 
 @pytest.mark.asyncio
 async def test_spawn_errors(

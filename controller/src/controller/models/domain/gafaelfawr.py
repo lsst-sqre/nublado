@@ -49,6 +49,11 @@ class NotebookQuota(BaseModel):
         ..., title="Maximum memory use (GiB)", examples=[16.0]
     )
 
+    @property
+    def memory_bytes(self) -> int:
+        """Maximum memory use in bytes."""
+        return int(self.memory * 1024 * 1024 * 1024)
+
 
 class UserQuota(BaseModel):
     """Quota information for a user."""
