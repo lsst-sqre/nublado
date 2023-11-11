@@ -14,7 +14,7 @@ from ...models.domain.fileserver import (
     FileserverObjects,
     FileserverStateObjects,
 )
-from ...models.domain.kubernetes import PodChange, PodPhase
+from ...models.domain.kubernetes import PodChange, PodPhase, PropagationPolicy
 from .custom import GafaelfawrIngressStorage
 from .deleter import JobStorage, ServiceStorage
 from .ingress import IngressStorage
@@ -83,7 +83,12 @@ class FileserverStorage:
         start = current_datetime(microseconds=True)
         await self._gafaelfawr.create(namespace, objects.ingress, replace=True)
         await self._service.create(namespace, objects.service, replace=True)
-        await self._job.create(namespace, objects.job, replace=True)
+        await self._job.create(
+            namespace,
+            objects.job,
+            replace=True,
+            propagation_policy=PropagationPolicy.FOREGROUND,
+        )
 
         # Wait for the pod to start.
         pod = await self._get_pod_for_job(objects.job.metadata.name, namespace)
@@ -123,10 +128,20 @@ class FileserverStorage:
             Raised if the deletion of any individual object took longer than
             the Kubernetes delete timeout.
         """
-        await self._gafaelfawr.delete(name, namespace, wait=True)
+        await self._gafaelfawr.delete(
+            name,
+            namespace,
+            wait=True,
+            propagation_policy=PropagationPolicy.FOREGROUND,
+        )
         await self._ingress.wait_for_deletion(name, namespace)
         await self._service.delete(name, namespace, wait=True)
-        await self._job.delete(name, namespace, wait=True)
+        await self._job.delete(
+            name,
+            namespace,
+            wait=True,
+            propagation_policy=PropagationPolicy.FOREGROUND,
+        )
 
     async def namespace_exists(self, name: str) -> bool:
         """Check whether a namespace is present.

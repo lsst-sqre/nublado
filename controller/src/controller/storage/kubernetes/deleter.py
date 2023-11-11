@@ -166,10 +166,11 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         propagation_policy
             Propagation policy for the object deletion.
         grace_period
-            How long to tell Kubernetes to wait between sending SIGTERM and
-            sending SIGKILL to the pod process. The default if no grace period
-            is set is 30s as of Kubernetes 1.27.1. This will be truncated to
-            integer seconds.
+            How long to wait for the object to clean up before deleting it.
+            Primarily of use for pods, where it defines how long Kubernetes
+            will wait between sending SIGTERM and sending SIGKILL to a pod
+            process. The default for pods if no grace period is set is 30s as
+            of Kubernetes 1.27.1. This will be truncated to integer seconds.
 
         Raises
         ------
