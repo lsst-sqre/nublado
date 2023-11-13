@@ -28,6 +28,7 @@ from ..exceptions import (
     LabDeletionError,
     LabExistsError,
     MissingSecretError,
+    NoOperationError,
     OperationConflictError,
     UnknownUserError,
 )
@@ -752,6 +753,15 @@ class LabManager:
                 if lab.monitor.in_progress and lab.monitor.is_done():
                     try:
                         await lab.monitor.wait()
+                    except NoOperationError:
+                        # There is a race condition with deletes, since the
+                        # task doing the delete kicks it off and then
+                        # immediately waits for its completion. We may
+                        # discover the completed task right before that wait
+                        # wakes up and reaps it, and then have no task by the
+                        # time we call wait ourselves. This should be harmless
+                        # and ignorable.
+                        pass
                     except Exception as e:
                         msg = "Uncaught exception in monitor thread"
                         self._logger.exception(msg, user=username)
@@ -1224,13 +1234,13 @@ class _LabMonitor:
         Exception
             Raised if the underlying operation raised an exception, re-raising
             whatever that exception is.
-        RuntimeError
+        NoOperationError
             Raised if there is no operation in progress.
         """
         async with self._lock:
             if not self._operation:
                 msg = f"No operation in progress for {self._username}"
-                raise RuntimeError(msg)
+                raise NoOperationError(msg)
             operation = self._operation
 
         # We now do our waiting on a local reference to the operation. The
