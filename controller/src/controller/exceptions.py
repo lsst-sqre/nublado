@@ -33,18 +33,12 @@ __all__ = [
     "LabDeletionError",
     "LabExistsError",
     "MissingObjectError",
+    "NoOperationError",
     "NotConfiguredError",
     "OperationConflictError",
     "UnknownDockerImageError",
     "UnknownUserError",
 ]
-
-
-class FileserverCreationError(ClientRequestError):
-    """An error occured while trying to create a user fileserver."""
-
-    error = "fileserver_creation_failed"
-    status_code = status.HTTP_400_BAD_REQUEST
 
 
 class InsufficientQuotaError(ClientRequestError):
@@ -81,6 +75,13 @@ class InvalidTokenError(ClientRequestError):
     status_code = status.HTTP_401_UNAUTHORIZED
 
 
+class LabExistsError(ClientRequestError):
+    """Lab creation was attempted for a user with an active lab."""
+
+    error = "lab_exists"
+    status_code = status.HTTP_409_CONFLICT
+
+
 class OperationConflictError(ClientRequestError):
     """Attempt to perform an operation when another is in progress."""
 
@@ -97,13 +98,6 @@ class NotConfiguredError(ClientRequestError):
 
     error = "not_supported"
     status_code = status.HTTP_404_NOT_FOUND
-
-
-class LabExistsError(ClientRequestError):
-    """Lab creation was attempted for a user with an active lab."""
-
-    error = "lab_exists"
-    status_code = status.HTTP_409_CONFLICT
 
 
 class PermissionDeniedError(ClientRequestError):
@@ -125,6 +119,10 @@ class UnknownUserError(ClientRequestError):
 
     error = "unknown_user"
     status_code = status.HTTP_404_NOT_FOUND
+
+
+class DockerRegistryError(SlackWebException):
+    """An API call to a Docker Registry failed."""
 
 
 class DuplicateObjectError(SlackException):
@@ -213,6 +211,10 @@ class GafaelfawrParseError(SlackException):
         block = SlackCodeBlock(heading="Error", code=self.error)
         message.blocks.append(block)
         return message
+
+
+class GafaelfawrWebError(SlackWebException):
+    """An API call to Gafaelfawr failed."""
 
 
 class KubernetesError(SlackException):
@@ -450,9 +452,5 @@ class MissingSecretError(MissingObjectError):
         )
 
 
-class DockerRegistryError(SlackWebException):
-    """An API call to a Docker Registry failed."""
-
-
-class GafaelfawrWebError(SlackWebException):
-    """An API call to Gafaelfawr failed."""
+class NoOperationError(SlackException):
+    """No operation was in progress when attempting to wait."""
