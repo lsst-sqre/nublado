@@ -1,9 +1,11 @@
-# Editable runtime dependencies (equivalent to install_requires)
-# Add direct runtime dependencies here, as well as implicit dependencies
-# with constrained versions.
+# -*- conf -*-
+#
+# Editable runtime dependencies for the Nublado controller. Add direct
+# runtime dependencies here, as well as implicit dependencies with
+# constrained versions.
 #
 # After editing, update requirements/main.txt by running:
-#     make update-deps
+#     nox -s update-deps
 
 # These dependencies are for fastapi including some optional features.
 fastapi
@@ -19,10 +21,10 @@ jinja2
 pydantic>2
 pydantic-settings
 PyYAML
-safir[kubernetes]>=5.0.0a1
+safir[kubernetes]>=5.0.0a3
 semver
 sse-starlette
 
-# Uncomment this, change the branch, comment out safir above, and run make
+# Uncomment this, change the branch, comment out safir above, and run nox -s
 # update-deps-no-hashes to test against an unreleased version of Safir.
 # safir[kubernetes] @ git+https://github.com/lsst-sqre/safir@main
