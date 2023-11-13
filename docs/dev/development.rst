@@ -82,7 +82,12 @@ To run all Nublado tests, run:
    nox -s
 
 This tests the library in the same way that the CI workflow does.
-You may wish to run the individual environments (``lint``, ``typing``, ``test``, and ``docs``) when iterating on a specific change.
+You may wish to run the individual sessions (``lint``, ``typing``, ``typing-hub``, ``test``, ``test-hub``, and ``docs``) when iterating on a specific change.
+
+mypy and pytest tests are divided into two nox sessions: one for the Nublado controller (the default) and one for JupyterHub and its plugins.
+The JupyterHub plugins have to support different versions of Python and have different frozen dependencies, so must be tested separately.
+Use the ``typing-hub`` and ``test-hub`` sessions to do that.
+Since most code and thus most code changes is part of the controller, the ``typing`` and ``test`` sessions with no suffix test it.
 
 To see a listing of nox sessions:
 
@@ -90,7 +95,7 @@ To see a listing of nox sessions:
 
    nox --list
 
-To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``test`` nox session.
+To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``test`` or ``test-hub`` nox session.
 For example:
 
 .. prompt:: bash

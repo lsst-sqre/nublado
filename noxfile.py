@@ -1,15 +1,26 @@
 """nox build configuration for Nublado."""
 
+from pathlib import Path
+
 import nox
 
 # Default sessions
-nox.options.sessions = ["lint", "typing", "test", "docs"]
+nox.options.sessions = [
+    "lint",
+    "typing",
+    "typing-hub",
+    "test",
+    "test-hub",
+    "docs",
+]
 
 # Other nox defaults
 nox.options.default_venv_backend = "venv"
 nox.options.reuse_existing_virtualenvs = True
 
-# pip-installable dependencies for all subpackages.
+# pip-installable dependencies for development and documentation. This is not
+# used for pytest and typing, since it merges the controller, authenticator,
+# and spawner dependencies.
 PIP_DEPENDENCIES = [
     ("--upgrade", "pip", "setuptools", "wheel"),
     ("-r", "controller/requirements/main.txt"),
@@ -44,19 +55,28 @@ def _install_dev(session: nox.Session, bin_prefix: str = "") -> None:
 
 def _pytest(session: nox.Session, directory: str, module: str) -> None:
     """Run pytest for the given directory and module, if needed."""
-    args = [
-        a.removeprefix(f"{directory}/")
-        for a in session.posargs
-        if a.startswith(("-", f"{directory}/"))
-    ]
-    if not session.posargs or args:
+    generic = []
+    per_directory = []
+    found_per_directory = False
+    for arg in session.posargs:
+        if arg.startswith("-"):
+            generic.append(arg)
+        elif arg.startswith(f"{directory}/"):
+            per_directory.append(arg.removeprefix(f"{directory}/"))
+            found_per_directory = True
+        elif "/" in arg and Path(arg).exists():
+            found_per_directory = True
+        else:
+            generic.append(arg)
+    if not session.posargs or not found_per_directory or per_directory:
         with session.chdir(directory):
             session.run(
                 "pytest",
                 f"--cov={module}",
                 "--cov-branch",
                 "--cov-report=",
-                *args,
+                *generic,
+                *per_directory,
             )
 
 
@@ -122,9 +142,30 @@ def lint(session: nox.Session) -> None:
 
 @nox.session
 def typing(session: nox.Session) -> None:
-    """Check type annotations with mypy."""
-    _install(session)
-    session.install("mypy")
+    """Check controller type annotations with mypy."""
+    session.install("--upgrade", "pip", "setuptools", "wheel", "mypy")
+    session.install("-r", "controller/requirements/main.txt")
+    session.install("-r", "controller/requirements/dev.txt")
+    session.install("-e", "controller")
+    session.run(
+        "mypy",
+        *session.posargs,
+        "noxfile.py",
+        "controller/src",
+        "controller/tests",
+    )
+
+
+@nox.session(name="typing-hub")
+def typing_hub(session: nox.Session) -> None:
+    """Check hub plugin type annotations with mypy."""
+    session.install(
+        "--upgrade", "pip", "setuptools", "wheel", "mypy", "pydantic"
+    )
+    session.install("-r", "hub/requirements/main.txt")
+    session.install("-r", "hub/requirements/dev.txt")
+    session.install("--no-deps", "-e", "authenticator[dev]")
+    session.install("--no-deps", "-e", "spawner[dev]")
     session.run(
         "mypy",
         *session.posargs,
@@ -133,13 +174,6 @@ def typing(session: nox.Session) -> None:
         "authenticator/src",
         "authenticator/tests",
         env={"MYPYPATH": "authenticator/src:authenticator"},
-    )
-    session.run(
-        "mypy",
-        *session.posargs,
-        "noxfile.py",
-        "controller/src",
-        "controller/tests",
     )
     session.run(
         "mypy",
@@ -154,11 +188,19 @@ def typing(session: nox.Session) -> None:
 
 @nox.session
 def test(session: nox.Session) -> None:
-    """Run tests."""
-    _install(session)
-    _pytest(session, "authenticator", "rubin.nublado.authenticator")
-    _pytest(session, "controller", "controller")
-    _pytest(session, "spawner", "rubin.nublado.spawner")
+    """Run tests of the Nublado controller."""
+    session.install("--upgrade", "pip", "setuptools", "wheel")
+    session.install("-r", "controller/requirements/main.txt")
+    session.install("-r", "controller/requirements/dev.txt")
+    session.install("-e", "controller")
+    with session.chdir("controller"):
+        session.run(
+            "pytest",
+            "--cov=controller",
+            "--cov-branch",
+            "--cov-report=",
+            *session.posargs,
+        )
 
 
 @nox.session(name="test-hub")
