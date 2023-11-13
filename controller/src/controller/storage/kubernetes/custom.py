@@ -12,7 +12,7 @@ from structlog.stdlib import BoundLogger
 
 from ...constants import KUBERNETES_DELETE_TIMEOUT
 from ...exceptions import KubernetesError
-from ...models.domain.kubernetes import WatchEventType
+from ...models.domain.kubernetes import PropagationPolicy, WatchEventType
 from .watcher import KubernetesWatcher
 
 __all__ = [
@@ -62,7 +62,12 @@ class CustomStorage:
         self._logger = logger
 
     async def create(
-        self, namespace: str, body: dict[str, Any], *, replace: bool = False
+        self,
+        namespace: str,
+        body: dict[str, Any],
+        *,
+        replace: bool = False,
+        propagation_policy: PropagationPolicy | None = None,
     ) -> None:
         """Create a new custom object.
 
@@ -75,6 +80,9 @@ class CustomStorage:
         replace
             If `True` and an object of that name already exists in that
             namespace, delete the existing object and then try again.
+        propagation_policy
+            Propagation policy for the object deletion when deleting a
+            conflicting object.
 
         Raises
         ------
@@ -96,7 +104,12 @@ class CustomStorage:
                 raise
 
     async def delete(
-        self, name: str, namespace: str, *, wait: bool = False
+        self,
+        name: str,
+        namespace: str,
+        *,
+        wait: bool = False,
+        propagation_policy: PropagationPolicy | None = None,
     ) -> None:
         """Delete a custom object.
 
@@ -110,6 +123,8 @@ class CustomStorage:
             Namespace of the object.
         wait
             Whether to wait for the custom object to be deleted.
+        propagation_policy
+            Propagation policy for the object deletion.
 
         Raises
         ------
