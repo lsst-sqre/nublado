@@ -60,8 +60,7 @@ jobs:
 
   # The controller requires Python 3.11, but the modules we add to the Hub
   # have to run with Python 3.10 since that's what the JupyterHub image uses.
-  # Run a separate matrix to test those modules with only the versions of
-  # Python supported for the Hub but not supported for the controller.
+  # Run a separate matrix to test those modules.
   test-hub:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -70,6 +69,7 @@ jobs:
       matrix:
         python:
           - "3.10"
+          - "3.11"
 
     steps:
       - uses: actions/checkout@v4
@@ -85,7 +85,7 @@ jobs:
           pip install --upgrade nox
 
       - name: Run nox
-        run: "nox -s test-hub"
+        run: "nox -s typing-hub test-hub"
 
   docs:
     runs-on: ubuntu-latest

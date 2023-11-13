@@ -13,8 +13,6 @@
 asgi-lifespan
 coverage[toml]
 httpx-sse
-mypy
-pre-commit
 pytest
 pytest-asyncio
 pytest-cov
