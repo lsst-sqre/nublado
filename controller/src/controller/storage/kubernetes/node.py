@@ -6,6 +6,7 @@ from kubernetes_asyncio import client
 from kubernetes_asyncio.client import ApiClient, ApiException
 from structlog.stdlib import BoundLogger
 
+from ...constants import KUBERNETES_REQUEST_TIMEOUT
 from ...exceptions import KubernetesError
 from ...models.domain.kubernetes import KubernetesNodeImage
 
@@ -36,8 +37,9 @@ class NodeStorage:
             Map of nodes to lists of all cached images on that node.
         """
         self._logger.debug("Getting node image data")
+        timeout = KUBERNETES_REQUEST_TIMEOUT.total_seconds()
         try:
-            nodes = await self._api.list_node()
+            nodes = await self._api.list_node(_request_timeout=timeout)
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error reading node information", e, kind="Node"

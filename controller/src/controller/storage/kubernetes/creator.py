@@ -28,6 +28,7 @@ from kubernetes_asyncio.client import (
 )
 from structlog.stdlib import BoundLogger
 
+from ...constants import KUBERNETES_REQUEST_TIMEOUT
 from ...exceptions import KubernetesError
 from ...models.domain.kubernetes import KubernetesModel
 
@@ -103,7 +104,11 @@ class KubernetesObjectCreator(Generic[T]):
         msg = f"Creating {self._kind}"
         self._logger.debug(msg, name=body.metadata.name, namespace=namespace)
         try:
-            await self._create(namespace, body)
+            await self._create(
+                namespace,
+                body,
+                _request_timeout=KUBERNETES_REQUEST_TIMEOUT.total_seconds(),
+            )
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error creating object",
@@ -134,7 +139,11 @@ class KubernetesObjectCreator(Generic[T]):
             Raised for exceptions from the Kubernetes API server.
         """
         try:
-            return await self._read(name, namespace)
+            return await self._read(
+                name,
+                namespace,
+                _request_timeout=KUBERNETES_REQUEST_TIMEOUT.total_seconds(),
+            )
         except ApiException as e:
             if e.status == 404:
                 return None

@@ -24,7 +24,7 @@ from kubernetes_asyncio.client import (
 )
 from structlog.stdlib import BoundLogger
 
-from ...constants import KUBERNETES_DELETE_TIMEOUT
+from ...constants import KUBERNETES_DELETE_TIMEOUT, KUBERNETES_REQUEST_TIMEOUT
 from ...exceptions import KubernetesError
 from ...models.domain.kubernetes import (
     KubernetesModel,
@@ -177,7 +177,9 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
         """
-        extra_args: dict[str, str | int] = {}
+        extra_args: dict[str, str | int] = {
+            "_request_timeout": int(KUBERNETES_REQUEST_TIMEOUT.total_seconds())
+        }
         body = None
         if propagation_policy:
             extra_args["propagation_policy"] = propagation_policy.value
@@ -233,7 +235,9 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
         """
-        extra_args = {}
+        extra_args: dict[str, str | int] = {
+            "_request_timeout": int(KUBERNETES_REQUEST_TIMEOUT.total_seconds())
+        }
         if label_selector:
             extra_args["label_selector"] = label_selector
         try:
@@ -244,7 +248,6 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
                 e,
                 kind=self._kind,
                 namespace=namespace,
-                **extra_args,
             ) from e
         return objs.items
 
