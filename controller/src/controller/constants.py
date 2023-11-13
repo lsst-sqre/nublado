@@ -12,6 +12,7 @@ __all__ = [
     "FILE_SERVER_REFRESH_INTERVAL",
     "IMAGE_REFRESH_INTERVAL",
     "KUBERNETES_DELETE_TIMEOUT",
+    "KUBERNETES_REQUEST_TIMEOUT",
     "LAB_COMMAND",
     "LAB_STATE_REFRESH_INTERVAL",
     "LIMIT_TO_REQUEST_RATIO",
@@ -63,6 +64,14 @@ In some cases, if a Kubernetes object the controller is trying to create
 already exists, it deletes that object and then retries the creation. This
 controls how long it waits for the object to go away after deletion before it
 gives up.
+"""
+
+KUBERNETES_REQUEST_TIMEOUT = timedelta(seconds=30)
+"""How long to wait for any given Kubernetes API call.
+
+This timeout is currently applied to each Kubernetes API call in isolation,
+just to impose an upper limit on how long we'll wait of the control plane is
+nonresponsive.
 """
 
 LAB_COMMAND = "/opt/lsst/software/jupyterlab/runlab.sh"

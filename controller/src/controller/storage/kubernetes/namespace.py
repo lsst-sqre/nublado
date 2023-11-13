@@ -10,7 +10,7 @@ from kubernetes_asyncio.client import ApiClient, ApiException, V1Namespace
 from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
 
-from ...constants import KUBERNETES_DELETE_TIMEOUT
+from ...constants import KUBERNETES_DELETE_TIMEOUT, KUBERNETES_REQUEST_TIMEOUT
 from ...exceptions import KubernetesError
 from ...models.domain.kubernetes import WatchEventType
 from .watcher import KubernetesWatcher
@@ -90,7 +90,9 @@ class NamespaceStorage:
 
         try:
             async with asyncio.timeout(timeout.total_seconds()):
-                await self._api.delete_namespace(name)
+                await self._api.delete_namespace(
+                    name, _request_timeout=timeout.total_seconds()
+                )
         except ApiException as e:
             if e.status == 404:
                 return
@@ -123,7 +125,9 @@ class NamespaceStorage:
             Raised for exceptions from the Kubernetes API server.
         """
         try:
-            objs = await self._api.list_namespace()
+            objs = await self._api.list_namespace(
+                _request_timeout=KUBERNETES_REQUEST_TIMEOUT.total_seconds()
+            )
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error listing namespaces", e, kind="Namespace"
@@ -149,7 +153,10 @@ class NamespaceStorage:
             Raised for exceptions from the Kubernetes API server.
         """
         try:
-            return await self._api.read_namespace(name)
+            return await self._api.read_namespace(
+                name,
+                _request_timeout=KUBERNETES_REQUEST_TIMEOUT.total_seconds(),
+            )
         except ApiException as e:
             if e.status == 404:
                 return None
@@ -222,7 +229,10 @@ class NamespaceStorage:
             Raised for exceptions from the Kubernetes API server.
         """
         try:
-            await self._api.create_namespace(body)
+            await self._api.create_namespace(
+                body,
+                _request_timeout=KUBERNETES_REQUEST_TIMEOUT.total_seconds(),
+            )
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error creating namespace",
