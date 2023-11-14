@@ -41,10 +41,10 @@ function selectDropdown() {
 </td>
 <td width="50%">
   <div class="radio radio-inline">
-{%- for key, value in sizes.items() %}
-    <input type="radio" name="size" id="{{ key.value }}" value="{{ key.value }}"{% if loop.first %} checked{% endif %}>
-    <label for="{{ key.value }}">
-      {{ key.value.title() }} ({{ value }})
+{%- for definition in sizes %}
+    <input type="radio" name="size" id="{{ definition.size.value }}" value="{{ definition.size.value }}"{% if loop.first %} checked{% endif %}>
+    <label for="{{ definition.size.value }}">
+      {{ definition }}
     </label><br />
 {%- endfor %}
   </div>

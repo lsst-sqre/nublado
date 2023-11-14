@@ -139,16 +139,16 @@ lab:
     - secretName: extra-secret
       secretKey: db-password
   sizes:
-    small:
+    - size: small
       cpu: 1.0
       memory: 3Gi
-    medium:
+    - size: medium
       cpu: 2.0
       memory: 6Gi
-    large:
+    - size: large
       cpu: 9.0
       memory: 27Gi
-    huge:
+    - size: huge
       cpu: 12.0
       memory: 32Gi
   volumes:

@@ -3,7 +3,7 @@ profile: development
 lab:
   namespacePrefix: userlabs
   sizes:
-    small:
+    - size: small
       cpu: 1.0
       memory: 3Gi
   volumes:

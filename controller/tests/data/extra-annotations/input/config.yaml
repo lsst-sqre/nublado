@@ -6,7 +6,7 @@ lab:
   extraAnnotations:
     k8s.v1.cni.cncf.io/networks: "kube-system/dds"
   sizes:
-    small:
+    - size: small
       cpu: 1.0
       memory: 3Gi
   volumes:

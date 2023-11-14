@@ -42,11 +42,11 @@ async def get_user_lab_form(
     # than the user's quota, if they have a quota.
     if user.quota and user.quota.notebook:
         quota = user.quota.notebook
-        sizes = {
-            k: v
-            for k, v in config.lab.sizes.items()
-            if v.memory_bytes <= quota.memory_bytes and v.cpu <= quota.cpu
-        }
+        sizes = [
+            s
+            for s in config.lab.sizes
+            if s.memory_bytes <= quota.memory_bytes and s.cpu <= quota.cpu
+        ]
         if not sizes:
             msg = "Insufficient quota to spawn smallest lab"
             raise InsufficientQuotaError(msg)

@@ -326,7 +326,7 @@ class LabBuilder:
             env["RESET_USER_ENV"] = "TRUE"
 
         # Add standard environment variables.
-        size = self._config.sizes[lab.options.size]
+        size = self._config.get_size_definition(lab.options.size)
         resources = size.to_lab_resources()
         env.update(
             {
@@ -338,7 +338,7 @@ class LabBuilder:
                 "IMAGE_DESCRIPTION": image.display_name,
                 "IMAGE_DIGEST": image.digest,
                 # Container data for display frame.
-                "CONTAINER_SIZE": f"{lab.options.size.value.title()} ({size})",
+                "CONTAINER_SIZE": str(size),
                 # Normally set by JupyterHub so keep compatibility.
                 "CPU_GUARANTEE": str(resources.requests.cpu),
                 "CPU_LIMIT": str(resources.limits.cpu),
@@ -505,7 +505,8 @@ class LabBuilder:
         self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
     ) -> V1Pod:
         """Construct the user's lab pod."""
-        resources = self._config.sizes[lab.options.size].to_lab_resources()
+        size = self._config.get_size_definition(lab.options.size)
+        resources = size.to_lab_resources()
 
         # Construct the pull secrets.
         pull_secrets = None
@@ -925,8 +926,8 @@ class LabBuilder:
             not, returns ``LabSize.CUSTOM``.
         """
         limits = resources.limits
-        for size, definition in self._config.sizes.items():
+        for definition in self._config.sizes:
             memory = definition.memory_bytes
             if definition.cpu == limits.cpu and memory == limits.memory:
-                return size
+                return definition.size
         return LabSize.CUSTOM
