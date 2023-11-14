@@ -47,7 +47,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 COPY . /workdir
 WORKDIR /workdir
-RUN pip install --no-cache-dir controller
+RUN pip install --no-cache-dir ./controller
 
 FROM base-image AS runtime-image
 
