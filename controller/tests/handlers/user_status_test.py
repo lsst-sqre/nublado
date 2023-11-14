@@ -60,7 +60,8 @@ async def test_user_status(
         "/nublado/spawner/v1/user-status", headers=user.to_headers()
     )
     assert r.status_code == 200
-    expected_resources = config.lab.sizes[lab.options.size].to_lab_resources()
+    size = config.lab.get_size_definition(lab.options.size)
+    expected_resources = size.to_lab_resources()
     expected = {
         "env": lab.env,
         "internal_url": "http://lab.userlabs-rachel:8888/nb/user/rachel/",

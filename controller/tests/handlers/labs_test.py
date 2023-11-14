@@ -135,7 +135,8 @@ async def test_lab_start_stop(
     assert r.json() == [user.username]
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
-    expected_resources = config.lab.sizes[lab.options.size].to_lab_resources()
+    size = config.lab.get_size_definition(lab.options.size)
+    expected_resources = size.to_lab_resources()
     expected_options = lab.options.model_dump()
     expected_options["image_dropdown"] = expected_options["image_list"]
     expected_options["image_list"] = None

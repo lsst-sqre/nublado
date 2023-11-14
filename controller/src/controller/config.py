@@ -185,6 +185,13 @@ class LabSizeDefinition(BaseModel):
     ``LIMIT_TO_REQUEST_RATIO``.
     """
 
+    size: LabSize = Field(
+        ...,
+        title="Lab size",
+        description="Human-readable name for this lab size",
+        examples=[LabSize.SMALL, LabSize.HUGE],
+    )
+
     cpu: float = Field(
         ...,
         title="CPU",
@@ -204,7 +211,7 @@ class LabSizeDefinition(BaseModel):
     )
 
     def __str__(self) -> str:
-        return f"{self.cpu} CPU, {self.memory} RAM"
+        return f"{self.size.value.title()} ({self.cpu} CPU, {self.memory} RAM)"
 
     @property
     def memory_bytes(self) -> int:
@@ -589,8 +596,8 @@ class LabConfig(BaseModel):
         description="Secrets to make available inside lab",
     )
 
-    sizes: dict[LabSize, LabSizeDefinition] = Field(
-        {},
+    sizes: list[LabSizeDefinition] = Field(
+        [],
         title="Possible lab sizes",
         description=(
             "Only these sizes will be present in the menu, in the order in"
@@ -670,6 +677,43 @@ class LabConfig(BaseModel):
                 raise ValueError(msg)
             keys.add(secret.secret_key)
         return v
+
+    @field_validator("sizes")
+    @classmethod
+    def _validate_sizes(
+        cls, v: list[LabSizeDefinition]
+    ) -> list[LabSizeDefinition]:
+        if not v:
+            raise ValueError("At least one lab size must be defined")
+        seen = set()
+        for definition in v:
+            if definition.size in seen:
+                raise ValueError(f"Duplicate lab size {definition.size.value}")
+            seen.add(definition.size)
+        return v
+
+    def get_size_definition(self, size: LabSize) -> LabSizeDefinition:
+        """Return the definition for a given lab size.
+
+        Parameters
+        ----------
+        size
+            Size of lab.
+
+        Returns
+        -------
+        LabSizeDefinition
+            Corresponding definition.
+
+        Raises
+        ------
+        KeyError
+            Raised if that lab size is not defined.
+        """
+        for definition in self.sizes:
+            if definition.size == size:
+                return definition
+        raise KeyError(f"Lab size {size.value} not defined")
 
 
 class Config(BaseSettings):

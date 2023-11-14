@@ -235,9 +235,10 @@ class LabManager:
             image = await self._image_service.image_for_tag_name(tag)
 
         # Determine the resources to assign to the lab.
-        if spec.options.size not in self._config.sizes:
-            raise InvalidLabSizeError(spec.options.size)
-        size = self._config.sizes[spec.options.size]
+        try:
+            size = self._config.get_size_definition(spec.options.size)
+        except KeyError as e:
+            raise InvalidLabSizeError(spec.options.size) from e
         if user.quota and user.quota.notebook:
             quota = user.quota.notebook
             if quota.memory_bytes < size.memory_bytes or quota.cpu < size.cpu:
