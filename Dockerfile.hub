@@ -35,7 +35,7 @@ FROM dependencies-image as runtime-image
 # Install the extra JupyterHub modules.
 COPY . /app
 WORKDIR /app
-RUN pip install --no-cache-dir ./authenticator ./spawner
+RUN pip install --no-deps --no-cache-dir ./authenticator ./spawner
 
 # Create a non-root user to run JupyterHub. Upstream uses 768 as the UID
 # and GID. This value must be kept in sync with the Phalanx nublado
