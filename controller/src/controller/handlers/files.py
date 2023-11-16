@@ -32,7 +32,7 @@ from ..dependencies.config import config_dependency
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.user import user_dependency
 from ..exceptions import NotConfiguredError
-from ..models.v1.lab import UserInfo
+from ..models.domain.gafaelfawr import GafaelfawrUser
 from ..templates import templates
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -50,7 +50,7 @@ __all__ = ["router"]
 async def route_user(
     context: Annotated[RequestContext, Depends(context_dependency)],
     config: Annotated[Config, Depends(config_dependency)],
-    user: Annotated[UserInfo, Depends(user_dependency)],
+    user: Annotated[GafaelfawrUser, Depends(user_dependency)],
 ) -> Response:
     context.rebind_logger(user=user.username)
     if not config.fileserver.enabled:
