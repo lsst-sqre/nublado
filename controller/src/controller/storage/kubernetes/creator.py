@@ -22,7 +22,6 @@ from kubernetes_asyncio.client import (
     ApiException,
     V1ConfigMap,
     V1NetworkPolicy,
-    V1PersistentVolumeClaim,
     V1ResourceQuota,
     V1Secret,
 )
@@ -39,7 +38,6 @@ __all__ = [
     "ConfigMapStorage",
     "KubernetesObjectCreator",
     "NetworkPolicyStorage",
-    "PersistentVolumeClaimStorage",
     "ResourceQuotaStorage",
     "SecretStorage",
     "T",
@@ -196,28 +194,6 @@ class NetworkPolicyStorage(KubernetesObjectCreator):
             read_method=api.read_namespaced_network_policy,
             object_type=V1NetworkPolicy,
             kind="NetworkPolicy",
-            logger=logger,
-        )
-
-
-class PersistentVolumeClaimStorage(KubernetesObjectCreator):
-    """Storage layer for ``PersistentVolumeClaim`` objects.
-
-    Parameters
-    ----------
-    api_client
-        Kubernetes API client.
-    logger
-        Logger to use.
-    """
-
-    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
-        api = client.CoreV1Api(api_client)
-        super().__init__(
-            create_method=api.create_namespaced_persistent_volume_claim,
-            read_method=api.read_namespaced_persistent_volume_claim,
-            object_type=V1PersistentVolumeClaim,
-            kind="PersistentVolumeClaim",
             logger=logger,
         )
 

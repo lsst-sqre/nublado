@@ -3,7 +3,13 @@
 from dataclasses import dataclass
 from typing import Any
 
-from kubernetes_asyncio.client import V1Ingress, V1Job, V1Pod, V1Service
+from kubernetes_asyncio.client import (
+    V1Ingress,
+    V1Job,
+    V1PersistentVolumeClaim,
+    V1Pod,
+    V1Service,
+)
 
 __all__ = [
     "FileserverObjects",
@@ -14,6 +20,9 @@ __all__ = [
 @dataclass
 class FileserverObjects:
     """All of the Kubernetes objects making up a user's fileserver."""
+
+    pvcs: list[V1PersistentVolumeClaim]
+    """Persistent volume claims."""
 
     ingress: dict[str, Any]
     """``GafaelfawrIngress`` object for the fileserver."""

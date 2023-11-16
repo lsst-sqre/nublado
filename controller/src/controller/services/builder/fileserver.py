@@ -13,6 +13,7 @@ from kubernetes_asyncio.client import (
     V1Job,
     V1JobSpec,
     V1ObjectMeta,
+    V1PersistentVolumeClaim,
     V1Pod,
     V1PodSecurityContext,
     V1PodSpec,
@@ -24,7 +25,12 @@ from kubernetes_asyncio.client import (
 )
 from structlog.stdlib import BoundLogger
 
-from ...config import EnabledFileserverConfig, LabVolume
+from ...config import (
+    EnabledFileserverConfig,
+    PVCVolumeSource,
+    VolumeConfig,
+    VolumeMountConfig,
+)
 from ...constants import ARGO_CD_ANNOTATIONS
 from ...models.domain.fileserver import (
     FileserverObjects,
@@ -38,7 +44,7 @@ __all__ = ["FileserverBuilder"]
 
 
 class FileserverBuilder:
-    """Construct Kubernetes objects for user fileservers.
+    """Construct Kubernetes objects for user file servers.
 
     Parameters
     ----------
@@ -47,7 +53,11 @@ class FileserverBuilder:
     base_url
         Base URL for this Notebook Aspect instance.
     volumes
-        Volumes to mount in the user's fileserver.
+        Volumes to mount in the user's file server.
+    volume_mounts
+        Where to mount those volumes in the user's file server. The paths will
+        be prefixed with :file:`/mnt` so that they will be within the tree
+        served by the file server.
     """
 
     def __init__(
@@ -55,12 +65,14 @@ class FileserverBuilder:
         *,
         config: EnabledFileserverConfig,
         base_url: str,
-        volumes: list[LabVolume],
+        volumes: list[VolumeConfig],
+        volume_mounts: list[VolumeMountConfig],
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._base_url = base_url
         self._volumes = volumes
+        self._volume_mounts = volume_mounts
         self._logger = logger
         self._volume_builder = VolumeBuilder()
 
@@ -78,6 +90,7 @@ class FileserverBuilder:
             Kubernetes objects for the fileserver.
         """
         return FileserverObjects(
+            pvcs=self._build_pvcs(user.username),
             ingress=self._build_ingress(user.username),
             service=self._build_service(user.username),
             job=self._build_job(user),
@@ -157,13 +170,15 @@ class FileserverBuilder:
         logger.debug("File server is running")
         return True
 
-    def _build_metadata(self, username: str) -> V1ObjectMeta:
+    def _build_metadata(
+        self, username: str, name_suffix: str = ""
+    ) -> V1ObjectMeta:
         """Construct the metadata for an object.
 
         This adds some standard labels and annotations providing Nublado
         metadata and telling Argo CD how to handle this object.
         """
-        name = self.build_name(username)
+        name = self.build_name(username) + name_suffix
         labels = {
             "nublado.lsst.io/category": "fileserver",
             "nublado.lsst.io/user": username,
@@ -211,8 +226,13 @@ class FileserverBuilder:
 
     def _build_job(self, user: GafaelfawrUserInfo) -> V1Job:
         """Construct the job for a fileserver."""
-        volume_data = self._volume_builder.build_mounted_volumes(
-            user.username, self._volumes, prefix="/mnt"
+        wanted_volumes = {m.volume_name for m in self._volume_mounts}
+        volumes = self._volume_builder.build_volumes(
+            (v for v in self._volumes if v.name in wanted_volumes),
+            pvc_prefix=self.build_name(user.username),
+        )
+        mounts = self._volume_builder.build_mounts(
+            self._volume_mounts, prefix="/mnt"
         )
         url = f"{self._config.path_prefix}/{user.username}"
         resources = self._config.resources
@@ -234,7 +254,7 @@ class FileserverBuilder:
                 allow_privilege_escalation=False,
                 read_only_root_filesystem=True,
             ),
-            volume_mounts=[v.volume_mount for v in volume_data],
+            volume_mounts=mounts,
         )
 
         # Build the pod specification itself.
@@ -259,11 +279,27 @@ class FileserverBuilder:
                             run_as_non_root=True,
                             supplemental_groups=user.supplemental_groups,
                         ),
-                        volumes=[v.volume for v in volume_data],
+                        volumes=volumes,
                     ),
                 )
             ),
         )
+
+    def _build_pvcs(self, username: str) -> list[V1PersistentVolumeClaim]:
+        """Construct the persistent volume claims for a user's file server."""
+        volume_names = {m.volume_name for m in self._volume_mounts}
+        volumes = (v for v in self._volumes if v.name in volume_names)
+        pvcs: list[V1PersistentVolumeClaim] = []
+        for volume in volumes:
+            if not isinstance(volume.source, PVCVolumeSource):
+                continue
+            suffix = f"-pvc-{volume.name}"
+            pvc = V1PersistentVolumeClaim(
+                metadata=self._build_metadata(username, name_suffix=suffix),
+                spec=volume.source.to_kubernetes_spec(),
+            )
+            pvcs.append(pvc)
+        return pvcs
 
     def _build_service(self, username: str) -> V1Service:
         """Construct the service for a fileserver."""

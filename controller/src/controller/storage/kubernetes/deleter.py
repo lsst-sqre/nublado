@@ -20,6 +20,7 @@ from kubernetes_asyncio.client import (
     ApiException,
     V1DeleteOptions,
     V1Job,
+    V1PersistentVolumeClaim,
     V1Service,
 )
 from structlog.stdlib import BoundLogger
@@ -39,6 +40,8 @@ T = TypeVar("T", bound=KubernetesModel)
 
 __all__ = [
     "KubernetesObjectDeleter",
+    "JobStorage",
+    "PersistentVolumeClaimStorage",
     "ServiceStorage",
     "T",
 ]
@@ -332,6 +335,30 @@ class JobStorage(KubernetesObjectDeleter):
             read_method=api.read_namespaced_job,
             object_type=V1Job,
             kind="Job",
+            logger=logger,
+        )
+
+
+class PersistentVolumeClaimStorage(KubernetesObjectDeleter):
+    """Storage layer for ``PersistentVolumeClaim`` objects.
+
+    Parameters
+    ----------
+    api_client
+        Kubernetes API client.
+    logger
+        Logger to use.
+    """
+
+    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+        api = client.CoreV1Api(api_client)
+        super().__init__(
+            create_method=api.create_namespaced_persistent_volume_claim,
+            delete_method=api.delete_namespaced_persistent_volume_claim,
+            list_method=api.list_namespaced_persistent_volume_claim,
+            read_method=api.read_namespaced_persistent_volume_claim,
+            object_type=V1PersistentVolumeClaim,
+            kind="PersistentVolumeClaim",
             logger=logger,
         )
 

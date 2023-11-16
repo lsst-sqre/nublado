@@ -8,12 +8,23 @@ from pathlib import Path
 from typing import Literal, Self
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from kubernetes_asyncio.client import (
+    V1PersistentVolumeClaimSpec,
+    V1ResourceRequirements,
+)
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 from pydantic.alias_generators import to_camel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from safir.logging import LogLevel, Profile
 
 from .constants import (
+    KUBERNETES_NAME_PATTERN,
     LIMIT_TO_REQUEST_RATIO,
     METADATA_PATH,
     RESERVED_ENV,
@@ -37,11 +48,12 @@ __all__ = [
     "LabNSSFiles",
     "LabSecret",
     "LabSizeDefinition",
-    "LabVolume",
     "NFSVolumeSource",
     "PVCVolumeResources",
     "PVCVolumeSource",
     "UserHomeDirectorySchema",
+    "VolumeConfig",
+    "VolumeMountConfig",
 ]
 
 
@@ -80,6 +92,178 @@ class ContainerImage(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+
+class BaseVolumeSource(BaseModel):
+    """Source of a volume to be mounted in the lab.
+
+    This is a base class that must be subclassed by the different supported
+    ways a volume can be provided.
+    """
+
+    type: str = Field(..., title="Type of volume to mount", examples=["nfs"])
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+
+class HostPathVolumeSource(BaseVolumeSource):
+    """Path on Kubernetes node to mount in the container."""
+
+    type: Literal["hostPath"] = Field(..., title="Type of volume to mount")
+
+    path: str = Field(
+        ...,
+        title="Host path",
+        description="Absolute host path to mount in the container",
+        examples=["/home"],
+        pattern="^/.*",
+    )
+
+
+class NFSVolumeSource(BaseVolumeSource):
+    """NFS volume to mount in the container."""
+
+    type: Literal["nfs"] = Field(..., title="Type of volume to mount")
+
+    server: str = Field(
+        ...,
+        title="NFS server",
+        description="Name or IP address of the server providing the volume",
+        examples=["10.13.105.122"],
+    )
+
+    server_path: str = Field(
+        ...,
+        title="Export path",
+        description="Absolute path of NFS server export of the volume",
+        examples=["/share1/home"],
+        pattern="^/.*",
+    )
+
+    read_only: bool = Field(
+        False,
+        title="Is read-only",
+        description=(
+            "Whether to mount the NFS volume read-only. If this is true,"
+            " any mount of this volume will be read-only even if the mount"
+            " is not marked as such."
+        ),
+    )
+
+
+class PVCVolumeResources(BaseModel):
+    """Resources for a persistent volume claim."""
+
+    requests: dict[str, str] = Field(..., title="Resource requests")
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+
+class PVCVolumeSource(BaseVolumeSource):
+    """A PVC to create to materialize the volume to mount in the container."""
+
+    type: Literal["persistentVolumeClaim"] = Field(
+        ..., title="Type of volume to mount"
+    )
+
+    access_modes: list[VolumeAccessMode] = Field(..., title="Access mode")
+
+    storage_class_name: str = Field(..., title="Storage class")
+
+    resources: PVCVolumeResources = Field(..., title="Resources for volume")
+
+    read_only: bool = Field(
+        False,
+        title="Is read-only",
+        description=(
+            "If set to true, forces all mounts of this volume to read-only"
+        ),
+    )
+
+    def to_kubernetes_spec(self) -> V1PersistentVolumeClaimSpec:
+        """Convert to the Kubernetes representation.
+
+        Returns
+        -------
+        kubernetes_asyncio.client.V1PersistentVolumeClaimSpec
+            Corresponding persistente volume claim spec.
+        """
+        return V1PersistentVolumeClaimSpec(
+            storage_class_name=self.storage_class_name,
+            access_modes=[m.value for m in self.access_modes],
+            resources=V1ResourceRequirements(requests=self.resources.requests),
+        )
+
+
+class VolumeConfig(BaseModel):
+    """A volume that may be mounted inside a container."""
+
+    name: str = Field(
+        ...,
+        title="Name of volume",
+        description=(
+            "Used as the Kubernetes volume name and therefore must be a"
+            " valid Kubernetes name"
+        ),
+        pattern=KUBERNETES_NAME_PATTERN,
+    )
+
+    source: HostPathVolumeSource | NFSVolumeSource | PVCVolumeSource = Field(
+        ..., title="Source of volume"
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+
+class VolumeMountConfig(BaseModel):
+    """The mount of a volume inside a container."""
+
+    container_path: str = Field(
+        ...,
+        title="Path inside container",
+        description=(
+            "Absolute path at which to mount the volume in the lab container"
+        ),
+        examples=["/home"],
+        pattern="^/.*",
+    )
+
+    sub_path: str | None = Field(
+        None,
+        title="Sub-path of source to mount",
+        description="Mount only this sub-path of the volume source",
+        examples=["groups"],
+    )
+
+    read_only: bool = Field(
+        False,
+        title="Is read-only",
+        description=(
+            "Whether the volume should be mounted read-only in the container"
+        ),
+        examples=[True],
+    )
+
+    volume_name: str = Field(
+        ..., title="Volume name", description="Name of the volume to mount"
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    @field_validator("container_path")
+    @classmethod
+    def _validate_container_path(cls, v: str) -> str:
+        if v in RESERVED_PATHS:
+            raise ValueError(f"Cannot mount volume over {v}")
+        return v
 
 
 class FileserverConfig(BaseModel):
@@ -239,124 +423,6 @@ class UserHomeDirectorySchema(Enum):
     """Paths like ``/home/r/rachel``."""
 
 
-class BaseVolumeSource(BaseModel):
-    """Source of a volume to be mounted in the lab.
-
-    This is a base class that must be subclassed by the different supported
-    ways a volume can be provided.
-    """
-
-    type: str = Field(..., title="Type of volume to mount", examples=["nfs"])
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
-    )
-
-
-class HostPathVolumeSource(BaseVolumeSource):
-    """Path on Kubernetes node to mount in the container."""
-
-    type: Literal["hostPath"] = Field(..., title="Type of volume to mount")
-
-    path: str = Field(
-        ...,
-        title="Host path",
-        description="Absolute host path to mount in the container",
-        examples=["/home"],
-        pattern="^/.*",
-    )
-
-
-class NFSVolumeSource(BaseVolumeSource):
-    """NFS volume to mount in the container."""
-
-    type: Literal["nfs"] = Field(..., title="Type of volume to mount")
-
-    server: str = Field(
-        ...,
-        title="NFS server",
-        description="Name or IP address of the server providing the volume",
-        examples=["10.13.105.122"],
-    )
-
-    server_path: str = Field(
-        ...,
-        title="Export path",
-        description="Absolute path of NFS server export of the volume",
-        examples=["/share1/home"],
-        pattern="^/.*",
-    )
-
-
-class PVCVolumeResources(BaseModel):
-    """Resources for a persistent volume claim."""
-
-    requests: dict[str, str] = Field(..., title="Resource requests")
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
-    )
-
-
-class PVCVolumeSource(BaseVolumeSource):
-    """A PVC to create to materialize the volume to mount in the container."""
-
-    type: Literal["persistentVolumeClaim"] = Field(
-        ..., title="Type of volume to mount"
-    )
-
-    access_modes: list[VolumeAccessMode] = Field(..., title="Access mode")
-
-    storage_class_name: str = Field(..., title="Storage class")
-
-    resources: PVCVolumeResources = Field(..., title="Resources for volume")
-
-
-class LabVolume(BaseModel):
-    """A volume to mount inside a lab container."""
-
-    container_path: str = Field(
-        ...,
-        title="Path inside container",
-        description=(
-            "Absolute path at which to mount the volume in the lab container"
-        ),
-        examples=["/home"],
-        pattern="^/.*",
-    )
-
-    sub_path: str | None = Field(
-        None,
-        title="Sub-path of source to mount",
-        description="Mount only this sub-path of the volume source",
-        examples=["groups"],
-    )
-
-    read_only: bool = Field(
-        False,
-        title="Is read-only",
-        description=(
-            "Whether the volume should be mounted read-only in the container"
-        ),
-        examples=[True],
-    )
-
-    source: HostPathVolumeSource | NFSVolumeSource | PVCVolumeSource = Field(
-        ..., title="Source of volume"
-    )
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
-    )
-
-    @field_validator("container_path")
-    @classmethod
-    def _validate_container_path(cls, v: str) -> str:
-        if v in RESERVED_PATHS:
-            raise ValueError(f"Cannot mount volume over {v}")
-        return v
-
-
 class LabInitContainer(BaseModel):
     """A container to run as an init container before the user's lab."""
 
@@ -383,9 +449,9 @@ class LabInitContainer(BaseModel):
         examples=[False],
     )
 
-    volumes: list[LabVolume] = Field(
+    volume_mounts: list[VolumeMountConfig] = Field(
         [],
-        title="Volumes to mount",
+        title="Volume mounts",
         description="Volumes mounted inside this init container",
     )
 
@@ -619,7 +685,23 @@ class LabConfig(BaseModel):
         examples=[300],
     )
 
-    volumes: list[LabVolume] = Field([], title="Volumes to mount inside lab")
+    volumes: list[VolumeConfig] = Field(
+        [],
+        title="Available volumes",
+        description=(
+            "Volumes available to mount inside either the lab container or"
+            " an init container. Inclusion in this list does not mean that"
+            " they will be mounted. They must separately be listed under"
+            " `volumeMounts` for either an init container or the main lab"
+            " configuration."
+        ),
+    )
+
+    volume_mounts: list[VolumeMountConfig] = Field(
+        [],
+        title="Mounted volumes",
+        description="Volumes to mount inside the lab container",
+    )
 
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
@@ -691,6 +773,19 @@ class LabConfig(BaseModel):
                 raise ValueError(f"Duplicate lab size {definition.size.value}")
             seen.add(definition.size)
         return v
+
+    @model_validator(mode="after")
+    def _validate_volumes(self) -> Self:
+        volumes = {v.name for v in self.volumes}
+        for mount in self.volume_mounts:
+            if mount.volume_name not in volumes:
+                raise ValueError(f"Unknown mounted volume {mount.volume_name}")
+        for container in self.init_containers:
+            for mount in container.volume_mounts:
+                if mount.volume_name not in volumes:
+                    msg = f"Unknown mounted volume {mount.volume_name}"
+                    raise ValueError(msg)
+        return self
 
     def get_size_definition(self, size: LabSize) -> LabSizeDefinition:
         """Return the definition for a given lab size.

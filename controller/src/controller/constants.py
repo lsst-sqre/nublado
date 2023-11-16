@@ -12,6 +12,7 @@ __all__ = [
     "FILE_SERVER_REFRESH_INTERVAL",
     "IMAGE_REFRESH_INTERVAL",
     "KUBERNETES_DELETE_TIMEOUT",
+    "KUBERNETES_NAME_PATTERN",
     "KUBERNETES_REQUEST_TIMEOUT",
     "LAB_COMMAND",
     "LAB_STATE_REFRESH_INTERVAL",
@@ -65,6 +66,9 @@ already exists, it deletes that object and then retries the creation. This
 controls how long it waits for the object to go away after deletion before it
 gives up.
 """
+
+KUBERNETES_NAME_PATTERN = "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+"""Pattern matching valid Kubernetes names."""
 
 KUBERNETES_REQUEST_TIMEOUT = timedelta(seconds=30)
 """How long to wait for any given Kubernetes API call.

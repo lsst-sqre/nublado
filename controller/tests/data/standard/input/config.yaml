@@ -70,12 +70,11 @@ lab:
         repository: ghcr.io/lsst-sqre/initdir
         tag: 0.0.3
       privileged: true
-      volumes:
+      volumeMounts:
         - containerPath: /home
-          source:
-            type: nfs
-            serverPath: /share1/home
-            server: 10.87.86.26
+          volumeName: home
+        - containerPath: /scratch
+          volumeName: scratch
   nss:
     basePasswd: |
       root:x:0:0:root:/root:/bin/bash
@@ -152,17 +151,16 @@ lab:
       cpu: 12.0
       memory: 32Gi
   volumes:
-    - containerPath: /home
+    - name: home
       source:
         type: nfs
         server: 10.13.105.122
         serverPath: /share1/home
-    - containerPath: /PROJECT
-      readOnly: true
+    - name: project
       source:
         type: hostPath
         path: /share1/project
-    - containerPath: /ScRaTcH
+    - name: scratch
       source:
         type: persistentVolumeClaim
         storageClassName: sdf-home
@@ -171,16 +169,28 @@ lab:
         resources:
           requests:
             storage: 1Gi
+    - name: temporary
+      source:
+        type: persistentVolumeClaim
+        storageClassName: sdf-home
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 1Gi
+  volumeMounts:
+    - containerPath: /home
+      volumeName: home
+    - containerPath: /PROJECT
+      readOnly: true
+      volumeName: project
+    - containerPath: /ScRaTcH
+      volumeName: scratch
+    - containerPath: /scratch
+      volumeName: scratch
     - containerPath: /temporary
       subPath: temporary
-      source:
-        type: persistentVolumeClaim
-        storageClassName: sdf-home
-        accessModes:
-          - ReadWriteMany
-        resources:
-          requests:
-            storage: 1Gi
+      volumeName: temporary
 images:
   source:
     type: docker
