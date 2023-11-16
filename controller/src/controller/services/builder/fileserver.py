@@ -257,7 +257,7 @@ class FileserverBuilder:
                             run_as_user=user.uid,
                             run_as_group=user.gid,
                             run_as_non_root=True,
-                            supplemental_groups=[x.id for x in user.groups],
+                            supplemental_groups=user.supplemental_groups,
                         ),
                         volumes=[v.volume for v in volume_data],
                     ),
