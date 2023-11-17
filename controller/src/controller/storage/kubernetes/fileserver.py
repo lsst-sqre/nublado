@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from datetime import timedelta
 
@@ -9,7 +10,7 @@ from kubernetes_asyncio.client import ApiClient, V1Pod
 from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
 
-from ...exceptions import DuplicateObjectError, MissingObjectError
+from ...exceptions import DuplicateObjectError
 from ...models.domain.fileserver import (
     FileserverObjects,
     FileserverStateObjects,
@@ -94,8 +95,22 @@ class FileserverStorage:
             propagation_policy=PropagationPolicy.FOREGROUND,
         )
 
+        # Wait for the ingress to get an IP address assigned. This usually
+        # takes the longest.
+        name = objects.ingress["metadata"]["name"]
+        timeout_left = timeout - (current_datetime(microseconds=True) - start)
+        if timeout_left <= timedelta(seconds=0):
+            raise TimeoutError
+        await self._ingress.wait_for_ip_address(name, namespace, timeout_left)
+
         # Wait for the pod to start.
-        pod = await self._get_pod_for_job(objects.job.metadata.name, namespace)
+        job_name = objects.job.metadata.name
+        timeout_left = timeout - (current_datetime(microseconds=True) - start)
+        if timeout_left <= timedelta(seconds=0):
+            raise TimeoutError
+        pod = await self._wait_for_pod_creation(
+            job_name, namespace, timeout_left
+        )
         timeout_left = timeout - (current_datetime(microseconds=True) - start)
         if timeout_left <= timedelta(seconds=0):
             raise TimeoutError
@@ -105,14 +120,6 @@ class FileserverStorage:
             until_not={PodPhase.UNKNOWN, PodPhase.PENDING},
             timeout=timeout_left,
         )
-
-        # Wait for the ingress to get an IP address assigned. This usually
-        # takes the longest.
-        name = objects.ingress["metadata"]["name"]
-        timeout_left = timeout - (current_datetime(microseconds=True) - start)
-        if timeout_left <= timedelta(seconds=0):
-            raise TimeoutError
-        await self._ingress.wait_for_ip_address(name, namespace, timeout_left)
 
     async def delete(self, name: str, namespace: str, username: str) -> None:
         """Delete a file server.
@@ -210,11 +217,8 @@ class FileserverStorage:
 
             # Retrieve the Pod if it exists, complaining and ignoring if we
             # saw duplicate Pods for the same Job.
-            pod = None
             try:
                 pod = await self._get_pod_for_job(job.metadata.name, namespace)
-            except MissingObjectError:
-                pass
             except DuplicateObjectError as e:
                 msg = f"{e!s}, ignoring them all"
                 self._logger.warning(msg, user=username, namespace=namespace)
@@ -256,7 +260,9 @@ class FileserverStorage:
         async for change in self._pod.watch_pod_changes(namespace):
             yield change
 
-    async def _get_pod_for_job(self, name: str, namespace: str) -> V1Pod:
+    async def _get_pod_for_job(
+        self, name: str, namespace: str
+    ) -> V1Pod | None:
         """Get the ``Pod`` corresponding to a ``Job``.
 
         Parameters
@@ -268,8 +274,8 @@ class FileserverStorage:
 
         Returns
         -------
-        kubernetes_asyncio.client.V1Pod
-            Corresponding pod.
+        kubernetes_asyncio.client.V1Pod or None
+            Corresponding pod, or `None` if it doesn't exist.
 
         Raises
         ------
@@ -277,18 +283,50 @@ class FileserverStorage:
             Raised if multiple pods were found for the fileserver job.
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
-        MissingObjectError
-            Raised if no pod was created for the fileserver job.
         """
         selector = f"job-name={name}"
         pods = await self._pod.list(namespace, label_selector=selector)
         if not pods:
-            raise MissingObjectError(
-                message=f"Pod for fileserver job {name} not found",
-                namespace=namespace,
-                kind="Pod",
-            )
+            return None
         if len(pods) > 1:
             msg = f"Multiple pods match job {name}"
             raise DuplicateObjectError(msg, kind="Pod", namespace=namespace)
         return pods[0]
+
+    async def _wait_for_pod_creation(
+        self, name: str, namespace: str, timeout: timedelta
+    ) -> V1Pod:
+        """Wait for a ``Pod`` corresponding to a ``Job`` to be created.
+
+        Parameters
+        ----------
+        name
+            Name of the job.
+        namespace
+            Namespace in which to search.
+        timeout
+            How long to wait.
+
+        Returns
+        -------
+        kubernetes_asyncio.client.V1Pod
+            Corresponding pod.
+
+        Raises
+        ------
+        TimeoutError
+            Raised if the ``Pod`` doesn't appear in time.
+        """
+        start = current_datetime(microseconds=True)
+        pod = await self._get_pod_for_job(name, namespace)
+        while not pod:
+            self._logger.debug(
+                "Pod not yet ready, waiting 1s", name=name, namespace=namespace
+            )
+            await asyncio.sleep(1)
+            now = current_datetime(microseconds=True)
+            timeout_left = timeout - (now - start)
+            if timeout_left <= timedelta(seconds=0):
+                raise TimeoutError
+            pod = await self._get_pod_for_job(name, namespace)
+        return pod
