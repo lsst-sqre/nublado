@@ -19,8 +19,8 @@ from ..exceptions import (
     MissingObjectError,
     UnknownUserError,
 )
+from ..models.domain.gafaelfawr import GafaelfawrUserInfo
 from ..models.domain.kubernetes import PodPhase
-from ..models.v1.lab import UserInfo
 from ..storage.kubernetes.fileserver import FileserverStorage
 from .builder.fileserver import FileserverBuilder
 
@@ -83,7 +83,7 @@ class FileserverManager:
         # Mapping of usernames to internal state.
         self._servers: dict[str, _State] = {}
 
-    async def create(self, user: UserInfo) -> None:
+    async def create(self, user: GafaelfawrUserInfo) -> None:
         """Ensure a file server exists for the given user.
 
         If the user doesn't have a fileserver, create it.  If the user already
@@ -201,7 +201,7 @@ class FileserverManager:
         self._scheduler = None
 
     async def _create_file_server(
-        self, user: UserInfo, timeout: timedelta
+        self, user: GafaelfawrUserInfo, timeout: timedelta
     ) -> None:
         """Create a fileserver for the given user.
 

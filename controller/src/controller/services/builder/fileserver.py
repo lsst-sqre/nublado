@@ -30,7 +30,7 @@ from ...models.domain.fileserver import (
     FileserverObjects,
     FileserverStateObjects,
 )
-from ...models.v1.lab import UserInfo
+from ...models.domain.gafaelfawr import GafaelfawrUserInfo
 from ...storage.kubernetes.ingress import ingress_has_ip_address
 from .volumes import VolumeBuilder
 
@@ -64,7 +64,7 @@ class FileserverBuilder:
         self._logger = logger
         self._volume_builder = VolumeBuilder()
 
-    def build(self, user: UserInfo) -> FileserverObjects:
+    def build(self, user: GafaelfawrUserInfo) -> FileserverObjects:
         """Construct the objects that make up a user's fileserver.
 
         Parameters
@@ -209,7 +209,7 @@ class FileserverBuilder:
             },
         }
 
-    def _build_job(self, user: UserInfo) -> V1Job:
+    def _build_job(self, user: GafaelfawrUserInfo) -> V1Job:
         """Construct the job for a fileserver."""
         volume_data = self._volume_builder.build_mounted_volumes(
             user.username, self._volumes, prefix="/mnt"
