@@ -138,7 +138,8 @@ class FileserverManager:
                 logger.info("Cleaning up orphaned file server objects")
                 await self._delete_file_server(user.username)
                 raise
-            state.running = True
+            else:
+                state.running = True
 
     async def delete(self, username: str) -> None:
         """Delete the file server for a user.
@@ -287,32 +288,42 @@ class FileserverManager:
         self._logger.debug("Reconciling file server state")
         namespace = self._config.namespace
         observed = await self._storage.read_fileserver_state(namespace)
-        mapped_users = set(self._servers.keys())
+        mapped_users = {k for k, v in self._servers.items() if v.running}
 
         # Check each fileserver we found to see if it's properly running. If
         # not, delete it and remove it from the observed map.
         to_delete = set()
+        invalid = set()
         for username, state in observed.items():
             valid = self._builder.is_valid(username, state)
-            if username not in self._servers:
+            if valid:
                 self._servers[username] = _State(running=valid)
-            if not valid:
-                msg = "File server present but not running, deleteing"
-                self._logger.info(msg, user=username)
+            elif username in self._servers:
                 to_delete.add(username)
+            else:
+                invalid.add(username)
         observed = {k: v for k, v in observed.items() if k not in to_delete}
-        for username in to_delete:
-            name = self._builder.build_name(username)
-            await self._storage.delete(name, self._config.namespace, username)
 
-        # Tidy up any no-longer-running users. They aren't running, but they
-        # might have some objects remaining. This should only be possible if
+        # Also tidy up any supposedly-running users that we didn't find. They
+        # may have some objects remaining. This should only be possible if
         # something outside of the controller deleted resources.
         observed_users = set(observed.keys())
-        for user in mapped_users - observed_users:
+        for user in (mapped_users - observed_users) | to_delete:
             msg = "Removing broken fileserver for user"
             self._logger.warning(msg, user=user)
             await self.delete(user)
+        for username in invalid:
+            if username in self._servers:
+                continue
+            msg = "File server present but not running, deleteing"
+            self._logger.info(msg, user=username)
+
+            # There is an unavoidable race condition where if the user for
+            # this invalid file server attempts to create a valid file server
+            # just as we make this call, we may delete parts of their new file
+            # server. Solving this is complicated; live with it for now.
+            name = self._builder.build_name(username)
+            await self._storage.delete(name, self._config.namespace, username)
         self._logger.debug("File server reconciliation complete")
 
     async def _reconcile_loop(self) -> None:
