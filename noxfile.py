@@ -136,7 +136,7 @@ def init(session: nox.Session) -> None:
 @nox.session
 def lint(session: nox.Session) -> None:
     """Run pre-commit hooks."""
-    session.install("pre-commit")
+    session.install("--upgrade", "pre-commit")
     session.run("pre-commit", "run", "--all-files", *session.posargs)
 
 
