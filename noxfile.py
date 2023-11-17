@@ -199,7 +199,7 @@ def test(session: nox.Session) -> None:
             "--cov=controller",
             "--cov-branch",
             "--cov-report=",
-            *session.posargs,
+            *(a.removeprefix("controller/") for a in session.posargs),
         )
 
 
