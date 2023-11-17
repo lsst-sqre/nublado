@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Self
+from typing import Any, Self
 
 from kubernetes_asyncio.client import V1ContainerImage, V1ObjectMeta, V1Pod
 from typing_extensions import Protocol
@@ -31,6 +31,9 @@ class KubernetesModel(Protocol):
     """
 
     metadata: V1ObjectMeta
+
+    def to_dict(self, *, serialize: bool = False) -> dict[str, Any]:
+        ...
 
 
 class PodPhase(str, Enum):

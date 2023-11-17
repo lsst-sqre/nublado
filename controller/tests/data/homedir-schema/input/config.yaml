@@ -13,11 +13,14 @@ lab:
       cpu: 1.0
       memory: 3Gi
   volumes:
-    - containerPath: /u/home
+    - name: home
       source:
         type: nfs
         server: 10.13.105.122
         serverPath: /share1/home
+  volumeMounts:
+    - containerPath: /u/home
+      volumeName: home
 images:
   source:
     type: docker

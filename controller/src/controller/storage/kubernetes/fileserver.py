@@ -16,7 +16,7 @@ from ...models.domain.fileserver import (
 )
 from ...models.domain.kubernetes import PodChange, PodPhase, PropagationPolicy
 from .custom import GafaelfawrIngressStorage
-from .deleter import JobStorage, ServiceStorage
+from .deleter import JobStorage, PersistentVolumeClaimStorage, ServiceStorage
 from .ingress import IngressStorage
 from .namespace import NamespaceStorage
 from .pod import PodStorage
@@ -25,7 +25,7 @@ __all__ = ["FileserverStorage"]
 
 
 class FileserverStorage:
-    """Kubernetes storage layer for fileservers.
+    """Kubernetes storage layer for file servers.
 
     Parameters
     ----------
@@ -36,10 +36,11 @@ class FileserverStorage:
 
     Notes
     -----
-    This class isn't strictly necessary; instead, the fileserver service could
-    call the storage layers for individual Kubernetes objects directly. But
-    there are enough different objects in play that adding a thin layer to
-    wrangle the storage objects makes the fileserver service easier to follow.
+    This class isn't strictly necessary; instead, the file server service
+    could call the storage layers for individual Kubernetes objects
+    directly. But there are enough different objects in play that adding a
+    thin layer to wrangle the storage objects makes the file server service
+    easier to follow.
     """
 
     def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
@@ -48,8 +49,9 @@ class FileserverStorage:
         self._ingress = IngressStorage(api_client, logger)
         self._job = JobStorage(api_client, logger)
         self._namespace = NamespaceStorage(api_client, logger)
-        self._service = ServiceStorage(api_client, logger)
         self._pod = PodStorage(api_client, logger)
+        self._pvc = PersistentVolumeClaimStorage(api_client, logger)
+        self._service = ServiceStorage(api_client, logger)
 
     async def create(
         self, namespace: str, objects: FileserverObjects, timeout: timedelta
@@ -81,6 +83,8 @@ class FileserverStorage:
             create or start.
         """
         start = current_datetime(microseconds=True)
+        for pvc in objects.pvcs:
+            await self._pvc.create(namespace, pvc, replace=True)
         await self._gafaelfawr.create(namespace, objects.ingress, replace=True)
         await self._service.create(namespace, objects.service, replace=True)
         await self._job.create(
@@ -110,15 +114,17 @@ class FileserverStorage:
             raise TimeoutError
         await self._ingress.wait_for_ip_address(name, namespace, timeout_left)
 
-    async def delete(self, name: str, namespace: str) -> None:
-        """Delete a fileserver.
+    async def delete(self, name: str, namespace: str, username: str) -> None:
+        """Delete a file server.
 
         Parameters
         ----------
         name
-            Name of the filesever objects.
+            Name of the file sever objects.
         namespace
-            Namespace in which fileservers run.
+            Namespace in which file servers run.
+        username
+            Username owning the file server, to find the PVCs to delete.
 
         Raises
         ------
@@ -142,6 +148,10 @@ class FileserverStorage:
             wait=True,
             propagation_policy=PropagationPolicy.FOREGROUND,
         )
+        selector = f"nublado.lsst.io/user={username}"
+        pvcs = await self._pvc.list(namespace, label_selector=selector)
+        for pvc in pvcs:
+            await self._pvc.delete(pvc.metadata.name, namespace)
 
     async def namespace_exists(self, name: str) -> bool:
         """Check whether a namespace is present.

@@ -1,0 +1,359 @@
+[
+  {
+    "apiVersion": "networking.k8s.io/v1",
+    "kind": "Ingress",
+    "metadata": {
+      "name": "rachel-fs",
+      "namespace": "fileservers"
+    },
+    "status": {
+      "loadBalancer": {
+        "ingress": [
+          {
+            "ip": "127.0.0.1"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "apiVersion": "batch/v1",
+    "kind": "Job",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "fileserver",
+        "nublado.lsst.io/user": "rachel",
+        "argocd.argoproj.io/instance": "fileservers"
+      },
+      "name": "rachel-fs",
+      "namespace": "fileservers"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "labels": {
+            "nublado.lsst.io/category": "fileserver",
+            "nublado.lsst.io/user": "rachel"
+          },
+          "name": "rachel-fs"
+        },
+        "spec": {
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "WORBLEHAT_BASE_HREF",
+                  "value": "/files/rachel"
+                },
+                {
+                  "name": "WORBLEHAT_TIMEOUT",
+                  "value": "3600"
+                },
+                {
+                  "name": "WORBLEHAT_DIR",
+                  "value": "/mnt"
+                }
+              ],
+              "image": "ghcr.io/lsst-sqre/worblehat:1.0.0",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "fileserver",
+              "ports": [
+                {
+                  "containerPort": 8000,
+                  "name": "http"
+                }
+              ],
+              "securityContext": {
+                "allowPrivilegeEscalation": false,
+                "readOnlyRootFilesystem": true
+              },
+              "volumeMounts": [
+                {
+                  "mountPath": "/mnt/home",
+                  "name": "home",
+                  "readOnly": false
+                },
+                {
+                  "mountPath": "/mnt/project",
+                  "name": "project",
+                  "readOnly": true
+                },
+                {
+                  "mountPath": "/mnt/scratch",
+                  "name": "scratch",
+                  "readOnly": false
+                }
+              ]
+            }
+          ],
+          "restartPolicy": "Never",
+          "securityContext": {
+            "runAsGroup": 1101,
+            "runAsNonRoot": true,
+            "runAsUser": 1101,
+            "supplementalGroups": [
+              1101,
+              2028,
+              2001,
+              2021
+            ]
+          },
+          "volumes": [
+            {
+              "name": "home",
+              "nfs": {
+                "path": "/share1/home",
+                "readOnly": false,
+                "server": "10.13.105.122"
+              }
+            },
+            {
+              "hostPath": {
+                "path": "/share1/project"
+              },
+              "name": "project"
+            },
+            {
+              "name": "scratch",
+              "persistentVolumeClaim": {
+                "claimName": "rachel-fs-pvc-scratch",
+                "readOnly": false
+              }
+            }
+          ]
+        }
+      }
+    },
+    "status": {
+      "active": 1
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "Namespace",
+    "metadata": {
+      "name": "fileservers"
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "PersistentVolumeClaim",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "fileserver",
+        "nublado.lsst.io/user": "rachel",
+        "argocd.argoproj.io/instance": "fileservers"
+      },
+      "name": "rachel-fs-pvc-scratch",
+      "namespace": "fileservers"
+    },
+    "spec": {
+      "accessModes": [
+        "ReadWriteMany"
+      ],
+      "resources": {
+        "requests": {
+          "storage": "1Gi"
+        }
+      },
+      "storageClassName": "sdf-home"
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "labels": {
+        "nublado.lsst.io/category": "fileserver",
+        "nublado.lsst.io/user": "rachel",
+        "job-name": "rachel-fs"
+      },
+      "name": "rachel-fs",
+      "namespace": "fileservers"
+    },
+    "spec": {
+      "containers": [
+        {
+          "env": [
+            {
+              "name": "WORBLEHAT_BASE_HREF",
+              "value": "/files/rachel"
+            },
+            {
+              "name": "WORBLEHAT_TIMEOUT",
+              "value": "3600"
+            },
+            {
+              "name": "WORBLEHAT_DIR",
+              "value": "/mnt"
+            }
+          ],
+          "image": "ghcr.io/lsst-sqre/worblehat:1.0.0",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "fileserver",
+          "ports": [
+            {
+              "containerPort": 8000,
+              "name": "http"
+            }
+          ],
+          "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "readOnlyRootFilesystem": true
+          },
+          "volumeMounts": [
+            {
+              "mountPath": "/mnt/home",
+              "name": "home",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/mnt/project",
+              "name": "project",
+              "readOnly": true
+            },
+            {
+              "mountPath": "/mnt/scratch",
+              "name": "scratch",
+              "readOnly": false
+            }
+          ]
+        }
+      ],
+      "restartPolicy": "Never",
+      "securityContext": {
+        "runAsGroup": 1101,
+        "runAsNonRoot": true,
+        "runAsUser": 1101,
+        "supplementalGroups": [
+          1101,
+          2028,
+          2001,
+          2021
+        ]
+      },
+      "volumes": [
+        {
+          "name": "home",
+          "nfs": {
+            "path": "/share1/home",
+            "readOnly": false,
+            "server": "10.13.105.122"
+          }
+        },
+        {
+          "hostPath": {
+            "path": "/share1/project"
+          },
+          "name": "project"
+        },
+        {
+          "name": "scratch",
+          "persistentVolumeClaim": {
+            "claimName": "rachel-fs-pvc-scratch",
+            "readOnly": false
+          }
+        }
+      ]
+    },
+    "status": {
+      "phase": "Running"
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "fileserver",
+        "nublado.lsst.io/user": "rachel",
+        "argocd.argoproj.io/instance": "fileservers"
+      },
+      "name": "rachel-fs",
+      "namespace": "fileservers"
+    },
+    "spec": {
+      "ports": [
+        {
+          "port": 8000,
+          "targetPort": 8000
+        }
+      ],
+      "selector": {
+        "nublado.lsst.io/category": "fileserver",
+        "nublado.lsst.io/user": "rachel"
+      }
+    }
+  },
+  {
+    "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
+    "kind": "GafaelfawrIngress",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "fileserver",
+        "nublado.lsst.io/user": "rachel",
+        "argocd.argoproj.io/instance": "fileservers"
+      },
+      "name": "rachel-fs",
+      "namespace": "fileservers"
+    },
+    "config": {
+      "baseUrl": "http://127.0.0.1:8080",
+      "scopes": {
+        "all": [
+          "exec:notebook"
+        ]
+      },
+      "loginRedirect": false,
+      "authType": "basic"
+    },
+    "template": {
+      "metadata": {
+        "name": "rachel-fs",
+        "labels": {
+          "nublado.lsst.io/category": "fileserver",
+          "nublado.lsst.io/user": "rachel"
+        }
+      },
+      "spec": {
+        "rules": [
+          {
+            "host": "127.0.0.1",
+            "http": {
+              "paths": [
+                {
+                  "path": "/files/rachel",
+                  "pathType": "Prefix",
+                  "backend": {
+                    "service": {
+                      "name": "rachel-fs",
+                      "port": {
+                        "number": 8000
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+]

@@ -29,14 +29,12 @@ from kubernetes_asyncio.client import (
     V1ObjectFieldSelector,
     V1ObjectMeta,
     V1PersistentVolumeClaim,
-    V1PersistentVolumeClaimSpec,
     V1Pod,
     V1PodSecurityContext,
     V1PodSpec,
     V1ResourceFieldSelector,
     V1ResourceQuota,
     V1ResourceQuotaSpec,
-    V1ResourceRequirements,
     V1Secret,
     V1SecretKeySelector,
     V1SecretVolumeSource,
@@ -433,20 +431,16 @@ class LabBuilder:
 
     def _build_pvcs(self, username: str) -> list[V1PersistentVolumeClaim]:
         """Construct the persistent volume claims for a user's lab."""
+        volume_names = {m.volume_name for m in self._config.volume_mounts}
+        volumes = (v for v in self._config.volumes if v.name in volume_names)
         pvcs: list[V1PersistentVolumeClaim] = []
-        for volume in self._config.volumes:
+        for volume in volumes:
             if not isinstance(volume.source, PVCVolumeSource):
                 continue
-            name = f"{username}-nb-pvc-{len(pvcs) + 1}"
+            name = f"{username}-nb-pvc-{volume.name}"
             pvc = V1PersistentVolumeClaim(
                 metadata=self._build_metadata(name, username),
-                spec=V1PersistentVolumeClaimSpec(
-                    storage_class_name=volume.source.storage_class_name,
-                    access_modes=[m.value for m in volume.source.access_modes],
-                    resources=V1ResourceRequirements(
-                        requests=volume.source.resources.requests
-                    ),
-                ),
+                spec=volume.source.to_kubernetes_spec(),
             )
             pvcs.append(pvc)
         return pvcs
@@ -518,9 +512,16 @@ class LabBuilder:
         metadata.annotations.update(self._build_pod_annotations(user))
 
         # Gather the volume and volume mount definitions.
-        volume_data = self._build_pod_volumes(user.username)
-        mounts = [v.volume_mount for v in volume_data]
-        mounts += self._build_pod_secret_volume_extra_mounts(user.username)
+        mounted_volumes = [
+            *self._build_pod_nss_volumes(user.username),
+            *self._build_pod_file_volumes(user.username),
+            self._build_pod_secret_volume(user.username),
+            self._build_pod_env_volume(user.username),
+            self._build_pod_tmp_volume(),
+            self._build_pod_downward_api_volume(user.username),
+        ]
+        volumes = self._build_pod_volumes(user.username, mounted_volumes)
+        mounts = self._build_pod_volume_mounts(user.username, mounted_volumes)
 
         # Build the pod object itself.
         containers = self._build_pod_containers(user, mounts, resources, image)
@@ -535,7 +536,7 @@ class LabBuilder:
                 security_context=V1PodSecurityContext(
                     supplemental_groups=user.supplemental_groups
                 ),
-                volumes=[v.volume for v in volume_data],
+                volumes=volumes,
             ),
         )
 
@@ -550,24 +551,33 @@ class LabBuilder:
             annotations.update(self._config.extra_annotations)
         return annotations
 
-    def _build_pod_volumes(self, username: str) -> list[MountedVolume]:
-        """Construct the volumes that will be mounted by the user's pod.
-
-        This stitches together the Volume and VolumeMount definitions from
-        each of our sources.
-        """
-        volumes_from_config = self._volume_builder.build_mounted_volumes(
-            username, self._config.volumes
+    def _build_pod_volumes(
+        self, username: str, mounted_volumes: list[MountedVolume]
+    ) -> list[V1Volume]:
+        """Construct the volumes that will be mounted by the user's pod."""
+        volumes = self._volume_builder.build_volumes(
+            self._config.volumes, f"{username}-nb"
         )
-        return [
-            *volumes_from_config,
-            *self._build_pod_nss_volumes(username),
-            *self._build_pod_file_volumes(username),
-            self._build_pod_secret_volume(username),
-            self._build_pod_env_volume(username),
-            self._build_pod_tmp_volume(),
-            self._build_pod_downward_api_volume(username),
-        ]
+        volumes.extend(v.volume for v in mounted_volumes)
+        return volumes
+
+    def _build_pod_volume_mounts(
+        self, username: str, mounted_volumes: list[MountedVolume]
+    ) -> V1VolumeMount:
+        """Construct the volume mounts for the user's pod."""
+        mounts = self._volume_builder.build_mounts(self._config.volume_mounts)
+        mounts.extend(v.volume_mount for v in mounted_volumes)
+        for spec in self._config.secrets:
+            if not spec.path:
+                continue
+            mount = V1VolumeMount(
+                mount_path=spec.path,
+                name="secrets",
+                read_only=True,
+                sub_path=spec.secret_key,
+            )
+            mounts.append(mount)
+        return mounts
 
     def _build_pod_config_map_volume(
         self, config_map: str, path: str
@@ -628,23 +638,6 @@ class LabBuilder:
                 mount_path=MOUNT_PATH_SECRETS, name="secrets", read_only=True
             ),
         )
-
-    def _build_pod_secret_volume_extra_mounts(
-        self, username: str
-    ) -> list[V1VolumeMount]:
-        """Build additional mounts of secrets into other paths."""
-        mounts = []
-        for spec in self._config.secrets:
-            if not spec.path:
-                continue
-            mount = V1VolumeMount(
-                mount_path=spec.path,
-                name="secrets",
-                read_only=True,
-                sub_path=spec.secret_key,
-            )
-            mounts.append(mount)
-        return mounts
 
     def _build_pod_env_volume(self, username: str) -> MountedVolume:
         """Build the volume that mounts the environment inside the pod.
@@ -737,9 +730,7 @@ class LabBuilder:
 
         containers = []
         for spec in self._config.init_containers:
-            volumes = self._volume_builder.build_mounted_volumes(
-                username, spec.volumes
-            )
+            mounts = self._volume_builder.build_mounts(spec.volume_mounts)
             container = V1Container(
                 name=spec.name,
                 env=env,
@@ -748,7 +739,7 @@ class LabBuilder:
                 image_pull_policy=spec.image.pull_policy.value,
                 resources=resources.to_kubernetes(),
                 security_context=as_root if spec.privileged else as_user,
-                volume_mounts=[v.volume_mount for v in volumes],
+                volume_mounts=mounts,
             )
             containers.append(container)
 

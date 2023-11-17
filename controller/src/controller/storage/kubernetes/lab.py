@@ -15,11 +15,10 @@ from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
 from .creator import (
     ConfigMapStorage,
     NetworkPolicyStorage,
-    PersistentVolumeClaimStorage,
     ResourceQuotaStorage,
     SecretStorage,
 )
-from .deleter import ServiceStorage
+from .deleter import PersistentVolumeClaimStorage, ServiceStorage
 from .namespace import NamespaceStorage
 from .pod import PodStorage
 

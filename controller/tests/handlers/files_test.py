@@ -13,12 +13,13 @@ from controller.models.domain.gafaelfawr import GafaelfawrUser
 from controller.models.domain.kubernetes import PodPhase
 
 from ..support.config import configure
-from ..support.data import read_output_data
+from ..support.data import read_output_data, read_output_json
 from ..support.fileserver import (
     create_ingress_for_user,
     create_working_ingress_for_user,
     delete_ingress_for_user,
 )
+from ..support.kubernetes import objects_to_dicts
 
 
 @pytest.mark.asyncio
@@ -62,6 +63,31 @@ async def test_create_delete(
     r = await client.delete(f"/nublado/fileserver/v1/{username}")
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == []
+
+
+@pytest.mark.asyncio
+async def test_file_server_objects(
+    client: AsyncClient,
+    user: GafaelfawrUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    config = await configure("fileserver", mock_kubernetes)
+    assert config.fileserver.enabled
+    username = user.username
+    namespace = config.fileserver.namespace
+
+    # Start a user fileserver. Pre-create an Ingress to match the
+    # GafaelfawrIngress so that the creation succeeds.
+    await create_working_ingress_for_user(mock_kubernetes, username, namespace)
+    r = await client.get("/files", headers=user.to_headers())
+    assert r.status_code == 200
+
+    # When checking all of the objects, strip out resource versions, since
+    # those are added by Kubernetes (and the Kubernetes mock) and are not
+    # meaningful to compare.
+    objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
+    seen = objects_to_dicts(objects)
+    assert seen == read_output_json("fileserver", "fileserver-objects.json")
 
 
 @pytest.mark.asyncio

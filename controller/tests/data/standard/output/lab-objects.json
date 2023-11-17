@@ -149,7 +149,7 @@
         "nublado.lsst.io/category": "lab",
         "nublado.lsst.io/user": "rachel"
       },
-      "name": "rachel-nb-pvc-1",
+      "name": "rachel-nb-pvc-scratch",
       "namespace": "userlabs-rachel"
     },
     "spec": {
@@ -177,7 +177,7 @@
         "nublado.lsst.io/category": "lab",
         "nublado.lsst.io/user": "rachel"
       },
-      "name": "rachel-nb-pvc-2",
+      "name": "rachel-nb-pvc-temporary",
       "namespace": "userlabs-rachel"
     },
     "spec": {
@@ -302,6 +302,11 @@
               "read_only": false
             },
             {
+              "mount_path": "/scratch",
+              "name": "scratch",
+              "read_only": false
+            },
+            {
               "mount_path": "/temporary",
               "name": "temporary",
               "read_only": false,
@@ -408,6 +413,11 @@
               "mount_path": "/home",
               "name": "home",
               "read_only": false
+            },
+            {
+              "mount_path": "/scratch",
+              "name": "scratch",
+              "read_only": false
             }
           ]
         }
@@ -439,14 +449,14 @@
         {
           "name": "scratch",
           "persistent_volume_claim": {
-            "claim_name": "rachel-nb-pvc-1",
+            "claim_name": "rachel-nb-pvc-scratch",
             "read_only": false
           }
         },
         {
           "name": "temporary",
           "persistent_volume_claim": {
-            "claim_name": "rachel-nb-pvc-2",
+            "claim_name": "rachel-nb-pvc-temporary",
             "read_only": false
           }
         },

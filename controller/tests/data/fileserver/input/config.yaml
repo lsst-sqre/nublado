@@ -7,17 +7,16 @@ lab:
       cpu: 1.0
       memory: 3Gi
   volumes:
-    - containerPath: /home
+    - name: home
       source:
         type: nfs
         server: 10.13.105.122
         serverPath: /share1/home
-    - containerPath: /project
-      readOnly: true
+    - name: project
       source:
         type: hostPath
         path: /share1/project
-    - containerPath: /scratch
+    - name: scratch
       source:
         type: persistentVolumeClaim
         storageClassName: sdf-home
@@ -26,6 +25,14 @@ lab:
         resources:
           requests:
             storage: 1Gi
+  volumeMounts:
+    - containerPath: /home
+      volumeName: home
+    - containerPath: /project
+      readOnly: true
+      volumeName: project
+    - containerPath: /scratch
+      volumeName: scratch
 images:
   source:
     type: docker

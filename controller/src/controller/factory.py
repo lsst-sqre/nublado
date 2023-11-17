@@ -124,6 +124,7 @@ class ProcessContext:
                     config=config.fileserver,
                     base_url=config.base_url,
                     volumes=config.lab.volumes,
+                    volume_mounts=config.lab.volume_mounts,
                     logger=logger,
                 ),
                 fileserver_storage=FileserverStorage(

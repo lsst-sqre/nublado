@@ -244,7 +244,7 @@ class FileserverManager:
         name = self._builder.build_name(username)
         start = current_datetime(microseconds=True)
         try:
-            await self._storage.delete(name, self._config.namespace)
+            await self._storage.delete(name, self._config.namespace, username)
         except TimeoutError as e:
             now = current_datetime(microseconds=True)
             elapsed = (now - start).total_seconds()
@@ -303,7 +303,7 @@ class FileserverManager:
         observed = {k: v for k, v in observed.items() if k not in to_delete}
         for username in to_delete:
             name = self._builder.build_name(username)
-            await self._storage.delete(name, self._config.namespace)
+            await self._storage.delete(name, self._config.namespace, username)
 
         # Tidy up any no-longer-running users. They aren't running, but they
         # might have some objects remaining. This should only be possible if
