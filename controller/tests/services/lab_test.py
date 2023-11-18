@@ -25,6 +25,7 @@ from controller.models.v1.lab import (
     UserInfo,
     UserLabState,
 )
+from controller.timeout import Timeout
 
 from ..support.data import (
     read_input_data,
@@ -86,7 +87,7 @@ async def create_lab(
     objects = lab_builder.build_lab(
         user=user, lab=lab, image=image, secrets={}
     )
-    await lab_storage.create(objects)
+    await lab_storage.create(objects, Timeout(config.lab.spawn_timeout))
 
     phase = PodPhase(mock_kubernetes.initial_pod_phase)
     return UserLabState(

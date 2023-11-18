@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from datetime import timedelta
 
 from kubernetes_asyncio.client import ApiClient, V1Pod
-from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
 
 from ...exceptions import DuplicateObjectError
@@ -16,6 +14,7 @@ from ...models.domain.fileserver import (
     FileserverStateObjects,
 )
 from ...models.domain.kubernetes import PodChange, PodPhase, PropagationPolicy
+from ...timeout import Timeout
 from .custom import GafaelfawrIngressStorage
 from .deleter import JobStorage, PersistentVolumeClaimStorage, ServiceStorage
 from .ingress import IngressStorage
@@ -55,7 +54,7 @@ class FileserverStorage:
         self._service = ServiceStorage(api_client, logger)
 
     async def create(
-        self, namespace: str, objects: FileserverObjects, timeout: timedelta
+        self, namespace: str, objects: FileserverObjects, timeout: Timeout
     ) -> None:
         """Create all of the Kubernetes objects for a fileserver.
 
@@ -83,14 +82,18 @@ class FileserverStorage:
             Raised if the fileserver takes longer than the provided timeout to
             create or start.
         """
-        start = current_datetime(microseconds=True)
         for pvc in objects.pvcs:
-            await self._pvc.create(namespace, pvc, replace=True)
-        await self._gafaelfawr.create(namespace, objects.ingress, replace=True)
-        await self._service.create(namespace, objects.service, replace=True)
+            await self._pvc.create(namespace, pvc, timeout, replace=True)
+        await self._gafaelfawr.create(
+            namespace, objects.ingress, timeout, replace=True
+        )
+        await self._service.create(
+            namespace, objects.service, timeout, replace=True
+        )
         await self._job.create(
             namespace,
             objects.job,
+            timeout,
             replace=True,
             propagation_policy=PropagationPolicy.FOREGROUND,
         )
@@ -98,30 +101,21 @@ class FileserverStorage:
         # Wait for the ingress to get an IP address assigned. This usually
         # takes the longest.
         name = objects.ingress["metadata"]["name"]
-        timeout_left = timeout - (current_datetime(microseconds=True) - start)
-        if timeout_left <= timedelta(seconds=0):
-            raise TimeoutError
-        await self._ingress.wait_for_ip_address(name, namespace, timeout_left)
+        await self._ingress.wait_for_ip_address(name, namespace, timeout)
 
         # Wait for the pod to start.
         job_name = objects.job.metadata.name
-        timeout_left = timeout - (current_datetime(microseconds=True) - start)
-        if timeout_left <= timedelta(seconds=0):
-            raise TimeoutError
-        pod = await self._wait_for_pod_creation(
-            job_name, namespace, timeout_left
-        )
-        timeout_left = timeout - (current_datetime(microseconds=True) - start)
-        if timeout_left <= timedelta(seconds=0):
-            raise TimeoutError
+        pod = await self._wait_for_pod_creation(job_name, namespace, timeout)
         await self._pod.wait_for_phase(
             pod.metadata.name,
             namespace,
             until_not={PodPhase.UNKNOWN, PodPhase.PENDING},
-            timeout=timeout_left,
+            timeout=timeout,
         )
 
-    async def delete(self, name: str, namespace: str, username: str) -> None:
+    async def delete(
+        self, name: str, namespace: str, username: str, timeout: Timeout
+    ) -> None:
         """Delete a file server.
 
         Parameters
@@ -132,6 +126,8 @@ class FileserverStorage:
             Namespace in which file servers run.
         username
             Username owning the file server, to find the PVCs to delete.
+        timeout
+            Timeout on operation.
 
         Raises
         ------
@@ -144,39 +140,43 @@ class FileserverStorage:
         await self._gafaelfawr.delete(
             name,
             namespace,
+            timeout,
             wait=True,
             propagation_policy=PropagationPolicy.FOREGROUND,
         )
-        await self._ingress.wait_for_deletion(name, namespace)
-        await self._service.delete(name, namespace, wait=True)
+        await self._ingress.wait_for_deletion(name, namespace, timeout)
+        await self._service.delete(name, namespace, timeout, wait=True)
         await self._job.delete(
             name,
             namespace,
+            timeout,
             wait=True,
             propagation_policy=PropagationPolicy.FOREGROUND,
         )
-        selector = f"nublado.lsst.io/user={username}"
-        pvcs = await self._pvc.list(namespace, label_selector=selector)
+        search = f"nublado.lsst.io/user={username}"
+        pvcs = await self._pvc.list(namespace, timeout, label_selector=search)
         for pvc in pvcs:
-            await self._pvc.delete(pvc.metadata.name, namespace)
+            await self._pvc.delete(pvc.metadata.name, namespace, timeout)
 
-    async def namespace_exists(self, name: str) -> bool:
+    async def namespace_exists(self, name: str, timeout: Timeout) -> bool:
         """Check whether a namespace is present.
 
         Parameters
         ----------
         name
             Name of the namespace.
+        timeout
+            Timeout on operation.
 
         Returns
         -------
         bool
             `True` if the namespace is present, `False` otherwise.
         """
-        return await self._namespace.read(name) is not None
+        return await self._namespace.read(name, timeout) is not None
 
     async def read_fileserver_state(
-        self, namespace: str
+        self, namespace: str, timeout: Timeout
     ) -> dict[str, FileserverStateObjects]:
         """Read Kubernetes objects for all running fileservers.
 
@@ -186,6 +186,8 @@ class FileserverStorage:
         ----------
         namespace
             Namespace in which to look for running fileservers.
+        timeout
+            Timeout on operation.
 
         Returns
         -------
@@ -193,8 +195,8 @@ class FileserverStorage:
             Dictionary mapping usernames to the state of their running
             fileservers.
         """
-        selector = "nublado.lsst.io/category=fileserver"
-        jobs = await self._job.list(namespace, label_selector=selector)
+        search = "nublado.lsst.io/category=fileserver"
+        jobs = await self._job.list(namespace, timeout, label_selector=search)
 
         # For each job, figure out the corresponding username from labels and
         # retrieve the additional objects we care about.
@@ -218,14 +220,18 @@ class FileserverStorage:
             # Retrieve the Pod if it exists, complaining and ignoring if we
             # saw duplicate Pods for the same Job.
             try:
-                pod = await self._get_pod_for_job(job.metadata.name, namespace)
+                pod = await self._get_pod_for_job(
+                    job.metadata.name, namespace, timeout
+                )
             except DuplicateObjectError as e:
                 msg = f"{e!s}, ignoring them all"
                 self._logger.warning(msg, user=username, namespace=namespace)
 
             # Retrieve the Ingress if it exists, and then put the objects into
             # the state map.
-            ingress = await self._ingress.read(job.metadata.name, namespace)
+            ingress = await self._ingress.read(
+                job.metadata.name, namespace, timeout
+            )
             objects = FileserverStateObjects(job=job, pod=pod, ingress=ingress)
             state[username] = objects
 
@@ -261,7 +267,7 @@ class FileserverStorage:
             yield change
 
     async def _get_pod_for_job(
-        self, name: str, namespace: str
+        self, name: str, namespace: str, timeout: Timeout
     ) -> V1Pod | None:
         """Get the ``Pod`` corresponding to a ``Job``.
 
@@ -271,6 +277,8 @@ class FileserverStorage:
             Name of the job.
         namespace
             Namespace in which to search.
+        timeout
+            Timeout on operation.
 
         Returns
         -------
@@ -284,8 +292,8 @@ class FileserverStorage:
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
         """
-        selector = f"job-name={name}"
-        pods = await self._pod.list(namespace, label_selector=selector)
+        search = f"job-name={name}"
+        pods = await self._pod.list(namespace, timeout, label_selector=search)
         if not pods:
             return None
         if len(pods) > 1:
@@ -294,7 +302,7 @@ class FileserverStorage:
         return pods[0]
 
     async def _wait_for_pod_creation(
-        self, name: str, namespace: str, timeout: timedelta
+        self, name: str, namespace: str, timeout: Timeout
     ) -> V1Pod:
         """Wait for a ``Pod`` corresponding to a ``Job`` to be created.
 
@@ -317,16 +325,11 @@ class FileserverStorage:
         TimeoutError
             Raised if the ``Pod`` doesn't appear in time.
         """
-        start = current_datetime(microseconds=True)
-        pod = await self._get_pod_for_job(name, namespace)
+        pod = await self._get_pod_for_job(name, namespace, timeout)
         while not pod:
             self._logger.debug(
                 "Pod not yet ready, waiting 1s", name=name, namespace=namespace
             )
             await asyncio.sleep(1)
-            now = current_datetime(microseconds=True)
-            timeout_left = timeout - (now - start)
-            if timeout_left <= timedelta(seconds=0):
-                raise TimeoutError
-            pod = await self._get_pod_for_job(name, namespace)
+            pod = await self._get_pod_for_job(name, namespace, timeout)
         return pod

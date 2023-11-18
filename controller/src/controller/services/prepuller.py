@@ -3,7 +3,6 @@
 import asyncio
 
 from aiojobs import Scheduler
-from safir.datetime import current_datetime
 from safir.slack.blockkit import SlackException, SlackMessage, SlackTextBlock
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
@@ -12,6 +11,7 @@ from ..constants import IMAGE_REFRESH_INTERVAL, PREPULLER_POD_TIMEOUT
 from ..models.domain.rspimage import RSPImage
 from ..storage.kubernetes.pod import PodStorage
 from ..storage.metadata import MetadataStorage
+from ..timeout import Timeout
 from .builder.prepuller import PrepullerBuilder
 from .image import ImageService
 
@@ -156,20 +156,17 @@ class Prepuller:
             Node on which to prepull it.
         """
         namespace = self._metadata.namespace
-        start = current_datetime(microseconds=True)
+        timeout = Timeout(PREPULLER_POD_TIMEOUT)
         logger = self._logger.bind(node=node, image=image.tag)
         logger.debug("Prepulling image")
         pod = self._builder.build_pod(image, node)
         try:
-            async with asyncio.timeout(PREPULLER_POD_TIMEOUT.total_seconds()):
-                await self._storage.create(namespace, pod, replace=True)
-                await self._storage.delete_after_completion(
-                    pod.metadata.name, namespace, timeout=PREPULLER_POD_TIMEOUT
-                )
+            await self._storage.create(namespace, pod, timeout, replace=True)
+            await self._storage.delete_after_completion(
+                pod.metadata.name, namespace, timeout
+            )
         except TimeoutError:
-            now = current_datetime(microseconds=True)
-            delay = (now - start).total_seconds()
-            msg = f"Timed out prepulling image after {delay}s"
+            msg = timeout.error("Prepulling image")
             logger.warning(msg)
             if self._slack:
                 message = SlackMessage(
@@ -188,6 +185,4 @@ class Prepuller:
                 else:
                     await self._slack.post_uncaught_exception(e)
         else:
-            now = current_datetime(microseconds=True)
-            delay = (now - start).total_seconds()
-            self._logger.info("Prepulled image", delay=delay)
+            self._logger.info("Prepulled image", delay=timeout.elapsed())

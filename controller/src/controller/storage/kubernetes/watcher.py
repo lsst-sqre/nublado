@@ -6,16 +6,15 @@ import asyncio
 import math
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
-from datetime import timedelta
 from typing import Any, Generic, Self, TypeVar
 
 from kubernetes_asyncio.client import ApiException
 from kubernetes_asyncio.watch import Watch
-from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
 
 from ...exceptions import KubernetesError
 from ...models.domain.kubernetes import WatchEventType
+from ...timeout import Timeout
 
 #: Type of Kubernetes object being watched (`dict` for custom objects).
 T = TypeVar("T")
@@ -119,8 +118,7 @@ class KubernetesWatcher(Generic[T]):
     Raises
     ------
     ValueError
-        Raised if ``name`` and ``involved_object`` are both specified, or if
-        ``timeout`` is specified but is less than zero.
+        Raised if ``name`` and ``involved_object`` are both specified.
     """
 
     def __init__(
@@ -136,7 +134,7 @@ class KubernetesWatcher(Generic[T]):
         plural: str | None = None,
         involved_object: str | None = None,
         resource_version: str | None = None,
-        timeout: timedelta | None,
+        timeout: Timeout | None,
         logger: BoundLogger,
     ) -> None:
         self._method = method
@@ -149,10 +147,6 @@ class KubernetesWatcher(Generic[T]):
         self._stopped = False
 
         # Build the arguments to the method being watched.
-        if timeout:
-            timeout_seconds = int(math.ceil(timeout.total_seconds()))
-            if timeout_seconds <= 0:
-                raise ValueError("Watch timeout specified but <= 0")
         if name:
             if involved_object:
                 raise ValueError("name and involved_object both specified")
@@ -161,15 +155,13 @@ class KubernetesWatcher(Generic[T]):
             field_selector = f"involvedObject.name={involved_object}"
         else:
             field_selector = None
-        args = {
+        args: dict[str, str | float | None] = {
             "field_selector": field_selector,
             "group": group,
             "version": version,
             "plural": plural,
             "namespace": namespace,
             "resource_version": resource_version,
-            "timeout_seconds": timeout_seconds if timeout else None,
-            "_request_timeout": timeout_seconds if timeout else None,
         }
         self._args = {k: v for k, v in args.items() if v is not None}
 
@@ -214,10 +206,13 @@ class KubernetesWatcher(Generic[T]):
             Raised if the timeout was reached.
         """
         args = self._args.copy()
-        start = current_datetime(microseconds=True)
         while True:
+            if self._timeout:
+                left = self._timeout.left()
+                args["_request_timeout"] = left
+                args["timeout_seconds"] = math.ceil(left)
             try:
-                async with self._watch.stream(self._method, **self._args) as s:
+                async with self._watch.stream(self._method, **args) as s:
                     async for event in s:
                         yield WatchEvent.from_event(event, self._type)
 
@@ -232,18 +227,7 @@ class KubernetesWatcher(Generic[T]):
                 # a reduced timeout if it happens.
                 if self._stopped:
                     break
-                if self._timeout:
-                    elapsed = current_datetime(microseconds=True) - start
-                    if elapsed + timedelta(seconds=1) < self._timeout:
-                        new_timeout = self._timeout - elapsed
-                        new_timeout_seconds = int(new_timeout.total_seconds())
-                        args["timeout_seconds"] = new_timeout_seconds
-                        args["_request_timeout"] = new_timeout_seconds
-                        continue
-                    elapsed_seconds = elapsed.total_seconds()
-                    msg = f"Event watch timed out after {elapsed_seconds}s"
-                    raise TimeoutError(msg)
-                else:
+                if not self._timeout:
                     raise TimeoutError("Event watch timed out by server")
             except ApiException as e:
                 if e.status == 410 and "resource_version" in args:
@@ -253,12 +237,11 @@ class KubernetesWatcher(Generic[T]):
                     del args["resource_version"]
                     continue
 
-                # We have seen one instance where Kubernetes returned a 410
-                # error even though no resourceVersion was set in the call.
-                # The Kubernetes documentation implies that this can happen if
-                # there are long delays between reportable events. Retry those
-                # as well, relying on our timeout to stop us, but wait one
-                # second so that we don't spam the Kubernetes controller with
+                # The Kubernetes documentation implies that we can get a 410
+                # error even when no resource version is specified if there
+                # are long delays between reportable events. Retry those as
+                # well, relying on our timeout to stop us, but wait one second
+                # so that we don't spam the Kubernetes controller with
                 # requests if every request is returning 410.
                 if e.status == 410 and self._timeout:
                     msg = "Watch expired (no resource version), retrying"

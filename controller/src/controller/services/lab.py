@@ -7,19 +7,23 @@ import contextlib
 from base64 import b64encode
 from collections.abc import AsyncIterator, Coroutine
 from dataclasses import dataclass, field
-from datetime import timedelta
 from enum import Enum
 from typing import Self
 
 from aiojobs import Scheduler
 from safir.asyncio import AsyncMultiQueue
 from safir.datetime import current_datetime
-from safir.slack.blockkit import SlackException, SlackMessage, SlackTextField
+from safir.slack.blockkit import (
+    SlackException,
+    SlackMessage,
+    SlackTextBlock,
+    SlackTextField,
+)
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..config import LabConfig
-from ..constants import LAB_STATE_REFRESH_INTERVAL
+from ..constants import KUBERNETES_REQUEST_TIMEOUT, LAB_STATE_REFRESH_INTERVAL
 from ..exceptions import (
     InsufficientQuotaError,
     InvalidLabSizeError,
@@ -38,6 +42,7 @@ from ..models.domain.rspimage import RSPImage
 from ..models.v1.lab import LabSpecification, LabStatus, UserLabState
 from ..storage.kubernetes.lab import LabStorage
 from ..storage.metadata import MetadataStorage
+from ..timeout import Timeout
 from .builder.lab import LabBuilder
 from .image import ImageService
 
@@ -215,7 +220,6 @@ class LabManager:
         if username not in self._labs:
             monitor = _LabMonitor(
                 username=username,
-                timeout=self._config.spawn_timeout,
                 slack_client=self._slack,
                 logger=self._logger,
             )
@@ -285,16 +289,18 @@ class LabManager:
         # successful call is able to update the user's lab state.
         lab.events.clear()
         state = UserLabState.from_request(user, spec, resources)
+        timeout = Timeout(self._config.spawn_timeout)
         spawner = self._spawn_lab(
             user=user,
             state=state,
             spec=spec,
             image=image,
             events=lab.events,
+            timeout=timeout,
             delete_first=delete_first,
         )
         operation = _Operation(_LabOperation.SPAWN, spawner, state, lab.events)
-        await lab.monitor.monitor(operation, self._spawner_done)
+        await lab.monitor.monitor(operation, timeout, self._spawner_done)
         lab.state = state
 
     async def delete_lab(self, username: str) -> None:
@@ -353,11 +359,12 @@ class LabManager:
             self._builder.build_object_names(username)
             lab.state.status = LabStatus.TERMINATING
             lab.state.internal_url = None
-            deleter = self._delete_lab(username, lab.state, lab.events)
+            timeout = Timeout(self._config.delete_timeout)
+            action = self._delete_lab(username, lab.state, lab.events, timeout)
             operation = _Operation(
-                _LabOperation.DELETE, deleter, lab.state, lab.events
+                _LabOperation.DELETE, action, lab.state, lab.events
             )
-            await lab.monitor.monitor(operation)
+            await lab.monitor.monitor(operation, timeout)
             await lab.monitor.wait()
             if lab.state.status == LabStatus.TERMINATED:
                 lab.state = None
@@ -432,8 +439,9 @@ class LabManager:
         # Ask Kubernetes for the current phase so that we catch pods that have
         # been evicted or shut down behind our back by the Kubernetes cluster.
         names = self._builder.build_object_names(username)
+        timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
         try:
-            phase = await self._storage.read_pod_phase(names)
+            phase = await self._storage.read_pod_phase(names, timeout)
         except KubernetesError as e:
             self._logger.exception(
                 "Cannot get pod phase",
@@ -453,6 +461,21 @@ class LabManager:
             # we can ever reach Kubernetes, and telling JupyterHub to go ahead
             # and try to send the user to the lab seems like the right move.
             return state
+        except TimeoutError:
+            msg = timeout.error("Reading user lab pod phase")
+            self._logger.exception(msg)
+            if self._slack:
+                obj = f"Pod {names.namespace}/{names.pod}"
+                message = SlackMessage(
+                    message=msg,
+                    fields=[
+                        SlackTextField(heading="User", text=username),
+                    ],
+                    blocks=[
+                        SlackTextBlock(heading="Object", text=obj),
+                    ],
+                )
+                await self._slack.post(message)
 
         # If the pod is missing, set the state to failed. Also set the state
         # to terminated or failed if we thought the pod was running but it's
@@ -525,6 +548,7 @@ class LabManager:
         username: str,
         state: UserLabState,
         events: AsyncMultiQueue[Event],
+        timeout: Timeout,
         *,
         start_progress: int = 25,
         end_progress: int = 100,
@@ -539,6 +563,8 @@ class LabManager:
             Lab state.
         events
             Event queue to update with progress.
+        timeout
+            Timeout on operation.
         start_progress
             Starting progress for progress events. This is different when
             deleting a lab in response to an API request and deleting a failed
@@ -557,12 +583,12 @@ class LabManager:
         msg = "Shutting down Kubernetes pod"
         progress = start_progress
         events.put(Event(type=EventType.INFO, message=msg, progress=progress))
-        await self._storage.delete_pod(names)
+        await self._storage.delete_pod(names, timeout)
 
         progress += int((end_progress - start_progress) / 2)
         msg = "Deleting user namespace"
         events.put(Event(type=EventType.INFO, message=msg, progress=progress))
-        await self._storage.delete_namespace(names.namespace)
+        await self._storage.delete_namespace(names.namespace, timeout)
 
         self._logger.info("Lab deleted", username=username)
         progress = end_progress
@@ -604,10 +630,12 @@ class LabManager:
         prefix = self._config.namespace_prefix + "-"
 
         observed = {}
-        for namespace in await self._storage.list_namespaces(prefix):
+        timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
+        for namespace in await self._storage.list_namespaces(prefix, timeout):
             username = namespace.removeprefix(prefix)
             names = self._builder.build_object_names(username)
-            objects = await self._storage.read_lab_objects(names)
+            timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
+            objects = await self._storage.read_lab_objects(names, timeout)
             state = await self._builder.recreate_lab_state(username, objects)
 
             # Only delete malformed labs with no entry or no current operation
@@ -620,11 +648,12 @@ class LabManager:
             elif not lab or not lab.monitor.in_progress:
                 msg = "Deleting incomplete namespace"
                 self._logger.warning(msg, user=username, namespace=namespace)
-                await self._storage.delete_namespace(namespace)
+                timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
+                await self._storage.delete_namespace(namespace, timeout)
         return observed
 
     async def _gather_secret_data(
-        self, user: GafaelfawrUser
+        self, user: GafaelfawrUser, timeout: Timeout
     ) -> dict[str, str]:
         """Gather the key/value pair secret data used by the lab.
 
@@ -636,6 +665,8 @@ class LabManager:
         ----------
         user
             Authenticated Gafaelfawr user.
+        timeout
+            Total timeout for the lab spawn.
 
         Returns
         -------
@@ -650,8 +681,9 @@ class LabManager:
             Raised if a secret does not exist.
         """
         secret_names = {s.secret_name for s in self._config.secrets}
+        namespace = self._metadata.namespace
         secrets = {
-            n: await self._storage.read_secret(n, self._metadata.namespace)
+            n: await self._storage.read_secret(n, namespace, timeout)
             for n in sorted(secret_names)
         }
 
@@ -715,8 +747,8 @@ class LabManager:
         lab.events.clear()
         msg = f"Monitoring in-progress lab creation for {username}"
         lab.events.put(Event(type=EventType.INFO, message=msg, progress=1))
-        self._builder.build_object_names(username)
-        watcher = self._watch_lab_spawn(lab.state, lab.events)
+        timeout = Timeout(self._config.spawn_timeout)
+        watcher = self._watch_lab_spawn(lab.state, lab.events, timeout)
         operation = _Operation(
             _LabOperation.SPAWN, watcher, lab.state, lab.events
         )
@@ -725,7 +757,7 @@ class LabManager:
         # will probably be a delete or spawn with richer context, so we should
         # silently let them win.
         with contextlib.suppress(OperationConflictError):
-            await lab.monitor.monitor(operation, self._spawner_done)
+            await lab.monitor.monitor(operation, timeout, self._spawner_done)
 
     async def _reap_spawners(self) -> None:
         """Wait for spawner tasks to complete and record their status.
@@ -877,7 +909,6 @@ class LabManager:
                 state=observed[username],
                 monitor=_LabMonitor(
                     username=username,
-                    timeout=self._config.spawn_timeout,
                     slack_client=self._slack,
                     logger=self._logger,
                 ),
@@ -924,6 +955,7 @@ class LabManager:
         spec: LabSpecification,
         image: RSPImage,
         events: AsyncMultiQueue[Event],
+        timeout: Timeout,
         delete_first: bool = False,
     ) -> None:
         """Do the actual work of spawning a user's lab.
@@ -941,6 +973,8 @@ class LabManager:
             Image to use for the lab.
         events
             Event queue to which to post spawn events.
+        timeout
+            Timeout for the lab spawn.
         delete_first
             Whether to delete any existing lab first.
 
@@ -962,7 +996,12 @@ class LabManager:
             msg = f"Deleting existing failed lab for {username}"
             events.put(Event(type=EventType.INFO, message=msg, progress=2))
             await self._delete_lab(
-                username, state, events, start_progress=5, end_progress=20
+                username,
+                state,
+                events,
+                timeout,
+                start_progress=5,
+                end_progress=20,
             )
             self._logger.info("Lab deleted")
 
@@ -970,11 +1009,13 @@ class LabManager:
         self._logger.info("Retrieving secret data")
         pull_secret = None
         try:
-            secret_data = await self._gather_secret_data(user)
+            secret_data = await self._gather_secret_data(user, timeout)
             if self._config.pull_secret:
                 name = self._config.pull_secret
                 namespace = self._metadata.namespace
-                pull_secret = await self._storage.read_secret(name, namespace)
+                pull_secret = await self._storage.read_secret(
+                    name, namespace, timeout
+                )
         except MissingSecretError as e:
             e.user = username
             raise
@@ -990,16 +1031,19 @@ class LabManager:
         )
         internal_url = self._builder.build_internal_url(username, spec.env)
         self._logger.info("Creating new lab")
-        await self._storage.create(objects)
+        await self._storage.create(objects, timeout)
         msg = "Created Kubernetes objects for user lab"
         events.put(Event(type=EventType.INFO, message=msg, progress=30))
         state.internal_url = internal_url
 
         # Monitor for lab events while waiting for the pod to start.
-        await self._watch_lab_spawn(state, events)
+        await self._watch_lab_spawn(state, events, timeout)
 
     async def _watch_lab_spawn(
-        self, state: UserLabState, events: AsyncMultiQueue[Event]
+        self,
+        state: UserLabState,
+        events: AsyncMultiQueue[Event],
+        timeout: Timeout,
     ) -> None:
         """Wait for a lab spawn to complete, reflecting Kubernetes events.
 
@@ -1014,6 +1058,8 @@ class LabManager:
             request.
         events
             Event queue to which to post spawn events.
+        timeout
+            Timeout for the lab spawn.
 
         Raises
         ------
@@ -1021,12 +1067,11 @@ class LabManager:
             Raised if there is some failure in a Kubernetes API call.
         """
         username = state.user.username
-        timeout = self._config.spawn_timeout
         names = self._builder.build_object_names(username)
         name = names.pod
         namespace = names.namespace
         try:
-            watcher = self._watch_spawn_events(names, events)
+            watcher = self._watch_spawn_events(names, events, timeout)
             watch_task = asyncio.create_task(watcher)
             await self._storage.wait_for_pod_start(name, namespace, timeout)
         finally:
@@ -1039,7 +1084,10 @@ class LabManager:
         events.put(Event(type=EventType.COMPLETE, message=msg))
 
     async def _watch_spawn_events(
-        self, names: LabObjectNames, events: AsyncMultiQueue[Event]
+        self,
+        names: LabObjectNames,
+        events: AsyncMultiQueue[Event],
+        timeout: Timeout,
     ) -> None:
         """Monitor Kubernetes events for a pod.
 
@@ -1059,13 +1107,13 @@ class LabManager:
             Names of the lab objects.
         events
             Event queue to which to report events.
+        timeout
+            Timeout for the lab spawn.
         """
         name = names.pod
         namespace = names.namespace
-        timeout = self._config.spawn_timeout
         iterator = self._storage.watch_pod_events(name, namespace, timeout)
         progress = 35
-        start = current_datetime(microseconds=True)
         try:
             async for msg in iterator:
                 events.put(
@@ -1085,9 +1133,7 @@ class LabManager:
             self._logger.exception("Error watching lab events", user=username)
             await self._maybe_post_slack_exception(e, username)
         except TimeoutError:
-            now = current_datetime(microseconds=True)
-            elapsed = (now - start).total_seconds()
-            msg = f"Watching for lab events timeed out after {elapsed}s"
+            msg = timeout.error("Watching for lab events")
             self._logger.exception(msg, user=username)
 
 
@@ -1109,9 +1155,6 @@ class _LabMonitor:
     ----------
     username
         Username for whom we're monitoring actions.
-    timeout
-        How long to wait for monitored operations to complete before killing
-        them with a timeout error.
     slack_client
         Optional Slack webhook client for alerts.
     logger
@@ -1122,12 +1165,10 @@ class _LabMonitor:
         self,
         *,
         username: str,
-        timeout: timedelta,
         slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
     ) -> None:
         self._username = username
-        self._timeout = timeout
         self._slack = slack_client
         self._logger = logger.bind(user=username)
 
@@ -1190,7 +1231,10 @@ class _LabMonitor:
         return self._operation.task.done()
 
     async def monitor(
-        self, operation: _Operation, done_event: asyncio.Event | None = None
+        self,
+        operation: _Operation,
+        timeout: Timeout,
+        done_event: asyncio.Event | None = None,
     ) -> None:
         """Monitor a lab operation until it completes, fails, or times out.
 
@@ -1198,6 +1242,8 @@ class _LabMonitor:
         ----------
         operation
             Operation to monitor.
+        timeout
+            Timeout for operation.
         done_event
             If provided, additional event to notify when the operation is
             complete.
@@ -1215,7 +1261,7 @@ class _LabMonitor:
                 # so we need to clean it up to avoid Python warnings.
                 operation.coro.close()
                 raise OperationConflictError(self._username)
-            monitor = self._monitor_operation(operation, done_event)
+            monitor = self._monitor_operation(operation, timeout, done_event)
             self._operation = _RunningOperation.start(operation, monitor)
 
     async def wait(self) -> None:
@@ -1277,7 +1323,10 @@ class _LabMonitor:
             await self._slack.post_uncaught_exception(exc)
 
     async def _monitor_operation(
-        self, operation: _Operation, done_event: asyncio.Event | None = None
+        self,
+        operation: _Operation,
+        timeout: Timeout,
+        done_event: asyncio.Event | None = None,
     ) -> None:
         """Monitor the deletion of a lab.
 
@@ -1285,6 +1334,8 @@ class _LabMonitor:
         ----------
         operation
             Operation to monitor.
+        timeout
+            Timeout for operation.
         done_event
             If provided, event to notify when the spawn is complete.
 
@@ -1293,14 +1344,11 @@ class _LabMonitor:
         KubernetesError
             Raised if a Kubernetes error prevented lab deletion.
         """
-        start = current_datetime(microseconds=True)
         try:
-            async with asyncio.timeout(self._timeout.total_seconds()):
+            async with asyncio.timeout(timeout.left()):
                 await operation.coro
         except TimeoutError:
-            now = current_datetime(microseconds=True)
-            delay = int((now - start).total_seconds())
-            msg = f"Lab {operation.operation.value} timed out after {delay}s"
+            msg = timeout.error(f"Lab {operation.operation.value}")
             self._logger.exception(msg)
             if self._slack:
                 message = SlackMessage(

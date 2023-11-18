@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from dataclasses import dataclass, field
-from datetime import timedelta
 
 from aiojobs import Scheduler
 from safir.datetime import current_datetime
@@ -14,7 +13,10 @@ from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..config import EnabledFileserverConfig
-from ..constants import FILE_SERVER_REFRESH_INTERVAL
+from ..constants import (
+    FILE_SERVER_REFRESH_INTERVAL,
+    KUBERNETES_REQUEST_TIMEOUT,
+)
 from ..exceptions import (
     MissingObjectError,
     UnknownUserError,
@@ -22,6 +24,7 @@ from ..exceptions import (
 from ..models.domain.gafaelfawr import GafaelfawrUserInfo
 from ..models.domain.kubernetes import PodPhase
 from ..storage.kubernetes.fileserver import FileserverStorage
+from ..timeout import Timeout
 from .builder.fileserver import FileserverBuilder
 
 __all__ = ["FileserverManager"]
@@ -108,18 +111,15 @@ class FileserverManager:
         if user.username not in self._servers:
             self._servers[user.username] = _State(running=False)
         state = self._servers[user.username]
-        timeout = self._config.creation_timeout
-        start = current_datetime(microseconds=True)
+        timeout = Timeout(self._config.creation_timeout)
         async with state.lock:
             if state.running:
                 return
             try:
-                async with asyncio.timeout(timeout.total_seconds()):
+                async with asyncio.timeout(timeout.left()):
                     await self._create_file_server(user, timeout)
             except TimeoutError as e:
-                now = current_datetime(microseconds=True)
-                elapsed = (now - start).total_seconds()
-                msg = f"File server creation timed out after {elapsed}s"
+                msg = timeout.error("File server creation")
                 logger.exception(msg)
                 if self._slack:
                     message = SlackMessage(
@@ -130,13 +130,15 @@ class FileserverManager:
                     )
                     await self._slack.post(message)
                 logger.info("Cleaning up orphaned file server objects")
-                await self._delete_file_server(user.username)
+                timeout = Timeout(self._config.delete_timeout)
+                await self._delete_file_server(user.username, timeout)
                 raise TimeoutError(msg) from e
             except Exception as e:
                 logger.exception("File server creation failed")
                 await self._maybe_post_slack_exception(e, user.username)
                 logger.info("Cleaning up orphaned file server objects")
-                await self._delete_file_server(user.username)
+                timeout = Timeout(self._config.delete_timeout)
+                await self._delete_file_server(user.username, timeout)
                 raise
             else:
                 state.running = True
@@ -157,11 +159,12 @@ class FileserverManager:
         if username not in self._servers:
             raise UnknownUserError(f"Unknown user {username}")
         state = self._servers[username]
+        timeout = Timeout(self._config.delete_timeout)
         async with state.lock:
             if not state.running:
                 msg = f"File server for {username} not running"
                 raise UnknownUserError(msg)
-            await self._delete_file_server(username)
+            await self._delete_file_server(username, timeout)
             state.running = False
 
     async def list(self) -> list[str]:
@@ -175,7 +178,8 @@ class FileserverManager:
         the reconciliation and monitor tasks.
         """
         namespace = self._config.namespace
-        if not await self._storage.namespace_exists(namespace):
+        timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
+        if not await self._storage.namespace_exists(namespace, timeout):
             raise MissingObjectError(
                 "File server namespace missing",
                 kind="Namespace",
@@ -202,7 +206,7 @@ class FileserverManager:
         self._scheduler = None
 
     async def _create_file_server(
-        self, user: GafaelfawrUserInfo, timeout: timedelta
+        self, user: GafaelfawrUserInfo, timeout: Timeout
     ) -> None:
         """Create a fileserver for the given user.
 
@@ -225,7 +229,9 @@ class FileserverManager:
         self._logger.info("Creating new file server", user=user.username)
         await self._storage.create(self._config.namespace, fileserver, timeout)
 
-    async def _delete_file_server(self, username: str) -> None:
+    async def _delete_file_server(
+        self, username: str, timeout: Timeout
+    ) -> None:
         """Delete any file server objects for the given user.
 
         Should be called with the user's lock held.
@@ -234,6 +240,8 @@ class FileserverManager:
         ----------
         username
             Username of user.
+        timeout
+            Timeout on operation.
 
         Raises
         ------
@@ -243,13 +251,11 @@ class FileserverManager:
             Raised if deletion of the file server timed out.
         """
         name = self._builder.build_name(username)
-        start = current_datetime(microseconds=True)
+        namespace = self._config.namespace
         try:
-            await self._storage.delete(name, self._config.namespace, username)
+            await self._storage.delete(name, namespace, username, timeout)
         except TimeoutError as e:
-            now = current_datetime(microseconds=True)
-            elapsed = (now - start).total_seconds()
-            msg = f"File server deletion timed out after {elapsed}s"
+            msg = timeout.error("File server deletion")
             self._logger.exception(msg, user=username)
             raise TimeoutError(msg) from e
         except Exception as e:
@@ -287,14 +293,15 @@ class FileserverManager:
         """
         self._logger.debug("Reconciling file server state")
         namespace = self._config.namespace
-        observed = await self._storage.read_fileserver_state(namespace)
-        mapped_users = {k for k, v in self._servers.items() if v.running}
+        timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
+        seen = await self._storage.read_fileserver_state(namespace, timeout)
+        known_users = {k for k, v in self._servers.items() if v.running}
 
         # Check each fileserver we found to see if it's properly running. If
-        # not, delete it and remove it from the observed map.
+        # not, delete it and remove it from the seen map.
         to_delete = set()
         invalid = set()
-        for username, state in observed.items():
+        for username, state in seen.items():
             valid = self._builder.is_valid(username, state)
             if valid:
                 self._servers[username] = _State(running=valid)
@@ -302,13 +309,13 @@ class FileserverManager:
                 to_delete.add(username)
             else:
                 invalid.add(username)
-        observed = {k: v for k, v in observed.items() if k not in to_delete}
+        seen = {k: v for k, v in seen.items() if k not in to_delete}
 
         # Also tidy up any supposedly-running users that we didn't find. They
         # may have some objects remaining. This should only be possible if
         # something outside of the controller deleted resources.
-        observed_users = set(observed.keys())
-        for user in (mapped_users - observed_users) | to_delete:
+        seen_users = set(seen.keys())
+        for user in (known_users - seen_users) | to_delete:
             msg = "Removing broken fileserver for user"
             self._logger.warning(msg, user=user)
             await self.delete(user)
@@ -323,7 +330,10 @@ class FileserverManager:
             # just as we make this call, we may delete parts of their new file
             # server. Solving this is complicated; live with it for now.
             name = self._builder.build_name(username)
-            await self._storage.delete(name, self._config.namespace, username)
+            timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
+            await self._storage.delete(
+                name, self._config.namespace, username, timeout
+            )
         self._logger.debug("File server reconciliation complete")
 
     async def _reconcile_loop(self) -> None:
