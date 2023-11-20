@@ -246,5 +246,5 @@ async def test_spawn_timeout(
     events = [
         e async for e in factory.lab_manager.events_for_user(user.username)
     ]
-    assert events[-1].data
-    assert "Lab spawn timed out after" in events[-1].data
+    assert events[-1]
+    assert b"Lab spawn timed out after" in events[-1]
