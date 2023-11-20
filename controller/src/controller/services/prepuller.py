@@ -3,7 +3,7 @@
 import asyncio
 
 from aiojobs import Scheduler
-from safir.slack.blockkit import SlackException, SlackMessage, SlackTextBlock
+from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
@@ -156,27 +156,18 @@ class Prepuller:
             Node on which to prepull it.
         """
         namespace = self._metadata.namespace
-        timeout = Timeout(PREPULLER_POD_TIMEOUT)
+        timeout = Timeout("Prepulling image", PREPULLER_POD_TIMEOUT)
         logger = self._logger.bind(node=node, image=image.tag)
         logger.debug("Prepulling image")
         pod = self._builder.build_pod(image, node)
         try:
-            await self._storage.create(namespace, pod, timeout, replace=True)
-            await self._storage.delete_after_completion(
-                pod.metadata.name, namespace, timeout
-            )
-        except TimeoutError:
-            msg = timeout.error("Prepulling image")
-            logger.warning(msg)
-            if self._slack:
-                message = SlackMessage(
-                    message=msg,
-                    blocks=[
-                        SlackTextBlock(heading="Node", text=node),
-                        SlackTextBlock(heading="Image", text=image.reference),
-                    ],
+            async with timeout.enforce():
+                await self._storage.create(
+                    namespace, pod, timeout, replace=True
                 )
-                await self._slack.post(message)
+                await self._storage.delete_after_completion(
+                    pod.metadata.name, namespace, timeout
+                )
         except Exception as e:
             self._logger.exception("Failed to prepull image")
             if self._slack:

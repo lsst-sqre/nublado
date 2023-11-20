@@ -15,9 +15,6 @@ from safir.asyncio import AsyncMultiQueue
 from safir.datetime import current_datetime
 from safir.slack.blockkit import (
     SlackException,
-    SlackMessage,
-    SlackTextBlock,
-    SlackTextField,
 )
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
@@ -25,6 +22,7 @@ from structlog.stdlib import BoundLogger
 from ..config import LabConfig
 from ..constants import KUBERNETES_REQUEST_TIMEOUT, LAB_STATE_REFRESH_INTERVAL
 from ..exceptions import (
+    ControllerTimeoutError,
     InsufficientQuotaError,
     InvalidLabSizeError,
     KubernetesError,
@@ -289,7 +287,7 @@ class LabManager:
         # successful call is able to update the user's lab state.
         lab.events.clear()
         state = UserLabState.from_request(user, spec, resources)
-        timeout = Timeout(self._config.spawn_timeout)
+        timeout = Timeout("Lab spawn", self._config.spawn_timeout, username)
         spawner = self._spawn_lab(
             user=user,
             state=state,
@@ -359,7 +357,9 @@ class LabManager:
             self._builder.build_object_names(username)
             lab.state.status = LabStatus.TERMINATING
             lab.state.internal_url = None
-            timeout = Timeout(self._config.delete_timeout)
+            timeout = Timeout(
+                "Delete lab", self._config.delete_timeout, username
+            )
             action = self._delete_lab(username, lab.state, lab.events, timeout)
             operation = _Operation(
                 _LabOperation.DELETE, action, lab.state, lab.events
@@ -439,9 +439,14 @@ class LabManager:
         # Ask Kubernetes for the current phase so that we catch pods that have
         # been evicted or shut down behind our back by the Kubernetes cluster.
         names = self._builder.build_object_names(username)
-        timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
+        timeout = Timeout(
+            "Get pod phase", KUBERNETES_REQUEST_TIMEOUT, username
+        )
         try:
             phase = await self._storage.read_pod_phase(names, timeout)
+        except ControllerTimeoutError as e:
+            self._logger.exception("Timeout reading pod phase", user=username)
+            await self._maybe_post_slack_exception(e, username)
         except KubernetesError as e:
             self._logger.exception(
                 "Cannot get pod phase",
@@ -450,9 +455,7 @@ class LabManager:
                 namespace=names.namespace,
                 kind="Pod",
             )
-            if self._slack:
-                e.user = username
-                await self._slack.post_exception(e)
+            await self._maybe_post_slack_exception(e, username)
 
             # Two options here: pessimistically assume the lab is in a failed
             # state, or optimistically assume that our current in-memory data
@@ -461,21 +464,6 @@ class LabManager:
             # we can ever reach Kubernetes, and telling JupyterHub to go ahead
             # and try to send the user to the lab seems like the right move.
             return state
-        except TimeoutError:
-            msg = timeout.error("Reading user lab pod phase")
-            self._logger.exception(msg)
-            if self._slack:
-                obj = f"Pod {names.namespace}/{names.pod}"
-                message = SlackMessage(
-                    message=msg,
-                    fields=[
-                        SlackTextField(heading="User", text=username),
-                    ],
-                    blocks=[
-                        SlackTextBlock(heading="Object", text=obj),
-                    ],
-                )
-                await self._slack.post(message)
 
         # If the pod is missing, set the state to failed. Also set the state
         # to terminated or failed if we thought the pod was running but it's
@@ -630,11 +618,11 @@ class LabManager:
         prefix = self._config.namespace_prefix + "-"
 
         observed = {}
-        timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
+        timeout = Timeout("List namespaces", KUBERNETES_REQUEST_TIMEOUT)
         for namespace in await self._storage.list_namespaces(prefix, timeout):
             username = namespace.removeprefix(prefix)
             names = self._builder.build_object_names(username)
-            timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
+            timeout = Timeout("Read lab objects", KUBERNETES_REQUEST_TIMEOUT)
             objects = await self._storage.read_lab_objects(names, timeout)
             state = await self._builder.recreate_lab_state(username, objects)
 
@@ -648,7 +636,7 @@ class LabManager:
             elif not lab or not lab.monitor.in_progress:
                 msg = "Deleting incomplete namespace"
                 self._logger.warning(msg, user=username, namespace=namespace)
-                timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
+                timeout = Timeout(msg, KUBERNETES_REQUEST_TIMEOUT)
                 await self._storage.delete_namespace(namespace, timeout)
         return observed
 
@@ -747,7 +735,9 @@ class LabManager:
         lab.events.clear()
         msg = f"Monitoring in-progress lab creation for {username}"
         lab.events.put(Event(type=EventType.INFO, message=msg, progress=1))
-        timeout = Timeout(self._config.spawn_timeout)
+        timeout = Timeout(
+            "In-progress lab spawn", self._config.spawn_timeout, username
+        )
         watcher = self._watch_lab_spawn(lab.state, lab.events, timeout)
         operation = _Operation(
             _LabOperation.SPAWN, watcher, lab.state, lab.events
@@ -1132,9 +1122,6 @@ class LabManager:
             username = names.username
             self._logger.exception("Error watching lab events", user=username)
             await self._maybe_post_slack_exception(e, username)
-        except TimeoutError:
-            msg = timeout.error("Watching for lab events")
-            self._logger.exception(msg, user=username)
 
 
 class _LabMonitor:
@@ -1338,28 +1325,10 @@ class _LabMonitor:
             Timeout for operation.
         done_event
             If provided, event to notify when the spawn is complete.
-
-        Raises
-        ------
-        KubernetesError
-            Raised if a Kubernetes error prevented lab deletion.
         """
         try:
-            async with asyncio.timeout(timeout.left()):
+            async with timeout.enforce():
                 await operation.coro
-        except TimeoutError:
-            msg = timeout.error(f"Lab {operation.operation.value}")
-            self._logger.exception(msg)
-            if self._slack:
-                message = SlackMessage(
-                    message=msg,
-                    fields=[
-                        SlackTextField(heading="User", text=self._username)
-                    ],
-                )
-                await self._slack.post(message)
-            operation.events.put(Event(type=EventType.FAILED, message=msg))
-            operation.state.status = LabStatus.FAILED
         except Exception as e:
             msg = f"Lab {operation.operation.value} failed"
             self._logger.exception(msg)
