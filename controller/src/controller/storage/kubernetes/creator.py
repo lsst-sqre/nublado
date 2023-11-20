@@ -27,9 +27,9 @@ from kubernetes_asyncio.client import (
 )
 from structlog.stdlib import BoundLogger
 
-from ...constants import KUBERNETES_REQUEST_TIMEOUT
 from ...exceptions import KubernetesError
 from ...models.domain.kubernetes import KubernetesModel
+from ...timeout import Timeout
 
 #: Type of Kubernetes object being manipulated.
 T = TypeVar("T", bound=KubernetesModel)
@@ -84,7 +84,7 @@ class KubernetesObjectCreator(Generic[T]):
         self._kind = kind
         self._logger = logger
 
-    async def create(self, namespace: str, body: T) -> None:
+    async def create(self, namespace: str, body: T, timeout: Timeout) -> None:
         """Create a new Kubernetes object.
 
         Parameters
@@ -93,6 +93,8 @@ class KubernetesObjectCreator(Generic[T]):
             Namespace of the object.
         body
             New object.
+        timeout
+            Timeout on operation.
 
         Raises
         ------
@@ -103,9 +105,7 @@ class KubernetesObjectCreator(Generic[T]):
         self._logger.debug(msg, name=body.metadata.name, namespace=namespace)
         try:
             await self._create(
-                namespace,
-                body,
-                _request_timeout=KUBERNETES_REQUEST_TIMEOUT.total_seconds(),
+                namespace, body, _request_timeout=timeout.left()
             )
         except ApiException as e:
             raise KubernetesError.from_exception(
@@ -116,7 +116,9 @@ class KubernetesObjectCreator(Generic[T]):
                 name=body.metadata.name,
             ) from e
 
-    async def read(self, name: str, namespace: str) -> T | None:
+    async def read(
+        self, name: str, namespace: str, timeout: Timeout
+    ) -> T | None:
         """Read a Kubernetes object.
 
         Parameters
@@ -125,6 +127,8 @@ class KubernetesObjectCreator(Generic[T]):
             Name of the object.
         namespace
             Namespace of the object.
+        timeout
+            Timeout on operation.
 
         Returns
         -------
@@ -138,9 +142,7 @@ class KubernetesObjectCreator(Generic[T]):
         """
         try:
             return await self._read(
-                name,
-                namespace,
-                _request_timeout=KUBERNETES_REQUEST_TIMEOUT.total_seconds(),
+                name, namespace, _request_timeout=timeout.left()
             )
         except ApiException as e:
             if e.status == 404:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from datetime import timedelta
 
 from kubernetes_asyncio.client import ApiClient, V1Secret
 from structlog.stdlib import BoundLogger
@@ -12,6 +11,7 @@ from ...constants import LAB_STOP_GRACE_PERIOD
 from ...exceptions import MissingSecretError
 from ...models.domain.kubernetes import PodPhase
 from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
+from ...timeout import Timeout
 from .creator import (
     ConfigMapStorage,
     NetworkPolicyStorage,
@@ -54,13 +54,15 @@ class LabStorage:
         self._secret = SecretStorage(api_client, logger)
         self._service = ServiceStorage(api_client, logger)
 
-    async def create(self, objects: LabObjects) -> None:
+    async def create(self, objects: LabObjects, timeout: Timeout) -> None:
         """Create all of the Kubernetes objects for a user's lab.
 
         Parameters
         ----------
         objects
             Kubernetes objects making up the user's lab.
+        timeout
+            Timeout on full operation.
 
         Raises
         ------
@@ -68,27 +70,33 @@ class LabStorage:
             Raised if there is some failure in a Kubernetes API call.
         """
         namespace = objects.namespace.metadata.name
-        await self._namespace.create(objects.namespace)
+        await self._namespace.create(objects.namespace, timeout)
         for pvc in objects.pvcs:
-            await self._pvc.create(namespace, pvc)
-        await self._config_map.create(namespace, objects.env_config_map)
+            await self._pvc.create(namespace, pvc, timeout)
+        await self._config_map.create(
+            namespace, objects.env_config_map, timeout
+        )
         for config_map in objects.config_maps:
-            await self._config_map.create(namespace, config_map)
+            await self._config_map.create(namespace, config_map, timeout)
         for secret in objects.secrets:
-            await self._secret.create(namespace, secret)
+            await self._secret.create(namespace, secret, timeout)
         if objects.quota:
-            await self._quota.create(namespace, objects.quota)
-        await self._network_policy.create(namespace, objects.network_policy)
-        await self._service.create(namespace, objects.service)
-        await self._pod.create(namespace, objects.pod)
+            await self._quota.create(namespace, objects.quota, timeout)
+        await self._network_policy.create(
+            namespace, objects.network_policy, timeout
+        )
+        await self._service.create(namespace, objects.service, timeout)
+        await self._pod.create(namespace, objects.pod, timeout)
 
-    async def delete_namespace(self, name: str) -> None:
+    async def delete_namespace(self, name: str, timeout: Timeout) -> None:
         """Delete a namespace, waiting for deletion to finish.
 
         Parameters
         ----------
         name
             Name of the namespace.
+        timeout
+            Timeout on operation.
 
         Raises
         ------
@@ -98,15 +106,19 @@ class LabStorage:
             Raised if the namespace deletion took longer than the Kubernetes
             delete timeout.
         """
-        await self._namespace.delete(name, wait=True)
+        await self._namespace.delete(name, timeout, wait=True)
 
-    async def delete_pod(self, names: LabObjectNames) -> None:
+    async def delete_pod(
+        self, names: LabObjectNames, timeout: Timeout
+    ) -> None:
         """Delete a pod from Kubernetes with a grace period.
 
         Parameters
         ----------
         names
             Names of lab objects.
+        timeout
+            Timeout on operation.
 
         Raises
         ------
@@ -116,11 +128,14 @@ class LabStorage:
         await self._pod.delete(
             names.pod,
             names.namespace,
+            timeout,
             wait=True,
             grace_period=LAB_STOP_GRACE_PERIOD,
         )
 
-    async def list_namespaces(self, prefix: str) -> list[str]:
+    async def list_namespaces(
+        self, prefix: str, timeout: Timeout
+    ) -> list[str]:
         """List all namespaces starting with the given prefix.
 
         Used to discover all namespaces for running user labs when doing state
@@ -130,6 +145,8 @@ class LabStorage:
         ----------
         prefix
             String prefix of namespaces to return.
+        timeout
+            Timeout on operation.
 
         Returns
         -------
@@ -141,7 +158,7 @@ class LabStorage:
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
         """
-        namespaces = await self._namespace.list()
+        namespaces = await self._namespace.list(timeout)
         return [
             n.metadata.name
             for n in namespaces
@@ -149,7 +166,7 @@ class LabStorage:
         ]
 
     async def read_lab_objects(
-        self, names: LabObjectNames
+        self, names: LabObjectNames, timeout: Timeout
     ) -> LabStateObjects | None:
         """Read the lab objects required to reconstruct state.
 
@@ -161,6 +178,8 @@ class LabStorage:
         names
             Names of the user's lab objects, usually generated by
             `~controller.services.builder.lab.LabBuilder`.
+        timeout
+            Timeout on operation.
 
         Returns
         -------
@@ -175,18 +194,22 @@ class LabStorage:
         """
         logger = self._logger.bind(user=names.username)
         namespace = names.namespace
-        env_map = await self._config_map.read(names.env_config_map, namespace)
+        env_map = await self._config_map.read(
+            names.env_config_map, namespace, timeout
+        )
         if not env_map:
             logger.warning("User ConfigMap missing", name=names.env_config_map)
             return None
-        pod = await self._pod.read(names.pod, namespace)
+        pod = await self._pod.read(names.pod, namespace, timeout)
         if not pod:
             logger.warning("User Pod missing", name=names.pod)
             return None
-        quota = await self._quota.read(names.quota, namespace)
+        quota = await self._quota.read(names.quota, namespace, timeout)
         return LabStateObjects(env_config_map=env_map, quota=quota, pod=pod)
 
-    async def read_pod_phase(self, names: LabObjectNames) -> PodPhase | None:
+    async def read_pod_phase(
+        self, names: LabObjectNames, timeout: Timeout
+    ) -> PodPhase | None:
         """Get the phase of a running user lab pod.
 
         Called whenever JupyterHub wants to check the status of running pods,
@@ -197,6 +220,8 @@ class LabStorage:
         names
             Names of the user's lab objects, usually generated by
             `~controller.services.builder.lab.LabBuilder`.
+        timeout
+            Timeout on operation.
 
         Returns
         -------
@@ -208,14 +233,16 @@ class LabStorage:
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
         """
-        pod = await self._pod.read(names.pod, names.namespace)
+        pod = await self._pod.read(names.pod, names.namespace, timeout)
         if pod is None:
             return None
         msg = f"Pod phase is {pod.status.phase}"
         self._logger.debug(msg, name=names.pod, namespace=names.namespace)
         return PodPhase(pod.status.phase)
 
-    async def read_secret(self, name: str, namespace: str) -> V1Secret:
+    async def read_secret(
+        self, name: str, namespace: str, timeout: Timeout
+    ) -> V1Secret:
         """Read a secret from Kubernetes, failing if it doesn't exist.
 
         Parameters
@@ -224,6 +251,8 @@ class LabStorage:
             Name of the secret.
         namespace
             Namespace of the secret.
+        timeout
+            Timeout on operation.
 
         Returns
         -------
@@ -237,7 +266,7 @@ class LabStorage:
         MissingSecretError
             Raised if the secret does not exist.
         """
-        secret = await self._secret.read(name, namespace)
+        secret = await self._secret.read(name, namespace, timeout)
         if not secret:
             msg = "Secret does not exist"
             self._logger.error(msg, name=name, namespace=namespace)
@@ -245,7 +274,7 @@ class LabStorage:
         return secret
 
     async def wait_for_pod_start(
-        self, name: str, namespace: str, timeout: timedelta
+        self, name: str, namespace: str, timeout: Timeout
     ) -> PodPhase | None:
         """Wait for a pod to finish starting.
 
@@ -281,7 +310,7 @@ class LabStorage:
         )
 
     async def watch_pod_events(
-        self, name: str, namespace: str, timeout: timedelta
+        self, name: str, namespace: str, timeout: Timeout
     ) -> AsyncIterator[str]:
         """Monitor the startup of a pod.
 

@@ -7,12 +7,11 @@ from datetime import timedelta
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import ApiClient, ApiException, V1Namespace
-from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
 
-from ...constants import KUBERNETES_DELETE_TIMEOUT, KUBERNETES_REQUEST_TIMEOUT
 from ...exceptions import KubernetesError
 from ...models.domain.kubernetes import WatchEventType
+from ...timeout import Timeout
 from .watcher import KubernetesWatcher
 
 __all__ = ["NamespaceStorage"]
@@ -34,7 +33,7 @@ class NamespaceStorage:
         self._logger = logger
 
     async def create(
-        self, body: V1Namespace, *, replace: bool = False
+        self, body: V1Namespace, timeout: Timeout, *, replace: bool = False
     ) -> None:
         """Create a new namespace.
 
@@ -42,6 +41,8 @@ class NamespaceStorage:
         ----------
         body
             Namespace object to create.
+        timeout
+            Timeout on operation.
         replace
             If `True` and a namespace of that name already exists, delete the
             existing namespace and then try again.
@@ -53,17 +54,19 @@ class NamespaceStorage:
         """
         self._logger.debug("Creating Namespace", name=body.metadata.name)
         try:
-            await self._create(body)
+            await self._create(body, timeout)
         except KubernetesError as e:
             if replace and e.status == 409:
                 msg = "Namespace already exists, deleting and recreating"
                 self._logger.warning(msg, name=body.metadata.name)
-                await self.delete(body.metadata.name, wait=True)
-                await self._create(body)
+                await self.delete(body.metadata.name, timeout, wait=True)
+                await self._create(body, timeout)
             else:
                 raise
 
-    async def delete(self, name: str, *, wait: bool = False) -> None:
+    async def delete(
+        self, name: str, timeout: Timeout, *, wait: bool = False
+    ) -> None:
         """Delete a namespace.
 
         If the namespace does not exist, this is silently treated as success.
@@ -72,6 +75,8 @@ class NamespaceStorage:
         ----------
         name
             Name of the namespace.
+        timeout
+            Timeout on operation.
         wait
             Whether to wait for the namespace to be deleted.
 
@@ -81,18 +86,13 @@ class NamespaceStorage:
             Raised for exceptions from the Kubernetes API server.
         """
         self._logger.debug("Deleting Namespace", name=name)
-        start = current_datetime(microseconds=True)
-        timeout = KUBERNETES_DELETE_TIMEOUT
-        timeout_error = (
-            f"Timed out after {timeout.total_seconds()}s waiting for"
-            f"Namespace {name} to be deleted"
-        )
-
         try:
-            async with asyncio.timeout(timeout.total_seconds()):
+            async with asyncio.timeout(timeout.left()):
                 await self._api.delete_namespace(
-                    name, _request_timeout=timeout.total_seconds()
+                    name, _request_timeout=timeout.left()
                 )
+                if wait:
+                    await self.wait_for_deletion(name, timeout)
         except ApiException as e:
             if e.status == 404:
                 return
@@ -100,19 +100,16 @@ class NamespaceStorage:
                 "Error deleting namespace", e, kind="Namespace", name=name
             ) from e
         except TimeoutError as e:
-            raise TimeoutError(timeout_error) from e
+            msg = timeout.error(f"Deleting Namespace {name}")
+            raise TimeoutError(msg) from e
 
-        if wait:
-            elapsed = current_datetime(microseconds=True) - start
-            if elapsed > timeout:
-                raise TimeoutError(timeout_error)
-            try:
-                await self.wait_for_deletion(name, timeout - elapsed)
-            except TimeoutError as e:
-                raise TimeoutError(timeout_error) from e
-
-    async def list(self) -> list[V1Namespace]:
+    async def list(self, timeout: Timeout) -> list[V1Namespace]:
         """List all namespaces.
+
+        Parameters
+        ----------
+        timeout
+            Timeout on operation.
 
         Returns
         -------
@@ -126,7 +123,7 @@ class NamespaceStorage:
         """
         try:
             objs = await self._api.list_namespace(
-                _request_timeout=KUBERNETES_REQUEST_TIMEOUT.total_seconds()
+                _request_timeout=timeout.left()
             )
         except ApiException as e:
             raise KubernetesError.from_exception(
@@ -134,13 +131,15 @@ class NamespaceStorage:
             ) from e
         return objs.items
 
-    async def read(self, name: str) -> V1Namespace | None:
+    async def read(self, name: str, timeout: Timeout) -> V1Namespace | None:
         """Read a namespace.
 
         Parameters
         ----------
         name
             Name of the namespace.
+        timeout
+            Timeout on operation.
 
         Returns
         -------
@@ -154,8 +153,7 @@ class NamespaceStorage:
         """
         try:
             return await self._api.read_namespace(
-                name,
-                _request_timeout=KUBERNETES_REQUEST_TIMEOUT.total_seconds(),
+                name, _request_timeout=timeout.left()
             )
         except ApiException as e:
             if e.status == 404:
@@ -164,9 +162,7 @@ class NamespaceStorage:
                 "Error reading namespace", e, kind="Namespace", name=name
             ) from e
 
-    async def wait_for_deletion(
-        self, name: str, timeout: timedelta = KUBERNETES_DELETE_TIMEOUT
-    ) -> None:
+    async def wait_for_deletion(self, name: str, timeout: Timeout) -> None:
         """Wait for a namespace deletion to complete.
 
         Parameters
@@ -181,7 +177,7 @@ class NamespaceStorage:
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
         """
-        namespace = await self.read(name)
+        namespace = await self.read(name, timeout)
         if not namespace:
             return
 
@@ -196,7 +192,7 @@ class NamespaceStorage:
             logger=self._logger,
         )
         try:
-            async with asyncio.timeout(timeout.total_seconds()):
+            async with asyncio.timeout(timeout.left()):
                 async for event in watcher.watch():
                     if event.action == WatchEventType.DELETED:
                         return
@@ -204,9 +200,9 @@ class NamespaceStorage:
             # If the watch had to be restarted because the resource version
             # was too old and the object was deleted while the watch was
             # restarting, we could have missed the delete event. Therefore,
-            # before timing out, do a final check to see if the object is
-            # gone.
-            if not await self.read(name):
+            # before timing out, do a final check with a short timeout to see
+            # if the object is gone.
+            if not await self.read(name, Timeout(timedelta(seconds=5))):
                 return
             raise
         finally:
@@ -215,13 +211,15 @@ class NamespaceStorage:
         # This should be impossible; someone called stop on the watcher.
         raise RuntimeError("Wait for namespace deletion unexpectedly stopped")
 
-    async def _create(self, body: V1Namespace) -> None:
+    async def _create(self, body: V1Namespace, timeout: Timeout) -> None:
         """Create a namespace (without recreation on conflict).
 
         Parameters
         ----------
         body
             Namespace object to create.
+        timeout
+            How long to wait for deletion.
 
         Raises
         ------
@@ -230,8 +228,7 @@ class NamespaceStorage:
         """
         try:
             await self._api.create_namespace(
-                body,
-                _request_timeout=KUBERNETES_REQUEST_TIMEOUT.total_seconds(),
+                body, _request_timeout=timeout.left()
             )
         except ApiException as e:
             raise KubernetesError.from_exception(

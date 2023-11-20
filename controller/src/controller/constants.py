@@ -11,7 +11,6 @@ __all__ = [
     "GROUPNAME_REGEX",
     "FILE_SERVER_REFRESH_INTERVAL",
     "IMAGE_REFRESH_INTERVAL",
-    "KUBERNETES_DELETE_TIMEOUT",
     "KUBERNETES_NAME_PATTERN",
     "KUBERNETES_REQUEST_TIMEOUT",
     "LAB_COMMAND",
@@ -58,24 +57,16 @@ terminated by Kubernetes node replacements or upgrades.
 IMAGE_REFRESH_INTERVAL = timedelta(minutes=5)
 """How frequently to refresh the list of remote and cached images."""
 
-KUBERNETES_DELETE_TIMEOUT = timedelta(seconds=60)
-"""How long to wait for deletion of an object to finish.
-
-In some cases, if a Kubernetes object the controller is trying to create
-already exists, it deletes that object and then retries the creation. This
-controls how long it waits for the object to go away after deletion before it
-gives up.
-"""
-
 KUBERNETES_NAME_PATTERN = "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
 """Pattern matching valid Kubernetes names."""
 
 KUBERNETES_REQUEST_TIMEOUT = timedelta(seconds=30)
-"""How long to wait for any given Kubernetes API call.
+"""How long to wait for generic sequences of Kubernetes API calls.
 
-This timeout is currently applied to each Kubernetes API call in isolation,
-just to impose an upper limit on how long we'll wait of the control plane is
-nonresponsive.
+Most Kubernetes API calls are part of a sequence of operations with an overall
+timeout, but some are one-offs or one-off sequences. This timeout is used for
+one-off operations, just to impose an upper limit on how long we'll wait of
+the control plane is nonresponsive.
 """
 
 LAB_COMMAND = "/opt/lsst/software/jupyterlab/runlab.sh"

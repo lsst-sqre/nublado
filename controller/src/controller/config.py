@@ -324,6 +324,15 @@ class EnabledFileserverConfig(FileserverConfig):
         ),
     )
 
+    delete_timeout: timedelta = Field(
+        timedelta(minutes=2),
+        title="File server deletion timeout",
+        description=(
+            "How long to wait for a file server's Kubernetes objects to be"
+            " deleted before raising an error"
+        ),
+    )
+
     idle_timeout: timedelta = Field(
         timedelta(hours=1),
         title="File server inactivity timeout",
@@ -549,6 +558,16 @@ class LabConfig(BaseModel):
         description=(
             "An Argo CD application under which lab objects should be shown"
         ),
+    )
+
+    delete_timeout: timedelta = Field(
+        timedelta(minutes=1),
+        title="Timeout for lab deletion",
+        description=(
+            "How long to wait in total for deletion of Kubernetes resources"
+            " for a user lab"
+        ),
+        examples=[60],
     )
 
     env: dict[str, str] = Field(

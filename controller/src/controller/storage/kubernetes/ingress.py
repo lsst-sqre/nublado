@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
-
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import ApiClient, V1Ingress
 from structlog.stdlib import BoundLogger
 
 from ...models.domain.kubernetes import WatchEventType
+from ...timeout import Timeout
 from .deleter import KubernetesObjectDeleter
 from .watcher import KubernetesWatcher
 
@@ -64,7 +63,7 @@ class IngressStorage(KubernetesObjectDeleter):
         )
 
     async def wait_for_ip_address(
-        self, name: str, namespace: str, timeout: timedelta
+        self, name: str, namespace: str, timeout: Timeout
     ) -> None:
         """Wait for an ingress to get an IP address assigned.
 
@@ -87,7 +86,7 @@ class IngressStorage(KubernetesObjectDeleter):
         TimeoutError
             Raised if the object is not deleted within the delete timeout.
         """
-        ingress = await self.read(name, namespace)
+        ingress = await self.read(name, namespace, timeout)
         resource_version = None
         if ingress:
             if ingress_has_ip_address(ingress):

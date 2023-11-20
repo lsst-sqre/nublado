@@ -25,13 +25,13 @@ from kubernetes_asyncio.client import (
 )
 from structlog.stdlib import BoundLogger
 
-from ...constants import KUBERNETES_DELETE_TIMEOUT, KUBERNETES_REQUEST_TIMEOUT
 from ...exceptions import KubernetesError
 from ...models.domain.kubernetes import (
     KubernetesModel,
     PropagationPolicy,
     WatchEventType,
 )
+from ...timeout import Timeout
 from .creator import KubernetesObjectCreator
 from .watcher import KubernetesWatcher
 
@@ -104,6 +104,7 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         self,
         namespace: str,
         body: T,
+        timeout: Timeout,
         *,
         replace: bool = False,
         propagation_policy: PropagationPolicy | None = None,
@@ -116,6 +117,8 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             Namespace of the object.
         body
             New object.
+        timeout
+            Timeout on operation.
         replace
             If `True` and an object of that name already exists in that
             namespace, delete the existing object and then try again.
@@ -129,7 +132,7 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             Raised for exceptions from the Kubernetes API server.
         """
         try:
-            await super().create(namespace, body)
+            await super().create(namespace, body, timeout)
         except KubernetesError as e:
             if replace and e.status == 409:
                 name = body.metadata.name
@@ -138,10 +141,11 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
                 await self.delete(
                     name,
                     namespace,
+                    timeout,
                     wait=True,
                     propagation_policy=propagation_policy,
                 )
-                await super().create(namespace, body)
+                await super().create(namespace, body, timeout)
             else:
                 raise
 
@@ -149,6 +153,7 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         self,
         name: str,
         namespace: str,
+        timeout: Timeout,
         *,
         wait: bool = False,
         propagation_policy: PropagationPolicy | None = None,
@@ -164,6 +169,8 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             Name of the object.
         namespace
             Namespace of the object.
+        timeout
+            Timeout on operation.
         wait
             Whether to wait for the object to be deleted.
         propagation_policy
@@ -180,8 +187,8 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
         """
-        extra_args: dict[str, str | int] = {
-            "_request_timeout": int(KUBERNETES_REQUEST_TIMEOUT.total_seconds())
+        extra_args: dict[str, str | float] = {
+            "_request_timeout": timeout.left()
         }
         body = None
         if propagation_policy:
@@ -214,10 +221,14 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
                 name=name,
             ) from e
         if wait:
-            await self.wait_for_deletion(name, namespace)
+            await self.wait_for_deletion(name, namespace, timeout)
 
     async def list(
-        self, namespace: str, *, label_selector: str | None = None
+        self,
+        namespace: str,
+        timeout: Timeout,
+        *,
+        label_selector: str | None = None,
     ) -> list[T]:
         """List all objects of the appropriate kind in the namespace.
 
@@ -225,6 +236,8 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         ----------
         namespace
             Namespace to list.
+        timeout
+            Timeout on operation.
         label_selector
             Filter the returned list by the given label selector expression.
 
@@ -238,8 +251,8 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
         """
-        extra_args: dict[str, str | int] = {
-            "_request_timeout": int(KUBERNETES_REQUEST_TIMEOUT.total_seconds())
+        extra_args: dict[str, str | float] = {
+            "_request_timeout": timeout.left()
         }
         if label_selector:
             extra_args["label_selector"] = label_selector
@@ -255,10 +268,7 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         return objs.items
 
     async def wait_for_deletion(
-        self,
-        name: str,
-        namespace: str,
-        timeout: timedelta = KUBERNETES_DELETE_TIMEOUT,
+        self, name: str, namespace: str, timeout: Timeout
     ) -> None:
         """Wait for an object deletion to complete.
 
@@ -279,7 +289,7 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             Raised if the object is not deleted within the delete timeout.
         """
         logger = self._logger.bind(name=name, namespace=namespace)
-        obj = await self.read(name, namespace)
+        obj = await self.read(name, namespace, timeout)
         if not obj:
             return
 
@@ -295,7 +305,7 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             logger=logger,
         )
         try:
-            async with asyncio.timeout(timeout.total_seconds()):
+            async with asyncio.timeout(timeout.left()):
                 async for event in watcher.watch():
                     if event.action == WatchEventType.DELETED:
                         return
@@ -303,9 +313,10 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             # If the watch had to be restarted because the resource version
             # was too old and the object was deleted while the watch was
             # restarting, we could have missed the delete event. Therefore,
-            # before timing out, do a final check to see if the object is
-            # gone.
-            if not await self.read(name, namespace):
+            # before timing out, do a final check with a short timeout to see
+            # if the object is gone.
+            short_timeout = Timeout(timedelta(seconds=5))
+            if not await self.read(name, namespace, short_timeout):
                 return
             raise
         finally:
