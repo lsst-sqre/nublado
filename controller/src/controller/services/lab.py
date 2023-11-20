@@ -16,7 +16,6 @@ from safir.asyncio import AsyncMultiQueue
 from safir.datetime import current_datetime
 from safir.slack.blockkit import SlackException, SlackMessage, SlackTextField
 from safir.slack.webhook import SlackWebhookClient
-from sse_starlette import ServerSentEvent
 from structlog.stdlib import BoundLogger
 
 from ..config import LabConfig
@@ -368,7 +367,7 @@ class LabManager:
             msg = f"Deleting lab for {username} failed"
             raise LabDeletionError(msg, username)
 
-    def events_for_user(self, username: str) -> AsyncIterator[ServerSentEvent]:
+    def events_for_user(self, username: str) -> AsyncIterator[bytes]:
         """Construct an iterator over the events for a user.
 
         Parameters
@@ -378,8 +377,8 @@ class LabManager:
 
         Yields
         ------
-        Event
-            Events for that user until a completion or failure event is seen.
+        bytes
+            Next encoded server-sent event.
 
         Raises
         ------
@@ -389,9 +388,9 @@ class LabManager:
         if username not in self._labs:
             raise UnknownUserError(f"Unknown user {username}")
 
-        async def iterator() -> AsyncIterator[ServerSentEvent]:
+        async def iterator() -> AsyncIterator[bytes]:
             async for event in self._labs[username].events:
-                yield event.to_sse()
+                yield event.to_sse().encode()
 
         return iterator()
 
