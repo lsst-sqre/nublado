@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import timedelta
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import ApiClient, ApiException, V1Namespace
 from structlog.stdlib import BoundLogger
 
-from ...exceptions import KubernetesError
+from ...exceptions import ControllerTimeoutError, KubernetesError
 from ...models.domain.kubernetes import WatchEventType
 from ...timeout import Timeout
 from .watcher import KubernetesWatcher
@@ -49,8 +48,12 @@ class NamespaceStorage:
 
         Raises
         ------
+        ControllerTimeoutError
+            Raised if the timeout expired waiting for deletion.
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
+        TimeoutError
+            Raised if the timeout expired.
         """
         self._logger.debug("Creating Namespace", name=body.metadata.name)
         try:
@@ -82,12 +85,14 @@ class NamespaceStorage:
 
         Raises
         ------
+        ControllerTimeoutError
+            Raised if the timeout expired.
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
         """
         self._logger.debug("Deleting Namespace", name=name)
         try:
-            async with asyncio.timeout(timeout.left()):
+            async with timeout.enforce():
                 await self._api.delete_namespace(
                     name, _request_timeout=timeout.left()
                 )
@@ -99,9 +104,6 @@ class NamespaceStorage:
             raise KubernetesError.from_exception(
                 "Error deleting namespace", e, kind="Namespace", name=name
             ) from e
-        except TimeoutError as e:
-            msg = timeout.error(f"Deleting Namespace {name}")
-            raise TimeoutError(msg) from e
 
     async def list(self, timeout: Timeout) -> list[V1Namespace]:
         """List all namespaces.
@@ -120,6 +122,8 @@ class NamespaceStorage:
         ------
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
+        TimeoutError
+            Raised if the timeout expired.
         """
         try:
             objs = await self._api.list_namespace(
@@ -150,6 +154,8 @@ class NamespaceStorage:
         ------
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
+        TimeoutError
+            Raised if the timeout expired.
         """
         try:
             return await self._api.read_namespace(
@@ -174,6 +180,8 @@ class NamespaceStorage:
 
         Raises
         ------
+        ControllerTimeoutError
+            Raised if the timeout expired.
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
         """
@@ -182,27 +190,29 @@ class NamespaceStorage:
             return
 
         # Wait for the namespace to be deleted.
+        watch_timeout = timeout.partial(timedelta(seconds=timeout.left() - 2))
         watcher = KubernetesWatcher(
             method=self._api.list_namespace,
             object_type=V1Namespace,
             kind="Namespace",
             name=name,
             resource_version=namespace.metadata.resource_version,
-            timeout=timeout,
+            timeout=watch_timeout,
             logger=self._logger,
         )
         try:
-            async with asyncio.timeout(timeout.left()):
+            async with watch_timeout.enforce():
                 async for event in watcher.watch():
                     if event.action == WatchEventType.DELETED:
                         return
-        except TimeoutError:
+        except ControllerTimeoutError:
             # If the watch had to be restarted because the resource version
             # was too old and the object was deleted while the watch was
             # restarting, we could have missed the delete event. Therefore,
             # before timing out, do a final check with a short timeout to see
             # if the object is gone.
-            if not await self.read(name, Timeout(timedelta(seconds=5))):
+            read_timeout = timeout.partial(timedelta(seconds=2))
+            if not await self.read(name, read_timeout):
                 return
             raise
         finally:
@@ -225,6 +235,8 @@ class NamespaceStorage:
         ------
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
+        TimeoutError
+            Raised if the timeout expired.
         """
         try:
             await self._api.create_namespace(

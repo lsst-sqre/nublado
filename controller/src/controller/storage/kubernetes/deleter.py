@@ -9,7 +9,6 @@ classes with other operations are defined in their own modules.
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import Any, Generic, TypeVar
@@ -25,7 +24,7 @@ from kubernetes_asyncio.client import (
 )
 from structlog.stdlib import BoundLogger
 
-from ...exceptions import KubernetesError
+from ...exceptions import ControllerTimeoutError, KubernetesError
 from ...models.domain.kubernetes import (
     KubernetesModel,
     PropagationPolicy,
@@ -128,8 +127,12 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
 
         Raises
         ------
+        ControllerTimeoutError
+            Raised if the timeout expired waiting for deletion.
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
+        TimeoutError
+            Raised if the timeout expired.
         """
         try:
             await super().create(namespace, body, timeout)
@@ -184,8 +187,12 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
 
         Raises
         ------
+        ControllerTimeoutError
+            Raised if the timeout expired waiting for deletion.
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
+        TimeoutError
+            Raised if the timeout expired.
         """
         extra_args: dict[str, str | float] = {
             "_request_timeout": timeout.left()
@@ -250,6 +257,8 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         ------
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
+        TimeoutError
+            Raised if the timeout expired.
         """
         extra_args: dict[str, str | float] = {
             "_request_timeout": timeout.left()
@@ -283,10 +292,10 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
 
         Raises
         ------
+        ControllerTimeoutError
+            Raised if the timeout expired.
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
-        TimeoutError
-            Raised if the object is not deleted within the delete timeout.
         """
         logger = self._logger.bind(name=name, namespace=namespace)
         obj = await self.read(name, namespace, timeout)
@@ -294,6 +303,7 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             return
 
         # Wait for the object to be deleted.
+        watch_timeout = timeout.partial(timedelta(seconds=timeout.left() - 2))
         watcher = KubernetesWatcher(
             method=self._list,
             object_type=self._type,
@@ -301,22 +311,22 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
             name=name,
             namespace=namespace,
             resource_version=obj.metadata.resource_version,
-            timeout=timeout,
+            timeout=watch_timeout,
             logger=logger,
         )
         try:
-            async with asyncio.timeout(timeout.left()):
+            async with watch_timeout.enforce():
                 async for event in watcher.watch():
                     if event.action == WatchEventType.DELETED:
                         return
-        except TimeoutError:
+        except ControllerTimeoutError:
             # If the watch had to be restarted because the resource version
             # was too old and the object was deleted while the watch was
             # restarting, we could have missed the delete event. Therefore,
             # before timing out, do a final check with a short timeout to see
             # if the object is gone.
-            short_timeout = Timeout(timedelta(seconds=5))
-            if not await self.read(name, namespace, short_timeout):
+            read_timeout = timeout.partial(timedelta(seconds=2))
+            if not await self.read(name, namespace, read_timeout):
                 return
             raise
         finally:

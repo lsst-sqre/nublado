@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 from aiojobs import Scheduler
 from safir.datetime import current_datetime
-from safir.slack.blockkit import SlackException, SlackMessage, SlackTextField
+from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
@@ -100,45 +100,33 @@ class FileserverManager:
 
         Raises
         ------
-        KubernetesError
-            Raised if there is some failure in a Kubernetes API call.
-        TimeoutError
+        controller.exceptions.ControllerTimeoutError
             Raised if the file server could not be created within its creation
             timeout.
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
         """
         logger = self._logger.bind(user=user.username)
         logger.info("File server requested")
         if user.username not in self._servers:
             self._servers[user.username] = _State(running=False)
         state = self._servers[user.username]
-        timeout = Timeout(self._config.creation_timeout)
+        timeout = Timeout(
+            "File server creation",
+            self._config.creation_timeout,
+            user.username,
+        )
         async with state.lock:
             if state.running:
                 return
             try:
-                async with asyncio.timeout(timeout.left()):
+                async with timeout.enforce():
                     await self._create_file_server(user, timeout)
-            except TimeoutError as e:
-                msg = timeout.error("File server creation")
-                logger.exception(msg)
-                if self._slack:
-                    message = SlackMessage(
-                        message=msg,
-                        fields=[
-                            SlackTextField(heading="User", text=user.username)
-                        ],
-                    )
-                    await self._slack.post(message)
-                logger.info("Cleaning up orphaned file server objects")
-                timeout = Timeout(self._config.delete_timeout)
-                await self._delete_file_server(user.username, timeout)
-                raise TimeoutError(msg) from e
             except Exception as e:
                 logger.exception("File server creation failed")
                 await self._maybe_post_slack_exception(e, user.username)
                 logger.info("Cleaning up orphaned file server objects")
-                timeout = Timeout(self._config.delete_timeout)
-                await self._delete_file_server(user.username, timeout)
+                await self._delete_file_server(user.username)
                 raise
             else:
                 state.running = True
@@ -159,12 +147,11 @@ class FileserverManager:
         if username not in self._servers:
             raise UnknownUserError(f"Unknown user {username}")
         state = self._servers[username]
-        timeout = Timeout(self._config.delete_timeout)
         async with state.lock:
             if not state.running:
                 msg = f"File server for {username} not running"
                 raise UnknownUserError(msg)
-            await self._delete_file_server(username, timeout)
+            await self._delete_file_server(username)
             state.running = False
 
     async def list(self) -> list[str]:
@@ -178,7 +165,7 @@ class FileserverManager:
         the reconciliation and monitor tasks.
         """
         namespace = self._config.namespace
-        timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
+        timeout = Timeout("Reading namespace", KUBERNETES_REQUEST_TIMEOUT)
         if not await self._storage.namespace_exists(namespace, timeout):
             raise MissingObjectError(
                 "File server namespace missing",
@@ -229,9 +216,7 @@ class FileserverManager:
         self._logger.info("Creating new file server", user=user.username)
         await self._storage.create(self._config.namespace, fileserver, timeout)
 
-    async def _delete_file_server(
-        self, username: str, timeout: Timeout
-    ) -> None:
+    async def _delete_file_server(self, username: str) -> None:
         """Delete any file server objects for the given user.
 
         Should be called with the user's lock held.
@@ -240,24 +225,22 @@ class FileserverManager:
         ----------
         username
             Username of user.
-        timeout
-            Timeout on operation.
 
         Raises
         ------
+        ControllerTimeoutError
+            Raised if deletion of the file server timed out.
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
-        TimeoutError
-            Raised if deletion of the file server timed out.
         """
         name = self._builder.build_name(username)
         namespace = self._config.namespace
+        timeout = Timeout(
+            "File server deletion", self._config.delete_timeout, username
+        )
         try:
-            await self._storage.delete(name, namespace, username, timeout)
-        except TimeoutError as e:
-            msg = timeout.error("File server deletion")
-            self._logger.exception(msg, user=username)
-            raise TimeoutError(msg) from e
+            async with timeout.enforce():
+                await self._storage.delete(name, namespace, username, timeout)
         except Exception as e:
             msg = "Error deleting file server"
             self._logger.exception(msg, user=username)
@@ -293,7 +276,9 @@ class FileserverManager:
         """
         self._logger.debug("Reconciling file server state")
         namespace = self._config.namespace
-        timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
+        timeout = Timeout(
+            "Reading file server state", KUBERNETES_REQUEST_TIMEOUT
+        )
         seen = await self._storage.read_fileserver_state(namespace, timeout)
         known_users = {k for k, v in self._servers.items() if v.running}
 
@@ -330,7 +315,9 @@ class FileserverManager:
             # just as we make this call, we may delete parts of their new file
             # server. Solving this is complicated; live with it for now.
             name = self._builder.build_name(username)
-            timeout = Timeout(KUBERNETES_REQUEST_TIMEOUT)
+            timeout = Timeout(
+                "Deleting file server", KUBERNETES_REQUEST_TIMEOUT, username
+            )
             await self._storage.delete(
                 name, self._config.namespace, username, timeout
             )

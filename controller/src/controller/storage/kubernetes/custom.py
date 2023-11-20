@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import timedelta
 from typing import Any
 
@@ -10,7 +9,7 @@ from kubernetes_asyncio import client
 from kubernetes_asyncio.client import ApiClient, ApiException
 from structlog.stdlib import BoundLogger
 
-from ...exceptions import KubernetesError
+from ...exceptions import ControllerTimeoutError, KubernetesError
 from ...models.domain.kubernetes import PropagationPolicy, WatchEventType
 from ...timeout import Timeout
 from .watcher import KubernetesWatcher
@@ -89,8 +88,12 @@ class CustomStorage:
 
         Raises
         ------
+        ControllerTimeoutError
+            Raised if the timeout expired waiting for deletion.
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
+        TimeoutError
+            Raised if the timeout expired.
         """
         name = body["metadata"]["name"]
         msg = f"Creating {self._kind}"
@@ -134,8 +137,12 @@ class CustomStorage:
 
         Raises
         ------
+        ControllerTimeoutError
+            Raised if the timeout expired waiting for deletion.
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
+        TimeoutError
+            Raised if the timeout expired.
         """
         msg = f"Deleting {self._kind}"
         self._logger.debug(msg, name=name, namespace=namespace)
@@ -182,6 +189,8 @@ class CustomStorage:
         ------
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
+        TimeoutError
+            Raised if the timeout expired.
         """
         try:
             objs = await self._api.list_namespaced_custom_object(
@@ -223,6 +232,8 @@ class CustomStorage:
         ------
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
+        TimeoutError
+            Raised if the timeout expired.
         """
         try:
             return await self._api.get_namespaced_custom_object(
@@ -263,6 +274,8 @@ class CustomStorage:
 
         Raises
         ------
+        ControllerTimeoutError
+            Raised if the timeout expired.
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
         """
@@ -271,6 +284,7 @@ class CustomStorage:
             return
 
         # Wait for the object to be deleted.
+        watch_timeout = timeout.partial(timedelta(seconds=timeout.left() - 2))
         watcher = KubernetesWatcher(
             method=self._api.list_namespaced_custom_object,
             object_type=dict[str, Any],
@@ -281,22 +295,22 @@ class CustomStorage:
             version=self._version,
             plural=self._plural,
             resource_version=obj["metadata"].get("resource_version"),
-            timeout=timeout,
+            timeout=watch_timeout,
             logger=self._logger,
         )
         try:
-            async with asyncio.timeout(timeout.left()):
+            async with watch_timeout.enforce():
                 async for event in watcher.watch():
                     if event.action == WatchEventType.DELETED:
                         return
-        except TimeoutError:
+        except ControllerTimeoutError:
             # If the watch had to be restarted because the resource version
             # was too old and the object was deleted while the watch was
             # restarting, we could have missed the delete event. Therefore,
             # before timing out, do a final check with a short timeout to see
             # if the object is gone.
-            short_timeout = Timeout(timedelta(seconds=5))
-            if not await self.read(name, namespace, short_timeout):
+            read_timeout = timeout.partial(timedelta(seconds=2))
+            if not await self.read(name, namespace, read_timeout):
                 return
             raise
         finally:
@@ -323,6 +337,8 @@ class CustomStorage:
         ------
         KubernetesError
             Raised for exceptions from the Kubernetes API server.
+        TimeoutError
+            Raised if the timeout expired.
         """
         name = body["metadata"]["name"]
         try:

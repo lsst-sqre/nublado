@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Self
 
 from fastapi import status
 from kubernetes_asyncio.client import ApiException
 from pydantic import ValidationError
+from safir.datetime import format_datetime_for_logging
 from safir.fastapi import ClientRequestError
 from safir.models import ErrorLocation
 from safir.slack.blockkit import (
+    SlackBaseField,
     SlackCodeBlock,
     SlackException,
     SlackMessage,
@@ -21,6 +24,7 @@ from safir.slack.blockkit import (
 from .models.v1.lab import LabSize
 
 __all__ = [
+    "ControllerTimeoutError",
     "DockerRegistryError",
     "DuplicateObjectError",
     "GafaelfawrParseError",
@@ -119,6 +123,54 @@ class UnknownUserError(ClientRequestError):
 
     error = "unknown_user"
     status_code = status.HTTP_404_NOT_FOUND
+
+
+class ControllerTimeoutError(SlackException):
+    """Wraps `TimeoutError` with additional context and Slack support.
+
+    Parameters
+    ----------
+    operation
+        Operation that timed out.
+    user
+        User associated with operation, if any.
+    started_at
+        Start time of the operation.
+    failed_at
+        Time at which the operation timed out.
+    """
+
+    def __init__(
+        self,
+        operation: str,
+        user: str | None = None,
+        *,
+        started_at: datetime,
+        failed_at: datetime,
+    ) -> None:
+        self.started_at = started_at
+        elapsed = failed_at - started_at
+        msg = f"{operation} timed out after {elapsed.total_seconds()}"
+        super().__init__(msg, user, failed_at=failed_at)
+
+    def to_slack(self) -> SlackMessage:
+        """Format the exception as a Slack message.
+
+        Returns
+        -------
+        SlackMessage
+            Slack message suitable for posting with
+            `~safir.slack.webhook.SlackClient`.
+        """
+        started_at = format_datetime_for_logging(self.started_at)
+        failed_at = format_datetime_for_logging(self.failed_at)
+        fields: list[SlackBaseField] = [
+            SlackTextField(heading="Started at", text=started_at),
+            SlackTextField(heading="Failed at", text=failed_at),
+        ]
+        if self.user:
+            fields.append(SlackTextField(heading="User", text=self.user))
+        return SlackMessage(message=str(self), fields=fields)
 
 
 class DockerRegistryError(SlackWebException):

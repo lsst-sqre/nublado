@@ -87,7 +87,8 @@ async def create_lab(
     objects = lab_builder.build_lab(
         user=user, lab=lab, image=image, secrets={}
     )
-    await lab_storage.create(objects, Timeout(config.lab.spawn_timeout))
+    timeout = Timeout("Creating lab", config.lab.spawn_timeout, user.username)
+    await lab_storage.create(objects, timeout)
 
     phase = PodPhase(mock_kubernetes.initial_pod_phase)
     return UserLabState(
@@ -248,4 +249,6 @@ async def test_spawn_timeout(
         e async for e in factory.lab_manager.events_for_user(user.username)
     ]
     assert events[-1]
-    assert b"Lab spawn timed out after" in events[-1]
+    assert b"Lab spawn failed" in events[-1]
+    assert events[-2]
+    assert b"Lab spawn timed out" in events[-2]

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import AsyncIterator
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import ApiClient, CoreV1Event, V1Pod
 from structlog.stdlib import BoundLogger
 
+from ...exceptions import ControllerTimeoutError
 from ...models.domain.kubernetes import PodChange, PodPhase, WatchEventType
 from ...timeout import Timeout
 from .deleter import KubernetesObjectDeleter
@@ -60,8 +60,14 @@ class PodStorage(KubernetesObjectDeleter):
 
         Raises
         ------
+        ControllerTimeoutError
+            Raised if the timeout expires while waiting for a pod phase
+            change.
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if the timeout expires while performing Kubernetes
+            operations.
         """
         logger = self._logger.bind(name=name, namespace=namespace)
         phase = await self.wait_for_phase(
@@ -94,7 +100,8 @@ class PodStorage(KubernetesObjectDeleter):
         namespace
             Namespace in which the pod is located.
         timeout
-            How long to watch events for.
+            How long to watch events for. When this timeout expires, the
+            iterator will end without raising any error.
 
         Yields
         ------
@@ -118,10 +125,10 @@ class PodStorage(KubernetesObjectDeleter):
             logger=logger,
         )
         try:
-            async with asyncio.timeout(timeout.left()):
+            async with timeout.enforce():
                 async for event in watcher.watch():
                     yield event.object.message
-        except TimeoutError:
+        except ControllerTimeoutError:
             pass
         finally:
             await watcher.close()
@@ -158,11 +165,13 @@ class PodStorage(KubernetesObjectDeleter):
 
         Raises
         ------
+        ControllerTimeoutError
+            Raised if the timeout expires.
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
         TimeoutError
-            Raised if the pod does not leave the desired phases before the
-            timeout has expired.
+            Raised if the timeout expires while getting the starting pod
+            phase.
         """
         logger = self._logger.bind(name=name, namespace=namespace)
         logger.debug(
@@ -196,7 +205,7 @@ class PodStorage(KubernetesObjectDeleter):
             logger=logger,
         )
         try:
-            async with asyncio.timeout(timeout.left()):
+            async with timeout.enforce():
                 async for event in watcher.watch():
                     if event.action == WatchEventType.DELETED:
                         return None
