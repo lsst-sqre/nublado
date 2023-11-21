@@ -291,9 +291,7 @@ class FileserverConfig(BaseModel):
         description="The route at which users spawn new user file servers",
     )
 
-    model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class DisabledFileserverConfig(FileserverConfig):
@@ -333,6 +331,15 @@ class EnabledFileserverConfig(FileserverConfig):
         ),
     )
 
+    extra_annotations: dict[str, str] = Field(
+        {},
+        title="Extra annotations",
+        description=(
+            "Extra annotations to add to all user file server `Job` and `Pod`"
+            " Kubernetes resources"
+        ),
+    )
+
     idle_timeout: timedelta = Field(
         timedelta(hours=1),
         title="File server inactivity timeout",
@@ -365,6 +372,10 @@ class EnabledFileserverConfig(FileserverConfig):
             "Kubernetes resource requests and limits for uesr file server"
             " pods"
         ),
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
 
@@ -580,7 +591,7 @@ class LabConfig(BaseModel):
 
     extra_annotations: dict[str, str] = Field(
         {},
-        title="Extra annotations for lab pod",
+        title="Extra annotations",
         description=(
             "These annotations will be added to the Kubernetes `Pod` resource"
             " in addition to annotations used by Nublado itself to track"

@@ -21,7 +21,7 @@ jinja2
 pydantic>2
 pydantic-settings
 PyYAML
-safir[kubernetes]>=5.0.0a4
+safir[kubernetes]>=5.0.0a5
 semver
 sse-starlette
 

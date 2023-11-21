@@ -259,6 +259,8 @@ class FileserverBuilder:
 
         # Build the pod specification itself.
         metadata = self._build_metadata(user.username)
+        if self._config.extra_annotations:
+            metadata.annotations.update(self._config.extra_annotations)
         return V1Job(
             metadata=metadata,
             spec=V1JobSpec(
@@ -269,6 +271,7 @@ class FileserverBuilder:
                             "nublado.lsst.io/category": "fileserver",
                             "nublado.lsst.io/user": user.username,
                         },
+                        annotations=self._config.extra_annotations.copy(),
                     ),
                     spec=V1PodSpec(
                         containers=[container],
