@@ -325,7 +325,7 @@ class EnabledFileserverConfig(FileserverConfig):
     )
 
     delete_timeout: timedelta = Field(
-        timedelta(minutes=2),
+        timedelta(minutes=1),
         title="File server deletion timeout",
         description=(
             "How long to wait for a file server's Kubernetes objects to be"
