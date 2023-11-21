@@ -16,7 +16,7 @@ from kubernetes_asyncio.client import (
     V1ObjectMeta,
     V1ObjectReference,
 )
-from safir.testing.kubernetes import MockKubernetesApi, strip_none
+from safir.testing.kubernetes import MockKubernetesApi
 from safir.testing.slack import MockSlackWebhook
 
 from controller.config import Config
@@ -32,6 +32,7 @@ from ..support.data import (
     read_output_data,
     read_output_json,
 )
+from ..support.kubernetes import objects_to_dicts
 
 
 async def get_lab_events(
@@ -508,10 +509,8 @@ async def test_lab_objects(
     # meaningful to compare.
     namespace = f"{config.lab.namespace_prefix}-{user.username}"
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
-    for obj in objects:
-        obj.metadata.resource_version = None
-    expected = read_output_json("standard", "lab-objects.json")
-    assert [strip_none(o.to_dict()) for o in objects] == expected
+    seen = objects_to_dicts(objects)
+    assert seen == read_output_json("standard", "lab-objects.json")
 
 
 @pytest.mark.asyncio

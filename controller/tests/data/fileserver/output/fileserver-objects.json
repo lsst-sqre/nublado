@@ -109,6 +109,12 @@
               2021
             ]
           },
+          "tolerations": [
+            {
+              "key": "",
+              "operator": "Exists"
+            }
+          ],
           "volumes": [
             {
               "name": "home",
@@ -253,6 +259,12 @@
           2021
         ]
       },
+      "tolerations": [
+        {
+          "key": "",
+          "operator": "Exists"
+        }
+      ],
       "volumes": [
         {
           "name": "home",

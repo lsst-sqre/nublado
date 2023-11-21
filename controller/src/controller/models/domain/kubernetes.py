@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Self
+from typing import Any, Protocol, Self
 
-from kubernetes_asyncio.client import V1ContainerImage, V1ObjectMeta, V1Pod
-from typing_extensions import Protocol
+from kubernetes_asyncio.client import (
+    V1ContainerImage,
+    V1ObjectMeta,
+    V1Pod,
+    V1Toleration,
+)
+from pydantic import BaseModel, Field, model_validator
 
 from .docker import DockerReference
 
@@ -17,6 +22,9 @@ __all__ = [
     "PodPhase",
     "PropagationPolicy",
     "PullPolicy",
+    "TaintEffect",
+    "Toleration",
+    "TolerationOperator",
     "VolumeAccessMode",
     "WatchEventType",
 ]
@@ -60,6 +68,98 @@ class PullPolicy(Enum):
     ALWAYS = "Always"
     IF_NOT_PRESENT = "IfNotPresent"
     NEVER = "Never"
+
+
+class TaintEffect(Enum):
+    """Possible effects of a pod toleration."""
+
+    NO_SCHEDULE = "NoSchedule"
+    PREFER_NO_SCHEDULE = "PreferNoSchedule"
+    NO_EXECUTE = "NoExecute"
+
+
+class TolerationOperator(Enum):
+    """Possible operators for a toleration."""
+
+    EQUAL = "Equal"
+    EXISTS = "Exists"
+
+
+class Toleration(BaseModel):
+    """Represents a single pod toleration rule.
+
+    Toleration rules describe what Kubernetes node taints a pod will tolerate,
+    meaning that the pod can still be scheduled on that node even though the
+    node is marked as tained.
+    """
+
+    effect: TaintEffect | None = Field(
+        None,
+        title="Taint effect",
+        description=(
+            "Taint effect to match. If `None`, match all taint effects."
+        ),
+    )
+
+    key: str | None = Field(
+        None,
+        title="Taint key",
+        description=(
+            "Taint key to match. If `None`, `operator` must be `Exists`,"
+            " and this combination is used to match all taints."
+        ),
+    )
+
+    operator: TolerationOperator = Field(
+        TolerationOperator.EQUAL,
+        title="Match operator",
+        description=(
+            "`Exists` is equivalent to a wildcard for value and matches all"
+            " possible taints of a given catgory."
+        ),
+    )
+
+    toleration_seconds: int | None = Field(
+        None,
+        title="Duration of toleration",
+        description=(
+            "Defines the length of time a `NoExecute` taint is tolerated and"
+            " is ignored for other taint effects. The pod will be evicted"
+            " this number of seconds after the taint is added, rather than"
+            " immediately (the default with no toleration). `None` says to"
+            " tolerate the taint forever."
+        ),
+    )
+
+    value: str | None = Field(
+        None,
+        title="Taint value",
+        description=(
+            "Taint value to match. Must be `None` if the operator is `Exists`."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate(self) -> Self:
+        if self.operator == TolerationOperator.EXISTS:
+            if self.value:
+                raise ValueError("Toleration value not supported with Exists")
+        else:
+            if not self.key:
+                raise ValueError("Toleration key must be specified")
+            if not self.value:
+                raise ValueError("Toleration value must be specified")
+        return self
+
+    def to_kubernetes(self) -> V1Toleration:
+        """Convert to the corresponding Kubernetes resource."""
+        return V1Toleration(
+            effect=self.effect.value if self.effect else None,
+            key=self.key,
+            operator=self.operator.value,
+            toleration_seconds=self.toleration_seconds,
+            value=self.value,
+        )
 
 
 class VolumeAccessMode(str, Enum):
