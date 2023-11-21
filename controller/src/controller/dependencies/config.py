@@ -44,6 +44,11 @@ class ConfigDependency:
             self._config = Config.from_file(self._path)
         return self._config
 
+    @property
+    def is_initialized(self) -> bool:
+        """Whether the configuration has been initialized."""
+        return self._config is not None
+
     def set_path(self, path: Path) -> None:
         """Change the configuration path and reload.
 

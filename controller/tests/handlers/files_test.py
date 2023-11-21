@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
+from unittest.mock import ANY
 
 import pytest
 from httpx import AsyncClient
+from kubernetes_asyncio.client import ApiException
 from safir.models import ErrorModel
 from safir.testing.kubernetes import MockKubernetesApi
+from safir.testing.slack import MockSlackWebhook
 
 from controller.models.domain.gafaelfawr import GafaelfawrUser
 from controller.models.domain.kubernetes import PodPhase
@@ -290,3 +294,121 @@ async def test_timeout_no_ingress_ip(
     assert "File server creation timed out" in error.detail[0].msg
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == []
+
+
+@pytest.mark.asyncio
+async def test_start_errors(
+    client: AsyncClient,
+    user: GafaelfawrUser,
+    mock_kubernetes: MockKubernetesApi,
+    mock_slack: MockSlackWebhook,
+) -> None:
+    config = await configure("fileserver", mock_kubernetes)
+    apis_to_fail = set()
+    assert config.fileserver.enabled
+    username = user.username
+    namespace = config.fileserver.namespace
+
+    def callback(method: str, *args: Any) -> None:
+        if method in apis_to_fail:
+            raise ApiException(status=400, reason="Something bad happened")
+
+    mock_kubernetes.error_callback = callback
+
+    # For each of the various Kubernetes calls that might fail, test that the
+    # failure is caught, results in a reasonable error, and deletes the
+    # remnants of the lab.
+    possible_errors = [
+        (
+            "create_namespaced_custom_object",
+            "GafaelfawrIngress",
+            f"{namespace}/{username}-fs",
+        ),
+        (
+            "create_namespaced_job",
+            "Job",
+            f"{namespace}/{username}-fs",
+        ),
+        (
+            "create_namespaced_persistent_volume_claim",
+            "PersistentVolumeClaim",
+            f"{namespace}/{username}-fs-pvc-scratch",
+        ),
+        (
+            "create_namespaced_service",
+            "Service",
+            f"{namespace}/{username}-fs",
+        ),
+    ]
+    for api, kind, obj in possible_errors:
+        apis_to_fail = {api}
+        error_msg = f"Error creating object ({kind} {obj}, status 400)"
+        await create_working_ingress_for_user(
+            mock_kubernetes, username, namespace
+        )
+        task = asyncio.create_task(
+            client.get("/files", headers=user.to_headers())
+        )
+        await asyncio.sleep(0.1)
+        await delete_ingress_for_user(mock_kubernetes, username, namespace)
+        r = await task
+        assert r.status_code == 500
+        assert mock_slack.messages == [
+            {
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "text": f"Error in Nublado: {error_msg}",
+                            "type": "mrkdwn",
+                            "verbatim": True,
+                        },
+                    },
+                    {
+                        "type": "section",
+                        "fields": [
+                            {
+                                "text": "*Exception type*\nKubernetesError",
+                                "type": "mrkdwn",
+                                "verbatim": True,
+                            },
+                            {"text": ANY, "type": "mrkdwn", "verbatim": True},
+                            {
+                                "text": f"*User*\n{username}",
+                                "type": "mrkdwn",
+                                "verbatim": True,
+                            },
+                            {
+                                "text": "*Status*\n400",
+                                "type": "mrkdwn",
+                                "verbatim": True,
+                            },
+                        ],
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "text": f"*Object*\n{kind} {obj}",
+                            "type": "mrkdwn",
+                            "verbatim": True,
+                        },
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "text": (
+                                "*Error*\n```\nSomething bad happened\n```"
+                            ),
+                            "type": "mrkdwn",
+                            "verbatim": True,
+                        },
+                    },
+                    {"type": "divider"},
+                ]
+            },
+        ]
+        mock_slack.messages = []
+        r = await client.get("/nublado/fileserver/v1/users")
+        assert r.json() == []
+        objs = mock_kubernetes.get_namespace_objects_for_test(namespace)
+        assert [o for o in objs if o.kind != "Namespace"] == []
