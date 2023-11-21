@@ -75,6 +75,8 @@ lab:
           volumeName: home
         - containerPath: /scratch
           volumeName: scratch
+  nodeSelector:
+    some-label: some-value
   nss:
     basePasswd: |
       root:x:0:0:root:/root:/bin/bash

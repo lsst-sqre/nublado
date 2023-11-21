@@ -526,12 +526,16 @@ class LabBuilder:
         # Build the pod object itself.
         containers = self._build_pod_containers(user, mounts, resources, image)
         init_containers = self._build_pod_init_containers(user, resources)
+        node_selector = None
+        if self._config.node_selector:
+            node_selector = self._config.node_selector.copy()
         return V1Pod(
             metadata=metadata,
             spec=V1PodSpec(
                 containers=containers,
                 image_pull_secrets=pull_secrets,
                 init_containers=init_containers,
+                node_selector=node_selector,
                 restart_policy="OnFailure",
                 security_context=V1PodSecurityContext(
                     supplemental_groups=user.supplemental_groups
