@@ -50,3 +50,6 @@ fileserver:
   namespace: fileservers
   nodeSelector:
     some-label: some-value
+  tolerations:
+    - key: ""
+      operator: Exists

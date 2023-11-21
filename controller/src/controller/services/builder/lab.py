@@ -529,6 +529,7 @@ class LabBuilder:
         node_selector = None
         if self._config.node_selector:
             node_selector = self._config.node_selector.copy()
+        tolerations = [t.to_kubernetes() for t in self._config.tolerations]
         return V1Pod(
             metadata=metadata,
             spec=V1PodSpec(
@@ -540,6 +541,7 @@ class LabBuilder:
                 security_context=V1PodSecurityContext(
                     supplemental_groups=user.supplemental_groups
                 ),
+                tolerations=tolerations,
                 volumes=volumes,
             ),
         )

@@ -30,7 +30,7 @@ from .constants import (
     RESERVED_ENV,
     RESERVED_PATHS,
 )
-from .models.domain.kubernetes import PullPolicy, VolumeAccessMode
+from .models.domain.kubernetes import PullPolicy, Toleration, VolumeAccessMode
 from .models.v1.lab import LabResources, LabSize, ResourceQuantity
 from .models.v1.prepuller_config import PrepullerConfig
 from .units import memory_to_bytes
@@ -384,6 +384,12 @@ class EnabledFileserverConfig(FileserverConfig):
         ),
     )
 
+    tolerations: list[Toleration] = Field(
+        [],
+        title="File server pod tolerations",
+        description="Kubernetes tolerations for file server pods",
+    )
+
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
@@ -733,6 +739,12 @@ class LabConfig(BaseModel):
             " than the spawn timeout set in JupyterHub."
         ),
         examples=[300],
+    )
+
+    tolerations: list[Toleration] = Field(
+        [],
+        title="File server pod tolerations",
+        description="Kubernetes tolerations for file server pods",
     )
 
     volumes: list[VolumeConfig] = Field(

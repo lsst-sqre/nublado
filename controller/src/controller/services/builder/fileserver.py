@@ -264,6 +264,7 @@ class FileserverBuilder:
         node_selector = None
         if self._config.node_selector:
             node_selector = self._config.node_selector.copy()
+        tolerations = [t.to_kubernetes() for t in self._config.tolerations]
         return V1Job(
             metadata=metadata,
             spec=V1JobSpec(
@@ -286,6 +287,7 @@ class FileserverBuilder:
                             run_as_non_root=True,
                             supplemental_groups=user.supplemental_groups,
                         ),
+                        tolerations=tolerations,
                         volumes=volumes,
                     ),
                 )
