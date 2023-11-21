@@ -22,7 +22,8 @@
     "metadata": {
       "annotations": {
         "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
-        "argocd.argoproj.io/sync-options": "Prune=false"
+        "argocd.argoproj.io/sync-options": "Prune=false",
+        "some-annotation": "some-value"
       },
       "labels": {
         "nublado.lsst.io/category": "fileserver",
@@ -35,6 +36,9 @@
     "spec": {
       "template": {
         "metadata": {
+          "annotations": {
+            "some-annotation": "some-value"
+          },
           "labels": {
             "nublado.lsst.io/category": "fileserver",
             "nublado.lsst.io/user": "rachel"
@@ -171,6 +175,9 @@
     "apiVersion": "v1",
     "kind": "Pod",
     "metadata": {
+      "annotations": {
+        "some-annotation": "some-value"
+      },
       "labels": {
         "nublado.lsst.io/category": "fileserver",
         "nublado.lsst.io/user": "rachel",

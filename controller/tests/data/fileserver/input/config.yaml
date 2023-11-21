@@ -42,6 +42,8 @@ fileserver:
   enabled: true
   application: fileservers
   creationTimeout: 1
+  extraAnnotations:
+    some-annotation: some-value
   image:
     repository: ghcr.io/lsst-sqre/worblehat
     tag: 1.0.0
