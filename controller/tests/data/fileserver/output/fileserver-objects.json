@@ -94,6 +94,9 @@
               ]
             }
           ],
+          "nodeSelector": {
+            "some-label": "some-value"
+          },
           "restartPolicy": "Never",
           "securityContext": {
             "runAsGroup": 1101,
@@ -235,6 +238,9 @@
           ]
         }
       ],
+      "nodeSelector": {
+        "some-label": "some-value"
+      },
       "restartPolicy": "Never",
       "securityContext": {
         "runAsGroup": 1101,

@@ -261,6 +261,9 @@ class FileserverBuilder:
         metadata = self._build_metadata(user.username)
         if self._config.extra_annotations:
             metadata.annotations.update(self._config.extra_annotations)
+        node_selector = None
+        if self._config.node_selector:
+            node_selector = self._config.node_selector.copy()
         return V1Job(
             metadata=metadata,
             spec=V1JobSpec(
@@ -275,6 +278,7 @@ class FileserverBuilder:
                     ),
                     spec=V1PodSpec(
                         containers=[container],
+                        node_selector=node_selector,
                         restart_policy="Never",
                         security_context=V1PodSecurityContext(
                             run_as_user=user.uid,

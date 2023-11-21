@@ -359,10 +359,20 @@ class EnabledFileserverConfig(FileserverConfig):
 
     namespace: str = Field(
         ...,
-        title="Namespace for user fileservers",
+        title="Namespace for user file servers",
         description=(
             "All file servers for any user will be created in this namespace"
         ),
+    )
+
+    node_selector: dict[str, str] = Field(
+        {},
+        title="File server node selector",
+        description=(
+            "Labels that must be present on Kubernetes nodes for any file"
+            " server to be scheduled there"
+        ),
+        examples=[{"disktype": "ssd"}],
     )
 
     resources: LabResources | None = Field(
@@ -665,6 +675,16 @@ class LabConfig(BaseModel):
             "The namespace for the user's lab will start with this string,"
             " a hyphen (`-`), and the user's username"
         ),
+    )
+
+    node_selector: dict[str, str] = Field(
+        {},
+        title="Lab pod node selector",
+        description=(
+            "Labels that must be present on Kubernetes nodes for any lab pod"
+            " to be scheduled there"
+        ),
+        examples=[{"disktype": "ssd"}],
     )
 
     nss: LabNSSFiles = Field(
