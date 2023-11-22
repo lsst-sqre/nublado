@@ -46,6 +46,44 @@
           "name": "rachel-fs"
         },
         "spec": {
+          "affinity": {
+            "podAffinity": {
+              "requiredDuringSchedulingIgnoredDuringExecution": [
+                {
+                  "namespaceSelector": {
+                    "matchLabels": {
+                      "security": "S1"
+                    }
+                  },
+                  "topologyKey": "topology.kubernetes.io/zone"
+                }
+              ]
+            },
+            "podAntiAffinity": {
+              "preferredDuringSchedulingIgnoredDuringExecution": [
+                {
+                  "podAffinityTerm": {
+                    "labelSelector": {
+                      "matchExpressions": [
+                        {
+                          "key": "security",
+                          "operator": "In",
+                          "values": [
+                            "S2"
+                          ]
+                        }
+                      ]
+                    },
+                    "namespaces": [
+                      "fileservers"
+                    ],
+                    "topologyKey": "topology.kubernetes.io/zone"
+                  },
+                  "weight": 100
+                }
+              ]
+            }
+          },
           "containers": [
             {
               "env": [
@@ -196,6 +234,44 @@
       "namespace": "fileservers"
     },
     "spec": {
+      "affinity": {
+        "podAffinity": {
+          "requiredDuringSchedulingIgnoredDuringExecution": [
+            {
+              "namespaceSelector": {
+                "matchLabels": {
+                  "security": "S1"
+                }
+              },
+              "topologyKey": "topology.kubernetes.io/zone"
+            }
+          ]
+        },
+        "podAntiAffinity": {
+          "preferredDuringSchedulingIgnoredDuringExecution": [
+            {
+              "podAffinityTerm": {
+                "labelSelector": {
+                  "matchExpressions": [
+                    {
+                      "key": "security",
+                      "operator": "In",
+                      "values": [
+                        "S2"
+                      ]
+                    }
+                  ]
+                },
+                "namespaces": [
+                  "fileservers"
+                ],
+                "topologyKey": "topology.kubernetes.io/zone"
+              },
+              "weight": 100
+            }
+          ]
+        }
+      },
       "containers": [
         {
           "env": [

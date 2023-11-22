@@ -7,25 +7,51 @@ from enum import Enum
 from typing import Any, Protocol, Self
 
 from kubernetes_asyncio.client import (
+    V1Affinity,
     V1ContainerImage,
+    V1LabelSelector,
+    V1LabelSelectorRequirement,
+    V1NodeAffinity,
+    V1NodeSelector,
+    V1NodeSelectorRequirement,
+    V1NodeSelectorTerm,
     V1ObjectMeta,
     V1Pod,
+    V1PodAffinity,
+    V1PodAffinityTerm,
+    V1PodAntiAffinity,
+    V1PreferredSchedulingTerm,
     V1Toleration,
+    V1WeightedPodAffinityTerm,
 )
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic.alias_generators import to_camel
 
 from .docker import DockerReference
 
 __all__ = [
+    "Affinity",
     "KubernetesModel",
     "KubernetesNodeImage",
+    "LabelSelector",
+    "LabelSelectorOperator",
+    "LabelSelectorRequirement",
+    "NodeAffinity",
+    "NodeSelectorOperator",
+    "NodeSelectorRequirement",
+    "NodeSelectorTerm",
+    "NodeSelector",
+    "PodAffinity",
+    "PodAffinityTerm",
     "PodPhase",
+    "PreferredSchedulingTerm",
     "PropagationPolicy",
     "PullPolicy",
     "TaintEffect",
     "Toleration",
     "TolerationOperator",
     "VolumeAccessMode",
+    "WeightedPodAffinityTerm",
     "WatchEventType",
 ]
 
@@ -44,6 +70,490 @@ class KubernetesModel(Protocol):
         ...
 
 
+@dataclass
+class KubernetesNodeImage:
+    """A cached image on a Kubernetes node.
+
+    A cached image has one or more Docker references associated with it,
+    reflecting the references by which it was retrieved.
+
+    The references will generally be in one of two formats:
+
+    - :samp:`{registry}/{repository}@{digest}`
+    - :samp:`{registry}/{repository}:{tag}`
+
+    Most entries will have both, but if the image was pulled by digest it's
+    possible only the first will be present.
+    """
+
+    references: list[str]
+    """The Docker references for the image."""
+
+    size: int
+    """Size of the image in bytes."""
+
+    @classmethod
+    def from_container_image(cls, image: V1ContainerImage) -> Self:
+        """Create from a Kubernetes API object.
+
+        Parameters
+        ----------
+        image
+            Kubernetes API object.
+
+        Returns
+        -------
+        KubernetesNodeImage
+            The corresponding object.
+        """
+        return cls(references=image.names, size=image.size_bytes)
+
+    @property
+    def digest(self) -> str | None:
+        """Determine the image digest, if possible.
+
+        Returns
+        -------
+        str or None
+            The digest for the image if found, or `None` if not.
+        """
+        for reference in self.references:
+            try:
+                parsed_reference = DockerReference.from_str(reference)
+            except ValueError:
+                continue
+            if parsed_reference.digest is not None:
+                return parsed_reference.digest
+        return None
+
+
+class NodeSelectorOperator(Enum):
+    """Match operations for node selectors."""
+
+    IN = "In"
+    NOT_IN = "NotIn"
+    EXISTS = "Exists"
+    DOES_NOT_EXIST = "DoesNotExist"
+    GT = "Gt"
+    LT = "Lt"
+
+
+class NodeSelectorRequirement(BaseModel):
+    """Individual match rule for nodes."""
+
+    key: str = Field(..., title="Key", description="Label key to match")
+
+    operator: NodeSelectorOperator = Field(
+        ..., title="Operator", description="Match operation to use"
+    )
+
+    values: list[str] = Field(
+        [],
+        title="Matching values",
+        description=(
+            "For `In` and `NotIn`, matches any value in this list. For `Gt`"
+            " or `Lt`, must contain a single member interpreted as an integer."
+            " For `Exists` or `DoesNotExist`, must be empty."
+        ),
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    @model_validator(mode="after")
+    def _validate(self) -> Self:
+        match self.operator:
+            case NodeSelectorOperator.IN | NodeSelectorOperator.NOT_IN:
+                if len(self.values) < 1:
+                    raise ValueError("In and NotIn require a list of values")
+            case NodeSelectorOperator.GT | NodeSelectorOperator.LT:
+                if len(self.values) != 1:
+                    raise ValueError("Gt and Lt take a single value")
+
+                # Ensure the value converts to an integer.
+                int(self.values[0])
+            case (
+                NodeSelectorOperator.EXISTS
+                | NodeSelectorOperator.DOES_NOT_EXIST
+            ):
+                if self.values:
+                    raise ValueError("Exists or DoesNotExist take no values")
+        return self
+
+    def to_kubernetes(self) -> V1NodeSelectorRequirement:
+        """Convert to the corresponding Kubernetes model."""
+        return V1NodeSelectorRequirement(
+            key=self.key, operator=self.operator.value, values=self.values
+        )
+
+
+class NodeSelectorTerm(BaseModel):
+    """Term to match nodes."""
+
+    match_expressions: list[NodeSelectorRequirement] = Field(
+        [],
+        title="Rules for node labels",
+        description="Matching rules applied to node labels",
+    )
+
+    match_fields: list[NodeSelectorRequirement] = Field(
+        [],
+        title="Rules for node fields",
+        description="Matching rules applied to node fields",
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    def to_kubernetes(self) -> V1NodeSelectorTerm:
+        """Convert to the corresponding Kubernetes model."""
+        expressions = [e.to_kubernetes() for e in self.match_expressions]
+        fields = [e.to_kubernetes() for e in self.match_fields]
+        return V1NodeSelectorTerm(
+            match_expressions=expressions if expressions else None,
+            match_fields=fields if fields else None,
+        )
+
+
+class PreferredSchedulingTerm(BaseModel):
+    """Scheduling term with a weight, used to find preferred nodes."""
+
+    preference: NodeSelectorTerm = Field(
+        ..., title="Node selector", description="Selector term for a node"
+    )
+
+    weight: int = Field(
+        ...,
+        title="Weight",
+        description="Weight to assign to nodes matching this term",
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    def to_kubernetes(self) -> V1PreferredSchedulingTerm:
+        """Convert to the corresponding Kubernetes model."""
+        return V1PreferredSchedulingTerm(
+            preference=self.preference.to_kubernetes(), weight=self.weight
+        )
+
+
+class NodeSelector(BaseModel):
+    """Matching terms for nodes."""
+
+    node_selector_terms: list[NodeSelectorTerm] = Field(
+        [], title="Terms", description="Matching terms for nodes"
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    def to_kubernetes(self) -> V1NodeSelector:
+        """Convert to the corresponding Kubernetes model."""
+        return V1NodeSelector(
+            node_selector_terms=[
+                t.to_kubernetes() for t in self.node_selector_terms
+            ]
+        )
+
+
+class NodeAffinity(BaseModel):
+    """Node affinity rules."""
+
+    preferred: list[PreferredSchedulingTerm] = Field(
+        [],
+        title="Scheduling terms",
+        description=(
+            "Preference rules used for scheduling and ignored afterwards"
+        ),
+        alias="preferredDuringSchedulingIgnoredDuringExecution",
+    )
+
+    required: NodeSelector | None = Field(
+        None,
+        title="Node selectors",
+        description="Required node selection rules",
+        alias="requiredDuringSchedulingIgnoredDuringExecution",
+    )
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    def to_kubernetes(self) -> V1NodeAffinity:
+        """Convert to the corresponding Kubernetes model."""
+        preferred = None
+        if self.preferred:
+            preferred = [t.to_kubernetes() for t in self.preferred]
+        required = self.required.to_kubernetes() if self.required else None
+        return V1NodeAffinity(
+            preferred_during_scheduling_ignored_during_execution=preferred,
+            required_during_scheduling_ignored_during_execution=required,
+        )
+
+
+class LabelSelectorOperator(Enum):
+    """Match operations for label selectors."""
+
+    IN = "In"
+    NOT_IN = "NotIn"
+    EXISTS = "Exists"
+    DOES_NOT_EXIST = "DoesNotExist"
+
+
+class LabelSelectorRequirement(BaseModel):
+    """Single rule for label matching."""
+
+    key: str = Field(..., title="Key", description="Label key to match")
+
+    operator: LabelSelectorOperator = Field(
+        ..., title="Operator", description="Label match operator"
+    )
+
+    values: list[str] = Field(
+        [],
+        title="Matching values",
+        description=(
+            "For `In` and `NotIn`, matches any value in this list. For"
+            " `Exists` or `DoesNotExist`, must be empty."
+        ),
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    @model_validator(mode="after")
+    def _validate(self) -> Self:
+        match self.operator:
+            case LabelSelectorOperator.IN | LabelSelectorOperator.NOT_IN:
+                if len(self.values) < 1:
+                    raise ValueError("In and NotIn require a list of values")
+            case (
+                LabelSelectorOperator.EXISTS
+                | LabelSelectorOperator.DOES_NOT_EXIST
+            ):
+                if self.values:
+                    raise ValueError("Exists or DoesNotExist take no values")
+        return self
+
+    def to_kubernetes(self) -> V1LabelSelectorRequirement:
+        """Convert to the corresponding Kubernetes model."""
+        return V1LabelSelectorRequirement(
+            key=self.key, operator=self.operator.value, values=self.values
+        )
+
+
+class LabelSelector(BaseModel):
+    """Rule for matching labels of pods or namespaces.
+
+    All provided expressions must match. (In other words, they are combined
+    with and.)
+    """
+
+    match_expressions: list[LabelSelectorRequirement] = Field(
+        [],
+        title="Label match expressions",
+        description="Rules for matching labels",
+    )
+
+    match_labels: dict[str, str] = Field(
+        {},
+        title="Exact label matches",
+        description="Label keys and values that must be set",
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    def to_kubernetes(self) -> V1LabelSelector:
+        """Convert to the corresponding Kubernetes model."""
+        match_expressions = [e.to_kubernetes() for e in self.match_expressions]
+        return V1LabelSelector(
+            match_expressions=match_expressions if match_expressions else None,
+            match_labels=self.match_labels if self.match_labels else None,
+        )
+
+
+class PodAffinityTerm(BaseModel):
+    """Pod matching term for pod affinity."""
+
+    label_selector: LabelSelector | None = Field(
+        None, title="Pod label match", description="Match rules for pod labels"
+    )
+
+    namespace_selector: LabelSelector | None = Field(
+        None,
+        title="Namespace label match",
+        description="Match rules for namespace labels",
+    )
+
+    namespaces: list[str] = Field(
+        [],
+        title="Matching namespaces",
+        description=(
+            "List of namespaces to which this term applies. The term will"
+            " apply to the union of this list of namespaces and any namespaces"
+            " that match `namespaceSelector`, if given. If both are empty,"
+            " only the pod's namespace is matched."
+        ),
+    )
+
+    topology_key: str = Field(
+        ...,
+        title="Node topology label",
+        description=(
+            "Name of the node label that should match between nodes to"
+            " consider two pods to be scheduled on adjacent nodes, which in"
+            " turn is the definition of an affinity (and the opposite of an"
+            " anti-affinity)."
+        ),
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    def to_kubernetes(self) -> V1PodAffinityTerm:
+        """Convert to the corresponding Kubernetes model."""
+        label_selector = None
+        if self.label_selector:
+            label_selector = self.label_selector.to_kubernetes()
+        namespace_selector = None
+        if self.namespace_selector:
+            namespace_selector = self.namespace_selector.to_kubernetes()
+        return V1PodAffinityTerm(
+            label_selector=label_selector,
+            namespace_selector=namespace_selector,
+            namespaces=self.namespaces if self.namespaces else None,
+            topology_key=self.topology_key,
+        )
+
+
+class WeightedPodAffinityTerm(BaseModel):
+    """Pod matching term for pod affinity with an associated weight."""
+
+    pod_affinity_term: PodAffinityTerm = Field(
+        ..., title="Matching term", description="Pod affinity matching term"
+    )
+
+    weight: int = Field(
+        ...,
+        title="Associated weight",
+        description="Weight to associate with pods matching this term",
+        ge=1,
+        le=100,
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    def to_kubernetes(self) -> V1WeightedPodAffinityTerm:
+        """Convert to the corresponding Kubernetes model."""
+        return V1WeightedPodAffinityTerm(
+            pod_affinity_term=self.pod_affinity_term.to_kubernetes(),
+            weight=self.weight,
+        )
+
+
+class PodAffinity(BaseModel):
+    """Pod affinity rules."""
+
+    preferred: list[WeightedPodAffinityTerm] = Field(
+        [],
+        title="Scheduling terms",
+        description=(
+            "Preference rules used for scheduling and ignored afterwards"
+        ),
+        alias="preferredDuringSchedulingIgnoredDuringExecution",
+    )
+
+    required: list[PodAffinityTerm] = Field(
+        [],
+        title="Node selectors",
+        description="Required node selection rules",
+        alias="requiredDuringSchedulingIgnoredDuringExecution",
+    )
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    def to_kubernetes(self) -> V1PodAffinity:
+        """Convert to the corresponding Kubernetes model."""
+        preferred = None
+        if self.preferred:
+            preferred = [t.to_kubernetes() for t in self.preferred]
+        required = None
+        if self.required:
+            required = [t.to_kubernetes() for t in self.required]
+        return V1PodAntiAffinity(
+            preferred_during_scheduling_ignored_during_execution=preferred,
+            required_during_scheduling_ignored_during_execution=required,
+        )
+
+
+class PodAntiAffinity(PodAffinity):
+    """Pod anti-affinity rules.
+
+    Notes
+    -----
+    This model is structurally identical to `PodAffinity`, but it has to
+    convert to a different Kubernetes model.
+    """
+
+    def to_kubernetes(self) -> V1PodAntiAffinity:
+        """Convert to the corresponding Kubernetes model."""
+        preferred = None
+        if self.preferred:
+            preferred = [t.to_kubernetes() for t in self.preferred]
+        required = None
+        if self.required:
+            required = [t.to_kubernetes() for t in self.required]
+        return V1PodAntiAffinity(
+            preferred_during_scheduling_ignored_during_execution=preferred,
+            required_during_scheduling_ignored_during_execution=required,
+        )
+
+
+class Affinity(BaseModel):
+    """Pod affinity rules."""
+
+    node_affinity: NodeAffinity | None = Field(
+        None,
+        title="Node affinity rules",
+    )
+
+    pod_affinity: PodAffinity | None = Field(None, title="Pod affinity rules")
+
+    pod_anti_affinity: PodAntiAffinity | None = Field(
+        None, title="Pod anti-affinity rules"
+    )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    def to_kubernetes(self) -> V1Affinity:
+        """Convert to the corresponding Kubernetes model."""
+        node_affinity = None
+        if self.node_affinity:
+            node_affinity = self.node_affinity.to_kubernetes()
+        pod_affinity = None
+        if self.pod_affinity:
+            pod_affinity = self.pod_affinity.to_kubernetes()
+        pod_anti_affinity = None
+        if self.pod_anti_affinity:
+            pod_anti_affinity = self.pod_anti_affinity.to_kubernetes()
+        return V1Affinity(
+            node_affinity=node_affinity,
+            pod_affinity=pod_affinity,
+            pod_anti_affinity=pod_anti_affinity,
+        )
+
+
 class PodPhase(str, Enum):
     """One of the valid phases reported in the status section of a Pod."""
 
@@ -52,6 +562,17 @@ class PodPhase(str, Enum):
     SUCCEEDED = "Succeeded"
     FAILED = "Failed"
     UNKNOWN = "Unknown"
+
+
+@dataclass
+class PodChange:
+    """Represents a change (not creation or deletion) of a pod."""
+
+    phase: PodPhase
+    """New phase of the pod."""
+
+    pod: V1Pod
+    """Full object for the pod that changed."""
 
 
 class PropagationPolicy(Enum):
@@ -139,6 +660,10 @@ class Toleration(BaseModel):
         ),
     )
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
     @model_validator(mode="after")
     def _validate(self) -> Self:
         if self.operator == TolerationOperator.EXISTS:
@@ -176,71 +701,3 @@ class WatchEventType(Enum):
     ADDED = "ADDED"
     MODIFIED = "MODIFIED"
     DELETED = "DELETED"
-
-
-@dataclass
-class KubernetesNodeImage:
-    """A cached image on a Kubernetes node.
-
-    A cached image has one or more Docker references associated with it,
-    reflecting the references by which it was retrieved.
-
-    The references will generally be in one of two formats:
-
-    - :samp:`{registry}/{repository}@{digest}`
-    - :samp:`{registry}/{repository}:{tag}`
-
-    Most entries will have both, but if the image was pulled by digest it's
-    possible only the first will be present.
-    """
-
-    references: list[str]
-    """The Docker references for the image."""
-
-    size: int
-    """Size of the image in bytes."""
-
-    @classmethod
-    def from_container_image(cls, image: V1ContainerImage) -> Self:
-        """Create from a Kubernetes API object.
-
-        Parameters
-        ----------
-        image
-            Kubernetes API object.
-
-        Returns
-        -------
-        KubernetesNodeImage
-            The corresponding object.
-        """
-        return cls(references=image.names, size=image.size_bytes)
-
-    @property
-    def digest(self) -> str | None:
-        """Determine the image digest, if possible.
-
-        Returns
-        -------
-        str or None
-            The digest for the image if found, or `None` if not.
-        """
-        for reference in self.references:
-            try:
-                parsed_reference = DockerReference.from_str(reference)
-            except ValueError:
-                continue
-            if parsed_reference.digest is not None:
-                return parsed_reference.digest
-        return None
-
-
-@dataclass
-class PodChange:
-    """Represents a change (not creation or deletion) of a pod."""
-
-    phase: PodPhase
-    """New phase of the pod."""
-
-    pod: V1Pod
-    """Full object for the pod that changed."""

@@ -30,7 +30,12 @@ from .constants import (
     RESERVED_ENV,
     RESERVED_PATHS,
 )
-from .models.domain.kubernetes import PullPolicy, Toleration, VolumeAccessMode
+from .models.domain.kubernetes import (
+    Affinity,
+    PullPolicy,
+    Toleration,
+    VolumeAccessMode,
+)
 from .models.v1.lab import LabResources, LabSize, ResourceQuantity
 from .models.v1.prepuller_config import PrepullerConfig
 from .units import memory_to_bytes
@@ -304,6 +309,12 @@ class EnabledFileserverConfig(FileserverConfig):
     """Configuration for enabled user file servers."""
 
     enabled: Literal[True]
+
+    affinity: Affinity | None = Field(
+        None,
+        title="Affinity rules",
+        description="Node and pod affinity rules for file server pods",
+    )
 
     application: str | None = Field(
         None,
@@ -585,6 +596,12 @@ class LabConfig(BaseModel):
         description=(
             "An Argo CD application under which lab objects should be shown"
         ),
+    )
+
+    affinity: Affinity | None = Field(
+        None,
+        title="Affinity rules",
+        description="Node and pod affinity rules for lab pods",
     )
 
     delete_timeout: timedelta = Field(

@@ -261,6 +261,9 @@ class FileserverBuilder:
         metadata = self._build_metadata(user.username)
         if self._config.extra_annotations:
             metadata.annotations.update(self._config.extra_annotations)
+        affinity = None
+        if self._config.affinity:
+            affinity = self._config.affinity.to_kubernetes()
         node_selector = None
         if self._config.node_selector:
             node_selector = self._config.node_selector.copy()
@@ -278,6 +281,7 @@ class FileserverBuilder:
                         annotations=self._config.extra_annotations.copy(),
                     ),
                     spec=V1PodSpec(
+                        affinity=affinity,
                         containers=[container],
                         node_selector=node_selector,
                         restart_policy="Never",

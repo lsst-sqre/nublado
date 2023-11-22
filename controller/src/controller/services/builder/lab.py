@@ -526,6 +526,9 @@ class LabBuilder:
         # Build the pod object itself.
         containers = self._build_pod_containers(user, mounts, resources, image)
         init_containers = self._build_pod_init_containers(user, resources)
+        affinity = None
+        if self._config.affinity:
+            affinity = self._config.affinity.to_kubernetes()
         node_selector = None
         if self._config.node_selector:
             node_selector = self._config.node_selector.copy()
@@ -533,6 +536,7 @@ class LabBuilder:
         return V1Pod(
             metadata=metadata,
             spec=V1PodSpec(
+                affinity=affinity,
                 containers=containers,
                 image_pull_secrets=pull_secrets,
                 init_containers=init_containers,
