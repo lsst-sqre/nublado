@@ -211,6 +211,42 @@
       "namespace": "userlabs-rachel"
     },
     "spec": {
+      "affinity": {
+        "nodeAffinity": {
+          "preferredDuringSchedulingIgnoredDuringExecution": [
+            {
+              "preference": {
+                "matchExpressions": [
+                  {
+                    "key": "another-node-label-key",
+                    "operator": "In",
+                    "values": [
+                      "another-node-label-value"
+                    ]
+                  }
+                ]
+              },
+              "weight": 1
+            }
+          ],
+          "requiredDuringSchedulingIgnoredDuringExecution": {
+            "nodeSelectorTerms": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "topology.kubernetes.io/zone",
+                    "operator": "In",
+                    "values": [
+                      "antarctica-east1",
+                      "antarctica-west1"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
       "containers": [
         {
           "args": [
@@ -439,6 +475,7 @@
           "effect": "NoSchedule",
           "key": "some-toleration",
           "operator": "Equal",
+          "tolerationSeconds": 60,
           "value": "some-value"
         },
         {
