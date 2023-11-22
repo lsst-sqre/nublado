@@ -83,6 +83,7 @@ To run all Nublado tests, run:
 
 This tests the library in the same way that the CI workflow does.
 You may wish to run the individual sessions (``lint``, ``typing``, ``typing-hub``, ``test``, ``test-hub``, and ``docs``) when iterating on a specific change.
+Consider using the ``-R`` flag when you haven't updated dependencies, as discussed below.
 
 mypy and pytest tests are divided into two nox sessions: one for the Nublado controller (the default) and one for JupyterHub and its plugins.
 The JupyterHub plugins have to support different versions of Python and have different frozen dependencies, so must be tested separately.
