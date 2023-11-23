@@ -2,10 +2,21 @@
 title = "Nublado"
 copyright = "2022-2023 Association of Universities for Research in Astronomy, Inc. (AURA)"
 
+[project.openapi]
+openapi_path = "_static/openapi.json"
+doc_path = "api"
+
+[project.openapi.generator]
+function = "controller.main:create_openapi"
+
 [project.python]
 package = "controller"
 
 [sphinx]
+disable_primary_sidebars = [
+    "**/index",
+    "changelog",
+]
 nitpicky = true
 nitpick_ignore = [
     # Ignore missing cross-references for modules that don't provide
