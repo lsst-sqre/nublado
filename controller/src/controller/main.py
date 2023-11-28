@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from importlib.metadata import metadata, version
 
 import structlog
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 from safir.dependencies.http_client import http_client_dependency
 from safir.fastapi import ClientRequestError, client_request_error_handler
 from safir.kubernetes import initialize_kubernetes
@@ -31,13 +33,21 @@ from .handlers import (
 __all__ = ["create_app"]
 
 
-def create_app() -> FastAPI:
+def create_app(*, load_config: bool = True) -> FastAPI:
     """Create the FastAPI application.
 
     This is in a function rather than using a global variable (as is more
     typical for FastAPI) because we want to defer configuration loading until
     after the test suite has a chance to override the path to the
     configuration file.
+
+    Parameters
+    ----------
+    load_config
+        If set to `False`, do not try to load the configuration and skip any
+        setup that requires the configuration. This is used primarily for
+        OpenAPI schema generation, where constructing the app is required but
+        the configuration won't matter.
     """
 
     @asynccontextmanager
@@ -61,43 +71,47 @@ def create_app() -> FastAPI:
         AppStatus.should_exit_event = None
 
     # Configure logging.
-    config = config_dependency.config
-    configure_logging(
-        name="controller", profile=config.profile, log_level=config.log_level
-    )
-    configure_uvicorn_logging(config.log_level)
+    if load_config:
+        config = config_dependency.config
+        configure_logging(
+            name="controller",
+            profile=config.profile,
+            log_level=config.log_level,
+        )
+        configure_uvicorn_logging(config.log_level)
 
     # Create the application object.
+    path_prefix = config.path_prefix if load_config else "/nublado"
+    files_prefix = config.fileserver.path_prefix if load_config else "/files"
     app = FastAPI(
-        title=config.name,
+        title=config.name if load_config else "Nublado",
         description=metadata("controller")["Summary"],
         version=version("controller"),
-        openapi_url=f"{config.path_prefix}/openapi.json",
-        docs_url=f"{config.path_prefix}/docs",
-        redoc_url=f"{config.path_prefix}/redoc",
+        openapi_url=f"{path_prefix}/openapi.json",
+        docs_url=f"{path_prefix}/docs",
+        redoc_url=f"{path_prefix}/redoc",
         lifespan=lifespan,
     )
 
     # Attach the main controller routers.
     app.include_router(index.internal_router)
-    app.include_router(index.external_router, prefix=config.path_prefix)
-    app.include_router(form.router, prefix=config.path_prefix)
-    app.include_router(labs.router, prefix=config.path_prefix)
-    app.include_router(prepuller.router, prefix=config.path_prefix)
-    app.include_router(user_status.router, prefix=config.path_prefix)
-    app.include_router(fileserver.router, prefix=config.path_prefix)
-    app.include_router(fileserver.router, prefix=config.path_prefix)
+    app.include_router(index.external_router, prefix=path_prefix)
+    app.include_router(form.router, prefix=path_prefix)
+    app.include_router(labs.router, prefix=path_prefix)
+    app.include_router(prepuller.router, prefix=path_prefix)
+    app.include_router(user_status.router, prefix=path_prefix)
+    app.include_router(fileserver.router, prefix=path_prefix)
 
     # Attach the separate router for user file server creation.
-    app.include_router(files.router, prefix=config.fileserver.path_prefix)
+    app.include_router(files.router, prefix=files_prefix)
 
     # Register middleware.
     app.add_middleware(XForwardedMiddleware)
 
     # Configure Slack alerts.
-    logger = structlog.get_logger(__name__)
-    if config.slack_webhook:
+    if load_config and config.slack_webhook:
         webhook = config.slack_webhook
+        logger = structlog.get_logger(__name__)
         SlackRouteErrorHandler.initialize(webhook, config.name, logger)
         logger.debug("Initialized Slack webhook")
 
@@ -105,3 +119,21 @@ def create_app() -> FastAPI:
     app.exception_handler(ClientRequestError)(client_request_error_handler)
 
     return app
+
+
+def create_openapi() -> str:
+    """Generate the OpenAPI schema.
+
+    Returns
+    -------
+    str
+        OpenAPI schema as serialized JSON.
+    """
+    app = create_app(load_config=False)
+    schema = get_openapi(
+        title=app.title,
+        description=app.description,
+        version=app.version,
+        routes=app.routes,
+    )
+    return json.dumps(schema)
