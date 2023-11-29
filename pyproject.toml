@@ -48,7 +48,7 @@ warn_untyped_fields = true
 # Reference for rules: https://beta.ruff.rs/docs/rules/
 [tool.ruff]
 exclude = [
-    "docs/**",
+    "docs/conf.py",
 ]
 line-length = 79
 ignore = [
@@ -120,6 +120,9 @@ target-version = "py311"
 ]
 "controller/src/controller/services/**" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
+]
+"docs/**" = [
+    "INP001",  # Python files are embedded diagrams
 ]
 "noxfile.py" = [
     "T201",    # print makes sense as output from nox rules
