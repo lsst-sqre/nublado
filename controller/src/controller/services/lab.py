@@ -735,6 +735,7 @@ class LabManager:
         lab.events.clear()
         msg = f"Monitoring in-progress lab creation for {username}"
         lab.events.put(Event(type=EventType.INFO, message=msg, progress=1))
+        self._logger.info(msg, user=username)
         timeout = Timeout(
             "In-progress lab spawn", self._config.spawn_timeout, username
         )
@@ -1020,7 +1021,7 @@ class LabManager:
             pull_secret=pull_secret,
         )
         internal_url = self._builder.build_internal_url(username, spec.env)
-        self._logger.info("Creating new lab")
+        self._logger.info("Creating new lab", user=username)
         await self._storage.create(objects, timeout)
         msg = "Created Kubernetes objects for user lab"
         events.put(Event(type=EventType.INFO, message=msg, progress=30))
@@ -1069,7 +1070,7 @@ class LabManager:
             with contextlib.suppress(asyncio.CancelledError):
                 await watch_task
         state.status = LabStatus.RUNNING
-        self._logger.info("Lab created", username=username)
+        self._logger.info("Lab created", user=username)
         msg = f"Lab Kubernetes pod started for {username}"
         events.put(Event(type=EventType.COMPLETE, message=msg))
 
@@ -1181,9 +1182,11 @@ class _LabMonitor:
             if not self._operation:
                 return
             if not self._operation.task.done():
-                msg = "Operation aborted"
+                msg = "Operation cancelled"
                 event = Event(type=EventType.FAILED, message=msg)
                 self._operation.events.put(event)
+                operation = self._operation.operation.value
+                self._logger.warning(f"Cancelling operation {operation}")
                 self._operation.task.cancel("Shutting down")
             try:
                 await self._operation.task
