@@ -1,0 +1,23 @@
+sequenceDiagram
+  browser->>+hub: GET /nb/hub/spawn
+  hub->>+controller: GET labs/<username>
+  controller-->>-hub: 404
+  hub->>+controller: GET lab-form/<username>
+  controller-->>-hub: partial spawn page
+  hub-->>-browser: spawn page
+
+  browser->>+hub: POST /nb/hub/spawn
+  hub->>+controller: POST labs/<username>/spawn
+  controller-->>hub: 201
+  controller->>+kubernetes: create resources
+  controller-)kubernetes: watch events
+  controller-)kubernetes: watch pod status
+  hub->>controller: GET labs/<username>/events
+  controller--)hub: spawning events
+  kubernetes->lab: create lab pod
+  kubernetes--)-controller: lab started
+  controller-->>-hub: 200
+
+  hub->>+lab: wait for lab start
+  lab-->>-hub: lab started
+  hub-->>-browser: redirect to lab
