@@ -18,10 +18,10 @@ For the official Rubin images, see sciplat-lab_.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Usage
+   :caption: Administration
 
-   overview
-   configuration/index
+   about/index
+   admin/index
    api
 
 .. toctree::

@@ -17,6 +17,9 @@ disable_primary_sidebars = [
     "**/index",
     "changelog",
 ]
+extensions = [
+    "sphinx_diagrams",
+]
 nitpicky = true
 nitpick_ignore = [
     # Ignore missing cross-references for modules that don't provide

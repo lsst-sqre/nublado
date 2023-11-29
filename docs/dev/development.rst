@@ -130,6 +130,8 @@ To check the documentation for broken links, run:
 
    nox -s docs-linkcheck
 
+Dependencies required for the documentation build should be added as development dependencies of the Nublado controller, in :file:`controller/requirements/dev.in`.
+
 .. _dev-change-log:
 
 Updating the change log

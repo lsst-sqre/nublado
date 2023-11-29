@@ -1,6 +1,6 @@
-###############
-Developer guide
-###############
+##########
+Developers
+##########
 
 This part of Nublado's documentation contains some supplemental information primarily of interest to people doing development on Nublado itself.
 

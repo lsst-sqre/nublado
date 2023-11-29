@@ -1,5 +1,0 @@
-#####################
-Architecture overview
-#####################
-
-Placeholder.
