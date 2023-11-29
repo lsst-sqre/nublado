@@ -1,0 +1,17 @@
+sequenceDiagram
+  box User
+    participant browser
+    participant webdav
+  end
+  participant controller
+  participant kubernetes
+  participant fileserver
+  browser->>+controller: GET /files
+  controller->>+kubernetes: create resources
+  controller-)kubernetes: watch pod status
+  kubernetes->fileserver: create pod
+  kubernetes--)-controller: pod started
+  controller-->>-browser: 200
+
+  webdav->>+fileserver: WebDAV request
+  fileserver-->>-webdav: WebDAV response

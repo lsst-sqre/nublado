@@ -21,7 +21,7 @@ requires-python = ">=3.10"
 dependencies = [
     "httpx<0.26",
     "httpx-sse<0.4",
-    "jupyterhub<4",
+    "jupyterhub<5",
     "PyYAML<7",
     "traitlets<6",
 ]

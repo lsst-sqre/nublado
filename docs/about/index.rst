@@ -28,6 +28,9 @@ The controller is also responsible for constructing the spawner form for the Jup
 To supplement the JupyterLab interface, which only allows simple file upload and download into the user's home file space, the Nublado controller can optionally also create WebDAV file servers for the user that mount the same file systems that user lab pods mount.
 This allows users to use the WebDAV clients built into most operating systems to more readily copy files to and from the file space underlying their lab.
 
+Since the lab images used by Rubin Observatory are quite large and pulling an image can therefore take a considerable amount of time, the Nublado controller prepulls a configured set of images on every cluster node.
+This set of images is the same as those available as selection (not dropdown) options in the user-facing spawner form.
+
 JupyterHub, its associated proxy, and its configuration and supporting Kubernetes objects other than its secret and ingress are installed using the `Zero to JupyterHub`_ Helm chart as a subchart.
 The Nublado controller, its configuration, the JupyterHub secret and configuration, and the ingress for the proxy are managed directly by Phalanx.
 
@@ -64,3 +67,31 @@ Here is more detail showing a user's file server, omitting the other components:
 .. diagrams:: fileserver.py
 
 Not shown here is that the ``Ingress`` resource is created with a ``GafaelfawrIngress`` custom resource so that access to the file server is protected by Gafaelfawr, similar to the JupyterHub ``Ingress``.
+
+Sequence diagrams
+=================
+
+Lab spawning
+------------
+
+Here is a sequence diagram showing the operations involved in spawning a user lab:
+
+.. mermaid:: lab-spawn.mmd
+   :caption: Spawn lab
+   :zoom:
+
+When the user exits the lab, an extension built into the lab images for the Rubin Science Platform tells JupyterHub to delete the lab.
+JupyterHub then asks the controller to delete the lab, which then asks Kubernetes to delete the lab and the namespace.
+
+File server creation
+--------------------
+
+Here is a sequence diagram for creating a user file server:
+
+.. mermaid:: fileserver-create.mmd
+   :caption: Create file server
+   :zoom:
+
+File servers last for as long as they are used.
+After a configurable idle period, the file server exits.
+The controller watches for pod exit and deletes the associated file server resources.
