@@ -34,20 +34,30 @@ The Nublado controller, its configuration, the JupyterHub secret and configurati
 Component diagrams
 ==================
 
+Overview
+--------
+
 Here is an architectural diagram showing the high-level Nublado components.
-Solid lines show the path of API communication.
 
 .. diagrams:: architecture.py
 
+Solid lines show the path of API communication.
 Dashed lines show components that are created by other components.
+
 This diagram collapses the user's lab and file server into a single box to show their relationships with other components more clearly.
 Not shown here is that the ``Ingress`` resource is created with a ``GafaelfawrIngress`` custom resource so that access to the file server is protected by Gafaelfawr authentication and access control.
+
+User lab
+--------
 
 Here is more detail showing a user's lab environment, omitting JupyterHub and the Nublado controller.
 
 .. diagrams:: lab.py
 
 Storage configuration will vary by environment and may involve any of NFS, host file systems on nodes, or ``PersistentVolumeClaim`` and ``PersistentVolume`` pairs.
+
+User file server
+----------------
 
 Here is more detail showing a user's file server, omitting the other components:
 
