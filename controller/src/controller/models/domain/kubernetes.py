@@ -688,9 +688,16 @@ class Toleration(BaseModel):
 
 
 class VolumeAccessMode(str, Enum):
-    """Access mode for a persistent volume."""
+    """Access mode for a persistent volume.
 
-    READ_WRITE_ONCE = "ReadWriteOnce"
+    The access modes ``ReadWriteOnce`` and ``ReadWriteOncePod`` are valid
+    access modes in Kubernetes but are intentionally not listed here because
+    they cannot work with user labs or file servers and therefore should be
+    rejected by configuration parsing. This should change in the future if
+    access modes are used in other contexts where those access modes may make
+    sense.
+    """
+
     READ_ONLY_MANY = "ReadOnlyMany"
     READ_WRITE_MANY = "ReadWriteMany"
 
