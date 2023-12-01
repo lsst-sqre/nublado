@@ -52,9 +52,9 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
     This class provides a wrapper around any Kubernetes object type that
     implements create, read, list, and delete with logging, exception
     conversion, and waiting for deletion to complete. It is separate from
-    `KubernetesObjectCreator` primarily to avoid having to implement the list
-    and delete methods in the mock for every object type we manage, even if we
-    never call list and delete.
+    `~controller.storage.kubernetes.creator.KubernetesObjectCreator` primarily
+    to avoid having to implement the list and delete methods in the mock for
+    every object type we manage, even if we never call list and delete.
 
     This class is not meant to be used directly by code outside of the
     Kubernetes storage layer. Use one of the kind-specific watcher classes

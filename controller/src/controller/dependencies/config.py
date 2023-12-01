@@ -15,8 +15,8 @@ class ConfigDependency:
     """Dependency to manage a cached Nublado controller configuration.
 
     The controller configuration is read on first request, cached, and
-    returned to all dependency callers unless `set_path` is called to change
-    the configuration.
+    returned to all dependency callers unless `~ConfigDependency.set_path` is
+    called to change the configuration.
 
     Parameters
     ----------
@@ -33,13 +33,7 @@ class ConfigDependency:
 
     @property
     def config(self) -> Config:
-        """Load configuration if needed and return it.
-
-        Returns
-        -------
-        Config
-            Controller configuration.
-        """
+        """Load configuration if needed and return it."""
         if self._config is None:
             self._config = Config.from_file(self._path)
         return self._config
@@ -62,3 +56,4 @@ class ConfigDependency:
 
 
 config_dependency = ConfigDependency()
+"""The dependency that will return the global configuration."""

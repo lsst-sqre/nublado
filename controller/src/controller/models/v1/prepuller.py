@@ -9,6 +9,16 @@ from pydantic import BaseModel, Field
 from ..domain.rspimage import RSPImage
 from .prepuller_config import PrepullerConfig
 
+__all__ = [
+    "Image",
+    "Node",
+    "NodeImage",
+    "PrepulledImage",
+    "PrepullerImageStatus",
+    "PrepullerStatus",
+    "SpawnerImages",
+]
+
 
 class Image(BaseModel):
     """A single Docker image that is available or prepulled."""

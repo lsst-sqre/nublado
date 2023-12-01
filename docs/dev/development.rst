@@ -124,13 +124,22 @@ Documentation is built with Sphinx_:
 
 The build documentation is located in the :file:`docs/_build/html` directory.
 
+Additional dependencies required for the documentation build should be added as development dependencies of the Nublado controller, in :file:`controller/requirements/dev.in`.
+
+Documentation builds are incremental, and generate and use cached descriptions of the internal Python APIs.
+If you see errors in building the Python API documentation or have problems with changes to the documentation (particularly diagrams) not showing up, try a clean documentation build with:
+
+.. prompt:: bash
+
+   nox -s docs-clean
+
+This will be slower, but it will ensure that the documentation build doesn't rely on any cached data.
+
 To check the documentation for broken links, run:
 
 .. code-block:: sh
 
    nox -s docs-linkcheck
-
-Dependencies required for the documentation build should be added as development dependencies of the Nublado controller, in :file:`controller/requirements/dev.in`.
 
 .. _dev-change-log:
 

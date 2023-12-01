@@ -20,7 +20,6 @@ __all__ = [
     "LabSpecification",
     "LabStatus",
     "ResourceQuantity",
-    "UserGroup",
     "UserInfo",
     "UserLabState",
     "UserOptions",
@@ -490,7 +489,7 @@ class UserLabState(LabSpecification):
     """Current state of the user's lab.
 
     This model is returned by the :samp:`/spawner/v1/labs/{username}` and
-    `/spawner/v1/user-status` routes.
+    ``/spawner/v1/user-status`` routes.
     """
 
     user: UserInfo = Field(

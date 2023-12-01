@@ -47,7 +47,7 @@ class PrepullerBuilder:
 
         Returns
         -------
-        kubernetes_asyncio.client.V1Pod
+        kubernetes_asyncio.client.models.V1Pod
             Kubernetes ``Pod`` object to create.
         """
         pull_secrets = None

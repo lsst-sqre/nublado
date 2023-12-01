@@ -37,9 +37,11 @@ __all__ = [
     "LabDeletionError",
     "LabExistsError",
     "MissingObjectError",
+    "MissingSecretError",
     "NoOperationError",
     "NotConfiguredError",
     "OperationConflictError",
+    "PermissionDeniedError",
     "UnknownDockerImageError",
     "UnknownUserError",
 ]
@@ -158,7 +160,7 @@ class ControllerTimeoutError(SlackException):
 
         Returns
         -------
-        SlackMessage
+        safir.slack.blockkit.SlackMessage
             Slack message suitable for posting with
             `~safir.slack.webhook.SlackClient`.
         """
@@ -210,7 +212,7 @@ class DuplicateObjectError(SlackException):
 
         Returns
         -------
-        SlackMessage
+        safir.slack.blockkit.SlackMessage
             Slack message suitable for posting as an alert.
         """
         message = super().to_slack()
@@ -256,7 +258,7 @@ class GafaelfawrParseError(SlackException):
 
         Returns
         -------
-        SlackMessage
+        safir.slack.blockkit.SlackMessage
             Slack message suitable for posting as an alert.
         """
         message = super().to_slack()
@@ -363,7 +365,7 @@ class KubernetesError(SlackException):
 
         Returns
         -------
-        SlackMessage
+        safir.slack.blockkit.SlackMessage
             Slack message suitable for posting as an alert.
         """
         message = super().to_slack()
@@ -461,7 +463,7 @@ class MissingObjectError(SlackException):
 
         Returns
         -------
-        SlackMessage
+        safir.slack.blockkit.SlackMessage
             Slack message suitable for posting as an alert.
         """
         message = super().to_slack()

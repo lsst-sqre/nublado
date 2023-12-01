@@ -41,7 +41,7 @@ class Event(BaseModel):
     """One lab operation event for a user.
 
     This model is not directly returned by any handler. Instead, it is
-    converted to a server-sent event via its `to_sse` method.
+    converted to a server-sent event via its ``to_sse`` method.
     """
 
     type: EventType = Field(..., title="Type", description="Type of the event")
@@ -73,7 +73,7 @@ class Event(BaseModel):
 
         Returns
         -------
-        ServerSentEvent
+        sse_starlette.ServerSentEvent
             Converted form of the event.
         """
         data: dict[str, str | int] = {"message": self.message}

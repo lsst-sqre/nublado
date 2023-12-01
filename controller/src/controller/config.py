@@ -194,7 +194,7 @@ class PVCVolumeSource(BaseVolumeSource):
 
         Returns
         -------
-        kubernetes_asyncio.client.V1PersistentVolumeClaimSpec
+        kubernetes_asyncio.client.models.V1PersistentVolumeClaimSpec
             Corresponding persistente volume claim spec.
         """
         return V1PersistentVolumeClaimSpec(
@@ -278,7 +278,7 @@ class FileserverConfig(BaseModel):
     server is enabled and a few settings with defaults that are referenced
     even if the file server is disabled (mostly to make code simpler),
     allowing code to determine whether the configuration object is actually
-    `FileserverConfigEnabled`.
+    `EnabledFileserverConfig`.
     """
 
     enabled: bool = Field(

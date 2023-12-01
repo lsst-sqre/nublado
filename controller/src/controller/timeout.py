@@ -84,8 +84,8 @@ class Timeout:
 
         Returns
         -------
-        timedelta
-            Time remaining in the timeout.
+        float
+            Time remaining in the timeout in seconds.
 
         Raises
         ------

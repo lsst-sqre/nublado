@@ -138,7 +138,7 @@ class GARSourceConfig(BaseModel):
 class PrepullerConfig(BaseModel):
     """Configuration for the prepuller.
 
-    This model is used as both the model for the `images` key in the Nublado
+    This model is used as both the model for the ``images`` key in the Nublado
     controller configuration and as a component of the model returned by the
     ``/spawner/v1/prepulls`` route.
     """

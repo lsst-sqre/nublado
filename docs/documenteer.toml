@@ -19,6 +19,7 @@ disable_primary_sidebars = [
 ]
 extensions = [
     "sphinx_diagrams",
+    "sphinxcontrib.autodoc_pydantic",
 ]
 nitpicky = true
 nitpick_ignore = [
@@ -34,19 +35,22 @@ nitpick_ignore = [
     ["py:class", "fastapi.params.Depends"],
     ["py:class", "fastapi.routing.APIRoute"],
     ["py:class", "httpx.AsyncClient"],
+    ["py:class", "httpx.HTTPError"],
+    ["py:class", "kubernetes_asyncio.client.api_client.ApiClient"],
+    ["py:class", "kubernetes_asyncio.client.exceptions.ApiException"],
+    ["py:class", "pydantic.main.BaseModel"],
+    ["py:class", "pydantic_core._pydantic_core.ValidationError"],
+    ["py:class", "pydantic_settings.main.BaseSettings"],
+    ["py:class", "sse_starlette.ServerSentEvent"],
+    ["py:class", "starlette.requests.Request"],
+    ["py:class", "starlette.responses.Response"],
+    ["py:class", "starlette.routing.Route"],
+    ["py:class", "starlette.routing.BaseRoute"],
     ["py:exc", "fastapi.HTTPException"],
     ["py:exc", "fastapi.exceptions.RequestValidationError"],
     ["py:exc", "httpx.HTTPError"],
     ["py:obj", "fastapi.routing.APIRoute"],
     ["py:obj", "httpx.AsyncClient"],
-    ["py:class", "kubernetes_asyncio.client.api_client.ApiClient"],
-    ["py:class", "pydantic.env_settings.BaseSettings"],
-    ["py:class", "pydantic.error_wrappers.ValidationError"],
-    ["py:class", "pydantic.main.BaseModel"],
-    ["py:class", "starlette.requests.Request"],
-    ["py:class", "starlette.responses.Response"],
-    ["py:class", "starlette.routing.Route"],
-    ["py:class", "starlette.routing.BaseRoute"],
     ["py:exc", "starlette.exceptions.HTTPException"],
     # traitlets does provide intersphinx, but the documentation generates some
     # reference to this undocumented type.
@@ -54,6 +58,8 @@ nitpick_ignore = [
 ]
 nitpick_ignore_regex = [
     ["py:class", "kubernetes_asyncio\\.client\\.models\\..*"],
+    # Bug in autodoc_pydantic.
+    ["py:obj", ".*\\.all fields"],
 ]
 rst_epilog_file = "_rst_epilog.rst"
 python_api_dir = "dev/api/contents"
@@ -62,6 +68,7 @@ python_api_dir = "dev/api/contents"
 jupyerhub = "https://jupyterhub.readthedocs.io/en/stable/"
 python = "https://docs.python.org/3/"
 safir = "https://safir.lsst.io/"
+semver = "https://python-semver.readthedocs.io/en/stable/"
 structlog = "https://www.structlog.org/en/stable/"
 tornado = "https://www.tornadoweb.org/en/stable/"
 traitlets = "https://traitlets.readthedocs.io/en/stable/"

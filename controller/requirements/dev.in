@@ -21,5 +21,6 @@ respx
 types-pyyaml
 
 # Documentation
+autodoc_pydantic
 documenteer[guide]>=1.0.0a7
 sphinx-diagrams
