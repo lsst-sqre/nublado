@@ -1,4 +1,4 @@
-"""Spawner class that uses a REST API to a separate Kubernetes service."""
+"""Spawner class that uses the Nublado controller to manage labs."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ T = TypeVar("T")
 
 __all__ = [
     "LabStatus",
-    "RSPRestSpawner",
+    "NubladoSpawner",
 ]
 
 _CLIENT: AsyncClient | None = None
@@ -35,13 +35,13 @@ _CLIENT: AsyncClient | None = None
 
 
 def _convert_exception(
-    f: Callable[Concatenate[RSPRestSpawner, P], Coroutine[None, None, T]]
-) -> Callable[Concatenate[RSPRestSpawner, P], Coroutine[None, None, T]]:
+    f: Callable[Concatenate[NubladoSpawner, P], Coroutine[None, None, T]]
+) -> Callable[Concatenate[NubladoSpawner, P], Coroutine[None, None, T]]:
     """Convert ``httpx`` exceptions to `ControllerWebError`."""
 
     @wraps(f)
     async def wrapper(
-        spawner: RSPRestSpawner, *args: P.args, **kwargs: P.kwargs
+        spawner: NubladoSpawner, *args: P.args, **kwargs: P.kwargs
     ) -> T:
         try:
             return await f(spawner, *args, **kwargs)
@@ -56,7 +56,7 @@ def _convert_exception(
     return wrapper
 
 
-class RSPRestSpawner(Spawner):
+class NubladoSpawner(Spawner):
     """Spawner class that sends requests to the RSP lab controller.
 
     Rather than having JupyterHub spawn labs directly and therefore need
@@ -190,7 +190,7 @@ class RSPRestSpawner(Spawner):
         InvalidAuthStateError
             Raised if there is no ``token`` attribute in the user's
             authentication state. This should always be provided by
-            `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
+            `rubin.nublado.authenticator.GafaelfawrAuthenticator`.
         """
         r = await self._client.get(
             self._controller_url("lab-form", self.user.name),
@@ -257,7 +257,7 @@ class RSPRestSpawner(Spawner):
 
         Yields
         ------
-        dict of str to str or int
+        dict
             Dictionary representing the event with fields ``progress``,
             containing an integer completion percentage, and ``message``,
             containing a human-readable description of the event.
@@ -351,11 +351,11 @@ class RSPRestSpawner(Spawner):
         returned, JupyterHub only allows a much shorter timeout for the lab to
         fully start.
 
-        In addition, JupyterHub handles exceptions from `start` and correctly
+        Also, JupyterHub handles exceptions from `start` and correctly
         recognizes that the pod has failed to start, but exceptions from
         `progress` are treated as uncaught exceptions and cause the UI to
         break. Therefore, `progress` must never fail and all operations that
-        may fail need to be done in `start`.
+        may fail must be done in `start`.
         """
         self._start_future = asyncio.create_task(self._start())
         return self._start_future

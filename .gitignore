@@ -71,6 +71,7 @@ instance/
 # Sphinx documentation
 docs/_build/
 docs/_static/openapi.json
+docs/dev/api/contents/
 
 # PyBuilder
 target/

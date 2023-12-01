@@ -22,3 +22,8 @@ The repository uses the vertical monorepo structure defined in :sqr:`075`.
    :caption: Development
 
    plan
+
+.. toctree::
+   :caption: Reference
+
+   api/index

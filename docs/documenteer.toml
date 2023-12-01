@@ -38,6 +38,7 @@ nitpick_ignore = [
     ["py:exc", "fastapi.exceptions.RequestValidationError"],
     ["py:exc", "httpx.HTTPError"],
     ["py:obj", "fastapi.routing.APIRoute"],
+    ["py:obj", "httpx.AsyncClient"],
     ["py:class", "kubernetes_asyncio.client.api_client.ApiClient"],
     ["py:class", "pydantic.env_settings.BaseSettings"],
     ["py:class", "pydantic.error_wrappers.ValidationError"],
@@ -47,16 +48,23 @@ nitpick_ignore = [
     ["py:class", "starlette.routing.Route"],
     ["py:class", "starlette.routing.BaseRoute"],
     ["py:exc", "starlette.exceptions.HTTPException"],
+    # traitlets does provide intersphinx, but the documentation generates some
+    # reference to this undocumented type.
+    ["py:class", "traitlets.traitlets.HasDescriptors"],
 ]
 nitpick_ignore_regex = [
     ["py:class", "kubernetes_asyncio\\.client\\.models\\..*"],
 ]
 rst_epilog_file = "_rst_epilog.rst"
+python_api_dir = "dev/api/contents"
 
 [sphinx.intersphinx.projects]
+jupyerhub = "https://jupyterhub.readthedocs.io/en/stable/"
 python = "https://docs.python.org/3/"
 safir = "https://safir.lsst.io/"
 structlog = "https://www.structlog.org/en/stable/"
+tornado = "https://www.tornadoweb.org/en/stable/"
+traitlets = "https://traitlets.readthedocs.io/en/stable/"
 
 [sphinx.linkcheck]
 ignore = [
