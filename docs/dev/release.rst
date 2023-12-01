@@ -6,9 +6,9 @@ This page gives an overview of how Nublado releases are made.
 This information is only useful for maintainers.
 
 Nublado's releases are largely automated through GitHub Actions (see the `ci.yaml`_ workflow file for details).
-When a semantic version tag is pushed to GitHub, Nublado Docker images are published on `GitHub <https://github.com/orgs/lsst-sqre/packages?repo_name=gafaelfawr>`__ with that version.
+When a semantic version tag is pushed to GitHub, Nublado Docker images are published on `GitHub <https://github.com/orgs/lsst-sqre/packages?repo_name=nublado>`__ with that version.
 
-.. _`ci.yaml`: https://github.com/lsst-sqre/gafaelfawr/blob/main/.github/workflows/ci.yaml
+.. _`ci.yaml`: https://github.com/lsst-sqre/nublado/blob/main/.github/workflows/ci.yaml
 
 .. _regular-release:
 
@@ -21,8 +21,8 @@ See :ref:`backport-release` to patch an earlier major-minor version.
 
 Release tags are semantic version identifiers following the :pep:`440` specification.
 
-1. Change log and documentation
--------------------------------
+1. Update the change log
+------------------------
 
 Change log messages for each release are accumulated using scriv_ (see :ref:`dev-change-log`).
 When it comes time to make the release, there should be a collection of change log fragments in :file:`changelog.d`.
@@ -68,6 +68,16 @@ Then, above that, paste the contents of the :file:`CHANGELOG.md` entry for this 
 Adjust the heading depth of the subsections to use ``##`` instead of ``###`` to match the pull request summary.
 
 Then, press the :guilabel:`Generate release notes` button to include the GitHub-generated summary of pull requests.
+
+4. Update Phalanx
+-----------------
+
+In the Phalanx_ repository under :file:`applications/nublado`, update the :file:`values.yaml` and :file:`values-{environment}.yaml` files for any changes in Nublado's configuration.
+
+Then, as part of the same PR, update the version in :file:`applications/nublado/Chart.yaml` to the latest release tag.
+Also update the setting ``jupyterhub.hub.image.tag`` to the same value.
+
+Test the new version on a development cluster using the instructions in the `Phalanx documentation <https://phalanx.lsst.io/developers/deploy-from-a-branch.html>`__ before merging.
 
 .. _backport-release:
 

@@ -14,8 +14,6 @@ Architecture overview
 A Nublado deployment consists of the JupyterHub pod, its associated proxy server pod, and a Nublado controller pod, plus their supporting Kubernetes resources.
 JupyterHub and its proxy server are installed using the `Zero to JupyterHub`_ Helm chart as a subchart of the `Nublado Phalanx application`_.
 
-.. _Nublado Phalanx application: https://phalanx.lsst.io/applications/nublado/index.html
-
 The JupyterHub Docker image is the same as the normal JupyterHub image, with the addition of a custom spawner module and a custom authenticator module.
 The Nublado controller image is a standalone Python service built from the Nublado repository.
 Both the JupyterHub and the Nublado controller images are built from the Nublado source tree by GitHub Actions.
@@ -29,7 +27,7 @@ To supplement the JupyterLab interface, which only allows simple file upload and
 This allows users to use the WebDAV clients built into most operating systems to more readily copy files to and from the file space underlying their lab.
 
 Since the lab images used by Rubin Observatory are quite large and pulling an image can therefore take a considerable amount of time, the Nublado controller prepulls a configured set of images on every cluster node.
-This set of images is the same as those available as selection (not dropdown) options in the user-facing spawner form.
+This set of images is the same as those available as radio button (not dropdown) options in the user-facing spawner form.
 
 JupyterHub, its associated proxy, and its configuration and supporting Kubernetes objects other than its secret and ingress are installed using the `Zero to JupyterHub`_ Helm chart as a subchart.
 The Nublado controller, its configuration, the JupyterHub secret and configuration, and the ingress for the proxy are managed directly by Phalanx.
@@ -78,7 +76,6 @@ Here is a sequence diagram showing the operations involved in spawning a user la
 
 .. mermaid:: lab-spawn.mmd
    :caption: Spawn lab
-   :zoom:
 
 When the user exits the lab, an extension built into the lab images for the Rubin Science Platform tells JupyterHub to delete the lab.
 JupyterHub then asks the controller to delete the lab, which then asks Kubernetes to delete the lab and the namespace.
@@ -90,7 +87,6 @@ Here is a sequence diagram for creating a user file server:
 
 .. mermaid:: fileserver-create.mmd
    :caption: Create file server
-   :zoom:
 
 File servers last for as long as they are used.
 After a configurable idle period, the file server exits.

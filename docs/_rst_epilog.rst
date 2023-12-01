@@ -7,10 +7,14 @@
 .. _Mend Renovate: https://www.mend.io/renovate/
 .. _mypy: https://mypy.readthedocs.io/en/stable/
 .. _nox: https://nox.thea.codes/en/stable/
+.. _Nublado Phalanx application: https://phalanx.lsst.io/applications/nublado/index.html
 .. _Phalanx: https://phalanx.lsst.io/
 .. _Ruff: https://docs.astral.sh/ruff/
 .. _pytest: https://docs.pytest.org/en/stable/
+.. _sciplat-lab: https://github.com/lsst-sqre/sciplat-lab
 .. _scriv: https://scriv.readthedocs.io/en/stable/
 .. _semver: https://semver.org/
+.. _worblehat: https://github.com/lsst-sqre/worblehat
+.. _workload identity: https://cloud.google.com/kubernetes-engine/docs/concepts/workload-identity
 .. _virtualenvwrapper: https://virtualenvwrapper.readthedocs.io/en/stable/
 .. _Zero to JupyterHub: https://z2jh.jupyter.org/en/stable/
