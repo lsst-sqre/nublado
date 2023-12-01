@@ -48,6 +48,9 @@ Source = "https://github.com/lsst-sqre/nublado"
 requires = ["setuptools>=61", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = 'setuptools.build_meta'
 
+[project.entry-points."jupyterhub.spawners"]
+nublado = "rubin.nublado.spawner.RSPRestSpawner"
+
 [tool.setuptools_scm]
 root = ".."
 
