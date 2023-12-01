@@ -14,16 +14,19 @@ The repository uses the vertical monorepo structure defined in :sqr:`075`.
 
 .. toctree::
    :caption: Guides
+   :maxdepth: 2
 
    development
    release
 
 .. toctree::
    :caption: Development
+   :maxdepth: 2
 
    plan
 
 .. toctree::
    :caption: Reference
+   :maxdepth: 3
 
    api/index
