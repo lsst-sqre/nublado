@@ -108,6 +108,14 @@ This is controlled by the following settings.
     Any lab that has been running for longer than this period of time will be automatically shut down whether it is active or not.
     The default is 5184000 (60 days).
 
+Path prefix
+===========
+
+``jupyterhub.hub.baseUrl``
+    The path prefix to use for the user interface to JupyterHub.
+    The default is ``/nb``.
+    You probably do not want to change this unless you are trying to run multiple instances of Nublado in the same Phalanx environment for some reason.
+
 Image
 =====
 
