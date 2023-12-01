@@ -15,6 +15,8 @@ from tornado.web import HTTPError, RequestHandler
 AuthInfo = dict[str, str | dict[str, str]]
 Route = tuple[str, type[BaseHandler]]
 
+__all__ = ["GafaelfawrAuthenticator"]
+
 
 def _build_auth_info(headers: HTTPHeaders) -> AuthInfo:
     """Construct the authentication information for a user.
@@ -144,11 +146,34 @@ class GafaelfawrAuthenticator(Authenticator):
         """Login form authenticator.
 
         This is not used in our authentication scheme.
+
+        Parameters
+        ----------
+        handler
+            Tornado request handler.
+        data
+            Form data submitted during login.
+
+        Raises
+        ------
+        NotImplementedError
+            Raised if called.
         """
         raise NotImplementedError
 
     def get_handlers(self, app: JupyterHub) -> list[Route]:
-        """Register the header-only login and the logout handlers."""
+        """Register the header-only login and the logout handlers.
+
+        Parameters
+        ----------
+        app
+            Tornado app in which to register the handlers.
+
+        Returns
+        -------
+        list of tuple
+            Additional routes to add.
+        """
         return [
             ("/gafaelfawr/login", _GafaelfawrLoginHandler),
             ("/logout", _GafaelfawrLogoutHandler),
@@ -160,13 +185,47 @@ class GafaelfawrAuthenticator(Authenticator):
         This must be changed to something other than ``/login`` to trigger
         correct behavior when ``auto_login`` is set to true (as it is in our
         case).
+
+        Parameters
+        ----------
+        base_url
+            Base URL of this JupyterHub installation.
+
+        Returns
+        -------
+        str
+            URL to which the user is sent during login. For this
+            authenticator, this is a URL provided by a login handler that
+            looks at headers set by Gafaelfawr_.
         """
         return url_path_join(base_url, "gafaelfawr/login")
 
     async def refresh_user(
         self, user: User, handler: RequestHandler | None = None
     ) -> bool | AuthInfo:
-        """Optionally refresh the user's token."""
+        """Optionally refresh the user's token.
+
+        Parameters
+        ----------
+        user
+            JupyterHub user information.
+        handler
+            Tornado request handler.
+
+        Returns
+        -------
+        bool or dict
+            Returns `True` if we cannot refresh the auth state and should
+            use the existing state. Otherwise, returns the new auth state
+            taken from the request headers set by Gafaelfawr_.
+
+        Raises
+        ------
+        tornado.web.HTTPError
+            Raised with a 401 error if the username does not match our current
+            auth state, since JupyterHub does not support changing users
+            during refresh.
+        """
         # If running outside of a Tornado handler, we can't refresh the auth
         # state, so assume that it is okay.
         if not handler:

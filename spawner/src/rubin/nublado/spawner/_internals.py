@@ -190,7 +190,7 @@ class NubladoSpawner(Spawner):
         InvalidAuthStateError
             Raised if there is no ``token`` attribute in the user's
             authentication state. This should always be provided by
-            `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
+            `rubin.nublado.authenticator.GafaelfawrAuthenticator`.
         """
         r = await self._client.get(
             self._controller_url("lab-form", self.user.name),
@@ -257,7 +257,7 @@ class NubladoSpawner(Spawner):
 
         Yields
         ------
-        dict of str to str or int
+        dict
             Dictionary representing the event with fields ``progress``,
             containing an integer completion percentage, and ``message``,
             containing a human-readable description of the event.
@@ -351,11 +351,11 @@ class NubladoSpawner(Spawner):
         returned, JupyterHub only allows a much shorter timeout for the lab to
         fully start.
 
-        In addition, JupyterHub handles exceptions from `start` and correctly
+        Also, JupyterHub handles exceptions from `start` and correctly
         recognizes that the pod has failed to start, but exceptions from
         `progress` are treated as uncaught exceptions and cause the UI to
         break. Therefore, `progress` must never fail and all operations that
-        may fail need to be done in `start`.
+        may fail must be done in `start`.
         """
         self._start_future = asyncio.create_task(self._start())
         return self._start_future
