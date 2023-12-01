@@ -164,8 +164,8 @@ def typing_hub(session: nox.Session) -> None:
     )
     session.install("-r", "hub/requirements/main.txt")
     session.install("-r", "hub/requirements/dev.txt")
-    session.install("--no-deps", "-e", "authenticator[dev]")
-    session.install("--no-deps", "-e", "spawner[dev]")
+    session.install("--no-deps", "-e", "authenticator")
+    session.install("--no-deps", "-e", "spawner")
     session.run(
         "mypy",
         *session.posargs,
@@ -209,8 +209,8 @@ def test_hub(session: nox.Session) -> None:
     session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install("-r", "hub/requirements/main.txt")
     session.install("-r", "hub/requirements/dev.txt")
-    session.install("--no-deps", "-e", "authenticator[dev]")
-    session.install("--no-deps", "-e", "spawner[dev]")
+    session.install("--no-deps", "-e", "authenticator")
+    session.install("--no-deps", "-e", "spawner")
     _pytest(session, "authenticator", "rubin.nublado.authenticator")
     _pytest(session, "spawner", "rubin.nublado.spawner")
 
