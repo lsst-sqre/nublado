@@ -1,5 +1,6 @@
 """nox build configuration for Nublado."""
 
+import shutil
 from pathlib import Path
 
 import nox
@@ -221,6 +222,31 @@ def docs(session: nox.Session) -> None:
     _install(session)
     doctree_dir = (session.cache_dir / "doctrees").absolute()
     with session.chdir("docs"):
+        session.run(
+            "sphinx-build",
+            "-W",
+            "--keep-going",
+            "-n",
+            "-T",
+            "-b",
+            "html",
+            "-d",
+            str(doctree_dir),
+            ".",
+            "./_build/html",
+        )
+
+
+@nox.session(name="docs-clean")
+def docs_clean(session: nox.Session) -> None:
+    """Build the documentation without any cache."""
+    _install(session)
+    doctree_dir = (session.cache_dir / "doctrees").absolute()
+    with session.chdir("docs"):
+        if Path("_build").exists():
+            shutil.rmtree("_build")
+        if (Path("dev") / "api" / "contents").exists():
+            shutil.rmtree("dev/api/contents")
         session.run(
             "sphinx-build",
             "-W",
