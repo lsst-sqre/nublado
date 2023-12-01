@@ -1,4 +1,4 @@
-"""Fixtures for tests of the Nublado JupyterHub."""
+"""Fixtures for tests of the Nublado custom spawner class."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import respx
 
-from rubin.nublado.spawner import RSPRestSpawner
+from rubin.nublado.spawner import NubladoSpawner
 
 from .support.controller import MockLabController, register_mock_lab_controller
 from .support.jupyterhub import MockHub, MockUser
@@ -26,9 +26,9 @@ def mock_lab_controller(respx_mock: respx.Router) -> MockLabController:
 
 
 @pytest.fixture
-def spawner(mock_lab_controller: MockLabController) -> RSPRestSpawner:
+def spawner(mock_lab_controller: MockLabController) -> NubladoSpawner:
     """Add spawner state that normally comes from JupyterHub."""
-    result = RSPRestSpawner()
+    result = NubladoSpawner()
     result.admin_token_path = str(
         Path(__file__).parent / "data" / "admin-token"
     )

@@ -1,4 +1,4 @@
-"""Tests for the REST spawner class."""
+"""Tests for the Nublado spawner class."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from datetime import timedelta
 
 import pytest
 
-from rubin.nublado.spawner import RSPRestSpawner
+from rubin.nublado.spawner import NubladoSpawner
 from rubin.nublado.spawner._exceptions import SpawnFailedError
 from rubin.nublado.spawner._models import LabStatus
 
@@ -15,14 +15,14 @@ from .support.controller import MockLabController
 
 
 async def collect_progress(
-    spawner: RSPRestSpawner,
+    spawner: NubladoSpawner,
 ) -> list[dict[str, int | str]]:
     """Gather progress from a spawner and return it as a list when done."""
     return [m async for m in spawner.progress()]
 
 
 @pytest.mark.asyncio
-async def test_start(spawner: RSPRestSpawner) -> None:
+async def test_start(spawner: NubladoSpawner) -> None:
     user = spawner.user.name
     assert await spawner.start() == f"http://lab.nublado-{user}:8888"
 
@@ -34,7 +34,7 @@ async def test_start(spawner: RSPRestSpawner) -> None:
 
 
 @pytest.mark.asyncio
-async def test_stop(spawner: RSPRestSpawner) -> None:
+async def test_stop(spawner: NubladoSpawner) -> None:
     user = spawner.user.name
     assert await spawner.start() == f"http://lab.nublado-{user}:8888"
     assert await spawner.poll() is None
@@ -48,7 +48,7 @@ async def test_stop(spawner: RSPRestSpawner) -> None:
 
 @pytest.mark.asyncio
 async def test_poll(
-    spawner: RSPRestSpawner, mock_lab_controller: MockLabController
+    spawner: NubladoSpawner, mock_lab_controller: MockLabController
 ) -> None:
     assert await spawner.poll() == 0
     mock_lab_controller.set_status(spawner.user.name, LabStatus.PENDING)
@@ -66,20 +66,20 @@ async def test_poll(
 
 
 @pytest.mark.asyncio
-async def test_get_url(spawner: RSPRestSpawner) -> None:
+async def test_get_url(spawner: NubladoSpawner) -> None:
     user = spawner.user.name
     assert await spawner.start() == f"http://lab.nublado-{user}:8888"
     assert await spawner.get_url() == f"http://lab.nublado-{user}:8888"
 
 
 @pytest.mark.asyncio
-async def test_options_form(spawner: RSPRestSpawner) -> None:
+async def test_options_form(spawner: NubladoSpawner) -> None:
     expected = f"<p>This is some lab form for {spawner.user.name}</p>"
     assert await spawner.options_form(spawner) == expected
 
 
 @pytest.mark.asyncio
-async def test_progress(spawner: RSPRestSpawner) -> None:
+async def test_progress(spawner: NubladoSpawner) -> None:
     await spawner.start()
     user = spawner.user.name
     expected = [
@@ -98,7 +98,7 @@ async def test_progress(spawner: RSPRestSpawner) -> None:
 
 
 @pytest.mark.asyncio
-async def test_progress_conflict(spawner: RSPRestSpawner) -> None:
+async def test_progress_conflict(spawner: NubladoSpawner) -> None:
     await spawner.start()
 
     # Start it a second time, which should trigger deleting the old lab.
@@ -122,7 +122,7 @@ async def test_progress_conflict(spawner: RSPRestSpawner) -> None:
 
 @pytest.mark.asyncio
 async def test_progress_multiple(
-    spawner: RSPRestSpawner, mock_lab_controller: MockLabController
+    spawner: NubladoSpawner, mock_lab_controller: MockLabController
 ) -> None:
     """Test multiple progress listeners for the same spawn."""
     mock_lab_controller.delay = timedelta(milliseconds=750)
@@ -150,7 +150,7 @@ async def test_progress_multiple(
 
 @pytest.mark.asyncio
 async def test_spawn_failure(
-    spawner: RSPRestSpawner, mock_lab_controller: MockLabController
+    spawner: NubladoSpawner, mock_lab_controller: MockLabController
 ) -> None:
     """Test error handling when a spawn fails.
 

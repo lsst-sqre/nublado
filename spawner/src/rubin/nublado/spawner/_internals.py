@@ -1,4 +1,4 @@
-"""Spawner class that uses a REST API to a separate Kubernetes service."""
+"""Spawner class that uses the Nublado controller to manage labs."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ T = TypeVar("T")
 
 __all__ = [
     "LabStatus",
-    "RSPRestSpawner",
+    "NubladoSpawner",
 ]
 
 _CLIENT: AsyncClient | None = None
@@ -35,13 +35,13 @@ _CLIENT: AsyncClient | None = None
 
 
 def _convert_exception(
-    f: Callable[Concatenate[RSPRestSpawner, P], Coroutine[None, None, T]]
-) -> Callable[Concatenate[RSPRestSpawner, P], Coroutine[None, None, T]]:
+    f: Callable[Concatenate[NubladoSpawner, P], Coroutine[None, None, T]]
+) -> Callable[Concatenate[NubladoSpawner, P], Coroutine[None, None, T]]:
     """Convert ``httpx`` exceptions to `ControllerWebError`."""
 
     @wraps(f)
     async def wrapper(
-        spawner: RSPRestSpawner, *args: P.args, **kwargs: P.kwargs
+        spawner: NubladoSpawner, *args: P.args, **kwargs: P.kwargs
     ) -> T:
         try:
             return await f(spawner, *args, **kwargs)
@@ -56,7 +56,7 @@ def _convert_exception(
     return wrapper
 
 
-class RSPRestSpawner(Spawner):
+class NubladoSpawner(Spawner):
     """Spawner class that sends requests to the RSP lab controller.
 
     Rather than having JupyterHub spawn labs directly and therefore need
