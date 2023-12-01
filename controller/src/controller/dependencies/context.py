@@ -20,6 +20,12 @@ from ..services.fileserver import FileserverManager
 from ..services.image import ImageService
 from ..services.lab import LabManager
 
+__all__ = [
+    "ContextDependency",
+    "RequestContext",
+    "context_dependency",
+]
+
 
 @dataclass(slots=True)
 class RequestContext:
@@ -126,5 +132,5 @@ class ContextDependency:
         self._process_context = None
 
 
-context_dependency = ContextDependency()
+context_dependency: ContextDependency = ContextDependency()
 """The dependency that will return the per-request context."""

@@ -256,7 +256,7 @@ class LabStorage:
 
         Returns
         -------
-        kubernetes_asyncio.client.V1Secret
+        kubernetes_asyncio.client.models.V1Secret
             Secret object.
 
         Raises

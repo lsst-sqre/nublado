@@ -10,3 +10,4 @@ The Python API is therefore only of interest to Nublado developers.
 
    authenticator
    spawner
+   controller

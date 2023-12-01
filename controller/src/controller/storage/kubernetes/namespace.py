@@ -115,7 +115,7 @@ class NamespaceStorage:
 
         Returns
         -------
-        list of kubernetes_asyncio.client.V1Namespace
+        list of kubernetes_asyncio.client.models.V1Namespace
             List of namespaces.
 
         Raises
@@ -147,7 +147,7 @@ class NamespaceStorage:
 
         Returns
         -------
-        kubernetes_asyncio.client.V1Namespace or None
+        kubernetes_asyncio.client.models.V1Namespace or None
             Namespace, or `None` if it does not exist.
 
         Raises

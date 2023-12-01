@@ -44,7 +44,7 @@ class VolumeBuilder:
 
         Returns
         -------
-        list of kubernetes_asyncio.client.V1VolumeMount
+        list of kubernetes_asyncio.client.models.V1VolumeMount
             List of volumes and mounts.
         """
         return [
@@ -73,7 +73,7 @@ class VolumeBuilder:
 
         Returns
         -------
-        list of kubernetes_asyncio.client.V1Volume
+        list of kubernetes_asyncio.client.models.V1Volume
             List of Kubernetes ``V1Volume`` objects.
         """
         results = []

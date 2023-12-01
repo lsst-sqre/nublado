@@ -11,6 +11,11 @@ from ..exceptions import DockerRegistryError
 from ..models.domain.docker import DockerCredentials
 from ..models.v1.prepuller_config import DockerSourceConfig
 
+__all__ = [
+    "DockerCredentialStore",
+    "DockerStorageClient",
+]
+
 
 class DockerCredentialStore:
     """Read and write the ``.dockerconfigjson`` syntax used by Kubernetes."""

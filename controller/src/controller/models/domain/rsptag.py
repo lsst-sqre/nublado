@@ -1,7 +1,5 @@
 """Abstract data types for handling RSP image tags."""
 
-from __future__ import annotations
-
 import contextlib
 import re
 from collections import defaultdict
@@ -476,7 +474,7 @@ class RSPImageTagCollection:
         weeklies: int = 0,
         dailies: int = 0,
         include: set[str] | None = None,
-    ) -> RSPImageTagCollection:
+    ) -> Self:
         """Return a subset of the tag collection.
 
         Parameters
@@ -512,4 +510,4 @@ class RSPImageTagCollection:
             )
 
         # Return the results.
-        return RSPImageTagCollection(tags)
+        return type(self)(tags)

@@ -55,7 +55,7 @@ from ...constants import (
     MOUNT_PATH_ENVIRONMENT,
     MOUNT_PATH_SECRETS,
 )
-from ...models.domain.gafaelfawr import GafaelfawrUserInfo
+from ...models.domain.gafaelfawr import GafaelfawrUserInfo, UserGroup
 from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
 from ...models.domain.rspimage import RSPImage
 from ...models.domain.volumes import MountedVolume
@@ -65,7 +65,6 @@ from ...models.v1.lab import (
     LabSpecification,
     LabStatus,
     ResourceQuantity,
-    UserGroup,
     UserInfo,
     UserLabState,
     UserOptions,

@@ -2,7 +2,7 @@
 .. _d20 creature sizes: https://www.d20srd.org/srd/combat/movementPositionAndDistance.htm#bigandLittleCreaturesInCombat
 .. _downward API: https://kubernetes.io/docs/concepts/workloads/pods/downward-api/
 .. _Gafaelfawr: https://gafaelfawr.lsst.io/
-.. _kubernetes_asyncio: https://github.com/tomplus/kubernetes_asyncio
+.. _kubernetes-asyncio: https://github.com/tomplus/kubernetes_asyncio
 .. _JupyterHub: https://jupyter.org/hub
 .. _Mend Renovate: https://www.mend.io/renovate/
 .. _mypy: https://mypy.readthedocs.io/en/stable/

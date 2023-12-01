@@ -43,6 +43,7 @@ __all__ = [
     "NodeSelector",
     "PodAffinity",
     "PodAffinityTerm",
+    "PodChange",
     "PodPhase",
     "PreferredSchedulingTerm",
     "PropagationPolicy",

@@ -253,7 +253,7 @@ class ImageService:
 
         Returns
         -------
-        dict of str to list
+        dict of list
             Map of node names to a list of images that should be cached but do
             not appear to be.
         """
