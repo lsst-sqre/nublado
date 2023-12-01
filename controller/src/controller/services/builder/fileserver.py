@@ -29,7 +29,6 @@ from ...config import (
     EnabledFileserverConfig,
     PVCVolumeSource,
     VolumeConfig,
-    VolumeMountConfig,
 )
 from ...constants import ARGO_CD_ANNOTATIONS
 from ...models.domain.fileserver import (
@@ -54,10 +53,6 @@ class FileserverBuilder:
         Base URL for this Notebook Aspect instance.
     volumes
         Volumes to mount in the user's file server.
-    volume_mounts
-        Where to mount those volumes in the user's file server. The paths will
-        be prefixed with :file:`/mnt` so that they will be within the tree
-        served by the file server.
     """
 
     def __init__(
@@ -66,13 +61,11 @@ class FileserverBuilder:
         config: EnabledFileserverConfig,
         base_url: str,
         volumes: list[VolumeConfig],
-        volume_mounts: list[VolumeMountConfig],
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._base_url = base_url
         self._volumes = volumes
-        self._volume_mounts = volume_mounts
         self._logger = logger
         self._volume_builder = VolumeBuilder()
 
@@ -226,13 +219,13 @@ class FileserverBuilder:
 
     def _build_job(self, user: GafaelfawrUserInfo) -> V1Job:
         """Construct the job for a fileserver."""
-        wanted_volumes = {m.volume_name for m in self._volume_mounts}
+        wanted_volumes = {m.volume_name for m in self._config.volume_mounts}
         volumes = self._volume_builder.build_volumes(
             (v for v in self._volumes if v.name in wanted_volumes),
             pvc_prefix=self.build_name(user.username),
         )
         mounts = self._volume_builder.build_mounts(
-            self._volume_mounts, prefix="/mnt"
+            self._config.volume_mounts, prefix="/mnt"
         )
         url = f"{self._config.path_prefix}/{user.username}"
         resources = self._config.resources
@@ -300,7 +293,7 @@ class FileserverBuilder:
 
     def _build_pvcs(self, username: str) -> list[V1PersistentVolumeClaim]:
         """Construct the persistent volume claims for a user's file server."""
-        volume_names = {m.volume_name for m in self._volume_mounts}
+        volume_names = {m.volume_name for m in self._config.volume_mounts}
         volumes = (v for v in self._volumes if v.name in volume_names)
         pvcs: list[V1PersistentVolumeClaim] = []
         for volume in volumes:
