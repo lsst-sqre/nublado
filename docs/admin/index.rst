@@ -9,5 +9,6 @@ This documentation provides the reference manual for Nublado, including all of t
 Guides to common problems and instructions on how to integrate properly with Phalanx environments, such as for managing secrets, are found in the Phalanx documentation, specifically the `Nublado Phalanx application`_, and the general `Phalanx documentation for developers <https://phalanx.lsst.io/developers/index.html>`__.
 
 .. toctree::
+   :maxdepth: 2
 
    config/index
