@@ -16,6 +16,11 @@ lab:
       source:
         type: hostPath
         path: /share1/project
+    - name: extra
+      source:
+        type: nfs
+        server: 10.13.105.122
+        serverPath: /share1/extra
     - name: scratch
       source:
         type: persistentVolumeClaim
@@ -31,7 +36,9 @@ lab:
     - containerPath: /project
       readOnly: true
       volumeName: project
-    - containerPath: /scratch
+    - containerPath: /extra
+      volumeName: extra
+    - containerPath: /random
       volumeName: scratch
 images:
   source:
@@ -73,3 +80,11 @@ fileserver:
   tolerations:
     - key: ""
       operator: Exists
+  volumeMounts:
+    - containerPath: /home
+      volumeName: home
+    - containerPath: /project
+      readOnly: true
+      volumeName: project
+    - containerPath: /scratch
+      volumeName: scratch

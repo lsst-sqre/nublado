@@ -17,7 +17,7 @@ As with Kubernetes in general, the volumes and volume mounts are specified separ
 This allows the list of volumes to be shared with init containers (see :ref:`config-lab-init`) and for the same volume to be mounted multiple times.
 
 ``controller.config.lab.volumes``
-    List of volumes available for mounting in either the main lab container (via ``controller.config.lab.volumeMounts``) or in init containers (via the ``volumeMounts`` key of an init container).
+    List of volumes available for mounting in the main lab container (via ``controller.config.lab.volumeMounts``), init containers (via the ``volumeMounts`` key of an init container), or file servers (via ``controller.config.fileserver.volumeMounts``).
     Each volume must have the following settings:
 
     ``name``

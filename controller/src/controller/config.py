@@ -401,6 +401,16 @@ class EnabledFileserverConfig(FileserverConfig):
         description="Kubernetes tolerations for file server pods",
     )
 
+    volume_mounts: list[VolumeMountConfig] = Field(
+        [],
+        title="Volume mounts",
+        description=(
+            "Volumes mounted in the file server and exposed via WebDAV."
+            " The `containerPath` settings represent the path visible over"
+            " the WebDAV protocol."
+        ),
+    )
+
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
@@ -978,8 +988,28 @@ class Config(BaseSettings):
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
+    @model_validator(mode="after")
+    def _validate_fileserver_volume_mounts(self) -> Self:
+        if not isinstance(self.fileserver, EnabledFileserverConfig):
+            return self
+        volumes = {v.name for v in self.lab.volumes}
+        for mount in self.fileserver.volume_mounts:
+            if mount.volume_name not in volumes:
+                msg = (
+                    f"Unknown mounted volume {mount.volume_name} in file"
+                    " servers"
+                )
+                raise ValueError(msg)
+        return self
+
     @classmethod
     def from_file(cls, path: Path) -> Self:
-        """Load the controller configuration from a YAML file."""
+        """Load the controller configuration from a YAML file.
+
+        Parameters
+        ----------
+        path
+            Path to the configuration file.
+        """
         with path.open("r") as f:
             return cls.model_validate(yaml.safe_load(f))

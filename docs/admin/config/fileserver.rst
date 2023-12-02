@@ -14,6 +14,20 @@ File servers are disabled by default and must be explicitly enabled.
     Set to true to allow users to create file servers.
     The default is false.
 
+Mounted volumes
+===============
+
+``controller.config.fileserver.volumeMounts``
+    A list of volumes to expose to the user over WebDAV.
+    The volumes must correspond to volumes specified in ``controller.config.lab.volumes``.
+    The syntax of each entry is identical to the syntax of ``controller.config.lab.volumeMounts`` (see :ref:`config-lab-volumes`).
+
+    None of the volumes mounted in the main lab container are mounted in user file servers by default.
+    To expose those mounts via WebDAV, they must be listed explicitly here.
+    The ``containerPath`` setting is the relative path at which the volume will appear in WebDAV.
+
+    These mounts are independent of the main container mounts and thus can have different paths, sub-paths, and so forth, and can reference volumes not mounted in the main container.
+
 Image
 =====
 
