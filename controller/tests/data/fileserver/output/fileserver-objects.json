@@ -422,7 +422,8 @@
         ]
       },
       "loginRedirect": false,
-      "authType": "basic"
+      "authType": "basic",
+      "username": "rachel"
     },
     "template": {
       "metadata": {

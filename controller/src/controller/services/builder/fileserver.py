@@ -204,6 +204,7 @@ class FileserverBuilder:
                 "scopes": {"all": ["exec:notebook"]},
                 "loginRedirect": False,
                 "authType": "basic",
+                "username": username,
             },
             "template": {
                 "metadata": {
