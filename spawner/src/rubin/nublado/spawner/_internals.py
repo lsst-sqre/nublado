@@ -35,7 +35,7 @@ _CLIENT: AsyncClient | None = None
 
 
 def _convert_exception(
-    f: Callable[Concatenate[NubladoSpawner, P], Coroutine[None, None, T]]
+    f: Callable[Concatenate[NubladoSpawner, P], Coroutine[None, None, T]],
 ) -> Callable[Concatenate[NubladoSpawner, P], Coroutine[None, None, T]]:
     """Convert ``httpx`` exceptions to `ControllerWebError`."""
 

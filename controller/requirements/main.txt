@@ -383,9 +383,9 @@ google-api-core[grpc]==2.14.0 \
     # via
     #   google-api-core
     #   google-cloud-artifact-registry
-google-auth==2.24.0 \
-    --hash=sha256:2ec7b2a506989d7dbfdbe81cb8d0ead8876caaed14f86d29d34483cbe99c57af \
-    --hash=sha256:9b82d5c8d3479a5391ea0a46d81cca698d328459da31d4a459d4e901a5d927e0
+google-auth==2.25.0 \
+    --hash=sha256:2e7d37702e617ea9f4ac2568625a9fc2cdea910dcdca90e378db09ac94ee9ab3 \
+    --hash=sha256:cabc5c6fd327d71baa820f745118ecb2b709412d153419a43173d91495ef8715
     # via google-api-core
 google-cloud-artifact-registry==1.9.0 \
     --hash=sha256:3484d2a2c04fadfa480be16a554d01e47e4c4f4b5a123cd3725e865b4dd7f325 \
@@ -911,9 +911,9 @@ rsa==4.9 \
     --hash=sha256:90260d9058e514786967344d0ef75fa8727eed8a7d2e43ce9f4bcf1b536174f7 \
     --hash=sha256:e38464a49c6c85d7f1351b0126661487a7e0a14a50f1675ec50eb34d4f20ef21
     # via google-auth
-safir[kubernetes]==5.0.0a5 \
-    --hash=sha256:6a38dbdcfc63ea0261d25cefde0defc9f445a7da2a2612cd864d22bf1f292180 \
-    --hash=sha256:73348465c732fb89ddbd3b73cb8dcaa1294611c49d5db225e1d2a8205558f29b
+safir[kubernetes]==5.0.0 \
+    --hash=sha256:bc09984e09a563f2a3e61c207ca64596f894f1e09481cddc1ea30b6128794b43 \
+    --hash=sha256:cd015bdbd1d45f751d194ad88b50f11641bda80e1def85b35710c0a654ee0f76
     # via
     #   -r controller/requirements/main.in
     #   safir
