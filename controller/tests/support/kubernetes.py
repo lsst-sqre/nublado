@@ -14,7 +14,7 @@ __all__ = [
 
 
 def objects_to_dicts(
-    objects: list[dict | KubernetesModel]
+    objects: list[dict | KubernetesModel],
 ) -> list[dict[str, Any]]:
     """Serialize a list of Kubernetes objects for comparison.
 
