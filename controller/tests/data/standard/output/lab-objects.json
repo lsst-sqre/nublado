@@ -417,6 +417,10 @@
             {
               "name": "EXTERNAL_UID",
               "value": "1101"
+            },
+            {
+              "name": "HOMEDIR",
+              "value": "/home/rachel"
             }
           ],
           "envFrom": [

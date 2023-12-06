@@ -735,6 +735,9 @@ class LabBuilder:
         env = [
             V1EnvVar(name="EXTERNAL_GID", value=str(user.gid)),
             V1EnvVar(name="EXTERNAL_UID", value=str(user.uid)),
+            V1EnvVar(
+                name="HOMEDIR", value=self._build_home_directory(user.username)
+            ),
         ]
 
         containers = []
