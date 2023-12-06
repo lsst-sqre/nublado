@@ -6,9 +6,9 @@ from kubernetes_asyncio import client
 from kubernetes_asyncio.client import ApiClient, ApiException
 from structlog.stdlib import BoundLogger
 
-from ...constants import KUBERNETES_REQUEST_TIMEOUT
 from ...exceptions import KubernetesError
 from ...models.domain.kubernetes import KubernetesNodeImage
+from ...timeout import Timeout
 
 __all__ = ["NodeStorage"]
 
@@ -28,18 +28,33 @@ class NodeStorage:
         self._api = client.CoreV1Api(api_client)
         self._logger = logger
 
-    async def get_image_data(self) -> dict[str, list[KubernetesNodeImage]]:
+    async def get_image_data(
+        self, node_selector: dict[str, str], timeout: Timeout
+    ) -> dict[str, list[KubernetesNodeImage]]:
         """Get the list of cached images from each node.
+
+        Parameters
+        ----------
+        node_selector
+            Node selector rules to restrict the list of nodes of interest.
+        timeout
+            Timeout for call.
 
         Returns
         -------
         dict of list
             Map of nodes to lists of all cached images on that node.
         """
-        self._logger.debug("Getting node image data")
-        timeout = KUBERNETES_REQUEST_TIMEOUT.total_seconds()
+        self._logger.debug(
+            "Getting node image data", node_selector=node_selector
+        )
+        selector = None
+        if node_selector:
+            selector = ",".join(f"{k}={v}" for k, v in node_selector.items())
         try:
-            nodes = await self._api.list_node(_request_timeout=timeout)
+            nodes = await self._api.list_node(
+                label_selector=selector, _request_timeout=timeout.left()
+            )
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error reading node information", e, kind="Node"
@@ -47,9 +62,11 @@ class NodeStorage:
 
         image_data = {}
         for node in nodes.items:
-            image_data[node.metadata.name] = [
-                KubernetesNodeImage.from_container_image(i)
-                for i in node.status.images
-                if node.status is not None and node.status.images is not None
-            ]
+            if node.status is not None and node.status.images is not None:
+                image_data[node.metadata.name] = [
+                    KubernetesNodeImage.from_container_image(i)
+                    for i in node.status.images
+                ]
+            else:
+                image_data[node.metadata_name] = []
         return image_data

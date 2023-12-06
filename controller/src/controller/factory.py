@@ -141,6 +141,7 @@ class ProcessContext:
         metadata_storage = MetadataStorage(config.metadata_path)
         image_service = ImageService(
             config=config.images,
+            node_selector=config.lab.node_selector,
             source=source,
             node_storage=NodeStorage(kubernetes_client, logger),
             slack_client=slack_client,
