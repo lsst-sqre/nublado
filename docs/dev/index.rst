@@ -18,6 +18,7 @@ The repository uses the vertical monorepo structure defined in :sqr:`075`.
 
    development
    release
+   init_containers
 
 .. toctree::
    :caption: Development

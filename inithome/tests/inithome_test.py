@@ -74,7 +74,7 @@ async def test_bad_ids() -> None:
     # Negative IDs
 
     with pytest.raises(ValueError, match="UID/GID must be positive"):
-        _ = Provisioner(uid=-1, gid=gid, homedir=homedir)        
+        _ = Provisioner(uid=-1, gid=gid, homedir=homedir)
     with pytest.raises(ValueError, match="UID/GID must be positive"):
         _ = Provisioner(uid=uid, gid=-1, homedir=homedir)
     # Zero IDs
