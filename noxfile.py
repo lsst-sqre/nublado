@@ -10,8 +10,10 @@ nox.options.sessions = [
     "lint",
     "typing",
     "typing-hub",
+    "typing-inithome",
     "test",
     "test-hub",
+    "test-inithome",
     "docs",
 ]
 
@@ -21,7 +23,7 @@ nox.options.reuse_existing_virtualenvs = True
 
 # pip-installable dependencies for development and documentation. This is not
 # used for pytest and typing, since it merges the controller, authenticator,
-# and spawner dependencies.
+# spawner, and inithome dependencies.
 PIP_DEPENDENCIES = [
     ("--upgrade", "pip", "setuptools", "wheel"),
     ("-r", "controller/requirements/main.txt"),
@@ -29,6 +31,7 @@ PIP_DEPENDENCIES = [
     ("-e", "authenticator[dev]"),
     ("-e", "controller"),
     ("-e", "spawner[dev]"),
+    ("-e", "inithome[dev]"),
 ]
 
 
@@ -187,6 +190,22 @@ def typing_hub(session: nox.Session) -> None:
     )
 
 
+@nox.session(name="typing-inithome")
+def typing_inithome(session: nox.Session) -> None:
+    """Check inithome type annotations with mypy."""
+    session.install("--upgrade", "pip", "setuptools", "wheel", "mypy")
+    session.install("-e", "inithome[dev]")
+    session.run(
+        "mypy",
+        *session.posargs,
+        "--namespace-packages",
+        "--explicit-package-bases",
+        "inithome/src",
+        "inithome/tests",
+        env={"MYPYPATH": "inithome/src:inithome"},
+    )
+
+
 @nox.session
 def test(session: nox.Session) -> None:
     """Run tests of the Nublado controller."""
@@ -214,6 +233,14 @@ def test_hub(session: nox.Session) -> None:
     session.install("--no-deps", "-e", "spawner")
     _pytest(session, "authenticator", "rubin.nublado.authenticator")
     _pytest(session, "spawner", "rubin.nublado.spawner")
+
+
+@nox.session(name="test-inithome")
+def test_inithome(session: nox.Session) -> None:
+    """Run only tests affecting inithome."""
+    session.install("--upgrade", "pip", "setuptools", "wheel")
+    session.install("-e", "inithome[dev]")
+    _pytest(session, "inithome", "rubin.nublado.inithome")
 
 
 @nox.session
