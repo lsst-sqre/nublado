@@ -1,6 +1,6 @@
 [
   {
-    "api_version": "v1",
+    "apiVersion": "v1",
     "kind": "Pod",
     "metadata": {
       "labels": {
@@ -8,16 +8,15 @@
       },
       "name": "prepull-d-2077-10-23-node2",
       "namespace": "nublado",
-      "owner_references": [
+      "ownerReferences": [
         {
-          "api_version": "v1",
-          "block_owner_deletion": true,
+          "apiVersion": "v1",
+          "blockOwnerDeletion": true,
           "kind": "Pod",
           "name": "nublado-controller",
           "uid": "12720beb-ecae-452e-982e-2f0a0a2fbaf1"
         }
-      ],
-      "resource_version": "3"
+      ]
     },
     "spec": {
       "containers": [
@@ -27,14 +26,16 @@
           ],
           "image": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
           "name": "prepull",
-          "working_dir": "/tmp"
+          "workingDir": "/tmp"
         }
       ],
-      "image_pull_secrets": [
-	{ "name": "pull-secret" }
+      "imagePullSecrets": [
+	{
+          "name": "pull-secret"
+        }
       ],
-      "node_name": "node2",
-      "restart_policy": "Never"
+      "nodeName": "node2",
+      "restartPolicy": "Never"
     },
     "status": {
       "phase": "Running"

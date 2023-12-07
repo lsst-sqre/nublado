@@ -1,0 +1,64 @@
+{
+  "config": {
+    "source": {
+      "type": "docker",
+      "registry": "lighthouse.ceres",
+      "repository": "library/sketchbook"
+    },
+    "recommended_tag": "recommended",
+    "num_releases": 1,
+    "num_weeklies": 2,
+    "num_dailies": 3,
+    "cycle": null,
+    "pin": null,
+    "alias_tags": []
+  },
+  "images": {
+    "prepulled": [],
+    "pending": [
+      {
+        "reference": "lighthouse.ceres/library/sketchbook:w_2077_43",
+        "tag": "w_2077_43",
+        "name": "Weekly 2077_43",
+        "digest": "sha256:5678",
+        "size": 65537,
+        "nodes": [
+          "node1"
+        ],
+        "missing": [
+          "node3"
+        ]
+      },
+      {
+        "reference": "lighthouse.ceres/library/sketchbook:d_2077_10_23",
+        "tag": "d_2077_10_23",
+        "name": "Daily 2077_10_23",
+        "digest": "sha256:1234",
+        "size": 69105,
+        "nodes": [
+          "node1"
+        ],
+        "missing": [
+          "node3"
+        ]
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "name": "node1",
+      "eligible": true,
+      "comment": null,
+      "cached": [
+        "lighthouse.ceres/library/sketchbook:w_2077_43",
+        "lighthouse.ceres/library/sketchbook:d_2077_10_23"
+      ]
+    },
+    {
+      "name": "node3",
+      "eligible": true,
+      "comment": null,
+      "cached": []
+    }
+  ]
+}

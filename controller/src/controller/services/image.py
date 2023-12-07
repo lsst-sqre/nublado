@@ -9,7 +9,7 @@ from safir.datetime import current_datetime
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
-from ..constants import IMAGE_REFRESH_INTERVAL
+from ..constants import IMAGE_REFRESH_INTERVAL, KUBERNETES_REQUEST_TIMEOUT
 from ..exceptions import UnknownDockerImageError
 from ..models.domain.docker import DockerReference
 from ..models.domain.image import MenuImage, MenuImages
@@ -28,6 +28,7 @@ from ..models.v1.prepuller import (
 from ..models.v1.prepuller_config import PrepullerConfig
 from ..services.source.base import ImageSource
 from ..storage.kubernetes.node import NodeStorage
+from ..timeout import Timeout
 
 __all__ = ["ImageService"]
 
@@ -57,6 +58,9 @@ class ImageService:
     config
         The prepuller configuration, used to determine which tags should be
         prepulled and some other related information.
+    node_selector
+        Node selector rules to determine which nodes are eligible for
+        prepulling.
     source
         Source of remote images.
     node_storage
@@ -71,12 +75,14 @@ class ImageService:
         self,
         *,
         config: PrepullerConfig,
+        node_selector: dict[str, str],
         source: ImageSource,
         node_storage: NodeStorage,
         slack_client: SlackWebhookClient | None = None,
         logger: BoundLogger,
     ) -> None:
         self._config = config
+        self._node_selector = node_selector
         self._source = source
         self._nodes = node_storage
         self._slack_client = slack_client
@@ -299,8 +305,11 @@ class ImageService:
         can be called directly to force an immediate refresh. Does not catch
         exceptions; the caller must do that if desired.
         """
+        timeout = Timeout("List nodes", KUBERNETES_REQUEST_TIMEOUT)
         async with self._lock:
-            cached = await self._nodes.get_image_data()
+            cached = await self._nodes.get_image_data(
+                self._node_selector, timeout
+            )
             to_prepull = await self._source.update_images(self._config, cached)
             self._node_images = self._build_node_images(to_prepull, cached)
             self._to_prepull = to_prepull

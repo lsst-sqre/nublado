@@ -20,7 +20,8 @@
       }
     ],
     "labels": {
-      "some-label": "some-value"
+      "status": "online",
+      "nublado": "eligible"
     }
   },
   "node2": {
@@ -34,9 +35,17 @@
         ],
         "sizeBytes": 65537
       }
-    ],
+    ]
+  },
+  "node3": {
     "labels": {
-      "some-label": "some-value"
+      "status": "online",
+      "nublado": "eligible"
+    }
+  },
+  "node4": {
+    "labels": {
+      "status": "online"
     }
   }
 }

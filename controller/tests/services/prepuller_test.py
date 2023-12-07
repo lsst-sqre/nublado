@@ -33,6 +33,7 @@ from ..support.data import (
 )
 from ..support.docker import MockDockerRegistry
 from ..support.gar import MockArtifactRegistry
+from ..support.kubernetes import objects_to_dicts
 
 
 async def mark_pod_complete(
@@ -345,4 +346,4 @@ async def test_conflict(
     await factory.start_background_services()
     await asyncio.sleep(0.2)
     pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-    assert [strip_none(o.to_dict()) for o in pod_list.items] == expected
+    assert objects_to_dicts(pod_list.items) == expected

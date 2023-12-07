@@ -97,8 +97,8 @@ def read_input_lab_specification_json(
 def read_input_node_json(config: str, filename: str) -> list[V1Node]:
     """Read input node data as JSON and return it as a list of nodes.
 
-    This only includes data about which images the node has cached, since this
-    is the only thing the lab controller cares about.
+    This only includes data used to select nodes and which images the node has
+    cached, since this is the only thing the Nublado controller cares about.
 
     Parameters
     ----------
@@ -117,10 +117,10 @@ def read_input_node_json(config: str, filename: str) -> list[V1Node]:
     for name, data in read_input_json(config, filename).items():
         node_images = [
             V1ContainerImage(names=d["names"], size_bytes=d["sizeBytes"])
-            for d in data
+            for d in data.get("images", [])
         ]
         node = V1Node(
-            metadata=V1ObjectMeta(name=name),
+            metadata=V1ObjectMeta(name=name, labels=data.get("labels")),
             status=V1NodeStatus(images=node_images),
         )
         nodes.append(node)

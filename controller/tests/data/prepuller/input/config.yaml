@@ -1,0 +1,16 @@
+logLevel: DEBUG
+profile: development
+lab:
+  namespacePrefix: userlabs
+  nodeSelector:
+    status: online
+    nublado: eligible
+  sizes:
+    - size: small
+      cpu: 1.0
+      memory: 3Gi
+images:
+  source:
+    type: docker
+    registry: lighthouse.ceres
+    repository: library/sketchbook
