@@ -22,6 +22,8 @@
 #   - Sets up the entrypoint.
 
 FROM python:3.11.5-slim-bullseye AS base-image
+
+FROM base-image AS install-image
 # Install git
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get -y install --no-install-recommends git
@@ -30,10 +32,6 @@ ENV VIRTUAL_ENV=/opt/venv
 RUN python -m venv $VIRTUAL_ENV
 # Ensure we use the virtualenv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
-FROM base-image AS install-image
-# Use the virtualenv
-ENV PATH="/opt/venv/bin:$PATH"
 # Install inithome
 COPY . /workdir
 WORKDIR /workdir

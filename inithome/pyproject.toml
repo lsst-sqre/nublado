@@ -17,19 +17,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 requires-python = ">=3.11"
+# Dependencies in requirements/main.txt (empty) and requirements/dev.txt
 dependencies = []
 dynamic = ["version"]
-
-[project.optional-dependencies]
-dev = [
-    # Testing
-    "pytest",
-    "pytest-cov",
-    "pytest-asyncio",
-    "pyfakefs",
-    # To work with higher-level nox/pyproject
-    "pydantic"
-]
 
 [project.urls]
 Homepage = "https://nublado.lsst.io"

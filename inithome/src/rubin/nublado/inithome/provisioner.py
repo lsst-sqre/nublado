@@ -2,10 +2,12 @@
 
 import asyncio
 import logging
-from os import chown, environ, getenv, umask
+import os
 from pathlib import Path
 
 MAX_ID = 2**32 - 1  # True for Linux, which is where we run inithome
+# cf https://en.wikipedia.org/wiki/User_identifier
+RESERVED_IDS = (MAX_ID, 0, 65535, 65534)
 
 
 class Provisioner:
@@ -19,8 +21,10 @@ class Provisioner:
 
     def _validate(self, uid: int, gid: int) -> None:
         for item in (uid, gid):
-            if item == 0:
-                raise ValueError("Will not provision for UID/GID 0")
+            if item in RESERVED_IDS:
+                raise ValueError(
+                    f"Will not provision for reserved UID/GID {item}"
+                )
             if item < 0:
                 raise ValueError("UID/GID must be positive")
             if item > MAX_ID:
@@ -36,7 +40,9 @@ class Provisioner:
 
         If the path already exists, verify that it is a directory and owned
         by the right UID and GID; warn if mode is not correct, but don't treat
-        that as a fatal error.
+        that as a fatal error.  If ownership is not correct, then if and only
+        if the directory is empty, warn and reset permissions appropriately.
+        If it is not empty, raise a fatal error.
         """
         if self.homedir.exists():
             if not self.homedir.is_dir():
@@ -45,16 +51,19 @@ class Provisioner:
                 )
             # Check ownership and permissions
             stat_results = self.homedir.stat()
-            if stat_results.st_uid != self.uid:
-                raise RuntimeError(
-                    f"{self.homedir} is owned by {stat_results.st_uid}, not "
-                    f"{self.uid}"
+            uid = stat_results.st_uid
+            gid = stat_results.st_gid
+            if uid != self.uid or gid != self.gid:
+                is_empty = len(list(self.homedir.iterdir())) == 0
+                msg = (
+                    f"{self.homedir} is owned by {uid}:{gid}, not"
+                    f"{self.uid}/{self.gid}"
                 )
-            if stat_results.st_gid != self.gid:
-                raise RuntimeError(
-                    f"{self.homedir} is owned by group "
-                    f"{stat_results.st_gid}, not {self.gid}"
-                )
+                if not is_empty:
+                    raise RuntimeError(f"{msg} and is not empty")
+                logger = logging.getLogger(__name__)
+                logger.warning(f"{msg} but is empty; resetting ownership")
+                os.chown(self.homedir, uid=self.uid, gid=self.gid)
             # We're masking st_mode because BSD and Linux disagree on file
             # type bit interpretation, and what we care about is rwx------
             if (stat_results.st_mode & 0o777) != 0o700:
@@ -65,36 +74,20 @@ class Provisioner:
                 )
             return
         # We need to create the directory
-        # Set umask so intermediate paths are created mode 0o700 as well
-        umask(0o077)
-        # Find out how many layers of directory we need to create, for the
-        # chown.
-        first_created = self.homedir
-        while True:
-            if first_created.parent.is_dir() or first_created == Path("/"):
-                break
-            first_created = first_created.parent
-        # Create the homedir (and path leading down to it if needed)
-        self.homedir.mkdir(parents=True)
-        # Climb the path, chown'ing until we get to a layer that previously
-        # existed.  (Neither os.chown() nor shutil.chown() implements "-r")
-        current_dir = self.homedir
-        while True:
-            chown(current_dir, uid=self.uid, gid=self.gid)
-            if current_dir == first_created:
-                break
-            current_dir = current_dir.parent
+        self.homedir.mkdir()
+        self.homedir.chmod(mode=0o700)
+        os.chown(self.homedir, uid=self.uid, gid=self.gid)
 
 
 def main() -> None:
     """Entry point for provisioner.
 
     Environment variables `NUBLADO_UID` and `NUBLADO_HOME` must be set.
-    if NUBLADO_GID is unset it will get set to NUBLADO_UID.
     """
-    uid = int(environ["NUBLADO_UID"])  # Fail if unset
-    gid = int(getenv("NUBLADO_GID", uid))  # Default to UID
-    homedir = Path(environ["NUBLADO_HOME"])  # Fail if unset
+    # All of these should fail if unset; KeyError is as good as anything.
+    uid = int(os.environ["NUBLADO_UID"])
+    gid = int(os.environ["NUBLADO_GID"])
+    homedir = Path(os.environ["NUBLADO_HOME"])
     provisioner = Provisioner(uid=uid, gid=gid, homedir=homedir)
     asyncio.run(provisioner.provision())
 

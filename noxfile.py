@@ -31,7 +31,9 @@ PIP_DEPENDENCIES = [
     ("-e", "authenticator[dev]"),
     ("-e", "controller"),
     ("-e", "spawner[dev]"),
-    ("-e", "inithome[dev]"),
+    ("-r", "inithome/requirements/main.txt"),
+    ("-r", "inithome/requirements/dev.txt"),
+    ("-e", "inithome"),
 ]
 
 
@@ -91,7 +93,7 @@ def _update_deps(
         "--upgrade", "pip-tools", "pip", "setuptools", "wheel", "pre-commit"
     )
     session.run("pre-commit", "autoupdate")
-    for directory in ("controller", "hub"):
+    for directory in ("controller", "hub", "inithome"):
         command = [
             "pip-compile",
             "--upgrade",
@@ -194,7 +196,9 @@ def typing_hub(session: nox.Session) -> None:
 def typing_inithome(session: nox.Session) -> None:
     """Check inithome type annotations with mypy."""
     session.install("--upgrade", "pip", "setuptools", "wheel", "mypy")
-    session.install("-e", "inithome[dev]")
+    session.install("-r", "inithome/requirements/main.txt")
+    session.install("-r", "inithome/requirements/dev.txt")
+    session.install("-e", "inithome")
     session.run(
         "mypy",
         *session.posargs,
@@ -239,7 +243,9 @@ def test_hub(session: nox.Session) -> None:
 def test_inithome(session: nox.Session) -> None:
     """Run only tests affecting inithome."""
     session.install("--upgrade", "pip", "setuptools", "wheel")
-    session.install("-e", "inithome[dev]")
+    session.install("-r", "inithome/requirements/main.txt")
+    session.install("-r", "inithome/requirements/dev.txt")
+    session.install("-e", "inithome")
     _pytest(session, "inithome", "rubin.nublado.inithome")
 
 
