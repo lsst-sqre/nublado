@@ -11,11 +11,6 @@ The tags in that repository must follow the rules in :sqr:`059`.
 
 Currently, Nublado depends on the features of the sciplat-lab_ Docker image and probably will only work on images derived from that image.
 
-.. warning::
-
-   Currently, the Nublado controller attempts to prepull images to every node in the cluster.
-   This will not work correctly on nodes with taints, but the Nublado controller does not currently know how to skip those nodes.
-
 .. _config-images-source:
 
 Image source
@@ -91,7 +86,7 @@ All other available images are collected into a drop-down list with a caution th
 
 See :sqr:`059` for the definition of release, weekly, and daily images.
 
-What images to prepull and display as radio button selections are controlled by the following settings:
+What images to prepull and display as radio button selections are controlled by the following settings.
 
 ``controller.config.images.recommendedTag``
     The Docker image tag that marks the recommended image.
@@ -126,6 +121,9 @@ What images to prepull and display as radio button selections are controlled by 
     This setting doesn't affect prepulling.
     It provides additional information to the Nublado controller about which tags are moving aliases for other tags (such as additional situation-specific recommended tags).
     That information enables better formatting of the human-readable description of those tags.
+
+The prepuller is also affected by the ``config.lab.nodeSelector`` and ``config.lab.tolerations`` settings documented in :ref:`the lab configuration <config-lab-kubernetes>`.
+Images are only prepulled to nodes that are selected and tolerated by those settings, if present.
 
 Image cycles
 ============

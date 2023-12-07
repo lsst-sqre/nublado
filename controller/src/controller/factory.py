@@ -142,6 +142,7 @@ class ProcessContext:
         image_service = ImageService(
             config=config.images,
             node_selector=config.lab.node_selector,
+            tolerations=config.lab.tolerations,
             source=source,
             node_storage=NodeStorage(kubernetes_client, logger),
             slack_client=slack_client,

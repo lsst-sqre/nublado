@@ -274,6 +274,8 @@ See the `Kubernetes documentation <https://kubernetes.io/docs/concepts/configura
     The ``cpu`` and ``memory`` for a given lab size define the Kubernetes limits.
     The Kubernetes requests are automatically set to 25% of the limits.
 
+.. _config-lab-kubernetes:
+
 Kubernetes
 ==========
 
@@ -307,9 +309,11 @@ They can be used to add additional Kubernetes configuration to all lab pods if, 
 
 ``controller.config.lab.nodeSelector``
     Node selector rules for user lab pods.
+    This also restricts which nodes images are prepulled to.
 
 ``controller.config.lab.tolerations``
     Toleration rules for user lab pods.
+    These tolerations are also applied to when choosing which nodes to prepull images to.
 
 Timeouts
 ========

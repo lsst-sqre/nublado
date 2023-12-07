@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 
 from aiojobs import Scheduler
+from kubernetes_asyncio.client import V1Node
 from safir.datetime import current_datetime
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
@@ -12,8 +13,8 @@ from structlog.stdlib import BoundLogger
 from ..constants import IMAGE_REFRESH_INTERVAL, KUBERNETES_REQUEST_TIMEOUT
 from ..exceptions import UnknownDockerImageError
 from ..models.domain.docker import DockerReference
-from ..models.domain.image import MenuImage, MenuImages
-from ..models.domain.kubernetes import KubernetesNodeImage
+from ..models.domain.image import MenuImage, MenuImages, NodeData
+from ..models.domain.kubernetes import KubernetesNodeImage, Toleration
 from ..models.domain.rspimage import RSPImage, RSPImageCollection
 from ..models.domain.rsptag import RSPImageType
 from ..models.v1.lab import ImageClass
@@ -61,6 +62,8 @@ class ImageService:
     node_selector
         Node selector rules to determine which nodes are eligible for
         prepulling.
+    tolerations
+        Tolerations used to determine which nodes are eligible for prepulling.
     source
         Source of remote images.
     node_storage
@@ -76,6 +79,7 @@ class ImageService:
         *,
         config: PrepullerConfig,
         node_selector: dict[str, str],
+        tolerations: list[Toleration],
         source: ImageSource,
         node_storage: NodeStorage,
         slack_client: SlackWebhookClient | None = None,
@@ -83,8 +87,9 @@ class ImageService:
     ) -> None:
         self._config = config
         self._node_selector = node_selector
+        self._tolerations = tolerations
         self._source = source
-        self._nodes = node_storage
+        self._node_storage = node_storage
         self._slack_client = slack_client
         self._logger = logger
 
@@ -96,10 +101,11 @@ class ImageService:
         # Images that should be prepulled.
         self._to_prepull = RSPImageCollection([])
 
-        # Mapping of node names to the images present on that node that are
-        # members of the set of images we're prepulling. Used to calculate
-        # missing images that the prepuller needs to pull.
-        self._node_images: dict[str, RSPImageCollection] = {}
+        # Mapping of node names to data about that node, including the set of
+        # images of interest present on that node. Used to calculate missing
+        # images that the prepuller needs to pull and to answer questions
+        # about prepuller status.
+        self._nodes: dict[str, NodeData] = {}
 
     def image_for_class(self, image_class: ImageClass) -> RSPImage:
         """Determine the image by class keyword.
@@ -186,7 +192,7 @@ class ImageService:
         SpawnerImages
             Model suitable for returning from the route handler.
         """
-        nodes = set(self._node_images.keys())
+        nodes = {n.name for n in self._nodes.values() if n.eligible}
 
         recommended = self._config.recommended_tag
         images = {
@@ -213,7 +219,7 @@ class ImageService:
         MenuImages
             Information required to generate the spawner menu.
         """
-        nodes = set(self._node_images.keys())
+        nodes = {n.name for n in self._nodes.values() if n.eligible}
 
         # Construct the main menu only from prepulled tags. Pull out the
         # recommended tag and force it to be the first item on the menu,
@@ -252,7 +258,7 @@ class ImageService:
         """
         if self._to_prepull.image_for_digest(image.digest):
             self._source.mark_prepulled(image, node)
-            self._node_images[node].add(image)
+            self._nodes[node].images.add(image)
 
     def missing_images_by_node(self) -> dict[str, list[RSPImage]]:
         """Determine what images need to be cached.
@@ -264,11 +270,11 @@ class ImageService:
             not appear to be.
         """
         result = {}
-        for node, images in self._node_images.items():
-            to_pull = self._to_prepull.subtract(images)
+        for name, node in self._nodes.items():
+            to_pull = self._to_prepull.subtract(node.images)
             to_pull_images = list(to_pull.all_images())
             if to_pull_images:
-                result[node] = to_pull_images
+                result[name] = to_pull_images
         return result
 
     def prepull_status(self) -> PrepullerStatus:
@@ -279,8 +285,11 @@ class ImageService:
         PrepullerStatus
             Model suitable for returning from a handler.
         """
-        all_nodes = set(self._node_images.keys())
-        nodes = {n: Node(name=n) for n in self._node_images}
+        all_nodes = {n.name for n in self._nodes.values() if n.eligible}
+        nodes = {
+            k: Node(name=k, eligible=v.eligible, comment=v.comment)
+            for k, v in self._nodes.items()
+        }
         prepulled = []
         pending = []
         for image in self._to_prepull.all_images(hide_resolved_aliases=True):
@@ -306,12 +315,12 @@ class ImageService:
         exceptions; the caller must do that if desired.
         """
         timeout = Timeout("List nodes", KUBERNETES_REQUEST_TIMEOUT)
+        selector = self._node_selector
         async with self._lock:
-            cached = await self._nodes.get_image_data(
-                self._node_selector, timeout
-            )
+            node_list = await self._node_storage.list(selector, timeout)
+            cached = self._node_storage.get_cached_images(node_list)
             to_prepull = await self._source.update_images(self._config, cached)
-            self._node_images = self._build_node_images(to_prepull, cached)
+            self._nodes = self._build_nodes(to_prepull, node_list, cached)
             self._to_prepull = to_prepull
             self._logger.info("Refreshed image information")
 
@@ -352,11 +361,12 @@ class ImageService:
         await self._refreshed.wait()
         self._refreshed.clear()
 
-    def _build_node_images(
+    def _build_nodes(
         self,
         to_prepull: RSPImageCollection,
+        nodes: list[V1Node],
         node_cache: dict[str, list[KubernetesNodeImage]],
-    ) -> dict[str, RSPImageCollection]:
+    ) -> dict[str, NodeData]:
         """Construct the collection of images on each node.
 
         Parameters
@@ -364,16 +374,22 @@ class ImageService:
         to_prepull
             Images that should be prepulled, and against which we compare
             cached images.
+        nodes
+            List of Kubernetes nodes of interest.
         node_cache
-            Mapping of node names to the list of cached images on that node.
+            List of cached images by node. This could be extracted from the
+            nodes again, but since we already did the work and had it
+            available, it's provided as a parameter.
 
         Returns
         -------
-        dict of str to RSPImageCollection
-            Image collections of images found on each node.
+        dict of NodeData
+            Information about each node.
         """
-        image_collections = {}
-        for node, node_images in node_cache.items():
+        node_data = {}
+        for node in nodes:
+            name = node.metadata.name
+            node_images = node_cache.get(name, [])
             images = []
             for node_image in node_images:
                 if not node_image.digest:
@@ -382,8 +398,14 @@ class ImageService:
                 if not image:
                     continue
                 images.append(image)
-            image_collections[node] = RSPImageCollection(images)
-        return image_collections
+            tolerate = self._node_storage.is_tolerated(node, self._tolerations)
+            node_data[name] = NodeData(
+                name=name,
+                images=RSPImageCollection(images),
+                eligible=tolerate.eligible,
+                comment=tolerate.comment,
+            )
+        return node_data
 
     async def _refresh_loop(self) -> None:
         """Run in the background by `start`, stopped with `stop`."""

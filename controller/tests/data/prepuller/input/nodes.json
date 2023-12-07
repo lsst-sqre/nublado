@@ -47,5 +47,61 @@
     "labels": {
       "status": "online"
     }
+  },
+  "node5": {
+    "images": [
+      {
+        "names": [
+          "lighthouse.ceres/library/sketchbook:latest_daily",
+          "lighthouse.ceres/library/sketchbook:d_2077_10_23",
+          "lighthouse.ceres/library/sketchbook@sha256:1234"
+        ],
+        "sizeBytes": 69105
+      },
+      {
+        "names": [
+          "lighthouse.ceres/library/sketchbook:latest_weekly",
+          "lighthouse.ceres/library/sketchbook:w_2077_43",
+          "lighthouse.ceres/library/sketchbook:recommended",
+          "lighthouse.ceres/library/sketchbook@sha256:5678"
+        ],
+        "sizeBytes": 65537
+      }
+    ],
+    "labels": {
+      "status": "online",
+      "nublado": "eligible"
+    },
+    "taints": [
+      {
+        "effect": "NoSchedule",
+        "key": "some-taint",
+        "value": "some-value"
+      }
+    ]
+  },
+  "node6": {
+    "images": [
+      {
+        "names": [
+          "lighthouse.ceres/library/sketchbook:latest_weekly",
+          "lighthouse.ceres/library/sketchbook:w_2077_43",
+          "lighthouse.ceres/library/sketchbook:recommended",
+          "lighthouse.ceres/library/sketchbook@sha256:5678"
+        ],
+        "sizeBytes": 65537
+      }
+    ],
+    "labels": {
+      "status": "online",
+      "nublado": "eligible"
+    },
+    "taints": [
+      {
+        "effect": "NoSchedule",
+        "key": "some-taint",
+        "value": "other-value"
+      }
+    ]
   }
 }

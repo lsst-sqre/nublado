@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
@@ -33,7 +35,8 @@ async def test_node_selector(
 ) -> None:
     nodes = read_input_node_json("prepuller", "nodes.json")
     mock_kubernetes.set_nodes_for_test(nodes)
-    await configure("prepuller", mock_kubernetes)
+    async with asyncio.timeout(1):
+        await configure("prepuller", mock_kubernetes)
 
     # Wait for the the prepuller and then get its status. We should only see
     # the nodes that match the node selector of our configuration.

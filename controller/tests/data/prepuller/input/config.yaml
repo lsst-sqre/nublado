@@ -5,6 +5,9 @@ lab:
   nodeSelector:
     status: online
     nublado: eligible
+  tolerations:
+    - key: some-taint
+      value: some-value
   sizes:
     - size: small
       cpu: 1.0
