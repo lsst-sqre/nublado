@@ -10,9 +10,11 @@ from typing import Any
 from kubernetes_asyncio.client import (
     V1ContainerImage,
     V1Node,
+    V1NodeSpec,
     V1NodeStatus,
     V1ObjectMeta,
     V1Secret,
+    V1Taint,
 )
 
 from controller.models.domain.gafaelfawr import GafaelfawrUserInfo
@@ -119,8 +121,10 @@ def read_input_node_json(config: str, filename: str) -> list[V1Node]:
             V1ContainerImage(names=d["names"], size_bytes=d["sizeBytes"])
             for d in data.get("images", [])
         ]
+        taints = [V1Taint(**t) for t in data.get("taints", [])]
         node = V1Node(
             metadata=V1ObjectMeta(name=name, labels=data.get("labels")),
+            spec=V1NodeSpec(taints=taints),
             status=V1NodeStatus(images=node_images),
         )
         nodes.append(node)

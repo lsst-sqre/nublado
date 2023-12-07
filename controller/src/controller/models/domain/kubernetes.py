@@ -41,6 +41,7 @@ __all__ = [
     "NodeSelectorRequirement",
     "NodeSelectorTerm",
     "NodeSelector",
+    "NodeToleration",
     "PodAffinity",
     "PodAffinityTerm",
     "PodChange",
@@ -590,6 +591,21 @@ class PullPolicy(Enum):
     ALWAYS = "Always"
     IF_NOT_PRESENT = "IfNotPresent"
     NEVER = "Never"
+
+
+@dataclass
+class NodeToleration:
+    """Whether a single node is tolerated.
+
+    Used to report the results of evaluating any tolerations against any node
+    taints.
+    """
+
+    eligible: bool
+    """Whether the node is tolerated."""
+
+    comment: str | None = None
+    """If the node is not tolerated, why not."""
 
 
 class TaintEffect(Enum):

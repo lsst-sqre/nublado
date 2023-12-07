@@ -135,7 +135,8 @@ async def test_gar(
     mock_kubernetes.set_nodes_for_test(nodes)
 
     async with Factory.standalone(config) as factory:
-        await factory.start_background_services()
+        async with asyncio.timeout(1):
+            await factory.start_background_services()
         await asyncio.sleep(0.2)
 
         images = factory.image_service.images()

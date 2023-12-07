@@ -23,7 +23,9 @@
         "digest": "sha256:5678",
         "size": 65537,
         "nodes": [
-          "node1"
+          "node1",
+          "node5",
+          "node6"
         ],
         "missing": [
           "node3"
@@ -36,7 +38,8 @@
         "digest": "sha256:1234",
         "size": 69105,
         "nodes": [
-          "node1"
+          "node1",
+          "node5"
         ],
         "missing": [
           "node3"
@@ -59,6 +62,23 @@
       "eligible": true,
       "comment": null,
       "cached": []
+    },
+    {
+      "name": "node5",
+      "eligible": true,
+      "comment": null,
+      "cached": [
+        "lighthouse.ceres/library/sketchbook:w_2077_43",
+        "lighthouse.ceres/library/sketchbook:d_2077_10_23"
+      ]
+    },
+    {
+      "name": "node6",
+      "eligible": false,
+      "comment": "Node is tainted (NoSchedule, some-taint = other-value)",
+      "cached": [
+        "lighthouse.ceres/library/sketchbook:w_2077_43"
+      ]
     }
   ]
 }
