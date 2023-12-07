@@ -198,8 +198,8 @@ class UserOptions(BaseModel):
             "If true, set the `RESET_USER_ENV` environment variable when"
             " spawning the lab, which tells the lab to move aside the user"
             " environment directories (`.cache`, `.conda`, `.jupyter`,"
-            " `.local`). This can be used to recover from user configuration"
-            " errors that break lab startup."
+            " `.local`) and files (`.user_setups`) . This can be used to"
+            " recover from user configuration errors that break lab startup."
         ),
         examples=[True],
     )
