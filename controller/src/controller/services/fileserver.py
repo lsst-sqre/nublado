@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from dataclasses import dataclass, field
+from datetime import datetime
 
+from safir.datetime import current_datetime
 from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
@@ -35,6 +37,23 @@ class _State:
 
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     """Lock to prevent two operations from happening at once."""
+
+    last_modified: datetime = field(
+        default_factory=lambda: current_datetime(microseconds=True)
+    )
+    """Last time an operation was started or completed.
+
+    This is required to prevent race conditions such as the following:
+
+    #. New file server starts being created.
+    #. Reconcile gathers information about the partially created lab and finds
+       that it is incomplete.
+    #. Reconcile deletes the file server objects created so far.
+    #. File server creation finishes and then the file server doesn't work.
+
+    With this setting, reconcile can check if a file server operation has
+    started or recently finished and skip the reconcile.
+    """
 
 
 class FileserverManager:
@@ -115,6 +134,7 @@ class FileserverManager:
             if state.running:
                 return
             try:
+                state.last_modified = current_datetime(microseconds=True)
                 async with timeout.enforce():
                     await self._create_file_server(user, timeout)
             except Exception as e:
@@ -125,6 +145,8 @@ class FileserverManager:
                 raise
             else:
                 state.running = True
+            finally:
+                state.last_modified = current_datetime(microseconds=True)
 
     async def delete(self, username: str) -> None:
         """Delete the file server for a user.
@@ -146,8 +168,12 @@ class FileserverManager:
             if not state.running:
                 msg = f"File server for {username} not running"
                 raise UnknownUserError(msg)
-            await self._delete_file_server(username)
-            state.running = False
+            state.last_modified = current_datetime(microseconds=True)
+            try:
+                await self._delete_file_server(username)
+                state.running = False
+            finally:
+                state.last_modified = current_datetime(microseconds=True)
 
     async def list(self) -> list[str]:
         """List users with running file servers."""
@@ -167,6 +193,7 @@ class FileserverManager:
         timeout = Timeout(
             "Reading file server state", KUBERNETES_REQUEST_TIMEOUT
         )
+        start = current_datetime(microseconds=True)
         seen = await self._storage.read_fileserver_state(namespace, timeout)
         known_users = {k for k, v in self._servers.items() if v.running}
 
@@ -176,22 +203,25 @@ class FileserverManager:
         invalid = set()
         for username, state in seen.items():
             valid = self._builder.is_valid(username, state)
-            if valid:
+            if valid and username not in known_users:
                 self._servers[username] = _State(running=valid)
             elif username in self._servers:
                 to_delete.add(username)
             else:
                 invalid.add(username)
-        seen = {k: v for k, v in seen.items() if k not in to_delete}
 
         # Also tidy up any supposedly-running users that we didn't find. They
         # may have some objects remaining. This should only be possible if
         # something outside of the controller deleted resources.
-        seen_users = set(seen.keys())
-        for user in (known_users - seen_users) | to_delete:
+        seen_users = {u for u in seen if u not in to_delete}
+        for username in (known_users - seen_users) | to_delete:
+            if username in self._servers:
+                last_modified = self._servers[username].last_modified
+                if last_modified > start:
+                    continue
             msg = "Removing broken fileserver for user"
-            self._logger.warning(msg, user=user)
-            await self.delete(user)
+            self._logger.warning(msg, user=username)
+            await self.delete(username)
         for username in invalid:
             if username in self._servers:
                 continue

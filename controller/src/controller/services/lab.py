@@ -7,10 +7,12 @@ import contextlib
 from base64 import b64encode
 from collections.abc import AsyncIterator, Coroutine
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import Self
 
 from safir.asyncio import AsyncMultiQueue
+from safir.datetime import current_datetime
 from safir.slack.blockkit import (
     SlackException,
 )
@@ -57,6 +59,45 @@ class _State:
 
     events: AsyncMultiQueue[Event] = field(default_factory=AsyncMultiQueue)
     """Events from the current or most recent lab operation."""
+
+    last_modified: datetime = field(
+        default_factory=lambda: current_datetime(microseconds=True)
+    )
+    """Last time the state was changed.
+
+    This is required to prevent race conditions such as the following:
+
+    #. New lab starts being created.
+    #. Reconcile gathers information about the partially created lab and finds
+       that it is incomplete.
+    #. Lab finishes being spawned and the operation ends.
+    #. Reconcile checks to see if there is an operation in progress, sees that
+       there isn't, and therefore thinks it's safe to delete supposedly
+       malformed lab.
+
+    With this setting, reconcile can check if either a lab operation is in
+    progress or if an operation completed since reconcile started and skip the
+    reconcile either way.
+    """
+
+    def modified_since(self, date: datetime) -> bool:
+        """Whether the lab state has been modified since the given time.
+
+        Any lab that has a current in-progress operation is counted as
+        modified.
+
+        Parameters
+        ----------
+        date
+            Reference time.
+
+        Returns
+        -------
+        bool
+            `True` if the internal last-modified time is after the provided
+            time, `False` otherwise.
+        """
+        return bool(self.monitor.in_progress or self.last_modified > date)
 
 
 class _LabOperation(Enum):
@@ -337,6 +378,7 @@ class LabManager:
         # do something safe in case one appears in the future.
         if lab.monitor.in_progress == _LabOperation.DELETE:
             await lab.monitor.wait()
+            lab.last_modified = current_datetime(microseconds=True)
         elif lab.monitor.in_progress in (_LabOperation.SPAWN, None):
             if lab.monitor.in_progress == _LabOperation.SPAWN:
                 await lab.monitor.cancel()
@@ -361,6 +403,7 @@ class LabManager:
             )
             await lab.monitor.monitor(operation, timeout)
             await lab.monitor.wait()
+            lab.last_modified = current_datetime(microseconds=True)
             if lab.state.status == LabStatus.TERMINATED:
                 lab.state = None
         else:
@@ -501,6 +544,9 @@ class LabManager:
         cleanly finalized and to catch any uncaught exceptions. That function
         is performed by a background task running this method.
 
+        This method is also responsible for updating the last modified time in
+        the lab state.
+
         Notes
         -----
         Doing this properly is a bit tricky, since we have to avoid both
@@ -518,6 +564,7 @@ class LabManager:
                 if lab.monitor.in_progress and lab.monitor.is_done():
                     try:
                         await lab.monitor.wait()
+                        lab.last_modified = current_datetime(microseconds=True)
                     except NoOperationError:
                         # There is a race condition with deletes, since the
                         # task doing the delete kicks it off and then
@@ -528,6 +575,7 @@ class LabManager:
                         # and ignorable.
                         pass
                     except Exception as e:
+                        lab.last_modified = current_datetime(microseconds=True)
                         msg = "Uncaught exception in monitor thread"
                         self._logger.exception(msg, user=username)
                         await self._maybe_post_slack_exception(e, username)
@@ -548,33 +596,20 @@ class LabManager:
             Raised if there is some failure in a Kubernetes API call.
         """
         self._logger.info("Reconciling user lab state with Kubernetes")
-        known_users = set(self._labs.keys())
+        start = current_datetime(microseconds=True)
 
         # Gather information about all extant Kubernetes namespaces and delete
         # any malformed namespaces for which no operation is in progress.
-        observed = await self._gather_current_state()
-
-        # If the set of users we expected to see changed during
-        # reconciliation, that means someone added a new user while we were
-        # reconciling. Play it safe and skip this background update; we'll
-        # catch any inconsistencies the next time around.
-        #
-        # From this point forward, make sure not to do any asyncio operations
-        # until we've finished reconciling state, since if we yield control
-        # our state may change out from under us.
-        if set(self._labs.keys()) != known_users:
-            msg = "Known users changed during reconciliation, skipping"
-            self._logger.info(msg)
-            return
+        observed = await self._gather_current_state(start)
 
         # First pass: check all users already recorded in internal state
         # against Kubernetes and correct them (or remove them) if needed.
-        to_monitor = self._reconcile_known_users(observed)
+        to_monitor = self._reconcile_known_users(observed, start)
 
         # Second pass: take observed state and create any missing internal
         # state. This is the normal case after a restart of the lab
         # controller.
-        for username in set(observed.keys()) - known_users:
+        for username in set(observed.keys()) - set(self._labs.keys()):
             msg = f"Creating record for user {username} from Kubernetes"
             self._logger.info(msg)
             self._labs[username] = _State(
@@ -676,12 +711,20 @@ class LabManager:
                     with contextlib.suppress(UnknownUserError):
                         await self.delete_lab(username)
 
-    async def _gather_current_state(self) -> dict[str, UserLabState]:
+    async def _gather_current_state(
+        self, cutoff: datetime
+    ) -> dict[str, UserLabState]:
         """Gather lab state from extant Kubernetes resources.
 
         Called during reconciliation, this method determines the current lab
         state by scanning the resources in Kubernetes. Malformed labs that do
         not have an existing entry in our state mapping will be deleted.
+
+        Parameters
+        ----------
+        cutoff
+            Do not delete incomplete namespaces for users modified after this
+            date, since our data may be stale.
 
         Returns
         -------
@@ -704,14 +747,12 @@ class LabManager:
             objects = await self._storage.read_lab_objects(names, timeout)
             state = await self._builder.recreate_lab_state(username, objects)
 
-            # Only delete malformed labs with no entry or no current operation
-            # in progress. Do this check immediately before the deletion since
-            # the above await calls yield control and the internal state may
-            # change during that time.
+            # Only delete malformed labs with no entry or that have not been
+            # modified since we started gathering data.
             lab = self._labs.get(username)
             if state:
                 observed[username] = state
-            elif not lab or not lab.monitor.in_progress:
+            elif not lab or not lab.modified_since(cutoff):
                 msg = "Deleting incomplete namespace"
                 self._logger.warning(msg, user=username, namespace=namespace)
                 timeout = Timeout(msg, KUBERNETES_REQUEST_TIMEOUT)
@@ -829,7 +870,7 @@ class LabManager:
             await lab.monitor.monitor(operation, timeout, self._spawner_done)
 
     def _reconcile_known_users(
-        self, observed: dict[str, UserLabState]
+        self, observed: dict[str, UserLabState], cutoff: datetime
     ) -> set[str]:
         """Reconcile observed lab state against already-known users.
 
@@ -840,6 +881,9 @@ class LabManager:
         ----------
         observed
             Observed lab state.
+        cutoff
+            Do not change labs that have been modified since this date, since
+            our gathered data about the lab may be stale.
 
         Returns
         -------
@@ -860,7 +904,7 @@ class LabManager:
         """
         to_monitor = set()
         for username, lab in self._labs.items():
-            if lab.monitor.in_progress or not lab.state:
+            if not lab.state or lab.modified_since(cutoff):
                 continue
             if lab.state.status == LabStatus.FAILED:
                 continue
@@ -1269,7 +1313,7 @@ class _LabMonitor:
         timeout: Timeout,
         done_event: asyncio.Event | None = None,
     ) -> None:
-        """Monitor the deletion of a lab.
+        """Monitor an operation on a lab.
 
         Parameters
         ----------
