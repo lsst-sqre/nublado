@@ -52,10 +52,10 @@ async def app(
     Wraps the application in a lifespan manager so that startup and shutdown
     events are sent during test execution.
     """
-    nodes = read_input_node_json("base", "nodes.json")
+    nodes = read_input_node_json("base", "nodes")
     mock_kubernetes.set_nodes_for_test(nodes)
     namespace = read_input_data("base", "metadata/namespace").strip()
-    for secret in read_input_secrets_json("base", "secrets.json"):
+    for secret in read_input_secrets_json("base", "secrets"):
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
     app = create_app()
     async with LifespanManager(app):
@@ -77,7 +77,7 @@ async def factory(
     mock_slack: MockSlackWebhook,
 ) -> AsyncIterator[Factory]:
     """Create a component factory for tests."""
-    nodes = read_input_node_json("base", "nodes.json")
+    nodes = read_input_node_json("base", "nodes")
     mock_kubernetes.set_nodes_for_test(nodes)
     async with Factory.standalone(config) as factory:
         yield factory
@@ -89,7 +89,7 @@ def mock_docker(
     config: Config, respx_mock: respx.Router
 ) -> MockDockerRegistry:
     assert isinstance(config.images.source, DockerSourceConfig)
-    tags = read_input_json("base", "docker-tags.json")
+    tags = read_input_json("base", "docker-tags")
     return register_mock_docker(
         respx_mock,
         host=config.images.source.registry,
@@ -104,7 +104,7 @@ def mock_docker(
 def mock_gafaelfawr(
     config: Config, respx_mock: respx.Router
 ) -> MockGafaelfawr:
-    users = read_input_users_json("base", "users.json")
+    users = read_input_users_json("base", "users")
     return register_mock_gafaelfawr(respx_mock, config.base_url, users)
 
 

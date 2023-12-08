@@ -25,7 +25,7 @@ async def test_user_status(
 ) -> None:
     assert user.quota
     assert user.quota.notebook
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
 
     # At the start, we shouldn't have any lab.
     r = await client.get(

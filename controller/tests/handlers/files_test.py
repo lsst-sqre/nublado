@@ -91,7 +91,7 @@ async def test_file_server_objects(
     # meaningful to compare.
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
     seen = objects_to_dicts(objects)
-    assert seen == read_output_json("fileserver", "fileserver-objects.json")
+    assert seen == read_output_json("fileserver", "fileserver-objects")
 
 
 @pytest.mark.asyncio

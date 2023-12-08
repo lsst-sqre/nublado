@@ -85,7 +85,7 @@ async def test_docker(
     # The default data configures Kubernetes with missing images on some
     # nodes. Check that we created the correct prepuller pods.
     pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-    expected = read_output_json("standard", "prepull-objects.json")
+    expected = read_output_json("standard", "prepull-objects")
     assert [strip_none(o.to_dict()) for o in pod_list.items] == expected
 
     # Update all of the pods to have a status of completed and send an event.
@@ -112,7 +112,7 @@ async def test_gar(
     """Test the prepuller service configured to talk to GAR."""
     config = await configure("gar")
     assert isinstance(config.images.source, GARSourceConfig)
-    known_images = read_input_json("gar", "known-images.json")
+    known_images = read_input_json("gar", "known-images")
     for known_image in known_images:
         image = DockerImage(**known_image)
         parent, _, _ = image.name.split("@", 1)[0].rsplit("/", 2)
@@ -135,7 +135,7 @@ async def test_gar(
         await asyncio.sleep(0.2)
 
         images = factory.image_service.images()
-        expected = read_output_json("gar", "images-before.json")
+        expected = read_output_json("gar", "images-before")
         assert images.model_dump(exclude_none=True) == expected
 
         menu_images = factory.image_service.menu_images()
@@ -143,7 +143,7 @@ async def test_gar(
             "menu": [asdict(e) for e in menu_images.menu],
             "dropdown": [asdict(e) for e in menu_images.dropdown],
         }
-        expected = read_output_json("gar", "menu-before.json")
+        expected = read_output_json("gar", "menu-before")
         assert seen == expected
 
         # There should be two running pods, one for each node.
@@ -173,7 +173,7 @@ async def test_gar(
         assert pod_list.items == []
 
         images = factory.image_service.images()
-        expected = read_output_json("gar", "images-after.json")
+        expected = read_output_json("gar", "images-after")
         assert images.model_dump(exclude_none=True) == expected
 
         menu_images = factory.image_service.menu_images()
@@ -181,7 +181,7 @@ async def test_gar(
             "menu": [asdict(e) for e in menu_images.menu],
             "dropdown": [asdict(e) for e in menu_images.dropdown],
         }
-        expected = read_output_json("gar", "menu-after.json")
+        expected = read_output_json("gar", "menu-after")
         assert seen == expected
 
 
@@ -192,8 +192,8 @@ async def test_cycle(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("cycle")
-    mock_docker.tags = read_input_json("cycle", "docker-tags.json")
-    node_data = read_input_json("cycle", "nodes.json")
+    mock_docker.tags = read_input_json("cycle", "docker-tags")
+    node_data = read_input_json("cycle", "nodes")
     nodes = []
     for name, data in node_data.items():
         node_images = [
@@ -212,7 +212,7 @@ async def test_cycle(
         await asyncio.sleep(0.2)
 
         images = factory.image_service.images()
-        expected = read_output_json("cycle", "images.json")
+        expected = read_output_json("cycle", "images")
         assert images.model_dump(exclude_none=True) == expected
 
         menu_images = factory.image_service.menu_images()
@@ -220,7 +220,7 @@ async def test_cycle(
             "menu": [asdict(e) for e in menu_images.menu],
             "dropdown": [asdict(e) for e in menu_images.dropdown],
         }
-        expected = read_output_json("cycle", "menu.json")
+        expected = read_output_json("cycle", "menu")
         assert seen == expected
 
 
@@ -231,12 +231,12 @@ async def test_gar_cycle(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("gar-cycle")
-    known_images = read_input_json("gar-cycle", "known-images.json")
+    known_images = read_input_json("gar-cycle", "known-images")
     for known_image in known_images:
         image = DockerImage(**known_image)
         parent, _, _ = image.name.split("@", 1)[0].rsplit("/", 2)
         mock_gar.add_image_for_test(parent, image)
-    nodes = read_input_node_json("gar-cycle", "nodes.json")
+    nodes = read_input_node_json("gar-cycle", "nodes")
     mock_kubernetes.set_nodes_for_test(nodes)
 
     async with Factory.standalone(config) as factory:
@@ -244,7 +244,7 @@ async def test_gar_cycle(
         await asyncio.sleep(0.2)
 
         images = factory.image_service.images()
-        expected = read_output_json("gar-cycle", "images.json")
+        expected = read_output_json("gar-cycle", "images")
         assert images.model_dump(exclude_none=True) == expected
 
         menu_images = factory.image_service.menu_images()
@@ -252,7 +252,7 @@ async def test_gar_cycle(
             "menu": [asdict(e) for e in menu_images.menu],
             "dropdown": [asdict(e) for e in menu_images.dropdown],
         }
-        expected = read_output_json("gar-cycle", "menu.json")
+        expected = read_output_json("gar-cycle", "menu")
         assert seen == expected
 
 
@@ -328,7 +328,7 @@ async def test_conflict(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Test handling of conflicts with a pre-existing prepuller pod."""
-    expected = read_output_json("standard", "prepull-conflict-objects.json")
+    expected = read_output_json("standard", "prepull-conflict-objects")
 
     # Create a pod with the same name as the prepull pod that the prepuller
     # will want to create. Don't bother to try to make this a valid pod, just

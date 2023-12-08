@@ -71,7 +71,7 @@ async def test_lab_start_stop(
 ) -> None:
     assert user.quota
     assert user.quota.notebook
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
     unknown_user_error = {
         "detail": [
             {
@@ -216,7 +216,7 @@ async def test_spawn_after_failure(
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
 
     # Create a lab.
     r = await client.post(
@@ -262,7 +262,7 @@ async def test_spawn_after_failure(
     assert pod.status.phase == PodPhase.RUNNING.value
 
     # Get the events and look for the lab recreation events.
-    expected_events = read_output_json("standard", "lab-recreate-events.json")
+    expected_events = read_output_json("standard", "lab-recreate-events")
     assert await get_lab_events(client, user.username) == expected_events
 
 
@@ -273,7 +273,7 @@ async def test_multiple_delete(
     user: GafaelfawrUser,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
 
     # Create a lab.
     r = await client.post(
@@ -315,7 +315,7 @@ async def test_delayed_spawn(
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
 
     r = await client.post(
@@ -384,7 +384,7 @@ async def test_delayed_spawn(
     # The listeners should now complete successfully and we should see
     # appropriate events.
     event_lists = await asyncio.gather(*listeners)
-    expected_events = read_output_json("standard", "lab-spawn-events.json")
+    expected_events = read_output_json("standard", "lab-spawn-events")
     expected_events = (
         expected_events[:-1]
         + [
@@ -430,7 +430,7 @@ async def test_abort_spawn(
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
 
     r = await client.post(
@@ -461,7 +461,7 @@ async def test_spawn_after_terminate(
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
     mock_kubernetes.initial_pod_phase = PodPhase.SUCCEEDED.value
 
     r = await client.post(
@@ -495,7 +495,7 @@ async def test_lab_objects(
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -510,12 +510,12 @@ async def test_lab_objects(
     namespace = f"{config.lab.namespace_prefix}-{user.username}"
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
     seen = objects_to_dicts(objects)
-    assert seen == read_output_json("standard", "lab-objects.json")
+    assert seen == read_output_json("standard", "lab-objects")
 
 
 @pytest.mark.asyncio
 async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
 
     # Wrong user.
     r = await client.post(
@@ -658,7 +658,7 @@ async def test_spawn_errors(
     mock_kubernetes: MockKubernetesApi,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
     apis_to_fail = set()
 
     def callback(method: str, *args: Any) -> None:
@@ -815,7 +815,7 @@ async def test_homedir_schema(
     was set.
     """
     config = await configure("homedir-schema")
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -848,7 +848,7 @@ async def test_extra_annotations(
 ) -> None:
     """Check that the pod picks up extra annotations set in the config."""
     config = await configure("extra-annotations")
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",

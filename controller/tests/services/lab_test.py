@@ -65,7 +65,7 @@ async def create_lab(
     """
     assert user.quota
     assert user.quota.notebook
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
     size = config.lab.get_size_definition(lab.options.size)
     resources = size.to_lab_resources()
     await factory.image_service.refresh()
@@ -186,14 +186,14 @@ async def test_reconcile_succeeded(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     namespace = read_input_data("base", "metadata/namespace").strip()
-    for secret in read_input_secrets_json("base", "secrets.json"):
+    for secret in read_input_secrets_json("base", "secrets"):
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
     mock_kubernetes.initial_pod_phase = PodPhase.SUCCEEDED.value
     await factory.start_background_services()
 
     # Create a lab through the controller. It should show up in a terminated
     # state.
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
     await factory.lab_manager.create_lab(user, lab)
     await asyncio.sleep(0.1)
     state = await factory.lab_manager.get_lab_state(user.username)
@@ -219,11 +219,11 @@ async def test_spawn_timeout(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     namespace = read_input_data("base", "metadata/namespace").strip()
-    for secret in read_input_secrets_json("base", "secrets.json"):
+    for secret in read_input_secrets_json("base", "secrets"):
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
     config.lab.spawn_timeout = timedelta(seconds=1)
-    lab = read_input_lab_specification_json("base", "lab-specification.json")
+    lab = read_input_lab_specification_json("base", "lab-specification")
     await factory.start_background_services()
 
     # Start the lab creation.
