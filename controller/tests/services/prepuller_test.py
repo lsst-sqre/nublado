@@ -66,8 +66,7 @@ async def test_docker(
     factory: Factory, config: Config, mock_kubernetes: MockKubernetesApi
 ) -> None:
     """Test the prepuller service configured to talk to Docker."""
-    await factory.image_service.start()
-    await asyncio.sleep(0.2)
+    await factory.image_service.refresh()
 
     # With the default data, the image service running, and no prepuller, we
     # should see node1 as up-to-date but node2 out-of-date.
@@ -80,7 +79,7 @@ async def test_docker(
             assert image.nodes == ["node1", "node2"]
 
     # Start the prepuller and give it a moment to run.
-    await factory.prepuller.start()
+    await factory.start_background_services()
     await asyncio.sleep(0.2)
 
     # The default data configures Kubernetes with missing images on some
@@ -104,10 +103,6 @@ async def test_docker(
     for image in status.images.pending:
         if image.tag == "d_2077_10_23":
             assert image.nodes == ["node1", "node2"]
-
-    # Stop everything. (Ideally this should be done in a try/finally block.)
-    await factory.image_service.stop()
-    await factory.prepuller.stop()
 
 
 @pytest.mark.asyncio
@@ -273,9 +268,8 @@ async def test_kubernetes_error(
 
     mock_kubernetes.error_callback = callback
 
-    await factory.start_background_services()
-    await asyncio.sleep(0.2)
-
+    await factory.image_service.refresh()
+    await factory.prepuller.prepull_images()
     obj = "nublado/prepull-d-2077-10-23-node2"
     error = f"Error creating object (Pod {obj}, status 400)"
     assert mock_slack.messages == [

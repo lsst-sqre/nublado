@@ -18,7 +18,6 @@ from ...timeout import Timeout
 from .custom import GafaelfawrIngressStorage
 from .deleter import JobStorage, PersistentVolumeClaimStorage, ServiceStorage
 from .ingress import IngressStorage
-from .namespace import NamespaceStorage
 from .pod import PodStorage
 
 __all__ = ["FileserverStorage"]
@@ -48,7 +47,6 @@ class FileserverStorage:
         self._gafaelfawr = GafaelfawrIngressStorage(api_client, logger)
         self._ingress = IngressStorage(api_client, logger)
         self._job = JobStorage(api_client, logger)
-        self._namespace = NamespaceStorage(api_client, logger)
         self._pod = PodStorage(api_client, logger)
         self._pvc = PersistentVolumeClaimStorage(api_client, logger)
         self._service = ServiceStorage(api_client, logger)
@@ -157,23 +155,6 @@ class FileserverStorage:
         pvcs = await self._pvc.list(namespace, timeout, label_selector=search)
         for pvc in pvcs:
             await self._pvc.delete(pvc.metadata.name, namespace, timeout)
-
-    async def namespace_exists(self, name: str, timeout: Timeout) -> bool:
-        """Check whether a namespace is present.
-
-        Parameters
-        ----------
-        name
-            Name of the namespace.
-        timeout
-            Timeout on operation.
-
-        Returns
-        -------
-        bool
-            `True` if the namespace is present, `False` otherwise.
-        """
-        return await self._namespace.read(name, timeout) is not None
 
     async def read_fileserver_state(
         self, namespace: str, timeout: Timeout

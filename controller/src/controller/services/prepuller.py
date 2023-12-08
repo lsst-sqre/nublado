@@ -2,12 +2,11 @@
 
 import asyncio
 
-from aiojobs import Scheduler
 from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
-from ..constants import IMAGE_REFRESH_INTERVAL, PREPULLER_POD_TIMEOUT
+from ..constants import PREPULLER_POD_TIMEOUT
 from ..models.domain.rspimage import RSPImage
 from ..storage.kubernetes.pod import PodStorage
 from ..storage.metadata import MetadataStorage
@@ -59,58 +58,6 @@ class Prepuller:
         self._slack = slack_client
         self._logger = logger
 
-        # Scheduler to manage background tasks that prepull images to nodes.
-        self._scheduler: Scheduler | None = None
-
-    async def start(self) -> None:
-        """Start the prepuller.
-
-        The prepuller normally runs for the lifetime of the process in the
-        background, but when first called, wait for the image data to populate
-        in the foreground. This ensures that we populate image data before
-        FastAPI completes its startup event, and therefore before we start
-        answering requests. That in turn means a more accurate health check,
-        since until we have populated image data our API is fairly useless.
-        (It also makes life easier for the test suite.)
-        """
-        if self._scheduler:
-            msg = "Prepuller already running, cannot start"
-            self._logger.warning(msg)
-            return
-        self._logger.info("Starting prepuller tasks")
-        await self._image_service.prepuller_wait()
-        self._running = True
-        self._scheduler = Scheduler()
-        await self._scheduler.spawn(self._prepull_loop())
-
-    async def stop(self) -> None:
-        """Stop the prepuller."""
-        if not self._scheduler:
-            self._logger.warning("Prepuller was already stopped")
-            return
-        self._logger.info("Stopping prepuller")
-        await self._scheduler.close()
-        self._scheduler = None
-
-    async def _prepull_loop(self) -> None:
-        """Continually prepull images in a loop.
-
-        When the prepuller is stopped, we will orphan prepuller pods. Avoiding
-        this is difficult and unreliable. The prepuller should instead detect
-        orphaned pods on startup and clean them up.
-        """
-        while True:
-            try:
-                await self.prepull_images()
-                await self._image_service.prepuller_wait()
-            except Exception as e:
-                self._logger.exception("Uncaught exception in prepuller")
-                if self._slack:
-                    await self._slack.post_uncaught_exception(e)
-                pause = IMAGE_REFRESH_INTERVAL.total_seconds()
-                self._logger.warning("Pausing failed prepuller for {pause}s")
-                await asyncio.sleep(pause)
-
     async def prepull_images(self) -> None:
         """Prepull missing images."""
         missing_by_node = self._image_service.missing_images_by_node()
@@ -119,13 +66,10 @@ class Prepuller:
         # node at a time. We do this by creating a separate background task
         # per node, each of which works through the list of images that are
         # missing on that node.
-        node_tasks = set()
-        for node, images in missing_by_node.items():
-            self._logger.debug(f"Creating prepull task for {node}")
-            prepull_call = self._prepull_images_for_node(node, images)
-            task = asyncio.create_task(prepull_call)
-            node_tasks.add(task)
-        await asyncio.gather(*node_tasks)
+        async with asyncio.TaskGroup() as tg:
+            for node, images in missing_by_node.items():
+                self._logger.debug(f"Creating prepull task for {node}")
+                tg.create_task(self._prepull_images_for_node(node, images))
         self._logger.debug("Finished prepulling all images")
 
     async def _prepull_images_for_node(

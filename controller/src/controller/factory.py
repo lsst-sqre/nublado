@@ -14,6 +14,7 @@ from safir.dependencies.http_client import http_client_dependency
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
+from .background import BackgroundTaskManager
 from .config import Config
 from .exceptions import NotConfiguredError
 from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
@@ -74,6 +75,9 @@ class ProcessContext:
 
     _fileserver_manager: FileserverManager | None
     """State management for user file servers."""
+
+    background: BackgroundTaskManager
+    """Manager for background tasks."""
 
     @classmethod
     async def from_config(cls, config: Config) -> Self:
@@ -148,32 +152,42 @@ class ProcessContext:
             slack_client=slack_client,
             logger=logger,
         )
+        prepuller = Prepuller(
+            image_service=image_service,
+            prepuller_builder=PrepullerBuilder(
+                metadata_storage=metadata_storage,
+                pull_secret=config.lab.pull_secret,
+            ),
+            metadata_storage=metadata_storage,
+            pod_storage=PodStorage(kubernetes_client, logger),
+            slack_client=slack_client,
+            logger=logger,
+        )
+        lab_manager = LabManager(
+            config=config.lab,
+            image_service=image_service,
+            lab_builder=LabBuilder(config.lab, config.base_url, logger),
+            metadata_storage=metadata_storage,
+            lab_storage=LabStorage(kubernetes_client, logger),
+            slack_client=slack_client,
+            logger=logger,
+        )
         return cls(
             config=config,
             http_client=http_client,
             image_service=image_service,
             kubernetes_client=kubernetes_client,
-            prepuller=Prepuller(
-                image_service=image_service,
-                prepuller_builder=PrepullerBuilder(
-                    metadata_storage=metadata_storage,
-                    pull_secret=config.lab.pull_secret,
-                ),
-                metadata_storage=metadata_storage,
-                pod_storage=PodStorage(kubernetes_client, logger),
-                slack_client=slack_client,
-                logger=logger,
-            ),
-            lab_manager=LabManager(
-                config=config.lab,
-                image_service=image_service,
-                lab_builder=LabBuilder(config.lab, config.base_url, logger),
-                metadata_storage=metadata_storage,
-                lab_storage=LabStorage(kubernetes_client, logger),
-                slack_client=slack_client,
-                logger=logger,
-            ),
+            prepuller=prepuller,
+            lab_manager=lab_manager,
             _fileserver_manager=fileserver_manager,
+            background=BackgroundTaskManager(
+                image_service=image_service,
+                prepuller=prepuller,
+                lab_manager=lab_manager,
+                fileserver_manager=fileserver_manager,
+                slack_client=slack_client,
+                logger=logger,
+            ),
         )
 
     @property
@@ -189,11 +203,7 @@ class ProcessContext:
 
     async def start(self) -> None:
         """Start the background threads running."""
-        await self.image_service.start()
-        await self.prepuller.start()
-        await self.lab_manager.start()
-        if self._fileserver_manager:
-            await self._fileserver_manager.start()
+        await self.background.start()
 
     async def stop(self) -> None:
         """Clean up a process context.
@@ -201,11 +211,7 @@ class ProcessContext:
         Called during shutdown, or before recreating the process context using
         a different configuration.
         """
-        if self._fileserver_manager:
-            await self._fileserver_manager.stop()
-        await self.prepuller.stop()
-        await self.image_service.stop()
-        await self.lab_manager.stop()
+        await self.background.stop()
 
 
 class Factory:

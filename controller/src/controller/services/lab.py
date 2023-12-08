@@ -10,9 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Self
 
-from aiojobs import Scheduler
 from safir.asyncio import AsyncMultiQueue
-from safir.datetime import current_datetime
 from safir.slack.blockkit import (
     SlackException,
 )
@@ -20,7 +18,7 @@ from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..config import LabConfig
-from ..constants import KUBERNETES_REQUEST_TIMEOUT, LAB_STATE_REFRESH_INTERVAL
+from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..exceptions import (
     ControllerTimeoutError,
     InsufficientQuotaError,
@@ -171,9 +169,6 @@ class LabManager:
         self._storage = lab_storage
         self._slack = slack_client
         self._logger = logger
-
-        # Background task management.
-        self._scheduler: Scheduler | None = None
 
         # Mapping of usernames to internal lab state.
         self._labs: dict[str, _State] = {}
@@ -497,34 +492,117 @@ class LabManager:
         else:
             return [u for u, s in self._labs.items() if s.state]
 
-    async def start(self) -> None:
-        """Synchronize with Kubernetes and start a background refresh task.
+    async def reap_spawners(self) -> None:
+        """Wait for spawner tasks to complete and record their status.
 
-        Examine Kubernetes for current user lab state, update our internal
-        data structures accordingly, and then start a background refresh task
-        that does this periodically. (Labs may be destroyed by Kubernetes node
-        upgrades, for example.)
+        When a user spawns a lab, the lab controller creates a background task
+        to create the Kubernetes objects and then wait for the pod to finish
+        starting. Something needs to await those tasks so that they can be
+        cleanly finalized and to catch any uncaught exceptions. That function
+        is performed by a background task running this method.
+
+        Notes
+        -----
+        Doing this properly is a bit tricky, since we have to avoid both
+        busy-waiting when no operations are in progress and not reaping
+        anything if one operation keeps running forever. The approach used
+        here is to have every spawn set the ``_spawner_done`` `asyncio.Event`
+        when it is complete, and use that as a trigger for doing a reaper
+        pass. Deletes do not do this since they're normally awaited by the
+        caller and thus don't need to be reaped separately.
         """
-        if self._scheduler:
-            msg = "User lab state tasks already running, cannot start again"
-            self._logger.warning(msg)
-            return
-        await self._reconcile_lab_state()
-        self._logger.info("Starting periodic reconciliation task")
-        self._scheduler = Scheduler()
-        await self._scheduler.spawn(self._reconcile_loop())
-        self._logger.info("Starting reaper for spawn monitoring tasks")
-        await self._scheduler.spawn(self._reap_spawners())
+        while True:
+            await self._spawner_done.wait()
+            self._spawner_done.clear()
+            for username, lab in self._labs.items():
+                if lab.monitor.in_progress and lab.monitor.is_done():
+                    try:
+                        await lab.monitor.wait()
+                    except NoOperationError:
+                        # There is a race condition with deletes, since the
+                        # task doing the delete kicks it off and then
+                        # immediately waits for its completion. We may
+                        # discover the completed task right before that wait
+                        # wakes up and reaps it, and then have no task by the
+                        # time we call wait ourselves. This should be harmless
+                        # and ignorable.
+                        pass
+                    except Exception as e:
+                        msg = "Uncaught exception in monitor thread"
+                        self._logger.exception(msg, user=username)
+                        await self._maybe_post_slack_exception(e, username)
+                        if lab.state:
+                            lab.state.status = LabStatus.FAILED
 
-    async def stop(self) -> None:
-        """Stop the background refresh task."""
-        if not self._scheduler:
-            msg = "User lab state background tasks were already stopped"
-            self._logger.warning(msg)
+    async def reconcile(self) -> None:
+        """Reconcile user lab state with Kubernetes.
+
+        This method is called on startup and then periodically from a
+        background thread to check Kubernetes and ensure the in-memory record
+        of the user's lab state matches reality. On startup, it also needs to
+        recreate the internal state from the contents of Kubernetes.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        """
+        self._logger.info("Reconciling user lab state with Kubernetes")
+        known_users = set(self._labs.keys())
+
+        # Gather information about all extant Kubernetes namespaces and delete
+        # any malformed namespaces for which no operation is in progress.
+        observed = await self._gather_current_state()
+
+        # If the set of users we expected to see changed during
+        # reconciliation, that means someone added a new user while we were
+        # reconciling. Play it safe and skip this background update; we'll
+        # catch any inconsistencies the next time around.
+        #
+        # From this point forward, make sure not to do any asyncio operations
+        # until we've finished reconciling state, since if we yield control
+        # our state may change out from under us.
+        if set(self._labs.keys()) != known_users:
+            msg = "Known users changed during reconciliation, skipping"
+            self._logger.info(msg)
             return
-        self._logger.info("Stopping user lab state background tasks")
-        await self._scheduler.close()
-        self._scheduler = None
+
+        # First pass: check all users already recorded in internal state
+        # against Kubernetes and correct them (or remove them) if needed.
+        to_monitor = self._reconcile_known_users(observed)
+
+        # Second pass: take observed state and create any missing internal
+        # state. This is the normal case after a restart of the lab
+        # controller.
+        for username in set(observed.keys()) - known_users:
+            msg = f"Creating record for user {username} from Kubernetes"
+            self._logger.info(msg)
+            self._labs[username] = _State(
+                state=observed[username],
+                monitor=_LabMonitor(
+                    username=username,
+                    slack_client=self._slack,
+                    logger=self._logger,
+                ),
+            )
+            if observed[username].status == LabStatus.PENDING:
+                to_monitor.add(username)
+
+        # If we discovered any pods unexpectedly in the pending state, kick
+        # off monitoring jobs to wait for them to become ready and handle
+        # timeouts if they never do. We've now fixed internal state, so it's
+        # safe to do asyncio operations again.
+        for username in sorted(to_monitor):
+            await self._monitor_pending_spawn(username)
+
+        # Finally, for all labs in failed or terminated state (spawn failed,
+        # killed by the idle culler, killed by the OOM killer, etc.), clean up
+        # the lab as long as the user hasn't started some other operation in
+        # the meantime.
+        await self._delete_completed_labs()
+
+    async def stop_monitor_tasks(self) -> None:
+        """Stop any tasks that are waiting for labs to spawn."""
         self._logger.info("Stopping spawning monitor tasks")
         labs = self._labs
         self._labs = {}
@@ -750,48 +828,6 @@ class LabManager:
         with contextlib.suppress(OperationConflictError):
             await lab.monitor.monitor(operation, timeout, self._spawner_done)
 
-    async def _reap_spawners(self) -> None:
-        """Wait for spawner tasks to complete and record their status.
-
-        When a user spawns a lab, the lab controller creates a background task
-        to create the Kubernetes objects and then wait for the pod to finish
-        starting. Something needs to await those tasks so that they can be
-        cleanly finalized and to catch any uncaught exceptions. That function
-        is performed by a background task running this method.
-
-        Notes
-        -----
-        Doing this properly is a bit tricky, since we have to avoid both
-        busy-waiting when no operations are in progress and not reaping
-        anything if one operation keeps running forever. The approach used
-        here is to have every spawn set the ``_spawner_done`` `asyncio.Event`
-        when it is complete, and use that as a trigger for doing a reaper
-        pass. Deletes do not do this since they're normally awaited by the
-        caller and thus don't need to be reaped separately.
-        """
-        while True:
-            await self._spawner_done.wait()
-            self._spawner_done.clear()
-            for username, lab in self._labs.items():
-                if lab.monitor.in_progress and lab.monitor.is_done():
-                    try:
-                        await lab.monitor.wait()
-                    except NoOperationError:
-                        # There is a race condition with deletes, since the
-                        # task doing the delete kicks it off and then
-                        # immediately waits for its completion. We may
-                        # discover the completed task right before that wait
-                        # wakes up and reaps it, and then have no task by the
-                        # time we call wait ourselves. This should be harmless
-                        # and ignorable.
-                        pass
-                    except Exception as e:
-                        msg = "Uncaught exception in monitor thread"
-                        self._logger.exception(msg, user=username)
-                        await self._maybe_post_slack_exception(e, username)
-                        if lab.state:
-                            lab.state.status = LabStatus.FAILED
-
     def _reconcile_known_users(
         self, observed: dict[str, UserLabState]
     ) -> set[str]:
@@ -852,91 +888,6 @@ class LabManager:
                 if observed_state.status == LabStatus.PENDING:
                     to_monitor.add(username)
         return to_monitor
-
-    async def _reconcile_lab_state(self) -> None:
-        """Reconcile user lab state with Kubernetes.
-
-        This method is called on startup and then periodically from a
-        background thread to check Kubernetes and ensure the in-memory record
-        of the user's lab state matches reality. On startup, it also needs to
-        recreate the internal state from the contents of Kubernetes.
-
-        Raises
-        ------
-        KubernetesError
-            Raised if there is some failure in a Kubernetes API call.
-        """
-        self._logger.info("Reconciling user lab state with Kubernetes")
-        known_users = set(self._labs.keys())
-
-        # Gather information about all extant Kubernetes namespaces and delete
-        # any malformed namespaces for which no operation is in progress.
-        observed = await self._gather_current_state()
-
-        # If the set of users we expected to see changed during
-        # reconciliation, that means someone added a new user while we were
-        # reconciling. Play it safe and skip this background update; we'll
-        # catch any inconsistencies the next time around.
-        #
-        # From this point forward, make sure not to do any asyncio operations
-        # until we've finished reconciling state, since if we yield control
-        # our state may change out from under us.
-        if set(self._labs.keys()) != known_users:
-            msg = "Known users changed during reconciliation, skipping"
-            self._logger.info(msg)
-            return
-
-        # First pass: check all users already recorded in internal state
-        # against Kubernetes and correct them (or remove them) if needed.
-        to_monitor = self._reconcile_known_users(observed)
-
-        # Second pass: take observed state and create any missing internal
-        # state. This is the normal case after a restart of the lab
-        # controller.
-        for username in set(observed.keys()) - known_users:
-            msg = f"Creating record for user {username} from Kubernetes"
-            self._logger.info(msg)
-            self._labs[username] = _State(
-                state=observed[username],
-                monitor=_LabMonitor(
-                    username=username,
-                    slack_client=self._slack,
-                    logger=self._logger,
-                ),
-            )
-            if observed[username].status == LabStatus.PENDING:
-                to_monitor.add(username)
-
-        # If we discovered any pods unexpectedly in the pending state, kick
-        # off monitoring jobs to wait for them to become ready and handle
-        # timeouts if they never do. We've now fixed internal state, so it's
-        # safe to do asyncio operations again.
-        for username in sorted(to_monitor):
-            await self._monitor_pending_spawn(username)
-
-        # Finally, for all labs in failed or terminated state (spawn failed,
-        # killed by the idle culler, killed by the OOM killer, etc.), clean up
-        # the lab as long as the user hasn't started some other operation in
-        # the meantime.
-        await self._delete_completed_labs()
-
-    async def _reconcile_loop(self) -> None:
-        """Run in the background by `start`, stopped with `stop`."""
-        while True:
-            start = current_datetime(microseconds=True)
-            try:
-                await self._reconcile_lab_state()
-            except Exception as e:
-                self._logger.exception("Unable to reconcile user lab state")
-                if self._slack:
-                    await self._slack.post_uncaught_exception(e)
-            now = current_datetime(microseconds=True)
-            delay = LAB_STATE_REFRESH_INTERVAL - (now - start)
-            if delay.total_seconds() < 1:
-                msg = "User lab state reconciliation is running continuously"
-                self._logger.warning(msg)
-            else:
-                await asyncio.sleep(delay.total_seconds())
 
     async def _spawn_lab(
         self,
