@@ -19,21 +19,21 @@ from ..support.data import (
 async def test_images(client: AsyncClient) -> None:
     r = await client.get("/nublado/spawner/v1/images")
     assert r.status_code == 200
-    assert r.json() == read_output_json("standard", "images.json")
+    assert r.json() == read_output_json("standard", "images")
 
 
 @pytest.mark.asyncio
 async def test_prepulls(client: AsyncClient) -> None:
     r = await client.get("/nublado/spawner/v1/prepulls")
     assert r.status_code == 200
-    assert r.json() == read_output_json("standard", "prepulls.json")
+    assert r.json() == read_output_json("standard", "prepulls")
 
 
 @pytest.mark.asyncio
 async def test_node_selector(
     client: AsyncClient, mock_kubernetes: MockKubernetesApi
 ) -> None:
-    nodes = read_input_node_json("prepuller", "nodes.json")
+    nodes = read_input_node_json("prepuller", "nodes")
     mock_kubernetes.set_nodes_for_test(nodes)
     async with asyncio.timeout(1):
         await configure("prepuller", mock_kubernetes)
@@ -42,4 +42,4 @@ async def test_node_selector(
     # the nodes that match the node selector of our configuration.
     r = await client.get("/nublado/spawner/v1/prepulls")
     assert r.status_code == 200
-    assert r.json() == read_output_json("prepuller", "status.json")
+    assert r.json() == read_output_json("prepuller", "status")

@@ -60,7 +60,7 @@ def read_input_json(config: str, filename: str) -> Any:
     ----------
     config
         Configuration from which to read data (the name of one of the
-        directories under :file:`tests/data`).
+        directories under :file:`tests/data`). Omit the ``.json`` extension.
     filename
         File to read and parse. Must be in JSON format.
 
@@ -70,7 +70,7 @@ def read_input_json(config: str, filename: str) -> Any:
         Parsed contents of file.
     """
     base_path = Path(__file__).parent.parent / "data" / config
-    with (base_path / "input" / filename).open("r") as f:
+    with (base_path / "input" / (filename + ".json")).open("r") as f:
         return json.load(f)
 
 
@@ -83,7 +83,7 @@ def read_input_lab_specification_json(
     ----------
     config
         Configuration from which to read data (the name of one of the
-        directories under :file:`tests/data`).
+        directories under :file:`tests/data`). Omit the ``.json`` extension.
     filename
         File to read and parse. Must be in JSON format.
 
@@ -106,7 +106,7 @@ def read_input_node_json(config: str, filename: str) -> list[V1Node]:
     ----------
     config
         Configuration from which to read data (the name of one of the
-        directories under :file:`tests/data`).
+        directories under :file:`tests/data`). Omit the ``.json`` extension.
     filename
         File to read and parse. Must be in JSON format.
 
@@ -141,7 +141,7 @@ def read_input_secrets_json(config: str, filename: str) -> list[V1Secret]:
     ----------
     config
         Configuration from which to read data (the name of one of the
-        directories under :file:`tests/data`).
+        directories under :file:`tests/data`). Omit the ``.json`` extension.
     filename
         File to read and parse. Must be in JSON format.
 
@@ -169,7 +169,7 @@ def read_input_users_json(
     ----------
     config
         Configuration from which to read data (the name of one of the
-        directories under :file:`tests/data`).
+        directories under :file:`tests/data`). Omit the ``.json`` extension.
     filename
         File to read and parse. Must be in JSON format.
 
@@ -209,7 +209,7 @@ def read_output_json(config: str, filename: str) -> Any:
     ----------
     config
         Configuration from which to read data (the name of one of the
-        directories under :file:`tests/data`).
+        directories under :file:`tests/data`). Omit the ``.json`` extension.
     filename
         File to read and parse. Must be in JSON format.
 
@@ -219,7 +219,7 @@ def read_output_json(config: str, filename: str) -> Any:
         Parsed contents of file.
     """
     base_path = Path(__file__).parent.parent / "data" / config
-    with (base_path / "output" / filename).open("r") as f:
+    with (base_path / "output" / (filename + ".json")).open("r") as f:
         return json.load(f)
 
 
@@ -234,12 +234,12 @@ def write_output_json(config: str, filename: str, data: Any) -> None:
     ----------
     config
         Configuration to which to write data (the name of one of the
-        directories under :file:`tests/data`).
+        directories under :file:`tests/data`). Omit the ``.json`` extension.
     filename
         File to write.
     data
         Data to write.
     """
     base_path = Path(__file__).parent.parent / "data" / config
-    with (base_path / "output" / filename).open("w") as f:
+    with (base_path / "output" / (filename + ".json")).open("w") as f:
         json.dump(data, f, indent=2)
