@@ -6,19 +6,15 @@ import asyncio
 import contextlib
 from dataclasses import dataclass, field
 
-from aiojobs import Scheduler
-from safir.datetime import current_datetime
 from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..config import EnabledFileserverConfig
 from ..constants import (
-    FILE_SERVER_REFRESH_INTERVAL,
     KUBERNETES_REQUEST_TIMEOUT,
 )
 from ..exceptions import (
-    MissingObjectError,
     UnknownUserError,
 )
 from ..models.domain.gafaelfawr import GafaelfawrUserInfo
@@ -61,6 +57,8 @@ class FileserverManager:
         Builder that constructs file server Kubernetes objects.
     fileserver_storage
         Kubernetes storage layer for file servers.
+    slack_client
+        Optional Slack webhook client for alerts.
     logger
         Logger to use.
     """
@@ -79,9 +77,6 @@ class FileserverManager:
         self._storage = fileserver_storage
         self._slack = slack_client
         self._logger = logger
-
-        # Background task management.
-        self._scheduler: Scheduler | None = None
 
         # Mapping of usernames to internal state.
         self._servers: dict[str, _State] = {}
@@ -158,39 +153,92 @@ class FileserverManager:
         """List users with running file servers."""
         return [u for u, s in self._servers.items() if s.running]
 
-    async def start(self) -> None:
-        """Start the background file server tasks.
+    async def reconcile(self) -> None:
+        """Reconcile internal state with Kubernetes.
 
-        Reconstructs the user state map in the foreground before backgrounding
-        the reconciliation and monitor tasks.
+        Runs at Nublado controller startup to reconcile internal state with
+        the content of Kubernetes. This picks up changes made in Kubernetes
+        outside of the controller, and is also responsible for building the
+        internal state from the current state of Kubernetes during startup.
+        It is called during startup and from a background task.
+        """
+        self._logger.info("Reconciling file server state")
+        namespace = self._config.namespace
+        timeout = Timeout(
+            "Reading file server state", KUBERNETES_REQUEST_TIMEOUT
+        )
+        seen = await self._storage.read_fileserver_state(namespace, timeout)
+        known_users = {k for k, v in self._servers.items() if v.running}
+
+        # Check each fileserver we found to see if it's properly running. If
+        # not, delete it and remove it from the seen map.
+        to_delete = set()
+        invalid = set()
+        for username, state in seen.items():
+            valid = self._builder.is_valid(username, state)
+            if valid:
+                self._servers[username] = _State(running=valid)
+            elif username in self._servers:
+                to_delete.add(username)
+            else:
+                invalid.add(username)
+        seen = {k: v for k, v in seen.items() if k not in to_delete}
+
+        # Also tidy up any supposedly-running users that we didn't find. They
+        # may have some objects remaining. This should only be possible if
+        # something outside of the controller deleted resources.
+        seen_users = set(seen.keys())
+        for user in (known_users - seen_users) | to_delete:
+            msg = "Removing broken fileserver for user"
+            self._logger.warning(msg, user=user)
+            await self.delete(user)
+        for username in invalid:
+            if username in self._servers:
+                continue
+            msg = "File server present but not running, deleteing"
+            self._logger.info(msg, user=username)
+
+            # There is an unavoidable race condition where if the user for
+            # this invalid file server attempts to create a valid file server
+            # just as we make this call, we may delete parts of their new file
+            # server. Solving this is complicated; live with it for now.
+            name = self._builder.build_name(username)
+            timeout = Timeout(
+                "Deleting file server", KUBERNETES_REQUEST_TIMEOUT, username
+            )
+            await self._storage.delete(
+                name, self._config.namespace, username, timeout
+            )
+        self._logger.debug("File server reconciliation complete")
+
+    async def watch_servers(self) -> None:
+        """Watch the file server namespace for completed file servers.
+
+        Each file server has a timeout, after which it exits. When one exits,
+        we want to clean up its Kubernetes objects and update its state. This
+        method runs as a background task watching for changes and triggers the
+        delete when appropriate.
         """
         namespace = self._config.namespace
-        timeout = Timeout("Reading namespace", KUBERNETES_REQUEST_TIMEOUT)
-        if not await self._storage.namespace_exists(namespace, timeout):
-            raise MissingObjectError(
-                "File server namespace missing",
-                kind="Namespace",
-                name=namespace,
-            )
-        await self._reconcile_file_servers()
-        self._scheduler = Scheduler()
-        self._logger.info("Starting file server watcher task")
-        await self._scheduler.spawn(self._watch_file_servers())
-        self._logger.info("Starting file server periodic reconciliation task")
-        await self._scheduler.spawn(self._reconcile_loop())
-
-    async def stop(self) -> None:
-        """Stop background file server tasks.
-
-        Any started file servers will keep running.
-        """
-        if not self._scheduler:
-            msg = "File server background tasks were already stopped"
-            self._logger.warning(msg)
-            return
-        self._logger.info("Stopping file server background tasks")
-        await self._scheduler.close()
-        self._scheduler = None
+        while True:
+            try:
+                async for change in self._storage.watch_pods(namespace):
+                    if change.phase in (PodPhase.FAILED, PodPhase.SUCCEEDED):
+                        pod = change.pod
+                        username = self._builder.get_username_for_pod(pod)
+                        if not username:
+                            continue
+                        self._logger.info(
+                            "File server exited, cleaning up",
+                            phase=change.phase.value,
+                            user=username,
+                        )
+                        with contextlib.suppress(UnknownUserError):
+                            await self.delete(username)
+            except Exception as e:
+                self._logger.exception("Error watching file server pod phase")
+                await self._maybe_post_slack_exception(e)
+                await asyncio.sleep(1)
 
     async def _create_file_server(
         self, user: GafaelfawrUserInfo, timeout: Timeout
@@ -267,104 +315,3 @@ class FileserverManager:
             await self._slack.post_exception(exc)
         else:
             await self._slack.post_uncaught_exception(exc)
-
-    async def _reconcile_file_servers(self) -> None:
-        """Reconcile internal state with Kubernetes.
-
-        Runs at Nublado controller startup to reconcile the initially empty
-        state map with the contents of Kubernetes.
-        """
-        self._logger.debug("Reconciling file server state")
-        namespace = self._config.namespace
-        timeout = Timeout(
-            "Reading file server state", KUBERNETES_REQUEST_TIMEOUT
-        )
-        seen = await self._storage.read_fileserver_state(namespace, timeout)
-        known_users = {k for k, v in self._servers.items() if v.running}
-
-        # Check each fileserver we found to see if it's properly running. If
-        # not, delete it and remove it from the seen map.
-        to_delete = set()
-        invalid = set()
-        for username, state in seen.items():
-            valid = self._builder.is_valid(username, state)
-            if valid:
-                self._servers[username] = _State(running=valid)
-            elif username in self._servers:
-                to_delete.add(username)
-            else:
-                invalid.add(username)
-        seen = {k: v for k, v in seen.items() if k not in to_delete}
-
-        # Also tidy up any supposedly-running users that we didn't find. They
-        # may have some objects remaining. This should only be possible if
-        # something outside of the controller deleted resources.
-        seen_users = set(seen.keys())
-        for user in (known_users - seen_users) | to_delete:
-            msg = "Removing broken fileserver for user"
-            self._logger.warning(msg, user=user)
-            await self.delete(user)
-        for username in invalid:
-            if username in self._servers:
-                continue
-            msg = "File server present but not running, deleteing"
-            self._logger.info(msg, user=username)
-
-            # There is an unavoidable race condition where if the user for
-            # this invalid file server attempts to create a valid file server
-            # just as we make this call, we may delete parts of their new file
-            # server. Solving this is complicated; live with it for now.
-            name = self._builder.build_name(username)
-            timeout = Timeout(
-                "Deleting file server", KUBERNETES_REQUEST_TIMEOUT, username
-            )
-            await self._storage.delete(
-                name, self._config.namespace, username, timeout
-            )
-        self._logger.debug("File server reconciliation complete")
-
-    async def _reconcile_loop(self) -> None:
-        """Run in the background by `start`, stopped with `stop`."""
-        while True:
-            start = current_datetime(microseconds=True)
-            try:
-                await self._reconcile_file_servers()
-            except Exception as e:
-                self._logger.exception("Unable to reconcile file servers")
-                await self._maybe_post_slack_exception(e)
-            now = current_datetime(microseconds=True)
-            delay = FILE_SERVER_REFRESH_INTERVAL - (now - start)
-            if delay.total_seconds() < 1:
-                msg = "File server reconciliation is running continuously"
-                self._logger.warning(msg)
-            else:
-                await asyncio.sleep(delay.total_seconds())
-
-    async def _watch_file_servers(self) -> None:
-        """Watch the file server namespace for completed file servers.
-
-        Each file server has a timeout, after which it exits. When one exits,
-        we want to clean up its Kubernetes objects and update its state. This
-        method runs as a background task watching for changes and triggers the
-        delete when appropriate.
-        """
-        namespace = self._config.namespace
-        while True:
-            try:
-                async for change in self._storage.watch_pods(namespace):
-                    if change.phase in (PodPhase.FAILED, PodPhase.SUCCEEDED):
-                        pod = change.pod
-                        username = self._builder.get_username_for_pod(pod)
-                        if not username:
-                            continue
-                        self._logger.info(
-                            "File server exited, cleaning up",
-                            phase=change.phase.value,
-                            user=username,
-                        )
-                        with contextlib.suppress(UnknownUserError):
-                            await self.delete(username)
-            except Exception as e:
-                self._logger.exception("Error watching file server pod phase")
-                await self._maybe_post_slack_exception(e)
-                await asyncio.sleep(1)

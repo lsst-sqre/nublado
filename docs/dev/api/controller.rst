@@ -8,6 +8,9 @@ This documentation therefore exists only to assist developers and code analysis 
 .. automodapi:: controller
    :include-all-objects:
 
+.. automodapi:: controller.background
+   :include-all-objects:
+
 .. automodapi:: controller.config
    :include-all-objects:
 

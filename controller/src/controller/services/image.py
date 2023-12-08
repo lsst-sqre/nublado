@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import asyncio
 
-from aiojobs import Scheduler
 from kubernetes_asyncio.client import V1Node
-from safir.datetime import current_datetime
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
-from ..constants import IMAGE_REFRESH_INTERVAL, KUBERNETES_REQUEST_TIMEOUT
+from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..exceptions import UnknownDockerImageError
 from ..models.domain.docker import DockerReference
 from ..models.domain.image import MenuImage, MenuImages, NodeData
@@ -93,8 +91,7 @@ class ImageService:
         self._slack_client = slack_client
         self._logger = logger
 
-        # Background task management.
-        self._scheduler: Scheduler | None = None
+        # Prepuller synchronization.
         self._lock = asyncio.Lock()
         self._refreshed = asyncio.Event()
 
@@ -310,9 +307,9 @@ class ImageService:
     async def refresh(self) -> None:
         """Refresh data from Docker and Kubernetes.
 
-        Normally run in the background by the task started with `start`, but
-        can be called directly to force an immediate refresh. Does not catch
-        exceptions; the caller must do that if desired.
+        Normally run in a background task, but can be called directly to force
+        an immediate refresh. Does not catch exceptions; the caller must do
+        that if desired.
         """
         timeout = Timeout("List nodes", KUBERNETES_REQUEST_TIMEOUT)
         selector = self._node_selector
@@ -323,32 +320,7 @@ class ImageService:
             self._nodes = self._build_nodes(to_prepull, node_list, cached)
             self._to_prepull = to_prepull
             self._logger.info("Refreshed image information")
-
-    async def start(self) -> None:
-        """Start a periodic refresh as a background task.
-
-        Does not return until the background refresh has completed its first
-        run. We don't want to start answering user requests until we have
-        populated our lists of available images; otherwise, we might return
-        bogus information for the spawner form.
-        """
-        if self._scheduler:
-            msg = "Image service already running, cannot start"
-            self._logger.warning(msg)
-            return
-        self._logger.info("Starting image service")
-        self._scheduler = Scheduler()
-        await self._scheduler.spawn(self._refresh_loop())
-        await self._refreshed.wait()
-
-    async def stop(self) -> None:
-        """Stop the background refresh task."""
-        if not self._scheduler:
-            self._logger.warning("Image service was already stopped")
-            return
-        self._logger.info("Stopping image service")
-        await self._scheduler.close()
-        self._scheduler = None
+            self._refreshed.set()
 
     async def prepuller_wait(self) -> None:
         """Wait for a data refresh.
@@ -406,25 +378,3 @@ class ImageService:
                 comment=tolerate.comment,
             )
         return node_data
-
-    async def _refresh_loop(self) -> None:
-        """Run in the background by `start`, stopped with `stop`."""
-        while True:
-            start = current_datetime()
-            try:
-                await self.refresh()
-                self._refreshed.set()
-            except Exception as e:
-                # On failure, log the exception and do not indicate we hve
-                # updated our data but otherwise continue as normal, including
-                # the delay. This will provide some time for whatever the
-                # problem was to be resolved.
-                self._logger.exception("Unable to refresh image information")
-                if self._slack_client:
-                    await self._slack_client.post_uncaught_exception(e)
-            delay = IMAGE_REFRESH_INTERVAL - (current_datetime() - start)
-            if delay.total_seconds() < 1:
-                msg = "Image refresh is running continuously"
-                self._logger.warning(msg)
-            else:
-                await asyncio.sleep(delay.total_seconds())

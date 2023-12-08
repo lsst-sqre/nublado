@@ -81,6 +81,7 @@ async def factory(
     mock_kubernetes.set_nodes_for_test(nodes)
     async with Factory.standalone(config) as factory:
         yield factory
+        await factory.stop_background_services()
 
 
 @pytest.fixture
