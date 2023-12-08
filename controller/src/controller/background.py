@@ -161,6 +161,7 @@ class BackgroundTaskManager:
         description
             Description of the background task for error reporting.
         """
+        await asyncio.sleep(interval.total_seconds())
         while True:
             start = current_datetime(microseconds=True)
             try:
