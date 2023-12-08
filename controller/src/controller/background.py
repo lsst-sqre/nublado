@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Coroutine
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
 
 from aiojobs import Scheduler
@@ -104,13 +104,13 @@ class BackgroundTaskManager:
         # Now, start all of the tasks in the background.
         coros = [
             self._loop(
-                self._image_service.refresh(),
+                self._image_service.refresh,
                 IMAGE_REFRESH_INTERVAL,
                 "refreshing image data",
             ),
             self._prepull_loop(),
             self._loop(
-                self._lab_manager.reconcile(),
+                self._lab_manager.reconcile,
                 LAB_RECONCILE_INTERVAL,
                 "reconciling lab state",
             ),
@@ -119,7 +119,7 @@ class BackgroundTaskManager:
         if self._fileserver_manager:
             coros.append(
                 self._loop(
-                    self._fileserver_manager.reconcile(),
+                    self._fileserver_manager.reconcile,
                     FILE_SERVER_RECONCILE_INTERVAL,
                     "reconciling file server state",
                 )
@@ -142,7 +142,7 @@ class BackgroundTaskManager:
 
     async def _loop(
         self,
-        coro: Coroutine[None, None, None],
+        call: Callable[[], Awaitable[None]],
         interval: timedelta,
         description: str,
     ) -> None:
@@ -154,8 +154,8 @@ class BackgroundTaskManager:
 
         Parameters
         ----------
-        coro
-            Coroutine to run repeatedly.
+        call
+            Async function to run repeatedly.
         interval
             Scheduling interval to use.
         description
@@ -164,7 +164,7 @@ class BackgroundTaskManager:
         while True:
             start = current_datetime(microseconds=True)
             try:
-                await coro
+                await call()
             except Exception as e:
                 # On failure, log the exception but otherwise continue as
                 # normal, including the delay. This will provide some time for
