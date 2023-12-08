@@ -17,7 +17,7 @@ from kubernetes_asyncio.client import (
     V1ObjectMeta,
     V1Pod,
 )
-from safir.testing.kubernetes import MockKubernetesApi, strip_none
+from safir.testing.kubernetes import MockKubernetesApi
 from safir.testing.slack import MockSlackWebhook
 
 from controller.config import Config
@@ -86,7 +86,7 @@ async def test_docker(
     # nodes. Check that we created the correct prepuller pods.
     pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
     expected = read_output_json("standard", "prepull-objects")
-    assert [strip_none(o.to_dict()) for o in pod_list.items] == expected
+    assert objects_to_dicts(pod_list.items) == expected
 
     # Update all of the pods to have a status of completed and send an event.
     for pod in pod_list.items:
