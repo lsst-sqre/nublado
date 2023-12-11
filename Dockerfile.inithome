@@ -1,0 +1,49 @@
+# Docker build instructions for the Nublado homedir provisioner (inithome).
+#
+# inithome is supposed to run as root within the container, and the container
+# is supposed to be privileged.  So...
+#
+# Dependabot will catch updates to the base Python image.
+#
+# We don't have any third-party python dependencies, but setuptools needs git.
+#
+# The virtualenv is useful for migrating just the application to the runtime.
+#
+# This Dockerfile has three stages:
+#
+# base-image
+#   Base for all other images; we'll let Dependabot handle its updates.
+#   Installs git.
+#   Makes a virtualenv to hold inithome.
+# install-image
+#   Installs the app into the virtual environment.
+# runtime-image
+#   - Copies the virtual environment into place.
+#   - Sets up the entrypoint.
+
+FROM python:3.11.5-slim-bullseye AS base-image
+
+FROM base-image AS install-image
+# Install git
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get -y install --no-install-recommends git
+# Create a Python virtual environment
+ENV VIRTUAL_ENV=/opt/venv
+RUN python -m venv $VIRTUAL_ENV
+# Ensure we use the virtualenv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+# Install inithome
+COPY . /workdir
+WORKDIR /workdir
+RUN pip install --no-cache-dir ./inithome
+
+FROM base-image AS runtime-image
+
+# Copy the virtualenv
+COPY --from=install-image /opt/venv /opt/venv
+
+# Make sure we use the virtualenv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Run the application.
+CMD ["inithome"]

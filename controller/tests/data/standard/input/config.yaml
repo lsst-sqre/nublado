@@ -83,10 +83,10 @@ lab:
       #cacher_dir = /tmp
       cacher_dir = /data/idds
   initContainers:
-    - name: initdir
+    - name: inithome
       image:
-        repository: ghcr.io/lsst-sqre/initdir
-        tag: 0.0.3
+        repository: ghcr.io/lsst-sqre/nublado-inithome
+        tag: 0.0.1
       privileged: true
       volumeMounts:
         - containerPath: /home

@@ -729,12 +729,17 @@ class LabBuilder:
 
         # Use the same environment ConfigMap as the notebook container since
         # it may contain other things we need for provisioning. Add
-        # environment variables communicating the primary UID and GID, which
-        # is our main interface to provisioning init containers.
+        # environment variables communicating the primary UID and GID, and
+        # the user's home directory, which is our interface to provisioning
+        # init containers.
         env_source = V1ConfigMapEnvSource(name=f"{username}-nb-env")
         env = [
-            V1EnvVar(name="EXTERNAL_GID", value=str(user.gid)),
-            V1EnvVar(name="EXTERNAL_UID", value=str(user.uid)),
+            V1EnvVar(name="NUBLADO_GID", value=str(user.gid)),
+            V1EnvVar(
+                name="NUBLADO_HOME",
+                value=self._build_home_directory(user.username),
+            ),
+            V1EnvVar(name="NUBLADO_UID", value=str(user.uid)),
         ]
 
         containers = []

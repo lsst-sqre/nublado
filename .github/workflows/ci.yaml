@@ -56,7 +56,7 @@ jobs:
           pip install --upgrade nox
 
       - name: Run nox
-        run: "nox -s typing test"
+        run: "nox -s typing test typing-inithome test-inithome"
 
   # The controller requires Python 3.11, but the modules we add to the Hub
   # have to run with Python 3.10 since that's what the JupyterHub image uses.
@@ -173,3 +173,14 @@ jobs:
       - name: Report result
         run: |
           echo Pushed ghcr.io/${{ github.repository }}-jupyterhub:${{ steps.build-hub.outputs.tag }}
+
+      - uses: lsst-sqre/build-and-push-to-ghcr@v1
+        id: build-inithome
+        with:
+          dockerfile: Dockerfile.inithome
+          image: ${{ github.repository }}-inithome
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report result
+        run: |
+          echo Pushed ghcr.io/${{ github.repository }}-inithome:${{ steps.build-inithome.outputs.tag }}

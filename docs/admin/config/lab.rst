@@ -242,6 +242,28 @@ Examples of why one may want to run an init container include creating the user'
         None of the volumes mounted in the main lab container are mounted in init containers by default, so if the init container needs access to them, those mounts must be reiterated here.
         They are independent of the main container mounts and thus can have different paths, sub-paths, and so forth, and can reference volumes not mounted in the main container.
 
+Init container environment variable interface
+---------------------------------------------
+
+In addition to whatever static configuration is present in the config snippet, the controller is responsible for injecting per-container information into the initContainers.
+This is done by setting environment variables in the containers.
+The controller sets ``NUBLADO_UID``, ``NUBLADO_GID``, and ``NUBLADO_HOME`` as environment variables inside each initContainer it starts.
+
+* ``NUBLADO_UID`` contains the UID of the user for whom the Lab is being created.
+* ``NUBLADO_GID`` contains the GID of the user's primary group.
+* ``NUBLADO_HOME`` contains the path to the user's home directory.
+
+A note on nublado-inithome
+--------------------------
+
+If the standard ``nublado-inithome`` container is being used to
+provision user home directories, note that the immediate parent of the
+``NUBLADO_HOME`` directory must exist, and that the entire path to that
+directory must be traversable by the provisioning user.  Traversability
+is not usually an issue (since the parent directory also must be
+writeable), but if the directory lives on a no-root-squash NFS
+filesystem (or the equivalent), this may become a concern.
+
 Lab sizes
 =========
 

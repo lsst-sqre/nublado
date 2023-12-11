@@ -1,0 +1,10 @@
+# -*- conf -*-
+#
+# Editable runtime dependencies for the inithome provisioner. Add direct
+# runtime dependencies here, as well as implicit dependencies with
+# constrained versions.
+#
+# After editing, update requirements/main.txt by running:
+#     nox -s update-deps
+#
+# There are currently no third-party runtime dependencies for inithome
