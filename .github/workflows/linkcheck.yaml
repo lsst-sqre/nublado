@@ -43,7 +43,7 @@ jobs:
       - name: Install extra packages
         run: sudo apt install -y graphviz
 
-      - uses: lsst-sqre/run-nox@main
+      - uses: lsst-sqre/run-nox@v1
         with:
           cache-dependency: "controller/requirements/*.txt"
           cache-key-prefix: docs
