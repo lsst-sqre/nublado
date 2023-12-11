@@ -45,25 +45,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: lsst-sqre/run-nox@main
         with:
+          cache-dependency: "controller/requirements/*.txt"
+          cache-key-prefix: test
+          nox-sessions: "typing typing-inithome test test-inithome"
           python-version: ${{ matrix.python }}
-
-      - name: Install nox
-        run: |
-          pip install --upgrade pip
-          pip install --upgrade nox
-
-      - name: Cache nox environments
-        id: cache-nox
-        uses: actions/cache@v3
-        with:
-          path: .nox
-          key: test-${{ matrix.python }}-${{ hashFiles('noxfile.py', 'controller/requirements/main.txt', 'controller/requirements/dev.txt') }}
-
-      - name: Run nox
-        run: "nox -s typing test typing-inithome test-inithome"
 
   # The controller requires Python 3.11, but the modules we add to the Hub
   # have to run with Python 3.10 since that's what the JupyterHub image uses.
@@ -81,25 +68,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: lsst-sqre/run-nox@main
         with:
+          cache-dependency: "hub/requirements/*.txt"
+          cache-key-prefix: test-hub
+          nox-sessions: "typing-hub test-hub"
           python-version: ${{ matrix.python }}
-
-      - name: Install nox
-        run: |
-          pip install --upgrade pip
-          pip install --upgrade nox
-
-      - name: Cache nox environments
-        id: cache-nox
-        uses: actions/cache@v3
-        with:
-          path: .nox
-          key: test-hub-${{ matrix.python }}-${{ hashFiles('noxfile.py', 'hub/requirements/main.txt', 'hub/requirements/dev.txt') }}
-
-      - name: Run nox
-        run: "nox -s typing-hub test-hub"
 
   docs:
     runs-on: ubuntu-latest
@@ -117,25 +91,12 @@ jobs:
       - name: Install extra packages
         run: sudo apt install -y graphviz
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: lsst-sqre/run-nox@main
         with:
+          cache-dependency: "controller/requirements/*.txt"
+          cache-key-prefix: docs
+          nox-sessions: docs
           python-version: "3.11"
-
-      - name: Install nox
-        run: |
-          pip install --upgrade pip
-          pip install --upgrade nox
-
-      - name: Cache nox environments
-        id: cache-nox
-        uses: actions/cache@v3
-        with:
-          path: .nox
-          key: docs-${{ matrix.python }}-${{ hashFiles('noxfile.py', 'authenticator/pyproject.toml', 'controller/requirements/main.txt', 'controller/requirements/dev.txt', 'spawner/pyproject.toml') }}
-
-      - name: Run nox
-        run: "nox -s docs"
 
       # Only attempt documentation uploads for long-lived branches, tagged
       # releases, and pull requests from ticket branches.  This avoids version

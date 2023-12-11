@@ -26,43 +26,44 @@ jobs:
       # not the matrixed Python version, since this accurately reflects
       # how dependencies should later be updated.
 
-      - uses: lsst-sqre/run-neophile@v1
+      - uses: lsst-sqre/run-nox@main
         with:
-          python-version: "3.11"
-          mode: update
-          types: pre-commit
+          nox-sessions: "upgrade-deps typing test"
+          python-version: ${{ matrix.python }}
+          use-cache: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Report status
+        if: always()
+        uses: ravsamhq/notify-slack-action@v2
         with:
-          python-version: "3.11"
+          status: ${{ job.status }}
+          notify_when: "failure"
+          notification_title: "Periodic test for {repo} failed"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}
 
-      - name: Install nox
-        run: |
-          pip install --upgrade pip
-          pip install --upgrade nox
+  # The controller requires Python 3.11, but the modules we add to the Hub
+  # have to run with Python 3.10 since that's what the JupyterHub image uses.
+  # Run a separate matrix to test those modules.
+  test-hub:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [test]
 
-      - name: Update dependencies
-        run: "nox -s update-deps"
+    strategy:
+      matrix:
+        python:
+          - "3.10"
+          - "3.11"
 
-      - name: Run tests with nox
-        run: "nox -s lint typing test"
+    steps:
+      - uses: actions/checkout@v4
 
-      # The Hub code has to be tested with Python 3.10 because that's what the
-      # JupyterHub image uses.
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: lsst-sqre/run-nox@main
         with:
-          python-version: "3.10"
-
-      - name: Install nox
-        run: |
-          pip install --upgrade pip
-          pip install --upgrade nox
-
-      - name: Run hub tests with nox
-        run: "nox -s test-hub"
+          nox-sessions: "upgrade-deps typing-hub test-hub"
+          python-version: ${{ matrix.python }}
+          use-cache: false
 
       - name: Report status
         if: always()
