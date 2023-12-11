@@ -55,6 +55,13 @@ jobs:
           pip install --upgrade pip
           pip install --upgrade nox
 
+      - name: Cache nox environments
+        id: cache-nox
+        uses: actions/cache@v3
+        with:
+          path: .nox
+          key: test-${{ matrix.python }}-${{ hashFiles('noxfile.py', 'controller/requirements/main.txt', 'controller/requirements/dev.txt') }}
+
       - name: Run nox
         run: "nox -s typing test typing-inithome test-inithome"
 
@@ -84,6 +91,13 @@ jobs:
           pip install --upgrade pip
           pip install --upgrade nox
 
+      - name: Cache nox environments
+        id: cache-nox
+        uses: actions/cache@v3
+        with:
+          path: .nox
+          key: test-hub-${{ matrix.python }}-${{ hashFiles('noxfile.py', 'hub/requirements/main.txt', 'hub/requirements/dev.txt') }}
+
       - name: Run nox
         run: "nox -s typing-hub test-hub"
 
@@ -112,6 +126,13 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install --upgrade nox
+
+      - name: Cache nox environments
+        id: cache-nox
+        uses: actions/cache@v3
+        with:
+          path: .nox
+          key: docs-${{ matrix.python }}-${{ hashFiles('noxfile.py', 'authenticator/pyproject.toml', 'controller/requirements/main.txt', 'controller/requirements/dev.txt', 'spawner/pyproject.toml') }}
 
       - name: Run nox
         run: "nox -s docs"
