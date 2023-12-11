@@ -253,7 +253,16 @@ The controller sets ``NUBLADO_UID``, ``NUBLADO_GID``, and ``NUBLADO_HOME`` as en
 * ``NUBLADO_GID`` contains the GID of the user's primary group.
 * ``NUBLADO_HOME`` contains the path to the user's home directory.
 
+A note on nublado-inithome
+--------------------------
 
+If the standard ``nublado-inithome`` container is being used to
+provision user home directories, note that the immediate parent of the
+``NUBLADO_HOME`` directory must exist, and that the entire path to that
+directory must be traversable by the provisioning user.  Traversability
+is not usually an issue (since the parent directory also must be
+writeable), but if the directory lives on a no-root-squash NFS
+filesystem (or the equivalent), this may become a concern.
 
 Lab sizes
 =========
