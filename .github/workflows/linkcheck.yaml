@@ -43,15 +43,9 @@ jobs:
       - name: Install extra packages
         run: sudo apt install -y graphviz
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: lsst-sqre/run-nox@v1
         with:
+          cache-dependency: "controller/requirements/*.txt"
+          cache-key-prefix: docs
+          nox-sessions: docs-linkcheck
           python-version: "3.11"
-
-      - name: Install nox
-        run: |
-          pip install --upgrade pip
-          pip install --upgrade nox
-
-      - name: Run nox
-        run: "nox -s docs-linkcheck"
