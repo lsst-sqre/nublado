@@ -18,20 +18,3 @@ pyfakefs
 # pydantic has to be installed for mypy to run.  We don't use pydantic
 # ourselves in inithome.
 pydantic
-
-
-
-asgi-lifespan
-coverage[toml]
-httpx-sse
-pytest
-pytest-asyncio
-pytest-cov
-pytest-sugar
-respx
-types-pyyaml
-
-# Documentation
-autodoc_pydantic
-documenteer[guide]>=1.0.0a7
-sphinx-diagrams
