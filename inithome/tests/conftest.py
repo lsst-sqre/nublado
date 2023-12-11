@@ -13,4 +13,5 @@ def privileged_fs(fs: FakeFilesystem) -> FakeFilesystem:
     set_gid(0)
     # Create a top-level /home directory
     fs.create_dir(Path("/home"), perm_bits=0o755)
+
     return fs

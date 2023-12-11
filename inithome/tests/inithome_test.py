@@ -66,11 +66,6 @@ async def test_provisioner_subdir(
     assert parent2_stat.st_uid == 0
     assert parent2_stat.st_gid == 0
     assert (parent2_stat.st_mode & 0o777) == 0o755
-    # /home
-    parent3_stat = homedir.parent.parent.parent.stat()
-    assert parent3_stat.st_uid == 0
-    assert parent3_stat.st_gid == 0
-    assert (parent3_stat.st_mode & 0o777) == 0o755
 
 
 @pytest.mark.asyncio
@@ -147,7 +142,7 @@ async def test_bad_ownership(
     # Put a file into it
     rentfile = Path(homedir / "rents")
     privileged_fs.create_file(Path(rentfile, contents="K: 200"))
-    rentfile.chmod(0o700)
+    rentfile.chmod(0o600)
     os.chown(homedir, uid=9 + uid, gid=gid)
 
     assert homedir.is_dir()

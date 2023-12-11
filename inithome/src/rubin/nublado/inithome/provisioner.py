@@ -74,9 +74,11 @@ class Provisioner:
                 )
             return
         # We need to create the directory
+        orig_umask = os.umask(0o077)
         self.homedir.mkdir()
-        self.homedir.chmod(mode=0o700)
         os.chown(self.homedir, uid=self.uid, gid=self.gid)
+        # Restore original umask
+        os.umask(orig_umask)
 
 
 def main() -> None:
