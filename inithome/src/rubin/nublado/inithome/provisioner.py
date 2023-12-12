@@ -51,7 +51,7 @@ class Provisioner:
 
         Raises
         ------
-        ValueError
+        InvalidHomeError
             Raised if the path exists but is not a directory, or if it has the
             wrong ownership but is not empty.
         """
