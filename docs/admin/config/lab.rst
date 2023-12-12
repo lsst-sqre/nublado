@@ -5,6 +5,42 @@ User lab configuration
 The settings under ``controller.config.lab`` configure the user's lab environment.
 That configuration includes volumes and volume mounts, environment variables, secrets, injected files, and user and group information, as well as Kubernetes configuration such as timeouts and a pull secret.
 
+.. _config-lab-home:
+
+Home directory paths
+====================
+
+By default, Nublado uses :file:`/home/{username}` as the home directory path for each user.
+If you want to use a different home directory path, normally to match a home directory layout used by non-Nublado services in the same environment, set one or more of the following configuration options:
+
+``controller.config.lab.homedirPrefix``
+    The portion of the home directory path before the username.
+    The default value is ``/home``.
+    The primary reason to set this to something else is to match a home directory path used by users of the same environment outside of Nublado.
+
+``controller.config.lab.homedirSchema``
+    How to construct the username portion of the home directory path.
+    This must be set to one of the following values:
+
+    ``username``
+        Append only the username, resulting in a path like :file:`/home/{username}`.
+        This is the default.
+
+    ``initialThenUsername``
+        Append the first character of the username, a slash, and then the username, resulting in a path like :file:`/home/{u}/{username}`.
+
+``controller.config.lab.homedirSuffix``
+    The portion of the home directory path to add after the username.
+    This is most commonly used to locate the Nublado home directory in a subdirectory of the home directory the user uses outside of Nublado.
+    For example, setting this to ``rsphome`` will result in a path like :file:`/home/{username}/rsphome`.
+    The default is the empty string (do not append any additional path).
+
+These configuration settings only control the home directory path *inside the lab container*.
+You will need to arrange for the appropriate volume to be mounted into the container so that these paths are valid.
+For information about how to do that, see :ref:`config-lab-volumes`.
+
+For a comprehensive guide to deciding how to handle home directories in Nublado, see :doc:`/admin/home-directories`.
+
 .. _config-lab-volumes:
 
 Mounted volumes
@@ -203,12 +239,15 @@ The Nublado controller can create a Kubernetes ``Secret`` resource alongside the
 
 .. _config-lab-init:
 
-Initialization
-==============
+Init containers
+===============
 
 Nublado supports running additional containers during the startup of the lab pod as Kubernetes init containers (see `the Kubernetes documentation <https://kubernetes.io/docs/concepts/workloads/pods/init-containers/>`__ for more details).
 These containers may be privileged, unlike the lab containers which always run as the user who spawned the lab.
+
 Examples of why one may want to run an init container include creating the user's home directory if it doesn't already exist or doing networking setup for the lab container that requires privileged operations.
+
+Configure init containers with the following setting:
 
 ``controller.config.lab.initContainers``
     A list of init containers to run before the main lab container is started.
@@ -242,27 +281,8 @@ Examples of why one may want to run an init container include creating the user'
         None of the volumes mounted in the main lab container are mounted in init containers by default, so if the init container needs access to them, those mounts must be reiterated here.
         They are independent of the main container mounts and thus can have different paths, sub-paths, and so forth, and can reference volumes not mounted in the main container.
 
-Init container environment variable interface
----------------------------------------------
-
-In addition to whatever static configuration is present in the config snippet, the controller is responsible for injecting per-container information into the initContainers.
-This is done by setting environment variables in the containers.
-The controller sets ``NUBLADO_UID``, ``NUBLADO_GID``, and ``NUBLADO_HOME`` as environment variables inside each initContainer it starts.
-
-* ``NUBLADO_UID`` contains the UID of the user for whom the Lab is being created.
-* ``NUBLADO_GID`` contains the GID of the user's primary group.
-* ``NUBLADO_HOME`` contains the path to the user's home directory.
-
-A note on nublado-inithome
---------------------------
-
-If the standard ``nublado-inithome`` container is being used to
-provision user home directories, note that the immediate parent of the
-``NUBLADO_HOME`` directory must exist, and that the entire path to that
-directory must be traversable by the provisioning user.  Traversability
-is not usually an issue (since the parent directory also must be
-writeable), but if the directory lives on a no-root-squash NFS
-filesystem (or the equivalent), this may become a concern.
+For more details on init containers and how to write your own, see :doc:`/admin/init-containers`.
+For a guide to the specific use case of setting up user home directories, see :doc:`/admin/home-directories`.
 
 Lab sizes
 =========

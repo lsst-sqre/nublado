@@ -725,6 +725,7 @@ class LabBuilder:
             allow_privilege_escalation=False,
             run_as_non_root=True,
             run_as_user=user.uid,
+            run_as_group=user.gid,
         )
 
         # Use the same environment ConfigMap as the notebook container since

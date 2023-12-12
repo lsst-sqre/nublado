@@ -10,5 +10,13 @@ Guides to common problems and instructions on how to integrate properly with Pha
 
 .. toctree::
    :maxdepth: 2
+   :caption: Guides
+
+   home-directories
+   init-containers
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
 
    config/index
