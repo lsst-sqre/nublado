@@ -26,14 +26,26 @@ nox.options.reuse_existing_virtualenvs = True
 # spawner, and inithome dependencies.
 PIP_DEPENDENCIES = [
     ("--upgrade", "pip", "setuptools", "wheel"),
-    ("-r", "controller/requirements/main.txt"),
-    ("-r", "controller/requirements/dev.txt"),
-    ("-e", "authenticator[dev]"),
-    ("-e", "controller"),
-    ("-e", "spawner[dev]"),
-    ("-r", "inithome/requirements/main.txt"),
-    ("-r", "inithome/requirements/dev.txt"),
-    ("-e", "inithome"),
+    (
+        "-r",
+        "controller/requirements/main.txt",
+        "-r",
+        "controller/requirements/dev.txt",
+        "-r",
+        "inithome/requirements/main.txt",
+        "-r",
+        "inithome/requirements/dev.txt",
+    ),
+    (
+        "-e",
+        "authenticator[dev]",
+        "-e",
+        "controller",
+        "-e",
+        "inithome",
+        "-e",
+        "spawner[dev]",
+    ),
 ]
 
 
@@ -151,8 +163,12 @@ def lint(session: nox.Session) -> None:
 def typing(session: nox.Session) -> None:
     """Check controller type annotations with mypy."""
     session.install("--upgrade", "pip", "setuptools", "wheel")
-    session.install("-r", "controller/requirements/main.txt")
-    session.install("-r", "controller/requirements/dev.txt")
+    session.install(
+        "-r",
+        "controller/requirements/main.txt",
+        "-r",
+        "controller/requirements/dev.txt",
+    )
     session.install("-e", "controller")
     session.run(
         "mypy",
@@ -167,10 +183,13 @@ def typing(session: nox.Session) -> None:
 def typing_hub(session: nox.Session) -> None:
     """Check hub plugin type annotations with mypy."""
     session.install("--upgrade", "pip", "setuptools", "wheel")
-    session.install("-r", "hub/requirements/main.txt")
-    session.install("-r", "hub/requirements/dev.txt")
-    session.install("--no-deps", "-e", "authenticator")
-    session.install("--no-deps", "-e", "spawner")
+    session.install(
+        "-r",
+        "hub/requirements/main.txt",
+        "-r",
+        "hub/requirements/dev.txt",
+    )
+    session.install("--no-deps", "-e", "authenticator", "-e", "spawner")
     session.run(
         "mypy",
         *session.posargs,
@@ -195,8 +214,12 @@ def typing_hub(session: nox.Session) -> None:
 def typing_inithome(session: nox.Session) -> None:
     """Check inithome type annotations with mypy."""
     session.install("--upgrade", "pip", "setuptools", "wheel")
-    session.install("-r", "inithome/requirements/main.txt")
-    session.install("-r", "inithome/requirements/dev.txt")
+    session.install(
+        "-r",
+        "inithome/requirements/main.txt",
+        "-r",
+        "inithome/requirements/dev.txt",
+    )
     session.install("-e", "inithome")
     session.run(
         "mypy",
@@ -213,8 +236,12 @@ def typing_inithome(session: nox.Session) -> None:
 def test(session: nox.Session) -> None:
     """Run tests of the Nublado controller."""
     session.install("--upgrade", "pip", "setuptools", "wheel")
-    session.install("-r", "controller/requirements/main.txt")
-    session.install("-r", "controller/requirements/dev.txt")
+    session.install(
+        "-r",
+        "controller/requirements/main.txt",
+        "-r",
+        "controller/requirements/dev.txt",
+    )
     session.install("-e", "controller")
     with session.chdir("controller"):
         session.run(
@@ -230,10 +257,13 @@ def test(session: nox.Session) -> None:
 def test_hub(session: nox.Session) -> None:
     """Run only tests affecting JupyterHub with its frozen dependencies."""
     session.install("--upgrade", "pip", "setuptools", "wheel")
-    session.install("-r", "hub/requirements/main.txt")
-    session.install("-r", "hub/requirements/dev.txt")
-    session.install("--no-deps", "-e", "authenticator")
-    session.install("--no-deps", "-e", "spawner")
+    session.install(
+        "-r",
+        "hub/requirements/main.txt",
+        "-r",
+        "hub/requirements/dev.txt",
+    )
+    session.install("--no-deps", "-e", "authenticator", "-e", "spawner")
     _pytest(session, "authenticator", "rubin.nublado.authenticator")
     _pytest(session, "spawner", "rubin.nublado.spawner")
 
@@ -242,8 +272,12 @@ def test_hub(session: nox.Session) -> None:
 def test_inithome(session: nox.Session) -> None:
     """Run only tests affecting inithome."""
     session.install("--upgrade", "pip", "setuptools", "wheel")
-    session.install("-r", "inithome/requirements/main.txt")
-    session.install("-r", "inithome/requirements/dev.txt")
+    session.install(
+        "-r",
+        "inithome/requirements/main.txt",
+        "-r",
+        "inithome/requirements/dev.txt",
+    )
     session.install("-e", "inithome")
     _pytest(session, "inithome", "rubin.nublado.inithome")
 
