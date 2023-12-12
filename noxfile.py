@@ -100,6 +100,7 @@ def _update_deps(
             "--resolver=backtracking",
             "--build-isolation",
             "--allow-unsafe",
+            "--strip-extras",
         ]
         if generate_hashes:
             command.append("--generate-hashes")
