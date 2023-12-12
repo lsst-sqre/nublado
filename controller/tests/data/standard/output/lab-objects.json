@@ -411,15 +411,15 @@
         {
           "env": [
             {
-              "name": "NUBLADO_GID",
-              "value": "1101"
-            },
-            {
               "name": "NUBLADO_HOME",
               "value": "/home/rachel"
             },
             {
               "name": "NUBLADO_UID",
+              "value": "1101"
+            },
+            {
+              "name": "NUBLADO_GID",
               "value": "1101"
             }
           ],
