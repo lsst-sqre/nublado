@@ -18,6 +18,5 @@ pydantic
 # Testing
 pytest
 pytest-asyncio
-pytest-cov
 pytest-sugar
 pyfakefs
