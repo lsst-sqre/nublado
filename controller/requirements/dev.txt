@@ -35,9 +35,9 @@ autodoc-pydantic==2.0.1 \
     --hash=sha256:7a125a4ff18e4903e27be71e4ddb3269380860eacab4a584d6cc2e212fa96991 \
     --hash=sha256:d3c302fdb6d37edb5b721f0f540252fa79cea7018bc1a9a85bf70f33a68b0ce4
     # via -r controller/requirements/dev.in
-babel==2.13.1 \
-    --hash=sha256:33e0952d7dd6374af8dbf6768cc4ddf3ccfefc244f9986d4074704f2fbd18900 \
-    --hash=sha256:7077a4984b02b6727ac10f1f7294484f737443d7e2e66c5e4380e41a3ae0b4ed
+babel==2.14.0 \
+    --hash=sha256:6919867db036398ba21eb5c7a0f6b28ab8cbc3ae7a73a44ebe34ae74a4e7d363 \
+    --hash=sha256:efb1a25b7118e67ce3a259bed20545c29cb68be8ad2c784c83689981b7a57287
     # via sphinx
 beautifulsoup4==4.12.2 \
     --hash=sha256:492bbc69dca35d12daac71c4db1bfff0c876c00ef4a2ffacce226d4638eb72da \
@@ -211,9 +211,9 @@ diagrams==0.23.4 \
     --hash=sha256:1ba69d98fcf8d768dbddf07d2c77aba6cc95c2e6f90f37146c04c96bc6765450 \
     --hash=sha256:b7ada0b119b5189dd021b1dc1467fad3704737452bb18b1e06d05e4d1fa48ed7
     # via sphinx-diagrams
-documenteer==1.0.0a16 \
-    --hash=sha256:188d3d48394f30e204526324cbd62d0fa930465f91d4519cca0e97aa57afe64c \
-    --hash=sha256:2c4a588a0647955e0c711c85b871bd4a279126940eb4d00a944c4a37deef57c9
+documenteer==1.0.0a17 \
+    --hash=sha256:c84eacc51eae434f87d0d381b38ae5985f5078c45a6672d85c323f6658c3efa0 \
+    --hash=sha256:e1c5d924cdb33e9a28f74dd8d50d01183bbdb9914f88de35e55e3e8ae09c40b5
     # via
     #   -r controller/requirements/dev.in
     #   documenteer
@@ -577,6 +577,9 @@ pygments==2.17.2 \
     #   pydata-sphinx-theme
     #   sphinx
     #   sphinx-prompt
+pylatexenc==2.10 \
+    --hash=sha256:3dd8fd84eb46dc30bee1e23eaab8d8fb5a7f507347b23e5f38ad9675c84f40d3
+    # via documenteer
 pytest==7.4.3 \
     --hash=sha256:0d009c083ea859a71b76adf7c1d502e4bc170b80a8ef002da5806527b9591fac \
     --hash=sha256:d989d136982de4e3b29dabcc838ad581c64e8ed52c11fbe86ddebd9da0818cd5
@@ -911,6 +914,10 @@ termcolor==2.4.0 \
     --hash=sha256:9297c0df9c99445c2412e832e882a7884038a25617c60cea2ad69488d4040d63 \
     --hash=sha256:aab9e56047c8ac41ed798fa36d892a37aca6b3e9159f3e0c24bc64a9b3ac7b7a
     # via pytest-sugar
+tomlkit==0.12.3 \
+    --hash=sha256:75baf5012d06501f07bee5bf8e801b9f343e7aac5a92581f20f80ce632e6b5a4 \
+    --hash=sha256:b0a645a9156dc7cb5d3a1f0d4bab66db287fcb8e0430bdd4664a095ea16414ba
+    # via documenteer
 typed-ast==1.5.5 \
     --hash=sha256:042eb665ff6bf020dd2243307d11ed626306b82812aba21836096d229fdc6a10 \
     --hash=sha256:045f9930a1550d9352464e5149710d56a2aed23a2ffe78946478f7b5416f1ede \

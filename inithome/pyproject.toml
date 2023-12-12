@@ -35,28 +35,6 @@ inithome = "rubin.nublado.inithome.main:main"
 [tool.setuptools_scm]
 root = ".."
 
-[tool.coverage.run]
-parallel = true
-branch = true
-source = ["rubin.nublado.inithome"]
-
-[tool.coverage.paths]
-source = ["src"]
-
-[tool.coverage.report]
-show_missing = true
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if self.debug:",
-    "if settings.DEBUG",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if 0:",
-    "if __name__ == .__main__.:",
-    "if TYPE_CHECKING:"
-]
-
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
 # The python_files setting is not for test detection (pytest will pick up any

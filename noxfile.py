@@ -71,7 +71,9 @@ def _install_dev(session: nox.Session, bin_prefix: str = "") -> None:
     session.run(precommit, "install", external=True)
 
 
-def _pytest(session: nox.Session, directory: str, module: str) -> None:
+def _pytest(
+    session: nox.Session, directory: str, module: str, *, coverage: bool = True
+) -> None:
     """Run pytest for the given directory and module, if needed."""
     generic = []
     per_directory = []
@@ -87,12 +89,13 @@ def _pytest(session: nox.Session, directory: str, module: str) -> None:
         else:
             generic.append(arg)
     if not session.posargs or not found_per_directory or per_directory:
+        args = []
+        if coverage:
+            args.extend([f"--cov={module}", "--cov-branch", "--cov-report="])
         with session.chdir(directory):
             session.run(
                 "pytest",
-                f"--cov={module}",
-                "--cov-branch",
-                "--cov-report=",
+                *args,
                 *generic,
                 *per_directory,
             )
@@ -279,7 +282,7 @@ def test_inithome(session: nox.Session) -> None:
         "inithome/requirements/dev.txt",
     )
     session.install("-e", "inithome")
-    _pytest(session, "inithome", "rubin.nublado.inithome")
+    _pytest(session, "inithome", "rubin.nublado.inithome", coverage=False)
 
 
 @nox.session
