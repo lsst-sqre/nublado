@@ -5,12 +5,11 @@
 # base-image
 #   Updates the base Python image with security patches and common system
 #   packages. This image becomes the base of all other images.
-# dependencies-image
-#   Installs third-party dependencies (controller/requirements/main.txt)
-#   into a virtual environment. This virtual environment is ideal for
-#   copying across build stages.
 # install-image
-#   Installs the app into the virtual environment.
+#   Installs third-party dependencies (controller/requirements/main.txt)
+#   into a virtual environment and then installs the app. This virtual
+#   environment is the only thing copied into the runtime image.  copying
+#   across build stages.
 # runtime-image
 #   - Copies the virtual environment into place.
 #   - Runs a non-root user.
@@ -22,7 +21,7 @@ FROM python:3.11.5-slim-bullseye as base-image
 COPY controller/scripts/install-base-packages.sh .
 RUN ./install-base-packages.sh && rm ./install-base-packages.sh
 
-FROM base-image AS dependencies-image
+FROM base-image AS install-image
 
 # Install system packages only needed for building dependencies.
 COPY controller/scripts/install-dependency-packages.sh .
@@ -41,11 +40,6 @@ RUN pip install --upgrade --no-cache-dir pip setuptools wheel
 # Install the app's Python runtime dependencies.
 COPY controller/requirements/main.txt ./requirements.txt
 RUN pip install --quiet --no-cache-dir -r requirements.txt
-
-FROM dependencies-image AS install-image
-
-# Use the virtualenv.
-ENV PATH="/opt/venv/bin:$PATH"
 
 # Install the Python package.
 COPY . /workdir
