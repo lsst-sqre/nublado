@@ -23,7 +23,7 @@ apt-get update
 #
 # build-essential: sometimes needed to build Python modules
 # git: required by setuptools_scm
-# libcffi-dev: sometimes needed to build cffi, a cryptography dependency
+# libffi-dev: sometimes needed to build cffi, a cryptography dependency
 # libpq-dev, python3-dev: required to build psycopg2
 # postgresql-client: for interactive use to look at the session database
 #

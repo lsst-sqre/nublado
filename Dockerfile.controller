@@ -28,39 +28,42 @@ FROM base-image AS dependencies-image
 COPY controller/scripts/install-dependency-packages.sh .
 RUN ./install-dependency-packages.sh
 
-# Create a Python virtual environment
+# Create a Python virtual environment.
 ENV VIRTUAL_ENV=/opt/venv
 RUN python -m venv $VIRTUAL_ENV
-# Make sure we use the virtualenv
+
+# Make sure we use the virtualenv.
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-# Put the latest pip and setuptools in the virtualenv
+
+# Put the latest pip and setuptools in the virtualenv.
 RUN pip install --upgrade --no-cache-dir pip setuptools wheel
 
-# Install the app's Python runtime dependencies
+# Install the app's Python runtime dependencies.
 COPY controller/requirements/main.txt ./requirements.txt
 RUN pip install --quiet --no-cache-dir -r requirements.txt
 
 FROM dependencies-image AS install-image
 
-# Use the virtualenv
+# Use the virtualenv.
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Install the Python package.
 COPY . /workdir
 WORKDIR /workdir
 RUN pip install --no-cache-dir ./controller
 
 FROM base-image AS runtime-image
 
-# Create a non-root user
+# Create a non-root user.
 RUN useradd --create-home appuser
 
-# Copy the virtualenv
+# Copy the virtualenv.
 COPY --from=install-image /opt/venv /opt/venv
 
-# Copy the startup script
+# Copy the startup script.
 COPY controller/scripts/start.sh /start.sh
 
-# Make sure we use the virtualenv
+# Make sure we use the virtualenv.
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Switch to the non-root user.
