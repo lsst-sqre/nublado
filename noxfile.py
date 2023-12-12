@@ -149,7 +149,7 @@ def lint(session: nox.Session) -> None:
 @nox.session
 def typing(session: nox.Session) -> None:
     """Check controller type annotations with mypy."""
-    session.install("--upgrade", "pip", "setuptools", "wheel", "mypy")
+    session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install("-r", "controller/requirements/main.txt")
     session.install("-r", "controller/requirements/dev.txt")
     session.install("-e", "controller")
@@ -165,9 +165,7 @@ def typing(session: nox.Session) -> None:
 @nox.session(name="typing-hub")
 def typing_hub(session: nox.Session) -> None:
     """Check hub plugin type annotations with mypy."""
-    session.install(
-        "--upgrade", "pip", "setuptools", "wheel", "mypy", "pydantic"
-    )
+    session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install("-r", "hub/requirements/main.txt")
     session.install("-r", "hub/requirements/dev.txt")
     session.install("--no-deps", "-e", "authenticator")
@@ -195,7 +193,7 @@ def typing_hub(session: nox.Session) -> None:
 @nox.session(name="typing-inithome")
 def typing_inithome(session: nox.Session) -> None:
     """Check inithome type annotations with mypy."""
-    session.install("--upgrade", "pip", "setuptools", "wheel", "mypy")
+    session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install("-r", "inithome/requirements/main.txt")
     session.install("-r", "inithome/requirements/dev.txt")
     session.install("-e", "inithome")

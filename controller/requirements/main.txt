@@ -301,9 +301,9 @@ cryptography==41.0.7 \
     # via
     #   pyjwt
     #   safir
-fastapi==0.104.1 \
-    --hash=sha256:752dc31160cdbd0436bb93bad51560b57e525cbb1d4bbf6f4904ceee75548241 \
-    --hash=sha256:e5e4540a7c5e1dcfbbcf5b903c234feddcdcd881f191977a1c5dfd917487e7ae
+fastapi==0.105.0 \
+    --hash=sha256:4d12838819aa52af244580675825e750ad67c9df4614f557a769606af902cf22 \
+    --hash=sha256:f19ebf6fdc82a3281d10f2cb4774bdfa90238e3b40af3525a0c09fd08ad1c480
     # via
     #   -r controller/requirements/main.in
     #   safir
@@ -383,9 +383,9 @@ google-api-core[grpc]==2.15.0 \
     # via
     #   google-api-core
     #   google-cloud-artifact-registry
-google-auth==2.25.1 \
-    --hash=sha256:d5d66b8f4f6e3273740d7bb73ddefa6c2d1ff691704bd407d51c6b5800e7c97b \
-    --hash=sha256:dfd7b44935d498e106c08883b2dac0ad36d8aa10402a6412e9a1c9d74b4773f1
+google-auth==2.25.2 \
+    --hash=sha256:42f707937feb4f5e5a39e6c4f343a17300a459aaf03141457ba505812841cc40 \
+    --hash=sha256:473a8dfd0135f75bb79d878436e568f2695dce456764bf3a02b6f8c540b1d256
     # via google-api-core
 google-cloud-artifact-registry==1.10.0 \
     --hash=sha256:1406253462c90e5eea880bb3534eab353bf397d8e97dd043445e51fe24c6319d \
@@ -951,9 +951,9 @@ structlog==23.2.0 \
     --hash=sha256:16a167e87b9fa7fae9a972d5d12805ef90e04857a93eba479d4be3801a6a1482 \
     --hash=sha256:334666b94707f89dbc4c81a22a8ccd34449f0201d5b1ee097a030b577fa8c858
     # via safir
-typing-extensions==4.8.0 \
-    --hash=sha256:8f92fc8806f9a6b641eaa5318da32b44d401efaac0f6678c9bc448ba3605faa0 \
-    --hash=sha256:df8e4339e9cb77357558cbdbceca33c303714cf861d1eef15e1070055ae8b7ef
+typing-extensions==4.9.0 \
+    --hash=sha256:23478f88c37f27d76ac8aee6c905017a143b0b1b886c3c9f66bc2fd94f9f5783 \
+    --hash=sha256:af72aea155e91adfc61c3ae9e0e342dbc0cba726d6cba4b6c72c1f34e47291cd
     # via
     #   fastapi
     #   pydantic

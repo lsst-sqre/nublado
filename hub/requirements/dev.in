@@ -5,10 +5,16 @@
 # implicit dev dependencies with constrained versions. This must include all
 # of the development dependencies of the authenticator and spawner modules.
 #
-# After editing, update requirements/dev.txt by running:
+# After editing, update hub/requirements/dev.txt by running:
 #     nox -s update-deps
 
 -c main.txt
+
+# Type checking. The top-level pyproject.toml configures the Pydantic mypy
+# plugin, so pydantic has to be installed for mypy to run. We don't use
+# Pydantic ourselves in the JupyterHub plugin modules.
+mypy
+pydantic
 
 # Testing
 pytest
@@ -17,8 +23,8 @@ pytest-cov
 pytest-sugar
 respx
 
-# These dependencies aren't required in Python 3.11 but are required in 3.10.
-# Pin them so that we can regenerate dependencies with Python 3.11 and still
-# successfully test using Python 3.10, which the base JupyterHub image
-# currently uses.
+# These dependencies aren't required in Python 3.11 or later but are required
+# in 3.10. Pin them so that we can regenerate dependencies with Python 3.11
+# and still successfully test using Python 3.10, which the base JupyterHub
+# image currently uses.
 tomli
