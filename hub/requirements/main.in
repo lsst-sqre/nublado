@@ -4,7 +4,7 @@
 # runtime dependencies here, as well as implicit dependencies with constrained
 # versions.
 #
-# After editing, update requirements/main.txt by running:
+# After editing, update hub/requirements/main.txt by running:
 #     nox -s update-deps
 
 # We want to explicitly control new versions of JupyterHub. Pin this to the
@@ -25,10 +25,10 @@ psycopg2
 # installed even though we're using a different spawner class.
 kubernetes_asyncio
 
-# These dependencies aren't required in Python 3.11 but are required in 3.10.
-# Pin them so that we can regenerate dependencies with Python 3.11 and still
-# successfully build a Docker image using Python 3.10, which the base
-# JupyterHub image currently uses.
+# These dependencies aren't required in Python 3.11 or later but are required
+# in 3.10. Pin them so that we can regenerate dependencies with Python 3.11
+# and still successfully build a Docker image using Python 3.10, which the
+# base JupyterHub image currently uses.
 async-timeout
 exceptiongroup
 ruamel.yaml.clib

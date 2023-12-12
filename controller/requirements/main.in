@@ -4,7 +4,7 @@
 # runtime dependencies here, as well as implicit dependencies with
 # constrained versions.
 #
-# After editing, update requirements/main.txt by running:
+# After editing, update controller/requirements/main.txt by running:
 #     nox -s update-deps
 
 # These dependencies are for fastapi including some optional features.

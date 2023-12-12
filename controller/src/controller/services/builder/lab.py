@@ -733,13 +733,11 @@ class LabBuilder:
         # the user's home directory, which is our interface to provisioning
         # init containers.
         env_source = V1ConfigMapEnvSource(name=f"{username}-nb-env")
+        home = self._build_home_directory(user.username)
         env = [
-            V1EnvVar(name="NUBLADO_GID", value=str(user.gid)),
-            V1EnvVar(
-                name="NUBLADO_HOME",
-                value=self._build_home_directory(user.username),
-            ),
+            V1EnvVar(name="NUBLADO_HOME", value=home),
             V1EnvVar(name="NUBLADO_UID", value=str(user.uid)),
+            V1EnvVar(name="NUBLADO_GID", value=str(user.gid)),
         ]
 
         containers = []
