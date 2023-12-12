@@ -146,6 +146,7 @@ target-version = "py311"
 known-first-party = [
     "controller",
     "rubin.nublado.authenticator",
+    "rubin.nublado.inithome",
     "rubin.nublado.spawner",
     "tests",
 ]

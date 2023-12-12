@@ -1,98 +1,107 @@
 """Provisioner for user home directories."""
 
-import asyncio
+from __future__ import annotations
+
 import logging
 import os
 from pathlib import Path
+from typing import ClassVar
 
-MAX_ID = 2**32 - 1  # True for Linux, which is where we run inithome
-# cf https://en.wikipedia.org/wiki/User_identifier
-RESERVED_IDS = (MAX_ID, 0, 65535, 65534)
+__all__ = ["InvalidHomeError", "Provisioner"]
+
+
+class InvalidHomeError(Exception):
+    """The home directory already exists but is not acceptable."""
 
 
 class Provisioner:
-    """Object to oversee idempotent provisioning of home directories."""
+    """Create the user's home directory if it doesn't exist.
 
-    def __init__(self, uid: int, gid: int, homedir: Path) -> None:
-        self._validate(uid, gid)
-        self.uid = uid
-        self.gid = gid
-        self.homedir = homedir
+    Parameters
+    ----------
+    home
+        Path to the home directory to create.
+    uid
+        Numeric UID of the user.
+    gid
+        Numeric primary GID of the user.
+    """
 
-    def _validate(self, uid: int, gid: int) -> None:
-        for item in (uid, gid):
-            if item in RESERVED_IDS:
-                raise ValueError(
-                    f"Will not provision for reserved UID/GID {item}"
-                )
-            if item < 0:
-                raise ValueError("UID/GID must be positive")
-            if item > MAX_ID:
-                raise ValueError(f"UID/GID must be <= {MAX_ID}")
+    _MAX_ID: ClassVar[int] = 2**32 - 2
+    """Maximum UID or GID.
+
+    Reject any UID or GID larger than this or less than zero, since the
+    results may be unpredictable. Linux currently doesn't support UIDs or GIDs
+    larger than this.
+    """
+
+    def __init__(self, home: Path, uid: int, gid: int) -> None:
+        self._home = home
+        self._uid = self._validate(uid)
+        self._gid = self._validate(gid)
 
     async def provision(self) -> None:
-        """Provision user home directory.
+        """Create the user's home directory.
 
-        This is the only public method.  Given an initialized
-        object with UID, GID, and homedir path, if the path does not
-        exist, create it and set it to mode 0700 for the path
-        components created.
+        If the home directory doesn't exist, create it and set it to mode
+        0700. If it already exists, verify that it is a directory and owned by
+        the correct UID and GID. If the permissions are incorrect and the
+        directory is empty, fix the ownership; otherwise, warn but continue.
+        Warn about unexpected modes, but don't treat them as fatal errors.
 
-        If the path already exists, verify that it is a directory and owned
-        by the right UID and GID; warn if mode is not correct, but don't treat
-        that as a fatal error.  If ownership is not correct, then if and only
-        if the directory is empty, warn and reset permissions appropriately.
-        If it is not empty, raise a fatal error.
+        Raises
+        ------
+        ValueError
+            Raised if the path exists but is not a directory, or if it has the
+            wrong ownership but is not empty.
         """
-        if self.homedir.exists():
-            if not self.homedir.is_dir():
-                raise RuntimeError(
-                    f"{self.homedir} exists but is not a directory"
-                )
-            # Check ownership and permissions
-            stat_results = self.homedir.stat()
-            uid = stat_results.st_uid
-            gid = stat_results.st_gid
-            if uid != self.uid or gid != self.gid:
-                is_empty = len(list(self.homedir.iterdir())) == 0
-                msg = (
-                    f"{self.homedir} is owned by {uid}:{gid}, not"
-                    f"{self.uid}/{self.gid}"
-                )
-                if not is_empty:
-                    raise RuntimeError(f"{msg} and is not empty")
-                logger = logging.getLogger(__name__)
-                logger.warning(f"{msg} but is empty; resetting ownership")
-                os.chown(self.homedir, uid=self.uid, gid=self.gid)
-            # We're masking st_mode because BSD and Linux disagree on file
-            # type bit interpretation, and what we care about is rwx------
-            if (stat_results.st_mode & 0o777) != 0o700:
-                logger = logging.getLogger(__name__)
-                logger.warning(
-                    f"{self.homedir} has strange permissions "
-                    f"{oct(stat_results.st_mode & 0o777)} rather than '0o700'"
-                )
+        if not self._home.exists():
+            os.umask(0o077)
+            self._home.mkdir()
+            os.chown(self._home, self._uid, self._gid)
             return
-        # We need to create the directory
-        orig_umask = os.umask(0o077)
-        self.homedir.mkdir()
-        os.chown(self.homedir, uid=self.uid, gid=self.gid)
-        # Restore original umask
-        os.umask(orig_umask)
 
+        # The home directory already exists. Check that it appears as expected.
+        if not self._home.is_dir():
+            msg = f"{self._home} exists but is not a directory"
+            raise InvalidHomeError(msg)
 
-def main() -> None:
-    """Entry point for provisioner.
+        # Check ownership and permissions.
+        stat = self._home.stat()
+        if stat.st_uid != self._uid or stat.st_gid != self._gid:
+            msg = (
+                f"{self._home} is owned by {stat.st_uid}:{stat.st_gid},"
+                f" not {self._uid}:{self._gid}"
+            )
+            is_empty = len(list(self._home.iterdir())) == 0
+            if not is_empty:
+                raise InvalidHomeError(f"{msg} and is not empty")
+            logging.warning(f"{msg} but is empty, resetting ownership")
+            os.chown(self._home, self._uid, self._gid)
 
-    Environment variables `NUBLADO_UID` and `NUBLADO_HOME` must be set.
-    """
-    # All of these should fail if unset; KeyError is as good as anything.
-    uid = int(os.environ["NUBLADO_UID"])
-    gid = int(os.environ["NUBLADO_GID"])
-    homedir = Path(os.environ["NUBLADO_HOME"])
-    provisioner = Provisioner(uid=uid, gid=gid, homedir=homedir)
-    asyncio.run(provisioner.provision())
+        # Check mode. We only care about the permission bits.
+        mode = stat.st_mode & 0o777
+        if mode != 0o700:
+            msg = f"{self._home} has unexpected permissions: 0{mode:o} != 0700"
+            logging.warning(msg)
 
+    def _validate(self, ugid: int) -> int:
+        """Validate that a UID or GID is within range.
 
-if __name__ == "__main__":
-    main()
+        This intentionally does not reject a UID or GID of 0, although for a
+        UID this would normally be questionable. Gafaelfawr should prevent
+        unreasonable UIDs or GIDs upstream of Nublado, and there may be
+        unanticipated situations where calling this code with a UID of 0 makes
+        sense.
+
+        Raises
+        ------
+        ValueError
+            Raised if the provided UID or GID is out of range.
+        """
+        if ugid < 0:
+            raise ValueError(f"UID or GID must be nonnegative, not {ugid}")
+        if ugid > self._MAX_ID:
+            msg = f"UID or GID out of range ({ugid} > {self._MAX_ID})"
+            raise ValueError(msg)
+        return ugid
