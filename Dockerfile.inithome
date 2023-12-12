@@ -1,48 +1,53 @@
 # Docker build instructions for the Nublado homedir provisioner (inithome).
 #
-# inithome is supposed to run as root within the container, and the container
-# is supposed to be privileged.  So...
+# This Docker image creates and sets ownership of the user's home directory
+# and is intended to be run as a Nublado lab init container. It is intended
+# for environments that do not pre-create user home directories, or that do
+# but want the lab home directory to be a subdirectory of the user's normal
+# home directory.
 #
-# Dependabot will catch updates to the base Python image.
+# Since it runs as an init container on every spawn, we want to keep the image
+# small. It therefore does not update base image packages for security fixes
+# and instead relies on the Python container itself being rebuilt periodically
+# with new minor versions of Python, which will result in PRs from Dependabot.
 #
-# We don't have any third-party python dependencies, but setuptools needs git.
+# This Dockerfile has two stages:
 #
-# The virtualenv is useful for migrating just the application to the runtime.
-#
-# This Dockerfile has three stages:
-#
-# base-image
-#   Base for all other images; we'll let Dependabot handle its updates.
-#   Installs git.
-#   Makes a virtualenv to hold inithome.
 # install-image
-#   Installs the app into the virtual environment.
+#   - Installs git so that setuptools_scm can install the app.
+#   - Installs the app into the virtual environment.
 # runtime-image
 #   - Copies the virtual environment into place.
 #   - Sets up the entrypoint.
 
+# This is just an alias to avoid repeating the base image.
 FROM python:3.11.5-slim-bullseye AS base-image
 
 FROM base-image AS install-image
-# Install git
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get -y install --no-install-recommends git
-# Create a Python virtual environment
+
+# Install system packages only needed for building dependencies or installing
+# the package.
+COPY inithome/scripts/install-dependency-packages.sh .
+RUN ./install-dependency-packages.sh
+
+# Create a Python virtual environment.
 ENV VIRTUAL_ENV=/opt/venv
 RUN python -m venv $VIRTUAL_ENV
-# Ensure we use the virtualenv
+
+# Ensure we use the virtualenv.
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-# Install inithome
+
+# Install inithome.
 COPY . /workdir
 WORKDIR /workdir
 RUN pip install --no-cache-dir ./inithome
 
 FROM base-image AS runtime-image
 
-# Copy the virtualenv
+# Copy the virtualenv.
 COPY --from=install-image /opt/venv /opt/venv
 
-# Make sure we use the virtualenv
+# Make sure we use the virtualenv.
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Run the application.

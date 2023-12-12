@@ -1,11 +1,8 @@
 #!/bin/bash
-
-# This script updates packages in the base Docker image that's used by both
-# the build and runtime images, and gives us a place to install additional
-# system-level packages with apt-get.
 #
-# Based on the blog post:
-# https://pythonspeed.com/articles/system-packages-docker/
+# This script installs additional packages used by the dependency image but
+# not needed by the runtime image, such as additional packages required to
+# build Python dependencies or install the Python package.
 
 # Bash "strict mode", to help catch problems and bugs in the shell
 # script. Every bash script you write should include this. See
@@ -21,9 +18,10 @@ export DEBIAN_FRONTEND=noninteractive
 # Update the package listing, so we know what packages exist.
 apt-get update
 
-# Install security updates.
-apt-get -y upgrade
+# Install git, which is required by setuptools_scm to get a correct version
+# number when the package is installed.
+apt-get -y install --no-install-recommends git
 
-# Delete cached files we don't need anymore.
+# Delete cached files we don't need any more to reduce the layer size.
 apt-get clean
 rm -rf /var/lib/apt/lists/*

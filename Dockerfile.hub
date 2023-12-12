@@ -1,40 +1,30 @@
 # Docker build instructions for the custom Nublado JupyterHub build.
 #
-# This Dockerfile has three stages:
+# This Dockerfile only has a single stage because rather than using the
+# virtualenv trick for dependencies like our other Docker builds, it
+# installs the additional Python modules directly into the local paths
+# used by system Python. This is down since changing the execution
+# environment of JupyterHub from the base container seems fragile and
+# likely to break.
 #
-# base-image
-#   Updates the base Python image with security patches and common system
-#   packages. This image becomes the base of all other images.
-# dependencies-image
-#   Installs third-party dependencies (spawner/requirements/main.txt) into
-#   a virtual environment. This virtual environment is ideal for copying
-#   across build stages.
-# runtime-image
-#   - Copies the virtual environment into place.
-#   - Installs the additional JupyterHub plugins.
-#   - Runs a non-root user.
+# The drawback is that the image is much larger than it would need to be,
+# since it contains build-time dependencies that would only normally be
+# necessary while installing extra Python modules.
 
-FROM jupyterhub/jupyterhub:4.0.2 as base-image
+# This is just an alias to avoid repeating the base image.
+FROM jupyterhub/jupyterhub:4.0.2
 
-# Update system packages
-COPY hub/scripts/install-base-packages.sh .
-RUN ./install-base-packages.sh && rm install-base-packages.sh
-
-FROM base-image as dependencies-image
-
-# Install system packages only needed for building dependencies.
-COPY hub/scripts/install-dependency-packages.sh .
-RUN ./install-dependency-packages.sh && rm install-dependency-packages.sh
+# Update and install packages.
+COPY hub/scripts/install-packages.sh .
+RUN ./install-packages.sh && rm install-packages.sh
 
 # Install the dependencies of the extra JupyterHub modules.
 COPY hub/requirements/main.txt ./requirements.txt
 RUN pip install --quiet --no-cache-dir -r requirements.txt
 
-FROM dependencies-image as runtime-image
-
 # Install the extra JupyterHub modules.
-COPY . /app
-WORKDIR /app
+COPY . /workdir
+WORKDIR /workdir
 RUN pip install --no-deps --no-cache-dir ./authenticator ./spawner
 
 # Create a non-root user to run JupyterHub. Upstream uses 768 as the UID
