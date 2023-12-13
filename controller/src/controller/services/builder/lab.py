@@ -718,6 +718,7 @@ class LabBuilder:
         username = user.username
         as_root = V1SecurityContext(
             allow_privilege_escalation=True,
+            privileged=True,
             run_as_non_root=False,
             run_as_user=0,
         )

@@ -86,13 +86,20 @@ lab:
     - name: inithome
       image:
         repository: ghcr.io/lsst-sqre/nublado-inithome
-        tag: 0.0.1
+        tag: 4.0.0
       privileged: true
       volumeMounts:
         - containerPath: /home
           volumeName: home
         - containerPath: /scratch
           volumeName: scratch
+    - name: user-setup
+      image:
+        repository: example/setup
+        tag: 0.0.1
+      volumeMounts:
+        - containerPath: /home
+          volumeName: home
   nodeSelector:
     some-label: some-value
   nss:
