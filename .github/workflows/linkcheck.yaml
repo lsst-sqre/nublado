@@ -48,4 +48,4 @@ jobs:
           cache-dependency: "controller/requirements/*.txt"
           cache-key-prefix: docs
           nox-sessions: docs-linkcheck
-          python-version: "3.11"
+          python-version: "3.12"
