@@ -430,7 +430,7 @@
               }
             }
           ],
-          "image": "ghcr.io/lsst-sqre/nublado-inithome:0.0.1",
+          "image": "ghcr.io/lsst-sqre/nublado-inithome:4.0.0",
           "imagePullPolicy": "IfNotPresent",
           "name": "inithome",
           "resources": {
@@ -445,6 +445,7 @@
           },
           "securityContext": {
             "allowPrivilegeEscalation": true,
+            "privileged": true,
             "runAsNonRoot": false,
             "runAsUser": 0
           },
@@ -457,6 +458,55 @@
             {
               "mountPath": "/scratch",
               "name": "scratch",
+              "readOnly": false
+            }
+          ]
+        },
+        {
+          "env": [
+            {
+              "name": "NUBLADO_HOME",
+              "value": "/home/rachel"
+            },
+            {
+              "name": "NUBLADO_UID",
+              "value": "1101"
+            },
+            {
+              "name": "NUBLADO_GID",
+              "value": "1101"
+            }
+          ],
+          "envFrom": [
+            {
+              "configMapRef": {
+                "name": "rachel-nb-env"
+              }
+            }
+          ],
+          "image": "example/setup:0.0.1",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "user-setup",
+          "resources": {
+            "limits": {
+              "cpu": "1.0",
+              "memory": "3221225472"
+            },
+            "requests": {
+              "cpu": "0.25",
+              "memory": "805306368"
+            }
+          },
+          "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "runAsGroup": 1101,
+            "runAsNonRoot": true,
+            "runAsUser": 1101
+          },
+          "volumeMounts": [
+            {
+              "mountPath": "/home",
+              "name": "home",
               "readOnly": false
             }
           ]
