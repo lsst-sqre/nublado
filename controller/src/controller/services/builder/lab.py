@@ -536,6 +536,7 @@ class LabBuilder:
             metadata=metadata,
             spec=V1PodSpec(
                 affinity=affinity,
+                automount_service_account_token=False,
                 containers=containers,
                 image_pull_secrets=pull_secrets,
                 init_containers=init_containers,
