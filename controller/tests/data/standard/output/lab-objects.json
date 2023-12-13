@@ -247,6 +247,7 @@
           }
         }
       },
+      "automountServiceAccountToken": false,
       "containers": [
         {
           "args": [
