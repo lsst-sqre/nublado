@@ -267,7 +267,9 @@ def test_hub(session: nox.Session) -> None:
         "hub/requirements/dev.txt",
     )
     session.install("--no-deps", "-e", "authenticator", "-e", "spawner")
-    _pytest(session, "authenticator", "rubin.nublado.authenticator")
+    _pytest(
+        session, "authenticator", "rubin.nublado.authenticator", coverage=False
+    )
     _pytest(session, "spawner", "rubin.nublado.spawner")
 
 

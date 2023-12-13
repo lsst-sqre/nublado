@@ -17,14 +17,10 @@ jobs:
     strategy:
       matrix:
         python:
-          - "3.11"
+          - "3.12"
 
     steps:
       - uses: actions/checkout@v4
-
-      # Use the oldest supported version of Python to update dependencies,
-      # not the matrixed Python version, since this accurately reflects
-      # how dependencies should later be updated.
 
       - uses: lsst-sqre/run-nox@v1
         with:
@@ -55,6 +51,7 @@ jobs:
         python:
           - "3.10"
           - "3.11"
+          - "3.12"
 
     steps:
       - uses: actions/checkout@v4
