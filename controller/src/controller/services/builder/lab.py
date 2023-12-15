@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 from kubernetes_asyncio.client import (
+    V1Capabilities,
     V1ConfigMap,
     V1ConfigMapEnvSource,
     V1ConfigMapVolumeSource,
@@ -720,11 +721,14 @@ class LabBuilder:
         as_root = V1SecurityContext(
             allow_privilege_escalation=True,
             privileged=True,
+            read_only_root_filesystem=True,
             run_as_non_root=False,
             run_as_user=0,
         )
         as_user = V1SecurityContext(
             allow_privilege_escalation=False,
+            capabilities=V1Capabilities(drop=["all"]),
+            read_only_root_filesystem=True,
             run_as_non_root=True,
             run_as_user=user.uid,
             run_as_group=user.gid,
@@ -819,6 +823,9 @@ class LabBuilder:
             ports=[V1ContainerPort(container_port=8888, name="jupyterlab")],
             resources=resources.to_kubernetes(),
             security_context=V1SecurityContext(
+                allow_privilege_escalation=False,
+                capabilities=V1Capabilities(drop=["all"]),
+                read_only_root_filesystem=True,
                 run_as_non_root=True,
                 run_as_user=user.uid,
                 run_as_group=user.gid,
