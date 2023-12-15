@@ -86,6 +86,14 @@ jobs:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
 
+      - name: Filter paths
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            docs:
+              - "docs/**"
+
       - name: Update package lists
         run: sudo apt-get update
 
@@ -105,10 +113,9 @@ jobs:
         run: >-
           python -m pip install 'ltd-conveyor>=0.9.0a1'
 
-      # Only attempt documentation uploads for long-lived branches, tagged
-      # releases, and pull requests from ticket branches.  This avoids version
-      # clutter in the docs and failures when a PR doesn't have access to
-      # secrets.
+      # Upload docs:
+      # - on any push to main
+      # - on pushes to tickets/ branches if docs/ directory content changed
       - name: Upload to LSST the Docs
         uses: lsst-sqre/ltd-upload@v1
         with:
@@ -117,9 +124,8 @@ jobs:
           username: ${{ secrets.LTD_USERNAME }}
           password: ${{ secrets.LTD_PASSWORD }}
         if: >
-          github.event_name != 'merge_group'
-          && (github.event_name != 'pull_request'
-              || startsWith(github.head_ref, 'tickets/'))
+          (github.event_name == 'push' && github.ref_name == 'main')
+          || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'tickets/') && steps.filter.outputs.docs == 'true')
 
   build:
     runs-on: ubuntu-latest
