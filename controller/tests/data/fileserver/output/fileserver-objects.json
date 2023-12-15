@@ -111,6 +111,9 @@
               ],
               "securityContext": {
                 "allowPrivilegeEscalation": false,
+                "capabilities": {
+                  "drop": ["all"]
+                },
                 "readOnlyRootFilesystem": true
               },
               "volumeMounts": [
@@ -299,6 +302,9 @@
           ],
           "securityContext": {
             "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": ["all"]
+            },
             "readOnlyRootFilesystem": true
           },
           "volumeMounts": [

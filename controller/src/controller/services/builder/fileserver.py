@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from kubernetes_asyncio.client import (
+    V1Capabilities,
     V1Container,
     V1ContainerPort,
     V1EnvVar,
@@ -246,6 +247,7 @@ class FileserverBuilder:
             resources=resources.to_kubernetes() if resources else None,
             security_context=V1SecurityContext(
                 allow_privilege_escalation=False,
+                capabilities=V1Capabilities(drop=["all"]),
                 read_only_root_filesystem=True,
             ),
             volume_mounts=mounts,
