@@ -9,15 +9,15 @@ from __future__ import annotations
 from datetime import timedelta
 
 from fastapi.templating import Jinja2Templates
-from jinja2 import PackageLoader
+from jinja2 import Environment, PackageLoader
 
 __all__ = ["templates"]
 
-# Starlette requires a directory argument, but since we override the loader so
-# that the templates are retrieved from the Python package, it's unused.
 templates = Jinja2Templates(
-    loader=PackageLoader("controller", package_path="templates"),
-    directory="templates",
+    env=Environment(
+        loader=PackageLoader("controller", package_path="templates"),
+        autoescape=True,
+    ),
 )
 """The template manager."""
 

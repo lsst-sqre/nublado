@@ -75,9 +75,9 @@ async def route_user(
 
     # Construct and return the instructions page.
     return templates.TemplateResponse(
+        context.request,
         "fileserver.html.jinja",
         {
-            "request": context.request,
             "username": user.username,
             "base_url": config.base_url,
             "path_prefix": config.fileserver.path_prefix,
