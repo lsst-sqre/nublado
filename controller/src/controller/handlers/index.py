@@ -24,6 +24,7 @@ __all__ = ["external_router", "internal_router"]
     response_model=Index,
     response_model_exclude_none=True,
     summary="Application metadata",
+    tags=["internal"],
 )
 async def get_index(
     config: Annotated[Config, Depends(config_dependency)],
@@ -45,6 +46,7 @@ async def get_index(
     response_model=Metadata,
     response_model_exclude_none=True,
     summary="Application metadata (internal)",
+    tags=["internal"],
 )
 async def get_internal_index(
     config: Annotated[Config, Depends(config_dependency)],
