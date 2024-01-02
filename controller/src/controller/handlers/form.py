@@ -55,9 +55,9 @@ async def get_user_lab_form(
 
     # Construct and return the spawner form.
     return templates.TemplateResponse(
+        context.request,
         "spawner.html.jinja",
         {
-            "request": context.request,
             "dropdown_sentinel": DROPDOWN_SENTINEL_VALUE,
             "cached_images": images.menu,
             "all_images": images.dropdown,
