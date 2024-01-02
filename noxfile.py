@@ -1,9 +1,11 @@
 """nox build configuration for Nublado."""
 
 import shutil
+import sys
 from pathlib import Path
 
 import nox
+from nox.command import CommandFailed
 
 # Default sessions
 nox.options.sessions = [
@@ -339,18 +341,24 @@ def docs_linkcheck(session: nox.Session) -> None:
     _install(session)
     doctree_dir = (session.cache_dir / "doctrees").absolute()
     with session.chdir("docs"):
-        session.run(
-            "sphinx-build",
-            "-W",
-            "--keep-going",
-            "-n",
-            "-T",
-            "-blinkcheck",
-            "-d",
-            str(doctree_dir),
-            ".",
-            "./_build/html",
-        )
+        try:
+            session.run(
+                "sphinx-build",
+                "-W",
+                "--keep-going",
+                "-n",
+                "-T",
+                "-blinkcheck",
+                "-d",
+                str(doctree_dir),
+                ".",
+                "./_build/linkcheck",
+            )
+        except CommandFailed:
+            output_path = Path("_build") / "linkcheck" / "output.txt"
+            if output_path.exists():
+                sys.stdout.write(output_path.read_text())
+            session.error("Link check reported errors")
 
 
 @nox.session(name="update-deps")
