@@ -1,0 +1,48 @@
+{
+  "internal_url": "http://lab.userlabs-rachel:8888/nb/user/rachel/",
+  "options": {
+    "image": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
+    "size": "small",
+    "enable_debug": false,
+    "reset_user_env": false
+  },
+  "quota": {
+    "cpu": 9.0,
+    "memory": 28991029248
+  },
+  "resources": {
+    "limits": {
+      "cpu": 1.0,
+      "memory": 3221225472
+    },
+    "requests": {
+      "cpu": 0.25,
+      "memory": 805306368
+    }
+  },
+  "status": "running",
+  "user": {
+    "username": "rachel",
+    "name": "Rachel (?)",
+    "uid": 1101,
+    "gid": 1101,
+    "groups": [
+      {
+        "name": "rachel",
+        "id": 1101
+      },
+      {
+        "name": "lunatics",
+        "id": 2028
+      },
+      {
+        "name": "mechanics",
+        "id": 2001
+      },
+      {
+        "name": "storytellers",
+        "id": 2021
+      }
+    ]
+  }
+}

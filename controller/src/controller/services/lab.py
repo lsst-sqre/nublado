@@ -37,7 +37,7 @@ from ..models.domain.docker import DockerReference
 from ..models.domain.gafaelfawr import GafaelfawrUser
 from ..models.domain.lab import Event, EventType, LabObjectNames
 from ..models.domain.rspimage import RSPImage
-from ..models.v1.lab import LabSpecification, LabStatus, UserLabState
+from ..models.v1.lab import LabSpecification, LabState, LabStatus
 from ..storage.kubernetes.lab import LabStorage
 from ..storage.metadata import MetadataStorage
 from ..timeout import Timeout
@@ -54,7 +54,7 @@ class _State:
     monitor: _LabMonitor
     """Monitor for any in-progress lab operation."""
 
-    state: UserLabState | None = None
+    state: LabState | None = None
     """Current state of the lab, in the form returned by status routes."""
 
     events: AsyncMultiQueue[Event] = field(default_factory=AsyncMultiQueue)
@@ -117,7 +117,7 @@ class _Operation:
     coro: Coroutine[None, None, None]
     """Coroutine that performs the action of the operation."""
 
-    state: UserLabState
+    state: LabState
     """Lab state associated with the operation."""
 
     events: AsyncMultiQueue[Event]
@@ -322,7 +322,9 @@ class LabManager:
         # OperationConflictError. This ordering ensures that only the
         # successful call is able to update the user's lab state.
         lab.events.clear()
-        state = UserLabState.from_request(user, spec, resources)
+        state = LabState.from_request(
+            user=user, spec=spec, image=image, resources=resources
+        )
         timeout = Timeout("Lab spawn", self._config.spawn_timeout, username)
         spawner = self._spawn_lab(
             user=user,
@@ -439,7 +441,7 @@ class LabManager:
 
         return iterator()
 
-    async def get_lab_state(self, username: str) -> UserLabState | None:
+    async def get_lab_state(self, username: str) -> LabState | None:
         """Get lab state for a user.
 
         This method underlies the API called by JupyterHub to track whether
@@ -455,7 +457,7 @@ class LabManager:
 
         Returns
         -------
-        UserLabState or None
+        LabState or None
             Lab state for that user, or `None` if that user doesn't have a
             lab.
 
@@ -647,7 +649,7 @@ class LabManager:
     async def _delete_lab(
         self,
         username: str,
-        state: UserLabState,
+        state: LabState,
         events: AsyncMultiQueue[Event],
         timeout: Timeout,
         *,
@@ -713,7 +715,7 @@ class LabManager:
 
     async def _gather_current_state(
         self, cutoff: datetime
-    ) -> dict[str, UserLabState]:
+    ) -> dict[str, LabState]:
         """Gather lab state from extant Kubernetes resources.
 
         Called during reconciliation, this method determines the current lab
@@ -728,7 +730,7 @@ class LabManager:
 
         Returns
         -------
-        dict of UserLabState
+        dict of LabState
             Dictionary mapping usernames to the discovered lab state.
 
         Raises
@@ -870,7 +872,7 @@ class LabManager:
             await lab.monitor.monitor(operation, timeout, self._spawner_done)
 
     def _reconcile_known_users(
-        self, observed: dict[str, UserLabState], cutoff: datetime
+        self, observed: dict[str, LabState], cutoff: datetime
     ) -> set[str]:
         """Reconcile observed lab state against already-known users.
 
@@ -937,7 +939,7 @@ class LabManager:
         self,
         *,
         user: GafaelfawrUser,
-        state: UserLabState,
+        state: LabState,
         spec: LabSpecification,
         image: RSPImage,
         events: AsyncMultiQueue[Event],
@@ -1027,7 +1029,7 @@ class LabManager:
 
     async def _watch_lab_spawn(
         self,
-        state: UserLabState,
+        state: LabState,
         events: AsyncMultiQueue[Event],
         timeout: Timeout,
     ) -> None:
@@ -1128,7 +1130,7 @@ class _LabMonitor:
     then wait for Kubernetes to finish its work and tell us the operation is
     complete. This class wraps that monitoring, including management of any
     necessary background tasks. It is responsible for updating the
-    `~controller.models.v1.lab.UserLabState` and the user's event stream.
+    `~controller.models.v1.lab.LabState` and the user's event stream.
 
     Only one monitor should be running per user at a time, which is equivalent
     to saying that only one lab operation should be in progress for a given

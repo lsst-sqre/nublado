@@ -61,14 +61,14 @@ from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
 from ...models.domain.rspimage import RSPImage
 from ...models.domain.volumes import MountedVolume
 from ...models.v1.lab import (
+    LabOptions,
     LabResources,
     LabSize,
     LabSpecification,
+    LabState,
     LabStatus,
     ResourceQuantity,
     UserInfo,
-    UserLabState,
-    UserOptions,
 )
 from .volumes import VolumeBuilder
 
@@ -186,7 +186,7 @@ class LabBuilder:
 
     async def recreate_lab_state(
         self, username: str, objects: LabStateObjects | None
-    ) -> UserLabState | None:
+    ) -> LabState | None:
         """Recreate user lab state from Kubernetes.
 
         Given the critical objects from a user's lab, reconstruct the user's
@@ -244,8 +244,8 @@ class LabBuilder:
                     memory=int(env["MEM_GUARANTEE"]),
                 ),
             )
-            options = UserOptions(
-                image_list=env["JUPYTER_IMAGE_SPEC"],
+            options = LabOptions(
+                image=env["JUPYTER_IMAGE_SPEC"],
                 size=self._recreate_size(resources),
                 enable_debug=env.get("DEBUG", "FALSE") == "TRUE",
                 reset_user_env=env.get("RESET_USER_ENV", "FALSE") == "TRUE",
@@ -257,10 +257,9 @@ class LabBuilder:
                 gid=lab_container.security_context.run_as_group,
                 groups=self._recreate_groups(pod),
             )
-            return UserLabState(
+            return LabState(
                 user=user,
                 options=options,
-                env=self._recreate_env(env),
                 status=LabStatus.from_phase(pod.status.phase),
                 internal_url=self.build_internal_url(username, env),
                 resources=resources,
@@ -834,48 +833,6 @@ class LabBuilder:
             working_dir=self._build_home_directory(user.username),
         )
         return [container]
-
-    def _recreate_env(self, env: dict[str, str]) -> dict[str, str]:
-        """Recreate the JupyterHub-provided environment.
-
-        When reconciling state from Kubernetes, we need to recover the content
-        of the environment sent from JupyterHub from the ``ConfigMap`` in the
-        user's lab environment. We can't recover the exact original
-        environment, but we can recreate an equivalent one by filtering out
-        the environment variables that would be set directly by the lab
-        controller.
-
-        Parameters
-        ----------
-        env
-            Environment recovered from a ``ConfigMap``.
-
-        Returns
-        -------
-        dict of str
-            Equivalent environment sent by JupyterHub.
-
-        Notes
-        -----
-        The list of environment variables that are always added internally by
-        the lab controller must be kept in sync with the code that creates the
-        config map.
-        """
-        unwanted = {
-            "CPU_GUARANTEE",
-            "CPU_LIMIT",
-            "DEBUG",
-            "EXTERNAL_INSTANCE_URL",
-            "IMAGE_DESCRIPTION",
-            "IMAGE_DIGEST",
-            "JUPYTER_IMAGE",
-            "JUPYTER_IMAGE_SPEC",
-            "MEM_GUARANTEE",
-            "MEM_LIMIT",
-            "RESET_USER_ENV",
-            *list(self._config.env.keys()),
-        }
-        return {k: v for k, v in env.items() if k not in unwanted}
 
     def _recreate_groups(self, pod: V1Pod) -> list[UserGroup]:
         """Recreate user group information from a Kubernetes ``Pod``.

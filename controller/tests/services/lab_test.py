@@ -20,10 +20,11 @@ from controller.models.domain.docker import DockerReference
 from controller.models.domain.gafaelfawr import GafaelfawrUser
 from controller.models.domain.kubernetes import PodPhase
 from controller.models.v1.lab import (
+    LabOptions,
+    LabState,
     LabStatus,
     ResourceQuantity,
     UserInfo,
-    UserLabState,
 )
 from controller.timeout import Timeout
 
@@ -39,7 +40,7 @@ async def create_lab(
     factory: Factory,
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
-) -> UserLabState:
+) -> LabState:
     """Create a lab for the default test user.
 
     This matches the behavior of the lab manager, but works behind its back so
@@ -91,13 +92,14 @@ async def create_lab(
     await lab_storage.create(objects, timeout)
 
     phase = PodPhase(mock_kubernetes.initial_pod_phase)
-    return UserLabState(
-        env=lab.env,
+    return LabState(
         user=UserInfo.from_gafaelfawr(user),
         internal_url=(
             f"http://lab.userlabs-{user.username}:8888/nb/user/rachel/"
         ),
-        options=lab.options,
+        options=LabOptions(
+            image=image.reference_with_digest, size=lab.options.size
+        ),
         quota=ResourceQuantity(
             cpu=user.quota.notebook.cpu,
             memory=int(user.quota.notebook.memory * 1024 * 1024 * 1024),

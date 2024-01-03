@@ -136,31 +136,7 @@ async def test_lab_start_stop(
     assert r.json() == [user.username]
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
-    size = config.lab.get_size_definition(lab.options.size)
-    expected_resources = size.to_lab_resources()
-    expected_options = lab.options.model_dump()
-    expected_options["image_dropdown"] = expected_options["image_list"]
-    expected_options["image_list"] = None
-    expected = {
-        "env": lab.env,
-        "internal_url": (
-            f"http://lab.userlabs-{user.username}:8888/nb/user/rachel/"
-        ),
-        "options": expected_options,
-        "quota": {
-            "cpu": user.quota.notebook.cpu,
-            "memory": int(user.quota.notebook.memory * 1024 * 1024 * 1024),
-        },
-        "resources": expected_resources.model_dump(),
-        "status": "running",
-        "user": {
-            "username": user.username,
-            "name": user.name,
-            "uid": user.uid,
-            "gid": user.gid,
-            "groups": [g.model_dump() for g in user.groups if g.id],
-        },
-    }
+    expected = read_output_json("standard", "lab-status")
     assert r.json() == expected
 
     # Creating the lab again should result in a 409 error.

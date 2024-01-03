@@ -18,7 +18,7 @@ from ..exceptions import (
     UnknownUserError,
 )
 from ..models.domain.gafaelfawr import GafaelfawrUser
-from ..models.v1.lab import LabSpecification, UserLabState
+from ..models.v1.lab import LabSpecification, LabState
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
@@ -40,7 +40,7 @@ async def get_lab_users(
 
 @router.get(
     "/spawner/v1/labs/{username}",
-    response_model=UserLabState,
+    response_model=LabState,
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
         404: {"description": "Lab not found", "model": ErrorModel},
@@ -51,7 +51,7 @@ async def get_lab_users(
 async def get_lab_state(
     username: str,
     context: Annotated[RequestContext, Depends(context_dependency)],
-) -> UserLabState:
+) -> LabState:
     state = await context.lab_manager.get_lab_state(username)
     if not state:
         msg = f"Unknown user {username}"

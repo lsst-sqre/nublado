@@ -12,7 +12,7 @@ from controller.models.domain.gafaelfawr import GafaelfawrUser
 from controller.models.domain.kubernetes import PodPhase
 
 from ..support.constants import TEST_BASE_URL
-from ..support.data import read_input_lab_specification_json
+from ..support.data import read_input_lab_specification_json, read_output_json
 
 
 @pytest.mark.asyncio
@@ -60,26 +60,7 @@ async def test_user_status(
         "/nublado/spawner/v1/user-status", headers=user.to_headers()
     )
     assert r.status_code == 200
-    size = config.lab.get_size_definition(lab.options.size)
-    expected_resources = size.to_lab_resources()
-    expected = {
-        "env": lab.env,
-        "internal_url": "http://lab.userlabs-rachel:8888/nb/user/rachel/",
-        "options": lab.options.model_dump(),
-        "quota": {
-            "cpu": user.quota.notebook.cpu,
-            "memory": int(user.quota.notebook.memory * 1024 * 1024 * 1024),
-        },
-        "resources": expected_resources.model_dump(),
-        "status": "running",
-        "user": {
-            "username": user.username,
-            "name": user.name,
-            "uid": user.uid,
-            "gid": user.gid,
-            "groups": [g.model_dump() for g in user.groups if g.id],
-        },
-    }
+    expected = read_output_json("standard", "lab-status")
     assert r.json() == expected
 
     # Change the pod phase. This should throw the lab into a terminated state.
