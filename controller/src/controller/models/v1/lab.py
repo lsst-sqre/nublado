@@ -12,17 +12,20 @@ from ...constants import DROPDOWN_SENTINEL_VALUE, USERNAME_REGEX
 from ...units import memory_to_bytes
 from ..domain.gafaelfawr import GafaelfawrUserInfo, UserGroup
 from ..domain.kubernetes import PodPhase
+from ..domain.rspimage import RSPImage
 
 __all__ = [
+    "CommonLabOptions",
     "ImageClass",
+    "LabOptions",
+    "LabRequestOptions",
     "LabResources",
     "LabSize",
     "LabSpecification",
+    "LabState",
     "LabStatus",
     "ResourceQuantity",
     "UserInfo",
-    "UserLabState",
-    "UserOptions",
 ]
 
 
@@ -110,7 +113,62 @@ class ImageClass(Enum):
     LATEST_DAILY = "latest-daily"
 
 
-class UserOptions(BaseModel):
+class CommonLabOptions(BaseModel):
+    """Options shared by both the input and output model for lab options."""
+
+    size: LabSize = Field(
+        ...,
+        title="Image size",
+        description=(
+            "Size of image, chosen from sizes specified in the controller"
+            " configuration"
+        ),
+        examples=[LabSize.MEDIUM],
+    )
+
+    enable_debug: bool = Field(
+        False,
+        title="Enable debugging in spawned Lab",
+        description=(
+            "If true, set the `DEBUG` environment variable when spawning the"
+            " lab, which enables additional debug logging"
+        ),
+        examples=[True],
+    )
+
+    reset_user_env: bool = Field(
+        False,
+        title="Move aside user environment",
+        description=(
+            "If true, set the `RESET_USER_ENV` environment variable when"
+            " spawning the lab, which tells the lab to move aside the user"
+            " environment directories (`.cache`, `.conda`, `.jupyter`,"
+            " `.local`) and files (`.user_setups`) . This can be used to"
+            " recover from user configuration errors that break lab startup."
+        ),
+        examples=[True],
+    )
+
+
+class LabOptions(CommonLabOptions):
+    """Options for the lab, specified at creation time.
+
+    This model represents the configuration information about a running lab
+    returned by a JSON API query. It shares many attributes in common with the
+    input model, `UserLabOptions`, but reduces the requested image to a Docker
+    image reference and doesn't support the complex validation required by
+    `UserLabOptions`.
+    """
+
+    image: str = Field(
+        ...,
+        title="Lab image",
+        description="Docker reference to image used by the lab",
+        examples=["lighthouse.ceres/library/sketchbook:w_2023_07@sha256:abcd"],
+    )
+
+
+class LabRequestOptions(CommonLabOptions):
     """User-provided lab configuration options.
 
     This model represents the form submission to the spawner HTML form
@@ -169,39 +227,6 @@ class UserOptions(BaseModel):
             " `image_dropdown` should be set when using these options."
         ),
         examples=["w_2023_07"],
-    )
-
-    size: LabSize = Field(
-        ...,
-        title="Image size",
-        description=(
-            "Size of image, chosen from sizes specified in the controller"
-            " configuration"
-        ),
-        examples=[LabSize.MEDIUM],
-    )
-
-    enable_debug: bool = Field(
-        False,
-        title="Enable debugging in spawned Lab",
-        description=(
-            "If true, set the `DEBUG` environment variable when spawning the"
-            " lab, which enables additional debug logging"
-        ),
-        examples=[True],
-    )
-
-    reset_user_env: bool = Field(
-        False,
-        title="Move aside user environment",
-        description=(
-            "If true, set the `RESET_USER_ENV` environment variable when"
-            " spawning the lab, which tells the lab to move aside the user"
-            " environment directories (`.cache`, `.conda`, `.jupyter`,"
-            " `.local`) and files (`.user_setups`) . This can be used to"
-            " recover from user configuration errors that break lab startup."
-        ),
-        examples=[True],
     )
 
     @property
@@ -314,7 +339,7 @@ class LabSpecification(BaseModel):
     :samp:`/spawner/v1/labs/{username}/create` route.
     """
 
-    options: UserOptions = Field(
+    options: LabRequestOptions = Field(
         ...,
         title="User-chosen lab options",
         description="Represents the choices made on the spawner form",
@@ -485,7 +510,7 @@ class LabResources(BaseModel):
         )
 
 
-class UserLabState(LabSpecification):
+class LabState(BaseModel):
     """Current state of the user's lab.
 
     This model is returned by the :samp:`/spawner/v1/labs/{username}` and
@@ -496,6 +521,12 @@ class UserLabState(LabSpecification):
         ...,
         title="Owner",
         description="Metadata for the user who owns the lab",
+    )
+
+    options: LabOptions = Field(
+        ...,
+        title="Lab options",
+        description="Options for the lab, specified when it was requested",
     )
 
     status: LabStatus = Field(
@@ -541,8 +572,10 @@ class UserLabState(LabSpecification):
     @classmethod
     def from_request(
         cls,
+        *,
         user: GafaelfawrUserInfo,
-        lab: LabSpecification,
+        spec: LabSpecification,
+        image: RSPImage,
         resources: LabResources,
     ) -> Self:
         """Create state for a new lab that is about to be spawned.
@@ -551,15 +584,16 @@ class UserLabState(LabSpecification):
         ----------
         user
             Owner of the lab.
-        lab
-            Lab specification from JupyterHub.
+        spec
+            Lab specification from the request.
+        image
+            Resolved image that the lab will run.
         resources
-            Resource limits and requests for the lab (normally derived from
-            the lab size).
+            Resource limits and requests for the lab.
 
         Returns
         -------
-        UserLabState
+        LabState
             New user lab state representing a lab that's about to be spawned.
         """
         quota = None
@@ -570,8 +604,12 @@ class UserLabState(LabSpecification):
             )
         return cls(
             user=UserInfo.from_gafaelfawr(user),
-            options=lab.options,
-            env=lab.env,
+            options=LabOptions(
+                image=image.reference_with_digest,
+                size=spec.options.size,
+                enable_debug=spec.options.enable_debug,
+                reset_user_env=spec.options.reset_user_env,
+            ),
             status=LabStatus.PENDING,
             resources=resources,
             quota=quota,

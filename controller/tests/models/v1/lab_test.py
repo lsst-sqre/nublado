@@ -8,9 +8,9 @@ from pydantic import ValidationError
 from controller.constants import DROPDOWN_SENTINEL_VALUE
 from controller.models.v1.lab import (
     ImageClass,
+    LabRequestOptions,
     LabSize,
     ResourceQuantity,
-    UserOptions,
 )
 
 
@@ -22,9 +22,13 @@ def test_resource_quantity() -> None:
         ResourceQuantity.model_validate({"cpu": 1.0, "memory": "24D"})
 
 
-def test_user_options() -> None:
-    """Test UserOptions, primarily all the ways to provide lab references."""
-    options = UserOptions.model_validate(
+def test_lab_request_options() -> None:
+    """Test LabRequestOptions.
+
+    This class has complex validation logic so that it can handle raw form
+    submissions in the structure used by JupyterHub.
+    """
+    options = LabRequestOptions.model_validate(
         {
             "image_list": "lighthouse.ceres/library/sketchbook:latest_daily",
             "size": "medium",
@@ -37,7 +41,7 @@ def test_user_options() -> None:
         "reset_user_env": False,
     }
 
-    options = UserOptions.model_validate(
+    options = LabRequestOptions.model_validate(
         {
             "image_dropdown": [
                 "lighthouse.ceres/library/sketchbook:latest_daily"
@@ -54,7 +58,7 @@ def test_user_options() -> None:
     }
 
     # If the list is set to the sentinel value, it should be ignored.
-    options = UserOptions.model_validate(
+    options = LabRequestOptions.model_validate(
         {
             "image_list": [DROPDOWN_SENTINEL_VALUE],
             "image_dropdown": [
@@ -74,7 +78,7 @@ def test_user_options() -> None:
 
     # If both list and dropdown are set, list should be used by preference and
     # dropdown ignored.
-    options = UserOptions.model_validate(
+    options = LabRequestOptions.model_validate(
         {
             "image_list": "lighthouse.ceres/library/sketchbook:w_2077_43",
             "image_dropdown": [
@@ -92,7 +96,7 @@ def test_user_options() -> None:
 
     # None and [] should be ignored, and DROPDOWN_SENTINEL_VALUE should still
     # be ignored even if it's not in a list.
-    options = UserOptions.model_validate(
+    options = LabRequestOptions.model_validate(
         {
             "image_list": DROPDOWN_SENTINEL_VALUE,
             "image_dropdown": [
@@ -113,7 +117,7 @@ def test_user_options() -> None:
     }
 
     # Check image_class and image_tag, and also check title-cased sizes.
-    options = UserOptions.model_validate(
+    options = LabRequestOptions.model_validate(
         {"image_class": "recommended", "size": "Large", "enable_debug": True}
     )
     assert options.model_dump(exclude_none=True) == {
@@ -122,7 +126,7 @@ def test_user_options() -> None:
         "enable_debug": True,
         "reset_user_env": False,
     }
-    options = UserOptions.model_validate(
+    options = LabRequestOptions.model_validate(
         {"image_tag": "latest_daily", "size": ["Large"]}
     )
     assert options.model_dump(exclude_none=True) == {
@@ -134,7 +138,7 @@ def test_user_options() -> None:
 
     # List of length longer than 1.
     with pytest.raises(ValidationError):
-        UserOptions.model_validate(
+        LabRequestOptions.model_validate(
             {
                 "image_list": [
                     "lighthouse.ceres/library/sketchbook:w_2077_43",
@@ -146,11 +150,11 @@ def test_user_options() -> None:
 
     # No images to spawn.
     with pytest.raises(ValidationError):
-        UserOptions.model_validate({"size": "medium"})
+        LabRequestOptions.model_validate({"size": "medium"})
 
     # Images provided in multiple ways.
     with pytest.raises(ValidationError):
-        UserOptions.model_validate(
+        LabRequestOptions.model_validate(
             {
                 "image_list": "lighthouse.ceres/library/sketchbook:w_2077_43",
                 "image_class": "recommended",
@@ -158,7 +162,7 @@ def test_user_options() -> None:
             }
         )
     with pytest.raises(ValidationError):
-        UserOptions.model_validate(
+        LabRequestOptions.model_validate(
             {
                 "image_dropdown": [
                     "lighthouse.ceres/library/sketchbook:w_2077_43"
@@ -168,7 +172,7 @@ def test_user_options() -> None:
             }
         )
     with pytest.raises(ValidationError):
-        UserOptions.model_validate(
+        LabRequestOptions.model_validate(
             {
                 "image_class": "recommended",
                 "image_tag": "latest_weekly",
@@ -178,7 +182,7 @@ def test_user_options() -> None:
 
     # Invalid boolean.
     with pytest.raises(ValidationError):
-        UserOptions.model_validate(
+        LabRequestOptions.model_validate(
             {
                 "image_tag": "latest_weekly",
                 "size": "medium",
