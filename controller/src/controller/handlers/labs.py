@@ -139,6 +139,10 @@ async def delete_user_lab(
         " succeeds or fails."
     ),
     responses={
+        200: {
+            "content": {"text/event-stream": {}},
+            "description": "Event stream for lab spawn",
+        },
         403: {"description": "Forbidden", "model": ErrorModel},
         404: {"description": "Lab not found", "model": ErrorModel},
     },
