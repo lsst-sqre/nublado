@@ -155,9 +155,9 @@ class LabOptions(CommonLabOptions):
 
     This model represents the configuration information about a running lab
     returned by a JSON API query. It shares many attributes in common with the
-    input model, `UserLabOptions`, but reduces the requested image to a Docker
-    image reference and doesn't support the complex validation required by
-    `UserLabOptions`.
+    input model, `LabRequestOptions`, but reduces the requested image to a
+    Docker image reference and doesn't support the complex validation required
+    by `LabRequestOptions`.
     """
 
     image: str = Field(

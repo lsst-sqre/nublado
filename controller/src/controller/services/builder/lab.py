@@ -204,7 +204,7 @@ class LabBuilder:
 
         Returns
         -------
-        UserLabState or None
+        LabState or None
             Recreated lab state, or `None` if the user's lab environment did
             not exist or could not be parsed.
 
