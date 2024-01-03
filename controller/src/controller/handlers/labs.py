@@ -28,7 +28,12 @@ __all__ = ["router"]
 
 @router.get(
     "/spawner/v1/labs",
-    responses={403: {"description": "Forbidden", "model": ErrorModel}},
+    responses={
+        200: {
+            "content": {"application/json": {"example": ["user", "otheruser"]}}
+        },
+        403: {"description": "Forbidden", "model": ErrorModel},
+    },
     summary="List all users with running labs",
     tags=["hub"],
 )
