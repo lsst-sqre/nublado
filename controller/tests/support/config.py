@@ -10,7 +10,7 @@ from safir.testing.kubernetes import MockKubernetesApi
 from controller.config import Config
 from controller.dependencies.config import config_dependency
 from controller.dependencies.context import context_dependency
-from controller.models.v1.prepuller_config import DockerSourceConfig
+from controller.models.v1.prepuller import DockerSourceOptions
 
 __all__ = ["configure"]
 
@@ -51,7 +51,7 @@ async def configure(
         config.metadata_path = config_path / "metadata"
     else:
         config.metadata_path = base_path / "metadata"
-    if isinstance(config.images.source, DockerSourceConfig):
+    if isinstance(config.images.source, DockerSourceOptions):
         if (config_path / "docker-creds.json").exists():
             credentials_path = config_path / "docker-creds.json"
         else:

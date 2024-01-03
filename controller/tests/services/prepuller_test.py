@@ -23,7 +23,7 @@ from safir.testing.slack import MockSlackWebhook
 from controller.config import Config
 from controller.factory import Factory
 from controller.models.domain.kubernetes import PodPhase
-from controller.models.v1.prepuller_config import GARSourceConfig
+from controller.models.v1.prepuller import GARSourceOptions
 
 from ..support.config import configure
 from ..support.data import (
@@ -111,7 +111,7 @@ async def test_gar(
 ) -> None:
     """Test the prepuller service configured to talk to GAR."""
     config = await configure("gar")
-    assert isinstance(config.images.source, GARSourceConfig)
+    assert isinstance(config.images.source, GARSourceOptions)
     known_images = read_input_json("gar", "known-images")
     for known_image in known_images:
         image = DockerImage(**known_image)

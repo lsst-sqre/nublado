@@ -13,8 +13,11 @@ from ...models.domain.image import MenuImage
 from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.domain.rsptag import RSPImageTagCollection
-from ...models.v1.prepuller import PrepulledImage
-from ...models.v1.prepuller_config import DockerSourceConfig, PrepullerConfig
+from ...models.v1.prepuller import (
+    DockerSourceOptions,
+    PrepulledImage,
+    PrepullerOptions,
+)
 from ...storage.docker import DockerStorageClient
 from .base import ImageSource
 
@@ -42,7 +45,7 @@ class DockerImageSource(ImageSource):
 
     def __init__(
         self,
-        config: DockerSourceConfig,
+        config: DockerSourceOptions,
         docker: DockerStorageClient,
         logger: BoundLogger,
     ) -> None:
@@ -241,7 +244,7 @@ class DockerImageSource(ImageSource):
 
     async def update_images(
         self,
-        prepull: PrepullerConfig,
+        prepull: PrepullerOptions,
         node_cache: Mapping[str, list[KubernetesNodeImage]],
     ) -> RSPImageCollection:
         """Update image information and determine what images to prepull.
@@ -315,7 +318,7 @@ class DockerImageSource(ImageSource):
         return image_collection
 
     def _subset_to_prepull(
-        self, tags: RSPImageTagCollection, prepull: PrepullerConfig
+        self, tags: RSPImageTagCollection, prepull: PrepullerOptions
     ) -> RSPImageTagCollection:
         """Determine the subset of remote images to prepull.
 

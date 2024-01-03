@@ -17,7 +17,7 @@ from structlog.stdlib import BoundLogger
 from .background import BackgroundTaskManager
 from .config import Config
 from .exceptions import NotConfiguredError
-from .models.v1.prepuller_config import DockerSourceConfig, GARSourceConfig
+from .models.v1.prepuller import DockerSourceOptions, GARSourceOptions
 from .services.builder.fileserver import FileserverBuilder
 from .services.builder.lab import LabBuilder
 from .services.builder.prepuller import PrepullerBuilder
@@ -108,7 +108,7 @@ class ProcessContext:
             )
 
         match config.images.source:
-            case DockerSourceConfig():
+            case DockerSourceOptions():
                 docker_client = DockerStorageClient(
                     credentials_path=config.images.source.credentials_path,
                     http_client=http_client,
@@ -119,7 +119,7 @@ class ProcessContext:
                     docker=docker_client,
                     logger=logger,
                 )
-            case GARSourceConfig():
+            case GARSourceOptions():
                 gar_client = GARStorageClient(logger)
                 source = GARImageSource(
                     config=config.images.source, gar=gar_client, logger=logger

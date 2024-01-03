@@ -21,10 +21,10 @@ from ..models.v1.prepuller import (
     NodeImage,
     PrepulledImage,
     PrepullerImageStatus,
+    PrepullerOptions,
     PrepullerStatus,
     SpawnerImages,
 )
-from ..models.v1.prepuller_config import PrepullerConfig
 from ..services.source.base import ImageSource
 from ..storage.kubernetes.node import NodeStorage
 from ..timeout import Timeout
@@ -75,7 +75,7 @@ class ImageService:
     def __init__(
         self,
         *,
-        config: PrepullerConfig,
+        config: PrepullerOptions,
         node_selector: dict[str, str],
         tolerations: list[Toleration],
         source: ImageSource,
