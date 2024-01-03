@@ -150,9 +150,10 @@ def create_openapi() -> str:
         OpenAPI schema as serialized JSON.
     """
     app = create_app(load_config=False)
+    description = app.description + "\n\n[Return to Nublado documentation](.)"
     schema = get_openapi(
         title=app.title,
-        description=app.description,
+        description=description,
         version=app.version,
         routes=app.routes,
     )
