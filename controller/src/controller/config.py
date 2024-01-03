@@ -37,7 +37,11 @@ from .models.domain.kubernetes import (
     VolumeAccessMode,
 )
 from .models.v1.lab import LabResources, LabSize, ResourceQuantity
-from .models.v1.prepuller_config import PrepullerConfig
+from .models.v1.prepuller import (
+    DockerSourceOptions,
+    GARSourceOptions,
+    PrepullerOptions,
+)
 from .units import memory_to_bytes
 
 __all__ = [
@@ -410,6 +414,44 @@ class EnabledFileserverConfig(FileserverConfig):
             " the WebDAV protocol."
         ),
     )
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+
+class DockerSourceConfig(DockerSourceOptions):
+    """Configuration for a Docker source.
+
+    This is identical to the API model used to return the prepuller
+    configuration to an API client except that camel-case aliases are enabled.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+
+class GARSourceConfig(GARSourceOptions):
+    """Configuration for a Google Artifact Registry source.
+
+    This is identical to the API model used to return the prepuller
+    configuration to an API client except that camel-case aliases are enabled.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+
+class PrepullerConfig(PrepullerOptions):
+    """Configuration for the prepuller.
+
+    This is identical to the API model used to return the prepuller
+    configuration to an API client except that camel-case aliases are enabled.
+    """
+
+    source: DockerSourceConfig | GARSourceConfig
 
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True

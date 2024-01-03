@@ -13,7 +13,7 @@ import respx
 from controller.config import Config
 from controller.factory import Factory
 from controller.models.domain.docker import DockerCredentials
-from controller.models.v1.prepuller_config import DockerSourceConfig
+from controller.models.v1.prepuller import DockerSourceOptions
 from controller.storage.docker import DockerCredentialStore
 
 from ..support.docker import register_mock_docker
@@ -25,7 +25,7 @@ async def test_api(
 ) -> None:
     tag_names = {"w_2021_21", "w_2021_22", "d_2021_06_14", "d_2021_06_15"}
     tags = {t: "sha256:" + os.urandom(32).hex() for t in tag_names}
-    assert isinstance(config.images.source, DockerSourceConfig)
+    assert isinstance(config.images.source, DockerSourceOptions)
     register_mock_docker(
         respx_mock,
         host=config.images.source.registry,
@@ -45,7 +45,7 @@ async def test_api(
 async def test_bearer_auth(
     config: Config, factory: Factory, respx_mock: respx.Router
 ) -> None:
-    assert isinstance(config.images.source, DockerSourceConfig)
+    assert isinstance(config.images.source, DockerSourceOptions)
     tags = {"r23_0_4": "sha256:" + os.urandom(32).hex()}
     register_mock_docker(
         respx_mock,

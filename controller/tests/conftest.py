@@ -17,7 +17,7 @@ from controller.config import Config
 from controller.factory import Factory
 from controller.main import create_app
 from controller.models.domain.gafaelfawr import GafaelfawrUser
-from controller.models.v1.prepuller_config import DockerSourceConfig
+from controller.models.v1.prepuller import DockerSourceOptions
 
 from .support.config import configure
 from .support.constants import TEST_BASE_URL
@@ -88,7 +88,7 @@ async def factory(
 def mock_docker(
     config: Config, respx_mock: respx.Router
 ) -> MockDockerRegistry:
-    assert isinstance(config.images.source, DockerSourceConfig)
+    assert isinstance(config.images.source, DockerSourceOptions)
     tags = read_input_json("base", "docker-tags")
     return register_mock_docker(
         respx_mock,

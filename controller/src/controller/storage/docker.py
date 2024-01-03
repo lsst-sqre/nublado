@@ -9,7 +9,7 @@ from structlog.stdlib import BoundLogger
 
 from ..exceptions import DockerRegistryError
 from ..models.domain.docker import DockerCredentials
-from ..models.v1.prepuller_config import DockerSourceConfig
+from ..models.v1.prepuller import DockerSourceOptions
 
 __all__ = [
     "DockerCredentialStore",
@@ -126,7 +126,7 @@ class DockerStorageClient:
         # obtained via API calls.
         self._authorization: dict[str, str] = {}
 
-    async def list_tags(self, config: DockerSourceConfig) -> list[str]:
+    async def list_tags(self, config: DockerSourceOptions) -> list[str]:
         """List all the tags for a given registry and repository.
 
         Parameters
@@ -164,7 +164,7 @@ class DockerStorageClient:
             return tags
 
     async def get_image_digest(
-        self, config: DockerSourceConfig, tag: str
+        self, config: DockerSourceOptions, tag: str
     ) -> str:
         """Get the digest associated with an image tag.
 

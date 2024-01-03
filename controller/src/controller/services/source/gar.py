@@ -11,8 +11,11 @@ from ...models.domain.docker import DockerReference
 from ...models.domain.image import MenuImage
 from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
-from ...models.v1.prepuller import PrepulledImage
-from ...models.v1.prepuller_config import GARSourceConfig, PrepullerConfig
+from ...models.v1.prepuller import (
+    GARSourceOptions,
+    PrepulledImage,
+    PrepullerOptions,
+)
 from ...storage.gar import GARStorageClient
 from .base import ImageSource
 
@@ -39,7 +42,7 @@ class GARImageSource(ImageSource):
 
     def __init__(
         self,
-        config: GARSourceConfig,
+        config: GARSourceOptions,
         gar: GARStorageClient,
         logger: BoundLogger,
     ) -> None:
@@ -163,7 +166,7 @@ class GARImageSource(ImageSource):
 
     async def update_images(
         self,
-        prepull: PrepullerConfig,
+        prepull: PrepullerOptions,
         node_cache: Mapping[str, list[KubernetesNodeImage]],
     ) -> RSPImageCollection:
         """Update image information and determine what images to prepull.
