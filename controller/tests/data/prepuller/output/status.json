@@ -10,7 +10,7 @@
     "num_weeklies": 2,
     "num_dailies": 3,
     "cycle": null,
-    "pin": null,
+    "pin": [],
     "alias_tags": []
   },
   "images": {
