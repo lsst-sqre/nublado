@@ -24,6 +24,7 @@ __all__ = ["router"]
     "/fileserver/v1/users",
     responses={403: {"description": "Forbidden", "model": ErrorModel}},
     summary="List all users with running fileservers",
+    tags=["admin"],
 )
 async def get_fileserver_users(
     context: Annotated[RequestContext, Depends(context_dependency)],
@@ -35,6 +36,7 @@ async def get_fileserver_users(
     "/fileserver/v1/{username}",
     responses={403: {"description": "Forbidden", "model": ErrorModel}},
     summary="Remove fileserver for user",
+    tags=["admin"],
 )
 async def remove_fileserver(
     username: str,

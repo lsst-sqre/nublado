@@ -21,6 +21,7 @@ __all__ = ["router"]
     responses={404: {"description": "Lab not found", "model": ErrorModel}},
     summary="State of user's lab",
     response_model=UserLabState,
+    tags=["user"],
 )
 async def get_user_state(
     x_auth_request_user: Annotated[str, Header(include_in_schema=False)],

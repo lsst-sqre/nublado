@@ -46,6 +46,7 @@ __all__ = ["router"]
     summary="Create file server for user",
     responses={403: {"description": "Forbidden", "model": ErrorModel}},
     response_class=HTMLResponse,
+    tags=["user"],
 )
 async def route_user(
     context: Annotated[RequestContext, Depends(context_dependency)],

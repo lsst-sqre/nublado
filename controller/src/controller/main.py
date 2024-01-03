@@ -87,6 +87,26 @@ def create_app(*, load_config: bool = True) -> FastAPI:
         title=config.name if load_config else "Nublado",
         description=metadata("controller")["Summary"],
         version=version("controller"),
+        tags_metadata=[
+            {
+                "name": "hub",
+                "description": "APIs that can only be used by JupyterHub.",
+            },
+            {
+                "name": "user",
+                "description": "APIs that can only be used by the user.",
+            },
+            {
+                "name": "admin",
+                "description": "APIs that can only be used by administrators.",
+            },
+            {
+                "name": "internal",
+                "description": (
+                    "Internal routes used by the ingress and health checks."
+                ),
+            },
+        ],
         openapi_url=f"{path_prefix}/openapi.json",
         docs_url=f"{path_prefix}/docs",
         redoc_url=f"{path_prefix}/redoc",

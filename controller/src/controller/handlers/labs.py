@@ -30,6 +30,7 @@ __all__ = ["router"]
     "/spawner/v1/labs",
     responses={403: {"description": "Forbidden", "model": ErrorModel}},
     summary="List all users with running labs",
+    tags=["hub"],
 )
 async def get_lab_users(
     context: Annotated[RequestContext, Depends(context_dependency)],
@@ -45,6 +46,7 @@ async def get_lab_users(
         404: {"description": "Lab not found", "model": ErrorModel},
     },
     summary="Status of user's lab",
+    tags=["hub"],
 )
 async def get_lab_state(
     username: str,
@@ -65,6 +67,7 @@ async def get_lab_state(
     },
     status_code=201,
     summary="Create user lab",
+    tags=["user"],
 )
 async def post_new_lab(
     username: str,
@@ -103,6 +106,7 @@ async def post_new_lab(
         },
     },
     status_code=204,
+    tags=["hub"],
 )
 async def delete_user_lab(
     username: str,
@@ -138,6 +142,7 @@ async def delete_user_lab(
         403: {"description": "Forbidden", "model": ErrorModel},
         404: {"description": "Lab not found", "model": ErrorModel},
     },
+    tags=["user"],
 )
 async def get_lab_events(
     username: Annotated[str, Depends(username_path_dependency)],

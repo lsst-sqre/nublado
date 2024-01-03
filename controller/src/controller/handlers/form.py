@@ -27,6 +27,7 @@ __all__ = ["router"]
     summary="Get lab form for user",
     response_class=HTMLResponse,
     responses={403: {"description": "Forbidden", "model": ErrorModel}},
+    tags=["user"],
 )
 async def get_user_lab_form(
     username: str,

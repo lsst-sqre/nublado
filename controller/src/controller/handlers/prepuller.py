@@ -19,6 +19,7 @@ __all__ = ["router"]
     summary="Known images",
     response_model=SpawnerImages,
     response_model_exclude_none=True,
+    tags=["admin"],
 )
 async def get_images(
     context: Annotated[RequestContext, Depends(context_dependency)],
@@ -31,6 +32,7 @@ async def get_images(
     summary="Status of prepulling",
     response_model=PrepullerStatus,
     response_model_by_alias=False,
+    tags=["admin"],
 )
 async def get_prepulls(
     context: Annotated[RequestContext, Depends(context_dependency)],
