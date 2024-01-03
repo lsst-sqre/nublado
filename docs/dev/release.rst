@@ -76,6 +76,7 @@ In the Phalanx_ repository under :file:`applications/nublado`, update the :file:
 
 Then, as part of the same PR, update the version in :file:`applications/nublado/Chart.yaml` to the latest release tag.
 Also update the setting ``jupyterhub.hub.image.tag`` to the same value.
+Finally, find any reference to the ``nublado-inithome`` container in the per-environment :file:`values-{environment}.yaml` files and update its version number to the same value.
 
 Test the new version on a development cluster using the instructions in the `Phalanx documentation <https://phalanx.lsst.io/developers/deploy-from-a-branch.html>`__ before merging.
 
