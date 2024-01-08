@@ -23,6 +23,8 @@ Each source takes different parameters.
 ``controller.config.images.source.type``
     Set to either ``docker`` or ``google`` to choose the type of source.
 
+Using Google Artifact Repository as the image source is highly recommended if Nublado is running in a GKE cluster.
+
 Docker registries
 -----------------
 
@@ -47,6 +49,8 @@ Here is an example configuration fragment with a complete source specification:
            type: "docker"
            registry: "docker.io"
            repository: "lsstsqre/sciplat-lab"
+
+.. _config-images-gar:
 
 Google Artifact Registry
 ------------------------
@@ -76,6 +80,11 @@ Then, set the following additional configuration setting:
 
 ``controller.googleServiceAccount``
     The name of the Google service account with read access to this GAR instance.
+
+For step-by-step instructions on how to set up Google Artifact Registry for Nublado, see :doc:`/admin/setup-gar`.
+For additional information about why Google Artifact Registry is preferred, see :doc:`/admin/gar`.
+
+.. _config-prepull:
 
 Image prepulling and menu
 =========================
