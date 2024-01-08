@@ -14,9 +14,11 @@ Guides to common problems and instructions on how to integrate properly with Pha
 
    home-directories
    init-containers
+   setup-gar
 
 .. toctree::
    :maxdepth: 2
    :caption: Reference
 
    config/index
+   gar
