@@ -24,7 +24,7 @@ jobs:
 
       - uses: lsst-sqre/run-nox@v1
         with:
-          nox-sessions: "upgrade-deps typing test"
+          nox-sessions: "update-deps typing test"
           python-version: ${{ matrix.python }}
           use-cache: false
 
@@ -58,7 +58,7 @@ jobs:
 
       - uses: lsst-sqre/run-nox@v1
         with:
-          nox-sessions: "upgrade-deps typing-hub test-hub"
+          nox-sessions: "update-deps typing-hub test-hub"
           python-version: ${{ matrix.python }}
           use-cache: false
 
