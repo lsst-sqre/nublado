@@ -26,6 +26,13 @@ Production deployments should instead provide an infrastructure database and con
     The default is to use the Phalanx-internal database service.
     Use the value ``postgresql://nublado@cloud-sql-proxy.nublado/nublado`` when using Cloud SQL (see :ref:`config-hub-cloudsql`).
 
+``jupyterhub.hub.db.upgrade``
+    Set this to true to enable automatic database upgrades when JupyterHub has been upgraded.
+    This is false by default out of caution, which will cause JupyterHub to fail to start if a database schema upgrade is needed.
+
+    If you wish to be conservative, you can enable it only when you're intentionally upgrading JupyterHub and then disable it again after the upgrade.
+    This helps avoid accidentally applying a major JupyterHub upgrade without being aware that you're doing so, since most major upgrades come with schema changes.
+
 .. _config-hub-cloudsql:
 
 Cloud SQL
