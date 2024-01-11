@@ -52,8 +52,13 @@ The Kubernetes storage layer is further subdivided into per-resource storage lay
      prepuller --> kubernetes
      image --> node-storage
 
-     main --> handlers
+     main(app) --> handlers
      handlers --> image
      handlers --> prepuller
      handlers --> lab
      handlers --> fileserver
+     background(BackgroundTaskManager)
+     background --> image
+     background --> prepuller
+     background --> lab
+     background --> fileserver
