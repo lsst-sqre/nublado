@@ -7,13 +7,6 @@ This page documents known work required, planned, or proposed for Nublado as an 
 Before end of construction
 ==========================
 
-Security fixes
---------------
-
-- All file servers must be covered by a ``NetworkPolicy``.
-  Ideally, we would do egress blocking, but I'm not sure if that works with NFS volume mounts, so we'll need to test.
-  But at the least ingress should be restricted to the ingress-nginx pod similar to what we do with all other Gafaelfawr-protected services.
-
 Architectural changes
 ---------------------
 
@@ -96,8 +89,6 @@ Documentation
 
 Minor changes
 -------------
-
-- Change the file server namespace and Argo CD app to ``nublado-fileservers`` instead of ``fileservers`` for parallelism (and sorting) with ``nublado-users``.
 
 - Use standard Kubernetes labels for the file servers where possible instead of custom Nublado labels.
 
