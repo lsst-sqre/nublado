@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import math
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
@@ -230,23 +229,18 @@ class KubernetesWatcher(Generic[T]):
                 if not self._timeout:
                     raise TimeoutError("Event watch timed out by server")
             except ApiException as e:
-                if e.status == 410 and "resource_version" in args:
-                    version = args["resource_version"]
-                    msg = f"Resource version {version} expired, retrying watch"
-                    self._logger.info(msg)
-                    del args["resource_version"]
-                    continue
-
-                # The Kubernetes documentation implies that we can get a 410
-                # error even when no resource version is specified if there
-                # are long delays between reportable events. Retry those as
-                # well, relying on our timeout to stop us, but wait one second
-                # so that we don't spam the Kubernetes controller with
-                # requests if every request is returning 410.
-                if e.status == 410 and self._timeout:
-                    msg = "Watch expired (no resource version), retrying"
-                    self._logger.info(msg)
-                    await asyncio.sleep(1)
+                if e.status == 410:
+                    if "resource_version" in args:
+                        rv = args["resource_version"]
+                        msg = f"Resource version {rv} expired, retrying watch"
+                        self._logger.info(msg)
+                        del args["resource_version"]
+                    else:
+                        # We can get a 410 error even when no resource version
+                        # is specified if there are long delays between
+                        # reportable events. Retry those as well.
+                        msg = "Watch expired (no resource version), retrying"
+                        self._logger.info(msg)
                     continue
 
                 raise KubernetesError.from_exception(
