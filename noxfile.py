@@ -104,13 +104,17 @@ def _pytest(
 
 
 def _update_deps(
-    session: nox.Session, *, generate_hashes: bool = True
+    session: nox.Session,
+    *,
+    generate_hashes: bool = True,
+    hub_only: bool = False,
 ) -> None:
     session.install(
         "--upgrade", "pip-tools", "pip", "setuptools", "wheel", "pre-commit"
     )
     session.run("pre-commit", "autoupdate")
-    for directory in ("controller", "hub", "inithome"):
+    directories = ("hub",) if hub_only else ("controller", "hub", "inithome")
+    for directory in directories:
         command = [
             "pip-compile",
             "--upgrade",
@@ -365,6 +369,12 @@ def docs_linkcheck(session: nox.Session) -> None:
 def update_deps(session: nox.Session) -> None:
     """Update pinned server dependencies and pre-commit hooks."""
     _update_deps(session)
+
+
+@nox.session(name="update-deps-hub")
+def update_deps_hub(session: nox.Session) -> None:
+    """Update pinned JupyterHub dependencies and pre-commit hooks."""
+    _update_deps(session, hub_only=True)
 
 
 @nox.session(name="update-deps-no-hashes")
