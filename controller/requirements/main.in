@@ -22,7 +22,7 @@ kubernetes_asyncio
 pydantic>2
 pydantic-settings
 PyYAML
-safir[kubernetes]>=5.1.0
+safir[kubernetes]>=5.2.0
 semver
 sse-starlette
 

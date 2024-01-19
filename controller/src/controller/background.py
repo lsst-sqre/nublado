@@ -129,6 +129,9 @@ class BackgroundTaskManager:
         for coro in coros:
             await self._scheduler.spawn(coro)
 
+        # Give all of the newly-spawned background tasks a chance to start.
+        await asyncio.sleep(0)
+
     async def stop(self) -> None:
         """Stop the background tasks."""
         if not self._scheduler:
