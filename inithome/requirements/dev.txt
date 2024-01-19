@@ -166,9 +166,9 @@ pydantic-core==2.14.6 \
     --hash=sha256:fd9e98b408384989ea4ab60206b8e100d8687da18b5c813c11e92fd8212a98e0 \
     --hash=sha256:ffff855100bc066ff2cd3aa4a60bc9534661816b110f0243e59503ec2df38421
     # via pydantic
-pyfakefs==5.3.2 \
-    --hash=sha256:5a62194cfa24542a3c9080b66ce65d78b2e977957edfd3cd6fe98e8349bcca32 \
-    --hash=sha256:a83776a3c1046d4d103f2f530029aa6cdff5f0386dffd59c15ee16926135493c
+pyfakefs==5.3.4 \
+    --hash=sha256:dadac1653195a4bfe4c26e9dfa7cc0c0286b1cd8e18706442c2464cae5542a17 \
+    --hash=sha256:fc375229f5417f197f0892a7d6dc49a411e67e10eb8142b19d80e60a9d52a13d
     # via -r inithome/requirements/dev.in
 pytest==7.4.4 \
     --hash=sha256:2cf0005922c6ace4a3e2ec8b4080eb0d9753fdc93107415332f50ce9e7994280 \
