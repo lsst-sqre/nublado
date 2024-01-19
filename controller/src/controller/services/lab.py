@@ -380,7 +380,6 @@ class LabManager:
         # do something safe in case one appears in the future.
         if lab.monitor.in_progress == _LabOperation.DELETE:
             await lab.monitor.wait()
-            lab.last_modified = current_datetime(microseconds=True)
         elif lab.monitor.in_progress in (_LabOperation.SPAWN, None):
             if lab.monitor.in_progress == _LabOperation.SPAWN:
                 await lab.monitor.cancel()
