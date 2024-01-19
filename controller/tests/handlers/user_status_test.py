@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
@@ -56,6 +58,7 @@ async def test_user_status(
     )
 
     # Now the lab should exist and we should be able to get some user status.
+    await asyncio.sleep(0.1)
     r = await client.get(
         "/nublado/spawner/v1/user-status", headers=user.to_headers()
     )

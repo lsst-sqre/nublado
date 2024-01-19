@@ -204,6 +204,7 @@ async def test_spawn_after_failure(
     assert r.headers["Location"] == (
         f"{TEST_BASE_URL}/nublado/spawner/v1/labs/{user.username}"
     )
+    await asyncio.sleep(0)
 
     # Change the pod phase. This should throw the lab into a terminated state.
     name = f"{user.username}-nb"
@@ -219,6 +220,7 @@ async def test_spawn_after_failure(
             }
         ],
     )
+    await asyncio.sleep(0.1)
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
     assert r.json()["status"] == "terminated"
@@ -234,6 +236,7 @@ async def test_spawn_after_failure(
     assert r.headers["Location"] == (
         f"{TEST_BASE_URL}/nublado/spawner/v1/labs/{user.username}"
     )
+    await asyncio.sleep(0)
     pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
     assert pod.status.phase == PodPhase.RUNNING.value
 
@@ -258,6 +261,7 @@ async def test_multiple_delete(
         headers=user.to_headers(),
     )
     assert r.status_code == 201
+    await asyncio.sleep(0.1)
 
     # Now, attempt to delete it five times simultaneously. Every one of these
     # should either return 204 (if they made it into the queue before any of
@@ -300,6 +304,7 @@ async def test_delayed_spawn(
         headers=user.to_headers(),
     )
     assert r.status_code == 201
+    await asyncio.sleep(0.1)
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
     assert r.json()["status"] == "pending"
@@ -415,6 +420,7 @@ async def test_abort_spawn(
         headers=user.to_headers(),
     )
     assert r.status_code == 201
+    await asyncio.sleep(0)
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
     assert r.json()["status"] == "pending"
@@ -446,6 +452,7 @@ async def test_spawn_after_terminate(
         headers=user.to_headers(),
     )
     assert r.status_code == 201
+    await asyncio.sleep(0.1)
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
     assert r.json()["status"] == "terminated"
@@ -459,6 +466,7 @@ async def test_spawn_after_terminate(
         headers=user.to_headers(),
     )
     assert r.status_code == 201
+    await asyncio.sleep(0.1)
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
     assert r.json()["status"] == "running"
@@ -479,6 +487,7 @@ async def test_lab_objects(
         headers=user.to_headers(),
     )
     assert r.status_code == 201
+    await asyncio.sleep(0)
 
     # When checking all of the objects, strip out resource versions, since
     # those are added by Kubernetes (and the Kubernetes mock) and are not
@@ -799,6 +808,7 @@ async def test_homedir_schema(
         headers=user.to_headers(),
     )
     assert r.status_code == 201
+    await asyncio.sleep(0)
 
     config_map = await mock_kubernetes.read_namespaced_config_map(
         f"{user.username}-nb-nss",
@@ -832,6 +842,7 @@ async def test_extra_annotations(
         headers=user.to_headers(),
     )
     assert r.status_code == 201
+    await asyncio.sleep(0)
 
     namespace = f"{config.lab.namespace_prefix}-{user.username}"
     pod_name = f"{user.username}-nb"
