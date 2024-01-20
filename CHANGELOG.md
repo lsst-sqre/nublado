@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-4.0.2'></a>
+## 4.0.2 (2024-01-19)
+
+### Bug fixes
+
+- Update to Safir 5.2.0, which rewrites the middleware to avoid the Starlette `BaseHTTPMiddleware` class. This should hopefully produce better error reporting in some cases where exceptions were being mangled and lost by the `BaseHTTPMiddleware` logic.
+
 <a id='changelog-4.0.1'></a>
 ## 4.0.1 (2024-01-12)
 
