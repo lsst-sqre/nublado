@@ -53,7 +53,7 @@ Kubernetes
 ``controller.config.fileserver.application``
     Name of the Argo CD application with which to tag user file server resources.
     This tagging causes all of the user file server resources to show up in Argo CD, which has been convenient for deleting broken file servers or viewing pod logs.
-    The default is ``fileservers`` and should not normally be changed, since Phalanx sets up an application by that name for this purpose.
+    The default is ``nublado-fileservers`` and should not normally be changed, since Phalanx sets up an application by that name for this purpose.
 
 ``controller.config.fileserver.namespace``
     Kubernetes namespace in which to create user file servers.
