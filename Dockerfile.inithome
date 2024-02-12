@@ -21,7 +21,7 @@
 #   - Sets up the entrypoint.
 
 # This is just an alias to avoid repeating the base image.
-FROM python:3.12.1-slim-bullseye AS base-image
+FROM python:3.12.2-slim-bullseye AS base-image
 
 FROM base-image AS install-image
 
