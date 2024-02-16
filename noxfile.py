@@ -109,20 +109,12 @@ def _update_deps(
     generate_hashes: bool = True,
     hub_only: bool = False,
 ) -> None:
-    session.install(
-        "--upgrade", "pip-tools", "pip", "setuptools", "wheel", "pre-commit"
-    )
+    session.install("--upgrade", "uv")
+    session.run("uv", "pip", "install", "setuptools", "wheel", "pre-commit")
     session.run("pre-commit", "autoupdate")
     directories = ("hub",) if hub_only else ("controller", "hub", "inithome")
     for directory in directories:
-        command = [
-            "pip-compile",
-            "--upgrade",
-            "--resolver=backtracking",
-            "--build-isolation",
-            "--allow-unsafe",
-            "--strip-extras",
-        ]
+        command = ["uv", "pip", "compile", "--upgrade"]
         if generate_hashes:
             command.append("--generate-hashes")
         session.run(
