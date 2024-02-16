@@ -330,7 +330,7 @@ class PrepulledImage(Image):
 
     @classmethod
     def from_rsp_image(cls, image: RSPImage, nodes: set[str]) -> Self:
-        """Convert from an `~jupyterhub.models.domain.RSPImage`.
+        """Convert from an `~controller.models.domain.rspimage.RSPImage`.
 
         Parameters
         ----------
@@ -389,7 +389,7 @@ class NodeImage(Image):
 
     @classmethod
     def from_rsp_image(cls, image: RSPImage) -> Self:
-        """Convert from an `~jupyterhub.models.domain.RSPImage`.
+        """Convert from an `~controller.models.domain.rspimage.RSPImage`.
 
         Parameters
         ----------

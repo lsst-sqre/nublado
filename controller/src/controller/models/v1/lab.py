@@ -130,7 +130,7 @@ class CommonLabOptions(BaseModel):
         False,
         title="Enable debugging in spawned Lab",
         description=(
-            "If true, set the `DEBUG` environment variable when spawning the"
+            "If true, set the ``DEBUG`` environment variable when spawning the"
             " lab, which enables additional debug logging"
         ),
         examples=[True],
@@ -140,10 +140,10 @@ class CommonLabOptions(BaseModel):
         False,
         title="Move aside user environment",
         description=(
-            "If true, set the `RESET_USER_ENV` environment variable when"
+            "If true, set the ``RESET_USER_ENV`` environment variable when"
             " spawning the lab, which tells the lab to move aside the user"
-            " environment directories (`.cache`, `.conda`, `.jupyter`,"
-            " `.local`) and files (`.user_setups`) . This can be used to"
+            " environment directories (``.cache``, ``.conda``, ``.jupyter``,"
+            " ``.local``) and files (``.user_setups``). This can be used to"
             " recover from user configuration errors that break lab startup."
         ),
         examples=[True],
@@ -186,9 +186,9 @@ class LabRequestOptions(CommonLabOptions):
         title="Image from selection radio button",
         description=(
             "Selected image from the radio button part of the image menu, or"
-            f" the special value `{DROPDOWN_SENTINEL_VALUE}`. If this is set,"
-            f" to a value other than `{DROPDOWN_SENTINEL_VALUE}`,"
-            " `image_dropdown` should not be set."
+            f" the special value ``{DROPDOWN_SENTINEL_VALUE}``. If this is"
+            f" set, to a value other than ``{DROPDOWN_SENTINEL_VALUE}``,"
+            " ``image_dropdown`` should not be set."
         ),
         examples=["lighthouse.ceres/library/sketchbook:w_2023_07@sha256:abcd"],
     )
@@ -198,8 +198,8 @@ class LabRequestOptions(CommonLabOptions):
         title="Image from dropdown list",
         description=(
             "Selected image from the dropdown part of the image menu. If this"
-            f" is set, `image_list` should be omitted or set to"
-            f" `{DROPDOWN_SENTINEL_VALUE}`."
+            f" is set, ``image_list`` should be omitted or set to"
+            f" ``{DROPDOWN_SENTINEL_VALUE}``."
         ),
         examples=["lighthouse.ceres/library/sketchbook:w_2022_40"],
     )
@@ -210,8 +210,8 @@ class LabRequestOptions(CommonLabOptions):
         description=(
             "Spawn a class of image determined by the lab controller. Not"
             " used by the user form, but may be used by bots creating labs."
-            " Only one of `image_class` or `image_tag` may be given, and"
-            " neither `image_list` nor `image_dropdown` should be set when"
+            " Only one of ``image_class`` or ``image_tag`` may be given, and"
+            " neither ``image_list`` nor ``image_dropdown`` should be set when"
             " using these options."
         ),
         examples=[ImageClass.RECOMMENDED],
@@ -222,9 +222,10 @@ class LabRequestOptions(CommonLabOptions):
         title="Tag of image to spawn",
         description=(
             "Spawn the image with the given tag. Not used by the user form,"
-            " but may be used by bots creating labs. Only one of `image_class`"
-            " `image_tag` may be given, and neither `image_list` nor"
-            " `image_dropdown` should be set when using these options."
+            " but may be used by bots creating labs. Only one of"
+            " ``image_class`` or ``image_tag`` may be given, and neither"
+            " ``image_list`` nor ``image_dropdown`` should be set when using"
+            " these options."
         ),
         examples=["w_2023_07"],
     )
@@ -350,7 +351,7 @@ class LabSpecification(BaseModel):
         title="Environment variables",
         description=(
             "Environment variables from JupyterHub. The variable"
-            " `JUPYTERHUB_SERVICE_PREFIX` must be set."
+            " ``JUPYTERHUB_SERVICE_PREFIX`` must be set."
         ),
     )
 
@@ -457,7 +458,7 @@ class ResourceQuantity(BaseModel):
         description=(
             "Amount of memory in bytes. Also accepts strings with SI"
             " suffixes, which will be converted to bytes. Be sure to use"
-            " the suffix with `i` to indicate powers of two (1024 rather"
+            " the suffix with ``i`` to indicate powers of two (1024 rather"
             " than 1000) if that is desired."
         ),
         examples=[1073741824, "1Gi"],
@@ -535,9 +536,9 @@ class LabState(BaseModel):
         description=(
             "Current status of the user's lab. This is primarily based on"
             " the Kubernetes pod phase, but does not have a one-to-one"
-            " correspondence. Labs may be in `failed` state for a variety"
+            " correspondence. Labs may be in ``failed`` state for a variety"
             " of reasons regardless of the pod phase, and completed pods"
-            " are shown as `terminated`."
+            " are shown as ``terminated``."
         ),
         examples=[LabStatus.RUNNING],
     )

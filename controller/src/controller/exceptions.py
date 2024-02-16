@@ -162,7 +162,7 @@ class ControllerTimeoutError(SlackException):
         -------
         safir.slack.blockkit.SlackMessage
             Slack message suitable for posting with
-            `~safir.slack.webhook.SlackClient`.
+            `~safir.slack.webhook.SlackWebhookClient`.
         """
         started_at = format_datetime_for_logging(self.started_at)
         failed_at = format_datetime_for_logging(self.failed_at)
