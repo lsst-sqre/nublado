@@ -107,6 +107,10 @@ jobs:
           nox-sessions: docs
           python-version: "3.12"
 
+      # Manually install setuptools, which is required for Python 3.12.
+      - name: Install setuptools
+        run: pip install setuptools
+
       # Upload docs:
       # - on any push to main
       # - on pushes to tickets/ branches if docs/ directory content changed
