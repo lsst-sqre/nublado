@@ -7,8 +7,9 @@ Storage classes for object types that only need those operations are provided
 here.
 
 For object types that need to support other operations, see
-`KubernetesObjectDeleter`, which subclasses `KubernetesObjectCreator` and adds
-list and delete support, and its subclasses.
+`~controller.storage.kubernetes.deleter.KubernetesObjectDeleter`, which
+subclasses `KubernetesObjectCreator` and adds list and delete support, and its
+subclasses.
 """
 
 from __future__ import annotations

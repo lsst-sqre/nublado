@@ -42,7 +42,7 @@ class WatchEvent(Generic[T]):
 
     @classmethod
     def from_event(cls, event: dict[str, Any], object_type: type[T]) -> Self:
-        """Create a `KubernetesWatchEvent` from a watch event.
+        """Create a `WatchEvent` from a watch event.
 
         Parameters
         ----------

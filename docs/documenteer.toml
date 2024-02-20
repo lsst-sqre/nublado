@@ -51,6 +51,7 @@ nitpick_ignore = [
     ["py:exc", "httpx.HTTPError"],
     ["py:obj", "fastapi.routing.APIRoute"],
     ["py:obj", "httpx.AsyncClient"],
+    ["py:obj", "ComputedFieldInfo"],
     ["py:exc", "starlette.exceptions.HTTPException"],
     # traitlets does provide intersphinx, but the documentation generates some
     # reference to this undocumented type.

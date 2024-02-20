@@ -153,9 +153,9 @@ class NodeSelectorRequirement(BaseModel):
         [],
         title="Matching values",
         description=(
-            "For `In` and `NotIn`, matches any value in this list. For `Gt`"
-            " or `Lt`, must contain a single member interpreted as an integer."
-            " For `Exists` or `DoesNotExist`, must be empty."
+            "For ``In`` and ``NotIn``, matches any value in this list. For"
+            " ``Gt`` or ``Lt``, must contain a single member interpreted as"
+            " an integer. For ``Exists`` or ``DoesNotExist``, must be empty."
         ),
     )
 
@@ -318,8 +318,8 @@ class LabelSelectorRequirement(BaseModel):
         [],
         title="Matching values",
         description=(
-            "For `In` and `NotIn`, matches any value in this list. For"
-            " `Exists` or `DoesNotExist`, must be empty."
+            "For ``In`` and ``NotIn``, matches any value in this list. For"
+            " ``Exists`` or ``DoesNotExist``, must be empty."
         ),
     )
 
@@ -399,7 +399,7 @@ class PodAffinityTerm(BaseModel):
         description=(
             "List of namespaces to which this term applies. The term will"
             " apply to the union of this list of namespaces and any namespaces"
-            " that match `namespaceSelector`, if given. If both are empty,"
+            " that match ``namespaceSelector``, if given. If both are empty,"
             " only the pod's namespace is matched."
         ),
     )
@@ -635,7 +635,7 @@ class Toleration(BaseModel):
         None,
         title="Taint effect",
         description=(
-            "Taint effect to match. If `None`, match all taint effects."
+            "Taint effect to match. If ``None``, match all taint effects."
         ),
     )
 
@@ -643,7 +643,7 @@ class Toleration(BaseModel):
         None,
         title="Taint key",
         description=(
-            "Taint key to match. If `None`, `operator` must be `Exists`,"
+            "Taint key to match. If ``None``, ``operator`` must be ``Exists``,"
             " and this combination is used to match all taints."
         ),
     )
@@ -652,7 +652,7 @@ class Toleration(BaseModel):
         TolerationOperator.EQUAL,
         title="Match operator",
         description=(
-            "`Exists` is equivalent to a wildcard for value and matches all"
+            "``Exists`` is equivalent to a wildcard for value and matches all"
             " possible taints of a given catgory."
         ),
     )
@@ -661,10 +661,10 @@ class Toleration(BaseModel):
         None,
         title="Duration of toleration",
         description=(
-            "Defines the length of time a `NoExecute` taint is tolerated and"
+            "Defines the length of time a ``NoExecute`` taint is tolerated and"
             " is ignored for other taint effects. The pod will be evicted"
             " this number of seconds after the taint is added, rather than"
-            " immediately (the default with no toleration). `None` says to"
+            " immediately (the default with no toleration). ``None`` says to"
             " tolerate the taint forever."
         ),
     )
@@ -673,7 +673,8 @@ class Toleration(BaseModel):
         None,
         title="Taint value",
         description=(
-            "Taint value to match. Must be `None` if the operator is `Exists`."
+            "Taint value to match. Must be ``None`` if the operator is"
+            " ``Exists``."
         ),
     )
 

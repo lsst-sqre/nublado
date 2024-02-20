@@ -85,7 +85,7 @@ class ContainerImage(BaseModel):
         PullPolicy.IF_NOT_PRESENT,
         title="Pull policy",
         description=(
-            "Kubernetes image pull policy. Set to `Always` when testing"
+            "Kubernetes image pull policy. Set to ``Always`` when testing"
             " images that reuse the same tag."
         ),
         examples=[PullPolicy.ALWAYS],
@@ -350,8 +350,8 @@ class EnabledFileserverConfig(FileserverConfig):
         {},
         title="Extra annotations",
         description=(
-            "Extra annotations to add to all user file server `Job` and `Pod`"
-            " Kubernetes resources"
+            "Extra annotations to add to all user file server ``Job`` and"
+            " ``Pod`` Kubernetes resources"
         ),
     )
 
@@ -410,7 +410,7 @@ class EnabledFileserverConfig(FileserverConfig):
         title="Volume mounts",
         description=(
             "Volumes mounted in the file server and exposed via WebDAV."
-            " The `containerPath` settings represent the path visible over"
+            " The ``containerPath`` settings represent the path visible over"
             " the WebDAV protocol."
         ),
     )
@@ -566,7 +566,7 @@ class LabSecret(BaseModel):
         ...,
         title="Source secret name",
         description=(
-            "Must name a `Secret` resource in the same namespace as the"
+            "Must name a ``Secret`` resource in the same namespace as the"
             " Nublado controller pod"
         ),
         examples=["credentials"],
@@ -576,10 +576,10 @@ class LabSecret(BaseModel):
         ...,
         title="Key of secret",
         description=(
-            "Name of field inside the `Secret` named `secretName` containing"
-            " the secret. Each secret key must be unique across all secrets"
-            " in the list of source secrets, since it is also used as the key"
-            " for the entry in the secret created in the user's lab"
+            "Name of field inside the ``Secret`` named ``secretName``"
+            " containing the secret. Each secret key must be unique across all"
+            " secrets in the list of source secrets, since it is also used as"
+            " the key for the entry in the secret created in the user's lab"
             " environment."
         ),
         examples=["butler-credentials"],
@@ -615,9 +615,9 @@ class LabNSSFiles(BaseModel):
 
     base_passwd: str = Field(
         "root:x:0:0:root:/root:/bin/bash\n",
-        title="Base contents of `/etc/passwd`",
+        title="Base contents of ``/etc/passwd``",
         description=(
-            "These contents will be copied verbatim to `/etc/passwd` inside"
+            "These contents will be copied verbatim to ``/etc/passwd`` inside"
             " the lab, and then an entry for the user will be appended"
         ),
         examples=["root:x:0:0:root:/root:/bin/bash\n"],
@@ -625,9 +625,9 @@ class LabNSSFiles(BaseModel):
 
     base_group: str = Field(
         "root:x:0\n",
-        title="Base contents of `/etc/group`",
+        title="Base contents of ``/etc/group``",
         description=(
-            "These contents will be copied verbatim to `/etc/group` inside"
+            "These contents will be copied verbatim to ``/etc/group`` inside"
             " the lab, and then entries for the user's groups will be"
             " appended"
         ),
@@ -678,9 +678,9 @@ class LabConfig(BaseModel):
         {},
         title="Extra annotations",
         description=(
-            "These annotations will be added to the Kubernetes `Pod` resource"
-            " in addition to annotations used by Nublado itself to track"
-            " metadata about the pod"
+            "These annotations will be added to the Kubernetes ``Pod``"
+            " resource in addition to annotations used by Nublado itself to"
+            " track metadata about the pod"
         ),
     )
 
@@ -748,7 +748,7 @@ class LabConfig(BaseModel):
         title="Namespace prefix for lab environments",
         description=(
             "The namespace for the user's lab will start with this string,"
-            " a hyphen (`-`), and the user's username"
+            " a hyphen (``-``), and the user's username"
         ),
     )
 
@@ -766,8 +766,8 @@ class LabConfig(BaseModel):
         default_factory=LabNSSFiles,
         title="passwd and group contents for lab",
         description=(
-            "Configuration for the `/etc/passwd` and `/etc/group` files inside"
-            " the lab"
+            "Configuration for the ``/etc/passwd`` and ``/etc/group`` files"
+            " inside the lab"
         ),
     )
 
@@ -823,7 +823,7 @@ class LabConfig(BaseModel):
             "Volumes available to mount inside either the lab container or"
             " an init container. Inclusion in this list does not mean that"
             " they will be mounted. They must separately be listed under"
-            " `volumeMounts` for either an init container or the main lab"
+            " ``volumeMounts`` for either an init container or the main lab"
             " configuration."
         ),
     )
@@ -963,12 +963,12 @@ class Config(BaseSettings):
         METADATA_PATH,
         title="Path to injected pod metadata",
         description=(
-            "This directory should contain files named `name`, `namespace`,"
-            " and `uid`, which should contain the name, namespace, and UUID"
-            " of the lab controller pod, respectively. Normally this is done"
-            " via the Kubernetes `downwardAPI`.) These are used to set"
-            " ownership information on pods spawned by the prepuller and to"
-            " find secrets to inject into the lab."
+            "This directory should contain files named ``name``,"
+            " ``namespace``, and ``uid``, which should contain the name,"
+            " namespace, and UUID of the lab controller pod, respectively."
+            " Normally this is done via the Kubernetes ``downwardAPI``.)"
+            " These are used to set ownership information on pods spawned by"
+            " the prepuller and to find secrets to inject into the lab."
         ),
     )
 
@@ -984,7 +984,7 @@ class Config(BaseSettings):
         description=(
             "This prefix is used for all APIs except for the API to spawn a"
             " user file server. That is controlled by"
-            " `fileserver.path_prefix`."
+            " ``fileserver.path_prefix``."
         ),
     )
 
@@ -992,8 +992,8 @@ class Config(BaseSettings):
         Profile.production,
         title="Application logging profile",
         description=(
-            "`production` uses JSON logging. `development` uses logging that"
-            " may be easier for humans to read but that cannot be easily"
+            "``production`` uses JSON logging. ``development`` uses logging"
+            " that may be easier for humans to read but that cannot be easily"
             " parsed by computers or Google Log Explorer."
         ),
         examples=[Profile.development],
