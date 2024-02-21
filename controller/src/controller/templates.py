@@ -33,9 +33,8 @@ def _format_timedelta(delta: timedelta) -> str:
     Returns
     -------
     str
-        Human-readable equivalent using ``d`` for days, ``h`` for hours, ``m``
-        for minutes, and ``s`` for seconds. Daylight saving time transitions
-        are not taken into account.
+        Human-readable equivalent. Daylight saving time transitions are not
+        taken into account.
     """
     seconds = int(delta.total_seconds())
     days, seconds = divmod(seconds, 86400)
@@ -43,13 +42,19 @@ def _format_timedelta(delta: timedelta) -> str:
     minutes, seconds = divmod(seconds, 60)
     string = ""
     if days:
-        string = f"{days}d"
+        string = f"{days} " + ("day" if days == 1 else "days")
     if hours:
-        string += f"{hours}h"
+        if string:
+            string += " "
+        string += f"{hours} " + ("hour" if hours == 1 else "hours")
     if minutes:
-        string += f"{minutes}m"
+        if string:
+            string += " "
+        string += f"{minutes} " + ("minute" if minutes == 1 else "minutes")
     if seconds:
-        string += f"{seconds}s"
+        if string:
+            string += " "
+        string += f"{seconds} " + ("second" if seconds == 1 else "seconds")
     return string
 
 

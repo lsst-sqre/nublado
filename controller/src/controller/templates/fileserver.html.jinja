@@ -1,64 +1,28 @@
 <html>
-<head>
-<title>
-User Fileserver Created
-</title>
-</head>
-</body>
-<h1>
-Your fileserver is ready.
-<h1>
+  <head>
+    <title>File server is running</title>
+  </head>
+  <body>
+    <h1>File server is running</h1>
 
-<h2>
-Access Token
-</h2>
+    <p>
+      Your WebDAV file server for username {{ username }} is running. The
+      URL to enter into a WebDAV client is:
+    </p>
 
-<p> If you do not have an access token, go to <a
-href="{{ base_url }}/auth/tokens">the Gafaelfawr tokens page</a> and press
-the "Create Token" button.  </p>
+    <pre>{{ base_url }}{{ path_prefix }}/{{ username }}</pre>
 
-<p>
-Give that token a name, such as "fileserver", the "exec:notebook" scope,
-and a reasonable expiration duration, such as 1 month.
-</p>
+    <p>
+      For instructions on how to use the file server, see
+      <a href="https://rsp.lsst.io/guides/notebooks/extfileaccess/webdav/">the
+      rsp.lsst.io documentation</a>.
+    </p>
 
-<p>
-Press "Create".
-</p>
-
-<p>
-Your token will be displayed.  Copy this token and save it somewhere
-safe; you will never be able to view it from the tokens page again.
-</p>
-
-<h2>
-Using the Fileserver
-</h2>
-
-<p>
-To use the fileserver, you will need a WebDAV client of your choice.
-Mac and Windows have built-in WebDAV clients (this is "Connect to
-Server..." or "Map Network Drive..."), as do Gnome Nautilus and
-Konqueror for Linux.  The open-source command-line client
-<a href="https://github.com/notroj/cadaver">cadaver</a> should build on
-almost any Unix-like system and will work.
-</p>
-
-<p>
-Connect to
-<a href="{{ base_url }}{{ path_prefix }}/{{ username }}">{{ base_url }}{{ path_prefix }}/{{ username }}</a>
-with your WebDAV client (for Konqueror, use "webdav" or "webdavs" rather
-than "http" or "https" as the protocol).  Use the token you acquired
-earlier as the password.  You can use any string for your username
-(since the token belongs to you, it identifies you), but "{{ username }}"
-would be both accurate and traditional.
-</p>
-
-<p>
-If you make no requests in {{ timeout | format_timedelta }}, the fileserver will shut
-down.  If that occurs, simply go back to
-<a href="{{ base_url }}{{ path_prefix }}">{{ base_url }}{{ path_prefix }}</a>
-and a new fileserver will be created for you.
-</p>
-</body>
+    <p>
+      If you make no requests for {{ timeout | format_timedelta }}, the
+      file server will shut down and you will need to return to
+      <a href="{{ base_url }}{{ path_prefix }}">this page</a> to start it
+      again.
+    </p>
+  </body>
 </html>
