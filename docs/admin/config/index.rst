@@ -4,7 +4,7 @@ Configuration reference
 
 Nublado is configured via the Helm chart for the ``nublado`` Phalanx application.
 As with any other Phalanx application, configuration goes into :file:`values-{environment}.yaml` for a given Phalanx environment.
-For more information, see the Phalanx documentation on `writing a Helm chart <https://phalanx.lsst.io/developers/write-a-helm-chart.html>`__.
+For more information, see the Phalanx documentation on `writing a Helm chart <https://phalanx.lsst.io/developers/helm-chart/index.html>`__.
 
 Most of the configuration options are for the Nublado controller.
 Only a few parameters for the other Nublado components normally need to be changed.
