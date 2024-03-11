@@ -68,8 +68,7 @@ class KubernetesModel(Protocol):
 
     metadata: V1ObjectMeta
 
-    def to_dict(self, *, serialize: bool = False) -> dict[str, Any]:
-        ...
+    def to_dict(self, *, serialize: bool = False) -> dict[str, Any]: ...
 
 
 @dataclass

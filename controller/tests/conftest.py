@@ -9,7 +9,7 @@ import pytest_asyncio
 import respx
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 
@@ -65,7 +65,10 @@ async def app(
 @pytest_asyncio.fixture
 async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
     """Return an ``httpx.AsyncClient`` configured to talk to the test app."""
-    async with AsyncClient(app=app, base_url=TEST_BASE_URL) as client:
+    transport = ASGITransport(app=app)  # type: ignore[arg-type]
+    async with AsyncClient(
+        transport=transport, base_url=TEST_BASE_URL
+    ) as client:
         yield client
 
 
