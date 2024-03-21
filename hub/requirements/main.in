@@ -9,7 +9,7 @@
 
 # We want to explicitly control new versions of JupyterHub. Pin this to the
 # same version that Dockerfile uses.
-jupyterhub==4.0.2
+jupyterhub==4.1.0
 
 # Dependencies used directly by the authenticator and spawner.
 httpx
@@ -32,3 +32,7 @@ kubernetes_asyncio
 async-timeout
 exceptiongroup
 ruamel.yaml.clib
+
+# This one seems to be a dependency on amd64 but not arm64, so developing on
+# Mac without it looks fine locally but does not work on Github Actions
+greenlet
