@@ -6,6 +6,17 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-5.0.0'></a>
+## 5.0.0 (2024-03-21)
+
+### Backwards-incompatible changes
+
+- Update to JupyterHub 4.1.0. This release has tighter XSRF handling than previous versions. Clients that talk directly to JupyterHub rather than using a browser, such as [mobu](https://github.com/lsst-sqre/mobu) or [Noteburst](https://noteburst.lsst.io/), will need to be updated to support the stricter XSRF requirements.
+
+### Other changes
+
+- Nublado now uses [uv](https://github.com/astral-sh/uv) to maintain frozen dependencies.
+
 <a id='changelog-4.0.2'></a>
 ## 4.0.2 (2024-01-19)
 
