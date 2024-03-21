@@ -3,7 +3,7 @@
 # This Dockerfile only has a single stage because rather than using the
 # virtualenv trick for dependencies like our other Docker builds, it
 # installs the additional Python modules directly into the local paths
-# used by system Python. This is down since changing the execution
+# used by system Python. This is done since changing the execution
 # environment of JupyterHub from the base container seems fragile and
 # likely to break.
 #
@@ -12,7 +12,7 @@
 # necessary while installing extra Python modules.
 
 # This is just an alias to avoid repeating the base image.
-FROM jupyterhub/jupyterhub:4.0.2
+FROM jupyterhub/jupyterhub:4.1.0
 
 # Update and install packages.
 COPY hub/scripts/install-packages.sh .
