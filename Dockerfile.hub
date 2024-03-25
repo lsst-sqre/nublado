@@ -12,7 +12,7 @@
 # necessary while installing extra Python modules.
 
 # This is just an alias to avoid repeating the base image.
-FROM jupyterhub/jupyterhub:4.1.0
+FROM jupyterhub/jupyterhub:4.1.1
 
 # Update and install packages.
 COPY hub/scripts/install-packages.sh .
