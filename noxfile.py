@@ -110,7 +110,7 @@ def _update_deps(
     hub_only: bool = False,
 ) -> None:
     session.install("--upgrade", "uv")
-    session.run("uv", "pip", "install", "setuptools", "wheel", "pre-commit")
+    session.run("uv", "pip", "install", "pre-commit")
     session.run("pre-commit", "autoupdate")
     directories = ("hub",) if hub_only else ("controller", "hub", "inithome")
     for directory in directories:
