@@ -21,6 +21,7 @@ from ..exceptions import (
 )
 from ..models.domain.gafaelfawr import GafaelfawrUserInfo
 from ..models.domain.kubernetes import PodPhase
+from ..models.v1.fileserver import FileserverStatus
 from ..storage.kubernetes.fileserver import FileserverStorage
 from ..timeout import Timeout
 from .builder.fileserver import FileserverBuilder
@@ -174,6 +175,18 @@ class FileserverManager:
                 state.running = False
             finally:
                 state.last_modified = current_datetime(microseconds=True)
+
+    def get_status(self, username: str) -> FileserverStatus:
+        """Get the status of a user's file server.
+
+        Returns
+        -------
+        FileserverStatus
+            Status of the user's file server.
+        """
+        if username not in self._servers:
+            return FileserverStatus(running=False)
+        return FileserverStatus(running=self._servers[username].running)
 
     async def list(self) -> list[str]:
         """List users with running file servers."""
