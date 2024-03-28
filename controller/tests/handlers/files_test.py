@@ -39,7 +39,14 @@ async def test_create_delete(
 
     # No fileservers yet.
     r = await client.get("/nublado/fileserver/v1/users")
+    assert r.status_code == 200
     assert r.json() == []
+    r = await client.get(
+        "/nublado/fileserver/v1/user-status", headers=user.to_headers()
+    )
+    assert r.status_code == 404
+    r = await client.get(f"/nublado/fileserver/v1/users/{username}")
+    assert r.status_code == 404
 
     # Start a user fileserver. Pre-create an Ingress to match the
     # GafaelfawrIngress so that the creation succeeds.
@@ -49,24 +56,43 @@ async def test_create_delete(
     expected = read_output_data("fileserver", "fileserver.html").strip()
     assert r.text == expected
 
-    # Check that it has showed up, via an admin route.
+    # Check that it has showed up, via the user status and admin routes.
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == [username]
+    r = await client.get(
+        "/nublado/fileserver/v1/user-status", headers=user.to_headers()
+    )
+    assert r.status_code == 200
+    assert r.json() == {"running": True}
+    r = await client.get(f"/nublado/fileserver/v1/users/{username}")
+    assert r.status_code == 200
+    assert r.json() == {"running": True}
 
     # Request it again; should detect that there is a user fileserver and
     # return immediately without actually doing anything.
     r = await client.get("/files", headers=user.to_headers())
     assert r.status_code == 200
     assert r.text == expected
-    r = await client.get("/nublado/fileserver/v1/users")
-    assert r.json() == [username]
+    r = await client.get(
+        "/nublado/fileserver/v1/user-status", headers=user.to_headers()
+    )
+    assert r.status_code == 200
+    assert r.json() == {"running": True}
 
     # Remove it, via an admin route. Pre-delete the Ingress since Kubernetes
     # won't do it automatically for us during test.
     await delete_ingress_for_user(mock_kubernetes, username, namespace)
-    r = await client.delete(f"/nublado/fileserver/v1/{username}")
+    r = await client.delete(f"/nublado/fileserver/v1/users/{username}")
+    assert r.status_code == 204
     r = await client.get("/nublado/fileserver/v1/users")
+    assert r.status_code == 200
     assert r.json() == []
+    r = await client.get(
+        "/nublado/fileserver/v1/user-status", headers=user.to_headers()
+    )
+    assert r.status_code == 404
+    r = await client.get(f"/nublado/fileserver/v1/users/{username}")
+    assert r.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -184,12 +210,12 @@ async def test_wait_for_ingress(
     # bit, and then delete the Ingress, which simulates what happens normally
     # in Kubernetes when the parent GafaelfawrIngress is deleted.
     delete_task = asyncio.create_task(
-        client.delete(f"/nublado/fileserver/v1/{user.username}")
+        client.delete(f"/nublado/fileserver/v1/users/{user.username}")
     )
     await asyncio.sleep(0.1)
     await delete_ingress_for_user(mock_kubernetes, username, namespace)
     r = await delete_task
-    assert r.status_code == 200
+    assert r.status_code == 204
 
     # Check that it's gone.
     r = await client.get("/nublado/fileserver/v1/users")

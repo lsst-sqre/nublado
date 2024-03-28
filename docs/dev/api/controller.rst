@@ -63,6 +63,9 @@ This documentation therefore exists only to assist developers and code analysis 
 .. automodapi:: controller.models.index
    :include-all-objects:
 
+.. automodapi:: controller.models.v1.fileserver
+   :include-all-objects:
+
 .. automodapi:: controller.models.v1.lab
    :include-all-objects:
 
