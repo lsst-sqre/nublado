@@ -6,6 +6,22 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-6.0.0'></a>
+## 6.0.0 (2024-03-28)
+
+### Backwards-incompatible changes
+
+- Move the admin route for deleting a user's file server from `/nublado/fileserver/v1/<username>` to `/nublado/fileserver/v1/users/<username>` to better align with other routes and REST semantics.
+
+### New features
+
+- Add an admin-authenticated `/nublado/fileserver/v1/users/<username>` GET route to get the status of a user's running file server (currently only 404 if not running or 200 with trivial content if running).
+- Add a `/nublado/fileserver/v1/user-status` route a user to get the status of their own file server, which similarly returns 404 or 200 with trivial content.
+
+### Bug fixes
+
+- Update JupyterHub to 4.1.3, which includes several fixes for XSRF handling.
+
 <a id='changelog-5.0.0'></a>
 ## 5.0.0 (2024-03-21)
 
