@@ -22,7 +22,7 @@ For more information about the benefits, see :doc:`gar`.
 For each GKE cluster that will use that registry, do the following:
 
 #. Ensure workload identity is enabled in the cluster configuration.
-   For details on how to do this, see the `Google workload identity documentation <https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity#enable>`__.
+   For details on how to do this, see the `Google workload identity documentation <https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity#enable_on_clusters_and_node_pools>`__.
 
 #. For each node pool in that cluster that is allowed to run Nublado lab pods, find the Google service account used by that node pool.
    This is shown in the details screen for the node pool under :guilabel:`Security`.
