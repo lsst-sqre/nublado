@@ -111,6 +111,22 @@ For example:
 
    nox -Rs test -- controller/tests/handlers/prepuller_test.py
 
+Update pinned dependencies
+==========================
+
+All dependencies for Nublado are pinned to ensure reproducible builds and to control when dependencies are updated.
+These pinned dependencies should be updated before each release.
+
+To update dependencies, run:
+
+.. prompt:: bash
+
+   nox -s update-deps
+
+The dependency on ``jupyterhub`` is a special exception
+It is always pinned to a specific point release that matches the version used in :file:`Dockerfile.hub` as the basis for the JupyterHub containers.
+When there is a new release of JupyterHub, update its version in both :file:`Dockerfile.hub` and :file:`hub/requirements/main.in` to the same version, and then regenerate dependencies using the above command.
+
 Building documentation
 ======================
 
