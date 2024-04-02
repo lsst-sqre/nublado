@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-6.0.1'></a>
+## 6.0.1 (2024-04-01)
+
+### Bug fixes
+
+- Update JupyterHub to 4.1.4, which fixes more XSRF cookie issues.
+
 <a id='changelog-6.0.0'></a>
 ## 6.0.0 (2024-03-28)
 
