@@ -439,7 +439,6 @@ greenlet==3.0.3 \
     --hash=sha256:fcd2469d6a2cf298f198f0487e0a5b1a47a42ca0fa4dfd1b6862c999f018ebbf \
     --hash=sha256:fd096eb7ffef17c456cfa587523c5f92321ae02427ff955bebe9e3c63bc9f0da \
     --hash=sha256:fe754d231288e1e64323cfad462fcee8f0288654c10bdf4f603a39ed923bef33
-    # via sqlalchemy
 h11==0.14.0 \
     --hash=sha256:8f19fbbe99e72420ff35c00b27a34cb9937e902a8b810e2c88300c6f0a3b699d \
     --hash=sha256:e3fe4ac4b851c468cc8363d500db52c2ead036020723024a109d37346efaa761
@@ -478,9 +477,9 @@ jupyter-telemetry==0.1.0 \
     --hash=sha256:1de3e423b23aa40ca4a4238d65c56dda544061ff5aedc3f7647220ed7e3b9589 \
     --hash=sha256:445c613ae3df70d255fe3de202f936bba8b77b4055c43207edf22468ac875314
     # via jupyterhub
-jupyterhub==4.1.4 \
-    --hash=sha256:773c82bfeed9a57daabda32579cf834d553827337600368320e822e73f6c92dd \
-    --hash=sha256:c6cd33a07f614a61bf9a40106e5187275986f108164cdcc39dd0157d50631c67
+jupyterhub==4.1.5 \
+    --hash=sha256:1d88da0ff2abaf0c17c4893f7e933f2279877f991a2af94f6f33ef0904e7fcda \
+    --hash=sha256:63ba1fc718436c151946a58a3b403ec4fe8b3f624fb195bc1d8e70c39b33e194
 jupyterhub-idle-culler==1.3.1 \
     --hash=sha256:b3e5e12fedb8af9f259b86ccf192e5a9872f849f6d6c81b98981fdfabd9d3bd5 \
     --hash=sha256:bb6b30d3290c7231140b1ad6d5c38ad80a6249a2d96b69fb74355f05b13736ba
@@ -1012,9 +1011,9 @@ traitlets==5.14.2 \
     # via
     #   jupyter-telemetry
     #   jupyterhub
-typing-extensions==4.10.0 \
-    --hash=sha256:69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475 \
-    --hash=sha256:b0abd7c89e8fb96f98db18d86106ff1d90ab692004eb746cf6eda2682f91b3cb
+typing-extensions==4.11.0 \
+    --hash=sha256:83f085bd5ca59c80295fc2a82ab5dac679cbe02b9f33f7d83af68e241bea51b0 \
+    --hash=sha256:c1f94d72897edaf4ce775bb7558d5b79d8126906a14ea5ed1635921406c0387a
     # via
     #   alembic
     #   sqlalchemy
