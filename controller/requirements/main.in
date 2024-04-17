@@ -29,3 +29,8 @@ sse-starlette
 # Uncomment this, change the branch, comment out safir above, and run nox -s
 # update-deps-no-hashes to test against an unreleased version of Safir.
 # safir[kubernetes] @ git+https://github.com/lsst-sqre/safir@main
+
+# This one seems to be a dependency on amd64 but not arm64, so developing on
+# Mac without it looks fine locally but does not work on Github Actions
+greenlet
+
