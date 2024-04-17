@@ -27,3 +27,8 @@ types-pyyaml
 autodoc_pydantic
 documenteer[guide]>=1
 sphinx-diagrams
+
+# Greenlet is a dependency of sqlalchemy on x86_64 but not arm64...
+# So make it explicit.
+greenlet!=0.4.17
+
