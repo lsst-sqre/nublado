@@ -6,6 +6,14 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-6.0.2'></a>
+## 6.0.2 (2024-04-18)
+
+### Bug fixes
+
+- Update JupyterHub to 4.1.5, which fixes more issues with XSRF handling.
+- Move the `.eups` directory when performing user environment resets.
+
 <a id='changelog-6.0.1'></a>
 ## 6.0.1 (2024-04-01)
 
