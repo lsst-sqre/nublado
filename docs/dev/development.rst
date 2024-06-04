@@ -21,6 +21,11 @@ Nublado is developed by the LSST SQuaRE team.
 Setting up a local development environment
 ==========================================
 
+Nublado development requires the ``pg_config`` executable be found on your ``$PATH``.
+For Debian-based systems, this is in the ``libpq-dev`` package.
+For RPM-based systems, this is ``libpq-devel``.
+For MacOS, using ``brew``, it is ``postgresql``, or you can get the `PostgreSQL App <https://postgresapp.com/>`_ if you prefer standard Mac application packaging.
+
 Development of Nublado should be done inside a virtual environment.
 
 Nublado uses nox_ as its build system, which can manage a virtual environment for you.
