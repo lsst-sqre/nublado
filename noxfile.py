@@ -20,33 +20,42 @@ nox.options.sessions = [
 ]
 
 # Other nox defaults
-nox.options.default_venv_backend = "venv"
+nox.options.default_venv_backend = "uv"
 nox.options.reuse_existing_virtualenvs = True
+
+# Note that everywhere we are installing our editables as (e.g.)
+# "./spawner[dev]" rather than "spawner[dev]"
+# This is a consequence of https://github.com/astral-sh/uv/issues/3994
+# which may be fixed by https://github.com/astral-sh/uv/pull/3995
+# but it's not clear that this isn't a consequence of PEP 508.
+#
+# In any event, it does no harm to make the fact that we're installing local
+# versions of these modules explicit.
 
 # pip-installable dependencies for development and documentation. This is not
 # used for pytest and typing, since it merges the controller, authenticator,
 # spawner, and inithome dependencies.
 PIP_DEPENDENCIES = [
-    ("--upgrade", "pip", "setuptools", "wheel"),
+    ("--upgrade", "uv", "pip", "setuptools", "wheel"),
     (
         "-r",
-        "controller/requirements/main.txt",
+        "./controller/requirements/main.txt",
         "-r",
-        "controller/requirements/dev.txt",
+        "./controller/requirements/dev.txt",
         "-r",
-        "inithome/requirements/main.txt",
+        "./inithome/requirements/main.txt",
         "-r",
-        "inithome/requirements/dev.txt",
+        "./inithome/requirements/dev.txt",
     ),
     (
         "-e",
-        "authenticator[dev]",
+        "./authenticator[dev]",
         "-e",
-        "controller",
+        "./controller",
         "-e",
-        "inithome",
+        "./inithome",
         "-e",
-        "spawner[dev]",
+        "./spawner[dev]",
     ),
 ]
 
@@ -64,9 +73,9 @@ def _install_dev(session: nox.Session, bin_prefix: str = "") -> None:
 
     # Install dev dependencies
     for deps in PIP_DEPENDENCIES:
-        session.run(python, "-m", "pip", "install", *deps, external=True)
+        session.run(python, "-m", "uv", "pip", "install", *deps, external=True)
     session.run(
-        python, "-m", "pip", "install", "nox", "pre-commit", external=True
+        python, "-m", "pip", "install", "nox[uv]", "pre-commit", external=True
     )
 
     # Install pre-commit hooks
@@ -166,11 +175,11 @@ def typing(session: nox.Session) -> None:
     session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install(
         "-r",
-        "controller/requirements/main.txt",
+        "./controller/requirements/main.txt",
         "-r",
-        "controller/requirements/dev.txt",
+        "./controller/requirements/dev.txt",
     )
-    session.install("-e", "controller")
+    session.install("-e", "./controller")
     session.run(
         "mypy",
         *session.posargs,
@@ -186,11 +195,11 @@ def typing_hub(session: nox.Session) -> None:
     session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install(
         "-r",
-        "hub/requirements/main.txt",
+        "./hub/requirements/main.txt",
         "-r",
-        "hub/requirements/dev.txt",
+        "./hub/requirements/dev.txt",
     )
-    session.install("--no-deps", "-e", "authenticator", "-e", "spawner")
+    session.install("--no-deps", "-e", "./authenticator", "-e", "./spawner")
     session.run(
         "mypy",
         *session.posargs,
@@ -217,11 +226,11 @@ def typing_inithome(session: nox.Session) -> None:
     session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install(
         "-r",
-        "inithome/requirements/main.txt",
+        "./inithome/requirements/main.txt",
         "-r",
-        "inithome/requirements/dev.txt",
+        "./inithome/requirements/dev.txt",
     )
-    session.install("-e", "inithome")
+    session.install("-e", "./inithome")
     session.run(
         "mypy",
         *session.posargs,
@@ -239,11 +248,11 @@ def test(session: nox.Session) -> None:
     session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install(
         "-r",
-        "controller/requirements/main.txt",
+        "./controller/requirements/main.txt",
         "-r",
-        "controller/requirements/dev.txt",
+        "./controller/requirements/dev.txt",
     )
-    session.install("-e", "controller")
+    session.install("-e", "./controller")
     with session.chdir("controller"):
         session.run(
             "pytest",
@@ -260,11 +269,11 @@ def test_hub(session: nox.Session) -> None:
     session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install(
         "-r",
-        "hub/requirements/main.txt",
+        "./hub/requirements/main.txt",
         "-r",
-        "hub/requirements/dev.txt",
+        "./hub/requirements/dev.txt",
     )
-    session.install("--no-deps", "-e", "authenticator", "-e", "spawner")
+    session.install("--no-deps", "-e", "./authenticator", "-e", "./spawner")
     _pytest(
         session, "authenticator", "rubin.nublado.authenticator", coverage=False
     )
@@ -277,11 +286,11 @@ def test_inithome(session: nox.Session) -> None:
     session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install(
         "-r",
-        "inithome/requirements/main.txt",
+        "./inithome/requirements/main.txt",
         "-r",
-        "inithome/requirements/dev.txt",
+        "./inithome/requirements/dev.txt",
     )
-    session.install("-e", "inithome")
+    session.install("-e", "./inithome")
     _pytest(session, "inithome", "rubin.nublado.inithome", coverage=False)
 
 

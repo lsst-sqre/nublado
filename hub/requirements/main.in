@@ -19,7 +19,7 @@ traitlets
 
 # Additional dependencies required by our configuration of JupyterHub.
 jupyterhub-idle-culler
-psycopg2
+psycopg2-binary
 
 # Zero-to-JupyterHub unconditionally imports this, so we have to have it
 # installed even though we're using a different spawner class.
