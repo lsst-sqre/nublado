@@ -140,6 +140,11 @@ class GafaelfawrAuthenticator(Authenticator):
         # most recent token and group information.
         self.refresh_pre_spawn = True
 
+        # Any authenticated user is allowed.  That, after all, is the point of
+        # this class.  If Gafaelfawr says you are authenticated, and have the
+        # right scope, we let you in.
+        self.allow_all = True
+
     async def authenticate(
         self, handler: RequestHandler, data: dict[str, str]
     ) -> str | dict[str, Any] | None:
