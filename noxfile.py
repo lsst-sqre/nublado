@@ -36,7 +36,7 @@ nox.options.reuse_existing_virtualenvs = True
 # used for pytest and typing, since it merges the controller, authenticator,
 # spawner, and inithome dependencies.
 PIP_DEPENDENCIES = [
-    ("--upgrade", "uv", "pip", "setuptools", "wheel"),
+    ("--upgrade", "uv"),
     (
         "-r",
         "./controller/requirements/main.txt",
