@@ -9,7 +9,7 @@
 
 # We want to explicitly control new versions of JupyterHub. Pin this to the
 # same version that Dockerfile uses.
-jupyterhub==4.1.5
+jupyterhub==5.0.0
 
 # Dependencies used directly by the authenticator and spawner.
 httpx

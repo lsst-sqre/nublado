@@ -20,7 +20,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "jupyterhub<5",
+    "jupyterhub<6",
     "tornado<7",
 ]
 dynamic = ["version"]

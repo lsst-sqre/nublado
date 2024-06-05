@@ -21,6 +21,11 @@ Nublado is developed by the LSST SQuaRE team.
 Setting up a local development environment
 ==========================================
 
+Nublado development requires the ``pg_config`` executable be found on your ``$PATH``.
+For Debian-based systems, this is in the ``libpq-dev`` package.
+For RPM-based systems, this is ``libpq-devel``.
+For MacOS, using ``brew``, it is ``postgresql``, or you can get the `PostgreSQL App <https://postgresapp.com/>`_ if you prefer standard Mac application packaging.
+
 Development of Nublado should be done inside a virtual environment.
 
 Nublado uses nox_ as its build system, which can manage a virtual environment for you.
@@ -126,6 +131,13 @@ To update dependencies, run:
 The dependency on ``jupyterhub`` is a special exception
 It is always pinned to a specific point release that matches the version used in :file:`Dockerfile.hub` as the basis for the JupyterHub containers.
 When there is a new release of JupyterHub, update its version in both :file:`Dockerfile.hub` and :file:`hub/requirements/main.in` to the same version, and then regenerate dependencies using the above command.
+
+JupyterHub major version upgrades
+---------------------------------
+
+Updating ``jupyterhub`` across major version boundaries adds additional complexity to the above.
+Both ``authenticator`` and ``spawner`` consume the ``jupyterhub`` module as a library, and both of them pin its major version in ``pyproject.toml``.
+Therefore, it is necessary to update :file:`authenticator/pyproject.toml` and :file:`spawner/pyproject.toml` with the new major version.
 
 Building documentation
 ======================
