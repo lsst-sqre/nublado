@@ -68,8 +68,8 @@ class PrepullerBuilder:
                         image=image.reference_with_digest,
                         resources=V1ResourceRequirements(
                             limits={
-                                "cpu": "1",
-                                "memory": "512Mi",
+                                "cpu": "1m",
+                                "memory": "16Mi",
                             },
                             requests={
                                 "cpu": "1m",

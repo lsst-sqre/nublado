@@ -28,8 +28,8 @@
           "name": "prepull",
           "resources": {
 	    "limits": {
-              "cpu": "1",
-              "memory": "512Mi"
+              "cpu": "1m",
+              "memory": "16Mi"
             },
             "requests": {
               "cpu": "1m",
