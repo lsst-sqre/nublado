@@ -6,14 +6,6 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
-## 6.1.0 (2024-06-05)
-
-### Other changes
-
-- Jupyterhub 5.0.0 adopted as underlying Hub implementation.
-
-- Move from `pip` to `uv` in `nox` and CI.
-
 <a id='changelog-6.0.2'></a>
 ## 6.0.2 (2024-04-18)
 
