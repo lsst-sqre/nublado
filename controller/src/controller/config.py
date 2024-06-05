@@ -394,7 +394,7 @@ class EnabledFileserverConfig(FileserverConfig):
         None,
         title="Resource requests and limits",
         description=(
-            "Kubernetes resource requests and limits for uesr file server"
+            "Kubernetes resource requests and limits for user file server"
             " pods"
         ),
     )
