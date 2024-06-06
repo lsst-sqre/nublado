@@ -26,6 +26,16 @@
           ],
           "image": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
           "name": "prepull",
+          "resources": {
+	    "limits": {
+              "cpu": "1m",
+              "memory": "16Mi"
+            },
+            "requests": {
+              "cpu": "1m",
+              "memory": "16Mi"
+            }
+          },
           "workingDir": "/tmp"
         }
       ],
