@@ -67,14 +67,8 @@ class PrepullerBuilder:
                         command=["/bin/true"],
                         image=image.reference_with_digest,
                         resources=V1ResourceRequirements(
-                            limits={
-                                "cpu": "1m",
-                                "memory": "16Mi",
-                            },
-                            requests={
-                                "cpu": "1m",
-                                "memory": "16Mi",
-                            },
+                            limits={"cpu": "1m", "memory": "16Mi"},
+                            requests={"cpu": "1m", "memory": "16Mi"},
                         ),
                         working_dir="/tmp",
                     )
