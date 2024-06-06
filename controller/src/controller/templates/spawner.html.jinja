@@ -51,13 +51,14 @@ function selectDropdown() {
   <br />
   <br />
   <div class="checkbox checkbox-inline">
-    <input type="checkbox" id="enable_debug"
-     name="enable_debug" value="true">
-    <label for="enable_debug">Enable debug logs</label><br />
-
-    <input type="checkbox" id="reset_user_env"
-     name="reset_user_env" value="true">
+    <label for="enable_debug">
+      <input type="checkbox" id="enable_debug"
+       name="enable_debug" value="true">
+      Enable debug logs
+    </label><br />
     <label for="reset_user_env">
+      <input type="checkbox" id="reset_user_env"
+       name="reset_user_env" value="true">
       Reset user environment: relocate .cache, .conda, .eups, .jupyter,
       .local, and .user_setups
     </label><br />
