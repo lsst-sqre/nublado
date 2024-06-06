@@ -6,6 +6,22 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+##  (2024-06-06)
+
+### New features
+
+- Add limits and requests to prepulled pods.
+
+### Bug fixes
+
+- Extraneous line break in spawner form removed
+
+### Other changes
+
+- Jupyterhub 5.0.0 adopted as underlying Hub implementation.
+
+- Move from `pip` to `uv` in `nox` and CI.
+
 <a id='changelog-6.0.2'></a>
 ## 6.0.2 (2024-04-18)
 
