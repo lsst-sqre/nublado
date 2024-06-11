@@ -42,7 +42,7 @@
   {
     "apiVersion": "v1",
     "data": {
-      "lsst-dask-yml": "# No longer used, but preserves compatibility with runlab.sh\ndask_worker.yml: |\n  enabled: false\n",
+      "lsst-dask-yml": "# No longer used, but preserves compatibility with runlab\ndask_worker.yml: |\n  enabled: false\n",
       "panda": "# Licensed under the Apache License, Version 2.0 (the \"License\");\n# You may not use this file except in compliance with the License.\n# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0\n#\n# Authors:\n# - Wen Guan, <wen.guan@cern.ch>, 2020\n[common]\n# if logdir is configured, idds will write to idds.log in this directory.\n# else idds will go to stdout/stderr.\n# With supervisord, it's good to write to stdout/stderr, then supervisord can manage and rotate logs.\n# logdir = /var/log/idds\nloglevel = INFO\n[rest]\nhost = https://iddsserver.cern.ch:443/idds\n#url_prefix = /idds\n#cacher_dir = /tmp\ncacher_dir = /data/idds\n"
     },
     "immutable": true,
@@ -251,7 +251,7 @@
       "containers": [
         {
           "args": [
-            "/opt/lsst/software/jupyterlab/runlab.sh"
+            "/usr/local/share/jupyterlab/runlab"
           ],
           "env": [
             {
@@ -367,24 +367,24 @@
               "subPath": "group"
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/lsst_dask.yml",
+              "mountPath": "/usr/local/share/jupyterlab/lsst_dask.yml",
               "name": "lsst-dask-yml",
               "readOnly": true,
               "subPath": "lsst_dask.yml"
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/panda",
+              "mountPath": "/usr/local/share/jupyterlab/panda",
               "name": "panda",
               "readOnly": true,
               "subPath": "panda"
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/secrets",
+              "mountPath": "/usr/local/share/jupyterlab/secrets",
               "name": "secrets",
               "readOnly": true
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/environment",
+              "mountPath": "/usr/local/share/jupyterlab/environment",
               "name": "env",
               "readOnly": true
             },
@@ -394,12 +394,12 @@
               "readOnly": false
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/runtime",
+              "mountPath": "/usr/local/share/jupyterlab/runtime",
               "name": "runtime",
               "readOnly": true
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/butler-secret",
+              "mountPath": "/usr/local/share/jupyterlab/butler-secret",
               "name": "secrets",
               "readOnly": true,
               "subPath": "butler-secret"

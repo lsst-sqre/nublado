@@ -602,7 +602,7 @@ class LabSecret(BaseModel):
             "If set, also mount the secret at this path inside the lab"
             " container"
         ),
-        examples=["/opt/lsst/software/jupyterlab/butler-secret"],
+        examples=["/usr/local/share/jupyterlab/butler-secret"],
     )
 
     model_config = ConfigDict(

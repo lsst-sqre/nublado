@@ -69,7 +69,10 @@ one-off operations, just to impose an upper limit on how long we'll wait of
 the control plane is nonresponsive.
 """
 
-LAB_COMMAND = "/opt/lsst/software/jupyterlab/runlab.sh"
+JUPYTERLAB_DIR = "/usr/local/share/jupyterlab"
+"""Location where our RSP Jupyterlab configuration is rooted."""
+
+LAB_COMMAND = f"{JUPYTERLAB_DIR}/runlab"
 """Command used to start the lab.
 
 This should be configurable but isn't yet.
@@ -108,19 +111,19 @@ available resources.
 METADATA_PATH = Path("/etc/podinfo")
 """Default path to injected pod metadata."""
 
-MOUNT_PATH_DOWNWARD_API = "/opt/lsst/software/jupyterlab/runtime"
+MOUNT_PATH_DOWNWARD_API = f"{JUPYTERLAB_DIR}/runtime"
 """Path at which downward API information is mounted inside the lab.
 
 This should be configurable but isn't yet.
 """
 
-MOUNT_PATH_ENVIRONMENT = "/opt/lsst/software/jupyterlab/environment"
+MOUNT_PATH_ENVIRONMENT = f"{JUPYTERLAB_DIR}/environment"
 """Path at which the environment for the user is mounted inside the lab.
 
 This should be configurable but isn't yet.
 """
 
-MOUNT_PATH_SECRETS = "/opt/lsst/software/jupyterlab/secrets"
+MOUNT_PATH_SECRETS = f"{JUPYTERLAB_DIR}/secrets"
 """Path at which secrets are mounted inside the lab.
 
 This should be configurable but isn't yet.
