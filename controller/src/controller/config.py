@@ -602,7 +602,7 @@ class LabSecret(BaseModel):
             "If set, also mount the secret at this path inside the lab"
             " container"
         ),
-        examples=["/usr/local/share/jupyterlab/butler-secret"],
+        examples=["/opt/lsst/software/jupyterlab/butler-secret"],
     )
 
     model_config = ConfigDict(
@@ -693,6 +693,17 @@ class LabConfig(BaseModel):
         ),
     )
 
+    jupyterlab_dir: str = Field(
+        "/opt/lsst/software/jupyterlab",
+        title="Root of Lab custom Jupyterlab configuration",
+        description=(
+            "Path inside the lab container where custom configuration is"
+            " stored.  Things like kernel definitions, custom logger"
+            " definitions, service tokens, and Lab-instance-specific secrets"
+            " are stored under this path."
+        ),
+    )
+
     homedir_prefix: str = Field(
         "/home",
         title="Prefix for home directory path",
@@ -740,6 +751,15 @@ class LabConfig(BaseModel):
             " actions that require privileges, since init containers can be"
             " run as privileged and the lab container is always run as the"
             " user."
+        ),
+    )
+
+    lab_command: str = Field(
+        "/opt/lsst/software/jupyterlab/runlab.sh",
+        title="Lab command",
+        description=(
+            "This is the executable in the container that will be run to"
+            " start the lab."
         ),
     )
 

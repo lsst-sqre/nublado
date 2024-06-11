@@ -13,13 +13,9 @@ __all__ = [
     "IMAGE_REFRESH_INTERVAL",
     "KUBERNETES_NAME_PATTERN",
     "KUBERNETES_REQUEST_TIMEOUT",
-    "LAB_COMMAND",
     "LAB_RECONCILE_INTERVAL",
     "LIMIT_TO_REQUEST_RATIO",
     "METADATA_PATH",
-    "MOUNT_PATH_DOWNWARD_API",
-    "MOUNT_PATH_ENVIRONMENT",
-    "MOUNT_PATH_SECRETS",
     "PREPULLER_POD_TIMEOUT",
     "RESERVED_ENV",
     "RESERVED_PATHS",
@@ -72,12 +68,6 @@ the control plane is nonresponsive.
 JUPYTERLAB_DIR = "/usr/local/share/jupyterlab"
 """Location where our RSP Jupyterlab configuration is rooted."""
 
-LAB_COMMAND = f"{JUPYTERLAB_DIR}/runlab"
-"""Command used to start the lab.
-
-This should be configurable but isn't yet.
-"""
-
 LAB_RECONCILE_INTERVAL = timedelta(minutes=60)
 """How frequently to refresh user lab state from Kubernetes.
 
@@ -110,24 +100,6 @@ available resources.
 
 METADATA_PATH = Path("/etc/podinfo")
 """Default path to injected pod metadata."""
-
-MOUNT_PATH_DOWNWARD_API = f"{JUPYTERLAB_DIR}/runtime"
-"""Path at which downward API information is mounted inside the lab.
-
-This should be configurable but isn't yet.
-"""
-
-MOUNT_PATH_ENVIRONMENT = f"{JUPYTERLAB_DIR}/environment"
-"""Path at which the environment for the user is mounted inside the lab.
-
-This should be configurable but isn't yet.
-"""
-
-MOUNT_PATH_SECRETS = f"{JUPYTERLAB_DIR}/secrets"
-"""Path at which secrets are mounted inside the lab.
-
-This should be configurable but isn't yet.
-"""
 
 PREPULLER_POD_TIMEOUT = timedelta(minutes=10)
 """How long to wait for a prepuller pod to spawn and finish running.

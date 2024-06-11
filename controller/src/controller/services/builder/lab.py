@@ -49,13 +49,7 @@ from kubernetes_asyncio.client import (
 from structlog.stdlib import BoundLogger
 
 from ...config import LabConfig, PVCVolumeSource, UserHomeDirectorySchema
-from ...constants import (
-    ARGO_CD_ANNOTATIONS,
-    LAB_COMMAND,
-    MOUNT_PATH_DOWNWARD_API,
-    MOUNT_PATH_ENVIRONMENT,
-    MOUNT_PATH_SECRETS,
-)
+from ...constants import ARGO_CD_ANNOTATIONS
 from ...models.domain.gafaelfawr import GafaelfawrUserInfo, UserGroup
 from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
 from ...models.domain.rspimage import RSPImage
@@ -639,13 +633,14 @@ class LabBuilder:
         `_build_pod_secret_volume_extra_mounts` and included in the volume
         mounts when constructing the pod.
         """
+        secret_loc = f"{self._config.jupyterlab_dir}/secrets"
         return MountedVolume(
             volume=V1Volume(
                 name="secrets",
                 secret=V1SecretVolumeSource(secret_name=f"{username}-nb"),
             ),
             volume_mount=V1VolumeMount(
-                mount_path=MOUNT_PATH_SECRETS, name="secrets", read_only=True
+                mount_path=secret_loc, name="secrets", read_only=True
             ),
         )
 
@@ -654,15 +649,16 @@ class LabBuilder:
 
         It's not clear whether this is necessary, but we've been doing it for
         a while so removing this would potentially break backward
-        compatibility. The mount path should be configurable, but isn't yet.
+        compatibility.
         """
+        env_path = f"{self._config.jupyterlab_dir}/environment"
         return MountedVolume(
             volume=V1Volume(
                 name="env",
                 config_map=V1ConfigMapVolumeSource(name=f"{username}-nb-env"),
             ),
             volume_mount=V1VolumeMount(
-                mount_path=MOUNT_PATH_ENVIRONMENT, name="env", read_only=True
+                mount_path=env_path, name="env", read_only=True
             ),
         )
 
@@ -700,13 +696,14 @@ class LabBuilder:
                 path=field.replace(".", "_"),
             )
             files.append(volume_file)
+        runtime_path = f"{self._config.jupyterlab_dir}/runtime"
         return MountedVolume(
             volume=V1Volume(
                 name="runtime",
                 downward_api=V1DownwardAPIVolumeSource(items=files),
             ),
             volume_mount=V1VolumeMount(
-                mount_path=MOUNT_PATH_DOWNWARD_API,
+                mount_path=runtime_path,
                 name="runtime",
                 read_only=True,
             ),
@@ -814,7 +811,7 @@ class LabBuilder:
         env_source = V1ConfigMapEnvSource(name=f"{user.username}-nb-env")
         container = V1Container(
             name="notebook",
-            args=[LAB_COMMAND],
+            args=[self._config.lab_command],
             env=env,
             env_from=[V1EnvFromSource(config_map_ref=env_source)],
             image=image.reference_with_digest,

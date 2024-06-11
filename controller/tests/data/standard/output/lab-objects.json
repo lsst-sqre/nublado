@@ -251,7 +251,7 @@
       "containers": [
         {
           "args": [
-            "/usr/local/share/jupyterlab/runlab"
+            "/opt/lsst/software/jupyterlab/runlab.sh"
           ],
           "env": [
             {
@@ -367,24 +367,24 @@
               "subPath": "group"
             },
             {
-              "mountPath": "/usr/local/share/jupyterlab/lsst_dask.yml",
+              "mountPath": "/opt/lsst/software/jupyterlab/lsst_dask.yml",
               "name": "lsst-dask-yml",
               "readOnly": true,
               "subPath": "lsst_dask.yml"
             },
             {
-              "mountPath": "/usr/local/share/jupyterlab/panda",
+              "mountPath": "/opt/lsst/software/jupyterlab/panda",
               "name": "panda",
               "readOnly": true,
               "subPath": "panda"
             },
             {
-              "mountPath": "/usr/local/share/jupyterlab/secrets",
+              "mountPath": "/opt/lsst/software/jupyterlab/secrets",
               "name": "secrets",
               "readOnly": true
             },
             {
-              "mountPath": "/usr/local/share/jupyterlab/environment",
+              "mountPath": "/opt/lsst/software/jupyterlab/environment",
               "name": "env",
               "readOnly": true
             },
@@ -394,12 +394,12 @@
               "readOnly": false
             },
             {
-              "mountPath": "/usr/local/share/jupyterlab/runtime",
+              "mountPath": "/opt/lsst/software/jupyterlab/runtime",
               "name": "runtime",
               "readOnly": true
             },
             {
-              "mountPath": "/usr/local/share/jupyterlab/butler-secret",
+              "mountPath": "/opt/lsst/software/jupyterlab/butler-secret",
               "name": "secrets",
               "readOnly": true,
               "subPath": "butler-secret"
