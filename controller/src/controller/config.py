@@ -693,7 +693,7 @@ class LabConfig(BaseModel):
         ),
     )
 
-    jupyterlab_dir: str = Field(
+    jupyterlab_config_dir: str = Field(
         "/opt/lsst/software/jupyterlab",
         title="Root of Lab custom Jupyterlab configuration",
         description=(
@@ -754,12 +754,12 @@ class LabConfig(BaseModel):
         ),
     )
 
-    lab_command: str = Field(
-        "/opt/lsst/software/jupyterlab/runlab.sh",
+    lab_start_command: list[str] = Field(
+        ["/opt/lsst/software/jupyterlab/runlab.sh"],
         title="Lab command",
         description=(
             "This is the executable in the container that will be run to"
-            " start the lab."
+            " start the lab, and its arguments, supplied as a list of strings."
         ),
     )
 
@@ -798,6 +798,16 @@ class LabConfig(BaseModel):
             "If set, must be the name of a secret in the same namespace as"
             " the lab controller. This secret is copied to the user's lab"
             " namespace and referenced as a pull secret in the pod object."
+        ),
+    )
+
+    runtime_mounts_dir: str = Field(
+        "/opt/lsst/software/jupyterlab",
+        title="Runtime-info mounts",
+        description=(
+            "Directory under which runtime information (e.g. tokens,"
+            " environment variables, and container resource information"
+            " will be mounted."
         ),
     )
 

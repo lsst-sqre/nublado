@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 from pathlib import Path
 
 from kubernetes_asyncio.client import (
@@ -337,6 +338,13 @@ class LabBuilder:
                 "MEM_LIMIT": str(resources.limits.memory),
                 # Used by code running in the lab to find other services.
                 "EXTERNAL_INSTANCE_URL": self._base_url,
+                # Information about where our Lab config, runtime-info
+                # mounts can be found, and command to launch the lab
+                "JUPYTERLAB_CONFIG_DIR": self._config.jupyterlab_config_dir,
+                "JUPYTERLAB_START_COMMAND": shlex.join(
+                    self._config.lab_start_command
+                ),
+                "NUBLADO_RUNTIME_MOUNTS_DIR": self._config.runtime_mounts_dir,
             }
         )
 
@@ -633,7 +641,7 @@ class LabBuilder:
         `_build_pod_secret_volume_extra_mounts` and included in the volume
         mounts when constructing the pod.
         """
-        secret_loc = f"{self._config.jupyterlab_dir}/secrets"
+        secret_loc = f"{self._config.runtime_mounts_dir}/secrets"
         return MountedVolume(
             volume=V1Volume(
                 name="secrets",
@@ -651,7 +659,7 @@ class LabBuilder:
         a while so removing this would potentially break backward
         compatibility.
         """
-        env_path = f"{self._config.jupyterlab_dir}/environment"
+        env_path = f"{self._config.runtime_mounts_dir}/environment"
         return MountedVolume(
             volume=V1Volume(
                 name="env",
@@ -696,7 +704,7 @@ class LabBuilder:
                 path=field.replace(".", "_"),
             )
             files.append(volume_file)
-        runtime_path = f"{self._config.jupyterlab_dir}/runtime"
+        runtime_path = f"{self._config.runtime_mounts_dir}/runtime"
         return MountedVolume(
             volume=V1Volume(
                 name="runtime",
@@ -811,7 +819,7 @@ class LabBuilder:
         env_source = V1ConfigMapEnvSource(name=f"{user.username}-nb-env")
         container = V1Container(
             name="notebook",
-            args=[self._config.lab_command],
+            args=self._config.lab_start_command,
             env=env,
             env_from=[V1EnvFromSource(config_map_ref=env_source)],
             image=image.reference_with_digest,

@@ -1,8 +1,9 @@
 logLevel: DEBUG
 profile: development
 lab:
-  jupyterlab_dir: "/usr/local/share/jupyterlab"
-  lab_command: "/usr/local/share/jupyterlab/runlab"
+  jupyterlab_config_dir: "/usr/local/share/jupyterlab"
+  lab_start_command: ["/usr/local/share/jupyterlab/runlab"]
+  runtime_mounts_dir: "/etc/nublado"
   namespacePrefix: userlabs
   sizes:
     - size: small

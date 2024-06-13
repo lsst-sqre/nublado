@@ -832,11 +832,8 @@ async def test_alternate_paths(
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    """Check that the command and config path can be changed.
-
-    Earlier versions had a bug where the working directory for the spawned pod
-    was always :file:`/home/{username}` even if another home directory rule
-    was set.
+    """Check that the command, config path, and runtime mount path can be
+    changed.
     """
     config = await configure("changed-path")
     lab = read_input_lab_specification_json("base", "lab-specification")
@@ -855,7 +852,15 @@ async def test_alternate_paths(
     ctr = pod.spec.containers[0]
     assert ctr.args == ["/usr/local/share/jupyterlab/runlab"]
     sec_mt = [x for x in ctr.volume_mounts if x.name == "secrets"][0]
-    assert sec_mt.mount_path == "/usr/local/share/jupyterlab/secrets"
+    assert sec_mt.mount_path == "/etc/nublado/secrets"
+    config_map = await mock_kubernetes.read_namespaced_config_map(
+        f"{user.username}-nb-env",
+        f"{config.lab.namespace_prefix}-{user.username}",
+    )
+    assert (
+        config_map.data["JUPYTERLAB_CONFIG_DIR"]
+        == "/usr/local/share/jupyterlab"
+    )
 
 
 @pytest.mark.asyncio
