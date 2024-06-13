@@ -6,6 +6,12 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+##  (2024-06-13)
+
+### New features
+
+- Make lab launch command and lab configuration dir configurable.
+
 ##  (2024-06-06)
 
 ### New features
