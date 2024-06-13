@@ -61,7 +61,7 @@ lab:
     # below.
   files:
     /opt/lsst/software/jupyterlab/lsst_dask.yml: |
-      # No longer used, but preserves compatibility with runlab.sh
+      # No longer used, but preserves compatibility with runlab
       dask_worker.yml: |
         enabled: false
     /opt/lsst/software/jupyterlab/panda: |

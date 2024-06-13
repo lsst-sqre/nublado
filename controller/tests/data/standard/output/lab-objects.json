@@ -4,6 +4,8 @@
     "data": {
       "CONTAINER_SIZE": "Small (1.0 CPU, 3Gi RAM)",
       "JUPYTERHUB_SERVICE_PREFIX": "/nb/user/rachel/",
+      "JUPYTERLAB_CONFIG_DIR": "/opt/lsst/software/jupyterlab",
+      "JUPYTERLAB_START_COMMAND": "/opt/lsst/software/jupyterlab/runlab.sh",
       "JUPYTER_IMAGE": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
       "JUPYTER_IMAGE_SPEC": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
       "IMAGE_DESCRIPTION": "Daily 2077_10_23",
@@ -21,6 +23,7 @@
       "FIREFLY_ROUTE": "/portal/app",
       "HUB_ROUTE": "/nb/hub",
       "NO_ACTIVITY_TIMEOUT": "432000",
+      "NUBLADO_RUNTIME_MOUNTS_DIR": "/opt/lsst/software/jupyterlab",
       "TAP_ROUTE": "/api/tap"
     },
     "immutable": true,
@@ -42,7 +45,7 @@
   {
     "apiVersion": "v1",
     "data": {
-      "lsst-dask-yml": "# No longer used, but preserves compatibility with runlab.sh\ndask_worker.yml: |\n  enabled: false\n",
+      "lsst-dask-yml": "# No longer used, but preserves compatibility with runlab\ndask_worker.yml: |\n  enabled: false\n",
       "panda": "# Licensed under the Apache License, Version 2.0 (the \"License\");\n# You may not use this file except in compliance with the License.\n# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0\n#\n# Authors:\n# - Wen Guan, <wen.guan@cern.ch>, 2020\n[common]\n# if logdir is configured, idds will write to idds.log in this directory.\n# else idds will go to stdout/stderr.\n# With supervisord, it's good to write to stdout/stderr, then supervisord can manage and rotate logs.\n# logdir = /var/log/idds\nloglevel = INFO\n[rest]\nhost = https://iddsserver.cern.ch:443/idds\n#url_prefix = /idds\n#cacher_dir = /tmp\ncacher_dir = /data/idds\n"
     },
     "immutable": true,
