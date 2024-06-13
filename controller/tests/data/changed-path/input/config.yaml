@@ -1,0 +1,24 @@
+logLevel: DEBUG
+profile: development
+lab:
+  jupyterlab_dir: "/usr/local/share/jupyterlab"
+  lab_command: "/usr/local/share/jupyterlab/runlab"
+  namespacePrefix: userlabs
+  sizes:
+    - size: small
+      cpu: 1.0
+      memory: 3Gi
+  volumes:
+    - name: home
+      source:
+        type: nfs
+        server: 10.13.105.122
+        serverPath: /share1/home
+  volumeMounts:
+    - containerPath: /u/home
+      volumeName: home
+images:
+  source:
+    type: docker
+    registry: lighthouse.ceres
+    repository: library/sketchbook

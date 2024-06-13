@@ -827,6 +827,38 @@ async def test_homedir_schema(
 
 
 @pytest.mark.asyncio
+async def test_alternate_paths(
+    client: AsyncClient,
+    user: GafaelfawrUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    """Check that the command and config path can be changed.
+
+    Earlier versions had a bug where the working directory for the spawned pod
+    was always :file:`/home/{username}` even if another home directory rule
+    was set.
+    """
+    config = await configure("changed-path")
+    lab = read_input_lab_specification_json("base", "lab-specification")
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 201
+    await asyncio.sleep(0)
+    pod = await mock_kubernetes.read_namespaced_pod(
+        f"{user.username}-nb",
+        f"{config.lab.namespace_prefix}-{user.username}",
+    )
+    ctr = pod.spec.containers[0]
+    assert ctr.args == ["/usr/local/share/jupyterlab/runlab"]
+    sec_mt = [x for x in ctr.volume_mounts if x.name == "secrets"][0]
+    assert sec_mt.mount_path == "/usr/local/share/jupyterlab/secrets"
+
+
+@pytest.mark.asyncio
 async def test_extra_annotations(
     client: AsyncClient,
     user: GafaelfawrUser,
