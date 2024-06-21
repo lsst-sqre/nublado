@@ -21,7 +21,7 @@
 #   - Sets up the entrypoint.
 
 # This is just an alias to avoid repeating the base image.
-FROM python:3.12.3-slim-bookworm AS base-image
+FROM python:3.12.4-slim-bookworm AS base-image
 
 FROM base-image AS install-image
 
