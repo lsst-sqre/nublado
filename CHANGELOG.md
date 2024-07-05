@@ -6,27 +6,24 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
-##  (2024-06-13)
+<a id='changelog-6.2.0'></a>
+## 6.2.0 (2024-06-13)
 
 ### New features
 
-- Make lab launch command and lab configuration dir configurable.
+- Add configuration settings for the lab launch command and configuration directory.
 
-##  (2024-06-06)
+<a id='changelog-6.1.0'></a>
+## 6.1.0 (2024-06-06)
 
 ### New features
 
 - Add limits and requests to prepulled pods.
 
-### Bug fixes
-
-- Extraneous line break in spawner form removed
-
 ### Other changes
 
-- Jupyterhub 5.0.0 adopted as underlying Hub implementation.
-
-- Move from `pip` to `uv` in `nox` and CI.
+- Update the underlying JupyterHub implementation to JupyterHub 5.0.0.
+- Switch to [uv](https://github.com/astral-sh/uv) for package management.
 
 <a id='changelog-6.0.2'></a>
 ## 6.0.2 (2024-04-18)
