@@ -17,26 +17,17 @@ nox.options.sessions = [
     "test-hub",
     "test-inithome",
     "docs",
+    "docs-linkcheck",
 ]
 
 # Other nox defaults
 nox.options.default_venv_backend = "uv"
 nox.options.reuse_existing_virtualenvs = True
 
-# Note that everywhere we are installing our editables as (e.g.)
-# "./spawner[dev]" rather than "spawner[dev]"
-# This is a consequence of https://github.com/astral-sh/uv/issues/3994
-# which may be fixed by https://github.com/astral-sh/uv/pull/3995
-# but it's not clear that this isn't a consequence of PEP 508.
-#
-# In any event, it does no harm to make the fact that we're installing local
-# versions of these modules explicit.
-
 # pip-installable dependencies for development and documentation. This is not
 # used for pytest and typing, since it merges the controller, authenticator,
 # spawner, and inithome dependencies.
 PIP_DEPENDENCIES = [
-    ("--upgrade", "uv"),
     (
         "-r",
         "./controller/requirements/main.txt",
@@ -47,21 +38,16 @@ PIP_DEPENDENCIES = [
         "-r",
         "./inithome/requirements/dev.txt",
     ),
-    (
-        "-e",
-        "./authenticator[dev]",
-        "-e",
-        "./controller",
-        "-e",
-        "./inithome",
-        "-e",
-        "./spawner[dev]",
-    ),
+    ("-e", "./authenticator[dev]"),
+    ("-e", "./controller"),
+    ("-e", "./inithome"),
+    ("-e", "./spawner[dev]"),
 ]
 
 
 def _install(session: nox.Session) -> None:
     """Install the application and all dependencies into the session."""
+    session.install("--upgrade", "uv")
     for deps in PIP_DEPENDENCIES:
         session.install(*deps)
 
@@ -72,11 +58,18 @@ def _install_dev(session: nox.Session, bin_prefix: str = "") -> None:
     precommit = f"{bin_prefix}pre-commit"
 
     # Install dev dependencies
+    session.run(
+        python,
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "nox[uv]",
+        "pre-commit",
+        external=True,
+    )
     for deps in PIP_DEPENDENCIES:
         session.run(python, "-m", "uv", "pip", "install", *deps, external=True)
-    session.run(
-        python, "-m", "pip", "install", "nox[uv]", "pre-commit", external=True
-    )
 
     # Install pre-commit hooks
     session.run(precommit, "install", external=True)
@@ -119,7 +112,7 @@ def _update_deps(
     hub_only: bool = False,
 ) -> None:
     session.install("--upgrade", "uv")
-    session.run("uv", "pip", "install", "pre-commit")
+    session.install("--upgrade", "pre-commit")
     session.run("pre-commit", "autoupdate")
     directories = ("hub",) if hub_only else ("controller", "hub", "inithome")
     for directory in directories:
@@ -156,7 +149,7 @@ def venv_init(session: nox.Session) -> None:
     )
 
 
-@nox.session(name="init", python=False)
+@nox.session(name="init", python=False, venv_backend="none")
 def init(session: nox.Session) -> None:
     """Set up the development environment in the current virtual env."""
     _install_dev(session, bin_prefix="")
@@ -172,7 +165,6 @@ def lint(session: nox.Session) -> None:
 @nox.session
 def typing(session: nox.Session) -> None:
     """Check controller type annotations with mypy."""
-    session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install(
         "-r",
         "./controller/requirements/main.txt",
@@ -192,14 +184,14 @@ def typing(session: nox.Session) -> None:
 @nox.session(name="typing-hub")
 def typing_hub(session: nox.Session) -> None:
     """Check hub plugin type annotations with mypy."""
-    session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install(
         "-r",
         "./hub/requirements/main.txt",
         "-r",
         "./hub/requirements/dev.txt",
     )
-    session.install("--no-deps", "-e", "./authenticator", "-e", "./spawner")
+    session.install("--no-deps", "-e", "./authenticator")
+    session.install("--no-deps", "-e", "./spawner")
     session.run(
         "mypy",
         *session.posargs,
@@ -223,7 +215,6 @@ def typing_hub(session: nox.Session) -> None:
 @nox.session(name="typing-inithome")
 def typing_inithome(session: nox.Session) -> None:
     """Check inithome type annotations with mypy."""
-    session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install(
         "-r",
         "./inithome/requirements/main.txt",
@@ -245,7 +236,6 @@ def typing_inithome(session: nox.Session) -> None:
 @nox.session
 def test(session: nox.Session) -> None:
     """Run tests of the Nublado controller."""
-    session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install(
         "-r",
         "./controller/requirements/main.txt",
@@ -253,27 +243,20 @@ def test(session: nox.Session) -> None:
         "./controller/requirements/dev.txt",
     )
     session.install("-e", "./controller")
-    with session.chdir("controller"):
-        session.run(
-            "pytest",
-            "--cov=controller",
-            "--cov-branch",
-            "--cov-report=",
-            *(a.removeprefix("controller/") for a in session.posargs),
-        )
+    _pytest(session, "controller", "controller")
 
 
 @nox.session(name="test-hub")
 def test_hub(session: nox.Session) -> None:
     """Run only tests affecting JupyterHub with its frozen dependencies."""
-    session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install(
         "-r",
         "./hub/requirements/main.txt",
         "-r",
         "./hub/requirements/dev.txt",
     )
-    session.install("--no-deps", "-e", "./authenticator", "-e", "./spawner")
+    session.install("--no-deps", "-e", "./authenticator")
+    session.install("--no-deps", "-e", "./spawner")
     _pytest(
         session, "authenticator", "rubin.nublado.authenticator", coverage=False
     )
@@ -283,7 +266,6 @@ def test_hub(session: nox.Session) -> None:
 @nox.session(name="test-inithome")
 def test_inithome(session: nox.Session) -> None:
     """Run only tests affecting inithome."""
-    session.install("--upgrade", "pip", "setuptools", "wheel")
     session.install(
         "-r",
         "./inithome/requirements/main.txt",
@@ -299,6 +281,12 @@ def docs(session: nox.Session) -> None:
     """Build the documentation."""
     _install(session)
     doctree_dir = (session.cache_dir / "doctrees").absolute()
+
+    # https://github.com/sphinx-contrib/redoc/issues/48
+    redoc_js_path = Path("docs/_build/html/_static/redoc.js")
+    if redoc_js_path.exists():
+        redoc_js_path.unlink()
+
     with session.chdir("docs"):
         session.run(
             "sphinx-build",
@@ -318,26 +306,11 @@ def docs(session: nox.Session) -> None:
 @nox.session(name="docs-clean")
 def docs_clean(session: nox.Session) -> None:
     """Build the documentation without any cache."""
-    _install(session)
-    doctree_dir = (session.cache_dir / "doctrees").absolute()
-    with session.chdir("docs"):
-        if Path("_build").exists():
-            shutil.rmtree("_build")
-        if (Path("dev") / "api" / "contents").exists():
-            shutil.rmtree("dev/api/contents")
-        session.run(
-            "sphinx-build",
-            "-W",
-            "--keep-going",
-            "-n",
-            "-T",
-            "-b",
-            "html",
-            "-d",
-            str(doctree_dir),
-            ".",
-            "./_build/html",
-        )
+    if Path("docs/_build").exists():
+        shutil.rmtree("docs/_build")
+    if Path("docs/dev/api/contents").exists():
+        shutil.rmtree("docs/dev/api/contents")
+    docs(session)
 
 
 @nox.session(name="docs-linkcheck")
@@ -345,6 +318,12 @@ def docs_linkcheck(session: nox.Session) -> None:
     """Check documentation links."""
     _install(session)
     doctree_dir = (session.cache_dir / "doctrees").absolute()
+
+    # https://github.com/sphinx-contrib/redoc/issues/48
+    redoc_js_path = Path("docs/_build/html/_static/redoc.js")
+    if redoc_js_path.exists():
+        redoc_js_path.unlink()
+
     with session.chdir("docs"):
         try:
             session.run(
