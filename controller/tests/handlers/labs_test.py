@@ -832,9 +832,7 @@ async def test_alternate_paths(
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    """Check that the command, config path, and runtime mount path can be
-    changed.
-    """
+    """Check changes to command, config, and runtime mount paths."""
     config = await configure("changed-path")
     lab = read_input_lab_specification_json("base", "lab-specification")
 
@@ -849,18 +847,18 @@ async def test_alternate_paths(
         f"{user.username}-nb",
         f"{config.lab.namespace_prefix}-{user.username}",
     )
-    ctr = pod.spec.containers[0]
-    assert ctr.args == ["/usr/local/share/jupyterlab/runlab"]
-    sec_mt = [x for x in ctr.volume_mounts if x.name == "secrets"][0]
-    assert sec_mt.mount_path == "/etc/nublado/secrets"
+    container = pod.spec.containers[0]
+    assert container.args == ["/usr/local/share/jupyterlab/runlab"]
+    secrets_mount = next(
+        x for x in container.volume_mounts if x.name == "secrets"
+    )
+    assert secrets_mount.mount_path == "/etc/nublado/secrets"
     config_map = await mock_kubernetes.read_namespaced_config_map(
         f"{user.username}-nb-env",
         f"{config.lab.namespace_prefix}-{user.username}",
     )
-    assert (
-        config_map.data["JUPYTERLAB_CONFIG_DIR"]
-        == "/usr/local/share/jupyterlab"
-    )
+    config_dir = config_map.data["JUPYTERLAB_CONFIG_DIR"]
+    assert config_dir == "/usr/local/share/jupyterlab"
 
 
 @pytest.mark.asyncio
