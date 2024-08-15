@@ -22,6 +22,7 @@ from pydantic import (
 from pydantic.alias_generators import to_camel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from safir.logging import LogLevel, Profile
+from safir.pydantic import HumanTimedelta
 
 from .constants import (
     KUBERNETES_NAME_PATTERN,
@@ -328,7 +329,7 @@ class EnabledFileserverConfig(FileserverConfig):
         ),
     )
 
-    creation_timeout: timedelta = Field(
+    creation_timeout: HumanTimedelta = Field(
         timedelta(minutes=2),
         title="File server creation timeout",
         description=(
@@ -337,7 +338,7 @@ class EnabledFileserverConfig(FileserverConfig):
         ),
     )
 
-    delete_timeout: timedelta = Field(
+    delete_timeout: HumanTimedelta = Field(
         timedelta(minutes=1),
         title="File server deletion timeout",
         description=(
@@ -355,7 +356,7 @@ class EnabledFileserverConfig(FileserverConfig):
         ),
     )
 
-    idle_timeout: timedelta = Field(
+    idle_timeout: HumanTimedelta = Field(
         timedelta(hours=1),
         title="File server inactivity timeout",
         description=(
@@ -656,7 +657,7 @@ class LabConfig(BaseModel):
         description="Node and pod affinity rules for lab pods",
     )
 
-    delete_timeout: timedelta = Field(
+    delete_timeout: HumanTimedelta = Field(
         timedelta(minutes=1),
         title="Timeout for lab deletion",
         description=(
@@ -827,7 +828,7 @@ class LabConfig(BaseModel):
         ),
     )
 
-    spawn_timeout: timedelta = Field(
+    spawn_timeout: HumanTimedelta = Field(
         timedelta(minutes=10),
         title="Timeout for lab spawning",
         description=(
