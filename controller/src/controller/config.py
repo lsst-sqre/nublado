@@ -982,6 +982,16 @@ class Config(BaseSettings):
         validation_alias="EXTERNAL_INSTANCE_URL",
     )
 
+    enable_user_domains: bool = Field(
+        False,
+        title="Enable user domains",
+        description=(
+            "If enabled, each user's lab and associated objects will be"
+            " made available at `https://<username>.nb.<rsp-host-port>`"
+            " rather than `https://<rsp-host-port>/nb/<username>`."
+        ),
+    )
+
     log_level: LogLevel = Field(
         LogLevel.INFO,
         title="Log level",
