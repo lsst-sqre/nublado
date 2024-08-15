@@ -22,7 +22,7 @@ kubernetes_asyncio
 pydantic>2
 pydantic-settings
 PyYAML
-safir[kubernetes]>=5.2.0
+safir[kubernetes]>=6.2.0
 semver
 sse-starlette
 
@@ -31,6 +31,5 @@ sse-starlette
 # safir[kubernetes] @ git+https://github.com/lsst-sqre/safir@main
 
 # This one seems to be a dependency on amd64 but not arm64, so developing on
-# Mac without it looks fine locally but does not work on Github Actions
+# Mac without it looks fine locally but does not work on Github Actions.
 greenlet
-
