@@ -54,6 +54,7 @@ class NodeStorage:
                 image_data[node.metadata.name] = [
                     KubernetesNodeImage.from_container_image(i)
                     for i in node.status.images
+                    if i.names
                 ]
             else:
                 image_data[node.metadata.name] = []
