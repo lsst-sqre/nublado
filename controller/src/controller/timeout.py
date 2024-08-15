@@ -138,6 +138,5 @@ class Timeout:
                 failed_at=now,
             )
         left = self._timeout - (now - self._start)
-        if left < timeout:
-            timeout = left
+        timeout = min(left, timeout)
         return type(self)(self._operation, timeout, self._user)

@@ -7,7 +7,7 @@ That route uses a separate path prefix and is defined in a different router in
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 

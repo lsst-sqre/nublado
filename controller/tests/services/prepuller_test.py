@@ -187,9 +187,7 @@ async def test_gar(
 
 @pytest.mark.asyncio
 async def test_cycle(
-    factory: Factory,
-    mock_docker: MockDockerRegistry,
-    mock_kubernetes: MockKubernetesApi,
+    mock_docker: MockDockerRegistry, mock_kubernetes: MockKubernetesApi
 ) -> None:
     config = await configure("cycle")
     mock_docker.tags = read_input_json("cycle", "docker-tags")
@@ -226,9 +224,7 @@ async def test_cycle(
 
 @pytest.mark.asyncio
 async def test_gar_cycle(
-    factory: Factory,
-    mock_gar: MockArtifactRegistry,
-    mock_kubernetes: MockKubernetesApi,
+    mock_gar: MockArtifactRegistry, mock_kubernetes: MockKubernetesApi
 ) -> None:
     config = await configure("gar-cycle")
     known_images = read_input_json("gar-cycle", "known-images")
