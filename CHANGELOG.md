@@ -6,6 +6,19 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-6.3.0'></a>
+## 6.3.0 (2024-08-15)
+
+### New features
+
+- All timeout configuration options now support the syntax parsed by Safir's `parse_timedelta` and therefore support human-friendly durations such as `6h` or `5m`.
+
+### Bug fixes
+
+- Fix crash of the controller during startup if a Kubernetes node reports a cached image with no names.
+- Fix bootstrapping of a development environment in an existing virtualenv. Previously, uv was not installed before nox attempted to use it.
+- Work around a bug in sphinxcontrib-redoc that prevented building the documentation twice without errors.
+
 <a id='changelog-6.2.0'></a>
 ## 6.2.0 (2024-06-13)
 
