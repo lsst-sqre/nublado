@@ -23,6 +23,9 @@ pytest-sugar
 respx
 types-pyyaml
 
+# Required on Linux x86 but not Mac
+greenlet
+
 # Documentation
 autodoc_pydantic
 documenteer[guide]>=1
