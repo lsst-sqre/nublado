@@ -49,8 +49,13 @@ from kubernetes_asyncio.client import (
 )
 from structlog.stdlib import BoundLogger
 
-from ...config import LabConfig, PVCVolumeSource, UserHomeDirectorySchema
-from ...constants import ARGO_CD_ANNOTATIONS
+from ...config import (
+    LabConfig,
+    PVCVolumeSource,
+    TmpSource,
+    UserHomeDirectorySchema,
+)
+from ...constants import ARGO_CD_ANNOTATIONS, MEMORY_TO_TMP_SIZE_RATIO
 from ...models.domain.gafaelfawr import GafaelfawrUserInfo, UserGroup
 from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
 from ...models.domain.rspimage import RSPImage
@@ -680,10 +685,14 @@ class LabBuilder:
         be tmpfs rather than ephemeral storage, and therefore usage will
         come from the pod memory allocation rather than disk space.
         """
+        medium: str | None = None
+        if self._config.tmp_source == TmpSource.MEMORY:
+            medium = "Memory"
         return MountedVolume(
             volume=V1Volume(
                 empty_dir=V1EmptyDirVolumeSource(
-                    medium="Memory", size_limit=int(mem_size / 4)
+                    medium=medium,
+                    size_limit=int(mem_size / MEMORY_TO_TMP_SIZE_RATIO),
                 ),
                 name="tmp",
             ),

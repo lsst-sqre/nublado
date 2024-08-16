@@ -15,6 +15,7 @@ __all__ = [
     "KUBERNETES_REQUEST_TIMEOUT",
     "LAB_RECONCILE_INTERVAL",
     "LIMIT_TO_REQUEST_RATIO",
+    "MEMORY_TO_TMP_SIZE_RATIO",
     "METADATA_PATH",
     "PREPULLER_POD_TIMEOUT",
     "RESERVED_ENV",
@@ -96,6 +97,14 @@ and which are used to determine autoscaling, are determined by dividing the
 limits by this factor. Another way of looking at this value is that it's the
 overcommit factor for labs, assuming many labs will not use their full
 available resources.
+"""
+
+MEMORY_TO_TMP_SIZE_RATIO = 4.0
+"""Ratio of maximum memory size to maximum size of :file:`/tmp` filesystem.
+
+If :file:`tmp` is set to come out of pod memory, this obviously must be set to
+a value greater than one.  If it comes out of disk it is ephemeral storage,
+which is also sharply limited by node-local attached disk.
 """
 
 METADATA_PATH = Path("/etc/podinfo")
