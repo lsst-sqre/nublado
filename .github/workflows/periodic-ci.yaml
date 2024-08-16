@@ -4,6 +4,17 @@
 
 name: Periodic CI
 
+env:
+  # Current supported Python version for the controller. For applications,
+  # there is generally no reason to support multiple Python versions, so all
+  # actions are run with this version. Quote the version to avoid
+  # interpretation as a floating point number.
+  #
+  # The JupyterHub plugins use a separate matrix of versions because they have
+  # to work with the version of Python that is included in the JupyterHub
+  # images.
+  PYTHON_VERSION: "3.12"
+
 "on":
   schedule:
     - cron: "0 12 * * 1"
@@ -14,22 +25,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    strategy:
-      matrix:
-        python:
-          - "3.12"
-
     steps:
       - uses: actions/checkout@v4
 
       - uses: lsst-sqre/run-nox@v1
         with:
           nox-sessions: "update-deps typing test"
-          python-version: ${{ matrix.python }}
+          python-version: ${{ env.PYTHON_VERSION }}
           use-cache: false
 
       - name: Report status
-        if: always()
+        if: failed()
         uses: ravsamhq/notify-slack-action@v2
         with:
           status: ${{ job.status }}
@@ -38,7 +44,7 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}
 
-  # The controller requires Python 3.11, but the modules we add to the Hub
+  # The controller requires Python 3.12, but the modules we add to the Hub
   # have to run with Python 3.10 since that's what the JupyterHub image uses.
   # Run a separate matrix to test those modules.
   test-hub:
@@ -63,11 +69,44 @@ jobs:
           use-cache: false
 
       - name: Report status
-        if: always()
+        if: failure()
         uses: ravsamhq/notify-slack-action@v2
         with:
           status: ${{ job.status }}
           notify_when: "failure"
           notification_title: "Periodic test for {repo} failed"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}
+
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update package lists
+        run: sudo apt-get update
+
+      - name: Install extra packages
+        run: sudo apt install -y graphviz
+
+      - uses: lsst-sqre/run-nox@v1
+        with:
+          cache-dependency: "controller/requirements/*.txt"
+          cache-key-prefix: docs
+          nox-sessions: "docs docs-linkcheck"
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Report status
+        if: failure()
+        uses: ravsamhq/notify-slack-action@v2
+        with:
+          status: ${{ job.status }}
+          notify_when: "failure"
+          notification_title: "Periodic link check for {repo} failed"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}
