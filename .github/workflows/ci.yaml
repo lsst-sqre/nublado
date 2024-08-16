@@ -1,5 +1,16 @@
 name: CI
 
+env:
+  # Current supported Python version for the controller. For applications,
+  # there is generally no reason to support multiple Python versions, so all
+  # actions are run with this version. Quote the version to avoid
+  # interpretation as a floating point number.
+  #
+  # The JupyterHub plugins use a separate matrix of versions because they have
+  # to work with the version of Python that is included in the JupyterHub
+  # images.
+  PYTHON_VERSION: "3.12"
+
 "on":
   merge_group: {}
   pull_request: {}
@@ -20,7 +31,7 @@ name: CI
 jobs:
   lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v4
@@ -28,19 +39,14 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    strategy:
-      matrix:
-        python:
-          - "3.12"
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -50,9 +56,9 @@ jobs:
           cache-dependency: "controller/requirements/*.txt"
           cache-key-prefix: test
           nox-sessions: "typing typing-inithome test test-inithome"
-          python-version: ${{ matrix.python }}
+          python-version: ${{ env.PYTHON_VERSION }}
 
-  # The controller requires Python 3.11, but the modules we add to the Hub
+  # The controller requires Python 3.12, but the modules we add to the Hub
   # have to run with Python 3.10 since that's what the JupyterHub image uses.
   # Run a separate matrix to test those modules.
   test-hub:
@@ -105,11 +111,7 @@ jobs:
           cache-dependency: "controller/requirements/*.txt"
           cache-key-prefix: docs
           nox-sessions: docs
-          python-version: "3.12"
-
-      # Manually install setuptools, which is required for Python 3.12.
-      - name: Install setuptools
-        run: pip install setuptools
+          python-version: ${{ env.PYTHON_VERSION }}
 
       # Upload docs:
       # - on any push to main
@@ -123,7 +125,29 @@ jobs:
           password: ${{ secrets.LTD_PASSWORD }}
         if: >
           (github.event_name == 'push' && github.ref_name == 'main')
-          || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'tickets/') && steps.filter.outputs.docs == 'true')
+          || (github.event_name == 'pull_request'
+              && startsWith(github.head_ref, 'tickets/')
+              && steps.filter.outputs.docs == 'true')
+
+  linkcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update package lists
+        run: sudo apt-get update
+
+      - name: Install extra packages
+        run: sudo apt install -y graphviz
+
+      - uses: lsst-sqre/run-nox@v1
+        with:
+          cache-dependency: "controller/requirements/*.txt"
+          cache-key-prefix: docs
+          nox-sessions: docs-linkcheck
+          python-version: ${{ env.PYTHON_VERSION }}
 
   build:
     runs-on: ubuntu-latest
