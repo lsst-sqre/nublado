@@ -645,7 +645,10 @@
           "name": "env"
         },
         {
-          "emptyDir": {},
+          "emptyDir": {
+	    "medium": "Memory",
+	    "sizeLimit": 805306368
+	  },
           "name": "tmp"
         },
         {
