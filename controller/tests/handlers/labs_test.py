@@ -827,6 +827,37 @@ async def test_homedir_schema(
 
 
 @pytest.mark.asyncio
+async def test_tmp_on_disk(
+    client: AsyncClient,
+    user: GafaelfawrUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    """Check that /tmp is constructed correctly if set to use disk rather
+    than memory.
+    """
+    config = await configure("tmp-disk")
+    lab = read_input_lab_specification_json("base", "lab-specification")
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 201
+    await asyncio.sleep(0)
+
+    pod = await mock_kubernetes.read_namespaced_pod(
+        f"{user.username}-nb",
+        f"{config.lab.namespace_prefix}-{user.username}",
+    )
+    for vol in pod.spec.volumes:
+        if vol.empty_dir is None:
+            continue
+        assert vol.empty_dir.medium is None
+        return
+
+
+@pytest.mark.asyncio
 async def test_alternate_paths(
     client: AsyncClient,
     user: GafaelfawrUser,

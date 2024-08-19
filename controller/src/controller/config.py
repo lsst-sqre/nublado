@@ -61,6 +61,7 @@ __all__ = [
     "NFSVolumeSource",
     "PVCVolumeResources",
     "PVCVolumeSource",
+    "TmpSource",
     "UserHomeDirectorySchema",
     "VolumeConfig",
     "VolumeMountConfig",
@@ -523,6 +524,18 @@ class UserHomeDirectorySchema(Enum):
     """Paths like ``/home/r/rachel``."""
 
 
+class TmpSource(Enum):
+    """Whether :file:`/tmp` should come from disk (and thus ephemeralStorage)
+    or memory-as-tmpfs (and thus pod memory).
+    """
+
+    DISK = "disk"
+    """Use ephemeralStorage and node-local disk for :file:`/tmp`"""
+
+    MEMORY = "memory"
+    """Use tmpfs and pod memory for :file:`/tmp`"""
+
+
 class LabInitContainer(BaseModel):
     """A container to run as an init container before the user's lab."""
 
@@ -839,6 +852,16 @@ class LabConfig(BaseModel):
             " than the spawn timeout set in JupyterHub."
         ),
         examples=[300],
+    )
+
+    tmp_source: TmpSource = Field(
+        TmpSource.MEMORY,
+        title="Source (memory or disk) for lab :file:`/tmp`",
+        description=(
+            "Use this to select whether the pod's :file:`/tmp` will come from"
+            " memory or node-local disk.  Both are scarce resources, and"
+            " the appropriate choice is environment-dependent."
+        ),
     )
 
     tolerations: list[Toleration] = Field(

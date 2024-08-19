@@ -49,8 +49,13 @@ from kubernetes_asyncio.client import (
 )
 from structlog.stdlib import BoundLogger
 
-from ...config import LabConfig, PVCVolumeSource, UserHomeDirectorySchema
-from ...constants import ARGO_CD_ANNOTATIONS
+from ...config import (
+    LabConfig,
+    PVCVolumeSource,
+    TmpSource,
+    UserHomeDirectorySchema,
+)
+from ...constants import ARGO_CD_ANNOTATIONS, MEMORY_TO_TMP_SIZE_RATIO
 from ...models.domain.gafaelfawr import GafaelfawrUserInfo, UserGroup
 from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
 from ...models.domain.rspimage import RSPImage
@@ -512,13 +517,16 @@ class LabBuilder:
         metadata = self._build_metadata(f"{user.username}-nb", user.username)
         metadata.annotations.update(self._build_pod_annotations(user))
 
+        size = self._config.get_size_definition(lab.options.size)
+        resources = size.to_lab_resources()
+
         # Gather the volume and volume mount definitions.
         mounted_volumes = [
             *self._build_pod_nss_volumes(user.username),
             *self._build_pod_file_volumes(user.username),
             self._build_pod_secret_volume(user.username),
             self._build_pod_env_volume(user.username),
-            self._build_pod_tmp_volume(),
+            self._build_pod_tmp_volume(mem_size=resources.limits.memory),
             self._build_pod_downward_api_volume(user.username),
         ]
         volumes = self._build_pod_volumes(user.username, mounted_volumes)
@@ -670,10 +678,24 @@ class LabBuilder:
             ),
         )
 
-    def _build_pod_tmp_volume(self) -> MountedVolume:
-        """Build the volume that provides a writable tmpfs :file:`/tmp`."""
+    def _build_pod_tmp_volume(self, mem_size: int) -> MountedVolume:
+        """Build the volume that provides a writable tmpfs :file:`/tmp`.
+
+        Note that it is the `Memory` medium setting that forces this to
+        be tmpfs rather than ephemeral storage, and therefore usage will
+        come from the pod memory allocation rather than disk space.
+        """
+        medium = None
+        if self._config.tmp_source == TmpSource.MEMORY:
+            medium = "Memory"
         return MountedVolume(
-            volume=V1Volume(empty_dir=V1EmptyDirVolumeSource(), name="tmp"),
+            volume=V1Volume(
+                empty_dir=V1EmptyDirVolumeSource(
+                    medium=medium,
+                    size_limit=int(mem_size / MEMORY_TO_TMP_SIZE_RATIO),
+                ),
+                name="tmp",
+            ),
             volume_mount=V1VolumeMount(
                 mount_path="/tmp", name="tmp", read_only=False
             ),
