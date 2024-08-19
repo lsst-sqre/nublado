@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-7.0.0'></a>
+## 7.0.0 (2024-08-19)
+
+### Backwards-incompatible changes
+
+- Pod `/tmp` now has a size cap and is selectable between memory and disk.
+
 <a id='changelog-6.3.0'></a>
 ## 6.3.0 (2024-08-15)
 
