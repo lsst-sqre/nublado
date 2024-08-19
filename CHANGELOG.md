@@ -11,7 +11,7 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 ### Backwards-incompatible changes
 
-- Pod `/tmp` now has a size cap and is selectable between memory and disk.
+- The `/tmp` directory in a lab pod now defaults to a tmpfs file system capped at 25% of the pod memory. Add a new configuration option to select between this default and the previous default of uncapped node-local storage.
 
 <a id='changelog-6.3.0'></a>
 ## 6.3.0 (2024-08-15)
