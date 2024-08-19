@@ -685,7 +685,7 @@ class LabBuilder:
         be tmpfs rather than ephemeral storage, and therefore usage will
         come from the pod memory allocation rather than disk space.
         """
-        medium: str | None = None
+        medium = None
         if self._config.tmp_source == TmpSource.MEMORY:
             medium = "Memory"
         return MountedVolume(
