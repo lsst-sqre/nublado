@@ -35,7 +35,7 @@ jobs:
           use-cache: false
 
       - name: Report status
-        if: failed()
+        if: failure()
         uses: ravsamhq/notify-slack-action@v2
         with:
           status: ${{ job.status }}
