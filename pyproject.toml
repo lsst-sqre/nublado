@@ -81,6 +81,7 @@ extend = "ruff-shared.toml"
 known-first-party = [
     "controller",
     "rubin.nublado.authenticator",
+    "rubin.nublado.client",
     "rubin.nublado.inithome",
     "rubin.nublado.spawner",
     "tests",
