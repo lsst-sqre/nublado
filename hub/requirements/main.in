@@ -24,16 +24,3 @@ psycopg2
 # Zero-to-JupyterHub unconditionally imports this, so we have to have it
 # installed even though we're using a different spawner class.
 kubernetes_asyncio
-
-# These dependencies aren't required in Python 3.11 or later but are required
-# in 3.10. Pin them so that we can regenerate dependencies with Python 3.11
-# and still successfully build a Docker image using Python 3.10, which the
-# base JupyterHub image currently uses.
-async-timeout
-exceptiongroup
-ruamel.yaml.clib
-
-# This one seems to be a dependency on amd64 but not arm64, so developing on
-# Mac without it looks fine locally but does not work on Github Actions
-greenlet
-

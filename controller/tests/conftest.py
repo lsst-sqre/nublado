@@ -65,9 +65,8 @@ async def app(
 @pytest_asyncio.fixture
 async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
     """Return an ``httpx.AsyncClient`` configured to talk to the test app."""
-    transport = ASGITransport(app=app)  # type: ignore[arg-type]
     async with AsyncClient(
-        transport=transport, base_url=TEST_BASE_URL
+        transport=ASGITransport(app=app), base_url=TEST_BASE_URL
     ) as client:
         yield client
 

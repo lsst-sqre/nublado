@@ -116,9 +116,14 @@ def _update_deps(
     session.run("pre-commit", "autoupdate")
     directories = ("hub",) if hub_only else ("controller", "hub", "inithome")
     for directory in directories:
-        command = ["uv", "pip", "compile", "--upgrade"]
+        command = ["uv", "pip", "compile", "--upgrade", "--universal"]
         if generate_hashes:
             command.append("--generate-hashes")
+
+        # JupyterHub uses an old Python version.
+        if directory == "hub":
+            command.extend(("-p", "3.10"))
+
         session.run(
             *command,
             "--output-file",
