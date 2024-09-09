@@ -165,7 +165,7 @@ class JupyterLabSession:
         Base URL for talking to JupyterHub or the lab (via the proxy).
     kernel_name
         Name of the kernel to use for the session.
-    nobebook_name
+    notebook_name
         Name of the notebook we will be running, which is passed to the
         session and might influence logging on the lab side. If set, the
         session type will be set to ``notebook``. If not set, the session type
@@ -201,6 +201,7 @@ class JupyterLabSession:
         base_url: str,
         kernel_name: str = "LSST",
         notebook_name: str | None = None,
+        hub_route: str = "/nb",
         max_websocket_size: int | None,
         http_client: AsyncClient,
         xsrf: str | None,
@@ -210,6 +211,7 @@ class JupyterLabSession:
         self._base_url = base_url
         self._kernel_name = kernel_name
         self._notebook_name = notebook_name
+        self._hub_route = hub_route
         self._max_websocket_size = max_websocket_size
         self._client = http_client
         self._xsrf = xsrf
@@ -607,10 +609,11 @@ class JupyterLabSession:
         str
             Full URL to use.
         """
-        if self._base_url.endswith("/"):
-            return f"{self._base_url}{partial}"
+        hub_base = urljoin(self._base_url, self._hub_route)
+        if hub_base.endswith("/"):
+            return f"{hub_base}{partial}"
         else:
-            return f"{self._base_url}/{partial}"
+            return f"{hub_base}/{partial}"
 
     def _url_for_websocket(self, url: str) -> str:
         """Convert a URL to a WebSocket URL.
