@@ -58,6 +58,7 @@ exclude_lines = [
 ]
 
 [tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "strict"
 filterwarnings = [
     # Google modules and a Sphinx module call a deprecated pkg_resources API.
