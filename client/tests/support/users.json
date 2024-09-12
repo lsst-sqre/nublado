@@ -1,0 +1,54 @@
+{
+  "token-of-affection": {
+    "username": "rachel",
+    "name": "Rachel (?)",
+    "uid": 1101,
+    "gid": 1101,
+    "groups": [
+      {"name": "rachel", "id": 1101},
+      {"name": "lunatics", "id": 2028},
+      {"name": "mechanics", "id": 2001},
+      {"name": "storytellers", "id": 2021},
+      {"name": "explorers"}
+    ],
+    "quota": {
+      "notebook": {
+        "cpu": 9.0,
+        "memory": 27
+      }
+    }
+  },
+  "token-of-authority": {
+    "username": "wrench",
+    "name": "Wrench",
+    "uid": 1102,
+    "gid": 1102,
+    "groups": [
+      {"name": "wrench", "id": 1102},
+      {"name": "jovians", "id": 2010},
+      {"name": "mechanics", "id": 2001}
+    ]
+  },
+  "token-of-mystery": {
+    "username": "violet",
+    "name": "Violet",
+    "uid": 1103,
+    "gid": 1103,
+    "groups": [
+      {"name": "violet", "id": 1103},
+      {"name": "saturnians", "id": 2011},
+      {"name": "pirates", "id": 2002}
+    ]
+  },
+  "token-of-stories": {
+    "username": "ribbon",
+    "name": "Ribbon",
+    "uid": 1104,
+    "gid": 1104,
+    "groups": [
+      {"name": "ribbon", "id": 1104},
+      {"name": "ferrymen", "id": 2023},
+      {"name": "ninjas", "id": 2003}
+    ]
+  }
+}
