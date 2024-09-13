@@ -10,13 +10,13 @@ import asyncio
 import json
 import os
 import re
-from base64 import urlsafe_b64decode
 from collections.abc import AsyncIterator
 from contextlib import redirect_stdout
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from io import StringIO
+from pathlib import Path
 from re import Pattern
 from traceback import format_exc
 from typing import Any
@@ -27,6 +27,8 @@ from uuid import uuid4
 import respx
 from httpx import Request, Response
 from safir.datetime import current_datetime
+
+from .gafaelfawr import MockGafaelfawr
 
 
 class JupyterAction(Enum):
@@ -85,7 +87,12 @@ class MockJupyter:
     session.
     """
 
-    def __init__(self, base_url: str = "https://data.example.org") -> None:
+    def __init__(
+        self,
+        mock_gafaelfawr: MockGafaelfawr,
+        base_url: str,
+        user_dir: Path,
+    ) -> None:
         self.sessions: dict[str, JupyterLabSession] = {}
         self.state: dict[str, JupyterState] = {}
         self.delete_immediate = True
@@ -99,14 +106,15 @@ class MockJupyter:
         self._hub_xsrf = os.urandom(8).hex()
         self._lab_xsrf = os.urandom(8).hex()
         self._base_url = base_url
+        self._user_dir = user_dir
+        self._mock_gafaelfawr = mock_gafaelfawr
 
-    @staticmethod
-    def get_user(authorization: str) -> str:
+    def get_user(self, authorization: str) -> str:
         """Get the user from the Authorization header."""
         assert authorization.startswith("Bearer ")
         token = authorization.split(" ", 1)[1]
-        user = urlsafe_b64decode(token[3:].split(".", 1)[0].encode())
-        return user.decode()
+        user = self._mock_gafaelfawr.get_user_for_token(token)
+        return user.username
 
     def fail(self, user: str, action: JupyterAction) -> None:
         """Configure the given action to fail for the given user."""
@@ -319,6 +327,80 @@ class MockJupyter:
         del self.sessions[user]
         return Response(204, request=request)
 
+    def get_content(self, request: Request) -> Response:
+        """Simulate the /api/contents retrieval endpoint.
+
+        Notes
+        -----
+        This is only a small part of the actual functionality of the contents
+        API: it is used only to retrieve the contents of a single notebook
+        file.
+
+        The actual API uses PUT to upload files, and can retrieve a directory
+        listing as well as individual files, using different encodings for
+        various file types.
+
+        This is only enough to provide for the NubladoClient's run_notebook
+        functionality.  We don't even use a real timestamp.
+        """
+        user = self.get_user(request.headers["Authorization"])
+        assert str(request.url).endswith(".ipynb")
+        state = self.state.get(user, JupyterState.LOGGED_OUT)
+        assert state == JupyterState.LAB_RUNNING
+        contents_url = _url(self._base_url, f"user/{user}/api/contents/")
+        assert str(request.url).startswith(contents_url)
+        path = str(request.url)[len(contents_url) :]
+        try:
+            filename = self._user_dir / path
+            content = json.loads(filename.read_text())
+            fn = filename.name
+            tstamp = "2024-09-12T17:55:05.077220Z"
+            resp_obj = {
+                "name": fn,
+                "path": path,
+                "created": tstamp,
+                "last_modified": tstamp,
+                "content": content,
+                "format": "json",
+                "size": len(content),
+                "type": "notebook",
+            }
+            return Response(200, json=resp_obj, request=request)
+        except FileNotFoundError:
+            return Response(
+                404,
+                content=f"file or directory '{path}' does not exist".encode(),
+            )
+
+    def exec_notebook(self, request: Request) -> Response:
+        """Simulate the /rubin/execution endpoint.
+
+        Notes
+        -----
+        This does not use the nbconvert/nbformat method of the actual
+        endpoint, because installing kernels into what are already-running
+        pythons in virtual evironments in the testing environment is nasty.
+
+        We're just going to return the input notebook as if it ran.  It's not
+        a very good simulation.  But since the whole point of this is to
+        run a notebook in a particular kernel context, and for us that usually
+        means the "LSST" kernel with the DM Pipelines Stack in it, that
+        would be incredibly awful to use in a unit test context.  If you
+        want to know if your notebook will really work, you're going to have
+        to run it in the correct kernel, and the client unit tests are not
+        the place for that.
+        """
+        inp = request.content.decode("utf-8")
+        try:
+            obj = json.loads(inp)
+            nb_str = json.dumps(obj["notebook"])
+            resources = obj["resources"]
+        except Exception:
+            nb_str = inp
+            resources = None
+        obj = {"notebook": nb_str, "resources": resources or {}, "error": None}
+        return Response(200, json=obj)
+
 
 class MockJupyterWebSocket:
     """Simulate the WebSocket connection to a Jupyter Lab.
@@ -352,8 +434,9 @@ class MockJupyterWebSocket:
         assert message == {
             "header": {
                 "username": self.user,
-                "version": "5.0",
+                "version": "5.4",
                 "session": self.session_id,
+                "date": ANY,
                 "msg_id": ANY,
                 "msg_type": "execute_request",
             },
@@ -423,9 +506,16 @@ class MockJupyterWebSocket:
             return result
 
 
-def mock_jupyter(respx_mock: respx.Router, base_url: str) -> MockJupyter:
+def mock_jupyter(
+    respx_mock: respx.Router,
+    base_url: str,
+    mock_gafaelfawr: MockGafaelfawr,
+    user_dir: Path,
+) -> MockJupyter:
     """Set up a mock JupyterHub and lab."""
-    mock = MockJupyter(base_url=base_url)
+    mock = MockJupyter(
+        base_url=base_url, mock_gafaelfawr=mock_gafaelfawr, user_dir=user_dir
+    )
     respx_mock.get(_url(base_url, "hub/home")).mock(side_effect=mock.login)
     respx_mock.get(_url(base_url, "hub/spawn")).mock(
         return_value=Response(200)
@@ -449,6 +539,10 @@ def mock_jupyter(respx_mock: respx.Router, base_url: str) -> MockJupyter:
     respx_mock.post(url__regex=regex).mock(side_effect=mock.create_session)
     regex = _url_regex(base_url, "user/[^/]+/api/sessions/[^/]+$")
     respx_mock.delete(url__regex=regex).mock(side_effect=mock.delete_session)
+    regex = _url_regex(base_url, "user/[^/]+/api/contents/[^/]+$")
+    respx_mock.get(url__regex=regex).mock(side_effect=mock.get_content)
+    regex = _url_regex(base_url, "user/[^/]+/rubin/execution")
+    respx_mock.post(url__regex=regex).mock(side_effect=mock.exec_notebook)
     return mock
 
 

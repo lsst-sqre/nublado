@@ -116,6 +116,9 @@ select = ["ALL"]
 "client/src/rubin/nublado/client/testing/**" = [
     "S101",    # test support functions are allowed to use assert
 ]
+"client/tests/support/hello.ipynb" = [
+    "T201",    # test support notebooks are allowed to print
+]
 
 # These are too useful as attributes or methods to allow the conflict with the
 # built-in to rule out their use.

@@ -248,6 +248,16 @@ class MockGafaelfawr:
             scopes=["exec:notebook", "exec:portal", "read:tap"],
         )
 
+    def get_user_for_token(self, token: str) -> GafaelfawrUser:
+        """Get user when presented with token."""
+        try:
+            g_info = self._tokens[token]
+            return GafaelfawrUser(token=token, **g_info.model_dump())
+        except KeyError as exc:
+            raise RuntimeError(
+                f"No user corresponding to token {token}"
+            ) from exc
+
 
 def register_mock_gafaelfawr(
     respx_mock: respx.Router,
