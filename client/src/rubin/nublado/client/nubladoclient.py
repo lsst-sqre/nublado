@@ -443,9 +443,9 @@ class JupyterLabSession:
         self._logger.debug(f"Getting content from {url}")
         resp = await self._client.get(url)
         sources = [
-            x["source"].strip()
+            "".join(x["source"]).strip()
             for x in resp.json()["content"]["cells"]
-            if x["cell_type"] == "code" and x["source"].strip()
+            if x["cell_type"] == "code" and "".join(x["source"]).strip()
         ]
         self._logger.debug(f"Content: {sources}")
         retlist: list[str] = []
@@ -1000,7 +1000,7 @@ class NubladoClient:
             # Sometimes we get only the initial request message and then the
             # progress API immediately closes the connection. If that happens,
             # try reconnecting to the progress stream after a short delay.  I
-            # beleive this was a bug in kubespawner, so once we've switched to
+            # believe this was a bug in kubespawner, so once we've switched to
             # the lab controller everywhere, we can probably drop this code.
             if message.progress > 0:
                 break

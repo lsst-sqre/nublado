@@ -4,6 +4,7 @@ import json
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 import pytest
@@ -12,8 +13,8 @@ import safir.logging
 import structlog
 from structlog.stdlib import BoundLogger
 
+from rubin.nublado.client import NubladoClient
 from rubin.nublado.client.models.user import AuthenticatedUser
-from rubin.nublado.client.nubladoclient import NubladoClient
 from rubin.nublado.client.testing.gafaelfawr import (
     GafaelfawrUser,
     GafaelfawrUserInfo,
@@ -31,6 +32,16 @@ from rubin.nublado.client.testing.jupyter import (
 @pytest.fixture
 def environment_url() -> str:
     return "https://data.example.org"
+
+
+@pytest.fixture
+def test_filesystem() -> Iterator[Path]:
+    with TemporaryDirectory() as td:
+        nb = Path(__file__).parent / "support" / "hello.ipynb"
+        contents = nb.read_text()
+        o_nb = Path(td) / "hello.ipynb"
+        o_nb.write_text(contents)
+        yield Path(td)
 
 
 @pytest.fixture
@@ -82,10 +93,18 @@ def test_user(
 
 @pytest.fixture
 def jupyter(
-    respx_mock: respx.Router, environment_url: str
+    respx_mock: respx.Router,
+    environment_url: str,
+    mock_gafaelfawr: MockGafaelfawr,
+    test_filesystem: Path,
 ) -> Iterator[MockJupyter]:
     """Mock out JupyterHub and Jupyter labs."""
-    jupyter_mock = mock_jupyter(respx_mock, base_url=environment_url)
+    jupyter_mock = mock_jupyter(
+        respx_mock,
+        mock_gafaelfawr=mock_gafaelfawr,
+        base_url=environment_url,
+        user_dir=test_filesystem,
+    )
 
     # respx has no mechanism to mock aconnect_ws, so we have to do it
     # ourselves.
@@ -98,7 +117,7 @@ def jupyter(
     ) -> AsyncIterator[MockJupyterWebSocket]:
         yield mock_jupyter_websocket(url, extra_headers, jupyter_mock)
 
-    with patch("rubin.nublado.client.NubladoClient.websocket_connect") as mock:
+    with patch("rubin.nublado.client.nubladoclient.websocket_connect") as mock:
         mock.side_effect = mock_connect
         yield jupyter_mock
 
@@ -108,6 +127,8 @@ def configured_client(
     environment_url: str,
     configured_logger: BoundLogger,
     test_user: AuthenticatedUser,
+    test_filesystem: Path,
+    jupyter: MockJupyter,
 ) -> NubladoClient:
     return NubladoClient(
         user=test_user, logger=configured_logger, base_url=environment_url
