@@ -154,9 +154,9 @@ pyfakefs==5.6.0 \
     --hash=sha256:1a45bba8615323ec29d65929d32dc66d7b59a1e60a02109950440edb0486c539 \
     --hash=sha256:7a549b32865aa97d8ba6538285a93816941d9b7359be2954ac60ec36b277e879
     # via -r inithome/requirements/dev.in
-pytest==8.3.2 \
-    --hash=sha256:4ba08f9ae7dcf84ded419494d229b48d0903ea6407b030eaec46df5e6a73bba5 \
-    --hash=sha256:c132345d12ce551242c87269de812483f5bcc87cdbb4722e48487ba194f9fdce
+pytest==8.3.3 \
+    --hash=sha256:70b98107bd648308a7952b06e6ca9a50bc660be218d53c257cc1fc94fda10181 \
+    --hash=sha256:a6853c7375b2663155079443d2e45de913a911a11d669df02a50814944db57b2
     # via
     #   -r inithome/requirements/dev.in
     #   pytest-asyncio
