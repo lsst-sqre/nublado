@@ -1,9 +1,5 @@
 """A mock JupyterHub and lab for tests."""
 
-#
-# it is currently unknown why turning off S101 in pyproject.toml isn't working
-#
-
 from __future__ import annotations
 
 import asyncio
