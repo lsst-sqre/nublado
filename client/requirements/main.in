@@ -1,0 +1,25 @@
+# Editable runtime dependencies (equivalent to install_requires)
+# Add direct runtime dependencies here, as well as implicit dependencies
+# with constrained versions.
+#
+# After editing, update requirements/main.txt by running:
+#     make update-deps
+
+# Other dependencies.
+click!=8.1.4,!=8.1.5  # see https://github.com/pallets/click/issues/2558
+httpx
+httpx_sse
+pydantic>2
+pydantic-settings
+pyyaml
+safir
+shortuuid
+structlog
+websockets
+
+# Not a dependency on Mac, but is on Linux
+greenlet
+
+# Uncomment this, change the branch, comment out safir above, and run make
+# update-deps-no-hashes to test against an unreleased version of Safir.
+#safir @ git+https://github.com/lsst-sqre/safir@tickets/DM-38272

@@ -13,9 +13,11 @@ nox.options.sessions = [
     "typing",
     "typing-hub",
     "typing-inithome",
+    "typing-client",
     "test",
     "test-hub",
     "test-inithome",
+    "test-client",
     "docs",
     "docs-linkcheck",
 ]
@@ -30,6 +32,10 @@ nox.options.reuse_existing_virtualenvs = True
 PIP_DEPENDENCIES = [
     (
         "-r",
+        "./client/requirements/main.txt",
+        "-r",
+        "./client/requirements/dev.txt",
+        "-r",
         "./controller/requirements/main.txt",
         "-r",
         "./controller/requirements/dev.txt",
@@ -39,6 +45,7 @@ PIP_DEPENDENCIES = [
         "./inithome/requirements/dev.txt",
     ),
     ("-e", "./authenticator[dev]"),
+    ("-e", "./client"),
     ("-e", "./controller"),
     ("-e", "./inithome"),
     ("-e", "./spawner[dev]"),
@@ -114,10 +121,13 @@ def _update_deps(
     session.install("--upgrade", "uv")
     session.install("--upgrade", "pre-commit")
     session.run("pre-commit", "autoupdate")
-    directories = ("hub",) if hub_only else ("controller", "hub", "inithome")
+    directories = (
+        ("hub",) if hub_only else ("client", "controller", "hub", "inithome")
+    )
     for directory in directories:
         command = ["uv", "pip", "compile", "--upgrade", "--universal"]
-        if generate_hashes:
+        if generate_hashes and directory != "client":
+            # Client is a library, so we shouldn't strictly pin for it.
             command.append("--generate-hashes")
 
         # JupyterHub uses an old Python version.
@@ -184,6 +194,28 @@ def typing(session: nox.Session) -> None:
         "controller/src",
         "controller/tests",
     )
+
+
+@nox.session(name="typing-client")
+def typing_client(session: nox.Session) -> None:
+    """Check client type annotations with mypy."""
+    session.install(
+        "-r",
+        "./client/requirements/main.txt",
+        "-r",
+        "./client/requirements/dev.txt",
+    )
+    session.install("-e", "./client")
+    session.run(
+        "mypy",
+        *session.posargs,
+        "noxfile.py",
+        "client/tests",
+    )
+    # "client" is, alas, a too-generic name, and you get "imported twice"
+    # if you don't split it like this, because there's some builtin.  So
+    # let's do the package explicitly with -p.
+    session.run("mypy", *session.posargs, "-p", "rubin.nublado.client")
 
 
 @nox.session(name="typing-hub")
@@ -279,6 +311,19 @@ def test_inithome(session: nox.Session) -> None:
     )
     session.install("-e", "./inithome")
     _pytest(session, "inithome", "rubin.nublado.inithome", coverage=False)
+
+
+@nox.session(name="test-client")
+def test_client(session: nox.Session) -> None:
+    """Run only tests affecting client."""
+    session.install(
+        "-r",
+        "./client/requirements/main.txt",
+        "-r",
+        "./client/requirements/dev.txt",
+    )
+    session.install("-e", "./client")
+    _pytest(session, "client", "rubin.nublado.client", coverage=False)
 
 
 @nox.session
