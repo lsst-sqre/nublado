@@ -1,6 +1,6 @@
-# rsp-jupyter-client
+# rubin-nublado-client
 
-rsp-jupyter-client is an external client for JupyterHub/JupyterLab as
-part of the Rubin Science Platform (RSP).
+rubin-nublado-client is a client for JupyterHub/JupyterLab within the
+Rubin Science Platform (RSP).
 
 
