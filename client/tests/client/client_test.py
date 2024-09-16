@@ -18,6 +18,7 @@ from rubin.nublado.client.testing.jupyter import MockJupyter
 async def test_hub_flow(
     configured_client: NubladoClient, jupyter: MockJupyter
 ) -> None:
+    """Check that the Hub operations work as expected."""
     try:
         assert await configured_client.is_lab_stopped()
         raise RuntimeError("Pre-auth lab check should have raised Exception")

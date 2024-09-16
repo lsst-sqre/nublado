@@ -40,7 +40,7 @@ from .exceptions import (
 )
 from .models.extension import NotebookExecutionResult
 from .models.image import NubladoImage
-from .models.user import AuthenticatedUser
+from .models.user import User
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -634,11 +634,11 @@ class JupyterLabSession:
 def _convert_exception(
     f: Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]],
 ) -> Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]]:
-    """Convert web errors to a `~rsp_jupyter_client.JupyterWebError`.
+    """Convert web errors to a `~rubin.nublado.client.JupyterWebError`.
 
     This can only be used as a decorator on `JupyterClientSession` or another
     object that has a ``user`` property containing an
-    `~rsp_jupyter_client.models.user.AuthenticatedUser`.
+    `~rubin.nublado.client.models.user.User`.
     """
 
     @wraps(f)
@@ -657,11 +657,11 @@ def _convert_exception(
 def _convert_iterator_exception(
     f: Callable[Concatenate[NubladoClient, P], AsyncIterator[T]],
 ) -> Callable[Concatenate[NubladoClient, P], AsyncIterator[T]]:
-    """Convert web errors to a `~rsp_jupyter_client.JupyterWebError`.
+    """Convert web errors to a `~rubin.nublado.client.JupyterWebError`.
 
     This can only be used as a decorator on `JupyterClientSession` or another
     object that has a ``user`` property containing an
-    `~rsp_jupyter_client.models.user.AuthenticatedUser`.
+    `~rubin.nublado.client.models.user.User`.
     """
 
     @wraps(f)
@@ -708,7 +708,7 @@ class NubladoClient:
     def __init__(
         self,
         *,
-        user: AuthenticatedUser,
+        user: User,
         base_url: str,
         hub_route: str = "/nb",
         logger: BoundLogger | None = None,
@@ -989,7 +989,9 @@ class NubladoClient:
         client = self._client
         username = self.user.username
         url = self._url_for(f"hub/api/users/{username}/server/progress")
-        headers = {"Referer": self._url_for("hub/home")}
+        headers = {
+            "Referer": self._url_for("hub/home"),
+        }
         if self._hub_xsrf:
             headers["X-XSRFToken"] = self._hub_xsrf
         while True:

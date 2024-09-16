@@ -3,13 +3,13 @@
 from structlog.stdlib import BoundLogger
 
 from rubin.nublado.client import NubladoClient
-from rubin.nublado.client.models.user import AuthenticatedUser
+from rubin.nublado.client.models.user import User
 
 
 def test_client(
     environment_url: str,
     configured_logger: BoundLogger,
-    test_user: AuthenticatedUser,
+    test_user: User,
 ) -> None:
     cl = NubladoClient(
         user=test_user, logger=configured_logger, base_url=environment_url

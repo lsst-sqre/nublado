@@ -24,7 +24,7 @@ import respx
 from httpx import Request, Response
 from safir.datetime import current_datetime
 
-from .gafaelfawr import MockGafaelfawr
+from ..models.extension import NotebookExecutionResult
 
 
 class JupyterAction(Enum):
@@ -78,14 +78,19 @@ class MockJupyter:
     """A mock Jupyter state machine.
 
     This should be invoked via mocked HTTP calls so that tests can simulate
-    making REST calls to the real JupyterHub and lab. It simulates the process
+    making REST calls to the real JupyterHub and Lab. It simulates the process
     of spawning a lab, creating a session, and running code within that
     session.
+
+    It also has two result registration methods, ``register_python_result``
+    and ``register_extension_result``.  These allow you to mock responses
+    for specific Python inputs that would be executed in the running Lab, so
+    that you do not need to replicate the target environment in your
+    test suite.
     """
 
     def __init__(
         self,
-        mock_gafaelfawr: MockGafaelfawr,
         base_url: str,
         user_dir: Path,
     ) -> None:
@@ -103,14 +108,20 @@ class MockJupyter:
         self._lab_xsrf = os.urandom(8).hex()
         self._base_url = base_url
         self._user_dir = user_dir
-        self._mock_gafaelfawr = mock_gafaelfawr
+        self._code_results: dict[str, str] = {}
+        self._extension_results: dict[str, NotebookExecutionResult] = {}
 
-    def get_user(self, authorization: str) -> str:
-        """Get the user from the Authorization header."""
-        assert authorization.startswith("Bearer ")
-        token = authorization.split(" ", 1)[1]
-        user = self._mock_gafaelfawr.get_user_for_token(token)
-        return user.username
+    def register_python_result(self, code: str, result: str) -> None:
+        """Register the expected cell output for a given source input."""
+        self._code_results[code] = result
+
+    def register_extension_result(
+        self, code: str, result: NotebookExecutionResult
+    ) -> None:
+        """Register the expected notebook execution result for a given input
+        notebook text.
+        """
+        self._extension_results[code] = result
 
     def fail(self, user: str, action: JupyterAction) -> None:
         """Configure the given action to fail for the given user."""
@@ -119,7 +130,9 @@ class MockJupyter:
         self._fail[user][action] = True
 
     def login(self, request: Request) -> Response:
-        user = self.get_user(request.headers["Authorization"])
+        user = request.headers.get("X-Auth-Request-User", None)
+        if user is None:
+            return Response(403, request=request)
         if JupyterAction.LOGIN in self._fail.get(user, {}):
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
@@ -129,7 +142,9 @@ class MockJupyter:
         return Response(200, request=request, headers={"Set-Cookie": xsrf})
 
     def user(self, request: Request) -> Response:
-        user = self.get_user(request.headers["Authorization"])
+        user = request.headers.get("X-Auth-Request-User", None)
+        if user is None:
+            return Response(403, request=request)
         if JupyterAction.USER in self._fail.get(user, {}):
             return Response(500, request=request)
         assert str(request.url).endswith(f"/hub/api/users/{user}")
@@ -157,7 +172,9 @@ class MockJupyter:
             return Response(
                 303, headers={"Location": str(request.url)}, request=request
             )
-        user = self.get_user(request.headers["Authorization"])
+        user = request.headers.get("X-Auth-Request-User", None)
+        if user is None:
+            return Response(403, request=request)
         expected_suffix = f"/hub/api/users/{user}/server/progress"
         assert str(request.url).endswith(expected_suffix)
         assert request.headers.get("x-xsrftoken") == self._hub_xsrf
@@ -195,7 +212,9 @@ class MockJupyter:
         )
 
     def spawn(self, request: Request) -> Response:
-        user = self.get_user(request.headers["Authorization"])
+        user = request.headers.get("X-Auth-Request-User", None)
+        if user is None:
+            return Response(403, request=request)
         if JupyterAction.SPAWN in self._fail.get(user, {}):
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
@@ -209,7 +228,9 @@ class MockJupyter:
         return Response(302, headers={"Location": url}, request=request)
 
     def spawn_pending(self, request: Request) -> Response:
-        user = self.get_user(request.headers["Authorization"])
+        user = request.headers.get("X-Auth-Request-User", None)
+        if user is None:
+            return Response(403, request=request)
         assert str(request.url).endswith(f"/hub/spawn-pending/{user}")
         if JupyterAction.SPAWN_PENDING in self._fail.get(user, {}):
             return Response(500, request=request)
@@ -219,12 +240,16 @@ class MockJupyter:
         return Response(200, request=request)
 
     def missing_lab(self, request: Request) -> Response:
-        user = self.get_user(request.headers["Authorization"])
+        user = request.headers.get("X-Auth-Request-User", None)
+        if user is None:
+            return Response(403, request=request)
         assert str(request.url).endswith(f"/hub/user/{user}/lab")
         return Response(503, request=request)
 
     def lab(self, request: Request) -> Response:
-        user = self.get_user(request.headers["Authorization"])
+        user = request.headers.get("X-Auth-Request-User", None)
+        if user is None:
+            return Response(403, request=request)
         assert str(request.url).endswith(f"/user/{user}/lab")
         if JupyterAction.LAB in self._fail.get(user, {}):
             return Response(500, request=request)
@@ -265,12 +290,16 @@ class MockJupyter:
         that the ``_xsrf`` cookie is actually set, and then it returns
         a 200.
         """
-        user = self.get_user(request.headers["Authorization"])
+        user = request.headers.get("X-Auth-Request-User", None)
+        if user is None:
+            return Response(403, request=request)
         assert str(request.url).endswith(f"/user/{user}/oauth_callback")
         return Response(200, request=request)
 
     def delete_lab(self, request: Request) -> Response:
-        user = self.get_user(request.headers["Authorization"])
+        user = request.headers.get("X-Auth-Request-User", None)
+        if user is None:
+            return Response(403, request=request)
         assert str(request.url).endswith(f"/users/{user}/server")
         assert request.headers.get("x-xsrftoken") == self._hub_xsrf
         if JupyterAction.DELETE_LAB in self._fail.get(user, {}):
@@ -285,7 +314,9 @@ class MockJupyter:
         return Response(202, request=request)
 
     def create_session(self, request: Request) -> Response:
-        user = self.get_user(request.headers["Authorization"])
+        user = request.headers.get("X-Auth-Request-User", None)
+        if user is None:
+            return Response(403, request=request)
         assert str(request.url).endswith(f"/user/{user}/api/sessions")
         assert request.headers.get("x-xsrftoken") == self._lab_xsrf
         assert user not in self.sessions
@@ -311,7 +342,9 @@ class MockJupyter:
         )
 
     def delete_session(self, request: Request) -> Response:
-        user = self.get_user(request.headers["Authorization"])
+        user = request.headers.get("X-Auth-Request-User", None)
+        if user is None:
+            return Response(403, request=request)
         session_id = self.sessions[user].session_id
         expected_suffix = f"/user/{user}/api/sessions/{session_id}"
         assert str(request.url).endswith(expected_suffix)
@@ -339,7 +372,9 @@ class MockJupyter:
         This is only enough to provide for the NubladoClient's run_notebook
         functionality.  We don't even use a real timestamp.
         """
-        user = self.get_user(request.headers["Authorization"])
+        user = request.headers.get("X-Auth-Request-User", None)
+        if user is None:
+            return Response(403, request=request)
         assert str(request.url).endswith(".ipynb")
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         assert state == JupyterState.LAB_RUNNING
@@ -368,7 +403,7 @@ class MockJupyter:
                 content=f"file or directory '{path}' does not exist".encode(),
             )
 
-    def exec_notebook(self, request: Request) -> Response:
+    def run_notebook_via_extension(self, request: Request) -> Response:
         """Simulate the /rubin/execution endpoint.
 
         Notes
@@ -377,14 +412,26 @@ class MockJupyter:
         endpoint, because installing kernels into what are already-running
         pythons in virtual evironments in the testing environment is nasty.
 
-        We're just going to return the input notebook as if it ran.  It's not
-        a very good simulation.  But since the whole point of this is to
-        run a notebook in a particular kernel context, and for us that usually
-        means the "LSST" kernel with the DM Pipelines Stack in it, that
-        would be incredibly awful to use in a unit test context.  If you
-        want to know if your notebook will really work, you're going to have
-        to run it in the correct kernel, and the client unit tests are not
-        the place for that.
+        First, we will try using the input notebook text as a key into a cache
+        of registered responses (this is analogous to doing the same with
+        registered responses to python snippets in the Session mock): if
+        the key is present, then we will return the response that corresponds
+        to that key.
+
+        If not, we're just going to return the input notebook as if it ran
+        without errors, but without updating any of its outputs or resources,
+        or throwing an error.  This is not a a very good simulation.
+        But since the whole point of this is to run a notebook in a particular
+        kernel context, and for us that usually means the "LSST" kernel
+        with the DM Pipelines Stack in it, that would be incredibly awful
+        to use in a unit test context.  If you want to know if your
+        notebook will really work, you're going to have to run it in the
+        correct kernel, and the client unit tests are not the place for that.
+
+        Much more likely is that you have a test notebook that should
+        produce certain results in the wild.  In that case, you would
+        register those results, and then the correct output would be
+        delivered by the cache.
         """
         inp = request.content.decode("utf-8")
         try:
@@ -394,7 +441,15 @@ class MockJupyter:
         except Exception:
             nb_str = inp
             resources = None
-        obj = {"notebook": nb_str, "resources": resources or {}, "error": None}
+        if nb_str in self._extension_results:
+            res = self._extension_results[nb_str]
+            obj = res.dict()
+        else:
+            obj = {
+                "notebook": nb_str,
+                "resources": resources or {},
+                "error": None,
+            }
         return Response(200, json=obj)
 
 
@@ -409,18 +464,15 @@ class MockJupyterWebSocket:
     so is operating in the reverse direction.
     """
 
-    def __init__(self, user: str, session_id: str) -> None:
+    def __init__(
+        self, user: str, session_id: str, parent: MockJupyter
+    ) -> None:
         self.user = user
         self.session_id = session_id
         self._header: dict[str, str] | None = None
         self._code: str | None = None
+        self._parent: MockJupyter = parent
         self._state: dict[str, Any] = {}
-        self._code_responses: dict[str, dict[str, Any]] = {}
-
-    async def register_code_response(
-        self, code: str, response: dict[str, Any]
-    ) -> None:
-        self._code_responses[code] = response
 
     async def close(self) -> None:
         pass
@@ -458,10 +510,14 @@ class MockJupyterWebSocket:
             yield json.dumps(response)
 
     def _build_response(self) -> dict[str, Any]:
-        if self._code in self._code_responses:
+        if self._code in self._parent._code_results:
             code = self._code
             self._code = None
-            return self._code_responses[code]
+            return {
+                "msg_type": "stream",
+                "parent_header": self._header,
+                "content": {"text": self._parent._code_results[code]},
+            }
         elif self._code == "long_error_for_test()":
             error = ""
             line = "this is a single line of output to test trimming errors"
@@ -505,13 +561,10 @@ class MockJupyterWebSocket:
 def mock_jupyter(
     respx_mock: respx.Router,
     base_url: str,
-    mock_gafaelfawr: MockGafaelfawr,
     user_dir: Path,
 ) -> MockJupyter:
     """Set up a mock JupyterHub and lab."""
-    mock = MockJupyter(
-        base_url=base_url, mock_gafaelfawr=mock_gafaelfawr, user_dir=user_dir
-    )
+    mock = MockJupyter(base_url=base_url, user_dir=user_dir)
     respx_mock.get(_url(base_url, "hub/home")).mock(side_effect=mock.login)
     respx_mock.get(_url(base_url, "hub/spawn")).mock(
         return_value=Response(200)
@@ -538,7 +591,9 @@ def mock_jupyter(
     regex = _url_regex(base_url, "user/[^/]+/api/contents/[^/]+$")
     respx_mock.get(url__regex=regex).mock(side_effect=mock.get_content)
     regex = _url_regex(base_url, "user/[^/]+/rubin/execution")
-    respx_mock.post(url__regex=regex).mock(side_effect=mock.exec_notebook)
+    respx_mock.post(url__regex=regex).mock(
+        side_effect=mock.run_notebook_via_extension
+    )
     return mock
 
 
@@ -564,7 +619,6 @@ def mock_jupyter_websocket(
     match = re.search("/user/([^/]+)/api/kernels/([^/]+)/channels", url)
     assert match
     user = match.group(1)
-    assert user == jupyter.get_user(headers["authorization"])
     session = jupyter.sessions[user]
     assert match.group(2) == session.kernel_id
-    return MockJupyterWebSocket(user, session.session_id)
+    return MockJupyterWebSocket(user, session.session_id, parent=jupyter)
