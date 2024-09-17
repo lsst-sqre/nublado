@@ -41,6 +41,7 @@ from .exceptions import (
 from .models.extension import NotebookExecutionResult
 from .models.image import NubladoImage
 from .models.user import User
+from .util import extract_source_by_cell
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -424,17 +425,6 @@ class JupyterLabSession:
         -------
         list[str]
             Output from the kernel, one string per cell.
-
-        Raises
-        ------
-        JupyterCodeExecutionError
-            Raised if an error was reported by the Jupyter lab kernel.
-        JupyterWebSocketError
-            Raised if there was a WebSocket protocol error while running code
-            or waiting for the response.
-        RuntimeError
-            Raised if called before entering the context and thus before
-            creating the WebSocket session.
         """
         nb_url_path = str(notebook)
         url = self._url_for(
@@ -442,16 +432,17 @@ class JupyterLabSession:
         )
         self._logger.debug(f"Getting content from {url}")
         resp = await self._client.get(url)
-        sources = [
-            "".join(x["source"]).strip()
-            for x in resp.json()["content"]["cells"]
-            if x["cell_type"] == "code" and "".join(x["source"]).strip()
-        ]
+        notebook = resp.json()["content"]
+        sources = extract_source_by_cell(json.dumps(notebook))
         self._logger.debug(f"Content: {sources}")
         retlist: list[str] = []
         for cellsrc in sources:
-            output = await self.run_python(cellsrc)
-            retlist.append(output)
+            current = ""
+            for line in cellsrc:
+                output = await self.run_python(line)
+                if output:
+                    current += output
+            retlist.append(current)
         return retlist
 
     async def run_notebook_via_rsp_extension(

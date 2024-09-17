@@ -34,6 +34,11 @@ def test_filesystem() -> Iterator[Path]:
         contents = nb.read_text()
         o_nb = Path(td) / "hello.ipynb"
         o_nb.write_text(contents)
+        nb = Path(__file__).parent / "support" / "faux-input-nb"
+        contents = nb.read_text()
+        o_nb = Path(td) / "faux-input.ipynb"
+        o_nb.write_text(contents)
+
         yield Path(td)
 
 

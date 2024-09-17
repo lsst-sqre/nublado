@@ -25,6 +25,7 @@ from httpx import Request, Response
 from safir.datetime import current_datetime
 
 from ..models.extension import NotebookExecutionResult
+from ..util import normalize_source
 
 
 class JupyterAction(Enum):
@@ -121,7 +122,8 @@ class MockJupyter:
         """Register the expected notebook execution result for a given input
         notebook text.
         """
-        self._extension_results[code] = result
+        cache_key = normalize_source(code)
+        self._extension_results[cache_key] = result
 
     def fail(self, user: str, action: JupyterAction) -> None:
         """Configure the given action to fail for the given user."""
@@ -441,9 +443,10 @@ class MockJupyter:
         except Exception:
             nb_str = inp
             resources = None
-        if nb_str in self._extension_results:
-            res = self._extension_results[nb_str]
-            obj = res.dict()
+        normalized_nb_code = normalize_source(nb_str)
+        if normalized_nb_code in self._extension_results:
+            res = self._extension_results[normalized_nb_code]
+            obj = res.model_dump()
         else:
             obj = {
                 "notebook": nb_str,
