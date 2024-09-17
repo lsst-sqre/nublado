@@ -117,9 +117,6 @@ select = ["ALL"]
     "S101",    # test support functions are allowed to use assert
     "SLF001",  # test support functions are allowed to access private members
 ]
-"client/src/rubin/nublado/client/nubladoclient.py" = [
-    "SLF001",  # leave this alone for now for debugging, remove later
-]
 "client/tests/support/hello.ipynb" = [
     "T201",    # test support notebooks are allowed to print
 ]
