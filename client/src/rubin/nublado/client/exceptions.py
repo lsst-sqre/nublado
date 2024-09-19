@@ -79,12 +79,8 @@ class NubladoClientSlackException(SlackException):
     ----------
     started_at
         When the operation that ended in an exception started.
-    monkey
-        The running monkey in which the exception happened.
-    event
-        Name of the business event that provoked the exception.
     annotations
-        Additional annotations for the running business.
+        Additional annotations.
     """
 
     def __init__(
@@ -97,8 +93,6 @@ class NubladoClientSlackException(SlackException):
     ) -> None:
         super().__init__(msg, user, failed_at=failed_at)
         self.started_at = started_at
-        self.monkey: str | None = None
-        self.event: str | None = None
         self.annotations: dict[str, str] = {}
 
     def to_slack(self) -> SlackMessage:
@@ -161,12 +155,8 @@ class NubladoClientSlackException(SlackException):
             started_at = format_datetime_for_logging(self.started_at)
             field = SlackTextField(heading="Started at", text=started_at)
             fields.insert(0, field)
-        if self.monkey:
-            fields.append(SlackTextField(heading="Monkey", text=self.monkey))
         if self.user:
             fields.append(SlackTextField(heading="User", text=self.user))
-        if self.event:
-            fields.append(SlackTextField(heading="Event", text=self.event))
         if self.annotations.get("image"):
             image = self.annotations["image"]
             fields.append(SlackTextField(heading="Image", text=image))
@@ -391,7 +381,7 @@ class JupyterWebSocketError(NubladoClientSlackException):
         exc
             Underlying exception.
         user
-            User the monkey is running as.
+            User the code is running as.
 
         Returns
         -------

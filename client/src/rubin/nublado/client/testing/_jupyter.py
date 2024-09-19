@@ -24,8 +24,8 @@ import respx
 from httpx import Request, Response
 from safir.datetime import current_datetime
 
-from ..models.extension import NotebookExecutionResult
-from ..util import normalize_source
+from .._util import normalize_source
+from ..models import NotebookExecutionResult
 
 
 class JupyterAction(Enum):

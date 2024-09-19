@@ -3,7 +3,7 @@
 from structlog.stdlib import BoundLogger
 
 from rubin.nublado.client import NubladoClient
-from rubin.nublado.client.models.user import User
+from rubin.nublado.client.models import User
 
 
 def test_client(

@@ -7,13 +7,13 @@ from pathlib import Path
 import pytest
 
 from rubin.nublado.client import NubladoClient
-from rubin.nublado.client.models.extension import NotebookExecutionResult
-from rubin.nublado.client.models.image import (
+from rubin.nublado.client.models import (
+    NotebookExecutionResult,
     NubladoImageByClass,
     NubladoImageClass,
     NubladoImageSize,
 )
-from rubin.nublado.client.testing.jupyter import MockJupyter
+from rubin.nublado.client.testing import MockJupyter
 
 INPUT_NB = Path(__file__).parent.parent / "support" / "faux-input-nb"
 OUTPUT_NB = Path(__file__).parent.parent / "support" / "faux-output-nb"

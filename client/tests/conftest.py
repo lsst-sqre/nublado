@@ -13,8 +13,8 @@ import structlog
 from structlog.stdlib import BoundLogger
 
 from rubin.nublado.client import NubladoClient
-from rubin.nublado.client.models.user import User
-from rubin.nublado.client.testing.jupyter import (
+from rubin.nublado.client.models import User
+from rubin.nublado.client.testing import (
     MockJupyter,
     MockJupyterWebSocket,
     mock_jupyter,

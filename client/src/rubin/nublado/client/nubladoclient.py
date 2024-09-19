@@ -29,7 +29,8 @@ from websockets.client import WebSocketClientProtocol
 from websockets.client import connect as websocket_connect
 from websockets.exceptions import WebSocketException
 
-from .constants import WEBSOCKET_OPEN_TIMEOUT
+from ._constants import WEBSOCKET_OPEN_TIMEOUT
+from ._util import extract_source_by_cell
 from .exceptions import (
     CodeExecutionError,
     ExecutionAPIError,
@@ -38,10 +39,7 @@ from .exceptions import (
     JupyterWebError,
     JupyterWebSocketError,
 )
-from .models.extension import NotebookExecutionResult
-from .models.image import NubladoImage
-from .models.user import User
-from .util import extract_source_by_cell
+from .models import NotebookExecutionResult, NubladoImage, User
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -349,17 +347,19 @@ class JupyterLabSession:
 
         Raises
         ------
-        JupyterCodeExecutionError
+        CodeExecutionError
             Raised if an error was reported by the Jupyter lab kernel.
         JupyterWebSocketError
             Raised if there was a WebSocket protocol error while running code
             or waiting for the response.
-        RuntimeError
+        JupyterWebError
             Raised if called before entering the context and thus before
             creating the WebSocket session.
         """
         if not self._socket:
-            raise RuntimeError("JupyterLabSession not opened")
+            raise JupyterWebError(
+                "JupyterLabSession not opened", user=self._username
+            )
         message_id = uuid4().hex
         request = {
             "header": {
@@ -425,6 +425,17 @@ class JupyterLabSession:
         -------
         list[str]
             Output from the kernel, one string per cell.
+
+        Raises
+        ------
+        CodeExecutionError
+            Raised if an error was reported by the Jupyter lab kernel.
+        JupyterWebSocketError
+            Raised if there was a WebSocket protocol error while running code
+            or waiting for the response.
+        JupyterWebError
+            Raised if called before entering the context and thus before
+            creating the WebSocket session.
         """
         nb_url_path = str(notebook)
         url = self._url_for(
@@ -476,7 +487,7 @@ class JupyterLabSession:
             Raised if there is an error interacting with the JupyterLab
             Notebook execution extension.
 
-        RuntimeError
+        JupyterWebError
             Raised if neither notebook path nor notebook contents are supplied.
         """
         if path is not None:
@@ -491,7 +502,9 @@ class JupyterLabSession:
                 if "content" in ct:
                     content = json.dumps(ct["content"])
         if not content:
-            raise RuntimeError("No notebook content to execute")
+            raise JupyterWebError(
+                "No notebook content to execute", user=self._username
+            )
         exec_url = self._url_for(f"user/{self._username}/rubin/execution")
         try:
             # The timeout is designed to catch issues connecting to JupyterLab
@@ -513,7 +526,7 @@ class JupyterLabSession:
                 url=exec_url,
                 username=self._username,
                 status=500,
-                reason="/execution endpoint timeout",
+                reason="/rubin/execution endpoint timeout",
                 method="POST",
                 body=str(e),
             ) from e
@@ -554,6 +567,8 @@ class JupyterLabSession:
 
         Raises
         ------
+        CodeExecutionError
+            Raised if code execution fails.
         KeyError
             Raised if the WebSocket message wasn't in the expected format.
         """
