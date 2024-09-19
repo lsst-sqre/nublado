@@ -18,12 +18,34 @@ classifiers = [
     "Typing :: Typed",
 ]
 requires-python = ">=3.12"
-# Use requirements/main.in for runtime dependencies instead.
-dependencies = []
+dependencies = [
+  "httpx",
+  "httpx_sse",
+  "pydantic>2",
+  "pydantic-settings",
+  "pyyaml",
+  "safir",
+  "shortuuid",
+  "structlog",
+  "websockets",
+  "greenlet",  # Not a dependency on Mac, but is on Linux
+]
+
 dynamic = ["version"]
 
-[project.scripts]
-rsp_client = "rubin.nublado.client.cli:main"
+[project.optional-dependencies]
+dev = [
+  "coverage[toml]",
+  "mypy",
+  "pre-commit",
+  "pytest",
+  "pytest-asyncio",
+  "pytest-cov",
+  "pytest-mock",
+  "respx",
+  "ruff",
+  "types-PyYAML",
+]
 
 [project.urls]
 Source = "https://github.com/lsst-sqre/nublado"

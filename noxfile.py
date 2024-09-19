@@ -28,13 +28,9 @@ nox.options.reuse_existing_virtualenvs = True
 
 # pip-installable dependencies for development and documentation. This is not
 # used for pytest and typing, since it merges the controller, authenticator,
-# spawner, and inithome dependencies.
+# spawner, client, and inithome dependencies.
 PIP_DEPENDENCIES = [
     (
-        "-r",
-        "./client/requirements/main.txt",
-        "-r",
-        "./client/requirements/dev.txt",
         "-r",
         "./controller/requirements/main.txt",
         "-r",
@@ -45,7 +41,7 @@ PIP_DEPENDENCIES = [
         "./inithome/requirements/dev.txt",
     ),
     ("-e", "./authenticator[dev]"),
-    ("-e", "./client"),
+    ("-e", "./client[dev]"),
     ("-e", "./controller"),
     ("-e", "./inithome"),
     ("-e", "./spawner[dev]"),
@@ -121,13 +117,10 @@ def _update_deps(
     session.install("--upgrade", "uv")
     session.install("--upgrade", "pre-commit")
     session.run("pre-commit", "autoupdate")
-    directories = (
-        ("hub",) if hub_only else ("client", "controller", "hub", "inithome")
-    )
+    directories = ("hub",) if hub_only else ("controller", "hub", "inithome")
     for directory in directories:
         command = ["uv", "pip", "compile", "--upgrade", "--universal"]
-        if generate_hashes and directory != "client":
-            # Client is a library, so we shouldn't strictly pin for it.
+        if generate_hashes:
             command.append("--generate-hashes")
 
         # JupyterHub uses an old Python version.
@@ -200,12 +193,8 @@ def typing(session: nox.Session) -> None:
 def typing_client(session: nox.Session) -> None:
     """Check client type annotations with mypy."""
     session.install(
-        "-r",
-        "./client/requirements/main.txt",
-        "-r",
-        "./client/requirements/dev.txt",
+        "-e ./client[dev]",
     )
-    session.install("-e", "./client")
     session.run(
         "mypy",
         *session.posargs,
@@ -316,13 +305,7 @@ def test_inithome(session: nox.Session) -> None:
 @nox.session(name="test-client")
 def test_client(session: nox.Session) -> None:
     """Run only tests affecting client."""
-    session.install(
-        "-r",
-        "./client/requirements/main.txt",
-        "-r",
-        "./client/requirements/dev.txt",
-    )
-    session.install("-e", "./client")
+    session.install("-e", "./client[dev]")
     _pytest(session, "client", "rubin.nublado.client", coverage=False)
 
 
