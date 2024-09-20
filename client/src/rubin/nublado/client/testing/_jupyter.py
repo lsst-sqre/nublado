@@ -24,7 +24,7 @@ import respx
 from httpx import Request, Response
 from safir.datetime import current_datetime
 
-from .._util import normalize_source
+from .._util import normalize_source, notebook_to_api_form
 from ..models import NotebookExecutionResult
 
 
@@ -373,6 +373,10 @@ class MockJupyter:
 
         This is only enough to provide for the NubladoClient's run_notebook
         functionality.  We don't even use a real timestamp.
+
+        Irritatingly, the real Contents API represents the source of each
+        cell as a single string, while a notebook on disk represents it as
+        a list of strings, so we do need to simulate that.
         """
         user = request.headers.get("X-Auth-Request-User", None)
         if user is None:
@@ -385,7 +389,7 @@ class MockJupyter:
         path = str(request.url)[len(contents_url) :]
         try:
             filename = self._user_dir / path
-            content = json.loads(filename.read_text())
+            content = notebook_to_api_form(json.loads(filename.read_text()))
             fn = filename.name
             tstamp = "2024-09-12T17:55:05.077220Z"
             resp_obj = {

@@ -38,4 +38,9 @@ For the official Rubin images, see sciplat-lab_.
 .. toctree::
    :maxdepth: 2
 
+   client/index
+
+.. toctree::
+   :maxdepth: 2
+
    dev/index

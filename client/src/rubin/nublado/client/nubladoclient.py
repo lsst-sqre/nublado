@@ -30,7 +30,7 @@ from websockets.client import connect as websocket_connect
 from websockets.exceptions import WebSocketException
 
 from ._constants import WEBSOCKET_OPEN_TIMEOUT
-from ._util import extract_source_by_cell
+from ._util import source_list_by_cell
 from .exceptions import (
     CodeExecutionError,
     ExecutionAPIError,
@@ -444,7 +444,7 @@ class JupyterLabSession:
         self._logger.debug(f"Getting content from {url}")
         resp = await self._client.get(url)
         notebook = resp.json()["content"]
-        sources = extract_source_by_cell(json.dumps(notebook))
+        sources = source_list_by_cell(json.dumps(notebook))
         self._logger.debug(f"Content: {sources}")
         retlist: list[str] = []
         for cellsrc in sources:

@@ -18,7 +18,6 @@ The repository uses the vertical monorepo structure defined in :sqr:`075`.
    :maxdepth: 2
 
    development
-   client
    release
 
 .. toctree::
