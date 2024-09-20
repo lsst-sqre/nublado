@@ -18,7 +18,7 @@ The client can be installed from PyPI with:
 Using the Client
 ================
 
-The ``NubladoClient`` is designed to make interaction with JuptyerHub and Jupyterlab, as they are configured in the RSP environment, easy.
+The ``NubladoClient`` is designed to make interaction with JupyterHub and Jupyterlab, as they are configured in the RSP environment, easy.
 
 A particular instance of the client represents a single user in a particular RSP environment.
 A user, in this context, means a token (which will have a set of scopes allowing various actions within the RSP) bound to a username.
@@ -48,7 +48,7 @@ Interacting With The Lab
 
 ``NubladoClient`` provides three methods of interacting with a spawned lab.  These are methods on the ``JupyterLabSession`` object you will have available inside the session context manager.  They are:
 
-#. ``run_python()``.  This runs a string representing arbitrary Python code and returns streamed results (which is to say, ``stdout`` wihin each cell).  Of course, this code will run in the Lab environment specified by the session, which will be bound to a particuar kernel (usually ``LSST`` within the RSP), and will have access to whatever is installed in that kernel.
+#. ``run_python()``.  This runs a string representing arbitrary Python code and returns streamed results (which is to say, ``stdout``, within each cell).  Of course, this code will run in the Lab environment specified by the session, which will be bound to a particular kernel (usually ``LSST`` within the RSP), and will have access to whatever is installed in that kernel.
 #. ``run_notebook()``.  This runs each cell of a supplied notebook using ``run_python()``, accumulating the results and ultimately returning them as a list of cell outputs.
 #.  ``run_notebook_via_rsp_extension()``.   This executes a notebook via the ``/rubin/execution`` endpoint of the  `RSP Jupyter Extensions <https://github.com/lsst-sqre/rsp-jupyter-extensions>`__.  `Times Square <https://times-square.lsst.io>`__ and `Noteburst <https://noteburst.lsst.io>`__ use this method. The extensions run within the user lab, and the execution extension, in turn, uses `nbconvert <https://nbconvert.readthedocs.io/en/latest/>`__ to execute notebooks and return their rendered form.  If you need to execute a notebook and capture output that did not go to stdout (for instance, the Javascript created by a Bokeh call, that will ultimately run in your browser), this is at present the way to do it.
 
@@ -256,7 +256,7 @@ Mocks and Testing
 In the module ``rubin.nublado.client.testing`` you will find the ``MockJupyter`` class.
 This provides a simulation of the RSP Nublado Hub/Proxy/Controller environment, as well as a partial simulation of the Labs it spawns.
 The reason you would use this is to be able to meaningfully test your service without having to test against a live RSP or spin up your own RSP to test the service against.
-Although there are quite a few additional classes within the module, ``MockJupyter`` should be the only one you need directly, except to set up the test fixure.
+Although there are quite a few additional classes within the module, ``MockJupyter`` should be the only one you need directly, except to set up the test fixture.
 
 Creating the Jupyter Mock Test Fixture
 --------------------------------------

@@ -25,6 +25,7 @@ _ANSI_REGEX = re.compile(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]")
 
 __all__ = [
     "CodeExecutionError",
+    "ExecutionAPIError",
     "JupyterProtocolError",
     "JupyterTimeoutError",
     "JupyterWebError",

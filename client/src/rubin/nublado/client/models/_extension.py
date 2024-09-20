@@ -1,4 +1,4 @@
-"""Models for notebook execution via the ``/user/:username/rubin/execute``
+"""Models for notebook execution via the ``/user/:username/rubin/execution``
 extension endpoint.
 """
 
@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 
 class NotebookExecutionErrorModel(BaseModel):
-    """The error from the ``/user/:username/rubin/execute`` endpoint."""
+    """The error from the ``/user/:username/rubin/execution`` endpoint."""
 
     traceback: Annotated[str, Field(description="The exeception traceback.")]
 
@@ -20,7 +20,7 @@ class NotebookExecutionErrorModel(BaseModel):
 
 
 class NotebookExecutionResult(BaseModel):
-    """The result of the /user/:username/rubin/execute endpoint."""
+    """The result of the /user/:username/rubin/execution endpoint."""
 
     notebook: Annotated[
         str,
