@@ -438,13 +438,11 @@ class JupyterLabSession:
             creating the WebSocket session.
         """
         nb_url_path = str(notebook)
-        url = self._url_for(
-            f"user/{self._username}/api/contents/{nb_url_path}"
-        )
+        url = self._url_for(f"user/{self._username}/files/{nb_url_path}")
         self._logger.debug(f"Getting content from {url}")
         resp = await self._client.get(url)
-        notebook = resp.json()["content"]
-        sources = source_list_by_cell(json.dumps(notebook))
+        notebook_text = resp.text
+        sources = source_list_by_cell(notebook_text)
         self._logger.debug(f"Content: {sources}")
         retlist: list[str] = []
         for cellsrc in sources:
@@ -492,15 +490,11 @@ class JupyterLabSession:
         """
         if path is not None:
             str_path = str(path)
-            url = self._url_for(
-                f"user/{self._username}/api/contents/{str_path}"
-            )
+            url = self._url_for(f"user/{self._username}/files/{str_path}")
             self._logger.debug(f"Getting content from {url}")
             resp = await self._client.get(url)
             if resp.status_code == 200:
-                ct = json.loads(resp.text)
-                if "content" in ct:
-                    content = json.dumps(ct["content"])
+                content = resp.text
         if not content:
             raise JupyterWebError(
                 "No notebook content to execute", user=self._username

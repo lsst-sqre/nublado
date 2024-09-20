@@ -24,7 +24,7 @@ import respx
 from httpx import Request, Response
 from safir.datetime import current_datetime
 
-from .._util import normalize_source, notebook_to_api_form
+from .._util import normalize_source
 from ..models import NotebookExecutionResult
 
 
@@ -359,50 +359,19 @@ class MockJupyter:
         return Response(204, request=request)
 
     def get_content(self, request: Request) -> Response:
-        """Simulate the /api/contents retrieval endpoint.
-
-        Notes
-        -----
-        This is only a small part of the actual functionality of the contents
-        API: it is used only to retrieve the contents of a single notebook
-        file.
-
-        The actual API uses PUT to upload files, and can retrieve a directory
-        listing as well as individual files, using different encodings for
-        various file types.
-
-        This is only enough to provide for the NubladoClient's run_notebook
-        functionality.  We don't even use a real timestamp.
-
-        Irritatingly, the real Contents API represents the source of each
-        cell as a single string, while a notebook on disk represents it as
-        a list of strings, so we do need to simulate that.
-        """
+        """Simulate the /files retrieval endpoint."""
         user = request.headers.get("X-Auth-Request-User", None)
         if user is None:
             return Response(403, request=request)
-        assert str(request.url).endswith(".ipynb")
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         assert state == JupyterState.LAB_RUNNING
-        contents_url = _url(self._base_url, f"user/{user}/api/contents/")
+        contents_url = _url(self._base_url, f"user/{user}/files/")
         assert str(request.url).startswith(contents_url)
         path = str(request.url)[len(contents_url) :]
         try:
             filename = self._user_dir / path
-            content = notebook_to_api_form(json.loads(filename.read_text()))
-            fn = filename.name
-            tstamp = "2024-09-12T17:55:05.077220Z"
-            resp_obj = {
-                "name": fn,
-                "path": path,
-                "created": tstamp,
-                "last_modified": tstamp,
-                "content": content,
-                "format": "json",
-                "size": len(content),
-                "type": "notebook",
-            }
-            return Response(200, json=resp_obj, request=request)
+            content = filename.read_bytes()
+            return Response(200, content=content, request=request)
         except FileNotFoundError:
             return Response(
                 404,
@@ -595,7 +564,7 @@ def mock_jupyter(
     respx_mock.post(url__regex=regex).mock(side_effect=mock.create_session)
     regex = _url_regex(base_url, "user/[^/]+/api/sessions/[^/]+$")
     respx_mock.delete(url__regex=regex).mock(side_effect=mock.delete_session)
-    regex = _url_regex(base_url, "user/[^/]+/api/contents/[^/]+$")
+    regex = _url_regex(base_url, "user/[^/]+/files/[^/]+$")
     respx_mock.get(url__regex=regex).mock(side_effect=mock.get_content)
     regex = _url_regex(base_url, "user/[^/]+/rubin/execution")
     respx_mock.post(url__regex=regex).mock(

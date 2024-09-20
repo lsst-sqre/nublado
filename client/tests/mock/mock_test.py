@@ -67,10 +67,12 @@ async def test_register_python_with_notebook(
     """Register 'python' code with the mock and check its output."""
     obj = json.loads(INPUT_NB.read_text())
     sources = [
-        "".join(x["source"]).strip()
+        "\n".join(x["source"]).strip().rstrip("\n")
         for x in obj["cells"]
-        if x["cell_type"] == "code" and "".join(x["source"]).strip()
+        if x["cell_type"] == "code"
+        and "".join(x["source"]).strip().rstrip("\n")
     ]
+    sources[-1] = sources[-1].rstrip("\n")
     assert len(sources) == 1
 
     # Register our code with the mock.
