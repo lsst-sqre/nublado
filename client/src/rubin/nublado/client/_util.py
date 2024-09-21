@@ -1,18 +1,12 @@
 """Utility functions for Nublado client."""
 
 import json
-from enum import Enum
 
 __all__ = [
     "normalize_source",
     "source_string_by_cell",
     "source_list_by_cell",
 ]
-
-
-class NotebookForm(Enum):
-    DISK = "disk"
-    API = "api"
 
 
 def normalize_source(notebook: str) -> str:
