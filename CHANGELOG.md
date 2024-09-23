@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-7.1.1'></a>
+## 7.1.1 (2024-09-23)
+
+### Bug fixes
+
+- Updated Github ci.yaml to trigger PyPi push upon release.
+
 <a id='changelog-7.1.0'></a>
 ## 7.1.0 (2024-09-23)
 
