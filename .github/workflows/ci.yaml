@@ -30,6 +30,8 @@ env:
       - "u/**"
     tags:
       - "*"
+  release:
+    types: [published]
 
 jobs:
   lint:
