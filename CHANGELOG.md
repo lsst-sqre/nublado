@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-7.1.0'></a>
+## 7.1.0 (2024-09-23)
+
+### New features
+
+- A client for driving RSP JupyterHub and the Labs it spawns is now included.
+
 <a id='changelog-7.0.0'></a>
 ## 7.0.0 (2024-08-19)
 
