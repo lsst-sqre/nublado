@@ -6,6 +6,17 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-7.1.2'></a>
+## 7.1.2 (2024-09-23)
+
+### Bug fixes
+
+- Canonical project name becomes `rubin.nublado.client`
+
+### Other changes
+
+-
+
 <a id='changelog-7.1.1'></a>
 ## 7.1.1 (2024-09-23)
 

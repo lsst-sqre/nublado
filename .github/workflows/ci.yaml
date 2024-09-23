@@ -216,7 +216,7 @@ jobs:
     needs: [lint, test, docs]
     environment:
       name: pypi
-      url: https://pypi.org/p/rubin-nublado-client
+      url: https://pypi.org/p/rubin.nublado.client
     permissions:
       id-token: write
     if: github.event_name == 'release' && github.event.action == 'published'
