@@ -13,9 +13,11 @@ nox.options.sessions = [
     "typing",
     "typing-hub",
     "typing-inithome",
+    "typing-client",
     "test",
     "test-hub",
     "test-inithome",
+    "test-client",
     "docs",
     "docs-linkcheck",
 ]
@@ -26,7 +28,7 @@ nox.options.reuse_existing_virtualenvs = True
 
 # pip-installable dependencies for development and documentation. This is not
 # used for pytest and typing, since it merges the controller, authenticator,
-# spawner, and inithome dependencies.
+# spawner, client, and inithome dependencies.
 PIP_DEPENDENCIES = [
     (
         "-r",
@@ -39,6 +41,7 @@ PIP_DEPENDENCIES = [
         "./inithome/requirements/dev.txt",
     ),
     ("-e", "./authenticator[dev]"),
+    ("-e", "./client[dev]"),
     ("-e", "./controller"),
     ("-e", "./inithome"),
     ("-e", "./spawner[dev]"),
@@ -186,6 +189,24 @@ def typing(session: nox.Session) -> None:
     )
 
 
+@nox.session(name="typing-client")
+def typing_client(session: nox.Session) -> None:
+    """Check client type annotations with mypy."""
+    session.install(
+        "-e ./client[dev]",
+    )
+    session.run(
+        "mypy",
+        *session.posargs,
+        "noxfile.py",
+        "client/tests",
+    )
+    # "client" is, alas, a too-generic name, and you get "imported twice"
+    # if you don't split it like this, because there's some builtin.  So
+    # let's do the package explicitly with -p.
+    session.run("mypy", *session.posargs, "-p", "rubin.nublado.client")
+
+
 @nox.session(name="typing-hub")
 def typing_hub(session: nox.Session) -> None:
     """Check hub plugin type annotations with mypy."""
@@ -279,6 +300,13 @@ def test_inithome(session: nox.Session) -> None:
     )
     session.install("-e", "./inithome")
     _pytest(session, "inithome", "rubin.nublado.inithome", coverage=False)
+
+
+@nox.session(name="test-client")
+def test_client(session: nox.Session) -> None:
+    """Run only tests affecting client."""
+    session.install("-e", "./client[dev]")
+    _pytest(session, "client", "rubin.nublado.client", coverage=False)
 
 
 @nox.session

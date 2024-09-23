@@ -204,8 +204,8 @@ Files
 
 .. _config-lab-secrets:
 
-Secrets
-=======
+Lab Secrets
+===========
 
 The Nublado controller can create a Kubernetes ``Secret`` resource alongside the uesr lab and use that to pass secrets to the lab.
 

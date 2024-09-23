@@ -6,6 +6,9 @@ env:
   # actions are run with this version. Quote the version to avoid
   # interpretation as a floating point number.
   #
+  # The client may eventually need to span multiple versions, but
+  # initially a single one is fine.
+  #
   # The JupyterHub plugins use a separate matrix of versions because they have
   # to work with the version of Python that is included in the JupyterHub
   # images.
@@ -55,7 +58,7 @@ jobs:
         with:
           cache-dependency: "controller/requirements/*.txt"
           cache-key-prefix: test
-          nox-sessions: "typing typing-inithome test test-inithome"
+          nox-sessions: "typing typing-inithome typing-client test test-inithome test-client"
           python-version: ${{ env.PYTHON_VERSION }}
 
   # The controller requires Python 3.12, but the modules we add to the Hub
@@ -201,3 +204,27 @@ jobs:
       - name: Report result
         run: |
           echo Pushed ghcr.io/${{ github.repository }}-inithome:${{ steps.build-inithome.outputs.tag }}
+
+  pypi:
+
+    name: Upload release to PyPI
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 10
+    needs: [lint, test, docs]
+    environment:
+      name: pypi
+      url: https://pypi.org/p/rubin-nublado-client
+    permissions:
+      id-token: write
+    if: github.event_name == 'release' && github.event.action == 'published'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for setuptools_scm
+
+      - uses: lsst-sqre/build-and-publish-to-pypi@v2
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          working-directory: "client"
