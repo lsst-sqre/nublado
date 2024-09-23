@@ -8,7 +8,7 @@
 #     nox -s update-deps
 
 # These dependencies are for fastapi including some optional features.
-fastapi
+fastapi>=0.100
 starlette
 uvicorn[standard]
 

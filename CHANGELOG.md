@@ -11,14 +11,14 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 ### Bug fixes
 
-- Updated Github ci.yaml to trigger PyPi push upon release.
+- Push the new `rubin-nublado-client` module to PyPI on release.
 
 <a id='changelog-7.1.0'></a>
 ## 7.1.0 (2024-09-23)
 
 ### New features
 
-- A client for driving RSP JupyterHub and the Labs it spawns is now included.
+- Add the Python module `rubin-nublado-client`, which provides a client library for interacting with the Nublado-modified JupyterHub and JupyterLab services.
 
 <a id='changelog-7.0.0'></a>
 ## 7.0.0 (2024-08-19)
