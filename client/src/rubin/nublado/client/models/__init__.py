@@ -2,6 +2,8 @@ from ._extension import NotebookExecutionResult
 from ._image import (
     NubladoImage,
     NubladoImageByClass,
+    NubladoImageByReference,
+    NubladoImageByTag,
     NubladoImageClass,
     NubladoImageSize,
 )
@@ -12,8 +14,10 @@ __all__ = [
     "JupyterOutput",
     "NotebookExecutionResult",
     "NubladoImage",
-    "NubladoImageClass",
     "NubladoImageByClass",
+    "NubladoImageClass",
+    "NubladoImageByReference",
+    "NubladoImageByTag",
     "NubladoImageSize",
     "SpawnProgressMessage",
     "User",
