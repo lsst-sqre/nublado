@@ -1,4 +1,6 @@
 from ._jupyter import (
+    JupyterAction,
+    JupyterState,
     MockJupyter,
     MockJupyterWebSocket,
     mock_jupyter,
@@ -6,6 +8,8 @@ from ._jupyter import (
 )
 
 __all__ = [
+    "JupyterAction",
+    "JupyterState",
     "MockJupyter",
     "MockJupyterWebSocket",
     "mock_jupyter",
