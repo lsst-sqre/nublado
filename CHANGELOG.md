@@ -11,11 +11,7 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 ### Bug fixes
 
-- Canonical project name becomes `rubin.nublado.client`
-
-### Other changes
-
--
+- Rename PyPI module for the Nublado client to `rubin.nublado.client`. Either name should work for `pip install`.
 
 <a id='changelog-7.1.1'></a>
 ## 7.1.1 (2024-09-23)
