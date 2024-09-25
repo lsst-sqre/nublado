@@ -11,7 +11,7 @@ The client can be installed from PyPI with:
 
 .. prompt:: bash
 
-    pip install rubin.nublado.client
+   pip install rubin-nublado-client
 
 .. _client-usage:
 
