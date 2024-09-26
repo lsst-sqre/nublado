@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import re
+from base64 import urlsafe_b64decode
 from collections.abc import AsyncIterator
 from contextlib import redirect_stdout
 from dataclasses import dataclass
@@ -88,6 +89,17 @@ class MockJupyter:
     for specific Python inputs that would be executed in the running Lab, so
     that you do not need to replicate the target environment in your
     test suite.
+
+    If the username is provided in ``X-Auth-Request-User`` in the request
+    headers, that name will be used.  This will be the case when the mock
+    is behind something emulating a GafaelfawrIngress, and is how the
+    actual Hub would be called.  If it is not, an ``Authorization`` header
+    of the form ``Bearer <token>`` will be looked for, and the username
+    extracted from the (bogus) token as encoded by
+    `~mobu.tests.gafaelfawr.make_gafaelfawr_token`.  This is more accurate
+    from the caller perspective.
+
+    The bogus-token functions should be lifted into safir at some point.
     """
 
     def __init__(
@@ -131,8 +143,31 @@ class MockJupyter:
             self._fail[user] = {}
         self._fail[user][action] = True
 
+    def _get_user_from_headers(self, request: Request) -> str | None:
+        x_user = request.headers.get("X-Auth-Request-User", None)
+        if x_user:
+            return x_user
+        # Try Authorization
+        auth = request.headers.get("Authorization", None)
+        # Is it a bearer token?
+        if auth and auth.startswith("Bearer "):
+            tok = auth[len("Bearer ") :]
+            # Is it putatively a Gafaelfawr token?
+            if tok.startswith("gt-"):
+                try:
+                    # Try extracting the username
+                    return self._extract_user_from_mock_token(token=tok)
+                except Exception:
+                    pass  # Decoding failed, don't care why.  User is None
+        return None
+
+    @staticmethod
+    def _extract_user_from_mock_token(token: str) -> str:
+        # remove "gt-", and split on the dot that marks the secret
+        return urlsafe_b64decode(token[3:].split(".", 1)[0]).decode()
+
     def login(self, request: Request) -> Response:
-        user = request.headers.get("X-Auth-Request-User", None)
+        user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
         if JupyterAction.LOGIN in self._fail.get(user, {}):
@@ -144,7 +179,7 @@ class MockJupyter:
         return Response(200, request=request, headers={"Set-Cookie": xsrf})
 
     def user(self, request: Request) -> Response:
-        user = request.headers.get("X-Auth-Request-User", None)
+        user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
         if JupyterAction.USER in self._fail.get(user, {}):
@@ -174,7 +209,7 @@ class MockJupyter:
             return Response(
                 303, headers={"Location": str(request.url)}, request=request
             )
-        user = request.headers.get("X-Auth-Request-User", None)
+        user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
         expected_suffix = f"/hub/api/users/{user}/server/progress"
@@ -214,7 +249,7 @@ class MockJupyter:
         )
 
     def spawn(self, request: Request) -> Response:
-        user = request.headers.get("X-Auth-Request-User", None)
+        user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
         if JupyterAction.SPAWN in self._fail.get(user, {}):
@@ -230,7 +265,7 @@ class MockJupyter:
         return Response(302, headers={"Location": url}, request=request)
 
     def spawn_pending(self, request: Request) -> Response:
-        user = request.headers.get("X-Auth-Request-User", None)
+        user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
         assert str(request.url).endswith(f"/hub/spawn-pending/{user}")
@@ -242,14 +277,14 @@ class MockJupyter:
         return Response(200, request=request)
 
     def missing_lab(self, request: Request) -> Response:
-        user = request.headers.get("X-Auth-Request-User", None)
+        user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
         assert str(request.url).endswith(f"/hub/user/{user}/lab")
         return Response(503, request=request)
 
     def lab(self, request: Request) -> Response:
-        user = request.headers.get("X-Auth-Request-User", None)
+        user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
         assert str(request.url).endswith(f"/user/{user}/lab")
@@ -292,14 +327,14 @@ class MockJupyter:
         that the ``_xsrf`` cookie is actually set, and then it returns
         a 200.
         """
-        user = request.headers.get("X-Auth-Request-User", None)
+        user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
         assert str(request.url).endswith(f"/user/{user}/oauth_callback")
         return Response(200, request=request)
 
     def delete_lab(self, request: Request) -> Response:
-        user = request.headers.get("X-Auth-Request-User", None)
+        user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
         assert str(request.url).endswith(f"/users/{user}/server")
@@ -316,7 +351,7 @@ class MockJupyter:
         return Response(202, request=request)
 
     def create_session(self, request: Request) -> Response:
-        user = request.headers.get("X-Auth-Request-User", None)
+        user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
         assert str(request.url).endswith(f"/user/{user}/api/sessions")
@@ -344,7 +379,7 @@ class MockJupyter:
         )
 
     def delete_session(self, request: Request) -> Response:
-        user = request.headers.get("X-Auth-Request-User", None)
+        user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
         session_id = self.sessions[user].session_id
@@ -360,7 +395,7 @@ class MockJupyter:
 
     def get_content(self, request: Request) -> Response:
         """Simulate the /files retrieval endpoint."""
-        user = request.headers.get("X-Auth-Request-User", None)
+        user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
