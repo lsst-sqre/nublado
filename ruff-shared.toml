@@ -115,6 +115,7 @@ select = ["ALL"]
 ]
 "client/src/rubin/nublado/client/testing/**" = [
     "S101",    # test support functions are allowed to use assert
+    "S110",    # we really don't want to log that exception, just eat it
     "SLF001",  # test support functions are allowed to access private members
 ]
 "client/tests/support/hello.ipynb" = [
