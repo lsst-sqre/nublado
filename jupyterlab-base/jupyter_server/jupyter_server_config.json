@@ -1,0 +1,10 @@
+{
+  "ServerApp": {
+    "terminado_settings": {
+      "shell_command": [ "/bin/bash", "-il" ]
+    },
+    "jpserver_extensions": {
+      "panel.io.jupyter_server_extension": true
+    }
+  }
+}

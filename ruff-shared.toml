@@ -121,6 +121,12 @@ select = ["ALL"]
     "T201",    # test support notebooks are allowed to print
 ]
 
+"jupyterlab-base/jupyter_server/jupyter_server_config.py" = [
+    "F821",    # this is just a fragment used by Jupyter; don't lint it
+    "D100",
+    "INP001",
+]
+
 # These are too useful as attributes or methods to allow the conflict with the
 # built-in to rule out their use.
 [lint.flake8-builtins]
