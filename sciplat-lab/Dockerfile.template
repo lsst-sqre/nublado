@@ -1,0 +1,121 @@
+ARG input_tag = latest
+FROM ghcr.io/lsst-sqre/jupyterlab-base:$input_tag as base-image
+USER root
+SHELL ["/bin/bash", "-lc"]
+
+RUN mkdir -p /tmp/build
+WORKDIR /tmp/build
+
+COPY scripts/install-base-packages /tmp/build
+RUN ./install-base-packages
+
+# Now we have a patched python container.  Add system dependencies.
+
+FROM base-image as deps-image
+COPY scripts/install-dependency-packages /tmp/build
+RUN ./install-dependency-packages
+
+# Add other system-level files
+
+# /etc/profile.d parts
+
+RUN mkdir -p /etc/profile.d
+
+COPY profile.d/local01-nbstripjq.sh profile.d/local02-hub.sh \
+     profile.d/local03-showrspnotice.sh profile.d/local04-pythonrc.sh \
+     profile.d/local05-path.sh profile.d/local06-term.sh \
+     profile.d/local07-namespaceenv.sh profile.d/local08-setupstack.sh \
+     /etc/profile.d/
+
+# /etc/skel
+
+RUN for i in notebooks WORK DATA; do mkdir -p /etc/skel/${i}; done
+
+COPY skel/gitconfig /etc/skel/.gitconfig
+COPY skel/git-credentials /etc/skel/.git-credentials
+COPY skel/user_setups /etc/skel/notebooks/.user_setups
+
+COPY runtime/lsst_kernel.json \
+       /usr/local/share/jupyter/kernels/lsst/kernel.json
+
+COPY etc/rsp_notice /usr/local/etc
+
+USER lsst_local:lsst_local
+
+# Add the DM stack.
+
+FROM user-image as base-stack-image
+
+COPY scripts/install-dm-stack /tmp/build
+RUN ./install-dm-stack {{TAG}}
+
+# Add RSP user-facing packages
+
+FROM base-stack-image as rsp-stack-image
+COPY scripts/install-rsp-user /tmp/build
+RUN ./install-rsp-user
+
+FROM rsp-stack-image as jupyterlab-image
+
+COPY scripts/install-jupyterlab /tmp/build
+RUN ./install-jupyterlab
+
+FROM jupyterlab-image as base-rsp-image
+
+RUN mkdir -p /usr/local/share/jupyterlab/etc
+COPY --chown=lsst_local:lsst_local etc/rsp_notice etc/20-logging.py \
+     jupyter_server/jupyter_server_config.json \
+     jupyter_server/jupyter_server_config.py \
+     /usr/local/share/jupyterlab/etc/
+
+COPY --chown=lsst_local:lsst_local runtime/lsst_kernel.json \
+     runtime/lsstlaunch.bash runtime/runlab /usr/local/share/jupyterlab/
+
+FROM base-rsp-image as notebooks-rsp-image
+
+# Check out notebooks-at-build-time
+COPY scripts/install-notebooks /tmp/build
+RUN ./install-notebooks
+
+FROM notebooks-rsp-image as compat-rsp-image
+
+# Add compatibility layer to allow for transition from old to new
+# paths.
+
+COPY scripts/install-compat /tmp/build
+RUN ./install-compat
+
+FROM compat-rsp-image as manifests-rsp-image
+
+# Get our manifests.  This has always been really useful for debugging
+# "what broke this week?"
+
+COPY scripts/generate-versions /tmp/build
+RUN ./generate-versions
+
+FROM manifests-rsp-image as rsp-image
+
+
+# Clean up.
+# This needs to be numeric, since we will remove /etc/passwd and friends
+# while we're running.
+USER 0:0
+WORKDIR /
+
+COPY scripts/cleanup-files /
+RUN ./cleanup-files
+RUN rm ./cleanup-files
+
+# Back to unprivileged
+USER 1000:1000
+WORKDIR /tmp
+
+CMD ["/usr/local/share/jupyterlab/runlab"]
+
+# Overwrite Stack Container definitions with more-accurate-for-us ones
+ENV  DESCRIPTION="Two-Python Rubin Science Platform Notebook Aspect"
+ENV  SUMMARY="Two-Python Rubin Science Platform Notebook Aspect"
+
+LABEL description="Rubin Science Platform Notebook Aspect: {{IMAGE}}" \
+       name="{{IMAGE}}" \
+       version="{{VERSION}}"
