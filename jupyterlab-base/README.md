@@ -1,8 +1,14 @@
-sciplat-lab
-===========
+jupyterlab-base
+===============
 
-This contains the materials needed to build the RSP JupyterLab
-container, which are assembled into a docker image called
-`sciplat-lab`.
+This produces a container that includes Python 3 and JupyterLab, and can
+be launched from the RSP Hub.
 
-The build process is documented in [SQR-064](https://sqr-064.lsst.io).
+It does not include a DM Stack, or indeed any sort of payload Python
+environment (as described in [sqr-088](https://sqr-088.lsst.io).
+
+Insofar as feasible, Rubin-specific features have been removed.
+
+The intention is for this container to be used as a base layer on top of
+which payload environments will be overlaid, such as the DM stack.
+
