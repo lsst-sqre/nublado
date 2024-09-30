@@ -54,7 +54,10 @@ COPY --chown=lsst_local:lsst_local etc/rsp_notice etc/20-logging.py \
      /usr/local/share/jupyterlab/etc/
 
 COPY --chown=lsst_local:lsst_local runtime/lsst_kernel.json \
-     runtime/lsstlaunch.bash /usr/local/share/jupyterlab/
+    runtime/lsstlaunch.bash /usr/local/share/jupyterlab/
+
+COPY scripts/install-rsp-user /tmp/build
+RUN ./install-rsp-user
 
 FROM base-stack-image AS notebooks-rsp-image
 
