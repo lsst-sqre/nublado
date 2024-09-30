@@ -1,11 +1,8 @@
 ARG input
-ARG tag
-ARG version
 FROM $input AS base-image
 USER 0:0
 SHELL ["/bin/bash", "-lc"]
 
-RUN echo "Input image: $input | tag: $tag | version $version"
 RUN mkdir -p /tmp/build
 WORKDIR /tmp/build
 
@@ -48,6 +45,7 @@ USER lsst_local:lsst_local
 # Add the DM stack.
 
 FROM user-image AS base-stack-image
+ARG tag
 
 COPY scripts/install-dm-stack /tmp/build
 RUN ./install-dm-stack $tag
@@ -81,7 +79,7 @@ COPY scripts/generate-versions /tmp/build
 RUN ./generate-versions
 
 FROM manifests-rsp-image AS rsp-image
-
+ARG version
 
 # Clean up.
 # This needs to be numeric, since we will remove /etc/passwd and friends
