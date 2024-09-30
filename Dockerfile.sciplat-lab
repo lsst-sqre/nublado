@@ -2,13 +2,19 @@ ARG input
 ARG tag
 ARG version
 FROM $input AS base-image
-USER root
+USER 0:0
 SHELL ["/bin/bash", "-lc"]
 
+RUN echo "Input image: $input | tag: $tag | version $version"
 RUN mkdir -p /tmp/build
 WORKDIR /tmp/build
 
 # Add other system-level files
+
+# An /etc/passwd
+
+COPY scripts/make-root-user /tmp/build
+RUN ./make-root-user
 
 # /etc/profile.d parts
 
