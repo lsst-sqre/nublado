@@ -1,9 +1,13 @@
-# We need three pieces of information to build the container:
+# We need four pieces of information to build the container:
 #  tag is the tag on the input DM Stack container.  It is mandatory.
 #  image is the Docker repository image we're pushing to; we can use the
 #   default if we don't specify it, which goes to Docker Hub, Google
 #   Artifact Registry, and GitHub Container Registry.  image
 #   may be a comma-separated list of target repositories.
+#  input is the base JupyterLab container we use: a JupyterLab implementation
+#   engineered to be started by the RSP Nublado machinery.  Other than
+#   perhaps changing the input container's tag, it should generally be left
+#   alone.
 #  supplementary is an additional tag, which forces the build to an "exp_"
 #   (that is, experimental) tag and adds "_" plus the supplement at the end.
 
@@ -16,18 +20,19 @@
 # To tag as experimental "foo" (-> exp_w_2023_50_foo):
 #   make tag=w_2024_50 supplementary=foo
 
-# There are five targets: clean, dockerfile, image, push, and retag.
+# To start from a different input container:
+#   make tag=w_2024_50 \
+#     input=ghcr.io/lsst-sqre/nublado-jupyterlab-base:hotfix/some-tag
 
-# The default is "push", and the first four are always done in strict linear
+# There are three targets: image, push, and retag.
+
+# The default is "push", and the first two are always done in strict linear
 #  order.
-# "clean" just removes the generated Dockerfile.
-# "dockerfile" generates the Dockerfile from the template, but does not build
-#  an image or push it.
 # "image" builds the image with Docker but does not push it to a repository.
 # "push" (aka "all") also pushes the built image.  It assumes that the
 #  building user already has appropriate push credentials set.
 
-# The fifth target, "retag", is a little different.  Its tag is the tag on
+# The third target, "retag", is a little different.  Its tag is the tag on
 #  the input image, but "input" will, itself, be a sciplat-lab container.
 #  "supplementary" will be the tag to add to this image; no substitution will
 #  be done on either the input tag or the supplementary tag.  As with "push"
@@ -44,6 +49,12 @@ endif
 
 ifeq ($(image),)
     image = docker.io/lsstsqre/sciplat-lab,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab,ghcr.io/lsst-sqre/sciplat-lab
+endif
+
+# Our default input image is ghcr.io/lsst-sqre/nublado-jupyterlab-base:latest
+
+ifeq ($(input),)
+    input = ghcr.io/lsst-sqre/nublado-jupyterlab-base:latest
 endif
 
 # Some day we might use a different build tool.  If you have a new enough
@@ -104,7 +115,7 @@ endif
 
 # "all" and "build" are just aliases for "push" and "image" respectively.
 
-.PHONY: all push build image dockerfile clean retag
+.PHONY: all push build image retag
 
 all: push
 
@@ -139,23 +150,15 @@ push: image
 # I keep getting this wrong, so make it work either way.
 build: image
 
-image: dockerfile
+image:
 	img=$$(echo $(image) | cut -d ',' -f 1) && \
 	more=$$(echo $(image) | cut -d ',' -f 2- | tr ',' ' ') && \
-	$(DOCKER) build ${platform} -t $${img}:$(version) . && \
+	$(DOCKER) build ${platform} --build-arg input=$(input) \
+          --build-arg image=$${img} --build-arg tag=$(tag) \
+          -t $${img}:$(version) -f ../Dockerfile.sciplat-lab . && \
 	for m in $${more}; do \
 	    $(DOCKER) tag $${img}:$(version) $${m}:$(version) ; \
 	done
-
-dockerfile: clean
-	img=$$(echo $(image) | cut -d ',' -f 1) && \
-	sed -e "s|{{IMAGE}}|$${img}|g" \
-	    -e "s|{{VERSION}}|$(version)|g" \
-	    -e "s|{{TAG}}|$(tag)|g" \
-	    < Dockerfile.template > Dockerfile
-
-clean:
-	rm -f Dockerfile
 
 retag:
 	if [ -z "$(supplementary)" ]; then \
