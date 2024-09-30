@@ -22,12 +22,9 @@ RUN mkdir -p /etc/profile.d
 
 COPY jupyterlab-base/profile.d/local01-nbstripjq.sh \
      jupyterlab-base/profile.d/local02-hub.sh \
-     jupyterlab-base/profile.d/local03-showrspnotice.sh \
-     jupyterlab-base/profile.d/local04-pythonrc.sh \
-     jupyterlab-base/profile.d/local05-path.sh \
-     jupyterlab-base/profile.d/local06-term.sh \
-     jupyterlab-base/profile.d/local07-namespaceenv.sh \
-     jupyterlab-base/profile.d/local08-setupstack.sh \
+     jupyterlab-base/profile.d/local03-pythonrc.sh \
+     jupyterlab-base/profile.d/local04-path.sh \
+     jupyterlab-base/profile.d/local05-term.sh \
      /etc/profile.d/
 
 # /etc/skel
