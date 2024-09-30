@@ -75,15 +75,7 @@ COPY --chown=jovyan:jovyan \
 COPY --chown=jovyan:jovyan jupyterlab-base/runtime/runlab \
      /usr/local/share/jupyterlab/
 
-FROM base-rsp-image AS compat-rsp-image
-
-# Add compatibility layer to allow for transition from old to new
-# paths.
-
-COPY jupyterlab-base/scripts/install-compat /tmp/build
-RUN ./install-compat
-
-FROM compat-rsp-image AS manifests-rsp-image
+FROM base-rsp-image AS manifests-rsp-image
 
 # Get our manifests.  This has always been really useful for debugging
 # "what broke this week?"

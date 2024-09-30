@@ -3,12 +3,9 @@ set -x
 set -euo pipefail
 
 # Create user and home directory.
-stackdir=/opt/lsst/software/stack
-mkdir -p $stackdir
+homedir=/home/jovyan
+mkdir -p $homedir
 groupadd -g 1000 jovyan
 grpconv
-useradd -u 1000 -g 1000 -d $stackdir -s /bin/bash jovyan
+useradd -u 1000 -g 1000 -d $homedir -s /bin/bash jovyan
 pwconv
-
-# We're going to want other directories there too.
-chown -R jovyan:jovyan $(dirname $stackdir)
