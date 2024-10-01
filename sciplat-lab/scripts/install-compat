@@ -8,16 +8,14 @@ set -x
 # lsst_dask.yml and idds.cfg.client.template are copied in by nublado and
 # put in /opt/lsst/software/jupyterlab, which seems fine.
 #
+# runlab.sh -> runlab should already exist from base container.
 
 set -euo pipefail
 
-cd /opt/lsst/software
-mkdir jupyterlab
-cd jupyterlab
+cd /opt/lsst/software/jupyterlab
 
 realdir="../../../../usr/local/share/jupyterlab"
 for file in lsst_kernel.json lsstlaunch.bash; do
     ln -s "${realdir}/${file}"
 done
 ln -s "${realdir}/etc/20-logging.py"
-ln -s "${realdir}/runlab" runlab.sh
