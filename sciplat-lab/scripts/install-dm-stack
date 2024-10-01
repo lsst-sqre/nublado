@@ -12,6 +12,8 @@ sbt=https://raw.githubusercontent.com/lsst/shebangtron/main/shebangtron
 cd $stackdir
 curl -OL https://ls.st/lsstinstall
 chmod u+x lsstinstall
+# 1 Oct 2024.  Should be fixed upstream Real Soon Now:
+sed -i -e 's/Mambaforge/Miniforge3/' lsstinstall
 ./lsstinstall -T $TAG
 source $stackdir/loadLSST.bash
 for prod in $EUPS_PRODUCTS; do
