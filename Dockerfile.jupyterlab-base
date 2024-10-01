@@ -88,11 +88,12 @@ FROM manifests-rsp-image AS rsp-image
 # This needs to be numeric, since we will remove /etc/passwd and friends
 # while we're running.
 USER 0:0
-WORKDIR /
 
 # Add startup shim.
 COPY jupyterlab-base/scripts/install-compat /tmp/build
 RUN  ./install-compat
+
+WORKDIR /
 
 # Clean up.
 COPY jupyterlab-base/scripts/cleanup-files /
