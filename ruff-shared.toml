@@ -127,6 +127,10 @@ select = ["ALL"]
     "INP001",
 ]
 
+"sciplat-lab/etc/20-logging.py" = [
+    "INP001",  # Also a Jupyter fragment
+]
+
 # These are too useful as attributes or methods to allow the conflict with the
 # built-in to rule out their use.
 [lint.flake8-builtins]

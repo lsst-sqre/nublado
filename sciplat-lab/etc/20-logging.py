@@ -15,27 +15,27 @@ import logging
 import os
 import sys
 
-
 customlogger = False
 
 try:
     from lsst.rsp import IPythonHandler, forward_lsst_log
+
     customlogger = True
 except ImportError:
     pass  # Probably a container that doesn't have our new code
 
 # If the whole container is in debug mode, enable debug logging by default.
 # Otherwise, use the default level (which is warning); however, lsst logs
-# should be at info level. 
+# should be at info level.
 debug = os.getenv("DEBUG")
 handlers = []
 if customlogger:
     # Forward anything at INFO or above, unless debug is set, in which case,
     # forward DEBUG and above.
     if debug:
-        forward_lsst_log('DEBUG')
+        forward_lsst_log("DEBUG")
     else:
-        forward_lsst_log('INFO')
+        forward_lsst_log("INFO")
     handlers = [IPythonHandler()]
 else:
     # Set up WARNING and above as stderr, below that to stdout.  This is
