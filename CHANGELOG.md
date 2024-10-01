@@ -6,6 +6,19 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-7.2.0'></a>
+## 7.2.0 (2024-10-01)
+
+### New features
+
+- The "jupyterlab-base" RSP-launchable image is now part of Nublado.
+
+- Add sciplat-lab build (containing DM stack) layered atop jupyterlab-base
+
+### Bug fixes
+
+- Revert canonical PyPI module name back to `rubin-nublado-client` for consistency with other projects. As before, this change should not affect `pip install`; either form of the name should work.
+
 <a id='changelog-7.1.2'></a>
 ## 7.1.2 (2024-09-23)
 
