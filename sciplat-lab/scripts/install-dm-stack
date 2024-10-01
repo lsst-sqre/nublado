@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -x
+
+# -u makes lsstinstall fail, via mamba ADDR2LINE: unbound variable.
+set -eo pipefail
+
+TAG=$1
+
+stackdir=/opt/lsst/software/stack
+sbt=https://raw.githubusercontent.com/lsst/shebangtron/main/shebangtron
+
+cd $stackdir
+curl -OL https://ls.st/lsstinstall
+chmod u+x lsstinstall
+# 1 Oct 2024.  Should be fixed upstream Real Soon Now:
+sed -i -e 's/Mambaforge/Miniforge3/' lsstinstall
+./lsstinstall -T $TAG
+source $stackdir/loadLSST.bash
+for prod in $EUPS_PRODUCTS; do
+    eups distrib install --no-server-tags -vvv "$prod" -t "$EUPS_TAG"
+done
+find ${stackdir} -exec strip --strip-unneeded --preserve-dates {} + \
+     > /dev/null 2>&1 || true
+find ${stackdir} -maxdepth 5 -name tests -type d -exec rm -rf {} + \
+       > /dev/null 2>&1 || true
+find ${stackdir} -maxdepth 6 \
+       \( -path "*doc/html" -o -path "*doc/xml" \) -type d -exec rm -rf {} + \
+       > /dev/null 2>&1 || true
+find ${stackdir} -maxdepth 5 -name src -type d -exec rm -rf {} + \
+       > /dev/null 2>&1 || true
+
+eups distrib install -t $TAG lsst_distrib
+curl -sSL $sbt | python
+setup lsst_distrib
+
+mamba clean -a -f -y --no-banner # Not clear that -f is safe.

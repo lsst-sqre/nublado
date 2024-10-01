@@ -1,0 +1,8 @@
+{
+ "display_name": "LSST",
+ "language": "python",
+ "argv": [
+    "/usr/local/share/jupyterlab/lsstlaunch.bash",
+    "{connection_file}"
+ ]
+}

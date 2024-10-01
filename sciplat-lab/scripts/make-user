@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -x
+set -euo pipefail
+
+# Create user and home directory.
+stackdir=/opt/lsst/software/stack
+mkdir -p $stackdir
+groupadd -g 1000 lsst_local
+grpconv
+useradd -u 1000 -g 1000 -d $stackdir -s /bin/bash lsst_local
+pwconv
+
+# We're going to want other directories there too.
+chown -R lsst_local:lsst_local $(dirname $stackdir)

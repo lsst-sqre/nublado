@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -x
+set -euo pipefail
+
+# Create user and home directory.
+groupadd -g 0 root
+grpconv
+useradd -u 0 -g 0 -d / -s /bin/sh root
+pwconv
