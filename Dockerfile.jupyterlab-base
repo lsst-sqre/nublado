@@ -85,12 +85,16 @@ RUN ./generate-versions
 
 FROM manifests-rsp-image AS rsp-image
 
-# Clean up.
 # This needs to be numeric, since we will remove /etc/passwd and friends
 # while we're running.
 USER 0:0
 WORKDIR /
 
+# Add startup shim.
+COPY jupyterlab-base/scripts/install-compat /tmp/build
+RUN  ./install-compat
+
+# Clean up.
 COPY jupyterlab-base/scripts/cleanup-files /
 RUN ./cleanup-files
 RUN rm ./cleanup-files
