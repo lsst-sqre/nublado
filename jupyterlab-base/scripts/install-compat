@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -x
+
+set -euo pipefail
+
+# This is a compatibility shim left over from one-stack sciplat-lab.
+
+mkdir -p /opt/lsst/software/jupyterlab
+cd /opt/lsst/software/jupyterlab
+ln -s ../../../../usr/local/share/jupyterlab/runlab ./runlab.sh

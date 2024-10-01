@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# This script just activates the Jupyterlab virtualenv and then uses the
+# lsst.rsp.startup class entrypoint directly.
+
+source /usr/local/share/jupyterlab/venv/bin/activate
+
+# Now we transfer control to the Python entrypoint "launch-rubin-jupyterlab",
+# defined as part of lsst.rsp (in the lsst-rsp package).
+
+exec launch-rubin-jupyterlab
