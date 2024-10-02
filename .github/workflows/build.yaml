@@ -19,7 +19,7 @@ on:
       input:
         description: 'fully-qualified URI for input Docker image'
         required: false
-        default: 'ghcr.io/lsst-sqre/nublado-jupyterlab-base:latest'
+        default: ''
       push:
         description: 'push resulting image; make empty or set to a YAML-false string to build but not push'
         required: false
@@ -40,7 +40,9 @@ jobs:
     timeout-minutes: 100
     steps:
     - name: checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Need full history for upstream container
     - name: import_inputs
       shell: bash
       run: |

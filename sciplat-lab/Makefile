@@ -52,9 +52,19 @@ ifeq ($(image),)
 endif
 
 # Our default input image is ghcr.io/lsst-sqre/nublado-jupyterlab-base:latest
+# where latest is the last tag on the current branch (or its ancestors).
+# This might or might not be quite the right heuristic but it's pretty close.
+#
+# Note that this particular strategy is only going to work for builds happening
+# from the same repository as the base build, which probably means just
+# sciplat-lab.
+#
+# You can always specify it directly, but this should be a sane default for
+# kicking off scheduled builds.
 
 ifeq ($(input),)
-    input = ghcr.io/lsst-sqre/nublado-jupyterlab-base:latest
+    latest := $(shell git describe --tags --abbrev=0)
+    input = ghcr.io/lsst-sqre/nublado-jupyterlab-base:$(latest)
 endif
 
 # Some day we might use a different build tool.  If you have a new enough
