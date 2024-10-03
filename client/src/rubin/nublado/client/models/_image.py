@@ -53,6 +53,8 @@ class NubladoImage(BaseModel, metaclass=ABCMeta):
         description="Must be one of the sizes understood by Nublado.",
     )
 
+    description: str = Field("", title="Human-readable image description")
+
     debug: bool = Field(False, title="Whether to enable lab debugging")
 
     @abstractmethod
