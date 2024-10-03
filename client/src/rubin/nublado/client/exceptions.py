@@ -1,4 +1,4 @@
-"""Exceptions for rsp_jupyter_client."""
+"""Exceptions for rubin.nublado.client."""
 
 from __future__ import annotations
 
