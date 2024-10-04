@@ -220,9 +220,9 @@ class JupyterLabSession:
             r = await self._client.post(url, json=body, headers=headers)
             r.raise_for_status()
         except HTTPError as e:
-            new = JupyterWebError.from_exception(e, self._username)
-            new.started_at = start
-            raise new from e
+            raise JupyterWebError.raise_from_exception_with_started_at(
+                e, self._username, start
+            ) from e
         response = r.json()
         self._session_id = response["id"]
         kernel = response["kernel"]["id"]
@@ -248,9 +248,9 @@ class JupyterLabSession:
             ).__aenter__()
         except WebSocketException as e:
             user = self._username
-            new_exc = JupyterWebSocketError.from_exception(e, user)
-            new_exc.started_at = start
-            raise new_exc from e
+            raise JupyterWebSocketError.from_exception(
+                e, user, started_at=start
+            ) from e
         except TimeoutError as e:
             msg = "Timed out attempting to open WebSocket to lab session"
             user = self._username
@@ -295,9 +295,9 @@ class JupyterLabSession:
                 self._logger.exception("Failed to close session")
             else:
                 start = current_datetime(microseconds=True)
-                new = JupyterWebError.from_exception(e, self._username)
-                new.started_at = start
-                raise new from e
+                raise JupyterWebError.raise_from_exception_with_started_at(
+                    e, self._username, start
+                ) from e
 
         return False
 
@@ -474,6 +474,7 @@ class JupyterLabSession:
             )
         exec_url = self._url_for(f"user/{self._username}/rubin/execution")
         try:
+            start = current_datetime(microseconds=True)
             # The timeout is designed to catch issues connecting to JupyterLab
             # but to wait as long as possible for the notebook itself
             # to execute.
@@ -496,6 +497,7 @@ class JupyterLabSession:
                 reason="/rubin/execution endpoint timeout",
                 method="POST",
                 body=str(e),
+                started_at=start,
             ) from e
         except httpx.HTTPStatusError as e:
             # This often occurs from timeouts, so we want to convert the
@@ -507,6 +509,7 @@ class JupyterLabSession:
                 reason="Internal Server Error",
                 method="POST",
                 body=str(e),
+                started_at=start,
             ) from e
         if r.status_code != 200:
             raise ExecutionAPIError.from_response(self._username, r)
@@ -551,6 +554,7 @@ class JupyterLabSession:
 
         # Analyze the message type to figure out what to do with the response.
         msg_type = data["msg_type"]
+        start = current_datetime(microseconds=True)
         if msg_type in self._IGNORED_MESSAGE_TYPES:
             return None
         elif msg_type == "stream":
@@ -560,10 +564,14 @@ class JupyterLabSession:
             if status == "ok":
                 return JupyterOutput(content="", done=True)
             else:
-                raise CodeExecutionError(user=self._username, status=status)
+                raise CodeExecutionError(
+                    user=self._username, status=status, started_at=start
+                )
         elif msg_type == "error":
             error = "".join(data["content"]["traceback"])
-            raise CodeExecutionError(user=self._username, error=error)
+            raise CodeExecutionError(
+                user=self._username, error=error, started_at=start
+            )
         else:
             msg = "Ignoring unrecognized WebSocket message"
             self._logger.warning(msg, message_type=msg_type, message=data)
@@ -618,11 +626,14 @@ def _convert_exception(
     async def wrapper(
         client: NubladoClient, *args: P.args, **kwargs: P.kwargs
     ) -> T:
+        start = current_datetime(microseconds=True)
         try:
             return await f(client, *args, **kwargs)
         except HTTPError as e:
             username = client.user.username
-            raise JupyterWebError.from_exception(e, username) from e
+            raise JupyterWebError.raise_from_exception_with_started_at(
+                e, username, start
+            ) from e
 
     return wrapper
 
@@ -641,12 +652,15 @@ def _convert_iterator_exception(
     async def wrapper(
         client: NubladoClient, *args: P.args, **kwargs: P.kwargs
     ) -> AsyncIterator[T]:
+        start = current_datetime(microseconds=True)
         try:
             async for result in f(client, *args, **kwargs):
                 yield result
         except HTTPError as e:
             username = client.user.username
-            raise JupyterWebError.from_exception(e, username) from e
+            raise JupyterWebError.raise_from_exception_with_started_at(
+                e, username, start
+            ) from e
 
     return wrapper
 

@@ -327,6 +327,7 @@ class ExecutionAPIError(NubladoClientSlackException):
         reason: str | None,
         method: str,
         body: str | None = None,
+        started_at: datetime.datetime | None = None,
     ) -> None:
         self.url = url
         self.status = status
@@ -334,6 +335,7 @@ class ExecutionAPIError(NubladoClientSlackException):
         self.method = method
         self.msg = body
         self.user = username
+        self.started_at = started_at
         super().__init__(f"Status {status} from {method} {url}")
 
     def __str__(self) -> str:
@@ -416,6 +418,35 @@ class JupyterTimeoutError(NubladoClientSlackException):
 
 class JupyterWebError(NubladoClientSlackWebException):
     """An error occurred when talking to JupyterHub or a Jupyter lab."""
+
+    @classmethod
+    def raise_from_exception_with_started_at(
+        cls,
+        exc: httpx.HTTPError,
+        user: str | None = None,
+        started_at: datetime.datetime | None = None,
+    ) -> Self:
+        """Create an exception from an HTTPX_ exception and an optional
+        start time.
+
+        Parameters
+        ----------
+        exc
+            Exception from HTTPX.
+        user
+            User on whose behalf the request is being made, if known.
+        started_at
+            Timestamp for beginning of operation that caused the exception,
+            if known.
+
+        Returns
+        -------
+        JupyterWebError
+        """
+        new = cls.from_exception(exc, user=user)
+        if started_at:
+            new.started_at = started_at
+        return new
 
 
 class JupyterWebSocketError(NubladoClientSlackException):
