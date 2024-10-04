@@ -593,7 +593,7 @@ class JupyterLabSession:
 def _convert_exception(
     f: Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]],
 ) -> Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]]:
-    """Convert web errors to a `~rubin.nublado.client.JupyterWebError`.
+    """Convert web error to `~rubin.nublado.client.exceptions.JupyterWebError`.
 
     This can only be used as a decorator on `JupyterClientSession` or another
     object that has a ``user`` property containing an
