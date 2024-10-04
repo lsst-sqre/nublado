@@ -334,7 +334,6 @@ class ExecutionAPIError(NubladoClientSlackException):
         self.method = method
         self.msg = body
         self.user = username
-        self.timestamp = datetime.datetime.now(tz=datetime.UTC)
         super().__init__(f"Status {status} from {method} {url}")
 
     def __str__(self) -> str:

@@ -7,7 +7,6 @@ Jupyter kernels remotely.
 from __future__ import annotations
 
 import asyncio
-import datetime
 import json
 from collections.abc import AsyncIterator, Callable, Coroutine
 from datetime import timedelta
@@ -249,9 +248,9 @@ class JupyterLabSession:
             ).__aenter__()
         except WebSocketException as e:
             user = self._username
-            raise JupyterWebSocketError.from_exception(
-                e, user, started_at=start
-            ) from e
+            new_exc = JupyterWebSocketError.from_exception(e, user)
+            new_exc.started_at = start
+            raise new_exc from e
         except TimeoutError as e:
             msg = "Timed out attempting to open WebSocket to lab session"
             user = self._username
@@ -270,10 +269,13 @@ class JupyterLabSession:
 
         # Close the WebSocket.
         if self._socket:
+            start = current_datetime(microseconds=True)
             try:
                 await self._socket.close()
             except WebSocketException as e:
-                raise JupyterWebSocketError.from_exception(e, username) from e
+                raise JupyterWebSocketError.from_exception(
+                    e, username, started_at=start
+                ) from e
             self._socket = None
 
         # Delete the lab session.
@@ -292,7 +294,10 @@ class JupyterLabSession:
             if exc_type:
                 self._logger.exception("Failed to close session")
             else:
-                raise JupyterWebError.from_exception(e, self._username) from e
+                start = current_datetime(microseconds=True)
+                new = JupyterWebError.from_exception(e, self._username)
+                new.started_at = start
+                raise new from e
 
         return False
 
@@ -324,13 +329,14 @@ class JupyterLabSession:
             raise JupyterWebError(
                 "JupyterLabSession not opened", user=self._username
             )
+        start = current_datetime(microseconds=True)
         message_id = uuid4().hex
         request = {
             "header": {
                 "username": self._username,
                 "version": "5.4",
                 "session": self._session_id,
-                "date": datetime.datetime.now(datetime.UTC).isoformat(),
+                "date": start.isoformat(),
                 "msg_id": message_id,
                 "msg_type": "execute_request",
             },
@@ -356,6 +362,7 @@ class JupyterLabSession:
                     output = self._parse_message(message, message_id)
                 except CodeExecutionError as e:
                     e.code = code
+                    e.started_at = start
                     raise
                 except Exception as e:
                     error = f"{type(e).__name__}: {e!s}"
@@ -372,7 +379,9 @@ class JupyterLabSession:
                     break
         except WebSocketException as e:
             user = self._username
-            raise JupyterWebSocketError.from_exception(e, user) from e
+            new_exc = JupyterWebSocketError.from_exception(e, user)
+            new_exc.started_at = start
+            raise new_exc from e
 
         # Return the accumulated output.
         return result
