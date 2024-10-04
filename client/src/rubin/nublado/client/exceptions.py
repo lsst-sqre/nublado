@@ -398,7 +398,12 @@ class JupyterWebSocketError(NubladoClientSlackException):
     """An error occurred talking to the Jupyter lab WebSocket."""
 
     @classmethod
-    def from_exception(cls, exc: WebSocketException, user: str) -> Self:
+    def from_exception(
+        cls,
+        exc: WebSocketException,
+        user: str,
+        started_at: datetime.datetime | None = None,
+    ) -> Self:
         """Convert from a `~websockets.exceptions.WebSocketException`.
 
         Parameters
@@ -424,6 +429,7 @@ class JupyterWebSocketError(NubladoClientSlackException):
                 user=user,
                 status=status,
                 body=exc.response.body,
+                started_at=started_at,
             )
         else:
             return cls(f"Error talking to lab WebSocket: {error}", user=user)
@@ -437,12 +443,14 @@ class JupyterWebSocketError(NubladoClientSlackException):
         reason: str | None = None,
         status: int | None = None,
         body: bytes | None = None,
+        started_at: datetime.datetime | None = None,
     ) -> None:
         super().__init__(msg, user)
         self.code = code
         self.reason = reason
         self.status = status
         self.body = body.decode() if body else None
+        self.started_at = started_at
 
     def to_slack(self) -> SlackMessage:
         """Format this exception as a Slack notification.
