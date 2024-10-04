@@ -216,11 +216,14 @@ class JupyterLabSession:
         headers = {}
         if self._xsrf:
             headers["X-XSRFToken"] = self._xsrf
+        start = current_datetime(microseconds=True)
         try:
             r = await self._client.post(url, json=body, headers=headers)
             r.raise_for_status()
         except HTTPError as e:
-            raise JupyterWebError.from_exception(e, self._username) from e
+            new = JupyterWebError.from_exception(e, self._username)
+            new.started_at = start
+            raise new from e
         response = r.json()
         self._session_id = response["id"]
         kernel = response["kernel"]["id"]

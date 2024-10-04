@@ -175,6 +175,29 @@ class NubladoClientSlackWebException(
     `to_slack` method.
     """
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        failed_at: datetime.datetime | None = None,
+        started_at: datetime.datetime | None = None,
+        method: str | None = None,
+        url: str | None = None,
+        user: str | None = None,
+        status: int | None = None,
+        body: str | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            user=user,
+            failed_at=failed_at,
+            method=method,
+            url=url,
+            status=status,
+            body=body,
+        )
+        self.started_at = started_at
+
     def to_slack(self) -> SlackMessage:
         """Format the error as a Slack Block Kit message.
 
@@ -211,12 +234,14 @@ class CodeExecutionError(NubladoClientSlackException):
         code_type: str = "code",
         error: str | None = None,
         status: str | None = None,
+        started_at: datetime.datetime | None = None,
     ) -> None:
         super().__init__("Code execution failed", user)
         self.code = code
         self.code_type = code_type
         self.error = error
         self.status = status
+        self.started_at = started_at
 
     def __str__(self) -> str:
         if self.annotations.get("notebook"):
