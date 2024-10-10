@@ -27,6 +27,7 @@ __all__ = [
     "CodeExecutionError",
     "ExecutionAPIError",
     "JupyterProtocolError",
+    "JupyterSpawnError",
     "JupyterTimeoutError",
     "JupyterWebError",
     "JupyterWebSocketError",
@@ -376,13 +377,20 @@ class JupyterSpawnError(NubladoClientSlackException):
             return cls(log, user, type(exc).__name__)
 
     def __init__(
-        self, log: str, user: str, message: str | None = None
+        self,
+        log: str,
+        user: str,
+        message: str | None = None,
+        started_at: datetime.datetime | None = None,
+        failed_at: datetime.datetime | None = None,
     ) -> None:
         if message:
             message = f"Spawning lab failed: {message}"
         else:
             message = "Spawning lab failed"
-        super().__init__(message, user)
+        super().__init__(
+            message, user, started_at=started_at, failed_at=failed_at
+        )
         self.log = log
 
     def to_slack(self) -> SlackMessage:
