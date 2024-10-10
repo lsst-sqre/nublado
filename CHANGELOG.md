@@ -11,9 +11,8 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 ### New features
 
-- The "jupyterlab-base" RSP-launchable image is now part of Nublado.
-
-- Add sciplat-lab build (containing DM stack) layered atop jupyterlab-base
+- Add a Docker image build for a `jupyterlab-base` image, which provides a basic image that can be spawned as a lab container by Nublado and can be used as the basis for more complex images.
+- Add the Docker image build for `sciplat-lab`, an image built on top of `jupyterlab-base` that provides a JupyterLab kernel that includes the Rubin Science Pipelines Python stack.
 
 ### Bug fixes
 
