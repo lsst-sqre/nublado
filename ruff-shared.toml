@@ -58,7 +58,6 @@ ignore = [
     "S607",     # using PATH is not a security vulnerability
     "SIM102",   # sometimes the formatting of nested if statements is clearer
     "SIM117",   # sometimes nested with contexts are clearer
-    "T201",     # take this out later!  Useful for debugging
     "TCH001",   # we decided to not maintain separate TYPE_CHECKING blocks
     "TCH002",   # we decided to not maintain separate TYPE_CHECKING blocks
     "TCH003",   # we decided to not maintain separate TYPE_CHECKING blocks
