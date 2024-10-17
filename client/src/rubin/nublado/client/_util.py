@@ -1,12 +1,25 @@
-"""Utility functions for Nublado client."""
+"""Utility class and functions for Nublado client."""
 
 import json
+from dataclasses import dataclass
 
 __all__ = [
+    "CellSource",
     "normalize_source",
     "source_string_by_cell",
     "source_list_by_cell",
 ]
+
+
+@dataclass
+class CellSource:
+    """Each cell has an ID, and its number is simply which cell it is
+    (starting from 0).  The sources will be a list of strings.
+    """
+
+    cell_id: str
+    cell_number: int
+    source: list[str]
 
 
 def normalize_source(notebook: str) -> str:
@@ -62,11 +75,15 @@ def source_string_by_cell(notebook: str) -> list[str]:
     string.  Each cell's source lines (with newline as the line separator) will
     be a separate item of the returned list.
     """
-    return ["\n".join(y) for x in source_list_by_cell(notebook) for y in x]
+    src_list = source_list_by_cell(notebook)
+    return ["\n".join(x.source) for x in src_list]
 
 
-def source_list_by_cell(notebook: str) -> list[list[str]]:
-    """Extract all non-empty "code" cells' "source" entry as a list of strings.
+def source_list_by_cell(notebook: str) -> list[CellSource]:
+    """Extract all non-empty "code" cells' "source" entry.  Attach the
+    cell ID and the sequence number of the cell (one-indexed); each cell's
+    source will be a list of strings.  This is encapsulated in a CellSource
+    object.
 
     Parameters
     ----------
@@ -75,12 +92,18 @@ def source_list_by_cell(notebook: str) -> list[list[str]]:
 
     Returns
     -------
-    list[str]
+    list[CellSource]
        Source entries.
     """
     obj = json.loads(notebook)
-    return [
-        x["source"]
-        for x in obj["cells"]
-        if x["cell_type"] == "code" and "source" in x and x["source"]
-    ]
+    retval: list[CellSource] = []
+    for idx, cell in list(enumerate(obj["cells"])):
+        if cell["cell_type"] == "code" and "source" in cell and cell["source"]:
+            retval.append(
+                CellSource(
+                    cell_id=cell["id"],
+                    source=cell["source"],
+                    cell_number=idx + 1,
+                )
+            )
+    return retval

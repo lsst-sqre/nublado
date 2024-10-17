@@ -36,6 +36,7 @@ async def test_register_python(
         NubladoImageByClass(
             image_class=NubladoImageClass.RECOMMENDED,
             size=NubladoImageSize.Medium,
+            description="Recommended (Weekly 2077_44)",
         )
     )
     # Watch the progress meter
@@ -86,6 +87,7 @@ async def test_register_python_with_notebook(
         NubladoImageByClass(
             image_class=NubladoImageClass.RECOMMENDED,
             size=NubladoImageSize.Medium,
+            description="Recommended (Weekly 2077_44)",
         )
     )
     # Watch the progress meter
@@ -131,6 +133,7 @@ async def test_register_extension(
         NubladoImageByClass(
             image_class=NubladoImageClass.RECOMMENDED,
             size=NubladoImageSize.Medium,
+            description="Recommended (Weekly 2077_44)",
         )
     )
     # Watch the progress meter
