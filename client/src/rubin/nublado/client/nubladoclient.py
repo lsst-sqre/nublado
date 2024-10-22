@@ -222,8 +222,8 @@ class JupyterLabSession:
             r = await self._client.post(url, json=body, headers=headers)
             r.raise_for_status()
         except HTTPError as e:
-            raise JupyterWebError.raise_from_exception_with_started_at(
-                e, self._username, start
+            raise JupyterWebError.raise_from_exception_with_timestamps(
+                e, self._username, {}, start
             ) from e
         response = r.json()
         self._session_id = response["id"]
@@ -297,8 +297,8 @@ class JupyterLabSession:
                 self._logger.exception("Failed to close session")
             else:
                 start = current_datetime(microseconds=True)
-                raise JupyterWebError.raise_from_exception_with_started_at(
-                    e, self._username, start
+                raise JupyterWebError.raise_from_exception_with_timestamps(
+                    e, self._username, {}, start
                 ) from e
 
         return False
@@ -464,6 +464,8 @@ class JupyterLabSession:
         ----------
         source
             code to run
+        context
+            context of source code to run
 
         Returns
         -------
@@ -729,8 +731,8 @@ def _convert_exception(
             return await f(client, *args, **kwargs)
         except HTTPError as e:
             username = client.user.username
-            raise JupyterWebError.raise_from_exception_with_started_at(
-                e, username, start
+            raise JupyterWebError.raise_from_exception_with_timestamps(
+                e, username, {}, start
             ) from e
 
     return wrapper
@@ -756,8 +758,8 @@ def _convert_iterator_exception(
                 yield result
         except HTTPError as e:
             username = client.user.username
-            raise JupyterWebError.raise_from_exception_with_started_at(
-                e, username, start
+            raise JupyterWebError.raise_from_exception_with_timestamps(
+                e, username, {}, start
             ) from e
 
     return wrapper

@@ -240,6 +240,7 @@ class CodeExecutionError(NubladoClientSlackException):
         error: str | None = None,
         status: str | None = None,
         started_at: datetime.datetime | None = None,
+        failed_at: datetime.datetime | None = None,
     ) -> None:
         super().__init__("Code execution failed", user)
         self.code = code
@@ -247,6 +248,8 @@ class CodeExecutionError(NubladoClientSlackException):
         self.error = error
         self.status = status
         self.started_at = started_at
+        if failed_at:
+            self.failed_at = failed_at
 
     def __str__(self) -> str:
         if self.annotations.get("notebook"):
@@ -315,7 +318,13 @@ class ExecutionAPIError(NubladoClientSlackException):
         )
 
     @classmethod
-    async def from_stream(cls, username: str, stream: httpx.Response) -> Self:
+    async def from_stream(
+        cls,
+        username: str,
+        stream: httpx.Response,
+        started_at: datetime.datetime | None = None,
+        failed_at: datetime.datetime | None = None,
+    ) -> Self:
         body_bytes = await stream.aread()
         return cls(
             url=str(stream.url),
@@ -324,6 +333,8 @@ class ExecutionAPIError(NubladoClientSlackException):
             reason=stream.reason_phrase,
             method=stream.request.method,
             body=body_bytes.decode("utf-8"),
+            started_at=started_at,
+            failed_at=failed_at,
         )
 
     def __init__(
@@ -336,15 +347,19 @@ class ExecutionAPIError(NubladoClientSlackException):
         method: str,
         body: str | None = None,
         started_at: datetime.datetime | None = None,
+        failed_at: datetime.datetime | None = None,
     ) -> None:
+        super().__init__(
+            f"Status {status} from {method} {url}",
+            started_at=started_at,
+            failed_at=failed_at,
+        )
         self.url = url
         self.status = status
         self.reason = reason
         self.method = method
         self.msg = body
         self.user = username
-        self.started_at = started_at
-        super().__init__(f"Status {status} from {method} {url}")
 
     def __str__(self) -> str:
         return (
@@ -361,7 +376,14 @@ class JupyterSpawnError(NubladoClientSlackException):
     """The Jupyter Lab pod failed to spawn."""
 
     @classmethod
-    def from_exception(cls, log: str, exc: Exception, user: str) -> Self:
+    def from_exception(
+        cls,
+        log: str,
+        exc: Exception,
+        user: str,
+        started_at: datetime.datetime | None = None,
+        failed_at: datetime.datetime | None = None,
+    ) -> Self:
         """Convert from an arbitrary exception to a spawn error.
 
         Parameters
@@ -372,6 +394,10 @@ class JupyterSpawnError(NubladoClientSlackException):
             Exception that terminated the spawn attempt.
         user
             Username of the user spawning the lab.
+        started_at
+            When the operation started.
+        failed_at
+            When the operation failed (defaults to the current time).
 
         Returns
         -------
@@ -379,9 +405,21 @@ class JupyterSpawnError(NubladoClientSlackException):
             Converted exception.
         """
         if str(exc):
-            return cls(log, user, f"{type(exc).__name__}: {exc!s}")
+            return cls(
+                log,
+                user,
+                f"{type(exc).__name__}: {exc!s}",
+                started_at=started_at,
+                failed_at=failed_at,
+            )
         else:
-            return cls(log, user, type(exc).__name__)
+            return cls(
+                log,
+                user,
+                type(exc).__name__,
+                started_at=started_at,
+                failed_at=failed_at,
+            )
 
     def __init__(
         self,
@@ -419,8 +457,9 @@ class JupyterTimeoutError(NubladoClientSlackException):
         log: str | None = None,
         *,
         started_at: datetime.datetime | None = None,
+        failed_at: datetime.datetime | None = None,
     ) -> None:
-        super().__init__(msg, user, started_at=started_at)
+        super().__init__(msg, user, started_at=started_at, failed_at=failed_at)
         self.log = log
 
     def to_slack(self) -> SlackMessage:
@@ -435,11 +474,13 @@ class JupyterWebError(NubladoClientSlackWebException):
     """An error occurred when talking to JupyterHub or a Jupyter lab."""
 
     @classmethod
-    def raise_from_exception_with_started_at(
+    def raise_from_exception_with_timestamps(
         cls,
         exc: httpx.HTTPError,
         user: str | None = None,
+        annotations: dict[str, str] | None = None,
         started_at: datetime.datetime | None = None,
+        failed_at: datetime.datetime | None = None,
     ) -> Self:
         """Create an exception from an HTTPX_ exception and an optional
         start time.
@@ -450,9 +491,12 @@ class JupyterWebError(NubladoClientSlackWebException):
             Exception from HTTPX.
         user
             User on whose behalf the request is being made, if known.
+        annotations
+            Additional annotations for the exception.
         started_at
-            Timestamp for beginning of operation that caused the exception,
-            if known.
+            When the operation started.
+        failed_at
+            When the operation failed (defaults to the current time).
 
         Returns
         -------
@@ -461,6 +505,10 @@ class JupyterWebError(NubladoClientSlackWebException):
         new = cls.from_exception(exc, user=user)
         if started_at:
             new.started_at = started_at
+        if failed_at:
+            new.failed_at = failed_at
+        if annotations:
+            new.annotations.update(annotations)
         return new
 
 
@@ -472,7 +520,9 @@ class JupyterWebSocketError(NubladoClientSlackException):
         cls,
         exc: WebSocketException,
         user: str,
+        annotations: dict[str, str] | None = None,
         started_at: datetime.datetime | None = None,
+        failed_at: datetime.datetime | None = None,
     ) -> Self:
         """Convert from a `~websockets.exceptions.WebSocketException`.
 
@@ -482,6 +532,12 @@ class JupyterWebSocketError(NubladoClientSlackException):
             Underlying exception.
         user
             User the code is running as.
+        annotations
+            Additional annotations for the exception.
+        started_at
+            When the operation started.
+        failed_at
+            When the operation failed (defaults to the current time).
 
         Returns
         -------
@@ -499,7 +555,9 @@ class JupyterWebSocketError(NubladoClientSlackException):
                 user=user,
                 status=status,
                 body=exc.response.body,
+                annotations=annotations,
                 started_at=started_at,
+                failed_at=failed_at,
             )
         else:
             return cls(f"Error talking to lab WebSocket: {error}", user=user)
@@ -513,14 +571,17 @@ class JupyterWebSocketError(NubladoClientSlackException):
         reason: str | None = None,
         status: int | None = None,
         body: bytes | None = None,
+        annotations: dict[str, str] | None = None,
         started_at: datetime.datetime | None = None,
+        failed_at: datetime.datetime | None = None,
     ) -> None:
-        super().__init__(msg, user)
+        super().__init__(msg, user, started_at=started_at, failed_at=failed_at)
         self.code = code
         self.reason = reason
         self.status = status
         self.body = body.decode() if body else None
-        self.started_at = started_at
+        if annotations:
+            self.annotations.update(annotations)
 
     def to_slack(self) -> SlackMessage:
         """Format this exception as a Slack notification.
