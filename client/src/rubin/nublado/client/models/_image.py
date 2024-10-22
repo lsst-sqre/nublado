@@ -8,12 +8,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-__all__ = [
-    "NubladoImage",
-    "NubladoImageClass",
-    "NubladoImageSize",
-]
-
 
 class NubladoImageClass(str, Enum):
     """Possible ways of selecting an image."""
@@ -59,6 +53,8 @@ class NubladoImage(BaseModel, metaclass=ABCMeta):
         description="Must be one of the sizes understood by Nublado.",
     )
 
+    description: str = Field("", title="Human-readable image description")
+
     debug: bool = Field(False, title="Whether to enable lab debugging")
 
     @abstractmethod
@@ -70,6 +66,41 @@ class NubladoImage(BaseModel, metaclass=ABCMeta):
         dict of str
             Post data to send to the JupyterHub spawn page.
         """
+
+
+class NubladoImageByReference(NubladoImage):
+    """Spawn an image by full Docker reference."""
+
+    image_class: Literal[NubladoImageClass.BY_REFERENCE] = Field(
+        NubladoImageClass.BY_REFERENCE, title="Class of image to spawn"
+    )
+
+    reference: str = Field(..., title="Docker reference of lab image to spawn")
+
+    def to_spawn_form(self) -> dict[str, str]:
+        result = {
+            "image_list": self.reference,
+            "size": self.size.value,
+        }
+        if self.debug:
+            result["enable_debug"] = "true"
+        return result
+
+
+class NubladoImageByTag(NubladoImage):
+    """Spawn an image by image tag."""
+
+    image_class: Literal[NubladoImageClass.BY_TAG] = Field(
+        NubladoImageClass.BY_TAG, title="Class of image to spawn"
+    )
+
+    tag: str = Field(..., title="Tag of image to spawn")
+
+    def to_spawn_form(self) -> dict[str, str]:
+        result = {"image_tag": self.tag, "size": self.size.value}
+        if self.debug:
+            result["enable_debug"] = "true"
+        return result
 
 
 class NubladoImageByClass(NubladoImage):

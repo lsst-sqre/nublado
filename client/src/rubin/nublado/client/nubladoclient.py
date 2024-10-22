@@ -7,7 +7,6 @@ Jupyter kernels remotely.
 from __future__ import annotations
 
 import asyncio
-import datetime
 import json
 from collections.abc import AsyncIterator, Callable, Coroutine
 from datetime import timedelta
@@ -37,8 +36,10 @@ from .exceptions import (
     JupyterTimeoutError,
     JupyterWebError,
     JupyterWebSocketError,
+    NubladoClientSlackException,
 )
 from .models import (
+    CodeContext,
     JupyterOutput,
     NotebookExecutionResult,
     NubladoImage,
@@ -216,11 +217,14 @@ class JupyterLabSession:
         headers = {}
         if self._xsrf:
             headers["X-XSRFToken"] = self._xsrf
+        start = current_datetime(microseconds=True)
         try:
             r = await self._client.post(url, json=body, headers=headers)
             r.raise_for_status()
         except HTTPError as e:
-            raise JupyterWebError.from_exception(e, self._username) from e
+            raise JupyterWebError.raise_from_exception_with_timestamps(
+                e, self._username, {}, start
+            ) from e
         response = r.json()
         self._session_id = response["id"]
         kernel = response["kernel"]["id"]
@@ -246,7 +250,9 @@ class JupyterLabSession:
             ).__aenter__()
         except WebSocketException as e:
             user = self._username
-            raise JupyterWebSocketError.from_exception(e, user) from e
+            raise JupyterWebSocketError.from_exception(
+                e, user, started_at=start
+            ) from e
         except TimeoutError as e:
             msg = "Timed out attempting to open WebSocket to lab session"
             user = self._username
@@ -265,10 +271,13 @@ class JupyterLabSession:
 
         # Close the WebSocket.
         if self._socket:
+            start = current_datetime(microseconds=True)
             try:
                 await self._socket.close()
             except WebSocketException as e:
-                raise JupyterWebSocketError.from_exception(e, username) from e
+                raise JupyterWebSocketError.from_exception(
+                    e, username, started_at=start
+                ) from e
             self._socket = None
 
         # Delete the lab session.
@@ -287,11 +296,16 @@ class JupyterLabSession:
             if exc_type:
                 self._logger.exception("Failed to close session")
             else:
-                raise JupyterWebError.from_exception(e, self._username) from e
+                start = current_datetime(microseconds=True)
+                raise JupyterWebError.raise_from_exception_with_timestamps(
+                    e, self._username, {}, start
+                ) from e
 
         return False
 
-    async def run_python(self, code: str) -> str:
+    async def run_python(
+        self, code: str, context: CodeContext | None = None
+    ) -> str:
         """Run a block of Python code in a Jupyter lab kernel.
 
         Parameters
@@ -319,13 +333,14 @@ class JupyterLabSession:
             raise JupyterWebError(
                 "JupyterLabSession not opened", user=self._username
             )
+        start = current_datetime(microseconds=True)
         message_id = uuid4().hex
         request = {
             "header": {
                 "username": self._username,
                 "version": "5.4",
                 "session": self._session_id,
-                "date": datetime.datetime.now(datetime.UTC).isoformat(),
+                "date": start.isoformat(),
                 "msg_id": message_id,
                 "msg_type": "execute_request",
             },
@@ -351,6 +366,8 @@ class JupyterLabSession:
                     output = self._parse_message(message, message_id)
                 except CodeExecutionError as e:
                     e.code = code
+                    e.started_at = start
+                    _annotate_exception_from_context(e, context)
                     raise
                 except Exception as e:
                     error = f"{type(e).__name__}: {e!s}"
@@ -367,18 +384,24 @@ class JupyterLabSession:
                     break
         except WebSocketException as e:
             user = self._username
-            raise JupyterWebSocketError.from_exception(e, user) from e
+            new_exc = JupyterWebSocketError.from_exception(e, user)
+            new_exc.started_at = start
+            raise new_exc from e
 
         # Return the accumulated output.
         return result
 
-    async def run_notebook(self, notebook: Path) -> list[str]:
+    async def run_notebook(
+        self, notebook: Path, context: CodeContext | None = None
+    ) -> list[str]:
         """Run a notebook of Python code in a Jupyter lab kernel.
 
         Parameters
         ----------
         notebook
             Path of notebook (relative to $HOME) to run.
+        context
+            Optional set of overrides for exception reporting.
 
         Returns
         -------
@@ -405,13 +428,81 @@ class JupyterLabSession:
         self._logger.debug(f"Content: {sources}")
         retlist: list[str] = []
         for cellsrc in sources:
-            current = ""
-            for line in cellsrc:
-                output = await self.run_python(line)
-                if output:
-                    current += output
-            retlist.append(current)
+            try:
+                output = await self.run_python_cell(
+                    cellsrc.source, context=context
+                )
+            except (
+                CodeExecutionError,
+                JupyterWebSocketError,
+                JupyterWebError,
+            ) as exc:
+                if not context:
+                    context = CodeContext()
+                # Add annotations (if not provided) describing error location
+                if not context.cell:
+                    context.cell = cellsrc.cell_id
+                if not context.cell_number:
+                    context.cell_number = f"#{cellsrc.cell_number}"
+                if not context.notebook:
+                    context.notebook = notebook.name
+                if not context.path:
+                    context.path = str(notebook)
+                if not context.cell_source:
+                    context.cell_source = "\n".join(cellsrc.source)
+                _annotate_exception_from_context(exc, context)
+                raise
+            retlist.append(output)
         return retlist
+
+    async def run_python_cell(
+        self, source: list[str], context: CodeContext | None = None
+    ) -> str:
+        """Run a cell of Python code in a Jupyter lab kernel.
+
+        Parameters
+        ----------
+        source
+            code to run
+        context
+            context of source code to run
+
+        Returns
+        -------
+        str
+            Output from the kernel, one string per cell.
+
+        Raises
+        ------
+        CodeExecutionError
+            Raised if an error was reported by the Jupyter lab kernel.
+        JupyterWebSocketError
+            Raised if there was a WebSocket protocol error while running code
+            or waiting for the response.
+        JupyterWebError
+            Raised if called before entering the context and thus before
+            creating the WebSocket session.
+        """
+        current = ""
+        for idx, line in list(enumerate(source)):
+            try:
+                output = await self.run_python(line, context=context)
+            except (
+                CodeExecutionError,
+                JupyterWebSocketError,
+                JupyterWebError,
+            ) as exc:
+                if not context:
+                    context = CodeContext()
+                context.cell_source = "\n".join(source)
+                # Line within cell is one-indexed
+                context.cell_line_number = f"#{idx + 1}"
+                context.cell_line_source = line
+                _annotate_exception_from_context(exc, context)
+                raise
+            if output:
+                current += output
+        return current
 
     async def run_notebook_via_rsp_extension(
         self, *, path: Path | None = None, content: str | None = None
@@ -460,6 +551,7 @@ class JupyterLabSession:
             )
         exec_url = self._url_for(f"user/{self._username}/rubin/execution")
         try:
+            start = current_datetime(microseconds=True)
             # The timeout is designed to catch issues connecting to JupyterLab
             # but to wait as long as possible for the notebook itself
             # to execute.
@@ -482,6 +574,7 @@ class JupyterLabSession:
                 reason="/rubin/execution endpoint timeout",
                 method="POST",
                 body=str(e),
+                started_at=start,
             ) from e
         except httpx.HTTPStatusError as e:
             # This often occurs from timeouts, so we want to convert the
@@ -493,6 +586,7 @@ class JupyterLabSession:
                 reason="Internal Server Error",
                 method="POST",
                 body=str(e),
+                started_at=start,
             ) from e
         if r.status_code != 200:
             raise ExecutionAPIError.from_response(self._username, r)
@@ -530,13 +624,14 @@ class JupyterLabSession:
         data = json.loads(message)
         self._logger.debug("Received kernel message", message=data)
 
-        # Ignore headers not intended for us. Thie web socket is rather
+        # Ignore headers not intended for us. The web socket is rather
         # chatty with broadcast status messages.
         if data.get("parent_header", {}).get("msg_id") != message_id:
             return None
 
         # Analyze the message type to figure out what to do with the response.
         msg_type = data["msg_type"]
+        start = current_datetime(microseconds=True)
         if msg_type in self._IGNORED_MESSAGE_TYPES:
             return None
         elif msg_type == "stream":
@@ -546,10 +641,14 @@ class JupyterLabSession:
             if status == "ok":
                 return JupyterOutput(content="", done=True)
             else:
-                raise CodeExecutionError(user=self._username, status=status)
+                raise CodeExecutionError(
+                    user=self._username, status=status, started_at=start
+                )
         elif msg_type == "error":
             error = "".join(data["content"]["traceback"])
-            raise CodeExecutionError(user=self._username, error=error)
+            raise CodeExecutionError(
+                user=self._username, error=error, started_at=start
+            )
         else:
             msg = "Ignoring unrecognized WebSocket message"
             self._logger.warning(msg, message_type=msg_type, message=data)
@@ -590,10 +689,33 @@ class JupyterLabSession:
         return urlparse(url)._replace(scheme="wss").geturl()
 
 
+def _annotate_exception_from_context(
+    e: NubladoClientSlackException, context: CodeContext | None = None
+) -> None:
+    if not context:
+        return
+    if context.image is not None:
+        e.annotations["image"] = context.image
+    if context.notebook is not None:
+        e.annotations["notebook"] = context.notebook
+    if context.path is not None:
+        e.annotations["path"] = context.path
+    if context.cell is not None:
+        e.annotations["cell"] = context.cell
+    if context.cell_number is not None:
+        e.annotations["cell_number"] = context.cell_number
+    if context.cell_source is not None:
+        e.annotations["cell_source"] = context.cell_source
+    if context.cell_line_number is not None:
+        e.annotations["cell_line_number"] = context.cell_line_number
+    if context.cell_line_source is not None:
+        e.annotations["cell_line_source"] = context.cell_line_source
+
+
 def _convert_exception(
     f: Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]],
 ) -> Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]]:
-    """Convert web errors to a `~rubin.nublado.client.JupyterWebError`.
+    """Convert web error to `~rubin.nublado.client.exceptions.JupyterWebError`.
 
     This can only be used as a decorator on `JupyterClientSession` or another
     object that has a ``user`` property containing an
@@ -604,11 +726,14 @@ def _convert_exception(
     async def wrapper(
         client: NubladoClient, *args: P.args, **kwargs: P.kwargs
     ) -> T:
+        start = current_datetime(microseconds=True)
         try:
             return await f(client, *args, **kwargs)
         except HTTPError as e:
             username = client.user.username
-            raise JupyterWebError.from_exception(e, username) from e
+            raise JupyterWebError.raise_from_exception_with_timestamps(
+                e, username, {}, start
+            ) from e
 
     return wrapper
 
@@ -627,12 +752,15 @@ def _convert_iterator_exception(
     async def wrapper(
         client: NubladoClient, *args: P.args, **kwargs: P.kwargs
     ) -> AsyncIterator[T]:
+        start = current_datetime(microseconds=True)
         try:
             async for result in f(client, *args, **kwargs):
                 yield result
         except HTTPError as e:
             username = client.user.username
-            raise JupyterWebError.from_exception(e, username) from e
+            raise JupyterWebError.raise_from_exception_with_timestamps(
+                e, username, {}, start
+            ) from e
 
     return wrapper
 

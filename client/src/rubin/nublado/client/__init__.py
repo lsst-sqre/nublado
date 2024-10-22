@@ -1,3 +1,3 @@
-from .nubladoclient import NubladoClient
+from .nubladoclient import JupyterLabSession, NubladoClient
 
-__all__ = ["NubladoClient"]
+__all__ = ["NubladoClient", "JupyterLabSession"]
