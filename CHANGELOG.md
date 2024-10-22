@@ -6,6 +6,25 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.0.0'></a>
+## 8.0.0 (2024-10-22)
+
+### Backwards-incompatible changes
+
+- Change client interface to make it work with mobu.
+
+### New features
+
+- Expose JupyterLabSession for Mobu use
+
+- sciplat-lab build: default to most recent parent tag for base container.
+
+- Update rubin-nublado-client for adoption by mobu.
+
+### Bug fixes
+
+- Apparently we do want dashes in the package name after all, not dots.
+
 <a id='changelog-7.2.0'></a>
 ## 7.2.0 (2024-10-01)
 
