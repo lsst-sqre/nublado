@@ -135,9 +135,7 @@ class NubladoClientSlackException(SlackException):
                     text += f" ({self.annotations['cell_number']})"
                 blocks.append(SlackTextBlock(heading="Cell", text=text))
             else:
-                block = SlackTextBlock(
-                    heading="Notebook", text=f"`{notebook}`"
-                )
+                block = SlackTextBlock(heading="Notebook", text=notebook)
                 blocks.append(block)
         elif self.annotations.get("cell"):
             text = self.annotations["cell"]
