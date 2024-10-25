@@ -11,19 +11,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 ### Backwards-incompatible changes
 
-- Change client interface to make it work with mobu.
+- Refactor exception handling in `NubladoClient` to incorporate optional code context information (used by [mobu](https://mobu.lsst.io/)) and additional exception metadata.
 
 ### New features
 
-- Expose JupyterLabSession for Mobu use
-
-- sciplat-lab build: default to most recent parent tag for base container.
-
-- Update rubin-nublado-client for adoption by mobu.
-
-### Bug fixes
-
-- Apparently we do want dashes in the package name after all, not dots.
+- Provide `JupyterLabSession` as an exported class from `rubin.nublado.client`. This class represents an open WebSocket session with a Jupyter lab.
+- Add support for artificial Gafaeflawr tokens to the `MockJuypter` mock of the JupyterHub and JupyterLab API. This allows the mock to extract a username from mock tokens sent by the code under test to the mocked APIs, rather than requiring the test client send an `X-Auth-Request-User` header.
+- Use the most recent Nublado release tag as the default base image for sciplat-lab container builds.
 
 <a id='changelog-7.2.0'></a>
 ## 7.2.0 (2024-10-01)
