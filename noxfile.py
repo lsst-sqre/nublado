@@ -353,7 +353,7 @@ def docs_linkcheck(session: nox.Session) -> None:
     doctree_dir = (session.cache_dir / "doctrees").absolute()
 
     # https://github.com/sphinx-contrib/redoc/issues/48
-    redoc_js_path = Path("docs/_build/html/_static/redoc.js")
+    redoc_js_path = Path("docs/_build/linkcheck/_static/redoc.js")
     if redoc_js_path.exists():
         redoc_js_path.unlink()
 
