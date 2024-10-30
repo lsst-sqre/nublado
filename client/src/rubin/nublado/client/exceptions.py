@@ -214,11 +214,17 @@ class NubladoClientSlackWebException(
         SlackMessage
             Formatted Slack message.
         """
-        return SlackMessage(
-            message=str(self),
+        message = SlackMessage(
+            message=self.message,
             blocks=self.common_blocks(),
             fields=self.common_fields(),
         )
+        if self.body:
+            block = SlackTextBlock(
+                heading="Body", text=f"```\n{self.body}\n```"
+            )
+            message.attachments.append(block)
+        return message
 
     def common_blocks(self) -> list[SlackBaseBlock]:
         blocks = NubladoClientSlackException.common_blocks(self)
@@ -604,9 +610,10 @@ class JupyterWebSocketError(NubladoClientSlackException):
         elif self.code:
             field = SlackTextField(heading="Code", text=str(self.code))
             message.fields.append(field)
-
         if self.body:
-            block = SlackTextBlock(heading="Body", text=self.body)
-            message.blocks.append(block)
+            block = SlackTextBlock(
+                heading="Body", text=f"```\n{self.body}\n```"
+            )
+            message.attachments.append(block)
 
         return message
