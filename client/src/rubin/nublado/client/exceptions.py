@@ -23,6 +23,17 @@ from websockets.exceptions import InvalidStatus, WebSocketException
 _ANSI_REGEX = re.compile(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]")
 """Regex that matches ANSI escape sequences."""
 
+_TOKEN_REGEX = re.compile(r'(?i:xsrf_token:\s*"(.*)")')
+"""Regex that matches XSRF tokens.
+
+This matches the embedding we've observed, where the key is not quoted but the
+value is.
+"""
+
+_OAUTH_STATE_REGEX = re.compile(r"(?im:response_type%3Dcode%26state%3D(.*))")
+"""Regex that matches OAuth code states.  Will match further parameters too
+but we don't really care."""
+
 __all__ = [
     "CodeExecutionError",
     "ExecutionAPIError",
@@ -57,6 +68,26 @@ def _remove_ansi_escapes(string: str) -> str:
         Sanitized string.
     """
     return _ANSI_REGEX.sub("", string)
+
+
+def _sanitize_body(body: str | None) -> str:
+    """Attempt to scrub XSRF token from HTTP response body."""
+    if not body:
+        return ""
+    tok_match = _TOKEN_REGEX.search(body)
+    if not tok_match:
+        return body
+    return re.sub(tok_match.group(1), "<redacted>", body)
+
+
+def _sanitize_url(url: str | None) -> str:
+    """Attempt to scrub OAuth state code from URL."""
+    if not url:
+        return ""
+    url_match = _OAUTH_STATE_REGEX.search(url)
+    if not url_match:
+        return url
+    return re.sub(url_match.group(1), "<redacted>", url)
 
 
 class NubladoClientSlackException(SlackException):
@@ -109,7 +140,7 @@ class NubladoClientSlackException(SlackException):
             Formatted Slack message.
         """
         return SlackMessage(
-            message=str(self),
+            message=self.message,
             blocks=self.common_blocks(),
             fields=self.common_fields(),
         )
@@ -197,9 +228,9 @@ class NubladoClientSlackWebException(
             user=user,
             failed_at=failed_at,
             method=method,
-            url=url,
+            url=_sanitize_url(url) if url else None,
             status=status,
-            body=body,
+            body=_sanitize_body(body) if body else None,
         )
         self.started_at = started_at
 
@@ -214,16 +245,23 @@ class NubladoClientSlackWebException(
         SlackMessage
             Formatted Slack message.
         """
-        return SlackMessage(
-            message=str(self),
+        msg = SlackMessage(
+            message=_sanitize_body(_sanitize_url(self.message)),
             blocks=self.common_blocks(),
             fields=self.common_fields(),
         )
+        if self.body:
+            block = SlackTextBlock(
+                heading="Body", text=f"```{_sanitize_body(self.body)}```"
+            )
+            msg.attachments.append(block)
+        return msg
 
     def common_blocks(self) -> list[SlackBaseBlock]:
         blocks = NubladoClientSlackException.common_blocks(self)
+        url = _sanitize_url(self.url)
         if self.url:
-            text = f"{self.method} {self.url}" if self.method else self.url
+            text = f"{self.method} {url}" if self.method else url
             blocks.append(SlackTextBlock(heading="URL", text=text))
         return blocks
 
@@ -291,7 +329,7 @@ class CodeExecutionError(NubladoClientSlackException):
             attachments.append(attachment)
         if self.code:
             attachment = SlackCodeBlock(
-                heading="Code executed", code=self.code
+                heading="Code executed", code=f"```{self.code}```"
             )
             attachments.append(attachment)
 
@@ -309,12 +347,12 @@ class ExecutionAPIError(NubladoClientSlackException):
     @classmethod
     def from_response(cls, username: str, response: httpx.Response) -> Self:
         return cls(
-            url=str(response.url),
+            url=_sanitize_url(str(response.url)),
             username=username,
             status=response.status_code,
             reason=response.reason_phrase,
             method=response.request.method,
-            body=response.text,
+            body=_sanitize_body(response.text),
         )
 
     @classmethod
@@ -327,12 +365,12 @@ class ExecutionAPIError(NubladoClientSlackException):
     ) -> Self:
         body_bytes = await stream.aread()
         return cls(
-            url=str(stream.url),
+            url=_sanitize_url(str(stream.url)),
             username=username,
             status=stream.status_code,
             reason=stream.reason_phrase,
             method=stream.request.method,
-            body=body_bytes.decode("utf-8"),
+            body=_sanitize_body(body_bytes.decode()),
             started_at=started_at,
             failed_at=failed_at,
         )
@@ -349,16 +387,17 @@ class ExecutionAPIError(NubladoClientSlackException):
         started_at: datetime.datetime | None = None,
         failed_at: datetime.datetime | None = None,
     ) -> None:
+        clean_url = _sanitize_url(url)
         super().__init__(
-            f"Status {status} from {method} {url}",
+            f"Status {status} from {method} {clean_url}",
             started_at=started_at,
             failed_at=failed_at,
         )
-        self.url = url
+        self.url = clean_url
         self.status = status
         self.reason = reason
         self.method = method
-        self.msg = body
+        self.msg = _sanitize_body(body) if body else None
         self.user = username
 
     def __str__(self) -> str:
@@ -550,11 +589,16 @@ class JupyterWebSocketError(NubladoClientSlackException):
             error = type(exc).__name__
         if isinstance(exc, InvalidStatus):
             status = exc.response.status_code
+            body = (
+                _sanitize_body(exc.response.body.decode()).encode("utf-8")
+                if exc.response.body
+                else None
+            )
             return cls(
                 f"Lab WebSocket unexpectedly closed: {error}",
                 user=user,
                 status=status,
-                body=exc.response.body,
+                body=body,
                 annotations=annotations,
                 started_at=started_at,
                 failed_at=failed_at,
@@ -579,7 +623,7 @@ class JupyterWebSocketError(NubladoClientSlackException):
         self.code = code
         self.reason = reason
         self.status = status
-        self.body = body.decode() if body else None
+        self.body = _sanitize_body(body.decode()) if body else None
         if annotations:
             self.annotations.update(annotations)
 
@@ -604,9 +648,8 @@ class JupyterWebSocketError(NubladoClientSlackException):
         elif self.code:
             field = SlackTextField(heading="Code", text=str(self.code))
             message.fields.append(field)
-
         if self.body:
-            block = SlackTextBlock(heading="Body", text=self.body)
-            message.blocks.append(block)
+            block = SlackTextBlock(heading="Body", text=f"```{self.body}```")
+            message.attachments.append(block)
 
         return message
