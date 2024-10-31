@@ -252,7 +252,7 @@ class NubladoClientSlackWebException(
         )
         if self.body:
             block = SlackTextBlock(
-                heading="Body", text=f"```{_sanitize_body(self.body)}```"
+                heading="Body", text=_sanitize_body(self.body)
             )
             msg.attachments.append(block)
         return msg
@@ -329,7 +329,7 @@ class CodeExecutionError(NubladoClientSlackException):
             attachments.append(attachment)
         if self.code:
             attachment = SlackCodeBlock(
-                heading="Code executed", code=f"```{self.code}```"
+                heading="Code executed", code=self.code
             )
             attachments.append(attachment)
 
@@ -649,7 +649,7 @@ class JupyterWebSocketError(NubladoClientSlackException):
             field = SlackTextField(heading="Code", text=str(self.code))
             message.fields.append(field)
         if self.body:
-            block = SlackTextBlock(heading="Body", text=f"```{self.body}```")
+            block = SlackTextBlock(heading="Body", text=self.body)
             message.attachments.append(block)
 
         return message

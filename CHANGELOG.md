@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.0.2'></a>
+## 8.0.2 (2024-10-31)
+
+### Bug fixes
+
+- Correct broken formatting.
+
 <a id='changelog-8.0.1'></a>
 ## 8.0.1 (2024-10-31)
 
