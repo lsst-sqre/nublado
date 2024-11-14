@@ -251,8 +251,8 @@ class NubladoClientSlackWebException(
             fields=self.common_fields(),
         )
         if self.body:
-            block = SlackTextBlock(
-                heading="Body", text=_sanitize_body(self.body)
+            block = SlackCodeBlock(
+                heading="Body", code=_sanitize_body(self.body)
             )
             msg.attachments.append(block)
         return msg
