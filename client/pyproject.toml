@@ -27,7 +27,7 @@ dependencies = [
   "safir",
   "shortuuid",
   "structlog",
-  "websockets",
+  "websockets<14",  # We should update, but it will take some work
   "greenlet",  # Not a dependency on Mac, but is on Linux
 ]
 

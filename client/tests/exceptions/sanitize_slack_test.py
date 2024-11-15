@@ -2,7 +2,7 @@
 
 import httpx
 import pytest
-from safir.slack.blockkit import SlackTextBlock
+from safir.slack.blockkit import SlackCodeBlock, SlackTextBlock
 
 from rubin.nublado.client.exceptions import JupyterWebError
 
@@ -45,8 +45,8 @@ async def test_url_redaction() -> None:
     assert slack_msg.blocks[0].text.find("state") != -1
     assert slack_msg.blocks[0].text.find("<redacted>") != -1
     assert len(slack_msg.attachments) == 1
-    assert isinstance(slack_msg.attachments[0], SlackTextBlock)
+    assert isinstance(slack_msg.attachments[0], SlackCodeBlock)
     assert slack_msg.attachments[0].heading == "Body"
-    assert slack_msg.attachments[0].text.find("Nevermore") == -1
-    assert slack_msg.attachments[0].text.find("xsrf_token") != -1
-    assert slack_msg.attachments[0].text.find("<redacted>") != -1
+    assert slack_msg.attachments[0].code.find("Nevermore") == -1
+    assert slack_msg.attachments[0].code.find("xsrf_token") != -1
+    assert slack_msg.attachments[0].code.find("<redacted>") != -1
