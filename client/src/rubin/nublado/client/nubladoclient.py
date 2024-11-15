@@ -856,6 +856,8 @@ class NubladoClient:
         JupyterProtocolError
             Raised if no ``_xsrf`` cookie was set in the reply from the lab.
         """
+        # Remove hub xsrf token.
+        self._hub_xsrf = None
         url = self._url_for("hub/home")
         r = await self._client.get(url, follow_redirects=False)
         # As with auth_to_lab, manually extract from cookies at each
