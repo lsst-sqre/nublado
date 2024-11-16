@@ -807,22 +807,26 @@ class NubladoClient:
         if logger is None:
             logger = structlog.get_logger()
         self._logger = logger
-
+        self._timeout = timeout
+        self._base_url = base_url
+        self._initialize_client()
         # Construct a connection pool to use for requests to JupyterHub. We
         # have to create a separate connection pool for every user, since
         # each will get user-specific cookies set by JupyterHub. If we shared
         # connection pools, users would overwrite each other's cookies and
         # get authentication failures from labs.
-        headers = {"Authorization": f"Bearer {user.token}"}
-        self._client = AsyncClient(
-            follow_redirects=True,
-            base_url=base_url,
-            headers=headers,
-            timeout=timeout.total_seconds(),
-        )
         self._hub_xsrf: str | None = None
         self._lab_xsrf: str | None = None
         self._logger.debug("Created new NubladoClient")
+
+    def _initialize_client(self) -> None:
+        headers = {"Authorization": f"Bearer {self.user.token}"}
+        self._client = AsyncClient(
+            follow_redirects=True,
+            base_url=self._base_url,
+            headers=headers,
+            timeout=self._timeout.total_seconds(),
+        )
 
     async def close(self) -> None:
         """Close the underlying HTTP connection pool."""
@@ -858,6 +862,8 @@ class NubladoClient:
         """
         # Remove hub xsrf token.
         self._hub_xsrf = None
+        # Reinitialize HTTP client
+        self._initialize_client()
         url = self._url_for("hub/home")
         r = await self._client.get(url, follow_redirects=False)
         # As with auth_to_lab, manually extract from cookies at each
