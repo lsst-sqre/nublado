@@ -6,6 +6,15 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.0.3'></a>
+## 8.0.3 (2024-11-18)
+
+### Bug fixes
+
+- Make HTTP response body truncate at start rather than end in error message.
+
+- Wipe out xsrf token and cookies with each hub login in NubladoClient.
+
 <a id='changelog-8.0.2'></a>
 ## 8.0.2 (2024-10-31)
 
