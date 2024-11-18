@@ -1,5 +1,6 @@
 """Text fixtures for Nublado client tests."""
 
+from base64 import urlsafe_b64encode
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -52,9 +53,20 @@ def configured_logger() -> BoundLogger:
     return structlog.get_logger("nublado-client")
 
 
+def _create_mock_token(username: str, token: str) -> str:
+    # A mock token is: "gt-<base-64 encoded username>.<base64 encoded token>"
+    # That is then decoded to extract the username in the Jupyter mock.
+    enc_u = urlsafe_b64encode(username.encode()).decode()
+    enc_t = urlsafe_b64encode(token.encode()).decode()
+    return f"gt-{enc_u}.{enc_t}"
+
+
 @pytest.fixture
 def test_user() -> User:
-    return User(username="rachel", token="token-of-authority")
+    username = "rachel"
+    token = "token-of-authority"
+    mock_token = _create_mock_token(username, token)
+    return User(username=username, token=mock_token)
 
 
 @pytest.fixture

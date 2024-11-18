@@ -807,22 +807,51 @@ class NubladoClient:
         if logger is None:
             logger = structlog.get_logger()
         self._logger = logger
-
-        # Construct a connection pool to use for requests to JupyterHub. We
-        # have to create a separate connection pool for every user, since
-        # each will get user-specific cookies set by JupyterHub. If we shared
-        # connection pools, users would overwrite each other's cookies and
-        # get authentication failures from labs.
-        headers = {"Authorization": f"Bearer {user.token}"}
-        self._client = AsyncClient(
-            follow_redirects=True,
-            base_url=base_url,
-            headers=headers,
-            timeout=timeout.total_seconds(),
-        )
+        self._timeout = timeout
+        self._base_url = base_url
+        self._initialize_client()
         self._hub_xsrf: str | None = None
         self._lab_xsrf: str | None = None
         self._logger.debug("Created new NubladoClient")
+
+    def _initialize_client(self) -> None:
+        """Construct a connection pool to use for requests to
+        JupyterHub. We have to create a separate connection pool for
+        every user, since each will get user-specific cookies set by
+        JupyterHub. If we shared connection pools, users would
+        overwrite each other's cookies and get authentication
+        failures from labs.
+
+        We reinitialize this every time we log in to the hub.  The
+        reason for this is that we had not been doing so, and
+        additionally had the idle culler set to not only terminate
+        users' servers but to log out those users, which corresponds
+        to removing the user object from JupyterHub (and its
+        associated session database).  That, however, did not affect
+        the NubladoClient object owned by each Mobu bot user.
+
+        Our bot users would, therefore, run for a long time and
+        eventually get culled.  Because they still had XSRF cookies
+        and tokens present in their NubladoClient objects, they would
+        come back and present those, but because they got new user
+        objects (with newly-generated XSRF tokens) inside JupyterHub,
+        there would be an XSRF mismatch and therefore authentication
+        would fail and keep failing until mobu was restarted.
+
+        By forcing reinitialization of the NubladoClient at each new
+        login, we guarantee that the newly-arriving user gets a new
+        XSRF cookie and token, and therefore we will no longer present
+        the hub with a no-longer-valid one.
+        """
+        # Remove hub xsrf token.
+        self._hub_xsrf = None
+        # Create a fresh client, with no cookies set yet, only a token.
+        self._client = AsyncClient(
+            follow_redirects=True,
+            base_url=self._base_url,
+            headers={"Authorization": f"Bearer {self.user.token}"},
+            timeout=self._timeout.total_seconds(),
+        )
 
     async def close(self) -> None:
         """Close the underlying HTTP connection pool."""
@@ -856,6 +885,8 @@ class NubladoClient:
         JupyterProtocolError
             Raised if no ``_xsrf`` cookie was set in the reply from the lab.
         """
+        # Reinitialize HTTP client
+        self._initialize_client()
         url = self._url_for("hub/home")
         r = await self._client.get(url, follow_redirects=False)
         # As with auth_to_lab, manually extract from cookies at each
