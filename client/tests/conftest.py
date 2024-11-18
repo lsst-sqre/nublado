@@ -56,8 +56,8 @@ def configured_logger() -> BoundLogger:
 def _create_mock_token(username: str, token: str) -> str:
     # A mock token is: "gt-<base-64 encoded username>.<base64 encoded token>"
     # That is then decoded to extract the username in the Jupyter mock.
-    enc_u = urlsafe_b64encode(username.encode()).decode("utf-8")
-    enc_t = urlsafe_b64encode(token.encode()).decode("utf-8")
+    enc_u = urlsafe_b64encode(username.encode()).decode()
+    enc_t = urlsafe_b64encode(token.encode()).decode()
     return f"gt-{enc_u}.{enc_t}"
 
 
