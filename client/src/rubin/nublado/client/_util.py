@@ -6,8 +6,8 @@ from dataclasses import dataclass
 __all__ = [
     "CellSource",
     "normalize_source",
-    "source_string_by_cell",
     "source_list_by_cell",
+    "source_string_by_cell",
 ]
 
 

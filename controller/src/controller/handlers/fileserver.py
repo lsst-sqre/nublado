@@ -44,7 +44,6 @@ async def get_fileserver_users(
         " is not running, a 404 error will be returned, since the file server"
         " resource does not exist."
     ),
-    response_model=FileserverStatus,
     tags=["admin"],
 )
 async def get_fileserver_status(
@@ -100,7 +99,6 @@ async def remove_fileserver(
         " with the admin endpoint and allows clients to look at the HTTP"
         " status code without parsing the body."
     ),
-    response_model=FileserverStatus,
     tags=["user"],
 )
 async def get_user_state(

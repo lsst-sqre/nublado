@@ -21,7 +21,6 @@ __all__ = ["external_router", "internal_router"]
 
 @external_router.get(
     "",
-    response_model=Index,
     response_model_exclude_none=True,
     summary="Application metadata",
     tags=["internal"],
@@ -43,7 +42,6 @@ async def get_index(
         " therefore cannot be used by external clients."
     ),
     include_in_schema=False,
-    response_model=Metadata,
     response_model_exclude_none=True,
     summary="Application metadata (internal)",
     tags=["internal"],

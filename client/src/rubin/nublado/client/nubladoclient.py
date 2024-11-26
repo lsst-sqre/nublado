@@ -50,7 +50,7 @@ from .models import (
 P = ParamSpec("P")
 T = TypeVar("T")
 
-__all__ = ["NubladoClient", "JupyterLabSession"]
+__all__ = ["JupyterLabSession", "NubladoClient"]
 
 
 class JupyterSpawnProgress:

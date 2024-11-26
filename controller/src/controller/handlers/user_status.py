@@ -20,7 +20,6 @@ __all__ = ["router"]
     "/spawner/v1/user-status",
     responses={404: {"description": "Lab not found", "model": ErrorModel}},
     summary="State of user's lab",
-    response_model=LabState,
     tags=["user"],
 )
 async def get_user_state(

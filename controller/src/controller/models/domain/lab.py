@@ -20,8 +20,8 @@ from pydantic import BaseModel, Field
 from sse_starlette import ServerSentEvent
 
 __all__ = [
-    "EventType",
     "Event",
+    "EventType",
     "LabObjectNames",
     "LabObjects",
     "LabStateObjects",

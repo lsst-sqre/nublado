@@ -45,7 +45,6 @@ async def get_lab_users(
 
 @router.get(
     "/spawner/v1/labs/{username}",
-    response_model=LabState,
     responses={
         403: {"description": "Forbidden", "model": ErrorModel},
         404: {"description": "Lab not found", "model": ErrorModel},
