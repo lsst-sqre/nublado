@@ -38,8 +38,8 @@ from .watcher import KubernetesWatcher
 T = TypeVar("T", bound=KubernetesModel)
 
 __all__ = [
-    "KubernetesObjectDeleter",
     "JobStorage",
+    "KubernetesObjectDeleter",
     "PersistentVolumeClaimStorage",
     "ServiceStorage",
     "T",

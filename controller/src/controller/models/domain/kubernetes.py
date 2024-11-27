@@ -37,10 +37,10 @@ __all__ = [
     "LabelSelectorOperator",
     "LabelSelectorRequirement",
     "NodeAffinity",
+    "NodeSelector",
     "NodeSelectorOperator",
     "NodeSelectorRequirement",
     "NodeSelectorTerm",
-    "NodeSelector",
     "NodeToleration",
     "PodAffinity",
     "PodAffinityTerm",
@@ -53,8 +53,8 @@ __all__ = [
     "Toleration",
     "TolerationOperator",
     "VolumeAccessMode",
-    "WeightedPodAffinityTerm",
     "WatchEventType",
+    "WeightedPodAffinityTerm",
 ]
 
 
