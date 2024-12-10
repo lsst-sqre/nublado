@@ -19,7 +19,7 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-  "httpx",
+  "httpx<0.28.0",  # Remove once respx PR#278 is merged
   "httpx_sse",
   "pydantic>2",
   "pydantic-settings",
