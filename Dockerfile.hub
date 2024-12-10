@@ -27,6 +27,9 @@ COPY . /workdir
 WORKDIR /workdir
 RUN pip install --no-deps --no-cache-dir ./authenticator ./spawner
 
+# Copy the modified page template
+COPY hub/page.html /usr/local/etc/jupyterhub/templates/page.html
+
 # Create a non-root user to run JupyterHub. Upstream uses 768 as the UID
 # and GID. This value must be kept in sync with the Phalanx nublado
 # application values.yaml.
