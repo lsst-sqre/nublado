@@ -9,10 +9,10 @@
 
 # We want to explicitly control new versions of JupyterHub. Pin this to the
 # same version that Dockerfile uses.
-jupyterhub==5.0.0
+jupyterhub==5.2.1
 
 # Dependencies used directly by the authenticator and spawner.
-httpx
+httpx<0.28.0  # Unpin once respx PR #278 is merged.
 httpx-sse
 PyYAML
 traitlets
