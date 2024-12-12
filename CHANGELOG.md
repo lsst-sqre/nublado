@@ -6,6 +6,17 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.1.0'></a>
+## 8.1.0 (2024-12-12)
+
+### Bug fixes
+
+- Add page template override to hide useless-in-RSP Token link
+
+### Other changes
+
+- Update to JupyterHub 4.1.2 and z2jh Helm chart 4.0.0
+
 <a id='changelog-8.0.3'></a>
 ## 8.0.3 (2024-11-18)
 
