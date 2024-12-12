@@ -63,9 +63,9 @@ jobs:
           nox-sessions: "typing typing-inithome typing-client test test-inithome test-client"
           python-version: ${{ env.PYTHON_VERSION }}
 
-  # The controller requires Python 3.12, but the modules we add to the Hub
-  # have to run with Python 3.10 since that's what the JupyterHub image uses.
-  # Run a separate matrix to test those modules.
+  # The Hub image may not always track the Python version we use.  Use a
+  # separate matrix for it.  Note that our modules have to work with
+  # whatever-that-is.
   test-hub:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -73,8 +73,6 @@ jobs:
     strategy:
       matrix:
         python:
-          - "3.10"
-          - "3.11"
           - "3.12"
 
     steps:

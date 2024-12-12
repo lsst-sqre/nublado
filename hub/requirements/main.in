@@ -10,7 +10,8 @@
 # We want to explicitly control new versions of JupyterHub. Pin this to the
 # same version that Dockerfile uses -- but Dockerfile refers to the z2jh
 # version, so, we have to determine what version is actually in the z2jh
-# version and put that here.
+# version and put that here.  If all else fails, bring up the z2jh container
+# with /bin/sh as the command to run, and look at the `pip list` output.
 jupyterhub==5.2.1
 
 # Dependencies used directly by the authenticator and spawner.
