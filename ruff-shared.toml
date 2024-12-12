@@ -58,9 +58,9 @@ ignore = [
     "S607",     # using PATH is not a security vulnerability
     "SIM102",   # sometimes the formatting of nested if statements is clearer
     "SIM117",   # sometimes nested with contexts are clearer
-    "TCH001",   # we decided to not maintain separate TYPE_CHECKING blocks
-    "TCH002",   # we decided to not maintain separate TYPE_CHECKING blocks
-    "TCH003",   # we decided to not maintain separate TYPE_CHECKING blocks
+    "TC001",    # we decided to not maintain separate TYPE_CHECKING blocks
+    "TC002",    # we decided to not maintain separate TYPE_CHECKING blocks
+    "TC003",    # we decided to not maintain separate TYPE_CHECKING blocks
     "TD003",    # we don't require issues be created for TODOs
     "TID252",   # if we're going to use relative imports, use them always
     "TRY003",   # good general advice but lint is way too aggressive
@@ -87,49 +87,47 @@ ignore = [
 select = ["ALL"]
 
 [lint.per-file-ignores]
-"controller/src/controller/constants.py" = [
-    "S108",    # constructing /tmp paths for Kubernetes Pods
-]
-"controller/src/controller/handlers/**" = [
-    "D103",    # FastAPI handlers should not have docstrings
-]
-"controller/src/controller/services/**" = [
-    "S108",    # constructing /tmp paths for Kubernetes Pods
+"alembic/**" = [
+    "INP001",  # Alembic files are magical
+    "D103",    # Alembic methods do not need docstrings
+    "D400",    # Alembic migrations have their own docstring format
 ]
 "noxfile.py" = [
     "T201",    # print makes sense as output from nox rules
 ]
-"spawner/tests/**" = [
-    "UP017",   # spawner has to support Python 3.10, UTC was added in 3.11
+"src/*/handlers/**" = [
+    "D103",    # FastAPI handlers should not have docstrings
+]
+"*/src/*/handlers/**" = [
+    "D103",    # FastAPI handlers should not have docstrings
+]
+"tests/**" = [
+    "C901",    # tests are allowed to be complex, sometimes that's convenient
+    "D101",    # tests don't need docstrings
+    "D103",    # tests don't need docstrings
+    "PLR0915", # tests are allowed to be long, sometimes that's convenient
+    "PT012",   # way too aggressive about limiting pytest.raises blocks
+    "S101",    # tests should use assert
+    "S106",    # tests are allowed to hard-code dummy passwords
+    "S301",    # allow tests for whether code can be pickled
+    "SLF001",  # tests are allowed to access private members
 ]
 "*/tests/**" = [
     "C901",    # tests are allowed to be complex, sometimes that's convenient
     "D101",    # tests don't need docstrings
     "D103",    # tests don't need docstrings
-    "PLR0124", # these tests are required to test ordering dunder methods
     "PLR0915", # tests are allowed to be long, sometimes that's convenient
     "PT012",   # way too aggressive about limiting pytest.raises blocks
     "S101",    # tests should use assert
     "S106",    # tests are allowed to hard-code dummy passwords
+    "S301",    # allow tests for whether code can be pickled
     "SLF001",  # tests are allowed to access private members
 ]
-"client/src/rubin/nublado/client/testing/**" = [
-    "S101",    # test support functions are allowed to use assert
-    "S110",    # we really don't want to log that exception, just eat it
-    "SLF001",  # test support functions are allowed to access private members
+"tests/schema_test.py" = [
+    "ASYNC221", # useful to run subprocess in async tests for Alembic
 ]
-"client/tests/support/hello.ipynb" = [
-    "T201",    # test support notebooks are allowed to print
-]
-
-"jupyterlab-base/jupyter_server/jupyter_server_config.py" = [
-    "F821",    # this is just a fragment used by Jupyter; don't lint it
-    "D100",
-    "INP001",
-]
-
-"sciplat-lab/etc/20-logging.py" = [
-    "INP001",  # Also a Jupyter fragment
+"*/tests/schema_test.py" = [
+    "ASYNC221", # useful to run subprocess in async tests for Alembic
 ]
 
 # These are too useful as attributes or methods to allow the conflict with the

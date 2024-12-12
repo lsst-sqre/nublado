@@ -14,26 +14,34 @@
 # This is just an alias to avoid repeating the base image.
 FROM quay.io/jupyterhub/k8s-hub:4.0.0
 
+# The upstream chart already switched users, but we have additional
+# operations that must be done as root.
 USER 0
+
+# Install uv.
+COPY --from=ghcr.io/astral-sh/uv:0.5.8 /uv /bin/uv
+
 # Update and install packages.
 COPY hub/scripts/install-packages.sh .
 RUN ./install-packages.sh && rm install-packages.sh
 
 # Install the dependencies of the extra JupyterHub modules.
 COPY hub/requirements/main.txt ./requirements.txt
-RUN pip install --quiet --no-cache-dir -r requirements.txt
+RUN uv pip install --system --compile-bytecode --verify-hashes --no-cache \
+    -r requirements.txt
+RUN rm requirements.txt
 
 # Install the extra JupyterHub modules.
 COPY . /workdir
 WORKDIR /workdir
-RUN pip install --no-deps --no-cache-dir ./authenticator ./spawner
+RUN uv pip install --system --no-deps --compile-bytecode --no-cache \
+    ./authenticator ./spawner
 
 # Copy the modified page template
 COPY hub/templates/page.html /usr/local/etc/jupyterhub/templates/page.html
 
-# Upstream uses jovyan at 1000:1000 to run Jupyterhub.
-# This value must be kept in sync with the Phalanx nublado application
-# values.yaml.
+# Upstream uses jovyan at 1000:1000 to run Jupyterhub. This must be kept
+# in sync with the Phalanx nublado application values.yaml.
 WORKDIR /srv/jupyterhub
 USER jovyan
 EXPOSE 8000

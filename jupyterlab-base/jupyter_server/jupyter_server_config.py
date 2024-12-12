@@ -1,3 +1,5 @@
+"""Logging configuration for the Jupyter server."""
+
 import os
 
 # Set the standard console logger to log on WARNING (in jupyterlab startup).
