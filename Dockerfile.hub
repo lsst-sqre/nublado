@@ -12,7 +12,7 @@
 # necessary while installing extra Python modules.
 
 # This is just an alias to avoid repeating the base image.
-FROM jupyterhub/jupyterhub:5.2.1
+FROM quay.io/jupyterhub/k8s-hub:4.0.0
 
 # Update and install packages.
 COPY hub/scripts/install-packages.sh .

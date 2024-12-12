@@ -8,7 +8,9 @@
 #     nox -s update-deps
 
 # We want to explicitly control new versions of JupyterHub. Pin this to the
-# same version that Dockerfile uses.
+# same version that Dockerfile uses -- but Dockerfile refers to the z2jh
+# version, so, we have to determine what version is actually in the z2jh
+# version and put that here.
 jupyterhub==5.2.1
 
 # Dependencies used directly by the authenticator and spawner.
