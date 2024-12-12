@@ -4,6 +4,8 @@
 # fixes and installs additional packages used either when installing
 # dependencies or at runtime.
 
+# This script must be run as root.
+
 # Bash "strict mode", to help catch problems and bugs in the shell
 # script. Every bash script you write should include this. See
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/ for details.

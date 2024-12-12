@@ -123,9 +123,10 @@ def _update_deps(
         if generate_hashes:
             command.append("--generate-hashes")
 
-        # JupyterHub uses an old Python version.
+        # JupyterHub may use a different Python version.  This must be
+        # whatever that is.
         if directory == "hub":
-            command.extend(("-p", "3.10"))
+            command.extend(("-p", "3.12"))
 
         session.run(
             *command,

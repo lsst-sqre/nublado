@@ -12,8 +12,9 @@
 # necessary while installing extra Python modules.
 
 # This is just an alias to avoid repeating the base image.
-FROM jupyterhub/jupyterhub:5.2.1
+FROM quay.io/jupyterhub/k8s-hub:4.0.0
 
+USER 0
 # Update and install packages.
 COPY hub/scripts/install-packages.sh .
 RUN ./install-packages.sh && rm install-packages.sh
@@ -30,13 +31,10 @@ RUN pip install --no-deps --no-cache-dir ./authenticator ./spawner
 # Copy the modified page template
 COPY hub/templates/page.html /usr/local/etc/jupyterhub/templates/page.html
 
-# Create a non-root user to run JupyterHub. Upstream uses 768 as the UID
-# and GID. This value must be kept in sync with the Phalanx nublado
-# application values.yaml.
-RUN groupadd --gid 768 jovyan
-RUN useradd --create-home jovyan --uid 768 --gid 768
-WORKDIR /home/jovyan
-
+# Upstream uses jovyan at 1000:1000 to run Jupyterhub.
+# This value must be kept in sync with the Phalanx nublado application
+# values.yaml.
+WORKDIR /srv/jupyterhub
 USER jovyan
 EXPOSE 8000
 EXPOSE 8081
