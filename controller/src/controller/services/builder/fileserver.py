@@ -201,10 +201,11 @@ class FileserverBuilder:
             "kind": "GafaelfawrIngress",
             "metadata": metadata,
             "config": {
-                "baseUrl": self._base_url,
-                "scopes": {"all": ["exec:notebook"]},
-                "loginRedirect": False,
                 "authType": "basic",
+                "baseUrl": self._base_url,
+                "loginRedirect": False,
+                "scopes": {"all": ["exec:notebook"]},
+                "service": "nublado-files",
                 "username": username,
             },
             "template": {

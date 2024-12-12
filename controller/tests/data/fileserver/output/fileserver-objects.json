@@ -421,14 +421,15 @@
       "namespace": "fileservers"
     },
     "config": {
+      "authType": "basic",
       "baseUrl": "http://127.0.0.1:8080",
+      "loginRedirect": false,
       "scopes": {
         "all": [
           "exec:notebook"
         ]
       },
-      "loginRedirect": false,
-      "authType": "basic",
+      "service": "nublado-files",
       "username": "rachel"
     },
     "template": {
