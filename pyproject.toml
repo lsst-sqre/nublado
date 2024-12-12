@@ -5,20 +5,6 @@
 [tool.black]
 line-length = 79
 target-version = ["py312"]
-exclude = '''
-/(
-    \.eggs
-  | \.git
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | build
-  | dist
-)/
-'''
-# Use single-quoted strings so TOML treats the string like a Python r-string
-# Multi-line strings are implicitly treated by black as regular expressions
 
 [tool.mypy]
 disallow_untyped_defs = true
@@ -39,15 +25,34 @@ init_typed = true
 warn_required_dynamic_aliases = true
 warn_untyped_fields = true
 
-# The rule used with Ruff configuration is to disable every lint that has
-# legitimate exceptions that are not dodgy code, rather than cluttering code
-# with noqa markers. This is therefore a reiatively relaxed configuration that
-# errs on the side of disabling legitimate lints.
-#
-# Reference for settings: https://beta.ruff.rs/docs/settings/
-# Reference for rules: https://beta.ruff.rs/docs/rules/
+# Use the generic Ruff configuration in ruff.toml and extend it with only
+# project-specific settings.
 [tool.ruff]
 extend = "ruff-shared.toml"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"client/src/rubin/nublado/client/testing/**" = [
+    "S101",    # test support functions are allowed to use assert
+]
+"client/tests/support/hello.ipynb" = [
+    "T201",    # test support notebooks are allowed to print
+]
+"controller/src/controller/constants.py" = [
+    "S108",    # constructing /tmp paths for Kubernetes Pods
+]
+"controller/src/controller/services/**" = [
+    "S108",    # constructing /tmp paths for Kubernetes Pods
+]
+"controller/tests/models/domain/rsptag_test.py" = [
+    "PLR0124", # testing comparison dunder methods requires strange assertions
+]
+"jupyterlab-base/jupyter_server/jupyter_server_config.py" = [
+    "INP001",  # Jupyter server configuration file, so has no namespace
+    "F821",    # Jupyter configuration uses a magic c variable
+]
+"spawner/tests/support/controller.py" = [
+    "UP017",   # Python 3.10 didn't have datetime.UTC
+]
 
 [tool.ruff.lint.isort]
 known-first-party = [

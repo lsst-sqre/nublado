@@ -11,13 +11,13 @@ from nox.command import CommandFailed
 nox.options.sessions = [
     "lint",
     "typing",
+    "typing-client",
     "typing-hub",
     "typing-inithome",
-    "typing-client",
     "test",
+    "test-client",
     "test-hub",
     "test-inithome",
-    "test-client",
     "docs",
     "docs-linkcheck",
 ]
@@ -111,7 +111,6 @@ def _pytest(
 def _update_deps(
     session: nox.Session,
     *,
-    generate_hashes: bool = True,
     hub_only: bool = False,
 ) -> None:
     session.install("--upgrade", "uv")
@@ -119,9 +118,14 @@ def _update_deps(
     session.run("pre-commit", "autoupdate")
     directories = ("hub",) if hub_only else ("controller", "hub", "inithome")
     for directory in directories:
-        command = ["uv", "pip", "compile", "--upgrade", "--universal"]
-        if generate_hashes:
-            command.append("--generate-hashes")
+        command = [
+            "uv",
+            "pip",
+            "compile",
+            "--upgrade",
+            "--generate-hashes",
+            "--universal",
+        ]
 
         # JupyterHub may use a different Python version.  This must be
         # whatever that is.
@@ -199,13 +203,12 @@ def typing_client(session: nox.Session) -> None:
     session.run(
         "mypy",
         *session.posargs,
-        "noxfile.py",
+        "--namespace-packages",
+        "--explicit-package-bases",
+        "client/src",
         "client/tests",
+        env={"MYPYPATH": "client/src:client"},
     )
-    # "client" is, alas, a too-generic name, and you get "imported twice"
-    # if you don't split it like this, because there's some builtin.  So
-    # let's do the package explicitly with -p.
-    session.run("mypy", *session.posargs, "-p", "rubin.nublado.client")
 
 
 @nox.session(name="typing-hub")
@@ -389,16 +392,6 @@ def update_deps(session: nox.Session) -> None:
 def update_deps_hub(session: nox.Session) -> None:
     """Update pinned JupyterHub dependencies and pre-commit hooks."""
     _update_deps(session, hub_only=True)
-
-
-@nox.session(name="update-deps-no-hashes")
-def update_deps_no_hashes(session: nox.Session) -> None:
-    """Update pinned server dependencies without hashes.
-
-    Used when testing against unreleased dependencies, such as a Git version
-    of Safir.
-    """
-    _update_deps(session, generate_hashes=False)
 
 
 @nox.session(name="run")

@@ -8,7 +8,7 @@ import os
 import re
 from base64 import urlsafe_b64decode
 from collections.abc import AsyncIterator
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
@@ -124,6 +124,24 @@ class MockJupyter:
         self._code_results: dict[str, str] = {}
         self._extension_results: dict[str, NotebookExecutionResult] = {}
 
+    def get_python_result(self, code: str | None) -> str | None:
+        """Get the cached results for a specific block of code.
+
+        Parameters
+        ----------
+        code
+            Code for which to retrieve results.
+
+        Returns
+        -------
+        str or None
+            Corresponding results, or `None` if there are no results for this
+            code.
+        """
+        if not code:
+            return None
+        return self._code_results.get(code)
+
     def register_python_result(self, code: str, result: str) -> None:
         """Register the expected cell output for a given source input."""
         self._code_results[code] = result
@@ -154,11 +172,10 @@ class MockJupyter:
             tok = auth[len("Bearer ") :]
             # Is it putatively a Gafaelfawr token?
             if tok.startswith("gt-"):
-                try:
-                    # Try extracting the username
+                with suppress(Exception):
+                    # Try extracting the username. If this fails, fall through
+                    # and return None.
                     return self._extract_user_from_mock_token(token=tok)
-                except Exception:
-                    pass  # Decoding failed, don't care why.  User is None
         return None
 
     @staticmethod
@@ -482,7 +499,7 @@ class MockJupyterWebSocket:
         self.session_id = session_id
         self._header: dict[str, str] | None = None
         self._code: str | None = None
-        self._parent: MockJupyter = parent
+        self._parent = parent
         self._state: dict[str, Any] = {}
 
     async def close(self) -> None:
@@ -521,13 +538,12 @@ class MockJupyterWebSocket:
             yield json.dumps(response)
 
     def _build_response(self) -> dict[str, Any]:
-        if self._code in self._parent._code_results:
-            code = self._code
+        if results := self._parent.get_python_result(self._code):
             self._code = None
             return {
                 "msg_type": "stream",
                 "parent_header": self._header,
-                "content": {"text": self._parent._code_results[code]},
+                "content": {"text": results},
             }
         elif self._code == "long_error_for_test()":
             error = ""

@@ -19,43 +19,44 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-  "httpx<0.28.0",  # Remove once respx PR#278 is merged
-  "httpx_sse",
-  "pydantic>2",
-  "pydantic-settings",
-  "pyyaml",
-  "safir",
-  "shortuuid",
-  "structlog",
-  "websockets<14",  # We should update, but it will take some work
-  "greenlet",  # Not a dependency on Mac, but is on Linux
+    "httpx<0.28.0",  # https://github.com/lundberg/respx/issues/277
+    "httpx_sse",
+    "pydantic>2",
+    "pydantic-settings",
+    "pyyaml",
+    "safir",
+    "shortuuid",
+    "structlog",
+    "websockets<14",  # We should update, but it will take some work
 ]
 
 dynamic = ["version"]
 
 [project.optional-dependencies]
 dev = [
-  "coverage[toml]",
-  "mypy",
-  "pre-commit",
-  "pytest",
-  "pytest-asyncio",
-  "pytest-cov",
-  "pytest-mock",
-  "respx",
-  "ruff",
-  "types-PyYAML",
+    "coverage[toml]",
+    "mypy",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-sugar",
+    "respx",
+    "types-PyYAML",
 ]
 
 [project.urls]
+Homepage = "https://nublado.lsst.io"
 Source = "https://github.com/lsst-sqre/nublado"
+"Change log" = "https://nublado.lsst.io/changelog.html"
+"Issue tracker" = "https://github.com/lsst-sqre/nublado/issues"
 
 [build-system]
-requires = ["setuptools>=61", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = [
+    "setuptools>=61",
+    "setuptools_scm[toml]>=6.2"
+]
 build-backend = "setuptools.build_meta"
-
-[tool.setuptools_scm]
-root = ".."
 
 [tool.coverage.run]
 parallel = true
@@ -79,29 +80,9 @@ exclude_lines = [
     "if TYPE_CHECKING:"
 ]
 
-[tool.mypy]
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-ignore_missing_imports = true
-local_partial_types = true
-plugins = ["pydantic.mypy"]
-no_implicit_reexport = true
-show_error_codes = true
-strict_equality = true
-warn_redundant_casts = true
-warn_unreachable = true
-warn_unused_ignores = true
-
-[tool.pydantic-mypy]
-init_forbid_extra = true
-init_typed = true
-warn_required_dynamic_aliases = true
-warn_untyped_fields = true
-
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
-
 filterwarnings = [
     # Bug in aiojobs
     "ignore:with timeout\\(\\) is deprecated:DeprecationWarning"
@@ -116,3 +97,5 @@ filterwarnings = [
 # listed in python_files.
 python_files = ["tests/*.py", "tests/*/*.py"]
 
+[tool.setuptools_scm]
+root = ".."
