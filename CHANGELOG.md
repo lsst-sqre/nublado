@@ -6,39 +6,49 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.2.0'></a>
+## 8.2.0 (2024-12-12)
+
+### New features
+
+- Add a `service` label to `GafaelfawrIngress` resources created for user file servers for proper Gafaelfawr metrics reporting.
+
+### Other changes
+
+- Change the base image for JupyterHub to `quay.io/jupyterhub/k8s-hub` from `jupyterhub/jupyterhub`. This means the JupyterHub image now uses Python 3.12.
+
 <a id='changelog-8.1.0'></a>
 ## 8.1.0 (2024-12-12)
 
 ### Bug fixes
 
-- Add page template override to hide useless-in-RSP Token link
+- Remove the `Token` link from the JupyterHub page template, since user tokens for JupyterHub are not supported on the Rubin Science Platform.
 
 ### Other changes
 
-- Update to JupyterHub 4.1.2 and z2jh Helm chart 4.0.0
+- Update to JupyterHub 5.2.1.
 
 <a id='changelog-8.0.3'></a>
 ## 8.0.3 (2024-11-18)
 
 ### Bug fixes
 
-- Make HTTP response body truncate at start rather than end in error message.
-
-- Wipe out xsrf token and cookies with each hub login in NubladoClient.
+- When reporting HTTP errors from the Nublado client, truncate the response body at the start rather than at the end. This makes it more likely that the error message from JupyterHub will appear in the truncated response.
+- Drop the XSRF token and cookies before performing a JupyterHub login in the Nublado client. The client previously hung on to the XSRF token indefinitely, which resulted in errors if the token was expired in JupyterHub, such as by user session expiration.
 
 <a id='changelog-8.0.2'></a>
 ## 8.0.2 (2024-10-31)
 
 ### Bug fixes
 
-- Correct broken formatting.
+- Fix broken formatting in error messages reported by the Nublado client.
 
 <a id='changelog-8.0.1'></a>
 ## 8.0.1 (2024-10-31)
 
 ### Bug fixes
 
-- Made Nublado client exception handling prettier and less leaky.
+- Improve error reporting of exceptions in the Nublado client and sanitize the reported body to remove some security tokens.
 
 <a id='changelog-8.0.0'></a>
 ## 8.0.0 (2024-10-22)
