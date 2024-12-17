@@ -27,7 +27,7 @@ dependencies = [
     "safir",
     "shortuuid",
     "structlog",
-    "websockets<14",  # We should update, but it will take some work
+    "websockets<15",  # We should update, but it will take some work
 ]
 
 dynamic = ["version"]
