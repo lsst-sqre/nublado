@@ -12,8 +12,8 @@ from jupyterhub.utils import url_path_join
 from tornado.httputil import HTTPHeaders
 from tornado.web import HTTPError, RequestHandler
 
-AuthInfo = dict[str, str | dict[str, str]]
-Route = tuple[str, type[BaseHandler]]
+type AuthInfo = dict[str, str | dict[str, str]]
+type Route = tuple[str, type[BaseHandler]]
 
 __all__ = ["GafaelfawrAuthenticator"]
 
