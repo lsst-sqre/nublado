@@ -20,7 +20,7 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "httpx<0.28.0",  # https://github.com/lundberg/respx/issues/277
+    "httpx<0.29.0",  # https://github.com/lundberg/respx/issues/277
     "httpx-sse",
     "pydantic>2",
     "pydantic-settings",
