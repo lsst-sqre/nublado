@@ -274,6 +274,7 @@ It depends on two other fixtures: ``environment_url`` is a string, representing 
 
     import pytest
     import respx
+    import websockets
 
     from nublado.rubin.client.testing import (
         MockJupyter,
@@ -320,7 +321,7 @@ It depends on two other fixtures: ``environment_url`` is a string, representing 
         ) -> AsyncIterator[MockJupyterWebSocket]:
             yield mock_jupyter_websocket(url, extra_headers, jupyter_mock)
 
-        with patch("rubin.nublado.client.nubladoclient.websocket_connect") as mock:
+        with patch(websockets, "connect") as mock:
             mock.side_effect = mock_connect
             yield jupyter_mock
 

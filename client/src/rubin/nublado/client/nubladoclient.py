@@ -19,12 +19,12 @@ from uuid import uuid4
 
 import httpx
 import structlog
+import websockets
 from httpx import AsyncClient, Cookies, HTTPError, Response
 from httpx_sse import EventSource, aconnect_sse
 from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
-from websockets.client import WebSocketClientProtocol
-from websockets.client import connect as websocket_connect
+from websockets.asyncio.client import ClientConnection
 from websockets.exceptions import WebSocketException
 
 from ._constants import WEBSOCKET_OPEN_TIMEOUT
@@ -174,7 +174,7 @@ class JupyterLabSession:
         self._logger = logger
 
         self._session_id: str | None = None
-        self._socket: WebSocketClientProtocol | None = None
+        self._socket: ClientConnection | None = None
 
     async def __aenter__(self) -> Self:
         """Create the session and open the WebSocket connection.
@@ -239,7 +239,7 @@ class JupyterLabSession:
         self._logger.debug("Opening WebSocket connection")
         start = current_datetime(microseconds=True)
         try:
-            self._socket = await websocket_connect(
+            self._socket = await websockets.connect(
                 self._url_for_websocket(url),
                 extra_headers=headers,
                 open_timeout=WEBSOCKET_OPEN_TIMEOUT,
@@ -1104,9 +1104,7 @@ class NubladoClient:
         client = self._client
         username = self.user.username
         url = self._url_for(f"hub/api/users/{username}/server/progress")
-        headers = {
-            "Referer": self._url_for("hub/home"),
-        }
+        headers = {"Referer": self._url_for("hub/home")}
         if self._hub_xsrf:
             headers["X-XSRFToken"] = self._hub_xsrf
         while True:

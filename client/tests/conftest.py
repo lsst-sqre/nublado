@@ -11,6 +11,7 @@ import pytest
 import respx
 import safir.logging
 import structlog
+import websockets
 from structlog.stdlib import BoundLogger
 
 from rubin.nublado.client import NubladoClient
@@ -93,7 +94,7 @@ def jupyter(
     ) -> AsyncIterator[MockJupyterWebSocket]:
         yield mock_jupyter_websocket(url, extra_headers, jupyter_mock)
 
-    with patch("rubin.nublado.client.nubladoclient.websocket_connect") as mock:
+    with patch.object(websockets, "connect") as mock:
         mock.side_effect = mock_connect
         yield jupyter_mock
 

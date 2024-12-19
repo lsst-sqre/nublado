@@ -21,14 +21,14 @@ classifiers = [
 requires-python = ">=3.12"
 dependencies = [
     "httpx<0.28.0",  # https://github.com/lundberg/respx/issues/277
-    "httpx_sse",
+    "httpx-sse",
     "pydantic>2",
     "pydantic-settings",
     "pyyaml",
     "safir",
     "shortuuid",
     "structlog",
-    "websockets<14",  # We should update, but it will take some work
+    "websockets<15",
 ]
 
 dynamic = ["version"]

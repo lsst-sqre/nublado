@@ -79,7 +79,7 @@ jobs:
 
       - uses: lsst-sqre/run-nox@v1
         with:
-          cache-dependency: "hub/requirements/*.txt"
+          cache-dependency: "client/pyproject.toml"
           cache-key-prefix: test-client
           nox-sessions: "typing-client test-client"
           python-version: ${{ matrix.python }}
