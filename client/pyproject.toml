@@ -28,7 +28,7 @@ dependencies = [
     "safir",
     "shortuuid",
     "structlog",
-    "websockets<15",
+    "websockets>=14,<15",
 ]
 
 dynamic = ["version"]
