@@ -39,7 +39,7 @@ def ingress_has_ip_address(ingress: V1Ingress) -> bool:
     return bool(ingress.status.load_balancer.ingress[0].ip)
 
 
-class IngressStorage(KubernetesObjectDeleter):
+class IngressStorage(KubernetesObjectDeleter[V1Ingress]):
     """Storage layer for ``Ingress`` objects.
 
     Parameters

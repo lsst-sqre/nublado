@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (
@@ -34,19 +34,15 @@ from ...timeout import Timeout
 from .creator import KubernetesObjectCreator
 from .watcher import KubernetesWatcher
 
-#: Type of Kubernetes object being manipulated.
-T = TypeVar("T", bound=KubernetesModel)
-
 __all__ = [
     "JobStorage",
     "KubernetesObjectDeleter",
     "PersistentVolumeClaimStorage",
     "ServiceStorage",
-    "T",
 ]
 
 
-class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
+class KubernetesObjectDeleter[T: KubernetesModel](KubernetesObjectCreator[T]):
     """Generic Kubernetes object storage supporting list and delete.
 
     This class provides a wrapper around any Kubernetes object type that
@@ -336,7 +332,7 @@ class KubernetesObjectDeleter(KubernetesObjectCreator, Generic[T]):
         raise RuntimeError("Wait for object deletion unexpectedly stopped")
 
 
-class JobStorage(KubernetesObjectDeleter):
+class JobStorage(KubernetesObjectDeleter[V1Job]):
     """Storage layer for ``Job`` objects.
 
     Parameters
@@ -360,7 +356,9 @@ class JobStorage(KubernetesObjectDeleter):
         )
 
 
-class PersistentVolumeClaimStorage(KubernetesObjectDeleter):
+class PersistentVolumeClaimStorage(
+    KubernetesObjectDeleter[V1PersistentVolumeClaim]
+):
     """Storage layer for ``PersistentVolumeClaim`` objects.
 
     Parameters
@@ -384,7 +382,7 @@ class PersistentVolumeClaimStorage(KubernetesObjectDeleter):
         )
 
 
-class ServiceStorage(KubernetesObjectDeleter):
+class ServiceStorage(KubernetesObjectDeleter[V1Service]):
     """Storage layer for ``Service`` objects.
 
     Parameters

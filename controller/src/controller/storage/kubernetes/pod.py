@@ -17,7 +17,7 @@ from .watcher import KubernetesWatcher
 __all__ = ["PodStorage"]
 
 
-class PodStorage(KubernetesObjectDeleter):
+class PodStorage(KubernetesObjectDeleter[V1Pod]):
     """Storage layer for ``Pod`` objects.
 
     Parameters
