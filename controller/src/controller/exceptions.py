@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Self
+from typing import Self, override
 
 from fastapi import status
 from kubernetes_asyncio.client import ApiException
@@ -155,6 +155,7 @@ class ControllerTimeoutError(SlackException):
         msg = f"{operation} timed out after {elapsed.total_seconds()}"
         super().__init__(msg, user, failed_at=failed_at)
 
+    @override
     def to_slack(self) -> SlackMessage:
         """Format the exception as a Slack message.
 
@@ -207,6 +208,7 @@ class DuplicateObjectError(SlackException):
         self.kind = kind
         self.namespace = namespace
 
+    @override
     def to_slack(self) -> SlackMessage:
         """Convert to a Slack message for Slack alerting.
 
@@ -253,6 +255,7 @@ class GafaelfawrParseError(SlackException):
         super().__init__(message)
         self.error = error
 
+    @override
     def to_slack(self) -> SlackMessage:
         """Convert to a Slack message for Slack alerting.
 
@@ -354,12 +357,14 @@ class KubernetesError(SlackException):
         self.status = status
         self.body = body
 
+    @override
     def __str__(self) -> str:
         result = self._summary()
         if self.body:
             result += f": {self.body}"
         return result
 
+    @override
     def to_slack(self) -> SlackMessage:
         """Convert to a Slack message for Slack alerting.
 
@@ -458,6 +463,7 @@ class MissingObjectError(SlackException):
         self.namespace = namespace
         self.name = name
 
+    @override
     def to_slack(self) -> SlackMessage:
         """Convert to a Slack message for Slack alerting.
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Protocol, Self
+from typing import Any, Protocol, Self, override
 
 from kubernetes_asyncio.client import (
     V1Affinity,
@@ -505,6 +505,7 @@ class PodAntiAffinity(PodAffinity):
     convert to a different Kubernetes model.
     """
 
+    @override
     def to_kubernetes(self) -> V1PodAntiAffinity:
         """Convert to the corresponding Kubernetes model."""
         preferred = None

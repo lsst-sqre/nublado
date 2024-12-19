@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 from enum import Enum
-from typing import Literal
+from typing import Literal, override
 
 from pydantic import BaseModel, Field
 
@@ -77,6 +77,7 @@ class NubladoImageByReference(NubladoImage):
 
     reference: str = Field(..., title="Docker reference of lab image to spawn")
 
+    @override
     def to_spawn_form(self) -> dict[str, str]:
         result = {
             "image_list": self.reference,
@@ -96,6 +97,7 @@ class NubladoImageByTag(NubladoImage):
 
     tag: str = Field(..., title="Tag of image to spawn")
 
+    @override
     def to_spawn_form(self) -> dict[str, str]:
         result = {"image_tag": self.tag, "size": self.size.value}
         if self.debug:
@@ -116,6 +118,7 @@ class NubladoImageByClass(NubladoImage):
         title="Class of image to spawn",
     )
 
+    @override
     def to_spawn_form(self) -> dict[str, str]:
         result = {
             "image_class": self.image_class.value,
