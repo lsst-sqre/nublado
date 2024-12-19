@@ -11,12 +11,12 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Natural Language :: English",
     "Operating System :: POSIX",
     "Typing :: Typed",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 # Use requirements/main.in for runtime dependencies instead.
 dependencies = []
 dynamic = ["version"]
@@ -29,11 +29,8 @@ Homepage = "https://nublado.lsst.io"
 Source = "https://github.com/lsst-sqre/nublado"
 
 [build-system]
-requires = ["setuptools>=61", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
-
-[tool.setuptools_scm]
-root = ".."
 
 [tool.coverage.run]
 parallel = true
@@ -78,3 +75,6 @@ filterwarnings = [
 # with complex data structures rather than only the assert message) in files
 # listed in python_files.
 python_files = ["tests/*.py", "tests/*/*.py"]
+
+[tool.setuptools_scm]
+root = ".."

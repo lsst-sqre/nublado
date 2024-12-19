@@ -13,7 +13,7 @@ env:
   # The JupyterHub plugins use a separate matrix of versions because they have
   # to work with the version of Python that is included in the JupyterHub
   # images.
-  PYTHON_VERSION: "3.12"
+  PYTHON_VERSION: "3.13"
 
 "on":
   schedule:
@@ -30,7 +30,7 @@ jobs:
 
       - uses: lsst-sqre/run-nox@v1
         with:
-          nox-sessions: "update-deps typing test"
+          nox-sessions: "update-deps typing typing-inithome test test-inithome"
           python-version: ${{ env.PYTHON_VERSION }}
           use-cache: false
 
@@ -44,9 +44,44 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}
 
-  # The controller requires Python 3.12, but the modules we add to the Hub
-  # have to run with Python 3.10 since that's what the JupyterHub image uses.
-  # Run a separate matrix to test those modules.
+  # The Nublado client must support the Python versions of all of the packages
+  # that use it, so its minimum Python version can only be raised once all of
+  # the services that depend on it have moved to a newer version. Use a matrix
+  # to test all supported versions.
+  test-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [test]
+
+    strategy:
+      matrix:
+        python:
+          - "3.12"
+          - "3.13"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: lsst-sqre/run-nox@v1
+        with:
+          nox-sessions: "typing-client test-client"
+          python-version: ${{ matrix.python }}
+          use-cache: false
+
+      - name: Report status
+        if: failure()
+        uses: ravsamhq/notify-slack-action@v2
+        with:
+          status: ${{ job.status }}
+          notify_when: "failure"
+          notification_title: "Periodic client test for {repo} failed"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}
+
+  # The JupyterHub Docker image may not always track the Python version we use
+  # and the modules must support that version of Python. Use a matrix to test
+  # every version of Python from that version to the most recent so that we
+  # can safely upgrade when the JupyterHub Python upgrades.
   test-hub:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -55,9 +90,8 @@ jobs:
     strategy:
       matrix:
         python:
-          - "3.10"
-          - "3.11"
           - "3.12"
+          - "3.13"
 
     steps:
       - uses: actions/checkout@v4
@@ -74,7 +108,7 @@ jobs:
         with:
           status: ${{ job.status }}
           notify_when: "failure"
-          notification_title: "Periodic test for {repo} failed"
+          notification_title: "Periodic hub test for {repo} failed"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}
 

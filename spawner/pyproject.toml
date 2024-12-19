@@ -11,14 +11,13 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Natural Language :: English",
     "Operating System :: POSIX",
     "Typing :: Typed",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "httpx<0.26",
     "httpx-sse<0.4",
@@ -30,14 +29,11 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 dev = [
-    # Testing
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
     "pytest-sugar",
     "respx",
-
-    # Type checking
     "types-PyYAML",
 ]
 
@@ -51,9 +47,6 @@ build-backend = 'setuptools.build_meta'
 
 [project.entry-points."jupyterhub.spawners"]
 nublado = "rubin.nublado.spawner:NubladoSpawner"
-
-[tool.setuptools_scm]
-root = ".."
 
 [tool.coverage.run]
 parallel = true
@@ -93,3 +86,6 @@ filterwarnings = [
 # with complex data structures rather than only the assert message) in files
 # listed in python_files.
 python_files = ["tests/*.py", "tests/*/*.py"]
+
+[tool.setuptools_scm]
+root = ".."

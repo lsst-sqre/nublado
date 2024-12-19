@@ -6,13 +6,10 @@ env:
   # actions are run with this version. Quote the version to avoid
   # interpretation as a floating point number.
   #
-  # The client may eventually need to span multiple versions, but
-  # initially a single one is fine.
-  #
   # The JupyterHub plugins use a separate matrix of versions because they have
   # to work with the version of Python that is included in the JupyterHub
   # images.
-  PYTHON_VERSION: "3.12"
+  PYTHON_VERSION: "3.13"
 
 "on":
   merge_group: {}
@@ -60,12 +57,37 @@ jobs:
         with:
           cache-dependency: "controller/requirements/*.txt"
           cache-key-prefix: test
-          nox-sessions: "typing typing-inithome typing-client test test-inithome test-client"
+          nox-sessions: "typing typing-inithome test test-inithome"
           python-version: ${{ env.PYTHON_VERSION }}
 
-  # The Hub image may not always track the Python version we use.  Use a
-  # separate matrix for it.  Note that our modules have to work with
-  # whatever-that-is.
+  # The Nublado client must support the Python versions of all of the packages
+  # that use it, so its minimum Python version can only be raised once all of
+  # the services that depend on it have moved to a newer version. Use a matrix
+  # to test all supported versions.
+  test-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        python:
+          - "3.12"
+          - "3.13"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: lsst-sqre/run-nox@v1
+        with:
+          cache-dependency: "hub/requirements/*.txt"
+          cache-key-prefix: test-client
+          nox-sessions: "typing-client test-client"
+          python-version: ${{ matrix.python }}
+
+  # The JupyterHub Docker image may not always track the Python version we use
+  # and the modules must support that version of Python. Use a matrix to test
+  # every version of Python from that version to the most recent so that we
+  # can safely upgrade when the JupyterHub Python upgrades.
   test-hub:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -74,6 +96,7 @@ jobs:
       matrix:
         python:
           - "3.12"
+          - "3.13"
 
     steps:
       - uses: actions/checkout@v4
@@ -235,9 +258,7 @@ jobs:
         run: |
           echo Pushed ghcr.io/${{ github.repository }}-jupyterlab-base:${{ steps.build-jupyterlab-base.outputs.tag }}
 
-
   pypi:
-
     name: Upload release to PyPI
     runs-on: ubuntu-latest
 
