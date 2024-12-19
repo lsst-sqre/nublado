@@ -109,15 +109,15 @@ def _pytest(
 
 
 def _update_deps(
-    session: nox.Session,
-    *,
-    hub_only: bool = False,
+    session: nox.Session, *, only: set[str] | None = None
 ) -> None:
     session.install("--upgrade", "uv")
     session.install("--upgrade", "pre-commit")
     session.run("pre-commit", "autoupdate")
-    directories = ("hub",) if hub_only else ("controller", "hub", "inithome")
-    for directory in directories:
+    directories = {"controller", "hub", "inithome"}
+    if only:
+        directories &= only
+    for directory in sorted(directories):
         command = [
             "uv",
             "pip",
@@ -127,8 +127,7 @@ def _update_deps(
             "--universal",
         ]
 
-        # JupyterHub may use a different Python version.  This must be
-        # whatever that is.
+        # The JupyterHub Docker image may use a different Python version.
         if directory == "hub":
             command.extend(("-p", "3.12"))
 
@@ -197,9 +196,7 @@ def typing(session: nox.Session) -> None:
 @nox.session(name="typing-client")
 def typing_client(session: nox.Session) -> None:
     """Check client type annotations with mypy."""
-    session.install(
-        "-e ./client[dev]",
-    )
+    session.install("-e ./client[dev]")
     session.run(
         "mypy",
         *session.posargs,
@@ -276,6 +273,13 @@ def test(session: nox.Session) -> None:
     _pytest(session, "controller", "controller")
 
 
+@nox.session(name="test-client")
+def test_client(session: nox.Session) -> None:
+    """Run only tests affecting client."""
+    session.install("-e", "./client[dev]")
+    _pytest(session, "client", "rubin.nublado.client", coverage=False)
+
+
 @nox.session(name="test-hub")
 def test_hub(session: nox.Session) -> None:
     """Run only tests affecting JupyterHub with its frozen dependencies."""
@@ -304,13 +308,6 @@ def test_inithome(session: nox.Session) -> None:
     )
     session.install("-e", "./inithome")
     _pytest(session, "inithome", "rubin.nublado.inithome", coverage=False)
-
-
-@nox.session(name="test-client")
-def test_client(session: nox.Session) -> None:
-    """Run only tests affecting client."""
-    session.install("-e", "./client[dev]")
-    _pytest(session, "client", "rubin.nublado.client", coverage=False)
 
 
 @nox.session
@@ -391,7 +388,7 @@ def update_deps(session: nox.Session) -> None:
 @nox.session(name="update-deps-hub")
 def update_deps_hub(session: nox.Session) -> None:
     """Update pinned JupyterHub dependencies and pre-commit hooks."""
-    _update_deps(session, hub_only=True)
+    _update_deps(session, only={"hub"})
 
 
 @nox.session(name="run")
