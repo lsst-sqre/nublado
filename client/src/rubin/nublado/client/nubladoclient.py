@@ -13,7 +13,7 @@ from datetime import timedelta
 from functools import wraps
 from pathlib import Path
 from types import TracebackType
-from typing import Concatenate, Literal, ParamSpec, Self, TypeVar
+from typing import Concatenate, Literal, Self
 from urllib.parse import urljoin, urlparse
 from uuid import uuid4
 
@@ -46,9 +46,6 @@ from .models import (
     SpawnProgressMessage,
     User,
 )
-
-P = ParamSpec("P")
-T = TypeVar("T")
 
 __all__ = ["JupyterLabSession", "NubladoClient"]
 
@@ -712,7 +709,7 @@ def _annotate_exception_from_context(
         e.annotations["cell_line_source"] = context.cell_line_source
 
 
-def _convert_exception(
+def _convert_exception[**P, T](
     f: Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]],
 ) -> Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]]:
     """Convert web error to `~rubin.nublado.client.exceptions.JupyterWebError`.
@@ -738,7 +735,7 @@ def _convert_exception(
     return wrapper
 
 
-def _convert_iterator_exception(
+def _convert_iterator_exception[**P, T](
     f: Callable[Concatenate[NubladoClient, P], AsyncIterator[T]],
 ) -> Callable[Concatenate[NubladoClient, P], AsyncIterator[T]]:
     """Convert web errors to a `~rubin.nublado.client.JupyterWebError`.
