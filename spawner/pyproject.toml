@@ -20,7 +20,7 @@ classifiers = [
 requires-python = ">=3.12"
 dependencies = [
     "httpx<0.26",
-    "httpx-sse<0.4",
+    "httpx-sse<0.5",
     "jupyterhub<6",
     "PyYAML<7",
     "traitlets<6",
