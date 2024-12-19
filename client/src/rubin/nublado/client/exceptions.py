@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import Self
+from typing import Self, override
 
 import httpx
 from safir.datetime import format_datetime_for_logging
@@ -128,6 +128,7 @@ class NubladoClientSlackException(SlackException):
         self.started_at = started_at
         self.annotations: dict[str, str] = {}
 
+    @override
     def to_slack(self) -> SlackMessage:
         """Format the error as a Slack Block Kit message.
 
@@ -234,6 +235,7 @@ class NubladoClientSlackWebException(
         )
         self.started_at = started_at
 
+    @override
     def to_slack(self) -> SlackMessage:
         """Format the error as a Slack Block Kit message.
 
@@ -257,6 +259,7 @@ class NubladoClientSlackWebException(
             msg.attachments.append(block)
         return msg
 
+    @override
     def common_blocks(self) -> list[SlackBaseBlock]:
         blocks = NubladoClientSlackException.common_blocks(self)
         url = _sanitize_url(self.url)
@@ -289,6 +292,7 @@ class CodeExecutionError(NubladoClientSlackException):
         if failed_at:
             self.failed_at = failed_at
 
+    @override
     def __str__(self) -> str:
         if self.annotations.get("notebook"):
             notebook = self.annotations["notebook"]
@@ -309,6 +313,7 @@ class CodeExecutionError(NubladoClientSlackException):
             msg += f"\nError: {_remove_ansi_escapes(self.error)}"
         return msg
 
+    @override
     def to_slack(self) -> SlackMessage:
         """Format the error as a Slack Block Kit message."""
         if self.annotations.get("notebook"):
@@ -400,6 +405,7 @@ class ExecutionAPIError(NubladoClientSlackException):
         self.msg = _sanitize_body(body) if body else None
         self.user = username
 
+    @override
     def __str__(self) -> str:
         return (
             f"{self.user}: status {self.status} ({self.reason}) from"
@@ -477,6 +483,7 @@ class JupyterSpawnError(NubladoClientSlackException):
         )
         self.log = log
 
+    @override
     def to_slack(self) -> SlackMessage:
         """Format the error as a Slack Block Kit message."""
         message = super().to_slack()
@@ -501,6 +508,7 @@ class JupyterTimeoutError(NubladoClientSlackException):
         super().__init__(msg, user, started_at=started_at, failed_at=failed_at)
         self.log = log
 
+    @override
     def to_slack(self) -> SlackMessage:
         """Format the error as a Slack Block Kit message."""
         message = super().to_slack()
@@ -627,6 +635,7 @@ class JupyterWebSocketError(NubladoClientSlackException):
         if annotations:
             self.annotations.update(annotations)
 
+    @override
     def to_slack(self) -> SlackMessage:
         """Format this exception as a Slack notification.
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import override
 
 from structlog.stdlib import BoundLogger
 
@@ -53,6 +54,7 @@ class GARImageSource(ImageSource):
         # All available images.
         self._images = RSPImageCollection([])
 
+    @override
     async def image_for_reference(
         self, reference: DockerReference
     ) -> RSPImage:
@@ -94,6 +96,7 @@ class GARImageSource(ImageSource):
             raise UnknownDockerImageError(msg)
         return image
 
+    @override
     async def image_for_tag_name(self, tag_name: str) -> RSPImage:
         """Determine the image corresponding to a tag.
 
@@ -119,6 +122,7 @@ class GARImageSource(ImageSource):
             raise UnknownDockerImageError(f'Docker tag "{tag_name}" not found')
         return image
 
+    @override
     def mark_prepulled(self, image: RSPImage, node: str) -> None:
         """Optimistically mark an image as prepulled to a node.
 
@@ -133,6 +137,7 @@ class GARImageSource(ImageSource):
         """
         self._images.mark_image_seen_on_node(image.digest, node)
 
+    @override
     def menu_images(self) -> list[MenuImage]:
         """All known images suitable for display in the spawner menu.
 
@@ -146,6 +151,7 @@ class GARImageSource(ImageSource):
             for i in self._images.all_images()
         ]
 
+    @override
     def prepulled_images(self, nodes: set[str]) -> list[PrepulledImage]:
         """All known images with their prepulled status in the API model.
 
@@ -164,6 +170,7 @@ class GARImageSource(ImageSource):
             for i in self._images.all_images()
         ]
 
+    @override
     async def update_images(
         self,
         prepull: PrepullerOptions,

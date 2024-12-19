@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import AsyncIterator, Iterator
-from typing import Any
+from typing import Any, override
 from unittest.mock import Mock, patch
 
 from google.cloud import artifactregistry_v1
@@ -71,6 +71,7 @@ class MockArtifactRegistry(Mock):
 
         return iterator()
 
+    @override
     def _get_child_mock(self, /, **kwargs: Any) -> Mock:
         return Mock(**kwargs)
 
