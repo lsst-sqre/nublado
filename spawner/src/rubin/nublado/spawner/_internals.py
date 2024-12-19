@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator, Callable, Coroutine
 from datetime import timedelta
 from functools import wraps
 from pathlib import Path
-from typing import Any, Concatenate, ParamSpec, TypeVar
+from typing import Any, Concatenate
 
 from httpx import AsyncClient, HTTPError, Response
 from httpx_sse import ServerSentEvent, aconnect_sse
@@ -22,9 +22,6 @@ from ._exceptions import (
 )
 from ._models import LabStatus, SpawnEvent
 
-P = ParamSpec("P")
-T = TypeVar("T")
-
 __all__ = [
     "LabStatus",
     "NubladoSpawner",
@@ -34,7 +31,7 @@ _CLIENT: AsyncClient | None = None
 """Cached global HTTP client so that we can share a connection pool."""
 
 
-def _convert_exception(
+def _convert_exception[**P, T](
     f: Callable[Concatenate[NubladoSpawner, P], Coroutine[None, None, T]],
 ) -> Callable[Concatenate[NubladoSpawner, P], Coroutine[None, None, T]]:
     """Convert ``httpx`` exceptions to `ControllerWebError`."""

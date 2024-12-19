@@ -12,10 +12,8 @@ subclasses `KubernetesObjectCreator` and adds list and delete support, and its
 subclasses.
 """
 
-from __future__ import annotations
-
 from collections.abc import Awaitable, Callable
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (
@@ -32,20 +30,16 @@ from ...exceptions import KubernetesError
 from ...models.domain.kubernetes import KubernetesModel
 from ...timeout import Timeout
 
-#: Type of Kubernetes object being manipulated.
-T = TypeVar("T", bound=KubernetesModel)
-
 __all__ = [
     "ConfigMapStorage",
     "KubernetesObjectCreator",
     "NetworkPolicyStorage",
     "ResourceQuotaStorage",
     "SecretStorage",
-    "T",
 ]
 
 
-class KubernetesObjectCreator(Generic[T]):
+class KubernetesObjectCreator[T: KubernetesModel]:
     """Generic Kubernetes object storage supporting create and read.
 
     This class provides a wrapper around any Kubernetes object type that
@@ -157,7 +151,7 @@ class KubernetesObjectCreator(Generic[T]):
             ) from e
 
 
-class ConfigMapStorage(KubernetesObjectCreator):
+class ConfigMapStorage(KubernetesObjectCreator[V1ConfigMap]):
     """Storage layer for ``ConfigMap`` objects.
 
     Parameters
@@ -179,7 +173,7 @@ class ConfigMapStorage(KubernetesObjectCreator):
         )
 
 
-class NetworkPolicyStorage(KubernetesObjectCreator):
+class NetworkPolicyStorage(KubernetesObjectCreator[V1NetworkPolicy]):
     """Storage layer for ``NetworkPolicy`` objects.
 
     Parameters
@@ -201,7 +195,7 @@ class NetworkPolicyStorage(KubernetesObjectCreator):
         )
 
 
-class ResourceQuotaStorage(KubernetesObjectCreator):
+class ResourceQuotaStorage(KubernetesObjectCreator[V1ResourceQuota]):
     """Storage layer for ``ResourceQuota`` objects.
 
     Parameters
@@ -223,7 +217,7 @@ class ResourceQuotaStorage(KubernetesObjectCreator):
         )
 
 
-class SecretStorage(KubernetesObjectCreator):
+class SecretStorage(KubernetesObjectCreator[V1Secret]):
     """Storage layer for ``Secret`` objects.
 
     Parameters

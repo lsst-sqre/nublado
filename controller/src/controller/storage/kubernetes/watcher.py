@@ -1,11 +1,9 @@
 """Watch a Kubernetes namespace or cluster for events."""
 
-from __future__ import annotations
-
 import math
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Generic, Self, TypeVar
+from typing import Any, Self
 
 from kubernetes_asyncio.client import ApiException
 from kubernetes_asyncio.watch import Watch
@@ -15,18 +13,14 @@ from ...exceptions import KubernetesError
 from ...models.domain.kubernetes import WatchEventType
 from ...timeout import Timeout
 
-#: Type of Kubernetes object being watched (`dict` for custom objects).
-T = TypeVar("T")
-
 __all__ = [
     "KubernetesWatcher",
-    "T",
     "WatchEvent",
 ]
 
 
 @dataclass
-class WatchEvent(Generic[T]):
+class WatchEvent[T]:
     """Parsed event from a Kubernetes watch.
 
     This model is intended only for use within the Kubernetes storage layer.
@@ -68,7 +62,7 @@ class WatchEvent(Generic[T]):
         return cls(action=action, object=obj)
 
 
-class KubernetesWatcher(Generic[T]):
+class KubernetesWatcher[T]:
     """Watch Kubernetes for events.
 
     This wrapper around the watch API of the Kubernetes client implements
