@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from aiojobs import Scheduler
-from safir.datetime import current_datetime
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
@@ -166,19 +165,19 @@ class BackgroundTaskManager:
         """
         await asyncio.sleep(interval.total_seconds())
         while True:
-            start = current_datetime(microseconds=True)
+            start = datetime.now(tz=UTC)
             try:
                 await call()
             except Exception as e:
                 # On failure, log the exception but otherwise continue as
                 # normal, including the delay. This will provide some time for
                 # whatever the problem was to be resolved.
-                elapsed = current_datetime(microseconds=True) - start
+                elapsed = datetime.now(tz=UTC) - start
                 msg = f"Uncaught exception {description}"
                 self._logger.exception(msg, delay=elapsed.total_seconds)
                 if self._slack:
                     await self._slack.post_uncaught_exception(e)
-            delay = interval - (current_datetime(microseconds=True) - start)
+            delay = interval - (datetime.now(tz=UTC) - start)
             if delay.total_seconds() < 1:
                 msg = f"{description.capitalize()} is running continuously"
                 self._logger.warning(msg)

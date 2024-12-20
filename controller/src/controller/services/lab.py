@@ -7,12 +7,11 @@ import contextlib
 from base64 import b64encode
 from collections.abc import AsyncIterator, Coroutine
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Self
 
 from safir.asyncio import AsyncMultiQueue
-from safir.datetime import current_datetime
 from safir.slack.blockkit import (
     SlackException,
 )
@@ -61,7 +60,7 @@ class _State:
     """Events from the current or most recent lab operation."""
 
     last_modified: datetime = field(
-        default_factory=lambda: current_datetime(microseconds=True)
+        default_factory=lambda: datetime.now(tz=UTC)
     )
     """Last time the state was changed.
 
@@ -404,7 +403,7 @@ class LabManager:
             )
             await lab.monitor.monitor(operation, timeout)
             await lab.monitor.wait()
-            lab.last_modified = current_datetime(microseconds=True)
+            lab.last_modified = datetime.now(tz=UTC)
             if lab.state.status == LabStatus.TERMINATED:
                 lab.state = None
         else:
@@ -565,7 +564,7 @@ class LabManager:
                 if lab.monitor.in_progress and lab.monitor.is_done():
                     try:
                         await lab.monitor.wait()
-                        lab.last_modified = current_datetime(microseconds=True)
+                        lab.last_modified = datetime.now(tz=UTC)
                     except NoOperationError:
                         # There is a race condition with deletes, since the
                         # task doing the delete kicks it off and then
@@ -576,7 +575,7 @@ class LabManager:
                         # and ignorable.
                         pass
                     except Exception as e:
-                        lab.last_modified = current_datetime(microseconds=True)
+                        lab.last_modified = datetime.now(tz=UTC)
                         msg = "Uncaught exception in monitor thread"
                         self._logger.exception(msg, user=username)
                         await self._maybe_post_slack_exception(e, username)
@@ -597,7 +596,7 @@ class LabManager:
             Raised if there is some failure in a Kubernetes API call.
         """
         self._logger.info("Reconciling user lab state with Kubernetes")
-        start = current_datetime(microseconds=True)
+        start = datetime.now(tz=UTC)
 
         # Gather information about all extant Kubernetes namespaces and delete
         # any malformed namespaces for which no operation is in progress.
