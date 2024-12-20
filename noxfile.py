@@ -130,13 +130,19 @@ def _update_deps(
         # The JupyterHub Docker image may use a different Python version.
         if directory == "hub":
             command.extend(("-p", "3.12"))
-
-        session.run(
-            *command,
-            "--output-file",
-            f"{directory}/requirements/main.txt",
-            f"{directory}/requirements/main.in",
-        )
+            session.run(
+                *command,
+                "--output-file",
+                f"{directory}/requirements/main.txt",
+                f"{directory}/requirements/main.in",
+            )
+        else:
+            session.run(
+                *command,
+                "--output-file",
+                f"{directory}/requirements/main.txt",
+                f"{directory}/pyproject.toml",
+            )
         session.run(
             *command,
             "--output-file",
