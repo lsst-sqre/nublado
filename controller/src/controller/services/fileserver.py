@@ -5,9 +5,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
-from safir.datetime import current_datetime
 from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
@@ -40,7 +39,7 @@ class _State:
     """Lock to prevent two operations from happening at once."""
 
     last_modified: datetime = field(
-        default_factory=lambda: current_datetime(microseconds=True)
+        default_factory=lambda: datetime.now(tz=UTC)
     )
     """Last time an operation was started or completed.
 
@@ -135,7 +134,7 @@ class FileserverManager:
             if state.running:
                 return
             try:
-                state.last_modified = current_datetime(microseconds=True)
+                state.last_modified = datetime.now(tz=UTC)
                 async with timeout.enforce():
                     await self._create_file_server(user, timeout)
             except Exception as e:
@@ -147,7 +146,7 @@ class FileserverManager:
             else:
                 state.running = True
             finally:
-                state.last_modified = current_datetime(microseconds=True)
+                state.last_modified = datetime.now(tz=UTC)
 
     async def delete(self, username: str) -> None:
         """Delete the file server for a user.
@@ -169,12 +168,12 @@ class FileserverManager:
             if not state.running:
                 msg = f"File server for {username} not running"
                 raise UnknownUserError(msg)
-            state.last_modified = current_datetime(microseconds=True)
+            state.last_modified = datetime.now(tz=UTC)
             try:
                 await self._delete_file_server(username)
                 state.running = False
             finally:
-                state.last_modified = current_datetime(microseconds=True)
+                state.last_modified = datetime.now(tz=UTC)
 
     def get_status(self, username: str) -> FileserverStatus:
         """Get the status of a user's file server.
@@ -206,7 +205,7 @@ class FileserverManager:
         timeout = Timeout(
             "Reading file server state", KUBERNETES_REQUEST_TIMEOUT
         )
-        start = current_datetime(microseconds=True)
+        start = datetime.now(tz=UTC)
         seen = await self._storage.read_fileserver_state(namespace, timeout)
         known_users = {k for k, v in self._servers.items() if v.running}
 

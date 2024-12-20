@@ -50,9 +50,6 @@ extend = "ruff-shared.toml"
     "INP001",  # Jupyter server configuration file, so has no namespace
     "F821",    # Jupyter configuration uses a magic c variable
 ]
-"spawner/tests/support/controller.py" = [
-    "UP017",   # Python 3.10 didn't have datetime.UTC
-]
 
 [tool.ruff.lint.isort]
 known-first-party = [

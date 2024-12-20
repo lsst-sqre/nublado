@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncIterator, Callable, Coroutine
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from functools import wraps
 from pathlib import Path
 from types import TracebackType
@@ -22,7 +22,6 @@ import structlog
 import websockets
 from httpx import AsyncClient, Cookies, HTTPError, Response
 from httpx_sse import EventSource, aconnect_sse
-from safir.datetime import current_datetime
 from structlog.stdlib import BoundLogger
 from websockets.asyncio.client import ClientConnection
 from websockets.exceptions import WebSocketException
@@ -67,7 +66,7 @@ class JupyterSpawnProgress:
     def __init__(self, event_source: EventSource, logger: BoundLogger) -> None:
         self._source = event_source
         self._logger = logger
-        self._start = current_datetime(microseconds=True)
+        self._start = datetime.now(tz=UTC)
 
     async def __aiter__(self) -> AsyncIterator[SpawnProgressMessage]:
         """Iterate over spawn progress events.
@@ -98,7 +97,7 @@ class JupyterSpawnProgress:
                 continue
 
             # Log the event and yield it.
-            now = current_datetime(microseconds=True)
+            now = datetime.now(tz=UTC)
             elapsed = int((now - self._start).total_seconds())
             status = "complete" if event.ready else "in progress"
             msg = f"Spawn {status} ({elapsed}s elapsed): {event.message}"
@@ -214,7 +213,7 @@ class JupyterLabSession:
         headers = {}
         if self._xsrf:
             headers["X-XSRFToken"] = self._xsrf
-        start = current_datetime(microseconds=True)
+        start = datetime.now(tz=UTC)
         try:
             r = await self._client.post(url, json=body, headers=headers)
             r.raise_for_status()
@@ -237,7 +236,7 @@ class JupyterLabSession:
 
         # Open the WebSocket connection using those headers.
         self._logger.debug("Opening WebSocket connection")
-        start = current_datetime(microseconds=True)
+        start = datetime.now(tz=UTC)
         try:
             self._socket = await websockets.connect(
                 self._url_for_websocket(url),
@@ -268,7 +267,7 @@ class JupyterLabSession:
 
         # Close the WebSocket.
         if self._socket:
-            start = current_datetime(microseconds=True)
+            start = datetime.now(tz=UTC)
             try:
                 await self._socket.close()
             except WebSocketException as e:
@@ -293,7 +292,7 @@ class JupyterLabSession:
             if exc_type:
                 self._logger.exception("Failed to close session")
             else:
-                start = current_datetime(microseconds=True)
+                start = datetime.now(tz=UTC)
                 raise JupyterWebError.raise_from_exception_with_timestamps(
                     e, self._username, {}, start
                 ) from e
@@ -330,7 +329,7 @@ class JupyterLabSession:
             raise JupyterWebError(
                 "JupyterLabSession not opened", user=self._username
             )
-        start = current_datetime(microseconds=True)
+        start = datetime.now(tz=UTC)
         message_id = uuid4().hex
         request = {
             "header": {
@@ -548,7 +547,7 @@ class JupyterLabSession:
             )
         exec_url = self._url_for(f"user/{self._username}/rubin/execution")
         try:
-            start = current_datetime(microseconds=True)
+            start = datetime.now(tz=UTC)
             # The timeout is designed to catch issues connecting to JupyterLab
             # but to wait as long as possible for the notebook itself
             # to execute.
@@ -628,7 +627,7 @@ class JupyterLabSession:
 
         # Analyze the message type to figure out what to do with the response.
         msg_type = data["msg_type"]
-        start = current_datetime(microseconds=True)
+        start = datetime.now(tz=UTC)
         if msg_type in self._IGNORED_MESSAGE_TYPES:
             return None
         elif msg_type == "stream":
@@ -723,7 +722,7 @@ def _convert_exception[**P, T](
     async def wrapper(
         client: NubladoClient, *args: P.args, **kwargs: P.kwargs
     ) -> T:
-        start = current_datetime(microseconds=True)
+        start = datetime.now(tz=UTC)
         try:
             return await f(client, *args, **kwargs)
         except HTTPError as e:
@@ -749,7 +748,7 @@ def _convert_iterator_exception[**P, T](
     async def wrapper(
         client: NubladoClient, *args: P.args, **kwargs: P.kwargs
     ) -> AsyncIterator[T]:
-        start = current_datetime(microseconds=True)
+        start = datetime.now(tz=UTC)
         try:
             async for result in f(client, *args, **kwargs):
                 yield result

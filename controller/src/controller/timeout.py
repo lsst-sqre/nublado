@@ -5,10 +5,8 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Self
-
-from safir.datetime import current_datetime
 
 from .exceptions import ControllerTimeoutError
 
@@ -40,7 +38,7 @@ class Timeout:
         self._operation = operation
         self._timeout = timeout
         self._user = user
-        self._start = current_datetime(microseconds=True)
+        self._start = datetime.now(tz=UTC)
 
     def elapsed(self) -> float:
         """Elapsed time since the timeout started.
@@ -50,7 +48,7 @@ class Timeout:
         float
             Seconds elapsed since the object was created.
         """
-        now = current_datetime(microseconds=True)
+        now = datetime.now(tz=UTC)
         return (now - self._start).total_seconds()
 
     @asynccontextmanager
@@ -71,7 +69,7 @@ class Timeout:
             async with asyncio.timeout(self.left()):
                 yield
         except (ControllerTimeoutError, TimeoutError) as e:
-            now = current_datetime(microseconds=True)
+            now = datetime.now(tz=UTC)
             raise ControllerTimeoutError(
                 self._operation,
                 self._user,
@@ -92,7 +90,7 @@ class Timeout:
         ControllerTimeoutError
             Raised if the timeout has expired.
         """
-        now = current_datetime(microseconds=True)
+        now = datetime.now(tz=UTC)
         left = (self._timeout - (now - self._start)).total_seconds()
         if left <= 0.0:
             raise ControllerTimeoutError(
@@ -129,7 +127,7 @@ class Timeout:
             if it is constructed by subtracting some time from the remaining
             time in the timeout.
         """
-        now = current_datetime(microseconds=True)
+        now = datetime.now(tz=UTC)
         if timeout < timedelta(seconds=0):
             raise ControllerTimeoutError(
                 self._operation,

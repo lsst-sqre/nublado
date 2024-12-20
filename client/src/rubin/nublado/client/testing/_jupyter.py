@@ -10,7 +10,7 @@ from base64 import urlsafe_b64decode
 from collections.abc import AsyncIterator
 from contextlib import redirect_stdout, suppress
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from io import StringIO
 from pathlib import Path
@@ -23,7 +23,6 @@ from uuid import uuid4
 
 import respx
 from httpx import Request, Response
-from safir.datetime import current_datetime
 
 from .._util import normalize_source
 from ..models import NotebookExecutionResult
@@ -209,7 +208,7 @@ class MockJupyter:
             body = {"name": user, "servers": {"": server}}
         elif state == JupyterState.LAB_RUNNING:
             delete_at = self._delete_at.get(user)
-            if delete_at and current_datetime(microseconds=True) > delete_at:
+            if delete_at and datetime.now(tz=UTC) > delete_at:
                 del self._delete_at[user]
                 self.state[user] = JupyterState.LOGGED_IN
             if delete_at:
@@ -363,7 +362,7 @@ class MockJupyter:
         if self.delete_immediate:
             self.state[user] = JupyterState.LOGGED_IN
         else:
-            now = current_datetime(microseconds=True)
+            now = datetime.now(tz=UTC)
             self._delete_at[user] = now + timedelta(seconds=5)
         return Response(202, request=request)
 
