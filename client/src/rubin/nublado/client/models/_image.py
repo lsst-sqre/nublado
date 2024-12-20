@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Literal, override
 
 from pydantic import BaseModel, Field
 
 
-class NubladoImageClass(str, Enum):
+class NubladoImageClass(StrEnum):
     """Possible ways of selecting an image."""
 
     __slots__ = ()

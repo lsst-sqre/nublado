@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from httpx_sse import ServerSentEvent
 
 
-class LabStatus(str, Enum):
+class LabStatus(StrEnum):
     """Possible status conditions of a user's pod per the lab controller.
 
     This is not directly equivalent to pod phases. It is instead intended to
