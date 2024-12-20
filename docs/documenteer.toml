@@ -82,4 +82,7 @@ ignore = [
     # Generate redirects for authentication
     '^https://github\.com/settings/developers$',
     '^https://github\.com/.*/issues/new$',
+    # Sphinx is now trying to resolve URLs in examples because it doesn't
+    # understand Annotated
+    "^http://nublado-ribbon.nb-ribbon:8888",
 ]

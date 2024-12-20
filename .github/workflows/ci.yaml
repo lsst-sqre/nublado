@@ -124,6 +124,7 @@ jobs:
         with:
           filters: |
             docs:
+              - "CHANGELOG.md"
               - "docs/**"
 
       - name: Update package lists
@@ -162,11 +163,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Filter paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            docs:
+              - "CHANGELOG.md"
+              - "docs/**"
+
       - name: Update package lists
         run: sudo apt-get update
+        if: steps.filter.outputs.docs == 'true'
 
       - name: Install extra packages
         run: sudo apt install -y graphviz
+        if: steps.filter.outputs.docs == 'true'
 
       - uses: lsst-sqre/run-nox@v1
         with:
@@ -174,6 +186,7 @@ jobs:
           cache-key-prefix: docs
           nox-sessions: docs-linkcheck
           python-version: ${{ env.PYTHON_VERSION }}
+        if: steps.filter.outputs.docs == 'true'
 
   build:
     runs-on: ubuntu-latest
