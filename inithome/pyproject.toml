@@ -17,7 +17,6 @@ classifiers = [
     "Typing :: Typed",
 ]
 requires-python = ">=3.13"
-# Dependencies in requirements/main.txt (empty) and requirements/dev.txt
 dependencies = []
 dynamic = ["version"]
 
