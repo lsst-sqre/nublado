@@ -16,7 +16,7 @@ uvicorn[standard]
 aiojobs
 bitmath
 google-cloud-artifact-registry
-httpx<0.28.0  # Unpin once respx PR #278 is merged.
+httpx
 jinja2
 kubernetes_asyncio
 pydantic>2

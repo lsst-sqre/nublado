@@ -15,7 +15,7 @@
 jupyterhub==5.2.1
 
 # Dependencies used directly by the authenticator and spawner.
-httpx<0.28.0  # Unpin once respx PR #278 is merged.
+httpx
 httpx-sse
 PyYAML
 traitlets

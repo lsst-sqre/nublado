@@ -20,13 +20,12 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "httpx<0.28.0",  # https://github.com/lundberg/respx/issues/277
-    "httpx-sse",
-    "pydantic>2",
-    "pydantic-settings",
-    "pyyaml",
-    "safir",
-    "shortuuid",
+    "httpx<1",
+    "httpx-sse<1",
+    "pydantic>2,<3",
+    "pydantic-settings<3",
+    "pyyaml<7",
+    "safir<10",
     "structlog",
     "websockets>=14,<15",
 ]

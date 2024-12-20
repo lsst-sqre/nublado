@@ -19,8 +19,8 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "httpx<0.28",  # https://github.com/lundberg/respx/issues/277
-    "httpx-sse<0.5",
+    "httpx<1",
+    "httpx-sse<1",
     "jupyterhub<6",
     "PyYAML<7",
     "traitlets<6",
@@ -42,7 +42,7 @@ Homepage = "https://nublado.lsst.io"
 Source = "https://github.com/lsst-sqre/nublado"
 
 [build-system]
-requires = ["setuptools>=61", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
 build-backend = 'setuptools.build_meta'
 
 [project.entry-points."jupyterhub.spawners"]
