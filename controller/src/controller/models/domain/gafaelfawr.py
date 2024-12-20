@@ -36,13 +36,13 @@ class UserGroup(BaseModel):
     ]
 
     id: Annotated[
-        int | None,
+        int,
         Field(
             examples=[2023],
             title="Numeric GID of the group (POSIX)",
             description="32-bit unsigned integer",
         ),
-    ] = None
+    ]
 
 
 class NotebookQuota(BaseModel):
@@ -138,15 +138,11 @@ class GafaelfawrUserInfo(BaseModel):
     @property
     def supplemental_groups(self) -> list[int]:
         """Supplemental GIDs."""
-        return [g.id for g in self.groups if g.id]
+        return [g.id for g in self.groups]
 
     def groups_json(self) -> str:
-        """Group membership serialized to JSON.
-
-        Groups without GIDs are omitted since we can't do anything with them
-        in the context of a user lab.
-        """
-        return json.dumps([g.model_dump() for g in self.groups if g.id])
+        """Group membership serialized to JSON."""
+        return json.dumps([g.model_dump() for g in self.groups])
 
 
 class GafaelfawrUser(GafaelfawrUserInfo):

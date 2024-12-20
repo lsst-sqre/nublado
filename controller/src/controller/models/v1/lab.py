@@ -473,7 +473,7 @@ class UserInfo(BaseModel):
             name=user.name,
             uid=user.uid,
             gid=user.gid,
-            groups=[g for g in user.groups if g.id],
+            groups=user.groups,
         )
 
 
