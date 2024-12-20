@@ -400,11 +400,7 @@ class LabBuilder:
 
         # Construct the /etc/group entry by adding all groups that have GIDs.
         # Add the user as an additional member of their supplemental groups.
-        # We can't do anything with groups that don't have GIDs, so ignore
-        # those.
         for group in user.groups:
-            if not group.id:
-                continue
             if group.id == user.gid:
                 etc_group += f"{group.name}:x:{group.id}:\n"
             else:
