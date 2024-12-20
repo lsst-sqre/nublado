@@ -141,6 +141,6 @@ jobs:
         with:
           status: ${{ job.status }}
           notify_when: "failure"
-          notification_title: "Periodic link check for {repo} failed"
+          notification_title: "Periodic docs check for {repo} failed"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}

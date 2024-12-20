@@ -347,10 +347,3 @@ For any case involving Python that uses modules outside the standard library, us
 
 These are generally the only two methods of ``MockJupyter`` that the service developer should use directly.
 All tests should then interact with the mock Jupyter service through ``NubladoClient``, possibly with execution output mocked via registration.
-
-.. _service-usage:
-
-Service Usage
-=============
-
-The `Ghostwriter <https://ghostwriter.lsst.io/v>`_ service uses the ``rubin.nublado.client.NubladoClient`` class.  Soon `Mobu <https://mobu.lsst.io>`_ and `Noteburst <https://noteburst.lsst.io>`_ will as well.
