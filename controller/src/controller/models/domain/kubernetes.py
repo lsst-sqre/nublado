@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Annotated, Any, Protocol, Self, override
 
 from kubernetes_asyncio.client import (
@@ -599,7 +599,7 @@ class Affinity(BaseModel):
         )
 
 
-class PodPhase(str, Enum):
+class PodPhase(StrEnum):
     """One of the valid phases reported in the status section of a Pod."""
 
     PENDING = "Pending"
@@ -759,7 +759,7 @@ class Toleration(BaseModel):
         )
 
 
-class VolumeAccessMode(str, Enum):
+class VolumeAccessMode(StrEnum):
     """Access mode for a persistent volume.
 
     The access modes ``ReadWriteOnce`` and ``ReadWriteOncePod`` are valid

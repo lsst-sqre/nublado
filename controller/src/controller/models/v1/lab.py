@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Annotated, Any, Self
 
 from kubernetes_asyncio.client import V1ResourceRequirements
@@ -35,7 +35,7 @@ __all__ = [
 ]
 
 
-class LabSize(str, Enum):
+class LabSize(StrEnum):
     """Allowable names for pod sizes.
 
     Taken from `d20 creature sizes`_.
