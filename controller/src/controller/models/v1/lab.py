@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Self
+from typing import Annotated, Any, Self
 
 from kubernetes_asyncio.client import V1ResourceRequirements
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from ...constants import DROPDOWN_SENTINEL_VALUE, USERNAME_REGEX
 from ...units import memory_to_bytes
@@ -116,38 +122,45 @@ class ImageClass(Enum):
 class CommonLabOptions(BaseModel):
     """Options shared by both the input and output model for lab options."""
 
-    size: LabSize = Field(
-        ...,
-        title="Image size",
-        description=(
-            "Size of image, chosen from sizes specified in the controller"
-            " configuration"
+    size: Annotated[
+        LabSize,
+        Field(
+            title="Image size",
+            description=(
+                "Size of image, chosen from sizes specified in the controller"
+                " configuration"
+            ),
+            examples=[LabSize.MEDIUM],
         ),
-        examples=[LabSize.MEDIUM],
-    )
+    ]
 
-    enable_debug: bool = Field(
-        False,
-        title="Enable debugging in spawned Lab",
-        description=(
-            "If true, set the ``DEBUG`` environment variable when spawning the"
-            " lab, which enables additional debug logging"
+    enable_debug: Annotated[
+        bool,
+        Field(
+            title="Enable debugging in spawned Lab",
+            description=(
+                "If true, set the ``DEBUG`` environment variable when"
+                " spawning the lab, which enables additional debug logging"
+            ),
+            examples=[True],
         ),
-        examples=[True],
-    )
+    ] = False
 
-    reset_user_env: bool = Field(
-        False,
-        title="Move aside user environment",
-        description=(
-            "If true, set the ``RESET_USER_ENV`` environment variable when"
-            " spawning the lab, which tells the lab to move aside the user"
-            " environment directories (``.cache``, ``.conda``, ``.jupyter``,"
-            " ``.local``) and files (``.user_setups``). This can be used to"
-            " recover from user configuration errors that break lab startup."
+    reset_user_env: Annotated[
+        bool,
+        Field(
+            title="Move aside user environment",
+            description=(
+                "If true, set the ``RESET_USER_ENV`` environment variable when"
+                " spawning the lab, which tells the lab to move aside the user"
+                " environment directories (``.cache``, ``.conda``,"
+                " ``.jupyter``, ``.local``) and files (``.user_setups``)."
+                " This can be used to recover from user configuration errors"
+                " that break lab startup."
+            ),
+            examples=[True],
         ),
-        examples=[True],
-    )
+    ] = False
 
 
 class LabOptions(CommonLabOptions):
@@ -160,12 +173,16 @@ class LabOptions(CommonLabOptions):
     by `LabRequestOptions`.
     """
 
-    image: str = Field(
-        ...,
-        title="Lab image",
-        description="Docker reference to image used by the lab",
-        examples=["lighthouse.ceres/library/sketchbook:w_2023_07@sha256:abcd"],
-    )
+    image: Annotated[
+        str,
+        Field(
+            title="Lab image",
+            description="Docker reference to image used by the lab",
+            examples=[
+                "lighthouse.ceres/library/sketchbook:w_2023_07@sha256:abcd"
+            ],
+        ),
+    ]
 
 
 class LabRequestOptions(CommonLabOptions):
@@ -181,14 +198,18 @@ class LabRequestOptions(CommonLabOptions):
     directly to the lab controller without modifications.
     """
 
+    # Defining these fields using Annotated causes Sphinx documentation
+    # generation to blow up with weird error messages.
+
     image_list: str | None = Field(
         None,
         title="Image from selection radio button",
         description=(
-            "Selected image from the radio button part of the image menu, or"
-            f" the special value ``{DROPDOWN_SENTINEL_VALUE}``. If this is"
-            f" set, to a value other than ``{DROPDOWN_SENTINEL_VALUE}``,"
-            " ``image_dropdown`` should not be set."
+            "Selected image from the radio button part of the image menu,"
+            f" or the special value ``{DROPDOWN_SENTINEL_VALUE}``. If this"
+            " is set, to a value other than"
+            f" ``{DROPDOWN_SENTINEL_VALUE}``, ``image_dropdown`` should"
+            " not be set."
         ),
         examples=["lighthouse.ceres/library/sketchbook:w_2023_07@sha256:abcd"],
     )
@@ -197,8 +218,8 @@ class LabRequestOptions(CommonLabOptions):
         None,
         title="Image from dropdown list",
         description=(
-            "Selected image from the dropdown part of the image menu. If this"
-            f" is set, ``image_list`` should be omitted or set to"
+            "Selected image from the dropdown part of the image menu. If"
+            " this is set, ``image_list`` should be omitted or set to"
             f" ``{DROPDOWN_SENTINEL_VALUE}``."
         ),
         examples=["lighthouse.ceres/library/sketchbook:w_2022_40"],
@@ -209,10 +230,10 @@ class LabRequestOptions(CommonLabOptions):
         title="Class of image to spawn",
         description=(
             "Spawn a class of image determined by the lab controller. Not"
-            " used by the user form, but may be used by bots creating labs."
-            " Only one of ``image_class`` or ``image_tag`` may be given, and"
-            " neither ``image_list`` nor ``image_dropdown`` should be set when"
-            " using these options."
+            " used by the user form, but may be used by bots creating"
+            " labs. Only one of ``image_class`` or ``image_tag`` may be"
+            " given, and neither ``image_list`` nor ``image_dropdown``"
+            " should be set when using these options."
         ),
         examples=[ImageClass.RECOMMENDED],
     )
@@ -221,11 +242,11 @@ class LabRequestOptions(CommonLabOptions):
         None,
         title="Tag of image to spawn",
         description=(
-            "Spawn the image with the given tag. Not used by the user form,"
-            " but may be used by bots creating labs. Only one of"
+            "Spawn the image with the given tag. Not used by the user"
+            " form, but may be used by bots creating labs. Only one of"
             " ``image_class`` or ``image_tag`` may be given, and neither"
-            " ``image_list`` nor ``image_dropdown`` should be set when using"
-            " these options."
+            " ``image_list`` nor ``image_dropdown`` should be set when"
+            " using these options."
         ),
         examples=["w_2023_07"],
     )
@@ -340,20 +361,24 @@ class LabSpecification(BaseModel):
     :samp:`/spawner/v1/labs/{username}/create` route.
     """
 
-    options: LabRequestOptions = Field(
-        ...,
-        title="User-chosen lab options",
-        description="Represents the choices made on the spawner form",
-    )
-
-    env: dict[str, str] = Field(
-        ...,
-        title="Environment variables",
-        description=(
-            "Environment variables from JupyterHub. The variable"
-            " ``JUPYTERHUB_SERVICE_PREFIX`` must be set."
+    options: Annotated[
+        LabRequestOptions,
+        Field(
+            title="User-chosen lab options",
+            description="Represents the choices made on the spawner form",
         ),
-    )
+    ]
+
+    env: Annotated[
+        dict[str, str],
+        Field(
+            title="Environment variables",
+            description=(
+                "Environment variables from JupyterHub. The variable"
+                " ``JUPYTERHUB_SERVICE_PREFIX`` must be set."
+            ),
+        ),
+    ]
 
     @field_validator("env")
     @classmethod
@@ -367,53 +392,63 @@ class LabSpecification(BaseModel):
 class UserInfo(BaseModel):
     """Metadata about the user who owns the lab."""
 
-    username: str = Field(
-        ...,
-        title="Username",
-        description="Username of the owner of this lab",
-        examples=["ribbon"],
-        pattern=USERNAME_REGEX,
-    )
-
-    name: str | None = Field(
-        None,
-        title="Display name for user",
-        description=(
-            "Preferred human-readable name for the user. May contain spaces,"
-            " capital letters, and non-ASCII Unicode characters. Should be"
-            " the user's preferred representation of their name to other"
-            " humans."
+    username: Annotated[
+        str,
+        Field(
+            title="Username",
+            description="Username of the owner of this lab",
+            examples=["ribbon"],
+            pattern=USERNAME_REGEX,
         ),
-        examples=["Ribbon"],
-    )
+    ]
 
-    uid: int = Field(
-        ...,
-        title="Numeric UID",
-        description=(
-            "POSIX numeric UID for the user as a 32-bit unsigned integer"
+    name: Annotated[
+        str | None,
+        Field(
+            title="Display name for user",
+            description=(
+                "Preferred human-readable name for the user. May contain"
+                " spaces, capital letters, and non-ASCII Unicode characters."
+                " Should be the user's preferred representation of their name"
+                " to other humans."
+            ),
+            examples=["Ribbon"],
         ),
-        examples=[1104],
-    )
+    ] = None
 
-    gid: int = Field(
-        ...,
-        title="Numeric GID of primary group",
-        description=(
-            "POSIX numeric GID for user's primary group as a 32-bit unsigned"
-            " integer"
+    uid: Annotated[
+        int,
+        Field(
+            title="Numeric UID",
+            description=(
+                "POSIX numeric UID for the user as a 32-bit unsigned integer"
+            ),
+            examples=[1104],
         ),
-        examples=[1104],
-    )
+    ]
 
-    groups: list[UserGroup] = Field(
-        [],
-        title="User's group memberships",
-        description=(
-            "All POSIX group memberships of the user with associated GIDs,"
-            " used to set the user's supplemental groups"
+    gid: Annotated[
+        int,
+        Field(
+            title="Numeric GID of primary group",
+            description=(
+                "POSIX numeric GID for user's primary group as a 32-bit"
+                " unsigned integer"
+            ),
+            examples=[1104],
         ),
-    )
+    ]
+
+    groups: Annotated[
+        list[UserGroup],
+        Field(
+            title="User's group memberships",
+            description=(
+                "All POSIX group memberships of the user with associated GIDs,"
+                " used to set the user's supplemental groups"
+            ),
+        ),
+    ] = []
 
     @classmethod
     def from_gafaelfawr(cls, user: GafaelfawrUserInfo) -> Self:
@@ -445,57 +480,59 @@ class UserInfo(BaseModel):
 class ResourceQuantity(BaseModel):
     """A Kubernetes resource request or limit."""
 
-    cpu: float = Field(
-        ...,
-        title="CPU",
-        description="Number of CPU cores",
-        examples=[1.5],
-    )
-
-    memory: int = Field(
-        ...,
-        title="Memory",
-        description=(
-            "Amount of memory in bytes. Also accepts strings with SI"
-            " suffixes, which will be converted to bytes. Be sure to use"
-            " the suffix with ``i`` to indicate powers of two (1024 rather"
-            " than 1000) if that is desired."
+    cpu: Annotated[
+        float,
+        Field(
+            title="CPU",
+            description="Number of CPU cores",
+            examples=[1.5],
         ),
-        examples=[1073741824, "1Gi"],
-    )
+    ]
 
-    @field_validator("memory", mode="before")
-    @classmethod
-    def _validate_memory(cls, v: int | str) -> int:
-        """Convert strings with SI units to memory in bytes."""
-        if isinstance(v, str):
-            return memory_to_bytes(v)
-        else:
-            return v
+    memory: Annotated[
+        int,
+        Field(
+            title="Memory",
+            description=(
+                "Amount of memory in bytes. Also accepts strings with SI"
+                " suffixes, which will be converted to bytes. Be sure to use"
+                " the suffix with ``i`` to indicate powers of two (1024 rather"
+                " than 1000) if that is desired."
+            ),
+            examples=[1073741824, "1Gi"],
+        ),
+        BeforeValidator(
+            lambda v: memory_to_bytes(v) if isinstance(v, str) else v
+        ),
+    ]
 
 
 class LabResources(BaseModel):
     """Resource requests and limits for a lab."""
 
-    limits: ResourceQuantity = Field(
-        ...,
-        title="Maximum allowed resources",
-        description=(
-            "If the user's pod exceeds this CPU limit, it will be throttled."
-            " If it exceeds this memory limit, it will usually be killed"
-            " with an out-of-memory error."
+    limits: Annotated[
+        ResourceQuantity,
+        Field(
+            title="Maximum allowed resources",
+            description=(
+                "If the user's pod exceeds this CPU limit, it will be"
+                " throttled. If it exceeds this memory limit, it will usually"
+                " be killed with an out-of-memory error."
+            ),
         ),
-    )
+    ]
 
-    requests: ResourceQuantity = Field(
-        ...,
-        title="Minimum requested resources",
-        description=(
-            "Guaranteed minimum resources available to the user's lab. If"
-            " these resources are not available, the cluster will autoscale"
-            " or the lab spawn will fail."
+    requests: Annotated[
+        ResourceQuantity,
+        Field(
+            title="Minimum requested resources",
+            description=(
+                "Guaranteed minimum resources available to the user's lab. If"
+                " these resources are not available, the cluster will"
+                " autoscale or the lab spawn will fail."
+            ),
         ),
-    )
+    ]
 
     def to_kubernetes(self) -> V1ResourceRequirements:
         """Convert to the Kubernetes object representation."""
@@ -518,57 +555,69 @@ class LabState(BaseModel):
     ``/spawner/v1/user-status`` routes.
     """
 
-    user: UserInfo = Field(
-        ...,
-        title="Owner",
-        description="Metadata for the user who owns the lab",
-    )
-
-    options: LabOptions = Field(
-        ...,
-        title="Lab options",
-        description="Options for the lab, specified when it was requested",
-    )
-
-    status: LabStatus = Field(
-        ...,
-        title="Status of user lab",
-        description=(
-            "Current status of the user's lab. This is primarily based on"
-            " the Kubernetes pod phase, but does not have a one-to-one"
-            " correspondence. Labs may be in ``failed`` state for a variety"
-            " of reasons regardless of the pod phase, and completed pods"
-            " are shown as ``terminated``."
+    user: Annotated[
+        UserInfo,
+        Field(
+            title="Owner",
+            description="Metadata for the user who owns the lab",
         ),
-        examples=[LabStatus.RUNNING],
-    )
+    ]
 
-    internal_url: str | None = Field(
-        None,
-        title="URL for user's lab",
-        description=(
-            "URL used by JupyterHub and its proxy to access the user's lab."
-            " This is a cluster-internal URL that will not be meaningful"
-            " outside of the cluster."
+    options: Annotated[
+        LabOptions,
+        Field(
+            title="Lab options",
+            description="Options for the lab, specified when it was requested",
         ),
-        examples=["http://nublado-ribbon.nb-ribbon:8888"],
-    )
+    ]
 
-    resources: LabResources = Field(
-        ...,
-        title="Lab resource limits and requests",
-        description="Resource limits and requests for the lab pod",
-    )
-
-    quota: ResourceQuantity | None = Field(
-        None,
-        title="Quota for all user resources",
-        description=(
-            "Namespace quota for the user. Unlike `resources`, these limits"
-            " are applied to the entire namespace, including worker pods"
-            " spawned by the user."
+    status: Annotated[
+        LabStatus,
+        Field(
+            title="Status of user lab",
+            description=(
+                "Current status of the user's lab. This is primarily based on"
+                " the Kubernetes pod phase, but does not have a one-to-one"
+                " correspondence. Labs may be in ``failed`` state for a"
+                " variety of reasons regardless of the pod phase, and"
+                " completed pods are shown as ``terminated``."
+            ),
+            examples=[LabStatus.RUNNING],
         ),
-    )
+    ]
+
+    internal_url: Annotated[
+        str | None,
+        Field(
+            title="URL for user's lab",
+            description=(
+                "URL used by JupyterHub and its proxy to access the user's"
+                " lab. This is a cluster-internal URL that will not be"
+                " meaningful outside of the cluster."
+            ),
+            examples=["http://nublado-ribbon.nb-ribbon:8888"],
+        ),
+    ] = None
+
+    resources: Annotated[
+        LabResources,
+        Field(
+            title="Lab resource limits and requests",
+            description="Resource limits and requests for the lab pod",
+        ),
+    ]
+
+    quota: Annotated[
+        ResourceQuantity | None,
+        Field(
+            title="Quota for all user resources",
+            description=(
+                "Namespace quota for the user. Unlike `resources`, these"
+                " limits are applied to the entire namespace, including worker"
+                " pods spawned by the user."
+            ),
+        ),
+    ] = None
 
     @classmethod
     def from_request(

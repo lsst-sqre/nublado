@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Protocol, Self, override
+from typing import Annotated, Any, Protocol, Self, override
 
 from kubernetes_asyncio.client import (
     V1Affinity,
@@ -142,25 +142,29 @@ class NodeSelectorOperator(Enum):
 class NodeSelectorRequirement(BaseModel):
     """Individual match rule for nodes."""
 
-    key: str = Field(..., title="Key", description="Label key to match")
-
-    operator: NodeSelectorOperator = Field(
-        ..., title="Operator", description="Match operation to use"
-    )
-
-    values: list[str] = Field(
-        [],
-        title="Matching values",
-        description=(
-            "For ``In`` and ``NotIn``, matches any value in this list. For"
-            " ``Gt`` or ``Lt``, must contain a single member interpreted as"
-            " an integer. For ``Exists`` or ``DoesNotExist``, must be empty."
-        ),
-    )
-
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    key: Annotated[str, Field(title="Key", description="Label key to match")]
+
+    operator: Annotated[
+        NodeSelectorOperator,
+        Field(title="Operator", description="Match operation to use"),
+    ]
+
+    values: Annotated[
+        list[str],
+        Field(
+            title="Matching values",
+            description=(
+                "For ``In`` and ``NotIn``, matches any value in this list. For"
+                " ``Gt`` or ``Lt``, must contain a single member interpreted"
+                " as an integer. For ``Exists`` or ``DoesNotExist``, must be"
+                " empty."
+            ),
+        ),
+    ] = []
 
     @model_validator(mode="after")
     def _validate(self) -> Self:
@@ -192,21 +196,25 @@ class NodeSelectorRequirement(BaseModel):
 class NodeSelectorTerm(BaseModel):
     """Term to match nodes."""
 
-    match_expressions: list[NodeSelectorRequirement] = Field(
-        [],
-        title="Rules for node labels",
-        description="Matching rules applied to node labels",
-    )
-
-    match_fields: list[NodeSelectorRequirement] = Field(
-        [],
-        title="Rules for node fields",
-        description="Matching rules applied to node fields",
-    )
-
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    match_expressions: Annotated[
+        list[NodeSelectorRequirement],
+        Field(
+            title="Rules for node labels",
+            description="Matching rules applied to node labels",
+        ),
+    ] = []
+
+    match_fields: Annotated[
+        list[NodeSelectorRequirement],
+        Field(
+            title="Rules for node fields",
+            description="Matching rules applied to node fields",
+        ),
+    ] = []
 
     def to_kubernetes(self) -> V1NodeSelectorTerm:
         """Convert to the corresponding Kubernetes model."""
@@ -221,19 +229,22 @@ class NodeSelectorTerm(BaseModel):
 class PreferredSchedulingTerm(BaseModel):
     """Scheduling term with a weight, used to find preferred nodes."""
 
-    preference: NodeSelectorTerm = Field(
-        ..., title="Node selector", description="Selector term for a node"
-    )
-
-    weight: int = Field(
-        ...,
-        title="Weight",
-        description="Weight to assign to nodes matching this term",
-    )
-
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    preference: Annotated[
+        NodeSelectorTerm,
+        Field(title="Node selector", description="Selector term for a node"),
+    ]
+
+    weight: Annotated[
+        int,
+        Field(
+            title="Weight",
+            description="Weight to assign to nodes matching this term",
+        ),
+    ]
 
     def to_kubernetes(self) -> V1PreferredSchedulingTerm:
         """Convert to the corresponding Kubernetes model."""
@@ -245,13 +256,14 @@ class PreferredSchedulingTerm(BaseModel):
 class NodeSelector(BaseModel):
     """Matching terms for nodes."""
 
-    node_selector_terms: list[NodeSelectorTerm] = Field(
-        [], title="Terms", description="Matching terms for nodes"
-    )
-
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    node_selector_terms: Annotated[
+        list[NodeSelectorTerm],
+        Field(title="Terms", description="Matching terms for nodes"),
+    ] = []
 
     def to_kubernetes(self) -> V1NodeSelector:
         """Convert to the corresponding Kubernetes model."""
@@ -265,23 +277,27 @@ class NodeSelector(BaseModel):
 class NodeAffinity(BaseModel):
     """Node affinity rules."""
 
-    preferred: list[PreferredSchedulingTerm] = Field(
-        [],
-        title="Scheduling terms",
-        description=(
-            "Preference rules used for scheduling and ignored afterwards"
-        ),
-        alias="preferredDuringSchedulingIgnoredDuringExecution",
-    )
-
-    required: NodeSelector | None = Field(
-        None,
-        title="Node selectors",
-        description="Required node selection rules",
-        alias="requiredDuringSchedulingIgnoredDuringExecution",
-    )
-
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    preferred: Annotated[
+        list[PreferredSchedulingTerm],
+        Field(
+            title="Scheduling terms",
+            description=(
+                "Preference rules used for scheduling and ignored afterwards"
+            ),
+            alias="preferredDuringSchedulingIgnoredDuringExecution",
+        ),
+    ] = []
+
+    required: Annotated[
+        NodeSelector | None,
+        Field(
+            title="Node selectors",
+            description="Required node selection rules",
+            alias="requiredDuringSchedulingIgnoredDuringExecution",
+        ),
+    ] = None
 
     def to_kubernetes(self) -> V1NodeAffinity:
         """Convert to the corresponding Kubernetes model."""
@@ -307,24 +323,27 @@ class LabelSelectorOperator(Enum):
 class LabelSelectorRequirement(BaseModel):
     """Single rule for label matching."""
 
-    key: str = Field(..., title="Key", description="Label key to match")
-
-    operator: LabelSelectorOperator = Field(
-        ..., title="Operator", description="Label match operator"
-    )
-
-    values: list[str] = Field(
-        [],
-        title="Matching values",
-        description=(
-            "For ``In`` and ``NotIn``, matches any value in this list. For"
-            " ``Exists`` or ``DoesNotExist``, must be empty."
-        ),
-    )
-
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    key: Annotated[str, Field(title="Key", description="Label key to match")]
+
+    operator: Annotated[
+        LabelSelectorOperator,
+        Field(title="Operator", description="Label match operator"),
+    ]
+
+    values: Annotated[
+        list[str],
+        Field(
+            title="Matching values",
+            description=(
+                "For ``In`` and ``NotIn``, matches any value in this list. For"
+                " ``Exists`` or ``DoesNotExist``, must be empty."
+            ),
+        ),
+    ] = []
 
     @model_validator(mode="after")
     def _validate(self) -> Self:
@@ -354,21 +373,25 @@ class LabelSelector(BaseModel):
     with and.)
     """
 
-    match_expressions: list[LabelSelectorRequirement] = Field(
-        [],
-        title="Label match expressions",
-        description="Rules for matching labels",
-    )
-
-    match_labels: dict[str, str] = Field(
-        {},
-        title="Exact label matches",
-        description="Label keys and values that must be set",
-    )
-
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    match_expressions: Annotated[
+        list[LabelSelectorRequirement],
+        Field(
+            title="Label match expressions",
+            description="Rules for matching labels",
+        ),
+    ] = []
+
+    match_labels: Annotated[
+        dict[str, str],
+        Field(
+            title="Exact label matches",
+            description="Label keys and values that must be set",
+        ),
+    ] = {}
 
     def to_kubernetes(self) -> V1LabelSelector:
         """Convert to the corresponding Kubernetes model."""
@@ -382,41 +405,50 @@ class LabelSelector(BaseModel):
 class PodAffinityTerm(BaseModel):
     """Pod matching term for pod affinity."""
 
-    label_selector: LabelSelector | None = Field(
-        None, title="Pod label match", description="Match rules for pod labels"
-    )
-
-    namespace_selector: LabelSelector | None = Field(
-        None,
-        title="Namespace label match",
-        description="Match rules for namespace labels",
-    )
-
-    namespaces: list[str] = Field(
-        [],
-        title="Matching namespaces",
-        description=(
-            "List of namespaces to which this term applies. The term will"
-            " apply to the union of this list of namespaces and any namespaces"
-            " that match ``namespaceSelector``, if given. If both are empty,"
-            " only the pod's namespace is matched."
-        ),
-    )
-
-    topology_key: str = Field(
-        ...,
-        title="Node topology label",
-        description=(
-            "Name of the node label that should match between nodes to"
-            " consider two pods to be scheduled on adjacent nodes, which in"
-            " turn is the definition of an affinity (and the opposite of an"
-            " anti-affinity)."
-        ),
-    )
-
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    label_selector: Annotated[
+        LabelSelector | None,
+        Field(
+            title="Pod label match", description="Match rules for pod labels"
+        ),
+    ] = None
+
+    namespace_selector: Annotated[
+        LabelSelector | None,
+        Field(
+            title="Namespace label match",
+            description="Match rules for namespace labels",
+        ),
+    ] = None
+
+    namespaces: Annotated[
+        list[str],
+        Field(
+            title="Matching namespaces",
+            description=(
+                "List of namespaces to which this term applies. The term will"
+                " apply to the union of this list of namespaces and any"
+                " namespaces that match ``namespaceSelector``, if given. If"
+                " both are empty, only the pod's namespace is matched."
+            ),
+        ),
+    ] = []
+
+    topology_key: Annotated[
+        str,
+        Field(
+            title="Node topology label",
+            description=(
+                "Name of the node label that should match between nodes to"
+                " consider two pods to be scheduled on adjacent nodes, which"
+                " in turn is the definition of an affinity (and the opposite"
+                " of an anti-affinity)."
+            ),
+        ),
+    ]
 
     def to_kubernetes(self) -> V1PodAffinityTerm:
         """Convert to the corresponding Kubernetes model."""
@@ -437,21 +469,24 @@ class PodAffinityTerm(BaseModel):
 class WeightedPodAffinityTerm(BaseModel):
     """Pod matching term for pod affinity with an associated weight."""
 
-    pod_affinity_term: PodAffinityTerm = Field(
-        ..., title="Matching term", description="Pod affinity matching term"
-    )
-
-    weight: int = Field(
-        ...,
-        title="Associated weight",
-        description="Weight to associate with pods matching this term",
-        ge=1,
-        le=100,
-    )
-
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    pod_affinity_term: Annotated[
+        PodAffinityTerm,
+        Field(title="Matching term", description="Pod affinity matching term"),
+    ]
+
+    weight: Annotated[
+        int,
+        Field(
+            title="Associated weight",
+            description="Weight to associate with pods matching this term",
+            ge=1,
+            le=100,
+        ),
+    ]
 
     def to_kubernetes(self) -> V1WeightedPodAffinityTerm:
         """Convert to the corresponding Kubernetes model."""
@@ -464,23 +499,27 @@ class WeightedPodAffinityTerm(BaseModel):
 class PodAffinity(BaseModel):
     """Pod affinity rules."""
 
-    preferred: list[WeightedPodAffinityTerm] = Field(
-        [],
-        title="Scheduling terms",
-        description=(
-            "Preference rules used for scheduling and ignored afterwards"
-        ),
-        alias="preferredDuringSchedulingIgnoredDuringExecution",
-    )
-
-    required: list[PodAffinityTerm] = Field(
-        [],
-        title="Node selectors",
-        description="Required node selection rules",
-        alias="requiredDuringSchedulingIgnoredDuringExecution",
-    )
-
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    preferred: Annotated[
+        list[WeightedPodAffinityTerm],
+        Field(
+            title="Scheduling terms",
+            description=(
+                "Preference rules used for scheduling and ignored afterwards"
+            ),
+            alias="preferredDuringSchedulingIgnoredDuringExecution",
+        ),
+    ] = []
+
+    required: Annotated[
+        list[PodAffinityTerm],
+        Field(
+            title="Node selectors",
+            description="Required node selection rules",
+            alias="requiredDuringSchedulingIgnoredDuringExecution",
+        ),
+    ] = []
 
     def to_kubernetes(self) -> V1PodAffinity:
         """Convert to the corresponding Kubernetes model."""
@@ -523,20 +562,24 @@ class PodAntiAffinity(PodAffinity):
 class Affinity(BaseModel):
     """Pod affinity rules."""
 
-    node_affinity: NodeAffinity | None = Field(
-        None,
-        title="Node affinity rules",
-    )
-
-    pod_affinity: PodAffinity | None = Field(None, title="Pod affinity rules")
-
-    pod_anti_affinity: PodAntiAffinity | None = Field(
-        None, title="Pod anti-affinity rules"
-    )
-
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    node_affinity: Annotated[
+        NodeAffinity | None,
+        Field(
+            title="Node affinity rules",
+        ),
+    ] = None
+
+    pod_affinity: Annotated[
+        PodAffinity | None, Field(title="Pod affinity rules")
+    ] = None
+
+    pod_anti_affinity: Annotated[
+        PodAntiAffinity | None, Field(title="Pod anti-affinity rules")
+    ] = None
 
     def to_kubernetes(self) -> V1Affinity:
         """Convert to the corresponding Kubernetes model."""
@@ -631,56 +674,67 @@ class Toleration(BaseModel):
     node is marked as tained.
     """
 
-    effect: TaintEffect | None = Field(
-        None,
-        title="Taint effect",
-        description=(
-            "Taint effect to match. If ``None``, match all taint effects."
-        ),
-    )
-
-    key: str | None = Field(
-        None,
-        title="Taint key",
-        description=(
-            "Taint key to match. If ``None``, ``operator`` must be ``Exists``,"
-            " and this combination is used to match all taints."
-        ),
-    )
-
-    operator: TolerationOperator = Field(
-        TolerationOperator.EQUAL,
-        title="Match operator",
-        description=(
-            "``Exists`` is equivalent to a wildcard for value and matches all"
-            " possible taints of a given catgory."
-        ),
-    )
-
-    toleration_seconds: int | None = Field(
-        None,
-        title="Duration of toleration",
-        description=(
-            "Defines the length of time a ``NoExecute`` taint is tolerated and"
-            " is ignored for other taint effects. The pod will be evicted"
-            " this number of seconds after the taint is added, rather than"
-            " immediately (the default with no toleration). ``None`` says to"
-            " tolerate the taint forever."
-        ),
-    )
-
-    value: str | None = Field(
-        None,
-        title="Taint value",
-        description=(
-            "Taint value to match. Must be ``None`` if the operator is"
-            " ``Exists``."
-        ),
-    )
-
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    effect: Annotated[
+        TaintEffect | None,
+        Field(
+            title="Taint effect",
+            description=(
+                "Taint effect to match. If ``None``, match all taint effects."
+            ),
+        ),
+    ] = None
+
+    key: Annotated[
+        str | None,
+        Field(
+            title="Taint key",
+            description=(
+                "Taint key to match. If ``None``, ``operator`` must be"
+                " ``Exists``, and this combination is used to match all"
+                " taints."
+            ),
+        ),
+    ] = None
+
+    operator: Annotated[
+        TolerationOperator,
+        Field(
+            title="Match operator",
+            description=(
+                "``Exists`` is equivalent to a wildcard for value and matches"
+                " all possible taints of a given catgory."
+            ),
+        ),
+    ] = TolerationOperator.EQUAL
+
+    toleration_seconds: Annotated[
+        int | None,
+        Field(
+            title="Duration of toleration",
+            description=(
+                "Defines the length of time a ``NoExecute`` taint is tolerated"
+                " and is ignored for other taint effects. The pod will be"
+                " evicted this number of seconds after the taint is added,"
+                " rather than immediately (the default with no toleration)."
+                " ``None`` says to tolerate the taint forever."
+            ),
+        ),
+    ] = None
+
+    value: Annotated[
+        str | None,
+        Field(
+            title="Taint value",
+            description=(
+                "Taint value to match. Must be ``None`` if the operator is"
+                " ``Exists``."
+            ),
+        ),
+    ] = None
 
     @model_validator(mode="after")
     def _validate(self) -> Self:

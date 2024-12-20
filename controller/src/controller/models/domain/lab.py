@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from enum import Enum
+from typing import Annotated
 
 from kubernetes_asyncio.client.models import (
     V1ConfigMap,
@@ -44,24 +45,32 @@ class Event(BaseModel):
     converted to a server-sent event via its ``to_sse`` method.
     """
 
-    type: EventType = Field(..., title="Type", description="Type of the event")
+    type: Annotated[
+        EventType, Field(title="Type", description="Type of the event")
+    ]
 
-    message: str = Field(
-        ..., title="Message", description="User-visible message for this event"
-    )
-
-    progress: int | None = Field(
-        None,
-        title="Percentage",
-        description=(
-            "Estimated competion percentage of operation. For spawn events"
-            " after the Kubernetes objects have been created, this is"
-            " a mostly meaningless number to make the progress bar move, since"
-            " we have no way to know how many events in total there will be."
+    message: Annotated[
+        str,
+        Field(
+            title="Message", description="User-visible message for this event"
         ),
-        le=100,
-        gt=0,
-    )
+    ]
+
+    progress: Annotated[
+        int | None,
+        Field(
+            title="Percentage",
+            description=(
+                "Estimated competion percentage of operation. For spawn events"
+                " after the Kubernetes objects have been created, this is"
+                " a mostly meaningless number to make the progress bar move,"
+                " since we have no way to know how many events in total there"
+                " will be."
+            ),
+            le=100,
+            gt=0,
+        ),
+    ] = None
 
     @property
     def done(self) -> bool:

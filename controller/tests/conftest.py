@@ -10,6 +10,7 @@ import respx
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from pydantic import SecretStr
 from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 
@@ -124,7 +125,7 @@ def mock_kubernetes() -> Iterator[MockKubernetesApi]:
 def mock_slack(
     config: Config, respx_mock: respx.Router
 ) -> Iterator[MockSlackWebhook]:
-    config.slack_webhook = "https://slack.example.com/webhook"
+    config.slack_webhook = SecretStr("https://slack.example.com/webhook")
     yield mock_slack_webhook(config.slack_webhook, respx_mock)
     config.slack_webhook = None
 

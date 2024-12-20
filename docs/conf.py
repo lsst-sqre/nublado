@@ -5,4 +5,3 @@ autodoc_pydantic_model_show_config_summary = False
 autodoc_pydantic_settings_show_config_summary = False
 autodoc_pydantic_settings_show_json = False
 exclude_patterns.append("_templates/**")
-mermaid_version = "10.6.1"
