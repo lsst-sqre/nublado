@@ -12,6 +12,7 @@ Guides to common problems and instructions on how to integrate properly with Pha
    :maxdepth: 2
    :caption: Guides
 
+   node-selection
    home-directories
    init-containers
    setup-gar
