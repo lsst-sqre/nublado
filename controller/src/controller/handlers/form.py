@@ -37,6 +37,11 @@ async def get_user_lab_form(
 ) -> Response:
     if username != user.username:
         raise PermissionDeniedError("Permission denied")
+    if user.quota and user.quota.notebook:
+        if not user.quota.notebook.spawn:
+            return templates.TemplateResponse(
+                context.request, "unavailable.html.jinja"
+            )
     images = context.image_service.menu_images()
 
     # Filter the list of configured lab sizes to exclude labs that are larger

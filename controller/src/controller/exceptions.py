@@ -107,7 +107,12 @@ class NotConfiguredError(ClientRequestError):
 
 
 class PermissionDeniedError(ClientRequestError):
-    """Attempt to access a resource for another user."""
+    """Attempt to access a restricted resource.
+
+    This exception may indicate an attempt to access a resource for another
+    user or an attempt to spawn a lab when the user's quota does not allow
+    lab spawning.
+    """
 
     error = "permission_denied"
     status_code = status.HTTP_403_FORBIDDEN

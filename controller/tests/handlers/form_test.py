@@ -8,6 +8,7 @@ from httpx import AsyncClient
 from controller.models.domain.gafaelfawr import GafaelfawrUser
 
 from ..support.data import read_output_data
+from ..support.gafaelfawr import get_no_spawn_user
 
 
 @pytest.mark.asyncio
@@ -33,3 +34,15 @@ async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
     assert r.json() == {
         "detail": [{"msg": "Permission denied", "type": "permission_denied"}]
     }
+
+
+@pytest.mark.asyncio
+async def test_quota_spawn(client: AsyncClient) -> None:
+    token, user = get_no_spawn_user()
+    r = await client.get(
+        f"/nublado/spawner/v1/lab-form/{user.username}",
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 200
+    expected = read_output_data("standard", "lab-unavailable.html").strip()
+    assert r.text == expected
