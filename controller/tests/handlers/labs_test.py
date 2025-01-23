@@ -32,6 +32,7 @@ from ..support.data import (
     read_output_data,
     read_output_json,
 )
+from ..support.gafaelfawr import get_no_spawn_user
 from ..support.kubernetes import objects_to_dicts
 
 
@@ -915,3 +916,17 @@ async def test_extra_annotations(
     pod = await mock_kubernetes.read_namespaced_pod(pod_name, namespace)
     for key, value in config.lab.extra_annotations.items():
         assert pod.metadata.annotations[key] == value
+
+
+@pytest.mark.asyncio
+async def test_quota_no_spawn(client: AsyncClient) -> None:
+    """Check that spawning is denied for a user blocked by quota."""
+    lab = read_input_lab_specification_json("base", "lab-specification")
+    token, user = get_no_spawn_user()
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 403

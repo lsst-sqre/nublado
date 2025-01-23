@@ -10,6 +10,8 @@ from controller.models.domain.gafaelfawr import (
     GafaelfawrUserInfo,
 )
 
+from .data import read_input_users_json
+
 __all__ = ["MockGafaelfawr", "register_mock_gafaelfawr"]
 
 
@@ -80,3 +82,20 @@ def register_mock_gafaelfawr(
     api_url = f"{base_url}/auth/api/v1/user-info"
     respx_mock.get(api_url).mock(side_effect=mock.get_info)
     return mock
+
+
+def get_no_spawn_user() -> tuple[str, GafaelfawrUser]:
+    """Find a user whose quota says they can't spawn labs.
+
+    Returns
+    -------
+    str, GafaelfawrUser
+        Token and corresponding user data structure for a user with a quota
+        set that forbids spawning labs.
+    """
+    users = read_input_users_json("base", "users")
+    for token, user in users.items():
+        if user.quota and user.quota.notebook:
+            if not user.quota.notebook.spawn:
+                return token, GafaelfawrUser(token=token, **user.model_dump())
+    raise ValueError("No users found with a quota forbidding spawning")

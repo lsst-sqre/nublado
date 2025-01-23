@@ -54,6 +54,12 @@ class NotebookQuota(BaseModel):
         float, Field(title="Maximum memory use (GiB)", examples=[16.0])
     ]
 
+    spawn: bool = Field(
+        True,
+        title="Spawning allowed",
+        description="Whether the user is allowed to spawn a notebook",
+    )
+
     @property
     def memory_bytes(self) -> int:
         """Maximum memory use in bytes."""

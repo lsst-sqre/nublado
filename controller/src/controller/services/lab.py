@@ -30,6 +30,7 @@ from ..exceptions import (
     MissingSecretError,
     NoOperationError,
     OperationConflictError,
+    PermissionDeniedError,
     UnknownUserError,
 )
 from ..models.domain.docker import DockerReference
@@ -245,11 +246,14 @@ class LabManager:
         OperationConflictError
             Raised if some other operation (either spawn or delete) is already
             in progress on this user's lab.
+        PermissionDeniedError
+            Raised if the user's quota does not allow them to spawn labs.
         """
-        username = user.username
+        self._check_quota(user)
 
         # If the user was not previously seen, set up their data structure and
         # monitor class.
+        username = user.username
         if username not in self._labs:
             monitor = _LabMonitor(
                 username=username,
@@ -643,6 +647,24 @@ class LabManager:
         self._labs = {}
         for state in labs.values():
             await state.monitor.cancel()
+
+    def _check_quota(self, user: GafaelfawrUser) -> None:
+        """Check if lab spawning is allowed by the user's quota.
+
+        Parameters
+        ----------
+        user
+            User information for the user attempting to spawn a lab.
+
+        Raises
+        ------
+        PermissionDeniedError
+            Raised if the user's quota does not allow them to spawn labs.
+        """
+        if not user.quota or not user.quota.notebook:
+            return
+        if not user.quota.notebook.spawn:
+            raise PermissionDeniedError("Spawning a notebook is not permitted")
 
     async def _delete_lab(
         self,
