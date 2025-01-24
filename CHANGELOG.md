@@ -6,6 +6,22 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.3.0'></a>
+## 8.3.0 (2025-01-24)
+
+### New features
+
+- Support the new `spawn` flag in the user's Gafaelfawr metadata. If set to false, tell the user that spawns aren't allowed rather than presenting a menu and reject spawns in the Nublado controller with a 403 error.
+
+### Bug fixes
+
+- Return a spawner form showing only an error rather than an HTTP failure if the user's quota does not allow them to spawn any of the configured notebook sizes.
+
+### Other changes
+
+- Drop support for Gafaelfawr groups without GIDs. Gafaelfawr has required all groups have GIDs since Gafaelfawr 11.0.0.
+- Add documentation explaining how to use node selection and recommending `nodeSelector` over `affinity`.
+
 <a id='changelog-8.2.0'></a>
 ## 8.2.0 (2024-12-12)
 
