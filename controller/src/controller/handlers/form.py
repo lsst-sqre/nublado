@@ -12,7 +12,7 @@ from ..constants import DROPDOWN_SENTINEL_VALUE
 from ..dependencies.config import config_dependency
 from ..dependencies.context import RequestContext, context_dependency
 from ..dependencies.user import user_dependency
-from ..exceptions import InsufficientQuotaError, PermissionDeniedError
+from ..exceptions import PermissionDeniedError
 from ..models.domain.gafaelfawr import GafaelfawrUser
 from ..templates import templates
 
@@ -37,15 +37,11 @@ async def get_user_lab_form(
 ) -> Response:
     if username != user.username:
         raise PermissionDeniedError("Permission denied")
-    if user.quota and user.quota.notebook:
-        if not user.quota.notebook.spawn:
-            return templates.TemplateResponse(
-                context.request, "unavailable.html.jinja"
-            )
     images = context.image_service.menu_images()
 
     # Filter the list of configured lab sizes to exclude labs that are larger
-    # than the user's quota, if they have a quota.
+    # than the user's quota, if they have a quota. Also handle the case where
+    # the user's quota says they cannot spawn labs at all.
     if user.quota and user.quota.notebook:
         quota = user.quota.notebook
         sizes = [
@@ -53,9 +49,10 @@ async def get_user_lab_form(
             for s in config.lab.sizes
             if s.memory_bytes <= quota.memory_bytes and s.cpu <= quota.cpu
         ]
-        if not sizes:
-            msg = "Insufficient quota to spawn smallest lab"
-            raise InsufficientQuotaError(msg)
+        if not sizes or not quota.spawn:
+            return templates.TemplateResponse(
+                context.request, "unavailable.html.jinja"
+            )
     else:
         sizes = config.lab.sizes
 
