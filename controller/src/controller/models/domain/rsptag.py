@@ -147,7 +147,7 @@ class RSPImageTag:
         if match := re.match(_UNKNOWN_WITH_CYCLE + "$", tag):
             cycle = int(match.group("cycle"))
             display_name = match.group("tag").replace("_", " ").title()
-            display_name += f' (SAL Cycle {match.group("cycle")})'
+            display_name += f" (SAL Cycle {match.group('cycle')})"
         else:
             cycle = None
             display_name = tag.replace("_", " ").title()
