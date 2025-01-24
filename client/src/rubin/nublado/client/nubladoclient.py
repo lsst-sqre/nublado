@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import AsyncGenerator, Callable, Coroutine
-from contextlib import AbstractAsyncContextManager, aclosing, suppress
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Coroutine
+from contextlib import AbstractAsyncContextManager, aclosing
 from datetime import UTC, datetime, timedelta
 from functools import wraps
 from pathlib import Path
@@ -50,6 +50,48 @@ from .models import (
 __all__ = ["JupyterLabSession", "NubladoClient"]
 
 
+class _aclosing_iter[T: AsyncIterator](AbstractAsyncContextManager):  # noqa: N801
+    """Automatically close async iterators that are generators.
+
+    Python supports two ways of writing an async iterator: a true async
+    iterator, and an async generator. Generators support additional async
+    context, such as yielding from inside an async context manager, and
+    therefore require cleanup by calling their `aclose` method once the
+    generator is no longer needed. This step is done automatically by the
+    async loop implementation when the generator is garbage-collected, but
+    this may happen at an arbitrary point and produces pytest warnings
+    saying that the `aclose` method on the generator was never called.
+
+    This class provides a variant of `contextlib.aclosing` that can be
+    used to close generators masquerading as iterators. Many Python libraries
+    implement `__aiter__` by returning a generator rather than an iterator,
+    which is equivalent except for this cleanup behavior. Async iterators do
+    not require this explicit cleanup step because they don't support async
+    context managers inside the iteration. Since the library is free to change
+    from a generator to an iterator at any time, and async iterators don't
+    require this cleanup and don't have `aclose` methods, the `aclose` method
+    should be called only if it exists.
+    """
+
+    def __init__(self, thing: T) -> None:
+        self.thing = thing
+
+    async def __aenter__(self) -> T:
+        return self.thing
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> Literal[False]:
+        # Only call aclose if the method is defined, which we take to mean that
+        # this iterator is actually a generator.
+        if getattr(self.thing, "aclose", None):
+            await self.thing.aclose()  # type: ignore[attr-defined]
+        return False
+
+
 class JupyterSpawnProgress:
     """Async iterator returning spawn progress messages.
 
@@ -83,8 +125,7 @@ class JupyterSpawnProgress:
             Raised if a protocol error occurred while connecting to the
             EventStream API or reading or parsing a message from it.
         """
-        sse_events = self._source.aiter_sse()
-        try:
+        async with _aclosing_iter(self._source.aiter_sse()) as sse_events:
             async for sse in sse_events:
                 try:
                     event_dict = sse.json()
@@ -106,13 +147,6 @@ class JupyterSpawnProgress:
                 msg = f"Spawn {status} ({elapsed}s elapsed): {event.message}"
                 self._logger.info(msg, elapsed=elapsed, status=status)
                 yield event
-        finally:
-            # aiter_sse actually returns an asynchronous generator, which
-            # therefore is supposed to be explicitly closed with alcose()
-            # after break, unlike a true iterator. Handle this case to suppress
-            # warnings in Python 3.13.
-            with suppress(AttributeError):
-                await sse_events.aclose()  # type: ignore[attr-defined]
 
 
 class JupyterLabSession:
@@ -372,40 +406,33 @@ class JupyterLabSession:
         result = ""
         try:
             await self._socket.send(json.dumps(request))
-            messages = aiter(self._socket)
-            async for message in messages:
-                try:
-                    output = self._parse_message(message, message_id)
-                except CodeExecutionError as e:
-                    e.code = code
-                    e.started_at = start
-                    _annotate_exception_from_context(e, context)
-                    raise
-                except Exception as e:
-                    error = f"{type(e).__name__}: {e!s}"
-                    msg = "Ignoring unparsable web socket message"
-                    self._logger.warning(msg, error=error, message=message)
+            async with _aclosing_iter(aiter(self._socket)) as messages:
+                async for message in messages:
+                    try:
+                        output = self._parse_message(message, message_id)
+                    except CodeExecutionError as e:
+                        e.code = code
+                        e.started_at = start
+                        _annotate_exception_from_context(e, context)
+                        raise
+                    except Exception as e:
+                        error = f"{type(e).__name__}: {e!s}"
+                        msg = "Ignoring unparsable web socket message"
+                        self._logger.warning(msg, error=error, message=message)
 
-                # Accumulate the results if they are of interest, and exit and
-                # return the results if this message indicated the end of
-                # execution.
-                if not output:
-                    continue
-                result += output.content
-                if output.done:
-                    break
+                    # Accumulate the results if they are of interest, and exit
+                    # and return the results if this message indicated the end
+                    # of execution.
+                    if not output:
+                        continue
+                    result += output.content
+                    if output.done:
+                        break
         except WebSocketException as e:
             user = self._username
             new_exc = JupyterWebSocketError.from_exception(e, user)
             new_exc.started_at = start
             raise new_exc from e
-        finally:
-            # websocket.__aiter__ actually returns an asynchronous generator,
-            # which therefore is supposed to be explicitly closed with alcose()
-            # after break, unlike a true iterator. Handle this case to suppress
-            # warnings in Python 3.13.
-            with suppress(AttributeError):
-                await messages.aclose()  # type: ignore[attr-defined]
 
         # Return the accumulated output.
         return result
