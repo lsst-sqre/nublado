@@ -1,6 +1,7 @@
 """Tests for the NubladoClient object."""
 
 import asyncio
+from contextlib import aclosing
 from pathlib import Path
 
 import pytest
@@ -37,12 +38,13 @@ async def test_hub_flow(
     # Watch the progress meter
     progress = configured_client.watch_spawn_progress()
     progress_pct = -1
-    async with asyncio.timeout(30):
-        async for message in progress:
-            if message.ready:
-                break
-            assert message.progress > progress_pct
-            progress_pct = message.progress
+    async with aclosing(progress):
+        async with asyncio.timeout(30):
+            async for message in progress:
+                if message.ready:
+                    break
+                assert message.progress > progress_pct
+                progress_pct = message.progress
     # Is the lab running?  Should be.
     assert not (await configured_client.is_lab_stopped())
     try:

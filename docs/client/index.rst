@@ -66,6 +66,7 @@ the Lab:
     """Ensure there's a running lab for the user."""
 
     import asyncio
+    from contextlib import aclosing
 
     import structlog
 
@@ -95,10 +96,11 @@ the Lab:
             )
             await client.spawn_lab(image)
             progress = client.watch_spawn_progress()
-            async with asyncio.timeout(LAB_SPAWN_TIMEOUT):
-                async for message in progress:
-                    if message.ready:
-                        break
+            async with aclosing(progress):
+                async with asyncio.timeout(LAB_SPAWN_TIMEOUT):
+                    async for message in progress:
+                        if message.ready:
+                            break
 
 
     asyncio.run(ensure_lab())
@@ -267,7 +269,7 @@ It depends on two other fixtures: ``environment_url`` is a string, representing 
 
 .. code-block:: python
 
-    from collections.abc import Iterator
+    from collections.abc import AsyncGenerator, Iterator
     from contextlib import asynccontextmanager
     from pathlib import Path
     from unittest.mock import patch
@@ -318,7 +320,7 @@ It depends on two other fixtures: ``environment_url`` is a string, representing 
             extra_headers: dict[str, str],
             max_size: int | None,
             open_timeout: int,
-        ) -> AsyncIterator[MockJupyterWebSocket]:
+        ) -> AsyncGenerator[MockJupyterWebSocket, None]:
             yield mock_jupyter_websocket(url, extra_headers, jupyter_mock)
 
         with patch(websockets, "connect") as mock:

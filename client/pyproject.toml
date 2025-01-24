@@ -52,10 +52,7 @@ Source = "https://github.com/lsst-sqre/nublado"
 "Issue tracker" = "https://github.com/lsst-sqre/nublado/issues"
 
 [build-system]
-requires = [
-    "setuptools>=61",
-    "setuptools_scm[toml]>=6.2"
-]
+requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [tool.coverage.run]
@@ -77,7 +74,7 @@ exclude_lines = [
     "raise NotImplementedError",
     "if 0:",
     "if __name__ == .__main__.:",
-    "if TYPE_CHECKING:"
+    "if TYPE_CHECKING:",
 ]
 
 [tool.pytest.ini_options]
@@ -85,7 +82,10 @@ asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [
     # Bug in aiojobs
-    "ignore:with timeout\\(\\) is deprecated:DeprecationWarning"
+    "ignore:with timeout\\(\\) is deprecated:DeprecationWarning",
+    # Arguably a bug in Python 3.13 with async iterators implemented using
+    # generators
+    "ignore:.*method 'aclose' of 'Response.aiter_lines':RuntimeWarning",
 ]
 # The python_files setting is not for test detection (pytest will pick up any
 # test files named *_test.py without this setting) but to enable special
