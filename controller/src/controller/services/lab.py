@@ -486,9 +486,6 @@ class LabManager:
         )
         try:
             phase = await self._storage.read_pod_phase(names, timeout)
-        except ControllerTimeoutError as e:
-            self._logger.exception("Timeout reading pod phase", user=username)
-            await self._maybe_post_slack_exception(e, username)
         except KubernetesError as e:
             self._logger.exception(
                 "Cannot get pod phase",
@@ -505,6 +502,12 @@ class LabManager:
             # continuously, go with optimism; we'll update with pessimism if
             # we can ever reach Kubernetes, and telling JupyterHub to go ahead
             # and try to send the user to the lab seems like the right move.
+            return state
+        except ControllerTimeoutError as e:
+            self._logger.exception("Timeout reading pod phase", user=username)
+            await self._maybe_post_slack_exception(e, username)
+
+            # As above, optimistically assume the best.
             return state
 
         # If the pod is missing, set the state to failed. Also set the state

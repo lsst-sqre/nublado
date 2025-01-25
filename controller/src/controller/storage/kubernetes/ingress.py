@@ -105,10 +105,11 @@ class IngressStorage(KubernetesObjectDeleter[V1Ingress]):
             logger=self._logger,
         )
         try:
-            async for event in watcher.watch():
-                if event.action != WatchEventType.DELETED:
-                    if ingress_has_ip_address(event.object):
-                        return
+            async with timeout.enforce():
+                async for event in watcher.watch():
+                    if event.action != WatchEventType.DELETED:
+                        if ingress_has_ip_address(event.object):
+                            return
         finally:
             await watcher.close()
 

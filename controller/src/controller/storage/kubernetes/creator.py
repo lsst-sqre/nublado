@@ -99,9 +99,10 @@ class KubernetesObjectCreator[T: KubernetesModel]:
         msg = f"Creating {self._kind}"
         self._logger.debug(msg, name=body.metadata.name, namespace=namespace)
         try:
-            await self._create(
-                namespace, body, _request_timeout=timeout.left()
-            )
+            async with timeout.enforce():
+                await self._create(
+                    namespace, body, _request_timeout=timeout.left()
+                )
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error creating object",
@@ -136,9 +137,10 @@ class KubernetesObjectCreator[T: KubernetesModel]:
             Raised for exceptions from the Kubernetes API server.
         """
         try:
-            return await self._read(
-                name, namespace, _request_timeout=timeout.left()
-            )
+            async with timeout.enforce():
+                return await self._read(
+                    name, namespace, _request_timeout=timeout.left()
+                )
         except ApiException as e:
             if e.status == 404:
                 return None
