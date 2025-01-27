@@ -147,14 +147,15 @@ class CustomStorage:
         msg = f"Deleting {self._kind}"
         self._logger.debug(msg, name=name, namespace=namespace)
         try:
-            await self._api.delete_namespaced_custom_object(
-                self._group,
-                self._version,
-                namespace,
-                self._plural,
-                name,
-                _request_timeout=timeout.left(),
-            )
+            async with timeout.enforce():
+                await self._api.delete_namespaced_custom_object(
+                    self._group,
+                    self._version,
+                    namespace,
+                    self._plural,
+                    name,
+                    _request_timeout=timeout.left(),
+                )
         except ApiException as e:
             if e.status == 404:
                 return
@@ -193,13 +194,14 @@ class CustomStorage:
             Raised if the timeout expired.
         """
         try:
-            objs = await self._api.list_namespaced_custom_object(
-                self._group,
-                self._version,
-                namespace,
-                self._plural,
-                _request_timeout=timeout.left(),
-            )
+            async with timeout.enforce():
+                objs = await self._api.list_namespaced_custom_object(
+                    self._group,
+                    self._version,
+                    namespace,
+                    self._plural,
+                    _request_timeout=timeout.left(),
+                )
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error listing objects",
@@ -236,14 +238,15 @@ class CustomStorage:
             Raised if the timeout expired.
         """
         try:
-            return await self._api.get_namespaced_custom_object(
-                self._group,
-                self._version,
-                namespace,
-                self._plural,
-                name,
-                _request_timeout=timeout.left(),
-            )
+            async with timeout.enforce():
+                return await self._api.get_namespaced_custom_object(
+                    self._group,
+                    self._version,
+                    namespace,
+                    self._plural,
+                    name,
+                    _request_timeout=timeout.left(),
+                )
         except ApiException as e:
             if e.status == 404:
                 return None
@@ -342,14 +345,15 @@ class CustomStorage:
         """
         name = body["metadata"]["name"]
         try:
-            await self._api.create_namespaced_custom_object(
-                self._group,
-                self._version,
-                namespace,
-                self._plural,
-                body,
-                _request_timeout=timeout.left(),
-            )
+            async with timeout.enforce():
+                await self._api.create_namespaced_custom_object(
+                    self._group,
+                    self._version,
+                    namespace,
+                    self._plural,
+                    body,
+                    _request_timeout=timeout.left(),
+                )
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error creating object",

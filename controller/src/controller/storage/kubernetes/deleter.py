@@ -210,7 +210,8 @@ class KubernetesObjectDeleter[T: KubernetesModel](KubernetesObjectCreator[T]):
             options=extra_args,
         )
         try:
-            await self._delete(name, namespace, body=body, **extra_args)
+            async with timeout.enforce():
+                await self._delete(name, namespace, body=body, **extra_args)
         except ApiException as e:
             if e.status == 404:
                 return
@@ -260,7 +261,8 @@ class KubernetesObjectDeleter[T: KubernetesModel](KubernetesObjectCreator[T]):
         if label_selector:
             extra_args["label_selector"] = label_selector
         try:
-            objs = await self._list(namespace, **extra_args)
+            async with timeout.enforce():
+                objs = await self._list(namespace, **extra_args)
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error listing objects",

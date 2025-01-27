@@ -96,8 +96,8 @@ class NamespaceStorage:
                 await self._api.delete_namespace(
                     name, _request_timeout=timeout.left()
                 )
-                if wait:
-                    await self.wait_for_deletion(name, timeout)
+            if wait:
+                await self.wait_for_deletion(name, timeout)
         except ApiException as e:
             if e.status == 404:
                 return
@@ -126,9 +126,10 @@ class NamespaceStorage:
             Raised if the timeout expired.
         """
         try:
-            objs = await self._api.list_namespace(
-                _request_timeout=timeout.left()
-            )
+            async with timeout.enforce():
+                objs = await self._api.list_namespace(
+                    _request_timeout=timeout.left()
+                )
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error listing namespaces", e, kind="Namespace"
@@ -158,9 +159,10 @@ class NamespaceStorage:
             Raised if the timeout expired.
         """
         try:
-            return await self._api.read_namespace(
-                name, _request_timeout=timeout.left()
-            )
+            async with timeout.enforce():
+                return await self._api.read_namespace(
+                    name, _request_timeout=timeout.left()
+                )
         except ApiException as e:
             if e.status == 404:
                 return None
@@ -239,9 +241,10 @@ class NamespaceStorage:
             Raised if the timeout expired.
         """
         try:
-            await self._api.create_namespace(
-                body, _request_timeout=timeout.left()
-            )
+            async with timeout.enforce():
+                await self._api.create_namespace(
+                    body, _request_timeout=timeout.left()
+                )
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error creating namespace",
