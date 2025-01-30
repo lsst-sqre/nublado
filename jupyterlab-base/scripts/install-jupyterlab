@@ -21,9 +21,6 @@ python3 -m uv pip install --upgrade datashader
 # Here we go.  Most of these are Jupyter-related.  Some (like black and mypy)
 # are just a good idea.
 
-# jupyter_server needs to be installed from git until a release that includes
-# pull #1447 is cut.
-
 # jupyter_firefly_extensions is slightly incompatible with bokeh
 python3 -m uv pip install --upgrade \
    astrowidgets \
@@ -33,7 +30,7 @@ python3 -m uv pip install --upgrade \
    bqplot \
    firefly-client \
    geoviews \
-   'git+https://github.com/jupyter-server/jupyter_server' \
+   jupyter-server \
    'git+https://github.com/lsst-sqre/lsst-rsp@tickets/DM-45854' \
    holoviews \
    ipydatawidgets \
