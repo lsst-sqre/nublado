@@ -28,7 +28,7 @@ nox.options.reuse_existing_virtualenvs = True
 
 # pip-installable dependencies for development and documentation. This is not
 # used for pytest and typing, since it merges the controller, authenticator,
-# spawner, client, and inithome dependencies.
+# spawner, client, reaper, and inithome dependencies.
 PIP_DEPENDENCIES = [
     (
         "-r",
@@ -39,11 +39,16 @@ PIP_DEPENDENCIES = [
         "./inithome/requirements/main.txt",
         "-r",
         "./inithome/requirements/dev.txt",
+        "-r",
+        "./reaper/requirements/main.txt",
+        "-r",
+        "./reaper/requirements/dev.txt",
     ),
     ("-e", "./authenticator[dev]"),
     ("-e", "./client[dev]"),
     ("-e", "./controller"),
     ("-e", "./inithome"),
+    ("-e", "./reaper"),
     ("-e", "./spawner[dev]"),
 ]
 
@@ -266,6 +271,27 @@ def typing_inithome(session: nox.Session) -> None:
     )
 
 
+@nox.session(name="typing-reaper")
+def typing_reaper(session: nox.Session) -> None:
+    """Check reaper type annotations with mypy."""
+    session.install(
+        "-r",
+        "./reaper/requirements/main.txt",
+        "-r",
+        "./reaper/requirements/dev.txt",
+    )
+    session.install("-e", "./reaper")
+    session.run(
+        "mypy",
+        *session.posargs,
+        "--namespace-packages",
+        "--explicit-package-bases",
+        "reaper/src",
+        "reaper/tests",
+        env={"MYPYPATH": "reaper/src:reaper"},
+    )
+
+
 @nox.session
 def test(session: nox.Session) -> None:
     """Run tests of the Nublado controller."""
@@ -314,6 +340,13 @@ def test_inithome(session: nox.Session) -> None:
     )
     session.install("-e", "./inithome")
     _pytest(session, "inithome", "rubin.nublado.inithome", coverage=False)
+
+
+@nox.session(name="test-reaper")
+def test_reaper(session: nox.Session) -> None:
+    """Run only tests affecting reaper."""
+    session.install("-e", "./reaper[dev]")
+    _pytest(session, "reaper", "rubin.nublado.reaper", coverage=False)
 
 
 @nox.session
