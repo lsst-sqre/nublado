@@ -1,0 +1,153 @@
+[project]
+# https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
+name = "reaper"
+description = "Tool to remove certain OCI images from a repository"
+license = { file = "LICENSE" }
+readme = "README.md"
+keywords = ["rubin", "lsst"]
+# https://pypi.org/classifiers/
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: POSIX",
+    "Typing :: Typed",
+]
+requires-python = ">=3.12"
+# Use requirements/main.in for runtime dependencies instead.
+dependencies = []
+dynamic = ["version"]
+
+[project.scripts]
+cowbell = "rsp_reaper.cli:cowbell"
+
+[project.urls]
+Homepage = "https://nublado.lsst.io"
+Source = "https://github.com/lsst-sqre/nublado"
+
+[build-system]
+requires = ["setuptools>=61", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+root = ".."
+
+[tool.black]
+line-length = 79
+target-version = ["py311"]
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | build
+  | dist
+)/
+'''
+# Use single-quoted strings so TOML treats the string like a Python r-string
+# Multi-line strings are implicitly treated by black as regular expressions
+
+[tool.coverage.run]
+parallel = true
+branch = true
+source = ["reaper"]
+
+[tool.coverage.paths]
+source = ["src", ".tox/*/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+ignore_missing_imports = true
+local_partial_types = true
+no_implicit_reexport = true
+show_error_codes = true
+strict_equality = true
+warn_redundant_casts = true
+warn_unreachable = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "strict"
+filterwarnings = [
+    # Google modules call a deprecated pkg_resources API.
+    "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
+    "ignore:.*pkg_resources\\.declare_namespace:DeprecationWarning",
+]
+# The python_files setting is not for test detection (pytest will pick up any
+# test files named *_test.py without this setting) but to enable special
+# assert processing in any non-test supporting files under tests.  We
+# conventionally put test support functions under tests.support and may
+# sometimes use assert in test fixtures in conftest.py, and pytest only
+# enables magical assert processing (showing a full diff on assert failures
+# with complex data structures rather than only the assert message) in files
+# listed in python_files.
+python_files = [
+    "tests/*.py",
+    "tests/*/*.py",
+]
+
+
+[tool.ruff.lint.per-file-ignores]
+"src/reaper/models/rsptag.py" = [
+    "C901",    # yes, compare() does have a lot of cases
+]
+"src/reaper/services/reaper.py" = [
+    "C901",    # yes, RSP retention is complicated
+    "PLR0912", # yes, RSP retention is complicated
+    "T201",    # Reporting uses print
+]
+"src/rsp_reaper/storage/gar.py" = [
+    "TRY004",  # That's not even a TypeError
+    "ERA001",  # It's a commented-out error message justifying the technique
+]
+"src/rsp_reaper/cli.py" = [
+    "T201",    # Reporting uses print
+]
+
+"tests/**.py" = [
+    "SLF001",  # Tests are allowed to access private members
+    "T201",    # Tests are allowed to print
+    "S101",    # Tests can use assert
+]
+
+"harnesses/**.py" = [
+    "T201",   # Harnesses print during setup
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["reaper", "tests", "harnesses"]
+split-on-trailing-comma = false
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Depends",
+    "fastapi.Path",
+    "fastapi.Query",
+]
+

@@ -17,11 +17,11 @@ from ..models.domain.rspimage import RSPImage, RSPImageCollection
 from ..models.domain.rsptag import RSPImageType
 from ..models.v1.lab import ImageClass
 from ..models.v1.prepuller import (
+    ImageFilterOptions,
     Node,
     NodeImage,
     PrepulledImage,
     PrepullerImageStatus,
-    PrepullerOptions,
     PrepullerStatus,
     SpawnerImages,
 )
@@ -35,11 +35,15 @@ __all__ = ["ImageService"]
 class ImageService:
     """Service to track the available images for Jupyter labs.
 
-    There are two places that contain a list of known lab images:
+    There are three places that contain a list of known lab images:
 
     #. The tags in the registry used as an image source. This is the full set
        of possible images; if it's not on this list, it can't be used. These
        are called the remote images.
+    #. The tags in the registry displayed on the dropdown list.  This is the
+       full set of images available to the user to spawn; if it's not on this
+       list, it cannot be spawned into this RSP instance.  These are called
+       the available images.
     #. The images cached on the Kubernetes cluster nodes. This is the
        preferred set of images, since spawning one of these images will be
        fast. These are called the cached images.
@@ -57,6 +61,9 @@ class ImageService:
     config
         The prepuller configuration, used to determine which tags should be
         prepulled and some other related information.
+    available
+        The configuration used to determine which tags should be displayed on
+        the dropdown list of images available to spawn.
     node_selector
         Node selector rules to determine which nodes are eligible for
         prepulling.
@@ -75,7 +82,8 @@ class ImageService:
     def __init__(
         self,
         *,
-        config: PrepullerOptions,
+        config: ImageFilterOptions,
+        available: ImageFilterOptions,
         node_selector: dict[str, str],
         tolerations: list[Toleration],
         source: ImageSource,
@@ -198,7 +206,7 @@ class ImageService:
             "latest_daily": self._to_prepull.latest(RSPImageType.DAILY),
             "latest_release": self._to_prepull.latest(RSPImageType.RELEASE),
         }
-        all_images = self._source.prepulled_images(nodes)
+        available_images = self._source.prepulled_images(nodes)
 
         # (Ab)using a dict comprehension is awkward, but otherwise the None
         # handling makes the code unreasonably verbose.
@@ -206,7 +214,7 @@ class ImageService:
             k: PrepulledImage.from_rsp_image(v, nodes) if v else None
             for k, v in images.items()
         }
-        return SpawnerImages(all=all_images, **spawner_images)
+        return SpawnerImages(available=available_images, **spawner_images)
 
     def menu_images(self) -> MenuImages:
         """Images that should appear in the menu.

@@ -14,8 +14,8 @@ from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.v1.prepuller import (
     GARSourceOptions,
+    ImageFilterOptions,
     PrepulledImage,
-    PrepullerOptions,
 )
 from ...storage.gar import GARStorageClient
 from .base import ImageSource
@@ -173,7 +173,7 @@ class GARImageSource(ImageSource):
     @override
     async def update_images(
         self,
-        prepull: PrepullerOptions,
+        prepull: ImageFilterOptions,
         node_cache: Mapping[str, list[KubernetesNodeImage]],
     ) -> RSPImageCollection:
         """Update image information and determine what images to prepull.

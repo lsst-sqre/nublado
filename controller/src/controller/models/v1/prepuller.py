@@ -14,11 +14,11 @@ __all__ = [
     "DockerSourceOptions",
     "GARSourceOptions",
     "Image",
+    "ImageFilterOptions",
     "Node",
     "NodeImage",
     "PrepulledImage",
     "PrepullerImageStatus",
-    "PrepullerOptions",
     "PrepullerStatus",
     "SpawnerImages",
 ]
@@ -145,11 +145,61 @@ class GARSourceOptions(BaseModel):
         return f"{self.project_id}/{self.repository}/{self.image}"
 
 
-class PrepullerOptions(BaseModel):
-    """Options for the prepuller.
+class DropDownOptions(BaseModel):
+    """Options for the dropdown display.
 
     The information here comes from the YAML configuration for the Nublado
-    controller and is a component of the model returned by the
+    controller.  The model for the YAML configuration also enables camel-case
+    aliases, but those are not enabled here since we want the API to return
+    snake-case.
+    """
+
+    num_releases: Annotated[
+        int | None,
+        Field(
+            title="Number of releases to display",
+            description=(
+                "This many releases, starting with the most recent, will be"
+                " shown in the dropdown.  If unset (i.e. 'None'), no"
+                " filtering will be done, and all releases will be shown."
+            ),
+            examples=[10],
+        ),
+    ] = None
+
+    num_weeklies: Annotated[
+        int | None,
+        Field(
+            title="Number of weeklies to display",
+            description=(
+                "This many weeklies, starting with the most recent, will be"
+                " shown in the dropdown.  If unset (i.e. 'None'), no"
+                " filtering will be done, and all weeklies will be shown."
+            ),
+            examples=[78],
+            ge=0,
+        ),
+    ] = 2
+
+    num_dailies: Annotated[
+        int,
+        Field(
+            title="Number of dailies to display",
+            description=(
+                "This many dailies, starting with the most recent, will be"
+                " shown as menu selections."
+            ),
+            examples=[3],
+            ge=0,
+        ),
+    ] = 3
+
+
+class ImageFilterOptions(BaseModel):
+    """Options for the prepuller and for the dropdown display.
+
+    The information here comes from the YAML configuration for the Nublado
+    controller and is also a component of the model returned by the
     ``/spawner/v1/prepulls`` route. The model for the YAML configuration also
     enables camel-case aliases, but those are not enabled here since we want
     the API to return snake-case.
@@ -174,10 +224,10 @@ class PrepullerOptions(BaseModel):
     num_releases: Annotated[
         int,
         Field(
-            title="Number of releases to prepull",
+            title="Number of releases to display",
             description=(
                 "This many releases, starting with the most recent, will be"
-                " prepulled and shown as menu selections."
+                " shown as menu selections."
             ),
             examples=[1],
             ge=0,
@@ -187,10 +237,10 @@ class PrepullerOptions(BaseModel):
     num_weeklies: Annotated[
         int,
         Field(
-            title="Number of weeklies to prepull",
+            title="Number of weeklies to display",
             description=(
                 "This many weeklies, starting with the most recent, will be"
-                " prepulled and shown as menu selections."
+                " shown as menu selections."
             ),
             examples=[2],
             ge=0,
@@ -200,10 +250,10 @@ class PrepullerOptions(BaseModel):
     num_dailies: Annotated[
         int,
         Field(
-            title="Number of dailies to prepull",
+            title="Number of dailies to display",
             description=(
                 "This many dailies, starting with the most recent, will be"
-                " prepulled and shown as menu selections."
+                " shown as menu selections."
             ),
             examples=[3],
             ge=0,
@@ -228,7 +278,7 @@ class PrepullerOptions(BaseModel):
     pin: Annotated[
         list[str],
         Field(
-            title="List of image tags to prepull and pin to the menu",
+            title="List of image tags to pin to the menu",
             description=(
                 "Forces images to be cached and pinned to the menu even when"
                 " they would not normally be prepulled (not recommended or"
@@ -495,7 +545,15 @@ class SpawnerImages(BaseModel):
         PrepulledImage | None, Field(title="Latest release")
     ] = None
 
-    all: Annotated[list[PrepulledImage], Field(title="All available images")]
+    # Note that there may well be images in the repository that we do not
+    # display.  As of early 2025, there are approximately 1100 images
+    # present, the majority of which can no longer be started with current
+    # RSP machinery.  These are the ones we choose to make available to the
+    # user for spawning.
+    available: Annotated[
+        list[PrepulledImage],
+        Field(title="All images available via the spawner"),
+    ]
 
 
 class PrepullerStatus(BaseModel):
@@ -504,7 +562,9 @@ class PrepullerStatus(BaseModel):
     This model is returned by the ``/spawner/v1/prepulls`` route.
     """
 
-    config: Annotated[PrepullerOptions, Field(title="Prepuller configuration")]
+    config: Annotated[
+        ImageFilterOptions, Field(title="Prepuller configuration")
+    ]
 
     images: Annotated[
         PrepullerImageStatus, Field(title="Prepuller status by image")

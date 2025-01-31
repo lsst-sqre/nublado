@@ -11,7 +11,7 @@ from ...models.domain.docker import DockerReference
 from ...models.domain.image import MenuImage
 from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
-from ...models.v1.prepuller import PrepulledImage, PrepullerOptions
+from ...models.v1.prepuller import ImageFilterOptions, PrepulledImage
 
 __all__ = ["ImageSource"]
 
@@ -112,7 +112,7 @@ class ImageSource(metaclass=ABCMeta):
     @abstractmethod
     async def update_images(
         self,
-        prepull: PrepullerOptions,
+        prepull: ImageFilterOptions,
         node_cache: Mapping[str, list[KubernetesNodeImage]],
     ) -> RSPImageCollection:
         """Update image information and determine what images to prepull.

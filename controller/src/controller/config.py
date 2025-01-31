@@ -43,7 +43,7 @@ from .models.v1.lab import LabResources, LabSize, ResourceQuantity
 from .models.v1.prepuller import (
     DockerSourceOptions,
     GARSourceOptions,
-    PrepullerOptions,
+    ImageFilterOptions,
 )
 from .units import memory_to_bytes
 
@@ -512,8 +512,22 @@ class GARSourceConfig(GARSourceOptions):
     )
 
 
-class PrepullerConfig(PrepullerOptions):
+class PrepullerConfig(ImageFilterOptions):
     """Configuration for the prepuller.
+
+    This is identical to the API model used to return the prepuller
+    configuration to an API client except that camel-case aliases are enabled.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    source: DockerSourceConfig | GARSourceConfig
+
+
+class DropdownConfig(ImageFilterOptions):
+    """Configuration for the dropdown list.
 
     This is identical to the API model used to return the prepuller
     configuration to an API client except that camel-case aliases are enabled.
@@ -1197,11 +1211,22 @@ class Config(BaseSettings):
     images: Annotated[
         PrepullerConfig,
         Field(
+            title="Prepulled lab images",
+            description=(
+                "Configuration for which images to prepull and display"
+                " directly in the spawner menu for users to choose from when"
+                " spawning labs"
+            ),
+        ),
+    ]
+
+    dropdown: Annotated[
+        DropdownConfig,
+        Field(
             title="Available lab images",
             description=(
-                "Configuration for which images to prepull and which images to"
-                " display in the spawner menu for users to choose from when"
-                " spawning labs"
+                "Configuration for which images to to display in the spawner"
+                " dropdown menu for users to choose from when spawning labs"
             ),
         ),
     ]

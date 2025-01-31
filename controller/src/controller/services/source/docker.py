@@ -16,8 +16,8 @@ from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.domain.rsptag import RSPImageTagCollection
 from ...models.v1.prepuller import (
     DockerSourceOptions,
+    ImageFilterOptions,
     PrepulledImage,
-    PrepullerOptions,
 )
 from ...storage.docker import DockerStorageClient
 from .base import ImageSource
@@ -251,7 +251,7 @@ class DockerImageSource(ImageSource):
     @override
     async def update_images(
         self,
-        prepull: PrepullerOptions,
+        prepull: ImageFilterOptions,
         node_cache: Mapping[str, list[KubernetesNodeImage]],
     ) -> RSPImageCollection:
         """Update image information and determine what images to prepull.
@@ -325,7 +325,7 @@ class DockerImageSource(ImageSource):
         return image_collection
 
     def _subset_to_prepull(
-        self, tags: RSPImageTagCollection, prepull: PrepullerOptions
+        self, tags: RSPImageTagCollection, prepull: ImageFilterOptions
     ) -> RSPImageTagCollection:
         """Determine the subset of remote images to prepull.
 
