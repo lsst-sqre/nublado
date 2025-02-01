@@ -16,14 +16,17 @@ from kubernetes_asyncio.client import (
     V1ObjectMeta,
     V1ObjectReference,
 )
+from safir.metrics import MockEventPublisher
 from safir.testing.kubernetes import MockKubernetesApi
 from safir.testing.slack import MockSlackWebhook
 
 from controller.config import Config
 from controller.constants import DROPDOWN_SENTINEL_VALUE
+from controller.dependencies.context import context_dependency
 from controller.factory import Factory
 from controller.models.domain.gafaelfawr import GafaelfawrUser
 from controller.models.domain.kubernetes import PodPhase
+from controller.models.v1.lab import LabState
 
 from ..support.config import configure
 from ..support.constants import TEST_BASE_URL
@@ -72,6 +75,8 @@ async def test_lab_start_stop(
 ) -> None:
     assert user.quota
     assert user.quota.notebook
+    assert context_dependency._process_context
+    lab_events = context_dependency._process_context.lab_manager._events
     lab = read_input_lab_specification_json("base", "lab-specification")
     unknown_user_error = {
         "detail": [
@@ -139,6 +144,24 @@ async def test_lab_start_stop(
     assert r.status_code == 200
     expected = read_output_json("standard", "lab-status")
     assert r.json() == expected
+    lab_state = LabState.model_validate_json(r.text)
+
+    # We should have logged a lab spawn event.
+    size = config.lab.get_size_definition(lab.options.size)
+    assert isinstance(lab_events.spawn_success, MockEventPublisher)
+    lab_events.spawn_success.published.assert_published_all(
+        [
+            {
+                "username": user.username,
+                "image": lab_state.options.image,
+                "cpu_limit": size.cpu,
+                "memory_limit": size.memory_bytes,
+                "elapsed": ANY,
+            }
+        ]
+    )
+    assert isinstance(lab_events.spawn_failure, MockEventPublisher)
+    lab_events.spawn_failure.published.assert_published_all([])
 
     # Creating the lab again should result in a 409 error.
     r = await client.post(
@@ -640,6 +663,7 @@ async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
 @pytest.mark.asyncio
 async def test_spawn_errors(
     client: AsyncClient,
+    config: Config,
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
     mock_slack: MockSlackWebhook,
@@ -786,6 +810,23 @@ async def test_spawn_errors(
         assert r.json()["status"] == "failed"
         r = await client.delete(f"/nublado/spawner/v1/labs/{user.username}")
         assert r.status_code == 204
+
+    # Check that we posted metrics events for the failures.
+    assert context_dependency._process_context
+    lab_events = context_dependency._process_context.lab_manager._events
+    size = config.lab.get_size_definition(lab.options.size)
+    assert isinstance(lab_events.spawn_success, MockEventPublisher)
+    lab_events.spawn_success.published.assert_published_all([])
+    assert isinstance(lab_events.spawn_failure, MockEventPublisher)
+    failure = {
+        "username": user.username,
+        "image": ANY,
+        "cpu_limit": size.cpu,
+        "memory_limit": size.memory_bytes,
+        "elapsed": ANY,
+    }
+    failure_events = [failure for e in possible_errors]
+    lab_events.spawn_failure.published.assert_published_all(failure_events)
 
 
 @pytest.mark.asyncio

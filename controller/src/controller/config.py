@@ -24,6 +24,7 @@ from pydantic import (
 from pydantic.alias_generators import to_camel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from safir.logging import LogLevel, Profile
+from safir.metrics import MetricsConfiguration, metrics_configuration_factory
 from safir.pydantic import HumanTimedelta
 
 from .constants import (
@@ -1142,6 +1143,12 @@ class Config(BaseSettings):
             ),
         ),
     ] = METADATA_PATH
+
+    metrics: MetricsConfiguration = Field(
+        default_factory=metrics_configuration_factory,
+        title="Metrics configuration",
+        description="Configuration for reporting metrics to Kafka",
+    )
 
     name: Annotated[
         str,

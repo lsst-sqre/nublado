@@ -12,6 +12,7 @@ from datetime import timedelta
 
 import pytest
 from kubernetes_asyncio.client import ApiException
+from safir.metrics import MockEventPublisher
 from safir.testing.kubernetes import MockKubernetesApi
 
 from controller.config import Config
@@ -132,6 +133,11 @@ async def test_reconcile(
     state = await factory.lab_manager.get_lab_state(user.username)
     assert state
     assert state.model_dump() == expected.model_dump()
+
+    # We should have logged a metric saying there's one active lab.
+    lab_events = factory._context.lab_manager._events
+    assert isinstance(lab_events.active, MockEventPublisher)
+    lab_events.active.published.assert_published_all([{"count": 1}])
 
 
 @pytest.mark.asyncio

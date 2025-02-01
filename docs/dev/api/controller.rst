@@ -24,6 +24,9 @@ This documentation therefore exists only to assist developers and code analysis 
 .. automodapi:: controller.dependencies.user
    :include-all-objects:
 
+.. automodapi:: controller.events
+   :include-all-objects:
+
 .. automodapi:: controller.exceptions
    :include-all-objects:
 

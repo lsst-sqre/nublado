@@ -16,6 +16,7 @@ from structlog.stdlib import BoundLogger
 
 from .background import BackgroundTaskManager
 from .config import Config
+from .events import LabEvents
 from .exceptions import NotConfiguredError
 from .models.v1.prepuller import DockerSourceOptions, GARSourceOptions
 from .services.builder.fileserver import FileserverBuilder
@@ -163,12 +164,17 @@ class ProcessContext:
             slack_client=slack_client,
             logger=logger,
         )
+        event_manager = config.metrics.make_manager()
+        await event_manager.initialize()
+        lab_events = LabEvents()
+        await lab_events.initialize(event_manager)
         lab_manager = LabManager(
             config=config.lab,
             image_service=image_service,
             lab_builder=LabBuilder(config.lab, config.base_url, logger),
             metadata_storage=metadata_storage,
             lab_storage=LabStorage(kubernetes_client, logger),
+            events=lab_events,
             slack_client=slack_client,
             logger=logger,
         )

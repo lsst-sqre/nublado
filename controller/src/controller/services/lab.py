@@ -20,6 +20,12 @@ from structlog.stdlib import BoundLogger
 
 from ..config import LabConfig
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
+from ..events import (
+    ActiveLabsEvent,
+    LabEvents,
+    SpawnFailureEvent,
+    SpawnSuccessEvent,
+)
 from ..exceptions import (
     ControllerTimeoutError,
     InsufficientQuotaError,
@@ -123,6 +129,9 @@ class _Operation:
     events: AsyncMultiQueue[Event]
     """Event queue associated with the operation."""
 
+    started: datetime
+    """When the operation was started."""
+
 
 @dataclass
 class _RunningOperation(_Operation):
@@ -164,6 +173,7 @@ class _RunningOperation(_Operation):
             coro=operation.coro,
             state=operation.state,
             events=operation.events,
+            started=operation.started,
         )
 
 
@@ -186,6 +196,8 @@ class LabManager:
         Storage for metadata about the running controller.
     lab_storage
         Kubernetes storage layer for user labs.
+    events
+        Metrics events publishers.
     slack_client
         Optional Slack webhook client for alerts.
     logger
@@ -200,6 +212,7 @@ class LabManager:
         lab_builder: LabBuilder,
         metadata_storage: MetadataStorage,
         lab_storage: LabStorage,
+        events: LabEvents,
         slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
     ) -> None:
@@ -208,6 +221,7 @@ class LabManager:
         self._builder = lab_builder
         self._metadata = metadata_storage
         self._storage = lab_storage
+        self._events = events
         self._slack = slack_client
         self._logger = logger
 
@@ -257,6 +271,7 @@ class LabManager:
         if username not in self._labs:
             monitor = _LabMonitor(
                 username=username,
+                events=self._events,
                 slack_client=self._slack,
                 logger=self._logger,
             )
@@ -338,7 +353,13 @@ class LabManager:
             timeout=timeout,
             delete_first=delete_first,
         )
-        operation = _Operation(_LabOperation.SPAWN, spawner, state, lab.events)
+        operation = _Operation(
+            operation=_LabOperation.SPAWN,
+            coro=spawner,
+            state=state,
+            events=lab.events,
+            started=datetime.now(tz=UTC),
+        )
         await lab.monitor.monitor(operation, timeout, self._spawner_done)
         lab.state = state
 
@@ -403,7 +424,11 @@ class LabManager:
             )
             action = self._delete_lab(username, lab.state, lab.events, timeout)
             operation = _Operation(
-                _LabOperation.DELETE, action, lab.state, lab.events
+                operation=_LabOperation.DELETE,
+                coro=action,
+                state=lab.state,
+                events=lab.events,
+                started=datetime.now(tz=UTC),
             )
             await lab.monitor.monitor(operation, timeout)
             await lab.monitor.wait()
@@ -597,6 +622,9 @@ class LabManager:
         of the user's lab state matches reality. On startup, it also needs to
         recreate the internal state from the contents of Kubernetes.
 
+        This method is also responsible for logging the current number of
+        active labs.
+
         Raises
         ------
         KubernetesError
@@ -623,6 +651,7 @@ class LabManager:
                 state=observed[username],
                 monitor=_LabMonitor(
                     username=username,
+                    events=self._events,
                     slack_client=self._slack,
                     logger=self._logger,
                 ),
@@ -637,11 +666,18 @@ class LabManager:
         for username in sorted(to_monitor):
             await self._monitor_pending_spawn(username)
 
-        # Finally, for all labs in failed or terminated state (spawn failed,
-        # killed by the idle culler, killed by the OOM killer, etc.), clean up
-        # the lab as long as the user hasn't started some other operation in
-        # the meantime.
+        # For all labs in failed or terminated state (spawn failed, killed by
+        # the idle culler, killed by the OOM killer, etc.), clean up the lab
+        # as long as the user hasn't started some other operation in the
+        # meantime.
         await self._delete_completed_labs()
+
+        # Finally, count the active labs and log a metric.
+        count = 0
+        for state in self._labs.values():
+            if state.state and state.state.status == LabStatus.RUNNING:
+                count += 1
+        await self._events.active.publish(ActiveLabsEvent(count=count))
 
     async def stop_monitor_tasks(self) -> None:
         """Stop any tasks that are waiting for labs to spawn."""
@@ -885,7 +921,11 @@ class LabManager:
         )
         watcher = self._watch_lab_spawn(lab.state, lab.events, timeout)
         operation = _Operation(
-            _LabOperation.SPAWN, watcher, lab.state, lab.events
+            operation=_LabOperation.SPAWN,
+            coro=watcher,
+            state=lab.state,
+            events=lab.events,
+            started=datetime.now(tz=UTC),
         )
 
         # If we raced with some other operation that got there first, they
@@ -1163,6 +1203,8 @@ class _LabMonitor:
     ----------
     username
         Username for whom we're monitoring actions.
+    events
+        Metrics events publishers.
     slack_client
         Optional Slack webhook client for alerts.
     logger
@@ -1173,10 +1215,12 @@ class _LabMonitor:
         self,
         *,
         username: str,
+        events: LabEvents,
         slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
     ) -> None:
         self._username = username
+        self._events = events
         self._slack = slack_client
         self._logger = logger.bind(user=username)
 
@@ -1267,10 +1311,12 @@ class _LabMonitor:
         """
         async with self._lock:
             if self._operation:
-                # In this case, we will never run the operation's coroutine,
-                # so we need to clean it up to avoid Python warnings.
+                # If an operation is already running, we will never run the
+                # operation's coroutine, so we need to clean it up to avoid
+                # Python warnings.
                 operation.coro.close()
                 raise OperationConflictError(self._username)
+            operation.started = datetime.now(tz=UTC)
             monitor = self._monitor_operation(operation, timeout, done_event)
             self._operation = _RunningOperation.start(operation, monitor)
 
@@ -1336,7 +1382,7 @@ class _LabMonitor:
         self,
         operation: _Operation,
         timeout: Timeout,
-        done_event: asyncio.Event | None = None,
+        done_event: asyncio.Event | None,
     ) -> None:
         """Monitor an operation on a lab.
 
@@ -1359,6 +1405,27 @@ class _LabMonitor:
             operation.events.put(Event(type=EventType.ERROR, message=str(e)))
             operation.events.put(Event(type=EventType.FAILED, message=msg))
             operation.state.status = LabStatus.FAILED
+            if operation.operation == _LabOperation.SPAWN:
+                elapsed = datetime.now(tz=UTC) - operation.started
+                failure_event = SpawnFailureEvent(
+                    username=self._username,
+                    image=operation.state.options.image,
+                    cpu_limit=operation.state.resources.limits.cpu,
+                    memory_limit=operation.state.resources.limits.memory,
+                    elapsed=elapsed,
+                )
+                await self._events.spawn_failure.publish(failure_event)
+        else:
+            if operation.operation == _LabOperation.SPAWN:
+                elapsed = datetime.now(tz=UTC) - operation.started
+                success_event = SpawnSuccessEvent(
+                    username=self._username,
+                    image=operation.state.options.image,
+                    cpu_limit=operation.state.resources.limits.cpu,
+                    memory_limit=operation.state.resources.limits.memory,
+                    elapsed=elapsed,
+                )
+                await self._events.spawn_success.publish(success_event)
         finally:
             operation.events.close()
             if self._operation:
