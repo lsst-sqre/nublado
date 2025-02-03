@@ -4,13 +4,13 @@ from copy import deepcopy
 
 from safir.datetime import parse_timedelta as pt
 
-from rsp_reaper.config import (
+from reaper.config import (
     IndividualKeepPolicy,
     KeepPolicy,
     RegistryConfig,
     RSPKeepers,
 )
-from rsp_reaper.services.reaper import Reaper
+from reaper.services.reaper import Reaper
 
 
 def test_plan_count(ghcr_cfg: RegistryConfig) -> None:

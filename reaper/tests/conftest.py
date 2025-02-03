@@ -8,12 +8,12 @@ import pytest
 import yaml
 from pydantic import HttpUrl
 
-from rsp_reaper.config import KeepPolicy, RegistryConfig
-from rsp_reaper.models.image import ImageVersionClass
-from rsp_reaper.models.registry_category import RegistryCategory
-from rsp_reaper.storage.dockerhub import DockerHubClient
-from rsp_reaper.storage.gar import GARClient
-from rsp_reaper.storage.ghcr import GhcrClient
+from reaper.config import KeepPolicy, RegistryConfig
+from reaper.models.image import ImageVersionClass
+from reaper.models.registry_category import RegistryCategory
+from reaper.storage.dockerhub import DockerHubClient
+from reaper.storage.gar import GARClient
+from reaper.storage.ghcr import GhcrClient
 
 
 @pytest.fixture

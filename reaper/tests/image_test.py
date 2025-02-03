@@ -1,6 +1,6 @@
 """Tests for image comparison and sorting."""
 
-from rsp_reaper.storage.dockerhub import DockerHubClient
+from reaper.storage.dockerhub import DockerHubClient
 
 
 def test_image_sort(dockerhub_client: DockerHubClient) -> None:

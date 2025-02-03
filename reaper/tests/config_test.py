@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from rsp_reaper.config import Config
-from rsp_reaper.services.reaper import BuckDharma
+from reaper.config import Config
+from reaper.services.reaper import BuckDharma
 
 
 def test_config_from_file(test_config: Path) -> None:
