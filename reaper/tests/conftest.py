@@ -8,9 +8,12 @@ import pytest
 import yaml
 from pydantic import HttpUrl
 
+from controller.models.domain.registryimage import (
+    RegistryImageVersionClass,
+    RegistryCategory,
+)
+
 from reaper.config import KeepPolicy, RegistryConfig
-from reaper.models.image import ImageVersionClass
-from reaper.models.registry_category import RegistryCategory
 from reaper.storage.dockerhub import DockerHubClient
 from reaper.storage.gar import GARClient
 from reaper.storage.ghcr import GhcrClient
@@ -27,7 +30,7 @@ def gar_cfg() -> RegistryConfig:
         namespace="sciplat",
         repository="sciplat-lab",
         keep=KeepPolicy(),
-        image_version_class=ImageVersionClass.RSP,
+        image_version_class=RegistryImageVersionClass.RSP,
         dry_run=True,
         debug=True,
         input_file=input_file,
@@ -50,7 +53,7 @@ def ghcr_cfg() -> RegistryConfig:
         owner="lsst-sqre",
         repository="sciplat-lab",
         keep=KeepPolicy(),
-        image_version_class=ImageVersionClass.RSP,
+        image_version_class=RegistryImageVersionClass.RSP,
         dry_run=True,
         debug=True,
         input_file=input_file,
@@ -73,7 +76,7 @@ def dockerhub_cfg() -> RegistryConfig:
         owner="lsstsqre",
         repository="sciplat-lab",
         keep=KeepPolicy(),
-        image_version_class=ImageVersionClass.RSP,
+        image_version_class=RegistryImageVersionClass.RSP,
         dry_run=True,
         debug=True,
         input_file=input_file,

@@ -16,8 +16,10 @@ from pydantic import (
 )
 from safir.pydantic import CamelCaseModel, validate_exactly_one_of
 
-from .models.image import ImageVersionClass
-from .models.registry_category import RegistryCategory
+from controller.models.domain.registryimage import (
+    RegistryImageVersionClass,
+    RegistryCategory,
+)
 
 
 def _empty_str_is_none(inp: Any) -> Any:
@@ -328,16 +330,16 @@ class RegistryConfig(CamelCaseModel):
     ]
 
     image_version_class: Annotated[
-        ImageVersionClass,
+        RegistryImageVersionClass,
         Field(
             title="Image version class",
             description=(
                 "Image version class describing how tags in this repository "
                 "are structured (semver, RSP format, or untagged)."
             ),
-            examples=[ImageVersionClass.RSP],
+            examples=[RegistryImageVersionClass.RSP],
         ),
-    ] = ImageVersionClass.RSP
+    ] = RegistryImageVersionClass.RSP
 
     namespace: Annotated[
         str | None,

@@ -12,8 +12,14 @@ from typing import cast
 import httpx
 
 from ..config import RegistryAuth, RegistryConfig
-from ..models.image import DATEFMT, LATEST_TAGS, Image, ImageSpec, JSONImage
-from ..models.registry_category import RegistryCategory
+from controller.models.domain.registryimage import (
+    DATEFMT,
+    DEFAULT_LATEST_TAGS,
+    RegistryCategory,
+    RegistryImage,
+    JSONRegistryImage,
+    RegistryImageSpec,
+)
 from .registry import ContainerRegistryClient
 
 
@@ -21,7 +27,7 @@ class DockerHubClient(ContainerRegistryClient):
     """Client for talking to docker.io / hub.docker.com."""
 
     def __init__(self, cfg: RegistryConfig) -> None:
-        if cfg.category != RegistryCategory.DOCKERHUB:
+        if cfg.category.value != RegistryCategory.DOCKERHUB.value:
             raise ValueError(
                 "DockerHub registry client must have value "
                 f"'{RegistryCategory.DOCKERHUB.value}', not "
@@ -65,7 +71,7 @@ class DockerHubClient(ContainerRegistryClient):
             results = obj["results"]
             for res in results:
                 tag = res["name"]
-                if tag in LATEST_TAGS:
+                if tag in DEFAULT_LATEST_TAGS:
                     # ignore all of these: they're just clutter.
                     continue
                 date = res["last_updated"]
@@ -84,15 +90,15 @@ class DockerHubClient(ContainerRegistryClient):
             self._images[digest].tags.add(tag)
         else:
             tags = {tag} if tag else set()
-            self._images[digest] = Image(digest=digest, tags=tags, date=dt)
+            self._images[digest] = RegistryImage(digest=digest, tags=tags, date=dt)
 
     def debug_dump_images(self, outputfile: Path) -> None:
-        objs: dict[str, JSONImage] = {}
+        objs: dict[str, JSONRegistryImage] = {}
         for digest in self._images:
             img = self._images[digest]
             obj_img = img.to_dict()
             objs[digest] = obj_img
-        dd: dict[str, dict[str, str] | dict[str, JSONImage]] = {
+        dd: dict[str, dict[str, str] | dict[str, JSONRegistryImage]] = {
             "metadata": {"category": RegistryCategory.DOCKERHUB.value},
             "data": objs,
         }
@@ -110,11 +116,11 @@ class DockerHubClient(ContainerRegistryClient):
         count = 0
         for digest in jsons:
             count += 1
-            obj = cast(JSONImage, jsons[digest])
-            self._images[digest] = Image.from_json(obj)
+            obj = cast(JSONRegistryImage, jsons[digest])
+            self._images[digest] = RegistryImage.from_json(obj)
         self._logger.debug(f"Ingested {count} image{'s' if count > 1 else ''}")
 
-    def delete_images(self, inp: ImageSpec) -> None:
+    def delete_images(self, inp: RegistryImageSpec) -> None:
         """Delete images.
 
         https://distribution.github.io/distribution/spec/api/#deleting-an-image

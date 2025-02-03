@@ -10,14 +10,22 @@ import structlog
 from pydantic import HttpUrl
 
 from ..config import RegistryAuth, RegistryConfig
-from ..models.image import Image, ImageCollection, ImageSpec, ImageVersionClass
-from ..models.rsptag import (
-    ALIAS_TAGS,
+from controller.models.domain.registryimage import (
+    DEFAULT_LATEST_TAGS,
+    RegistryImage,
+    RegistryImageSpec,
+    RegistryImageCollection,
+    RegistryImageVersionClass,
+)
+from controller.models.domain.rsptag import (
     RSP_TYPENAMES,
     RSPImageTag,
     RSPImageTagCollection,
     RSPImageType,
 )
+
+DEFAULT_ALIAS_TAGS = {"recommended"}
+DEFAULT_ALIAS_TAGS.update(set(DEFAULT_LATEST_TAGS))
 
 
 class ContainerRegistryClient:
@@ -58,7 +66,7 @@ class ContainerRegistryClient:
         ...
 
     @abstractmethod
-    def delete_images(self, inp: ImageSpec) -> None:
+    def delete_images(self, inp: RegistryImageSpec) -> None:
         """Delete one or many images."""
         ...
 
@@ -68,7 +76,7 @@ class ContainerRegistryClient:
         # class.
         self._extract_registry_config(cfg)
 
-    def _find_untagged_images(self) -> dict[str, Image]:
+    def _find_untagged_images(self) -> dict[str, RegistryImage]:
         # Return a map of untagged images by digest
         return {x.digest: x for x in self._images.values() if not x.tags}
 
@@ -98,25 +106,25 @@ class ContainerRegistryClient:
         self._logger = structlog.get_logger(self.name)
         self._logger.debug(f"Initialized logging for storage driver {self.name}")
         # Initialize empty image map
-        self._images: dict[str, Image] = {}
+        self._images: dict[str, RegistryImage] = {}
         # Initialize empty categorized image map
-        self.categorized_images = ImageCollection()
+        self.categorized_images = RegistryImageCollection()
         # Load inputs if supplied
         if cfg.input_file:
             self.debug_load_images(cfg.input_file)
 
     def categorize(self) -> None:
         """Run images through the tag interpreter; categorize and sort them."""
-        if self._image_version_class == ImageVersionClass.RSP:
+        if self._image_version_class == RegistryImageVersionClass.RSP:
             self._categorize_rsp()
-        elif self._image_version_class == ImageVersionClass.SEMVER:
+        elif self._image_version_class == RegistryImageVersionClass.SEMVER:
             self._categorize_semver()
         self._categorize_untagged()
 
-    def _categorize_rsp(self, aliases: set[str] = ALIAS_TAGS) -> None:
-        unsorted: list[Image] = list(self._images.values())
+    def _categorize_rsp(self, aliases: set[str] = DEFAULT_ALIAS_TAGS) -> None:
+        unsorted: list[RegistryImage] = list(self._images.values())
         # Add a single RSP tag to each image
-        unsorted_tagged: list[Image] = []
+        unsorted_tagged: list[RegistryImage] = []
         for img in unsorted:
             if not img.tags:
                 # If the image has no tags, skip it.  It will be picked up
@@ -142,9 +150,9 @@ class ContainerRegistryClient:
         )
 
     def _categorize_unsorted_rsp_images(
-        self, unsorted: list[Image]
-    ) -> dict[str, dict[str, Image]]:
-        retval: dict[str, dict[str, Image]] = {}
+        self, unsorted: list[RegistryImage]
+    ) -> dict[str, dict[str, RegistryImage]]:
+        retval: dict[str, dict[str, RegistryImage]] = {}
         for category in RSP_TYPENAMES:
             retval[category] = {}
         for img in unsorted:
@@ -160,9 +168,9 @@ class ContainerRegistryClient:
         return retval
 
     def _sort_categorized_rsp_images(
-        self, categorized: dict[str, dict[str, Image]]
-    ) -> dict[str, dict[str, Image]]:
-        retval: dict[str, dict[str, Image]] = {}
+        self, categorized: dict[str, dict[str, RegistryImage]]
+    ) -> dict[str, dict[str, RegistryImage]]:
+        retval: dict[str, dict[str, RegistryImage]] = {}
         for key, imgs in categorized.items():
             # Sort the images and then insert them into a new dict.
             # Dicts now preserve insertion order.
@@ -192,12 +200,15 @@ class ContainerRegistryClient:
             x.digest: x for x in sorted(list(untagged.values()), reverse=True)
         }
         for img in self.categorized_images.untagged.values():
-            img.version_class = ImageVersionClass.UNTAGGED
+            img.version_class = RegistryImageVersionClass.UNTAGGED
 
-    def _canonicalize_image_map(self, inp: ImageSpec) -> dict[str, Image]:
-        """Take any of the ways of specifying images (dict of digest to
-        Image, list of Images, list of digests, or single digest or Image)
-        and return the dict mapping digest to Image.
+    def _canonicalize_image_map(
+        self, inp: RegistryImageSpec
+    ) -> dict[str, RegistryImage]:
+        """Take any of the ways of specifying images (dict of digest
+        to RegistryImage, list of RegistryImages, list of digests, or
+        single digest or RegistryImage) and return the dict mapping
+        digest to RegistryImage.
         """
         # It's already in canonical form
         if isinstance(inp, dict):
@@ -214,13 +225,12 @@ class ContainerRegistryClient:
                 # They better not be mixed.
                 imgstrs = cast(list[str], inp)
                 return {x: self._images[x] for x in imgstrs}
-            # List of Images
-            imgs = cast(list[Image], inp)
-            return {x.digest: x for x in imgs}
+            # List of RegistryImages
+            return {x.digest: x for x in inp}
 
         # Single items
         # Digest
         if isinstance(inp, str):
             return {inp: self._images[inp]}
-        # Image
+        # RegistryImage
         return {inp.digest: inp}

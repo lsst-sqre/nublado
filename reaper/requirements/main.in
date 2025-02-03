@@ -5,6 +5,7 @@
 # After editing, update requirements/main.txt by running:
 #     make update-deps
 
+controller
 google-cloud-artifact-registry
 httpx
 pyyaml

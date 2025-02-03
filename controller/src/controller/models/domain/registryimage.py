@@ -17,11 +17,16 @@ from .rsptag import (
 )
 
 DATEFMT = "%Y-%m-%dT%H:%M:%S.%f%z"
-LATEST_TAGS = ("latest", "latest_release", "latest_weekly", "latest_daily")
+DEFAULT_LATEST_TAGS = (
+    "latest",
+    "latest_release",
+    "latest_weekly",
+    "latest_daily",
+)
 
 type JSONRegistryImage = dict[str, str | int | list[str] | None]
 
-type ImageSpec = (
+type RegistryImageSpec = (
     dict[str, RegistryImage]
     | str
     | RegistryImage

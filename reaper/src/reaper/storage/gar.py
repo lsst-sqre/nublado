@@ -15,8 +15,12 @@ from google.cloud.artifactregistry_v1.types import DockerImage
 from google.protobuf.empty_pb2 import Empty
 
 from ..config import RegistryAuth, RegistryConfig
-from ..models.image import Image, ImageSpec, JSONImage
-from ..models.registry_category import RegistryCategory
+from controller.models.domain.registryimage import (
+    RegistryCategory,
+    RegistryImageSpec,
+    RegistryImage,
+    JSONRegistryImage,
+)
 from .registry import ContainerRegistryClient
 
 
@@ -24,7 +28,7 @@ class GARClient(ContainerRegistryClient):
     """Client for Google Artifact Registry."""
 
     def __init__(self, cfg: RegistryConfig) -> None:
-        if cfg.category != RegistryCategory.GAR:
+        if cfg.category.value != RegistryCategory.GAR.value:
             raise ValueError(
                 "GAR registry client must have value "
                 f"'{RegistryCategory.GAR.value}', not '{cfg.category.value}'"
@@ -75,8 +79,8 @@ class GARClient(ContainerRegistryClient):
         self._logger.debug(f"Found {len(images)} images")
         self._images = self._gar_to_images(images)
 
-    def _gar_to_images(self, images: list[DockerImage]) -> dict[str, Image]:
-        ret: dict[str, Image] = {}
+    def _gar_to_images(self, images: list[DockerImage]) -> dict[str, RegistryImage]:
+        ret: dict[str, RegistryImage] = {}
         for img in images:
             ut = img.update_time
             micros = int(ut.nanosecond / 1000)
@@ -96,16 +100,16 @@ class GARClient(ContainerRegistryClient):
             if repo != self._repository:
                 self._logger.warning(f"Skipping image from repository {repo}")
                 continue
-            ret[digest] = Image(digest=digest, tags=tags, date=dt)
+            ret[digest] = RegistryImage(digest=digest, tags=tags, date=dt)
         return ret
 
     def debug_dump_images(self, outputfile: Path) -> None:
-        objs: dict[str, JSONImage] = {}
+        objs: dict[str, JSONRegistryImage] = {}
         for digest in self._images:
             img = self._images[digest]
             obj_img = img.to_dict()
             objs[digest] = obj_img
-        dd: dict[str, dict[str, str] | dict[str, JSONImage]] = {
+        dd: dict[str, dict[str, str] | dict[str, JSONRegistryImage]] = {
             "metadata": {"category": RegistryCategory.GAR.value},
             "data": objs,
         }
@@ -122,19 +126,21 @@ class GARClient(ContainerRegistryClient):
         self._images = {}
         count = 0
         for digest in jsons:
-            obj = cast(JSONImage, jsons[digest])
-            self._images[digest] = Image.from_json(obj)
+            obj = cast(JSONRegistryImage, jsons[digest])
+            self._images[digest] = RegistryImage.from_json(obj)
             count += 1
         self._logger.debug(f"Ingested {count} image{'s' if count > 1 else ''}")
 
-    def _image_to_name(self, img: Image) -> str:
+    def _image_to_name(self, img: RegistryImage) -> str:
         return f"{self._parent}/packages/{self._repository}/versions/{img.digest}"
 
-    def _chunk_images(self, inp: list[Image], n: int) -> Iterator[list[Image]]:
+    def _chunk_images(
+        self, inp: list[RegistryImage], n: int
+    ) -> Iterator[list[RegistryImage]]:
         for i in range(0, len(inp), n):
             yield inp[i : i + n]
 
-    def delete_images(self, inp: ImageSpec) -> None:
+    def delete_images(self, inp: RegistryImageSpec) -> None:
         images = self._canonicalize_image_map(inp)
         digests = list(images.keys())
         names = [self._image_to_name(x) for x in list(images.values())]

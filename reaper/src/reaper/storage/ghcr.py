@@ -8,8 +8,13 @@ from typing import Any, cast
 import httpx
 
 from ..config import RegistryAuth, RegistryConfig
-from ..models.image import DATEFMT, Image, ImageSpec, JSONImage
-from ..models.registry_category import RegistryCategory
+from controller.models.domain.registryimage import (
+    DATEFMT,
+    RegistryCategory,
+    RegistryImage,
+    JSONRegistryImage,
+    RegistryImageSpec,
+)
 from .registry import ContainerRegistryClient
 
 
@@ -17,7 +22,7 @@ class GhcrClient(ContainerRegistryClient):
     """Storage client for communication with ghcr.io."""
 
     def __init__(self, cfg: RegistryConfig) -> None:
-        if cfg.category != RegistryCategory.GHCR:
+        if cfg.category.value != RegistryCategory.GHCR.value:
             raise ValueError(
                 "GHCR registry client must have value "
                 f"'{RegistryCategory.GHCR.value}', not '{cfg.category.value}'"
@@ -31,7 +36,7 @@ class GhcrClient(ContainerRegistryClient):
             }
         )
         self._url = "https://api.github.com"
-        self._image_by_id: dict[str, Image] = {}
+        self._image_by_id: dict[str, RegistryImage] = {}
 
     def authenticate(self, auth: RegistryAuth) -> None:
         """Use the 'password' field as the token.  Other fields ignored."""
@@ -68,18 +73,18 @@ class GhcrClient(ContainerRegistryClient):
             date = datetime.datetime.strptime(
                 f"{i['updated_at'][:-1]}.000000Z", DATEFMT
             ).astimezone(tz=datetime.UTC)
-            img = Image(digest=digest, tags=tags, date=date, id=id)
+            img = RegistryImage(digest=digest, tags=tags, date=date, id=id)
             self._images[digest] = img
             self._image_by_id[id] = img
         self._logger.debug(f"Found {len(list(self._image_by_id.keys()))} images")
 
     def debug_dump_images(self, outputfile: Path) -> None:
-        objs: dict[str, JSONImage] = {}
+        objs: dict[str, JSONRegistryImage] = {}
         for digest in self._images:
             img = self._images[digest]
             obj_img = img.to_dict()
             objs[digest] = obj_img
-        dd: dict[str, dict[str, str] | dict[str, JSONImage]] = {
+        dd: dict[str, dict[str, str] | dict[str, JSONRegistryImage]] = {
             "metadata": {"category": RegistryCategory.GHCR.value},
             "data": objs,
         }
@@ -98,14 +103,14 @@ class GhcrClient(ContainerRegistryClient):
         count = 0
         for digest in jsons:
             id = jsons[digest]["id"]
-            obj = cast(JSONImage, jsons[digest])
-            img = Image.from_json(obj)
+            obj = cast(JSONRegistryImage, jsons[digest])
+            img = RegistryImage.from_json(obj)
             self._images[digest] = img
             self._image_by_id[id] = img
             count += 1
         self._logger.debug(f"Ingested {count} image{'s' if count > 1 else ''}")
 
-    def delete_images(self, inp: ImageSpec) -> None:
+    def delete_images(self, inp: RegistryImageSpec) -> None:
         images = self._canonicalize_image_map(inp)
         count = 0
         dry = ""

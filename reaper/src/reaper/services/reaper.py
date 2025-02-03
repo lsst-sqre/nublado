@@ -9,9 +9,13 @@ import structlog
 from pydantic import SecretStr
 
 from ..config import Config, RegistryAuth, RegistryConfig
-from ..models.image import Image, ImageCollection, ImageVersionClass
-from ..models.registry_category import RegistryCategory
-from ..models.rsptag import RSP_TYPENAMES
+from controller.models.domain.registryimage import (
+    RegistryImage,
+    RegistryImageCollection,
+    RegistryImageVersionClass,
+    RegistryCategory,
+)
+from controller.models.domain.rsptag import RSP_TYPENAMES
 from ..storage.dockerhub import DockerHubClient
 from ..storage.gar import GARClient
 from ..storage.ghcr import GhcrClient
@@ -56,7 +60,7 @@ class Reaper:
                     f"Storage driver for {self._category} not implemented yet"
                 )
         self._keep_policy = cfg.keep
-        self._plan: dict[str, Image] | None = None
+        self._plan: dict[str, RegistryImage] | None = None
         self._input_file = cfg.input_file
         self.name = self._storage.name
         # Set up logging
@@ -76,18 +80,18 @@ class Reaper:
 
     def plan(self) -> None:
         """Use the KeepPolicy to plan a set of images to delete."""
-        if self._image_version_class == ImageVersionClass.RSP:
+        if self._image_version_class == RegistryImageVersionClass.RSP:
             self._plan = self._plan_rsp()
-        elif self._image_version_class == ImageVersionClass.SEMVER:
+        elif self._image_version_class == RegistryImageVersionClass.SEMVER:
             self._plan = self._plan_semver()
         else:
             self._plan = self._plan_untagged()
 
-    def _plan_semver(self) -> dict[str, Image]:
+    def _plan_semver(self) -> dict[str, RegistryImage]:
         raise NotImplementedError("Semver image retention not yet implemented")
 
-    def _plan_rsp(self) -> dict[str, Image]:
-        retval: dict[str, Image] = {}
+    def _plan_rsp(self) -> dict[str, RegistryImage]:
+        retval: dict[str, RegistryImage] = {}
         kp = self._keep_policy.rsp
         if kp is None:
             return self._plan_untagged()
@@ -122,7 +126,7 @@ class Reaper:
         retval.update(self._plan_untagged())
         return retval
 
-    def _plan_untagged(self) -> dict[str, Image]:
+    def _plan_untagged(self) -> dict[str, RegistryImage]:
         if self._keep_policy.untagged is None:
             return {}
         if self._keep_policy.untagged.number is None:
@@ -139,9 +143,9 @@ class Reaper:
         )
 
     def _plan_age(
-        self, age: datetime.timedelta, imgs: dict[str, Image]
-    ) -> dict[str, Image]:
-        retval: dict[str, Image] = {}
+        self, age: datetime.timedelta, imgs: dict[str, RegistryImage]
+    ) -> dict[str, RegistryImage]:
+        retval: dict[str, RegistryImage] = {}
         now = datetime.datetime.now(tz=datetime.UTC)
         cutoff = now - age
         for dig, img in imgs.items():
@@ -157,7 +161,9 @@ class Reaper:
                 retval[dig] = img
         return retval
 
-    def _plan_number(self, keep_count: int, imgs: dict[str, Image]) -> dict[str, Image]:
+    def _plan_number(
+        self, keep_count: int, imgs: dict[str, RegistryImage]
+    ) -> dict[str, RegistryImage]:
         # Categorized images are already sorted
         # Filter out tags to skip
         filtered = {
@@ -181,10 +187,10 @@ class Reaper:
             print(imgsplit[0], " " * (maxlen + 1 - len(imgsplit[0])), imgsplit[1])
         print("\n")
 
-    def remaining(self) -> ImageCollection:
-        """Return an ImageCollection containing those images which
-        would remain after the results of a plan were removed during that
-        plan's execution.
+    def remaining(self) -> RegistryImageCollection:
+        """Return a RegistryImageCollection containing those images
+        which would remain after the results of a plan were removed
+        during that plan's execution.
         """
         retval = deepcopy(self._categorized)
         if self._plan is None:
