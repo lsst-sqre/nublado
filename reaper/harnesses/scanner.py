@@ -13,8 +13,8 @@ from tempfile import TemporaryDirectory
 
 import yaml
 
-from rsp_reaper.config import Config
-from rsp_reaper.services.reaper import BuckDharma
+from reaper.config import Config
+from reaper.services.reaper import BuckDharma
 
 with TemporaryDirectory() as td:
     new_config = Path(td) / "config.yaml"

@@ -1,0 +1,89 @@
+registries:
+ - category: "pkg.dev"
+   registry: "https://us-central1-docker.pkg.dev"
+   owner: "rubin-shared-services-71ec"
+   namespace: "sciplat"
+   repository: "sciplat-lab"
+   keep:
+     untagged:
+       number: 4
+     semver: null
+     rsp:
+       release:
+         age: "1096d"
+       weekly:
+         number: 78
+       daily:
+         number: 25
+       releaseCandidate:
+         number: 5
+       experimental:
+         age: "30d"
+       unknown:
+         age: "7d"
+   image_version_class: "rsp"
+   dry_run: True
+   debug: True
+   input_file: "gar.contents.json"
+ - category: "ghcr.io"
+   registry: "https://ghcr.io"
+   owner: "lsst-sqre"
+   repository: "sciplat-lab"
+   keep:
+     untagged:
+       number: 4
+     semver: null
+     rsp:
+       release:
+         age: "1096d"
+       weekly:
+         number: 78
+       daily:
+         number: 25
+       releaseCandidate:
+         number: 5
+       experimental:
+         age: "30d"
+       unknown:
+         age: "7d"
+   imageVersionClass: "rsp"
+   dryRun: True
+   debug: True
+   inputFile: "ghcr.io.contents.json"
+   skipTags:
+     - "recommended"
+     - "latest"
+     - "latest_release"
+     - "latest_weekly"
+     - "latest_daily"
+ - category: "hub.docker.com"
+   registry: "https://docker.io"
+   owner: "lsstsqre"
+   repository: "sciplat-lab"
+   keep:
+     untagged:
+       number: 4
+     semver: null
+     rsp:
+       release:
+         age: "1096d"
+       weekly:
+         number: 78
+       daily:
+         number: 25
+       releaseCandidate:
+         number: 5
+       experimental:
+         age: "30d"
+       unknown:
+         age: "7d"
+   imageVersionClass: "rsp"
+   dryRun: True
+   debug: True
+   inputFile: "docker.io.contents.json"
+   skipTags:
+     - "recommended"
+     - "latest"
+     - "latest_release"
+     - "latest_weekly"
+     - "latest_daily"
