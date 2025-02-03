@@ -61,9 +61,6 @@ class ImageService:
     config
         The prepuller configuration, used to determine which tags should be
         prepulled and some other related information.
-    available
-        The configuration used to determine which tags should be displayed on
-        the dropdown list of images available to spawn.
     node_selector
         Node selector rules to determine which nodes are eligible for
         prepulling.
@@ -83,7 +80,6 @@ class ImageService:
         self,
         *,
         config: ImageFilterOptions,
-        available: ImageFilterOptions,
         node_selector: dict[str, str],
         tolerations: list[Toleration],
         source: ImageSource,
@@ -214,7 +210,7 @@ class ImageService:
             k: PrepulledImage.from_rsp_image(v, nodes) if v else None
             for k, v in images.items()
         }
-        return SpawnerImages(available=available_images, **spawner_images)
+        return SpawnerImages(all=available_images, **spawner_images)
 
     def menu_images(self) -> MenuImages:
         """Images that should appear in the menu.

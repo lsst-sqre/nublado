@@ -11,6 +11,7 @@
 coverage[toml]
 mypy
 pre-commit
+pydantic
 pytest
 pytest-asyncio
 pytest-cov

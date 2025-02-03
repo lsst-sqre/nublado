@@ -526,20 +526,6 @@ class PrepullerConfig(ImageFilterOptions):
     source: DockerSourceConfig | GARSourceConfig
 
 
-class DropdownConfig(ImageFilterOptions):
-    """Configuration for the dropdown list.
-
-    This is identical to the API model used to return the prepuller
-    configuration to an API client except that camel-case aliases are enabled.
-    """
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
-    )
-
-    source: DockerSourceConfig | GARSourceConfig
-
-
 class LabSizeDefinition(BaseModel):
     """Possible size of lab.
 
@@ -1216,17 +1202,6 @@ class Config(BaseSettings):
                 "Configuration for which images to prepull and display"
                 " directly in the spawner menu for users to choose from when"
                 " spawning labs"
-            ),
-        ),
-    ]
-
-    dropdown: Annotated[
-        DropdownConfig,
-        Field(
-            title="Available lab images",
-            description=(
-                "Configuration for which images to to display in the spawner"
-                " dropdown menu for users to choose from when spawning labs"
             ),
         ),
     ]

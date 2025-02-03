@@ -14,10 +14,12 @@ nox.options.sessions = [
     "typing-client",
     "typing-hub",
     "typing-inithome",
+    "typing-reaper",
     "test",
     "test-client",
     "test-hub",
     "test-inithome",
+    "test-reaper",
     "docs",
     "docs-linkcheck",
 ]

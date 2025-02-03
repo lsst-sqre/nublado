@@ -550,7 +550,7 @@ class SpawnerImages(BaseModel):
     # present, the majority of which can no longer be started with current
     # RSP machinery.  These are the ones we choose to make available to the
     # user for spawning.
-    available: Annotated[
+    all: Annotated[
         list[PrepulledImage],
         Field(title="All images available via the spawner"),
     ]

@@ -145,7 +145,6 @@ class ProcessContext:
         metadata_storage = MetadataStorage(config.metadata_path)
         image_service = ImageService(
             config=config.images,
-            available=config.dropdown,
             node_selector=config.lab.node_selector,
             tolerations=config.lab.tolerations,
             source=source,

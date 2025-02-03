@@ -45,6 +45,8 @@ def test_image() -> None:
         "aliases": set(),
         "alias_target": None,
         "nodes": set(),
+        "date": None,
+        "id": None,
     }
     assert image.reference == (
         "lighthouse.ceres/library/sketchbook:d_2077_10_23"
