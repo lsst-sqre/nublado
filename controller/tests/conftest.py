@@ -34,6 +34,13 @@ from .support.gafaelfawr import MockGafaelfawr, register_mock_gafaelfawr
 from .support.gar import MockArtifactRegistry, patch_artifact_registry
 
 
+@pytest.fixture(autouse=True)
+def _mock_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("METRICS_APPLICATION", "controller")
+    monkeypatch.setenv("METRICS_ENABLED", "false")
+    monkeypatch.setenv("METRICS_MOCK", "true")
+
+
 @pytest_asyncio.fixture
 async def config() -> Config:
     """Construct default configuration for tests."""
