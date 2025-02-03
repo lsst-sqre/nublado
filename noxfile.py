@@ -119,7 +119,7 @@ def _update_deps(
     session.install("--upgrade", "uv")
     session.install("--upgrade", "pre-commit")
     session.run("pre-commit", "autoupdate")
-    directories = {"controller", "hub", "inithome"}
+    directories = {"controller", "hub", "inithome", "reaper"}
     if only:
         directories &= only
     for directory in sorted(directories):

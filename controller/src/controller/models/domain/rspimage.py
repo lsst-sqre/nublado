@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import asdict, dataclass, field
@@ -25,8 +26,12 @@ class RSPImage(RSPImageTag):
     An `RSPImage` differs from a
     `~controller.models.domain.rsptag.RSPImageTag` by having a
     reference and digest, potentially additional alias tags, and possibly
-    information discovered from a Kubernetes cluster, such as the image size
-    and the list of nodes on which it is present.
+    information discovered from a Kubernetes cluster, such as the image size,
+    upload date and time, and the list of nodes on which it is present.  It is
+    a superset of image information available at different registries; for
+    instance, ghcr.io associates each image with a particular 'id'; this
+    field is needed for image deletion (used by the reaper), and may
+    enable more efficient operations, such as image enumeration.
     """
 
     registry: str
@@ -40,6 +45,12 @@ class RSPImage(RSPImageTag):
 
     size: int | None = None
     """Size of the image in bytes if known."""
+
+    id: int | None = None
+    """Image ID, if it exists and is known."""
+
+    date: datetime.datetime | None = None
+    """Image upload date if known."""
 
     aliases: set[str] = field(default_factory=set)
     """Known aliases for this image.
@@ -59,7 +70,14 @@ class RSPImage(RSPImageTag):
 
     @classmethod
     def from_tag(
-        cls, *, registry: str, repository: str, tag: RSPImageTag, digest: str
+        cls,
+        *,
+        registry: str,
+        repository: str,
+        tag: RSPImageTag,
+        digest: str,
+        date: datetime.datetime | None = None,
+        id: int | None = None,
     ) -> Self:
         """Construct an image from an existing tag.
 
@@ -73,6 +91,10 @@ class RSPImage(RSPImageTag):
             Tag for this image.
         digest
             Digest for this image.
+        date
+            Date and time of image upload to registry.
+        id
+            Unique ID for image (currently ghcr.io-only)
 
         Returns
         -------

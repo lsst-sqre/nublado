@@ -16,6 +16,7 @@ DOCKER_DEFAULT_TAG = "latest"
 
 __all__ = [
     "DOCKER_DEFAULT_TAG",
+    "RSP_TYPENAMES",
     "RSPImageTag",
     "RSPImageTagCollection",
     "RSPImageType",
@@ -36,6 +37,10 @@ class RSPImageType(Enum):
     CANDIDATE = "Release Candidate"
     EXPERIMENTAL = "Experimental"
     UNKNOWN = "Unknown"
+
+
+RSP_TYPENAMES = [x.value.lower().replace(" ", "_") for x in RSPImageType]
+"""More Pythonic set of names for RSPImageTypes."""
 
 
 # Regular expression components used to construct the parsing regexes.
@@ -195,10 +200,10 @@ class RSPImageTag:
         )
 
     def __eq__(self, other: object) -> bool:
-        return self._compare(other) == 0
+        return self.compare(other) == 0
 
     def __lt__(self, other: object) -> bool:
-        order = self._compare(other)
+        order = self.compare(other)
         if order is NotImplemented:
             return NotImplemented
         return order == -1
@@ -349,7 +354,7 @@ class RSPImageTag:
         else:
             return rest if rest else None
 
-    def _compare(self, other: object) -> int:
+    def compare(self, other: object) -> int:
         """Compare to image tags for sorting purposes.
 
         Parameters
@@ -511,3 +516,16 @@ class RSPImageTagCollection:
 
         # Return the results.
         return type(self)(tags)
+
+    def best_tag(self) -> RSPImageTag | None:
+        """Given the collection of tags, pick the highest priority one.
+
+        Alias tags are excluded from consideration in this case.  If the
+        collection only has alias tags (or the collection is empty), return
+        `None`.
+        """
+        for tag in self.all_tags():
+            if tag.image_type is RSPImageType.ALIAS:
+                continue
+            return tag
+        return None
