@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import datetime
 import os
 from dataclasses import asdict
 from random import SystemRandom
 from typing import cast
+from unittest.mock import ANY
 
 import pytest
 from semver.version import VersionInfo
@@ -33,11 +35,13 @@ def test_image() -> None:
         digest="sha256:1234",
     )
     assert asdict(image) == {
+        "age": ANY,
         "tag": "d_2077_10_23",
         "image_type": RSPImageType.DAILY,
         "display_name": "Daily 2077_10_23",
         "version": VersionInfo(2077, 10, 23),
         "cycle": None,
+        "date": datetime.datetime(2077, 10, 23, 0, 0, tzinfo=datetime.UTC),
         "registry": "lighthouse.ceres",
         "repository": "library/sketchbook",
         "digest": "sha256:1234",

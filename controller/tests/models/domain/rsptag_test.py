@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import datetime
 from dataclasses import asdict
 from random import SystemRandom
+from unittest.mock import ANY
 
 import pytest
 from semver.version import VersionInfo
@@ -63,6 +65,8 @@ def test_alias() -> None:
         "version": None,
         "cycle": None,
         "display_name": "Recommended",
+        "age": None,
+        "date": None,
     }
 
     # If there is a cycle, we should extract it.
@@ -73,6 +77,8 @@ def test_alias() -> None:
         "version": None,
         "cycle": 46,
         "display_name": "Latest Weekly (SAL Cycle 0046)",
+        "age": None,
+        "date": None,
     }
 
 
@@ -168,6 +174,8 @@ def test_from_str() -> None:
             "display_name": "Release r21.0.1",
             "version": VersionInfo(21, 0, 1),
             "cycle": None,
+            "age": None,
+            "date": None,
         },
         "r22_0_0_rc1": {
             "tag": "r22_0_0_rc1",
@@ -175,6 +183,8 @@ def test_from_str() -> None:
             "display_name": "Release Candidate r22.0.0-rc1",
             "version": VersionInfo(22, 0, 0, "rc1"),
             "cycle": None,
+            "age": None,
+            "date": None,
         },
         "w_2021_22": {
             "tag": "w_2021_22",
@@ -182,6 +192,8 @@ def test_from_str() -> None:
             "display_name": "Weekly 2021_22",
             "version": VersionInfo(2021, 22, 0),
             "cycle": None,
+            "age": ANY,
+            "date": datetime.datetime(2021, 5, 28, 0, 0, tzinfo=datetime.UTC),
         },
         "d_2021_05_27": {
             "tag": "d_2021_05_27",
@@ -189,6 +201,8 @@ def test_from_str() -> None:
             "display_name": "Daily 2021_05_27",
             "version": VersionInfo(2021, 5, 27),
             "cycle": None,
+            "age": ANY,
+            "date": datetime.datetime(2021, 5, 27, 0, 0, tzinfo=datetime.UTC),
         },
         "r21_0_1_c0020.001": {
             "tag": "r21_0_1_c0020.001",
@@ -196,6 +210,8 @@ def test_from_str() -> None:
             "display_name": "Release r21.0.1 (SAL Cycle 0020, Build 001)",
             "version": VersionInfo(21, 0, 1, None, "c0020.001"),
             "cycle": 20,
+            "age": None,
+            "date": None,
         },
         "r22_0_0_rc1_c0020.001": {
             "tag": "r22_0_0_rc1_c0020.001",
@@ -205,6 +221,8 @@ def test_from_str() -> None:
             ),
             "version": VersionInfo(22, 0, 0, "rc1", "c0020.001"),
             "cycle": 20,
+            "age": None,
+            "date": None,
         },
         "w_2021_22_c0020.001": {
             "tag": "w_2021_22_c0020.001",
@@ -212,6 +230,8 @@ def test_from_str() -> None:
             "display_name": "Weekly 2021_22 (SAL Cycle 0020, Build 001)",
             "version": VersionInfo(2021, 22, 0, None, "c0020.001"),
             "cycle": 20,
+            "age": ANY,
+            "date": datetime.datetime(2021, 5, 28, 0, 0, tzinfo=datetime.UTC),
         },
         "d_2021_05_27_c0020.001": {
             "tag": "d_2021_05_27_c0020.001",
@@ -219,6 +239,8 @@ def test_from_str() -> None:
             "display_name": "Daily 2021_05_27 (SAL Cycle 0020, Build 001)",
             "version": VersionInfo(2021, 5, 27, None, "c0020.001"),
             "cycle": 20,
+            "age": ANY,
+            "date": datetime.datetime(2021, 5, 27, 0, 0, tzinfo=datetime.UTC),
         },
         "r21_0_1_20210527": {
             "tag": "r21_0_1_20210527",
@@ -226,6 +248,8 @@ def test_from_str() -> None:
             "display_name": "Release r21.0.1 [20210527]",
             "version": VersionInfo(21, 0, 1, None, "20210527"),
             "cycle": None,
+            "age": None,
+            "date": None,
         },
         "r22_0_0_rc1_20210527": {
             "tag": "r22_0_0_rc1_20210527",
@@ -233,6 +257,8 @@ def test_from_str() -> None:
             "display_name": "Release Candidate r22.0.0-rc1 [20210527]",
             "version": VersionInfo(22, 0, 0, "rc1", "20210527"),
             "cycle": None,
+            "age": None,
+            "date": None,
         },
         "w_2021_22_20210527": {
             "tag": "w_2021_22_20210527",
@@ -240,6 +266,8 @@ def test_from_str() -> None:
             "display_name": "Weekly 2021_22 [20210527]",
             "version": VersionInfo(2021, 22, 0, None, "20210527"),
             "cycle": None,
+            "age": ANY,
+            "date": datetime.datetime(2021, 5, 28, 0, 0, tzinfo=datetime.UTC),
         },
         "d_2021_05_27_20210527": {
             "tag": "d_2021_05_27_20210527",
@@ -247,6 +275,8 @@ def test_from_str() -> None:
             "display_name": "Daily 2021_05_27 [20210527]",
             "version": VersionInfo(2021, 5, 27, None, "20210527"),
             "cycle": None,
+            "age": ANY,
+            "date": datetime.datetime(2021, 5, 27, 0, 0, tzinfo=datetime.UTC),
         },
         "r21_0_1_c0020.001_20210527": {
             "tag": "r21_0_1_c0020.001_20210527",
@@ -256,6 +286,8 @@ def test_from_str() -> None:
             ),
             "version": VersionInfo(21, 0, 1, None, "c0020.001.20210527"),
             "cycle": 20,
+            "age": None,
+            "date": None,
         },
         "r22_0_0_rc1_c0020.001_20210527": {
             "tag": "r22_0_0_rc1_c0020.001_20210527",
@@ -266,6 +298,8 @@ def test_from_str() -> None:
             ),
             "version": VersionInfo(22, 0, 0, "rc1", "c0020.001.20210527"),
             "cycle": 20,
+            "age": None,
+            "date": None,
         },
         "w_2021_22_c0020.001_20210527": {
             "tag": "w_2021_22_c0020.001_20210527",
@@ -275,6 +309,8 @@ def test_from_str() -> None:
             ),
             "version": VersionInfo(2021, 22, 0, None, "c0020.001.20210527"),
             "cycle": 20,
+            "age": ANY,
+            "date": datetime.datetime(2021, 5, 28, 0, 0, tzinfo=datetime.UTC),
         },
         "d_2021_05_27_c0020.001_20210527": {
             "tag": "d_2021_05_27_c0020.001_20210527",
@@ -284,6 +320,8 @@ def test_from_str() -> None:
             ),
             "version": VersionInfo(2021, 5, 27, None, "c0020.001.20210527"),
             "cycle": 20,
+            "age": ANY,
+            "date": datetime.datetime(2021, 5, 27, 0, 0, tzinfo=datetime.UTC),
         },
         "recommended": {
             "tag": "recommended",
@@ -291,6 +329,8 @@ def test_from_str() -> None:
             "display_name": "recommended",
             "version": None,
             "cycle": None,
+            "age": None,
+            "date": None,
         },
         "exp_random": {
             "tag": "exp_random",
@@ -298,6 +338,8 @@ def test_from_str() -> None:
             "display_name": "Experimental random",
             "version": None,
             "cycle": None,
+            "age": None,
+            "date": None,
         },
         "exp_w_2021_22": {
             "tag": "exp_w_2021_22",
@@ -305,6 +347,8 @@ def test_from_str() -> None:
             "display_name": "Experimental Weekly 2021_22",
             "version": None,
             "cycle": None,
+            "age": ANY,
+            "date": datetime.datetime(2021, 5, 28, 0, 0, tzinfo=datetime.UTC),
         },
         "exp_w_2021_22_c0020.001": {
             "tag": "exp_w_2021_22_c0020.001",
@@ -314,6 +358,8 @@ def test_from_str() -> None:
             ),
             "version": None,
             "cycle": 20,
+            "age": ANY,
+            "date": datetime.datetime(2021, 5, 28, 0, 0, tzinfo=datetime.UTC),
         },
         "exp_w_2021_22_c0020.001_foo": {
             "tag": "exp_w_2021_22_c0020.001_foo",
@@ -323,6 +369,8 @@ def test_from_str() -> None:
             ),
             "version": None,
             "cycle": 20,
+            "age": ANY,
+            "date": datetime.datetime(2021, 5, 28, 0, 0, tzinfo=datetime.UTC),
         },
         "recommended_c0027": {
             "tag": "recommended_c0027",
@@ -330,6 +378,8 @@ def test_from_str() -> None:
             "display_name": "recommended (SAL Cycle 0027)",
             "version": None,
             "cycle": 27,
+            "age": None,
+            "date": None,
         },
         "not_a_normal_format": {
             "tag": "not_a_normal_format",
@@ -337,6 +387,8 @@ def test_from_str() -> None:
             "display_name": "not_a_normal_format",
             "version": None,
             "cycle": None,
+            "age": None,
+            "date": None,
         },
         "MiXeD_CaSe_TaG": {
             "tag": "MiXeD_CaSe_TaG",
@@ -344,6 +396,8 @@ def test_from_str() -> None:
             "display_name": "MiXeD_CaSe_TaG",
             "version": None,
             "cycle": None,
+            "age": None,
+            "date": None,
         },
         "": {
             "tag": "latest",
@@ -351,6 +405,8 @@ def test_from_str() -> None:
             "display_name": "latest",
             "version": None,
             "cycle": None,
+            "age": None,
+            "date": None,
         },
     }
 
@@ -359,3 +415,11 @@ def test_from_str() -> None:
     # them in dictionary form.
     for tag, expected in test_cases.items():
         assert asdict(RSPImageTag.from_str(tag)) == expected
+
+
+def test_age() -> None:
+    rsptag = RSPImageTag.from_str("d_2021_05_27_20210527")
+    assert rsptag.age is not None
+    orig_age = rsptag.age
+    rsptag.recalculate_age()
+    assert rsptag.age > orig_age

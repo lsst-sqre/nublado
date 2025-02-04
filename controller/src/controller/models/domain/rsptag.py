@@ -1,6 +1,7 @@
 """Abstract data types for handling RSP image tags."""
 
 import contextlib
+import datetime
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
@@ -106,6 +107,38 @@ _TAG_REGEXES = [
 ]
 
 
+def _calculate_date(tagdata: dict[str, str]) -> datetime.datetime | None:
+    """Calculate the date when the image should have been created.
+
+    Parameters
+    ----------
+    tagdata
+        The match groups from the regular expression tag match.
+
+    Returns
+    -------
+    datetime.datetime | None
+        The image creation date if it can be gleaned from the tag.
+    """
+    year = tagdata.get("year")
+    if not year:
+        return None
+    week = tagdata.get("week")
+    if year and week:
+        jan1 = datetime.datetime(int(year), 1, 1, tzinfo=datetime.UTC)
+        # This isn't exact, it's not isoformat, and it's not pretty, but it is
+        # also close enough for our purposes.
+        # We start counting at week one in our tags.
+        return jan1 + datetime.timedelta(weeks=int(week) - 1)
+    month = tagdata.get("month")
+    day = tagdata.get("day")
+    if not (month and day):
+        return None
+    return datetime.datetime(
+        int(year), int(month), int(day), tzinfo=datetime.UTC
+    )
+
+
 @total_ordering
 @dataclass
 class RSPImageTag:
@@ -129,6 +162,22 @@ class RSPImageTag:
 
     display_name: str
     """Human-readable display name."""
+
+    date: datetime.datetime | None = None
+    """When the image was created, or as close as we can get to that.
+    We try to derive this from the tag string: For RSP daily or weekly
+    tags (or experimentals in one of those formats), we can calculate
+    this to within a day or a week, which is good enough for display
+    purposes.  Otherwise, we may be able to extract this info from
+    the registry, but even if we can, it may be image upload time
+    rather than creation time.
+    """
+
+    age: datetime.timedelta | None = None
+    """This is a calculated field, rather than a stored one.  This tells us
+    our best guess as to how old an image is and relies on the date field,
+    which may be unknown or inaccurate.
+    """
 
     @classmethod
     def alias(cls, tag: str) -> Self:
@@ -264,6 +313,7 @@ class RSPImageTag:
                 tag=tag,
                 cycle=subtag.cycle,
                 display_name=display_name,
+                date=subtag.date,
             )
 
         # Determine the build number, the last component of the semantic
@@ -305,6 +355,13 @@ class RSPImageTag:
         if rest:
             display_name += f" [{rest}]"
 
+        image_date = _calculate_date(data)
+        image_age = (
+            datetime.datetime.now(datetime.UTC) - image_date
+            if image_date
+            else None
+        )
+
         # Return the results.
         return cls(
             image_type=image_type,
@@ -312,6 +369,8 @@ class RSPImageTag:
             tag=tag,
             cycle=int(cycle) if cycle else None,
             display_name=display_name,
+            date=image_date,
+            age=image_age,
         )
 
     @classmethod
@@ -348,6 +407,12 @@ class RSPImageTag:
                 return f"c{cycle}.{cbuild}"
         else:
             return rest if rest else None
+
+    def recalculate_age(self) -> None:
+        """Recalculate the image's age based on the current date and time."""
+        if self.date is None:
+            return
+        self.age = datetime.datetime.now(datetime.UTC) - self.date
 
     def _compare(self, other: object) -> int:
         """Compare to image tags for sorting purposes.
