@@ -199,14 +199,14 @@ async def test_reconcile_succeeded(
     mock_kubernetes.initial_pod_phase = PodPhase.SUCCEEDED.value
     await factory.start_background_services()
 
-    # Create a lab through the controller. It should show up in a terminated
-    # state.
+    # Create a lab through the controller. It should show up as active since
+    # we don't detect immediately that it terminated.
     lab = read_input_lab_specification_json("base", "lab-specification")
     await factory.lab_manager.create_lab(user, lab)
     await asyncio.sleep(0.1)
     state = await factory.lab_manager.get_lab_state(user.username)
     assert state
-    assert state.status == LabStatus.TERMINATED
+    assert state.status == LabStatus.RUNNING
     assert await mock_kubernetes.read_namespace(f"userlabs-{user.username}")
 
     # Now stop and start background services to force another run. The
