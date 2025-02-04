@@ -9,6 +9,7 @@ from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
 
 from controller.config import Config
+from controller.dependencies.context import context_dependency
 from controller.factory import Factory
 from controller.models.domain.gafaelfawr import GafaelfawrUser
 from controller.models.domain.kubernetes import PodPhase
@@ -66,24 +67,23 @@ async def test_user_status(
     expected = read_output_json("standard", "lab-status")
     assert r.json() == expected
 
-    # Change the pod phase. This should throw the lab into a terminated state.
+    # Change the pod status. This should not result in any change because
+    # reconcile hasn't run yet.
+    r = await client.get(
+        "/nublado/spawner/v1/user-status", headers=user.to_headers()
+    )
+    assert r.status_code == 200
+    assert r.json() == expected
+
+    # Force reconciliation. This should delete the lab and result in a 404
+    # error.
     name = f"{user.username}-nb"
     namespace = f"userlabs-{user.username}"
     pod = await mock_kubernetes.read_namespaced_pod(name, namespace)
     pod.status.phase = PodPhase.FAILED.value
+    assert context_dependency._process_context
+    await context_dependency._process_context.lab_manager.reconcile()
     r = await client.get(
         "/nublado/spawner/v1/user-status", headers=user.to_headers()
     )
-    assert r.status_code == 200
-    expected["status"] = "terminated"
-    assert r.json() == expected
-
-    # Delete the pod out from under the controller. This should also change
-    # the pod status.
-    await mock_kubernetes.delete_namespaced_pod(name, namespace)
-    r = await client.get(
-        "/nublado/spawner/v1/user-status", headers=user.to_headers()
-    )
-    assert r.status_code == 200
-    expected["status"] = "failed"
-    assert r.json() == expected
+    assert r.status_code == 404

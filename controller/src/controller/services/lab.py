@@ -303,7 +303,7 @@ class LabManager:
 
         # Check to see if the lab already exists. If so, but it is in a failed
         # state, we will delete the previous lab first.
-        state = await self.get_lab_state(user.username)
+        state = await self._get_lab_state_from_kubernetes(user.username)
         delete_first = bool(state and not state.is_running)
 
         # If there is any operation already in progress, raise an error.
@@ -472,10 +472,11 @@ class LabManager:
         """Get lab state for a user.
 
         This method underlies the API called by JupyterHub to track whether
-        the user's lab still exists. We want to update that state after
-        Kubernetes changes faster than our reconciliation cycle, so ask
-        Kubernetes directly for the pod phase each time we're asked for the
-        lab state.
+        the user's lab still exists. Originally, it would query Kubernetes for
+        every request from JupyterHub, but we found this saturated the
+        Kubernetes control plane when large numbers of labs were running. It
+        therefore responds based on internal state and relies on periodic
+        reconciliation to update state from Kubernetes.
 
         Parameters
         ----------
@@ -495,54 +496,7 @@ class LabManager:
         """
         if username not in self._labs:
             return None
-
-        # Grab a copy of the lab state, since we're going to make async calls
-        # and the state may be changed out from under us via a delete and
-        # spawn. (Unlikely that it will happen that fast, but possible.)
-        state = self._labs[username].state
-        if not state:
-            return None
-
-        # Ask Kubernetes for the current phase so that we catch pods that have
-        # been evicted or shut down behind our back by the Kubernetes cluster.
-        names = self._builder.build_object_names(username)
-        timeout = Timeout(
-            "Get pod phase", KUBERNETES_REQUEST_TIMEOUT, username
-        )
-        try:
-            phase = await self._storage.read_pod_phase(names, timeout)
-        except KubernetesError as e:
-            self._logger.exception(
-                "Cannot get pod phase",
-                user=username,
-                name=names.pod,
-                namespace=names.namespace,
-                kind="Pod",
-            )
-            await self._maybe_post_slack_exception(e, username)
-
-            # Two options here: pessimistically assume the lab is in a failed
-            # state, or optimistically assume that our current in-memory data
-            # is correct. Given that we refresh state in the background
-            # continuously, go with optimism; we'll update with pessimism if
-            # we can ever reach Kubernetes, and telling JupyterHub to go ahead
-            # and try to send the user to the lab seems like the right move.
-            return state
-        except ControllerTimeoutError as e:
-            self._logger.exception("Timeout reading pod phase", user=username)
-            await self._maybe_post_slack_exception(e, username)
-
-            # As above, optimistically assume the best.
-            return state
-
-        # If the pod is missing, set the state to failed. Also set the state
-        # to terminated or failed if we thought the pod was running but it's
-        # in some other state. Otherwise, go with our current state.
-        if phase is None:
-            state.status = LabStatus.FAILED
-        elif state.status == LabStatus.RUNNING:
-            state.status = LabStatus.from_phase(phase)
-        return state
+        return self._labs[username].state
 
     async def list_lab_users(self, *, only_running: bool = False) -> list[str]:
         """List all users with labs.
@@ -871,6 +825,84 @@ class LabManager:
         # Add the user's token and return the results.
         data["token"] = b64encode(user.token.encode()).decode()
         return data
+
+    async def _get_lab_state_from_kubernetes(
+        self, username: str
+    ) -> LabState | None:
+        """Get lab state for a user from Kubernetes.
+
+        This method underlies the API called by JupyterHub to track whether
+        the user's lab still exists. It should be used instead of
+        `get_lab_state` when we should not trust the in-memory data
+        structures and should verify the lab state directly, such as during
+        spawn.
+
+        Parameters
+        ----------
+        username
+            Username to retrieve lab state for.
+
+        Returns
+        -------
+        LabState or None
+            Lab state for that user, or `None` if that user doesn't have a
+            lab.
+
+        Raises
+        ------
+        UnknownUserError
+            Raised if the given user has no lab.
+        """
+        if username not in self._labs:
+            return None
+
+        # Grab a copy of the lab state, since we're going to make async calls
+        # and the state may be changed out from under us via a delete and
+        # spawn. (Unlikely that it will happen that fast, but possible.)
+        state = self._labs[username].state
+        if not state:
+            return None
+
+        # Ask Kubernetes for the current phase so that we catch pods that have
+        # been evicted or shut down behind our back by the Kubernetes cluster.
+        names = self._builder.build_object_names(username)
+        timeout = Timeout(
+            "Get pod phase", KUBERNETES_REQUEST_TIMEOUT, username
+        )
+        try:
+            phase = await self._storage.read_pod_phase(names, timeout)
+        except KubernetesError as e:
+            self._logger.exception(
+                "Cannot get pod phase",
+                user=username,
+                name=names.pod,
+                namespace=names.namespace,
+                kind="Pod",
+            )
+            await self._maybe_post_slack_exception(e, username)
+
+            # Two options here: pessimistically assume the lab is in a failed
+            # state, or optimistically assume that our current in-memory data
+            # is correct. Given that we refresh state in the background
+            # continuously, go with optimism; we'll update with pessimism if
+            # we can ever reach Kubernetes, and telling JupyterHub to go ahead
+            # and try to send the user to the lab seems like the right move.
+            return state
+        except ControllerTimeoutError as e:
+            self._logger.exception("Timeout reading pod phase", user=username)
+            await self._maybe_post_slack_exception(e, username)
+
+            # As above, optimistically assume the best.
+            return state
+
+        # If the pod is missing, set the state to failed. Also set the state
+        # to terminated or failed if we thought the pod was running but it's
+        # in some other state. Otherwise, go with our current state.
+        if phase is None:
+            state.status = LabStatus.FAILED
+        elif state.status == LabStatus.RUNNING:
+            state.status = LabStatus.from_phase(phase)
+        return state
 
     async def _maybe_post_slack_exception(
         self, exc: Exception, username: str
