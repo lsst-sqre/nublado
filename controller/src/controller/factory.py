@@ -156,6 +156,7 @@ class ProcessContext:
         prepuller = Prepuller(
             image_service=image_service,
             prepuller_builder=PrepullerBuilder(
+                config=config.lab,
                 metadata_storage=metadata_storage,
                 pull_secret=config.lab.pull_secret,
             ),

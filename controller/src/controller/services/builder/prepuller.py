@@ -13,6 +13,7 @@ from kubernetes_asyncio.client import (
     V1ResourceRequirements,
 )
 
+from ...config import LabConfig
 from ...models.domain.rspimage import RSPImage
 from ...storage.metadata import MetadataStorage
 
@@ -24,6 +25,8 @@ class PrepullerBuilder:
 
     Parameters
     ----------
+    config
+        Lab configuration.
     metadata_storage
         Storage layer for pod metadata about the lab controller itself.
     pull_secret
@@ -31,8 +34,12 @@ class PrepullerBuilder:
     """
 
     def __init__(
-        self, metadata_storage: MetadataStorage, pull_secret: str | None = None
+        self,
+        config: LabConfig,
+        metadata_storage: MetadataStorage,
+        pull_secret: str | None = None,
     ) -> None:
+        self._config = config
         self._metadata = metadata_storage
         self._pull_secret = pull_secret
 
@@ -54,6 +61,7 @@ class PrepullerBuilder:
         pull_secrets = None
         if self._pull_secret:
             pull_secrets = [V1LocalObjectReference(name=self._pull_secret)]
+        tolerations = [t.to_kubernetes() for t in self._config.tolerations]
         return V1Pod(
             metadata=V1ObjectMeta(
                 name=self._build_pod_name(image, node),
@@ -76,6 +84,7 @@ class PrepullerBuilder:
                 image_pull_secrets=pull_secrets,
                 node_name=node,
                 restart_policy="Never",
+                tolerations=tolerations,
             ),
         )
 

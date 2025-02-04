@@ -45,7 +45,20 @@
         }
       ],
       "nodeName": "node2",
-      "restartPolicy": "Never"
+      "restartPolicy": "Never",
+      "tolerations": [
+        {
+          "effect": "NoSchedule",
+          "key": "some-toleration",
+          "operator": "Equal",
+          "tolerationSeconds": 60,
+          "value": "some-value"
+        },
+        {
+          "key": "other-toleration",
+          "operator": "Exists"
+        }
+      ]
     },
     "status": {
       "phase": "Running"
