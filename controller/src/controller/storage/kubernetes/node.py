@@ -134,9 +134,10 @@ class NodeStorage:
         if node_selector:
             selector = ",".join(f"{k}={v}" for k, v in node_selector.items())
         try:
-            nodes = await self._api.list_node(
-                label_selector=selector, _request_timeout=timeout.left()
-            )
+            async with timeout.enforce():
+                nodes = await self._api.list_node(
+                    label_selector=selector, _request_timeout=timeout.left()
+                )
         except ApiException as e:
             raise KubernetesError.from_exception(
                 "Error reading node information", e, kind="Node"
