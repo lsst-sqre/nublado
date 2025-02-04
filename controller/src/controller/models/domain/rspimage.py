@@ -18,7 +18,7 @@ _ALIAS_TYPES = (RSPImageType.ALIAS, RSPImageType.UNKNOWN)
 """Image types that may be aliases and can be resolved."""
 
 
-@dataclass(kw_only=True)
+@dataclass
 class RSPImage(RSPImageTag):
     """A tagged Rubin Science Platform image.
 
