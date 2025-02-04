@@ -14,7 +14,12 @@ images:
     repository: library
     image: sketchbook
   recommendedTag: recommended_c0050
-  numReleases: 0
-  numWeeklies: 3
-  numDailies: 0
   cycle: 50
+  displayPolicy:
+    main:
+      release:
+        number: 0
+      weekly:
+        number: 3
+      daily:
+        number: 0

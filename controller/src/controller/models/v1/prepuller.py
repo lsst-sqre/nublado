@@ -148,11 +148,8 @@ class GARSourceOptions(BaseModel):
 class PrepullerOptions(BaseModel):
     """Options for the prepuller.
 
-    The information here comes from the YAML configuration for the Nublado
-    controller and is a component of the model returned by the
-    ``/spawner/v1/prepulls`` route. The model for the YAML configuration also
-    enables camel-case aliases, but those are not enabled here since we want
-    the API to return snake-case.
+    The information here is a component of the model returned by the
+    ``/spawner/v1/prepulls`` route.
     """
 
     source: Annotated[

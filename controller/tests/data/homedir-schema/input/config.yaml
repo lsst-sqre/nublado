@@ -26,3 +26,11 @@ images:
     type: docker
     registry: lighthouse.ceres
     repository: library/sketchbook
+  displayPolicy:
+    main:
+      release:
+        number: 1
+      weekly:
+        number: 2
+      daily:
+        number: 3

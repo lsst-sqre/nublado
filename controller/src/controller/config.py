@@ -34,17 +34,20 @@ from .constants import (
     RESERVED_ENV,
     RESERVED_PATHS,
 )
+from .models.domain.imagepolicy import (
+    RSPImagePolicy,
+)
 from .models.domain.kubernetes import (
     Affinity,
     PullPolicy,
     Toleration,
     VolumeAccessMode,
 )
+from .models.domain.menu import ImageDisplayPolicy, SpawnerMenuOptions
 from .models.v1.lab import LabResources, LabSize, ResourceQuantity
 from .models.v1.prepuller import (
     DockerSourceOptions,
     GARSourceOptions,
-    PrepullerOptions,
 )
 from .units import memory_to_bytes
 
@@ -64,6 +67,7 @@ __all__ = [
     "NFSVolumeSource",
     "PVCVolumeResources",
     "PVCVolumeSource",
+    "SpawnerMenuConfig",
     "TmpSource",
     "UserHomeDirectorySchema",
     "VolumeConfig",
@@ -505,7 +509,8 @@ class GARSourceConfig(GARSourceOptions):
     """Configuration for a Google Artifact Registry source.
 
     This is identical to the API model used to return the prepuller
-    configuration to an API client except that camel-case aliases are enabled.
+    configuration to an API client except that camel-case aliases are
+    enabled.
     """
 
     model_config = ConfigDict(
@@ -513,11 +518,40 @@ class GARSourceConfig(GARSourceOptions):
     )
 
 
-class PrepullerConfig(PrepullerOptions):
-    """Configuration for the prepuller.
+class ImageDisplayPolicyConfig(ImageDisplayPolicy):
+    """Configuration for ImageDisplayPolicy.
 
-    This is identical to the API model used to return the prepuller
-    configuration to an API client except that camel-case aliases are enabled.
+    This is identical to the model used for image display policy, except
+    that camel-case aliases are enabled.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    main: RSPImagePolicyConfig | None = None
+    dropdown: RSPImagePolicyConfig | None = None
+
+
+class RSPImagePolicyConfig(RSPImagePolicy):
+    """Configuration for RSPImagePolicy.
+
+    This is identical to the model used for RSP image policy, except
+    that camel-case aliases are enabled.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+
+class SpawnerMenuConfig(SpawnerMenuOptions):
+    """Configuration for how images are presented on the spawner page.
+
+    It controls both the main menu and the dropdown menu.
+
+    This is identical to the model used for menu control, except that
+    camel-case aliases are enabled.
     """
 
     model_config = ConfigDict(
@@ -525,6 +559,7 @@ class PrepullerConfig(PrepullerOptions):
     )
 
     source: DockerSourceConfig | GARSourceConfig
+    display_policy: ImageDisplayPolicyConfig
 
 
 class LabSizeDefinition(BaseModel):
@@ -1202,13 +1237,13 @@ class Config(BaseSettings):
     ] = DisabledFileserverConfig()
 
     images: Annotated[
-        PrepullerConfig,
+        SpawnerMenuConfig,
         Field(
             title="Available lab images",
             description=(
                 "Configuration for which images to prepull and which images to"
-                " display in the spawner menu for users to choose from when"
-                " spawning labs"
+                " display in the spawner menu and dropdown for users to choose"
+                " from when spawning labs"
             ),
         ),
     ]

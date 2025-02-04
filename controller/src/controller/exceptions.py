@@ -36,6 +36,7 @@ __all__ = [
     "KubernetesError",
     "LabDeletionError",
     "LabExistsError",
+    "MissingImageCountError",
     "MissingObjectError",
     "MissingSecretError",
     "NoOperationError",
@@ -434,6 +435,14 @@ class LabDeletionError(SlackException):
 
     Currently, we don't have access to the underlying error. This will be
     fixed in future work.
+    """
+
+
+class MissingImageCountError(SlackException):
+    """Image count is not specified.
+
+    When constructing the spawner menu, we need to know how many daily,
+    weekly, and release images to display.
     """
 
 

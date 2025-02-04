@@ -18,7 +18,10 @@ from .background import BackgroundTaskManager
 from .config import Config
 from .events import LabEvents
 from .exceptions import NotConfiguredError
-from .models.v1.prepuller import DockerSourceOptions, GARSourceOptions
+from .models.v1.prepuller import (
+    DockerSourceOptions,
+    GARSourceOptions,
+)
 from .services.builder.fileserver import FileserverBuilder
 from .services.builder.lab import LabBuilder
 from .services.builder.prepuller import PrepullerBuilder
@@ -145,7 +148,7 @@ class ProcessContext:
 
         metadata_storage = MetadataStorage(config.metadata_path)
         image_service = ImageService(
-            config=config.images,
+            config=config.images.to_prepuller_options(),
             node_selector=config.lab.node_selector,
             tolerations=config.lab.tolerations,
             source=source,

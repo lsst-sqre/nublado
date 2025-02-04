@@ -48,10 +48,16 @@ This documentation therefore exists only to assist developers and code analysis 
 .. automodapi:: controller.models.domain.image
    :include-all-objects:
 
+.. automodapi:: controller.models.domain.imagepolicy
+   :include-all-objects:
+
 .. automodapi:: controller.models.domain.kubernetes
    :include-all-objects:
 
 .. automodapi:: controller.models.domain.lab
+   :include-all-objects:
+
+.. automodapi:: controller.models.domain.menu
    :include-all-objects:
 
 .. automodapi:: controller.models.domain.rspimage
