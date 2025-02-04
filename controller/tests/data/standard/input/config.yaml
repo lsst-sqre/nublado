@@ -231,6 +231,11 @@ images:
     registry: lighthouse.ceres
     repository: library/sketchbook
   recommendedTag: recommended
-  numReleases: 1
-  numWeeklies: 2
-  numDailies: 3
+  displayPolicy:
+    main:
+      release:
+        number: 1
+      weekly:
+        number: 2
+      daily:
+        number: 3

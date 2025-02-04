@@ -12,9 +12,14 @@ images:
     registry: lighthouse.ceres
     repository: library/sketchbook
   recommendedTag: recommended_c0050
-  numReleases: 0
-  numWeeklies: 3
-  numDailies: 0
   cycle: 50
   aliasTags:
     - latest_c0050
+  displayPolicy:
+    main:
+      release:
+        number: 0
+      weekly:
+        number: 3
+      daily:
+        number: 0
