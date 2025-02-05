@@ -69,7 +69,7 @@ the control plane is nonresponsive.
 JUPYTERLAB_DIR = "/usr/local/share/jupyterlab"
 """Location where our RSP Jupyterlab configuration is rooted."""
 
-LAB_RECONCILE_INTERVAL = timedelta(minutes=60)
+LAB_RECONCILE_INTERVAL = timedelta(minutes=5)
 """How frequently to refresh user lab state from Kubernetes.
 
 This will detect when user labs disappear out from under us without user
