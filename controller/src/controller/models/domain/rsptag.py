@@ -1,11 +1,11 @@
 """Abstract data types for handling RSP image tags."""
 
 import contextlib
-import datetime
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from functools import total_ordering
 from typing import Self
@@ -131,7 +131,7 @@ class RSPImageTag:
     display_name: str
     """Human-readable display name."""
 
-    date: datetime.datetime | None
+    date: datetime | None
     """When the image was created, or as close as we can get to that.
 
     We try to derive this from the tag string: For RSP daily or weekly
@@ -321,8 +321,6 @@ class RSPImageTag:
         if rest:
             display_name += f" [{rest}]"
 
-        image_date = cls._calculate_date(data)
-
         # Return the results.
         return cls(
             image_type=image_type,
@@ -330,7 +328,7 @@ class RSPImageTag:
             tag=tag,
             cycle=int(cycle) if cycle else None,
             display_name=display_name,
-            date=image_date,
+            date=cls._calculate_date(data),
         )
 
     @classmethod
@@ -369,7 +367,7 @@ class RSPImageTag:
             return rest if rest else None
 
     @staticmethod
-    def _calculate_date(tagdata: dict[str, str]) -> datetime.datetime | None:
+    def _calculate_date(tagdata: dict[str, str]) -> datetime | None:
         """Calculate the date when the image should have been created.
 
         Parameters
@@ -387,23 +385,16 @@ class RSPImageTag:
             return None
         week = tagdata.get("week")
         if year and week:
-            thursday = 4  # We build on Thursday, and Monday is index 1.
-            stamp = datetime.datetime.fromisocalendar(
-                int(year), int(week), thursday
-            )
-            # fromisocalendar() gives us a naive object; force it to UTC
-            return stamp.replace(tzinfo=datetime.UTC)
+            thursday = 4  # We build on Thursday, which is ISO day 4
+            stamp = datetime.fromisocalendar(int(year), int(week), thursday)
+            return stamp.replace(tzinfo=UTC)
         month = tagdata.get("month")
         day = tagdata.get("day")
         if not (month and day):
             return None
-        return datetime.datetime(
-            int(year), int(month), int(day), tzinfo=datetime.UTC
-        )
+        return datetime(int(year), int(month), int(day), tzinfo=UTC)
 
-    def age(
-        self, since: datetime.datetime | None = None
-    ) -> datetime.timedelta | None:
+    def age(self, since: datetime | None = None) -> timedelta | None:
         """Calculate image age, if possible.
 
         Parameters
@@ -414,7 +405,7 @@ class RSPImageTag:
         if self.date is None:
             return None
         if since is None:
-            since = datetime.datetime.now(datetime.UTC)
+            since = datetime.now(tz=UTC)
         return since - self.date
 
     def _compare(self, other: object) -> int:

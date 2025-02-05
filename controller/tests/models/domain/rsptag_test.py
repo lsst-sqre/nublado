@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import datetime
-import time
 from dataclasses import asdict
+from datetime import UTC, datetime, timedelta
 from random import SystemRandom
 
 import pytest
@@ -182,15 +181,13 @@ def test_from_str() -> None:
             "cycle": None,
             "date": None,
         },
-        # fromisocalendar() gives you a naive object, even if you
-        # replace the tzinfo.
         "w_2021_22": {
             "tag": "w_2021_22",
             "image_type": RSPImageType.WEEKLY,
             "display_name": "Weekly 2021_22",
             "version": VersionInfo(2021, 22, 0),
             "cycle": None,
-            "date": datetime.datetime(2021, 6, 3, 0, 0, tzinfo=datetime.UTC),
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
         },
         "d_2021_05_27": {
             "tag": "d_2021_05_27",
@@ -198,7 +195,7 @@ def test_from_str() -> None:
             "display_name": "Daily 2021_05_27",
             "version": VersionInfo(2021, 5, 27),
             "cycle": None,
-            "date": datetime.datetime(2021, 5, 27, 0, 0, tzinfo=datetime.UTC),
+            "date": datetime(2021, 5, 27, tzinfo=UTC),
         },
         "r21_0_1_c0020.001": {
             "tag": "r21_0_1_c0020.001",
@@ -224,7 +221,7 @@ def test_from_str() -> None:
             "display_name": "Weekly 2021_22 (SAL Cycle 0020, Build 001)",
             "version": VersionInfo(2021, 22, 0, None, "c0020.001"),
             "cycle": 20,
-            "date": datetime.datetime(2021, 6, 3, 0, 0, tzinfo=datetime.UTC),
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
         },
         "d_2021_05_27_c0020.001": {
             "tag": "d_2021_05_27_c0020.001",
@@ -232,7 +229,7 @@ def test_from_str() -> None:
             "display_name": "Daily 2021_05_27 (SAL Cycle 0020, Build 001)",
             "version": VersionInfo(2021, 5, 27, None, "c0020.001"),
             "cycle": 20,
-            "date": datetime.datetime(2021, 5, 27, 0, 0, tzinfo=datetime.UTC),
+            "date": datetime(2021, 5, 27, tzinfo=UTC),
         },
         "r21_0_1_20210527": {
             "tag": "r21_0_1_20210527",
@@ -256,7 +253,7 @@ def test_from_str() -> None:
             "display_name": "Weekly 2021_22 [20210527]",
             "version": VersionInfo(2021, 22, 0, None, "20210527"),
             "cycle": None,
-            "date": datetime.datetime(2021, 6, 3, 0, 0, tzinfo=datetime.UTC),
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
         },
         "d_2021_05_27_20210527": {
             "tag": "d_2021_05_27_20210527",
@@ -264,7 +261,7 @@ def test_from_str() -> None:
             "display_name": "Daily 2021_05_27 [20210527]",
             "version": VersionInfo(2021, 5, 27, None, "20210527"),
             "cycle": None,
-            "date": datetime.datetime(2021, 5, 27, 0, 0, tzinfo=datetime.UTC),
+            "date": datetime(2021, 5, 27, tzinfo=UTC),
         },
         "r21_0_1_c0020.001_20210527": {
             "tag": "r21_0_1_c0020.001_20210527",
@@ -295,7 +292,7 @@ def test_from_str() -> None:
             ),
             "version": VersionInfo(2021, 22, 0, None, "c0020.001.20210527"),
             "cycle": 20,
-            "date": datetime.datetime(2021, 6, 3, 0, 0, tzinfo=datetime.UTC),
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
         },
         "d_2021_05_27_c0020.001_20210527": {
             "tag": "d_2021_05_27_c0020.001_20210527",
@@ -305,7 +302,7 @@ def test_from_str() -> None:
             ),
             "version": VersionInfo(2021, 5, 27, None, "c0020.001.20210527"),
             "cycle": 20,
-            "date": datetime.datetime(2021, 5, 27, 0, 0, tzinfo=datetime.UTC),
+            "date": datetime(2021, 5, 27, tzinfo=UTC),
         },
         "recommended": {
             "tag": "recommended",
@@ -329,7 +326,7 @@ def test_from_str() -> None:
             "display_name": "Experimental Weekly 2021_22",
             "version": None,
             "cycle": None,
-            "date": datetime.datetime(2021, 6, 3, 0, 0, tzinfo=datetime.UTC),
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
         },
         "exp_w_2021_22_c0020.001": {
             "tag": "exp_w_2021_22_c0020.001",
@@ -339,7 +336,7 @@ def test_from_str() -> None:
             ),
             "version": None,
             "cycle": 20,
-            "date": datetime.datetime(2021, 6, 3, 0, 0, tzinfo=datetime.UTC),
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
         },
         "exp_w_2021_22_c0020.001_foo": {
             "tag": "exp_w_2021_22_c0020.001_foo",
@@ -349,7 +346,7 @@ def test_from_str() -> None:
             ),
             "version": None,
             "cycle": 20,
-            "date": datetime.datetime(2021, 6, 3, 0, 0, tzinfo=datetime.UTC),
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
         },
         "recommended_c0027": {
             "tag": "recommended_c0027",
@@ -393,13 +390,13 @@ def test_from_str() -> None:
 
 
 def test_age() -> None:
+    """Test that the age() method works with and without supplied basis."""
     rsptag = RSPImageTag.from_str("d_2021_05_27")
-    assert rsptag.date == datetime.datetime(
-        year=2021, month=5, day=27, tzinfo=datetime.UTC
-    )
-    orig_age = rsptag.age()
+    now = datetime.now(tz=UTC)
+    # If the next three lines take longer than one second, you have a problem.
+    orig_age = rsptag.age(now)
     assert orig_age is not None
-    time.sleep(0.1)
     new_age = rsptag.age()
     assert new_age is not None
-    assert new_age > orig_age
+    assert (new_age - orig_age) > timedelta(seconds=0)
+    assert (new_age - orig_age) < timedelta(seconds=1)

@@ -133,6 +133,9 @@ class RSPImage(RSPImageTag):
                 self.aliases.add(alias)
         target.aliases.add(self.tag)
         self.cycle = target.cycle
+        # If we don't have a date, adopt the target's (which might be None too)
+        if self.date is None:
+            self.date = target.date
 
         # If the tag display name has cycle information, we don't want to keep
         # that part when adding the description of the target tag since it
