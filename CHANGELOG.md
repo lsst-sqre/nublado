@@ -6,6 +6,19 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.4.0'></a>
+## 8.4.0 (2025-02-04)
+
+### New features
+
+- Log metrics events in the Nublado controller for lab spawn successes and failures and a count of the number of active labs.
+
+### Bug fixes
+
+- Do not query Kubernetes for pod status when responding to status requests, and instead assume the internal state (which is reconciled periodically) is correct. The constant Kubernetes API requests for `Pod` status seemed to be overwhelming the control plane when there were a lot of pods running. Continue to ask Kubernetes directly immediately before spawn.
+- Report Kubernetes operation timeouts properly when they cause a spawn failure rather than throwing an uncaught exception.
+- Add tolerations to prepuller pods as well as lab and file server pods so that images can be prepulled to tainted nodes.
+
 <a id='changelog-8.3.0'></a>
 ## 8.3.0 (2025-01-24)
 
