@@ -114,6 +114,9 @@ class ProcessContext:
         # the request (such as the authenticated username).
         logger = structlog.get_logger(__name__)
 
+        releasedate_cache = Path(NamedTemporaryFile(delete=False).name)
+        releasedater = ReleaseDater(cachefile=releasedate_cache)
+
         slack_client = None
         if config.slack_webhook:
             slack_client = SlackWebhookClient(
@@ -126,6 +129,7 @@ class ProcessContext:
                     credentials_path=config.images.source.credentials_path,
                     http_client=http_client,
                     logger=logger,
+                    releasedater=releasedater,
                 )
                 source: ImageSource = DockerImageSource(
                     config=config.images.source,
@@ -133,7 +137,9 @@ class ProcessContext:
                     logger=logger,
                 )
             case GARSourceOptions():
-                gar_client = GARStorageClient(logger)
+                gar_client = GARStorageClient(
+                    logger=logger, releasedater=releasedater
+                )
                 source = GARImageSource(
                     config=config.images.source, gar=gar_client, logger=logger
                 )
@@ -178,8 +184,6 @@ class ProcessContext:
             logger=logger,
         )
 
-        releasedate_cache = Path(NamedTemporaryFile(delete=False).name)
-        releasedater = ReleaseDater(cachefile=releasedate_cache)
         event_manager = config.metrics.make_manager()
         await event_manager.initialize()
         lab_events = LabEvents()
@@ -347,6 +351,7 @@ class Factory:
             credentials_path=credentials_path,
             http_client=self._context.http_client,
             logger=self._logger,
+            releasedater=self._context.releasedater,
         )
 
     def create_gafaelfawr_client(self) -> GafaelfawrStorageClient:

@@ -141,6 +141,14 @@ class RSPImageTag:
     purposes.  Otherwise, we may be able to extract this info from
     the registry, but even if we can, it may be image upload time
     rather than creation time.
+
+    Release tags are a strange case here, because they can be matched with
+    tags on the lsst/lsst_distrib repo to get an approximate release date.
+    However, to do that requires an external lookup that relies on other
+    services, while everything else about the RSPImageTag can be derived
+    simply from the tag strings.  For that reason, adding a date to release
+    and rc images will not be done here, but at point-of-use after the
+    RSPImageTag comes back from the from_str() classmethod.
     """
 
     @classmethod

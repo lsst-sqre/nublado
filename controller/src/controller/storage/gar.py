@@ -9,6 +9,7 @@ from structlog.stdlib import BoundLogger
 from ..models.domain.rspimage import RSPImage, RSPImageCollection
 from ..models.domain.rsptag import RSPImageTag
 from ..models.v1.prepuller import GARSourceOptions
+from ..services.releasedater import ReleaseDater
 
 __all__ = ["GARStorageClient"]
 
@@ -26,8 +27,11 @@ class GARStorageClient:
         Logger for messages.
     """
 
-    def __init__(self, logger: BoundLogger) -> None:
+    def __init__(
+        self, logger: BoundLogger, releasedater: ReleaseDater
+    ) -> None:
         self._logger = logger
+        self._releasedater = releasedater
         self._client = artifactregistry_v1.ArtifactRegistryAsyncClient()
 
     async def list_images(
@@ -55,6 +59,8 @@ class GARStorageClient:
             _, digest = gar_image.uri.rsplit("@", 1)
             for tag_name in gar_image.tags:
                 tag = RSPImageTag.from_str(tag_name)
+                if tag.date is None:
+                    tag.date = self._releasedater.get_release_date(tag)
                 image = RSPImage.from_tag(
                     registry=config.registry,
                     repository=config.path,

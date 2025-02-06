@@ -113,7 +113,10 @@ class ReleaseDater:
 
     def _read_cache(self) -> None:
         if self._cachefile.is_file():
-            textcache = json.loads(self._cachefile.read_text())
+            text = self._cachefile.read_text()
+            if not text:
+                return
+            textcache = json.loads(text)
             self._cache = {
                 x: datetime.strptime(textcache[x], DATEFMT).replace(tzinfo=UTC)
                 for x in textcache

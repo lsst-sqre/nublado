@@ -288,6 +288,10 @@ class DockerImageSource(ImageSource):
         self._tags = RSPImageTagCollection.from_tag_names(
             tags, aliases, prepull.cycle
         )
+        # Add dates for release images if we can derive them.
+        for tag in self._tags.all_tags():
+            if tag.date is None:
+                tag.date = self._docker.releasedater.get_release_date(tag)
 
         # Get digests for the prepulled images in parallel.
         to_prepull = self._subset_to_prepull(self._tags, prepull)
