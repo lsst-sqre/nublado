@@ -392,11 +392,9 @@ def test_from_str() -> None:
 def test_age() -> None:
     """Test that the age() method works with and without supplied basis."""
     rsptag = RSPImageTag.from_str("d_2021_05_27")
+    assert rsptag.age(datetime(2021, 5, 28, tzinfo=UTC)) == timedelta(days=1)
     now = datetime.now(tz=UTC)
-    # If the next three lines take longer than one second, you have a problem.
-    orig_age = rsptag.age(now)
-    assert orig_age is not None
-    new_age = rsptag.age()
-    assert new_age is not None
-    assert (new_age - orig_age) > timedelta(seconds=0)
-    assert (new_age - orig_age) < timedelta(seconds=1)
+    expected = now - datetime(2021, 5, 27, tzinfo=UTC)
+    agenow = rsptag.age()
+    assert agenow is not None
+    assert expected <= agenow <= expected + timedelta(seconds=1)
