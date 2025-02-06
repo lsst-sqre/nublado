@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import asdict
+from datetime import UTC, datetime
 from random import SystemRandom
 from typing import cast
 
@@ -38,6 +39,7 @@ def test_image() -> None:
         "display_name": "Daily 2077_10_23",
         "version": VersionInfo(2077, 10, 23),
         "cycle": None,
+        "date": datetime(2077, 10, 23, tzinfo=UTC),
         "registry": "lighthouse.ceres",
         "repository": "library/sketchbook",
         "digest": "sha256:1234",
@@ -64,6 +66,7 @@ def test_resolve_alias() -> None:
         digest="sha256:1234",
     )
     assert image.cycle == 45
+    assert image.date == datetime(2077, 10, 23, tzinfo=UTC)
     recommended = RSPImage.from_tag(
         registry="lighthouse.ceres",
         repository="library/sketchbook",
@@ -80,6 +83,7 @@ def test_resolve_alias() -> None:
     assert recommended.display_name == "recommended"
     assert recommended.alias_target is None
     assert recommended.cycle is None
+    assert recommended.date is None
     assert recommended.is_possible_alias
 
     recommended.resolve_alias(image)
@@ -90,6 +94,7 @@ def test_resolve_alias() -> None:
         "Recommended (Daily 2077_10_23, SAL Cycle 0045, Build 003)"
     )
     assert recommended.cycle == 45
+    assert recommended.date == datetime(2077, 10, 23, tzinfo=UTC)
     assert recommended.is_possible_alias
 
     # Can do the same thing with a tag that's already an alias.
@@ -101,6 +106,7 @@ def test_resolve_alias() -> None:
     )
     assert latest_daily.image_type == RSPImageType.ALIAS
     assert latest_daily.display_name == "Latest Daily (SAL Cycle 0045)"
+    assert latest_daily.date is None
 
     latest_daily.resolve_alias(image)
     assert latest_daily.image_type == RSPImageType.ALIAS
@@ -110,6 +116,7 @@ def test_resolve_alias() -> None:
     assert latest_daily.display_name == (
         "Latest Daily (Daily 2077_10_23, SAL Cycle 0045, Build 003)"
     )
+    assert latest_daily.date == datetime(2077, 10, 23, tzinfo=UTC)
 
     # Can't resolve some other image type.
     with pytest.raises(ValueError, match=r"Can only resolve.*"):

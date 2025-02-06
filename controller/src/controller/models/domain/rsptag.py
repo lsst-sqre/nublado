@@ -5,6 +5,7 @@ import re
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from functools import total_ordering
 from typing import Self
@@ -130,6 +131,17 @@ class RSPImageTag:
     display_name: str
     """Human-readable display name."""
 
+    date: datetime | None
+    """When the image was created, or as close as we can get to that.
+
+    We try to derive this from the tag string: For RSP daily or weekly
+    tags (or experimentals in one of those formats), we can calculate
+    this to within a day or a week, which is good enough for display
+    purposes.  Otherwise, we may be able to extract this info from
+    the registry, but even if we can, it may be image upload time
+    rather than creation time.
+    """
+
     @classmethod
     def alias(cls, tag: str) -> Self:
         """Create an alias tag.
@@ -157,6 +169,7 @@ class RSPImageTag:
             version=None,
             cycle=cycle,
             display_name=display_name,
+            date=None,
         )
 
     @classmethod
@@ -192,6 +205,7 @@ class RSPImageTag:
             tag=tag,
             cycle=None,
             display_name=tag,
+            date=None,
         )
 
     def __eq__(self, other: object) -> bool:
@@ -241,6 +255,7 @@ class RSPImageTag:
                 tag=tag,
                 cycle=int(cycle) if cycle else None,
                 display_name=display_name,
+                date=None,
             )
 
         # Experimental tags are often exp_<legal-tag>, meaning that they are
@@ -264,6 +279,7 @@ class RSPImageTag:
                 tag=tag,
                 cycle=subtag.cycle,
                 display_name=display_name,
+                date=subtag.date,
             )
 
         # Determine the build number, the last component of the semantic
@@ -312,6 +328,7 @@ class RSPImageTag:
             tag=tag,
             cycle=int(cycle) if cycle else None,
             display_name=display_name,
+            date=cls._calculate_date(data),
         )
 
     @classmethod
@@ -348,6 +365,48 @@ class RSPImageTag:
                 return f"c{cycle}.{cbuild}"
         else:
             return rest if rest else None
+
+    @staticmethod
+    def _calculate_date(tagdata: dict[str, str]) -> datetime | None:
+        """Calculate the date when the image should have been created.
+
+        Parameters
+        ----------
+        tagdata
+            The match groups from the regular expression tag match.
+
+        Returns
+        -------
+        datetime.datetime | None
+            The image creation date if it can be gleaned from the tag.
+        """
+        year = tagdata.get("year")
+        if not year:
+            return None
+        week = tagdata.get("week")
+        if year and week:
+            thursday = 4  # We build on Thursday, which is ISO day 4
+            stamp = datetime.fromisocalendar(int(year), int(week), thursday)
+            return stamp.replace(tzinfo=UTC)
+        month = tagdata.get("month")
+        day = tagdata.get("day")
+        if not (month and day):
+            return None
+        return datetime(int(year), int(month), int(day), tzinfo=UTC)
+
+    def age(self, since: datetime | None = None) -> timedelta | None:
+        """Calculate image age, if possible.
+
+        Parameters
+        ----------
+        since
+            Datestamp to measure age from.  If unspecified, the present.
+        """
+        if self.date is None:
+            return None
+        if since is None:
+            since = datetime.now(tz=UTC)
+        return since - self.date
 
     def _compare(self, other: object) -> int:
         """Compare to image tags for sorting purposes.
