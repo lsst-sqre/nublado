@@ -129,12 +129,12 @@ class ProcessContext:
                     credentials_path=config.images.source.credentials_path,
                     http_client=http_client,
                     logger=logger,
-                    releasedater=releasedater,
                 )
                 source: ImageSource = DockerImageSource(
                     config=config.images.source,
                     docker=docker_client,
                     logger=logger,
+                    releasedater=releasedater,
                 )
             case GARSourceOptions():
                 gar_client = GARStorageClient(
@@ -351,7 +351,6 @@ class Factory:
             credentials_path=credentials_path,
             http_client=self._context.http_client,
             logger=self._logger,
-            releasedater=self._context.releasedater,
         )
 
     def create_gafaelfawr_client(self) -> GafaelfawrStorageClient:

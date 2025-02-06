@@ -19,6 +19,7 @@ from ...models.v1.prepuller import (
     PrepulledImage,
     PrepullerOptions,
 )
+from ...services.releasedater import ReleaseDater
 from ...storage.docker import DockerStorageClient
 from .base import ImageSource
 
@@ -49,10 +50,12 @@ class DockerImageSource(ImageSource):
         config: DockerSourceOptions,
         docker: DockerStorageClient,
         logger: BoundLogger,
+        releasedater: ReleaseDater,
     ) -> None:
         super().__init__(logger)
         self._config = config
         self._docker = docker
+        self._releasedater = releasedater
 
         # All tags present in the registry and repository per its API.
         self._tags = RSPImageTagCollection([])
@@ -291,7 +294,7 @@ class DockerImageSource(ImageSource):
         # Add dates for release images if we can derive them.
         for tag in self._tags.all_tags():
             if tag.date is None:
-                tag.date = self._docker.releasedater.get_release_date(tag)
+                tag.date = self._releasedater.get_release_date(tag)
 
         # Get digests for the prepulled images in parallel.
         to_prepull = self._subset_to_prepull(self._tags, prepull)

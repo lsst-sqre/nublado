@@ -10,7 +10,6 @@ from structlog.stdlib import BoundLogger
 from ..exceptions import DockerRegistryError
 from ..models.domain.docker import DockerCredentials
 from ..models.v1.prepuller import DockerSourceOptions
-from ..services.releasedater import ReleaseDater
 
 __all__ = [
     "DockerCredentialStore",
@@ -108,8 +107,6 @@ class DockerStorageClient:
         Client to use to make requests.
     logger
         Logger for log messages.
-    releasedater
-        Release date caching lookup service engine.
     """
 
     def __init__(
@@ -118,9 +115,7 @@ class DockerStorageClient:
         credentials_path: Path,
         http_client: AsyncClient,
         logger: BoundLogger,
-        releasedater: ReleaseDater,
     ) -> None:
-        self.releasedater = releasedater  # Used by docker service
         self._credentials = DockerCredentialStore.from_path(credentials_path)
         self._client = http_client
         self._logger = logger

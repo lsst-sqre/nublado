@@ -61,6 +61,7 @@ class GARStorageClient:
                 tag = RSPImageTag.from_str(tag_name)
                 if tag.date is None:
                     tag.date = self._releasedater.get_release_date(tag)
+
                 image = RSPImage.from_tag(
                     registry=config.registry,
                     repository=config.path,

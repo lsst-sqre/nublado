@@ -50,6 +50,11 @@ class ReleaseDater:
         # lsst_distrib git tag if we can.  If we cannot, return None.
         #
         # We only care about doing this for releases and release candidates.
+        # However, it's also possible to have an experimental that was built
+        # from one of those, so we want to cover that case too.
+        if rsptag.image_type == RSPImageType.EXPERIMENTAL:
+            # Replace the tag with a subtag made by stripping off "exp_"
+            rsptag = RSPImageTag.from_str(rsptag.tag[4:])
         ok_types = (RSPImageType.RELEASE, RSPImageType.CANDIDATE)
         if rsptag.image_type not in ok_types:
             return None
