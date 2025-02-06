@@ -16,6 +16,7 @@ DOCKER_DEFAULT_TAG = "latest"
 
 __all__ = [
     "DOCKER_DEFAULT_TAG",
+    "TAG_REGEXES",
     "RSPImageTag",
     "RSPImageTagCollection",
     "RSPImageType",
@@ -64,7 +65,7 @@ _REST = r"_(?P<rest>.*)"
 # Note that this is matched top to bottom.  In particular, the release
 # candidate images must precede the release images since they would otherwise
 # parse as a release image with non-empty "rest".
-_TAG_REGEXES = [
+TAG_REGEXES = [
     # r23_0_0_rc1_c0020.001_20210513
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _CYCLE + _REST + "$")),
     # r23_0_0_rc1_c0020.001
@@ -175,7 +176,7 @@ class RSPImageTag:
         """
         if not tag:
             tag = DOCKER_DEFAULT_TAG
-        for image_type, regex in _TAG_REGEXES:
+        for image_type, regex in TAG_REGEXES:
             match = regex.match(tag)
             if match:
                 # It should be impossible for from_match to fail if we

@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Self
 
 import structlog
@@ -29,6 +31,7 @@ from .services.fileserver import FileserverManager
 from .services.image import ImageService
 from .services.lab import LabManager
 from .services.prepuller import Prepuller
+from .services.releasedater import ReleaseDater
 from .services.source.base import ImageSource
 from .services.source.docker import DockerImageSource
 from .services.source.gar import GARImageSource
@@ -73,6 +76,12 @@ class ProcessContext:
 
     prepuller: Prepuller
     """Prepuller."""
+
+    releasedater: ReleaseDater
+    """Release date caching lookup engine."""
+
+    _releasedate_cache: Path
+    """Cache file for release date information."""
 
     lab_manager: LabManager
     """State management for user lab pods."""
@@ -168,6 +177,9 @@ class ProcessContext:
             slack_client=slack_client,
             logger=logger,
         )
+
+        releasedate_cache = Path(NamedTemporaryFile(delete=False).name)
+        releasedater = ReleaseDater(cachefile=releasedate_cache)
         event_manager = config.metrics.make_manager()
         await event_manager.initialize()
         lab_events = LabEvents()
@@ -188,8 +200,10 @@ class ProcessContext:
             image_service=image_service,
             kubernetes_client=kubernetes_client,
             prepuller=prepuller,
+            releasedater=releasedater,
             lab_manager=lab_manager,
             _fileserver_manager=fileserver_manager,
+            _releasedate_cache=releasedate_cache,
             background=BackgroundTaskManager(
                 image_service=image_service,
                 prepuller=prepuller,
@@ -210,6 +224,7 @@ class ProcessContext:
     async def aclose(self) -> None:
         """Free allocated resources."""
         await self.kubernetes_client.close()
+        self._releasedate_cache.unlink()
 
     async def start(self) -> None:
         """Start the background threads running."""
@@ -292,6 +307,14 @@ class Factory:
         """
         return self._context.prepuller
 
+    @property
+    def releasedater(self) -> ReleaseDater:
+        """Global release date cache engine, from the `ProcessContext`.
+
+        Only used by tests; handlers have access via the request context.
+        """
+        return self._context.releasedater
+
     async def aclose(self) -> None:
         """Shut down the factory.
 
@@ -367,6 +390,18 @@ class Factory:
             Newly-created lab storage.
         """
         return LabStorage(self._context.kubernetes_client, self._logger)
+
+    def create_releasedater(self, cachefile: Path) -> ReleaseDater:
+        """Create release date lookup cache engine.
+
+        Only used by the test suite.
+
+        Returns
+        -------
+        ReleaseDater
+            Newly-created release date cache engine.
+        """
+        return ReleaseDater(cachefile=cachefile)
 
     def set_logger(self, logger: BoundLogger) -> None:
         """Replace the internal logger.

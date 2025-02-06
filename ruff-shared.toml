@@ -129,6 +129,9 @@ select = ["ALL"]
 "*/tests/schema_test.py" = [
     "ASYNC221", # useful to run subprocess in async tests for Alembic
 ]
+"controller/src/controller/factory.py" = [
+    "SIM115", # a context manager is not appropriate here
+]
 
 # These are too useful as attributes or methods to allow the conflict with the
 # built-in to rule out their use.
