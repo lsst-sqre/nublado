@@ -34,6 +34,10 @@ from .constants import (
     RESERVED_ENV,
     RESERVED_PATHS,
 )
+from .models.domain.imagepolicy import (
+    IndividualImageClassPolicy,
+    RSPImagePolicy,
+)
 from .models.domain.kubernetes import (
     Affinity,
     PullPolicy,
@@ -525,6 +529,82 @@ class PrepullerConfig(PrepullerOptions):
     )
 
     source: DockerSourceConfig | GARSourceConfig
+
+
+class DropdownMenuConfigPolicy(RSPImagePolicy):
+    """Configuration for the spawner page dropdown menu.
+
+    This is identical to the model used to define image display policies
+    except that camel-case aliases are enabled.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+    release: Annotated[
+        IndividualImageClassConfigPolicy | None,
+        Field(title="Release", description="Policy for releases to display."),
+    ] = None
+
+    weekly: Annotated[
+        IndividualImageClassConfigPolicy | None,
+        Field(
+            title="Weekly", description="Policy for weekly builds to display."
+        ),
+    ] = None
+
+    daily: Annotated[
+        IndividualImageClassConfigPolicy | None,
+        Field(
+            title="Daily", description="Policy for daily builds to display."
+        ),
+    ] = None
+
+    release_candidate: Annotated[
+        IndividualImageClassConfigPolicy | None,
+        Field(
+            title="Release Candidate",
+            description=(
+                "Policy for release candidate builds to display.",
+                " Note that, in the service layer, there will be"
+                " an implicit policy that release candidates will"
+                " only ever be displayed for versions that themselves"
+                " are unreleased.  For instance, if 35.0.1rc2 would"
+                " otherwise be displayed, but release 35.0.1 is"
+                " minted, 35.0.1rc2 will no longer be displayed.",
+            ),
+        ),
+    ] = None
+
+    experimental: Annotated[
+        IndividualImageClassConfigPolicy | None,
+        Field(
+            title="Experimental",
+            description="Policy for experimental builds to display.",
+        ),
+    ] = None
+
+    unknown: Annotated[
+        IndividualImageClassConfigPolicy | None,
+        Field(
+            title="Unknown",
+            description=(
+                "Policy for builds without parseable RSP tags to display."
+            ),
+        ),
+    ] = None
+
+
+class IndividualImageClassConfigPolicy(IndividualImageClassPolicy):
+    """Configuration for image display policy for an individual image class.
+
+    This is identical to the model used to define image display policies
+    except that camel-case aliases are enabled.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
 
 
 class LabSizeDefinition(BaseModel):
@@ -1206,12 +1286,25 @@ class Config(BaseSettings):
         Field(
             title="Available lab images",
             description=(
-                "Configuration for which images to prepull and which images to"
+                "Configuration for which images to prepull and to"
                 " display in the spawner menu for users to choose from when"
                 " spawning labs"
             ),
         ),
     ]
+
+    dropdown_menu: Annotated[
+        DropdownMenuConfigPolicy | None,
+        Field(
+            title="Dropdown menu display policy",
+            description=(
+                "Configuration for which images are displayed in the"
+                " spawner dropdown menu for users to choose from when"
+                " spawning labs.  If unspecified, no filtering will be"
+                " performed on images discovered in the remote registry."
+            ),
+        ),
+    ] = None
 
     lab: Annotated[LabConfig, Field(title="User lab configuration")]
 
