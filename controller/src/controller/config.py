@@ -26,6 +26,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from safir.logging import LogLevel, Profile
 from safir.metrics import MetricsConfiguration, metrics_configuration_factory
 from safir.pydantic import HumanTimedelta
+from semver.version import VersionInfo
 
 from .constants import (
     KUBERNETES_NAME_PATTERN,
@@ -33,10 +34,6 @@ from .constants import (
     METADATA_PATH,
     RESERVED_ENV,
     RESERVED_PATHS,
-)
-from .models.domain.imagepolicy import (
-    IndividualImageClassPolicy,
-    RSPImagePolicy,
 )
 from .models.domain.kubernetes import (
     Affinity,
@@ -531,80 +528,119 @@ class PrepullerConfig(PrepullerOptions):
     source: DockerSourceConfig | GARSourceConfig
 
 
-class DropdownMenuConfigPolicy(RSPImagePolicy):
-    """Configuration for the spawner page dropdown menu.
+class IndividualImageClassPolicy(BaseModel):
+    """Policy for images to display within a given class.
 
-    This is identical to the model used to define image display policies
-    except that camel-case aliases are enabled.
+    The policy has a 'number', an 'age', and a 'cutoff_version' field.  All
+    are optional.
+
+    All specified policies will be applied.  For instance, if the policy
+    specifies both age and cutoff version, then an image will have to be
+    newer than the specified age, and also have a version greater than or
+    equal to the cutoff, in order to be displayed.
+
+    If no policies are specified, no filtering will be performed and all
+    images of that class will be displayed.
     """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        extra="forbid",
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+    )
+
+    number: Annotated[
+        int | None,
+        Field(
+            title="Number",
+            description="Number of images to display.",
+            ge=0,
+        ),
+    ] = None
+
+    age: Annotated[
+        HumanTimedelta | None,
+        Field(
+            title="Age",
+            description="Maximum age of image to display.",
+        ),
+    ] = None
+
+    cutoff_version: Annotated[
+        VersionInfo | None,
+        Field(
+            title="Cutoff Version",
+            description=(
+                "Minimum version of image to display."
+                " This does not apply to unparseable tags or to"
+                " experimental tags not derived from a parseable tag."
+            ),
+        ),
+    ] = None
+
+
+class DropdownMenuPolicy:
+    """Configuration for the spawner page dropdown menu."""
 
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
     release: Annotated[
-        IndividualImageClassConfigPolicy | None,
-        Field(title="Release", description="Policy for releases to display."),
-    ] = None
+        IndividualImageClassPolicy,
+        Field(
+            title="Release",
+            description="Policy for releases to display.",
+            default_factory=IndividualImageClassPolicy,
+        ),
+    ]
 
     weekly: Annotated[
-        IndividualImageClassConfigPolicy | None,
+        IndividualImageClassPolicy,
         Field(
-            title="Weekly", description="Policy for weekly builds to display."
+            title="Weekly",
+            description="Policy for weekly builds to display.",
+            default_factory=IndividualImageClassPolicy,
         ),
-    ] = None
+    ]
 
     daily: Annotated[
-        IndividualImageClassConfigPolicy | None,
+        IndividualImageClassPolicy,
         Field(
-            title="Daily", description="Policy for daily builds to display."
+            title="Daily",
+            description="Policy for daily builds to display.",
+            default_factory=IndividualImageClassPolicy,
         ),
-    ] = None
+    ]
 
     release_candidate: Annotated[
-        IndividualImageClassConfigPolicy | None,
+        IndividualImageClassPolicy,
         Field(
             title="Release Candidate",
-            description=(
-                "Policy for release candidate builds to display.",
-                " Note that, in the service layer, there will be"
-                " an implicit policy that release candidates will"
-                " only ever be displayed for versions that themselves"
-                " are unreleased.  For instance, if 35.0.1rc2 would"
-                " otherwise be displayed, but release 35.0.1 is"
-                " minted, 35.0.1rc2 will no longer be displayed.",
-            ),
+            description=("Policy for release candidate builds to display.",),
+            default_factory=IndividualImageClassPolicy,
         ),
-    ] = None
+    ]
 
     experimental: Annotated[
-        IndividualImageClassConfigPolicy | None,
+        IndividualImageClassPolicy,
         Field(
             title="Experimental",
             description="Policy for experimental builds to display.",
+            default_factory=IndividualImageClassPolicy,
         ),
-    ] = None
+    ]
 
     unknown: Annotated[
-        IndividualImageClassConfigPolicy | None,
+        IndividualImageClassPolicy,
         Field(
             title="Unknown",
             description=(
                 "Policy for builds without parseable RSP tags to display."
             ),
+            default_factory=IndividualImageClassPolicy,
         ),
-    ] = None
-
-
-class IndividualImageClassConfigPolicy(IndividualImageClassPolicy):
-    """Configuration for image display policy for an individual image class.
-
-    This is identical to the model used to define image display policies
-    except that camel-case aliases are enabled.
-    """
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
-    )
+    ]
 
 
 class LabSizeDefinition(BaseModel):
@@ -1294,17 +1330,17 @@ class Config(BaseSettings):
     ]
 
     dropdown_menu: Annotated[
-        DropdownMenuConfigPolicy | None,
+        DropdownMenuPolicy,
         Field(
             title="Dropdown menu display policy",
             description=(
                 "Configuration for which images are displayed in the"
                 " spawner dropdown menu for users to choose from when"
-                " spawning labs.  If unspecified, no filtering will be"
-                " performed on images discovered in the remote registry."
+                " spawning labs."
             ),
+            default_factory=DropdownMenuPolicy,
         ),
-    ] = None
+    ]
 
     lab: Annotated[LabConfig, Field(title="User lab configuration")]
 
