@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 import yaml
 from kubernetes_asyncio.client import (
@@ -17,16 +18,19 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    GetJsonSchemaHandler,
     SecretStr,
     field_validator,
     model_validator,
 )
 from pydantic.alias_generators import to_camel
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import core_schema
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from safir.logging import LogLevel, Profile
 from safir.metrics import MetricsConfiguration, metrics_configuration_factory
 from safir.pydantic import HumanTimedelta
-from semver.version import VersionInfo
+from semver import Version
 
 from .constants import (
     KUBERNETES_NAME_PATTERN,
@@ -54,9 +58,11 @@ __all__ = [
     "Config",
     "ContainerImage",
     "DisabledFileserverConfig",
+    "DropdownMenuPolicy",
     "EnabledFileserverConfig",
     "FileserverConfig",
     "HostPathVolumeSource",
+    "IndividualImageClassPolicy",
     "LabConfig",
     "LabInitContainer",
     "LabNSSFiles",
@@ -85,6 +91,54 @@ def _reject_reserved_paths(v: str) -> str:
     if v in RESERVED_PATHS:
         raise ValueError(f"Cannot mount volume over {v}")
     return v
+
+
+class _VersionPydanticAnnotation:
+    """Wrapper for semver.Version to make Pydantic happy.
+
+    cf https://python-semver.readthedocs.io/en/latest/advanced/\
+       combine-pydantic-and-semver.html
+    """
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        _source_type: Any,
+        _handler: Callable[[Any], core_schema.CoreSchema],
+    ) -> core_schema.CoreSchema:
+        def validate_from_str(value: str) -> Version:
+            return Version.parse(value)
+
+        from_str_schema = core_schema.chain_schema(
+            [
+                core_schema.str_schema(),
+                core_schema.no_info_plain_validator_function(
+                    validate_from_str
+                ),
+            ]
+        )
+
+        return core_schema.json_or_python_schema(
+            json_schema=from_str_schema,
+            python_schema=core_schema.union_schema(
+                [
+                    core_schema.is_instance_schema(Version),
+                    from_str_schema,
+                ]
+            ),
+            serialization=core_schema.to_string_ser_schema(),
+        )
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls,
+        _core_schema: core_schema.CoreSchema,
+        handler: GetJsonSchemaHandler,
+    ) -> JsonSchemaValue:
+        return handler(core_schema.str_schema())
+
+
+ManifestVersion = Annotated[Version, _VersionPydanticAnnotation]
 
 
 class ContainerImage(BaseModel):
@@ -547,7 +601,6 @@ class IndividualImageClassPolicy(BaseModel):
         alias_generator=to_camel,
         extra="forbid",
         populate_by_name=True,
-        arbitrary_types_allowed=True,
     )
 
     number: Annotated[
@@ -568,7 +621,7 @@ class IndividualImageClassPolicy(BaseModel):
     ] = None
 
     cutoff_version: Annotated[
-        VersionInfo | None,
+        _VersionPydanticAnnotation | None,
         Field(
             title="Cutoff Version",
             description=(
