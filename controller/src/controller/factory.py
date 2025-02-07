@@ -9,7 +9,7 @@ from typing import Self
 
 import structlog
 from httpx import AsyncClient
-from kubernetes_asyncio.client.api_client import ApiClient
+from kubernetes_asyncio.client.api_client import ApiClient, Configuration
 from safir.dependencies.http_client import http_client_dependency
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
@@ -95,7 +95,11 @@ class ProcessContext:
             Shared context for a lab controller process.
         """
         http_client = await http_client_dependency()
-        kubernetes_client = ApiClient()
+
+        # Disable the connection pool limits in kubernetes-asyncio.
+        kubernetes_configuration = Configuration()
+        kubernetes_configuration.connection_pool_maxsize = 0
+        kubernetes_client = ApiClient(configuration=kubernetes_configuration)
 
         # This logger is used only by process-global singletons.  Everything
         # else will use a per-request logger that includes more context about
