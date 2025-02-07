@@ -9,7 +9,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Concatenate
 
-from httpx import AsyncClient, HTTPError, Response
+from httpx import AsyncClient, HTTPError, Limits, Response
 from httpx_sse import ServerSentEvent, aconnect_sse
 from jupyterhub.spawner import Spawner
 from traitlets import Unicode, default
@@ -122,10 +122,17 @@ class NubladoSpawner(Spawner):
 
     @property
     def _client(self) -> AsyncClient:
-        """Shared `httpx.AsyncClient`."""
+        """Shared `httpx.AsyncClient`.
+
+        The maximum connection pool size has to be larger than the number of
+        simultaneous spawns that we want to support, or JupyterHub will time
+        out waiting for a pool connection if all of them are waiting on spawn
+        progress events.
+        """
         global _CLIENT
         if not _CLIENT:
-            _CLIENT = AsyncClient(timeout=60)
+            limits = Limits(max_connections=None)
+            _CLIENT = AsyncClient(timeout=60, limits=limits)
         return _CLIENT
 
     async def get_url(self) -> str:
