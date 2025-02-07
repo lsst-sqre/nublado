@@ -720,7 +720,8 @@ class LabManager:
         state are no longer running and should be garbage-collected, as long
         as the user hasn't already started a new operation on that lab.
         """
-        for username, lab in self._labs.items():
+        all_labs = list(self._labs.items())
+        for username, lab in all_labs:
             if lab.state and not lab.state.is_running:
                 if not lab.monitor.in_progress:
                     with contextlib.suppress(UnknownUserError):
