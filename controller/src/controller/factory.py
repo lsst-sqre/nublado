@@ -123,11 +123,15 @@ class ProcessContext:
                     config=config.images.source,
                     docker=docker_client,
                     logger=logger,
+                    image_filter=config.dropdown_menu,
                 )
             case GARSourceOptions():
-                gar_client = GARStorageClient(logger)
+                gar_client = GARStorageClient(logger=logger)
                 source = GARImageSource(
-                    config=config.images.source, gar=gar_client, logger=logger
+                    config=config.images.source,
+                    gar=gar_client,
+                    logger=logger,
+                    image_filter=config.dropdown_menu,
                 )
 
         fileserver_manager = None
