@@ -86,6 +86,25 @@ class RSPImage(RSPImageTag):
             **asdict(tag),
         )
 
+    def to_rsptag(self) -> RSPImageTag:
+        """Recover the RSP tag from which this image was derived.
+
+        This is useful for menu calculations.
+
+        Returns
+        -------
+        RSPImageTag
+            RSPImageTag corresponding to this image.
+        """
+        return RSPImageTag(
+            tag=self.tag,
+            image_type=self.image_type,
+            version=self.version,
+            cycle=self.cycle,
+            display_name=self.display_name,
+            date=self.date,
+        )
+
     @property
     def is_possible_alias(self) -> bool:
         """Whether this tag could be an alias."""

@@ -8,9 +8,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from functools import total_ordering
-from typing import Self
+from typing import Self, cast
 
 from semver import Version
+
+from .imagepolicy import ImagePolicy, IndividualImageCategoryPolicy
 
 DOCKER_DEFAULT_TAG = "latest"
 """Implicit tag used by Docker/Kubernetes when no tag is specified."""
@@ -576,3 +578,81 @@ class RSPImageTagCollection:
 
         # Return the results.
         return type(self)(tags)
+
+    def by_type(self, image_type: RSPImageType) -> Self:
+        """Return all tags of a given type.
+
+        Parameters
+        ----------
+        image_type
+            RSPImageType to select from collection.
+
+        Returns
+        -------
+        RSPImageCollection
+            Collection of tags matching the given type.
+        """
+        return type(self)(self._by_type[image_type])
+
+    def apply_policy(self, policy: ImagePolicy) -> Self:
+        """Apply a filter policy and return the remaining tags.
+
+        Note that this relies on the ordering of types, as subset() does.
+
+        Parameters
+        ----------
+        policy
+            Policy governing tag filtering.
+
+        Returns
+        -------
+        RSPImageTagCollection
+            Tags remaining after policy application.
+        """
+        tags: list[RSPImageTag] = []
+        for category in RSPImageType:
+            tags.extend(
+                self._apply_category_policy(
+                    policy,
+                    category,
+                )
+            )
+        return type(self)(tags)
+
+    def _apply_category_policy(
+        self,
+        policy: ImagePolicy,
+        category: RSPImageType,
+    ) -> list[RSPImageTag]:
+        candidates = list(self.by_type(category).all_tags())
+        remainder: list[RSPImageTag] = []
+
+        # Mypy needs to take it on faith that this is how you map
+        # category names to attributes of the overall policy,
+        # each one being an IndividualImageCategoryPolicy
+        pol_attr = category.value.lower().replace(" ", "_")
+        cat_policy = cast(
+            IndividualImageCategoryPolicy, getattr(policy, pol_attr)
+        )
+
+        for tag in candidates:
+            # First check the count; if we're at our limit, we're done
+            if cat_policy.number is not None and cat_policy.number <= len(
+                remainder
+            ):
+                break
+            # Apply age policy
+            tag_age = tag.age()
+            if tag_age is not None and cat_policy.age is not None:
+                if tag_age > cat_policy.age:
+                    continue
+            # Apply version policy
+            if (
+                tag.version is not None
+                and cat_policy.cutoff_version is not None
+            ):
+                if tag.version < cat_policy.cutoff_version:
+                    continue
+            # We survived the filter; add the tag.
+            remainder.append(tag)
+        return remainder
