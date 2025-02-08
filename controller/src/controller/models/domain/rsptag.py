@@ -10,7 +10,7 @@ from enum import Enum
 from functools import total_ordering
 from typing import Self
 
-from semver.version import VersionInfo
+from semver import Version
 
 DOCKER_DEFAULT_TAG = "latest"
 """Implicit tag used by Docker/Kubernetes when no tag is specified."""
@@ -122,7 +122,7 @@ class RSPImageTag:
     image_type: RSPImageType
     """Type (release series) of image identified by this tag."""
 
-    version: VersionInfo | None
+    version: Version | None
     """Version information as a semantic version."""
 
     cycle: int | None
@@ -313,7 +313,13 @@ class RSPImageTag:
 
         # Construct the semantic version.  It should be impossible, given our
         # regexes, for this to fail, but if it does that's handled in from_str.
-        version = VersionInfo(int(major), int(minor), int(patch), pre, build)
+        version = Version(
+            major=int(major),
+            minor=int(minor),
+            patch=int(patch),
+            prerelease=pre,
+            build=build,
+        )
 
         # If there is extra information, add it to the end of the display name.
         if cycle:
