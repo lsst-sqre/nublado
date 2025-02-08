@@ -11,6 +11,7 @@ from structlog.stdlib import BoundLogger
 from ...exceptions import InvalidDockerReferenceError, UnknownDockerImageError
 from ...models.domain.docker import DockerReference
 from ...models.domain.image import MenuImage
+from ...models.domain.imagepolicy import ImagePolicy
 from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.domain.rsptag import RSPImageTagCollection
@@ -49,8 +50,9 @@ class DockerImageSource(ImageSource):
         config: DockerSourceOptions,
         docker: DockerStorageClient,
         logger: BoundLogger,
+        image_filter: ImagePolicy,
     ) -> None:
-        super().__init__(logger)
+        super().__init__(logger, image_filter)
         self._config = config
         self._docker = docker
 
@@ -201,12 +203,13 @@ class DockerImageSource(ImageSource):
         Returns
         -------
         list of MenuImage
-            All known images.
+            All known images meeting filter criteria.
         """
         registry = self._config.registry
         repository = self._config.repository
         menu_images = []
-        for tag in self._tags.all_tags():
+        filtered_tags = self._tags.apply_policy(self._image_filter)
+        for tag in filtered_tags.all_tags():
             image = self._images.image_for_tag_name(tag.tag)
             if image:
                 reference = image.reference_with_digest
