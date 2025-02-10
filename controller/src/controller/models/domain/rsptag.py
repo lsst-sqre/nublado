@@ -12,7 +12,7 @@ from typing import Self, cast
 
 from semver import Version
 
-from .imagepolicy import ImagePolicy, IndividualImageCategoryPolicy
+from .imagefilterpolicy import ImageFilterPolicy, RSPImageFilterPolicy
 
 DOCKER_DEFAULT_TAG = "latest"
 """Implicit tag used by Docker/Kubernetes when no tag is specified."""
@@ -594,7 +594,7 @@ class RSPImageTagCollection:
         """
         return type(self)(self._by_type[image_type])
 
-    def apply_policy(self, policy: ImagePolicy) -> Self:
+    def apply_policy(self, policy: RSPImageFilterPolicy) -> Self:
         """Apply a filter policy and return the remaining tags.
 
         Note that this relies on the ordering of types, as subset() does.
@@ -621,7 +621,7 @@ class RSPImageTagCollection:
 
     def _apply_category_policy(
         self,
-        policy: ImagePolicy,
+        policy: RSPImageFilterPolicy,
         category: RSPImageType,
     ) -> list[RSPImageTag]:
         candidates = list(self.by_type(category).all_tags())
@@ -629,11 +629,9 @@ class RSPImageTagCollection:
 
         # Mypy needs to take it on faith that this is how you map
         # category names to attributes of the overall policy,
-        # each one being an IndividualImageCategoryPolicy
+        # each one being an ImageFilterPolicy.
         pol_attr = category.value.lower().replace(" ", "_")
-        cat_policy = cast(
-            IndividualImageCategoryPolicy, getattr(policy, pol_attr)
-        )
+        cat_policy = cast(ImageFilterPolicy, getattr(policy, pol_attr))
 
         for tag in candidates:
             # First check the count; if we're at our limit, we're done

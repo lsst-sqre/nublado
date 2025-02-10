@@ -35,7 +35,6 @@ from .constants import (
     RESERVED_PATHS,
 )
 from .models.domain.imagefilterpolicy import RSPImageFilterPolicy
-
 from .models.domain.kubernetes import (
     Affinity,
     PullPolicy,
