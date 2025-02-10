@@ -7,14 +7,11 @@ from pydantic.alias_generators import to_camel
 from safir.pydantic import HumanTimedelta
 from semver import Version
 
-__all__ = ["DropdownMenuPolicy", "IndividualImageClassPolicy"]
+__all__ = ["ImageFilterPolicy", "RSPImageFilterPolicy"]
 
 
-class IndividualImageClassPolicy(BaseModel):
-    """Policy for images to display within a given class.
-
-    The policy has a 'number', an 'age', and a 'cutoff_version' field.  All
-    are optional.
+class ImageFilterPolicy(BaseModel):
+    """Policy for images to display within a given category.
 
     All specified policies will be applied.  For instance, if the policy
     specifies both age and cutoff version, then an image will have to be
@@ -22,7 +19,7 @@ class IndividualImageClassPolicy(BaseModel):
     equal to the cutoff, in order to be displayed.
 
     If no policies are specified, no filtering will be performed and all
-    images of that class will be displayed.
+    images of that category will be displayed.
     """
 
     model_config = ConfigDict(
@@ -63,64 +60,74 @@ class IndividualImageClassPolicy(BaseModel):
     ] = None
 
 
-class DropdownMenuPolicy(BaseModel):
-    """Configuration for the spawner page dropdown menu."""
+class RSPImageFilterPolicy(BaseModel):
+    """Configuration for display of RSP images."""
 
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
-    release: Annotated[
-        IndividualImageClassPolicy,
+
+    alias: Annotated[
+        ImageFilterPolicy,
         Field(
             title="Release",
             description="Policy for releases to display.",
-            default_factory=IndividualImageClassPolicy,
+            default_factory=ImageFilterPolicy,
+        ),
+    ]
+
+    release: Annotated[
+        ImageFilterPolicy,
+        Field(
+            title="Release",
+            description="Policy for releases to display.",
+            default_factory=ImageFilterPolicy,
         ),
     ]
 
     weekly: Annotated[
-        IndividualImageClassPolicy,
+        ImageFilterPolicy,
         Field(
             title="Weekly",
             description="Policy for weekly builds to display.",
-            default_factory=IndividualImageClassPolicy,
+            default_factory=ImageFilterPolicy,
         ),
     ]
 
     daily: Annotated[
-        IndividualImageClassPolicy,
+        ImageFilterPolicy,
         Field(
             title="Daily",
             description="Policy for daily builds to display.",
-            default_factory=IndividualImageClassPolicy,
+            default_factory=ImageFilterPolicy,
         ),
     ]
 
     release_candidate: Annotated[
-        IndividualImageClassPolicy,
+        ImageFilterPolicy,
         Field(
             title="Release Candidate",
             description=("Policy for release candidate builds to display.",),
-            default_factory=IndividualImageClassPolicy,
+            default_factory=ImageFilterPolicy,
         ),
     ]
 
     experimental: Annotated[
-        IndividualImageClassPolicy,
+        ImageFilterPolicy,
         Field(
             title="Experimental",
             description="Policy for experimental builds to display.",
-            default_factory=IndividualImageClassPolicy,
+            default_factory=ImageFilterPolicy,
         ),
     ]
 
     unknown: Annotated[
-        IndividualImageClassPolicy,
+        ImageFilterPolicy,
         Field(
             title="Unknown",
             description=(
                 "Policy for builds without parseable RSP tags to display."
             ),
-            default_factory=IndividualImageClassPolicy,
+            default_factory=ImageFilterPolicy,
         ),
     ]

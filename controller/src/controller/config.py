@@ -34,9 +34,7 @@ from .constants import (
     RESERVED_ENV,
     RESERVED_PATHS,
 )
-from .models.domain.imagepolicy import (
-    DropdownMenuPolicy,
-)
+from .models.domain.imagefilterpolicy import RSPImageFilterPolicy
 from .models.domain.kubernetes import (
     Affinity,
     PullPolicy,
@@ -1217,7 +1215,7 @@ class Config(BaseSettings):
     ]
 
     dropdown_menu: Annotated[
-        DropdownMenuPolicy,
+        RSPImageFilterPolicy,
         Field(
             title="Dropdown menu display policy",
             description=(
@@ -1225,7 +1223,7 @@ class Config(BaseSettings):
                 " spawner dropdown menu for users to choose from when"
                 " spawning labs."
             ),
-            default_factory=DropdownMenuPolicy,
+            default_factory=RSPImageFilterPolicy,
         ),
     ]
 
