@@ -11,7 +11,7 @@ from structlog.stdlib import BoundLogger
 from ...exceptions import InvalidDockerReferenceError, UnknownDockerImageError
 from ...models.domain.docker import DockerReference
 from ...models.domain.image import MenuImage
-from ...models.domain.imagepolicy import ImagePolicy
+from ...models.domain.imagefilterpolicy import RSPImageFilterPolicy
 from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.domain.rsptag import RSPImageTagCollection
@@ -43,6 +43,8 @@ class DockerImageSource(ImageSource):
         Client to query the Docker API for tags.
     logger
         Logger for messages.
+    image_filter
+        Filter policy to apply to images in the remote registry.
     """
 
     def __init__(
@@ -50,7 +52,7 @@ class DockerImageSource(ImageSource):
         config: DockerSourceOptions,
         docker: DockerStorageClient,
         logger: BoundLogger,
-        image_filter: ImagePolicy,
+        image_filter: RSPImageFilterPolicy,
     ) -> None:
         super().__init__(logger, image_filter)
         self._config = config
