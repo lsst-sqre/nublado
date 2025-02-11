@@ -1,0 +1,325 @@
+"""Tests of Docker image tag parsing and analysis."""
+
+from __future__ import annotations
+
+from dataclasses import asdict
+from datetime import UTC, datetime
+from random import SystemRandom
+
+from semver.version import VersionInfo
+
+from controller.models.domain.rsptag import (
+    RSPImageTag,
+    RSPImageTagCollection,
+    RSPImageType,
+)
+
+
+def test_collection() -> None:
+    """Test behavior of an RSPImageTagCollection object."""
+    # This tag list must be kept in expected sorted order.
+    tags = [
+        "r21_0_1",
+        "r20_0_1_c0027.001",
+        "w_2077_46",
+        "w_2077_45",
+        "w_2077_44",
+        "w_2077_43",
+        "w_2077_42",
+        "w_2077_40_c0027.001",
+        "w_2077_40_c0026.001",
+        "d_2077_10_21",
+        "d_2077_10_20",
+        "r22_0_0_rc1",
+        "exp_w_2021_22",
+        "recommended_c0027",
+        "recommended",
+    ]
+    shuffled_tags = list(tags)
+    SystemRandom().shuffle(shuffled_tags)
+
+    collection = RSPImageTagCollection.from_tag_names(shuffled_tags, set())
+    assert [t.tag for t in collection.all_tags()] == tags
+    tag = collection.tag_for_tag_name("w_2077_46")
+    assert tag
+    assert tag.tag == "w_2077_46"
+    assert collection.tag_for_tag_name("w_2080_01") is None
+
+    # Filter by cycle.
+    collection = RSPImageTagCollection.from_tag_names(
+        shuffled_tags, set(), cycle=27
+    )
+    assert [t.tag for t in collection.all_tags()] == [
+        "r20_0_1_c0027.001",
+        "w_2077_40_c0027.001",
+        "recommended_c0027",
+    ]
+
+    # Alias tag identification.
+    unknown = [
+        t.tag
+        for t in collection.all_tags()
+        if t.image_type == RSPImageType.UNKNOWN
+    ]
+    assert unknown == ["recommended_c0027"]
+    recommended = {"recommended", "recommended_c0027"}
+    collection = RSPImageTagCollection.from_tag_names(
+        shuffled_tags, recommended
+    )
+    aliases = {
+        t.tag
+        for t in collection.all_tags()
+        if t.image_type == RSPImageType.ALIAS
+    }
+    assert aliases == recommended
+    assert next(collection.all_tags()).tag == "recommended_c0027"
+
+    # Subsetting.
+    subset = collection.subset(releases=1, weeklies=3, dailies=1)
+    assert [t.tag for t in subset.all_tags()] == [
+        "r21_0_1",
+        "w_2077_46",
+        "w_2077_45",
+        "w_2077_44",
+        "d_2077_10_21",
+    ]
+    subset = collection.subset(
+        releases=1, weeklies=3, dailies=1, include={"recommended"}
+    )
+    assert [t.tag for t in subset.all_tags()] == [
+        "recommended",
+        "r21_0_1",
+        "w_2077_46",
+        "w_2077_45",
+        "w_2077_44",
+        "d_2077_10_21",
+    ]
+    subset = subset.subset(dailies=1)
+    assert [t.tag for t in subset.all_tags()] == ["d_2077_10_21"]
+
+
+def test_from_str() -> None:
+    """Parse tags into RSPImageTag objects."""
+    test_cases = {
+        "r21_0_1": {
+            "tag": "r21_0_1",
+            "image_type": RSPImageType.RELEASE,
+            "display_name": "Release r21.0.1",
+            "version": VersionInfo(21, 0, 1),
+            "cycle": None,
+            "date": None,
+        },
+        "r22_0_0_rc1": {
+            "tag": "r22_0_0_rc1",
+            "image_type": RSPImageType.CANDIDATE,
+            "display_name": "Release Candidate r22.0.0-rc1",
+            "version": VersionInfo(22, 0, 0, "rc1"),
+            "cycle": None,
+            "date": None,
+        },
+        "w_2021_22": {
+            "tag": "w_2021_22",
+            "image_type": RSPImageType.WEEKLY,
+            "display_name": "Weekly 2021_22",
+            "version": VersionInfo(2021, 22, 0),
+            "cycle": None,
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
+        },
+        "d_2021_05_27": {
+            "tag": "d_2021_05_27",
+            "image_type": RSPImageType.DAILY,
+            "display_name": "Daily 2021_05_27",
+            "version": VersionInfo(2021, 5, 27),
+            "cycle": None,
+            "date": datetime(2021, 5, 27, tzinfo=UTC),
+        },
+        "r21_0_1_c0020.001": {
+            "tag": "r21_0_1_c0020.001",
+            "image_type": RSPImageType.RELEASE,
+            "display_name": "Release r21.0.1 (SAL Cycle 0020, Build 001)",
+            "version": VersionInfo(21, 0, 1, None, "c0020.001"),
+            "cycle": 20,
+            "date": None,
+        },
+        "r22_0_0_rc1_c0020.001": {
+            "tag": "r22_0_0_rc1_c0020.001",
+            "image_type": RSPImageType.CANDIDATE,
+            "display_name": (
+                "Release Candidate r22.0.0-rc1 (SAL Cycle 0020, Build 001)"
+            ),
+            "version": VersionInfo(22, 0, 0, "rc1", "c0020.001"),
+            "cycle": 20,
+            "date": None,
+        },
+        "w_2021_22_c0020.001": {
+            "tag": "w_2021_22_c0020.001",
+            "image_type": RSPImageType.WEEKLY,
+            "display_name": "Weekly 2021_22 (SAL Cycle 0020, Build 001)",
+            "version": VersionInfo(2021, 22, 0, None, "c0020.001"),
+            "cycle": 20,
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
+        },
+        "d_2021_05_27_c0020.001": {
+            "tag": "d_2021_05_27_c0020.001",
+            "image_type": RSPImageType.DAILY,
+            "display_name": "Daily 2021_05_27 (SAL Cycle 0020, Build 001)",
+            "version": VersionInfo(2021, 5, 27, None, "c0020.001"),
+            "cycle": 20,
+            "date": datetime(2021, 5, 27, tzinfo=UTC),
+        },
+        "r21_0_1_20210527": {
+            "tag": "r21_0_1_20210527",
+            "image_type": RSPImageType.RELEASE,
+            "display_name": "Release r21.0.1 [20210527]",
+            "version": VersionInfo(21, 0, 1, None, "20210527"),
+            "cycle": None,
+            "date": None,
+        },
+        "r22_0_0_rc1_20210527": {
+            "tag": "r22_0_0_rc1_20210527",
+            "image_type": RSPImageType.CANDIDATE,
+            "display_name": "Release Candidate r22.0.0-rc1 [20210527]",
+            "version": VersionInfo(22, 0, 0, "rc1", "20210527"),
+            "cycle": None,
+            "date": None,
+        },
+        "w_2021_22_20210527": {
+            "tag": "w_2021_22_20210527",
+            "image_type": RSPImageType.WEEKLY,
+            "display_name": "Weekly 2021_22 [20210527]",
+            "version": VersionInfo(2021, 22, 0, None, "20210527"),
+            "cycle": None,
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
+        },
+        "d_2021_05_27_20210527": {
+            "tag": "d_2021_05_27_20210527",
+            "image_type": RSPImageType.DAILY,
+            "display_name": "Daily 2021_05_27 [20210527]",
+            "version": VersionInfo(2021, 5, 27, None, "20210527"),
+            "cycle": None,
+            "date": datetime(2021, 5, 27, tzinfo=UTC),
+        },
+        "r21_0_1_c0020.001_20210527": {
+            "tag": "r21_0_1_c0020.001_20210527",
+            "image_type": RSPImageType.RELEASE,
+            "display_name": (
+                "Release r21.0.1 (SAL Cycle 0020, Build 001) [20210527]"
+            ),
+            "version": VersionInfo(21, 0, 1, None, "c0020.001.20210527"),
+            "cycle": 20,
+            "date": None,
+        },
+        "r22_0_0_rc1_c0020.001_20210527": {
+            "tag": "r22_0_0_rc1_c0020.001_20210527",
+            "image_type": RSPImageType.CANDIDATE,
+            "display_name": (
+                "Release Candidate r22.0.0-rc1 (SAL Cycle 0020, Build 001)"
+                " [20210527]"
+            ),
+            "version": VersionInfo(22, 0, 0, "rc1", "c0020.001.20210527"),
+            "cycle": 20,
+            "date": None,
+        },
+        "w_2021_22_c0020.001_20210527": {
+            "tag": "w_2021_22_c0020.001_20210527",
+            "image_type": RSPImageType.WEEKLY,
+            "display_name": (
+                "Weekly 2021_22 (SAL Cycle 0020, Build 001) [20210527]"
+            ),
+            "version": VersionInfo(2021, 22, 0, None, "c0020.001.20210527"),
+            "cycle": 20,
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
+        },
+        "d_2021_05_27_c0020.001_20210527": {
+            "tag": "d_2021_05_27_c0020.001_20210527",
+            "image_type": RSPImageType.DAILY,
+            "display_name": (
+                "Daily 2021_05_27 (SAL Cycle 0020, Build 001) [20210527]"
+            ),
+            "version": VersionInfo(2021, 5, 27, None, "c0020.001.20210527"),
+            "cycle": 20,
+            "date": datetime(2021, 5, 27, tzinfo=UTC),
+        },
+        "recommended": {
+            "tag": "recommended",
+            "image_type": RSPImageType.UNKNOWN,
+            "display_name": "recommended",
+            "version": None,
+            "cycle": None,
+            "date": None,
+        },
+        "exp_random": {
+            "tag": "exp_random",
+            "image_type": RSPImageType.EXPERIMENTAL,
+            "display_name": "Experimental random",
+            "version": None,
+            "cycle": None,
+            "date": None,
+        },
+        "exp_w_2021_22": {
+            "tag": "exp_w_2021_22",
+            "image_type": RSPImageType.EXPERIMENTAL,
+            "display_name": "Experimental Weekly 2021_22",
+            "version": None,
+            "cycle": None,
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
+        },
+        "exp_w_2021_22_c0020.001": {
+            "tag": "exp_w_2021_22_c0020.001",
+            "image_type": RSPImageType.EXPERIMENTAL,
+            "display_name": (
+                "Experimental Weekly 2021_22 (SAL Cycle 0020, Build 001)"
+            ),
+            "version": None,
+            "cycle": 20,
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
+        },
+        "exp_w_2021_22_c0020.001_foo": {
+            "tag": "exp_w_2021_22_c0020.001_foo",
+            "image_type": RSPImageType.EXPERIMENTAL,
+            "display_name": (
+                "Experimental Weekly 2021_22 (SAL Cycle 0020, Build 001) [foo]"
+            ),
+            "version": None,
+            "cycle": 20,
+            "date": datetime(2021, 6, 3, tzinfo=UTC),
+        },
+        "recommended_c0027": {
+            "tag": "recommended_c0027",
+            "image_type": RSPImageType.UNKNOWN,
+            "display_name": "recommended (SAL Cycle 0027)",
+            "version": None,
+            "cycle": 27,
+            "date": None,
+        },
+        "not_a_normal_format": {
+            "tag": "not_a_normal_format",
+            "image_type": RSPImageType.UNKNOWN,
+            "display_name": "not_a_normal_format",
+            "version": None,
+            "cycle": None,
+            "date": None,
+        },
+        "MiXeD_CaSe_TaG": {
+            "tag": "MiXeD_CaSe_TaG",
+            "image_type": RSPImageType.UNKNOWN,
+            "display_name": "MiXeD_CaSe_TaG",
+            "version": None,
+            "cycle": None,
+            "date": None,
+        },
+        "": {
+            "tag": "latest",
+            "image_type": RSPImageType.UNKNOWN,
+            "display_name": "latest",
+            "version": None,
+            "cycle": None,
+            "date": None,
+        },
+    }
+
+    # RSPImageTag equality is based only on the type and version or tag, so in
+    # order to ensure we got all of the fields correct, we have to compare
+    # them in dictionary form.
+    for tag, expected in test_cases.items():
+        assert asdict(RSPImageTag.from_str(tag)) == expected

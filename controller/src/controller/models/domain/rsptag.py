@@ -611,6 +611,13 @@ class RSPImageTagCollection:
         """
         tags: list[RSPImageTag] = []
         for category in RSPImageType:
+            if category == RSPImageType.ALIAS:
+                # All alias tags are preserved.
+                tags.extend(list(self.by_type(category).all_tags()))
+                continue
+            if category == RSPImageType.UNKNOWN:
+                # No unknown tags are preserved.
+                continue
             tags.extend(
                 self._apply_category_policy(
                     policy,
