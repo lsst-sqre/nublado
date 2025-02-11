@@ -34,6 +34,7 @@ from .constants import (
     RESERVED_ENV,
     RESERVED_PATHS,
 )
+from .models.domain.imagefilterpolicy import RSPImageFilterPolicy
 from .models.domain.kubernetes import (
     Affinity,
     PullPolicy,
@@ -1206,10 +1207,23 @@ class Config(BaseSettings):
         Field(
             title="Available lab images",
             description=(
-                "Configuration for which images to prepull and which images to"
+                "Configuration for which images to prepull and to"
                 " display in the spawner menu for users to choose from when"
                 " spawning labs"
             ),
+        ),
+    ]
+
+    dropdown_menu: Annotated[
+        RSPImageFilterPolicy,
+        Field(
+            title="Dropdown menu display policy",
+            description=(
+                "Configuration for which images are displayed in the"
+                " spawner dropdown menu for users to choose from when"
+                " spawning labs."
+            ),
+            default_factory=RSPImageFilterPolicy,
         ),
     ]
 
