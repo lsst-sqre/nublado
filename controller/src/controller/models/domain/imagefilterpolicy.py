@@ -61,20 +61,15 @@ class ImageFilterPolicy(BaseModel):
 
 
 class RSPImageFilterPolicy(BaseModel):
-    """Configuration for display of RSP images."""
+    """Configuration for display of RSP images.
+
+    Images in the "alias" category are always displayed; images in the
+    "unknown" category are never displayed.
+    """
 
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
-
-    alias: Annotated[
-        ImageFilterPolicy,
-        Field(
-            title="Release",
-            description="Policy for releases to display.",
-            default_factory=ImageFilterPolicy,
-        ),
-    ]
 
     release: Annotated[
         ImageFilterPolicy,
@@ -107,7 +102,7 @@ class RSPImageFilterPolicy(BaseModel):
         ImageFilterPolicy,
         Field(
             title="Release Candidate",
-            description=("Policy for release candidate builds to display.",),
+            description="Policy for release candidate builds to display.",
             default_factory=ImageFilterPolicy,
         ),
     ]
@@ -117,17 +112,6 @@ class RSPImageFilterPolicy(BaseModel):
         Field(
             title="Experimental",
             description="Policy for experimental builds to display.",
-            default_factory=ImageFilterPolicy,
-        ),
-    ]
-
-    unknown: Annotated[
-        ImageFilterPolicy,
-        Field(
-            title="Unknown",
-            description=(
-                "Policy for builds without parseable RSP tags to display."
-            ),
             default_factory=ImageFilterPolicy,
         ),
     ]
