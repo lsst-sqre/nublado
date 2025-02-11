@@ -15,6 +15,7 @@ from kubernetes_asyncio.client import (
     CoreV1Event,
     V1ObjectMeta,
     V1ObjectReference,
+    V1ServiceAccount,
 )
 from safir.metrics import MockEventPublisher
 from safir.testing.kubernetes import MockKubernetesApi
@@ -947,3 +948,43 @@ async def test_quota_no_spawn(client: AsyncClient) -> None:
         headers=user.to_headers(),
     )
     assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_wait_for_sa(
+    client: AsyncClient,
+    factory: Factory,
+    user: GafaelfawrUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    """Test waiting for the default service account during lab creation."""
+    lab = read_input_lab_specification_json("base", "lab-specification")
+
+    # Clear the callback added by the fixture so that we do not automatically
+    # create the default service account.
+    mock_kubernetes.register_create_hook_for_test("Namespace", None)
+
+    # Create the lab and confirm that it entered pending state.
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 201
+    await asyncio.sleep(0.1)
+    r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 200
+    assert r.json()["status"] == "pending"
+
+    # Create the service account, which should cause the lab to complete.
+    namespace = f"userlabs-{user.username}"
+    await mock_kubernetes.create_namespaced_service_account(
+        namespace,
+        V1ServiceAccount(
+            metadata=V1ObjectMeta(name="default", namespace=namespace)
+        ),
+    )
+    await asyncio.sleep(0.1)
+    r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
+    assert r.status_code == 200
+    assert r.json()["status"] == "running"

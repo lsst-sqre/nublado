@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator
+from contextlib import contextmanager
 
 import pytest
 import pytest_asyncio
@@ -10,6 +11,11 @@ import respx
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from kubernetes_asyncio.client import (
+    V1Namespace,
+    V1ObjectMeta,
+    V1ServiceAccount,
+)
 from pydantic import SecretStr
 from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
@@ -125,7 +131,18 @@ def mock_gar() -> Iterator[MockArtifactRegistry]:
 
 @pytest.fixture
 def mock_kubernetes() -> Iterator[MockKubernetesApi]:
-    yield from patch_kubernetes()
+    with contextmanager(patch_kubernetes)() as mock:
+        # Add a hook to create the default service account on namespace
+        # creation.
+        async def create_default_sa(namespace: V1Namespace) -> None:
+            namespace = namespace.metadata.name
+            sa = V1ServiceAccount(
+                metadata=V1ObjectMeta(name="default", namespace=namespace)
+            )
+            await mock.create_namespaced_service_account(namespace, sa)
+
+        mock.register_create_hook_for_test("Namespace", create_default_sa)
+        yield mock
 
 
 @pytest.fixture

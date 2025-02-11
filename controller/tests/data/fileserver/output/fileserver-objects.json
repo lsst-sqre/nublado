@@ -405,6 +405,14 @@
     }
   },
   {
+    "apiVersion": "v1",
+    "kind": "ServiceAccount",
+    "metadata": {
+      "name": "default",
+      "namespace": "fileservers"
+    }
+  },
+  {
     "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
     "kind": "GafaelfawrIngress",
     "metadata": {

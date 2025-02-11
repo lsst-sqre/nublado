@@ -19,6 +19,7 @@ from kubernetes_asyncio.client import (
     V1Job,
     V1PersistentVolumeClaim,
     V1Service,
+    V1ServiceAccount,
 )
 from structlog.stdlib import BoundLogger
 
@@ -36,6 +37,7 @@ __all__ = [
     "JobStorage",
     "KubernetesObjectDeleter",
     "PersistentVolumeClaimStorage",
+    "ServiceAccountStorage",
     "ServiceStorage",
 ]
 
@@ -272,6 +274,64 @@ class KubernetesObjectDeleter[T: KubernetesModel](KubernetesObjectCreator[T]):
             ) from e
         return objs.items
 
+    async def wait_for_creation(
+        self, name: str, namespace: str, timeout: Timeout
+    ) -> None:
+        """Wait for an object to be created.
+
+        Parameters
+        ----------
+        name
+            Name of the object.
+        namespace
+            Namespace of the object.
+        timeout
+            How long to wait for the object to be created.
+
+        Raises
+        ------
+        ControllerTimeoutError
+            Raised if the timeout expired.
+        KubernetesError
+            Raised for exceptions from the Kubernetes API server.
+        """
+        logger = self._logger.bind(name=name, namespace=namespace)
+        obj = await self.read(name, namespace, timeout)
+        if obj:
+            return
+
+        # Wait for the object to be created.
+        watch_timeout = timeout.partial(timedelta(seconds=timeout.left() - 2))
+        watcher = KubernetesWatcher(
+            method=self._list,
+            object_type=self._type,
+            kind=self._kind,
+            name=name,
+            namespace=namespace,
+            timeout=watch_timeout,
+            logger=logger,
+        )
+        try:
+            async with watch_timeout.enforce():
+                async for event in watcher.watch():
+                    if event.action == WatchEventType.ADDED:
+                        return
+        except ControllerTimeoutError:
+            # If the watch had to be restarted because the resource version
+            # was too old and the object was deleted while the watch was
+            # restarting, we could have missed the delete event. Therefore,
+            # before timing out, do a final check with a short timeout to see
+            # if the object is gone.
+            read_timeout = timeout.partial(timedelta(seconds=2))
+            if await self.read(name, namespace, read_timeout):
+                return
+            raise
+        finally:
+            await watcher.close()
+
+        # This should be impossible; someone called stop on the watcher.
+        raise RuntimeError("Wait for object deletion unexpectedly stopped")
+
     async def wait_for_deletion(
         self, name: str, namespace: str, timeout: Timeout
     ) -> None:
@@ -402,5 +462,29 @@ class ServiceStorage(KubernetesObjectDeleter[V1Service]):
             read_method=api.read_namespaced_service,
             object_type=V1Service,
             kind="Service",
+            logger=logger,
+        )
+
+
+class ServiceAccountStorage(KubernetesObjectDeleter[V1ServiceAccount]):
+    """Storage layer for ``Service`` objects.
+
+    Parameters
+    ----------
+    api_client
+        Kubernetes API client.
+    logger
+        Logger to use.
+    """
+
+    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+        api = client.CoreV1Api(api_client)
+        super().__init__(
+            create_method=api.create_namespaced_service_account,
+            delete_method=api.delete_namespaced_service_account,
+            list_method=api.list_namespaced_service_account,
+            read_method=api.read_namespaced_service_account,
+            object_type=V1ServiceAccount,
+            kind="ServiceAccount",
             logger=logger,
         )
