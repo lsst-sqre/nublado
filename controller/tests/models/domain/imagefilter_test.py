@@ -107,7 +107,7 @@ def test_imagefilter() -> None:
     policy = RSPImageFilterPolicy(
         release=ImageFilterPolicy(
             # We should get three
-            cutoff_version=Version(major=27, minor=0, patch=0)
+            cutoff_version=str(Version(major=27, minor=0, patch=0))
         ),
         weekly=ImageFilterPolicy(
             # We should get one, two, or three
@@ -121,16 +121,18 @@ def test_imagefilter() -> None:
         ),
         release_candidate=ImageFilterPolicy(
             # We should only get one, not two: number will be the filter
-            cutoff_version=Version(major=25, minor=3, patch=1),
+            cutoff_version=str(Version(major=25, minor=3, patch=1)),
             number=1,
         ),
         experimental=ImageFilterPolicy(
             # We should get one, two or three.  For
             # dated releases we use calver
-            cutoff_version=Version(
-                major=last_week.isocalendar().year,
-                minor=last_week.isocalendar().week,
-                patch=0,
+            cutoff_version=str(
+                Version(
+                    major=last_week.isocalendar().year,
+                    minor=last_week.isocalendar().week,
+                    patch=0,
+                )
             )
         ),
     )

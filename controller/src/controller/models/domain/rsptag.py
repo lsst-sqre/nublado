@@ -10,7 +10,7 @@ from enum import Enum
 from functools import total_ordering
 from typing import Self, cast
 
-from semver import Version
+import semver
 
 from .imagefilterpolicy import ImageFilterPolicy, RSPImageFilterPolicy
 
@@ -124,8 +124,8 @@ class RSPImageTag:
     image_type: RSPImageType
     """Type (release series) of image identified by this tag."""
 
-    version: Version | None
-    """Version information as a semantic version."""
+    version: str | None
+    """Version information as a string representing a semantic version."""
 
     cycle: int | None
     """XML schema version implemented by this image (only for T&S builds)."""
@@ -315,12 +315,14 @@ class RSPImageTag:
 
         # Construct the semantic version.  It should be impossible, given our
         # regexes, for this to fail, but if it does that's handled in from_str.
-        version = Version(
-            major=int(major),
-            minor=int(minor),
-            patch=int(patch),
-            prerelease=pre,
-            build=build,
+        version = str(
+            semver.Version(
+                major=int(major),
+                minor=int(minor),
+                patch=int(patch),
+                prerelease=pre,
+                build=build,
+            )
         )
 
         # If there is extra information, add it to the end of the display name.
@@ -438,7 +440,9 @@ class RSPImageTag:
             if self.tag == other.tag:
                 return 0
             return -1 if self.tag < other.tag else 1
-        rank = self.version.compare(other.version)
+        self_ver = semver.Version.parse(self.version)
+        other_ver = semver.Version.parse(other.version)
+        rank = self_ver.compare(other_ver)
         if rank != 0:
             return rank
 
@@ -446,15 +450,15 @@ class RSPImageTag:
         # since we want newer cycles to sort ahead of older cycles (and newer
         # cycle builds to sort above older cycle builds) in otherwise matching
         # tags, and the cycle information is stored in the build.
-        if self.version.build == other.version.build:
+        if self_ver.build == other_ver.build:
             return 0
-        elif self.version.build:
-            if not other.version.build:
+        elif self_ver.build:
+            if not other_ver.build:
                 return 1
             else:
-                return -1 if self.version.build < other.version.build else 1
+                return -1 if self_ver.build < other_ver.build else 1
         else:
-            return -1 if other.version.build else 0
+            return -1 if other_ver.build else 0
 
 
 class RSPImageTagCollection:
@@ -656,7 +660,9 @@ class RSPImageTagCollection:
                 tag.version is not None
                 and cat_policy.cutoff_version is not None
             ):
-                if tag.version < cat_policy.cutoff_version:
+                tag_ver = semver.Version.parse(tag.version)
+                cat_pol_ver = semver.Version.parse(cat_policy.cutoff_version)
+                if tag_ver < cat_pol_ver:
                     continue
             # We survived the filter; add the tag.
             remainder.append(tag)
