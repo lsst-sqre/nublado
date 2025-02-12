@@ -8,9 +8,8 @@ from dataclasses import dataclass
 from typing import Self
 
 import structlog
-from httpx import AsyncClient
+from httpx import AsyncClient, Limits
 from kubernetes_asyncio.client.api_client import ApiClient, Configuration
-from safir.dependencies.http_client import http_client_dependency
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
@@ -94,7 +93,8 @@ class ProcessContext:
         ProcessContext
             Shared context for a lab controller process.
         """
-        http_client = await http_client_dependency()
+        limits = Limits(max_connections=None)
+        http_client = AsyncClient(timeout=20, limits=limits)
 
         # Disable the connection pool limits in kubernetes-asyncio.
         kubernetes_configuration = Configuration()
