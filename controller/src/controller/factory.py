@@ -97,7 +97,7 @@ class ProcessContext:
         http_client = AsyncClient(timeout=20, limits=limits)
 
         # Disable the connection pool limits in kubernetes-asyncio.
-        kubernetes_configuration = Configuration()
+        kubernetes_configuration = Configuration.get_default_copy()
         kubernetes_configuration.connection_pool_maxsize = 0
         kubernetes_client = ApiClient(configuration=kubernetes_configuration)
 
