@@ -171,8 +171,8 @@ async def test_cleanup_on_pod_exit(
 
     # Check that the fileserver objects have been deleted
     objs = mock_kubernetes.get_namespace_objects_for_test(namespace)
-    assert len(objs) == 1
-    assert objs[0].kind == "Namespace"
+    assert len(objs) == 2
+    assert sorted(o.kind for o in objs) == ["Namespace", "ServiceAccount"]
 
 
 @pytest.mark.asyncio
@@ -437,4 +437,6 @@ async def test_start_errors(
         r = await client.get("/nublado/fileserver/v1/users")
         assert r.json() == []
         objs = mock_kubernetes.get_namespace_objects_for_test(namespace)
-        assert [o for o in objs if o.kind != "Namespace"] == []
+        assert [
+            o for o in objs if o.kind not in ("Namespace", "ServiceAccount")
+        ] == []

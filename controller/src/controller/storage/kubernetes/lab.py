@@ -18,7 +18,11 @@ from .creator import (
     ResourceQuotaStorage,
     SecretStorage,
 )
-from .deleter import PersistentVolumeClaimStorage, ServiceStorage
+from .deleter import (
+    PersistentVolumeClaimStorage,
+    ServiceAccountStorage,
+    ServiceStorage,
+)
 from .namespace import NamespaceStorage
 from .pod import PodStorage
 
@@ -53,6 +57,7 @@ class LabStorage:
         self._quota = ResourceQuotaStorage(api_client, logger)
         self._secret = SecretStorage(api_client, logger)
         self._service = ServiceStorage(api_client, logger)
+        self._service_account = ServiceAccountStorage(api_client, logger)
 
     async def create(self, objects: LabObjects, timeout: Timeout) -> None:
         """Create all of the Kubernetes objects for a user's lab.
@@ -86,6 +91,13 @@ class LabStorage:
             namespace, objects.network_policy, timeout
         )
         await self._service.create(namespace, objects.service, timeout)
+
+        # The pod creation will fail if the namespace default service account
+        # doesn't exist yet, and sometimes that takes a while. Wait for it
+        # before creating the pod.
+        await self._service_account.wait_for_creation(
+            "default", namespace, timeout
+        )
         await self._pod.create(namespace, objects.pod, timeout)
 
     async def delete_namespace(self, name: str, timeout: Timeout) -> None:
