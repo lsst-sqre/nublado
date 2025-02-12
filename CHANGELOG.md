@@ -6,6 +6,17 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.4.1'></a>
+## 8.4.1 (2025-02-12)
+
+### Bug fixes
+
+- Wait for the default service account of the user's lab namespace to be created before creating the `Pod` object. Creation of the service account can be slow when Kubernetes is busy, and creation of the `Pod` object will fail if the service account does not exist.
+- Remove the limit on the connection pool used to contact the Nublado controller from the JupyterHub spawner, since otherwise JupyterHub stops being able to do any work once the connections waiting for spawn progress exhaust the connect pool.
+- Remove the limit on the Kubernetes client connection pool in the Nublado controller. This will allow the controller to scale to more than 100 (the default) simultaneous watches.
+- Remove the limit on the connection pool used to look up users in Gafaelfawr and query a Docker image repository.
+- Fix unsafe data structure manipulation when deleting completed labs in the Nublado controller background reconciliation thread.
+
 <a id='changelog-8.4.0'></a>
 ## 8.4.0 (2025-02-04)
 

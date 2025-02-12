@@ -693,9 +693,9 @@ myst-nb==1.2.0 \
     --hash=sha256:0e09909877848c0cf45e1aecee97481512efa29a0c4caa37870a03bba11c56c1 \
     --hash=sha256:af459ec753b341952182b45b0a80b4776cebf80c9ee6aaca2a3f4027b440c9de
     # via documenteer
-myst-parser==4.0.0 \
-    --hash=sha256:851c9dfb44e36e56d15d05e72f02b80da21a9e0d07cba96baf5e2d476bb91531 \
-    --hash=sha256:b9317997552424448c6096c2558872fdb6f81d3ecb3a40ce84a7518798f3f28d
+myst-parser==4.0.1 \
+    --hash=sha256:5cfea715e4f3574138aecbf7d54132296bfd72bb614d31168f48c477a830a7c4 \
+    --hash=sha256:9134e88959ec3b5780aedf8a99680ea242869d012e8821db3126d427edc9c95d
     # via
     #   documenteer
     #   myst-nb
