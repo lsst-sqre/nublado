@@ -9,6 +9,7 @@ from structlog.stdlib import BoundLogger
 
 from ...models.domain.docker import DockerReference
 from ...models.domain.image import MenuImage
+from ...models.domain.imagefilterpolicy import RSPImageFilterPolicy
 from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.v1.prepuller import PrepulledImage, PrepullerOptions
@@ -30,10 +31,15 @@ class ImageSource(metaclass=ABCMeta):
     ----------
     logger
         Logger for messages.
+    image_filter
+        Filter policy to apply to images in the remote registry.
     """
 
-    def __init__(self, logger: BoundLogger) -> None:
+    def __init__(
+        self, logger: BoundLogger, image_filter: RSPImageFilterPolicy
+    ) -> None:
         self._logger = logger
+        self._image_filter = image_filter
 
     @abstractmethod
     async def image_for_reference(
@@ -91,7 +97,7 @@ class ImageSource(metaclass=ABCMeta):
         Returns
         -------
         list of MenuImage
-            All known images.
+            All known images meeting filter criteria.
         """
 
     @abstractmethod

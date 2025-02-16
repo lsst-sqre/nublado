@@ -2,10 +2,10 @@
 
 from typing import Annotated
 
+import semver
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from safir.pydantic import HumanTimedelta
-from semver import Version
 
 __all__ = ["ImageFilterPolicy", "RSPImageFilterPolicy"]
 
@@ -46,9 +46,15 @@ class ImageFilterPolicy(BaseModel):
         ),
     ] = None
 
+    # This is a little strange, and the reason is, Version is not JSON-
+    # serializable.  So we store it as a string, but we make sure that the
+    # string will parse into a Version, and we store the string as the
+    # canonical string representation of that version.
     cutoff_version: Annotated[
-        Version | None,
-        BeforeValidator(lambda v: v if not isinstance(v, str) else Version(v)),
+        str | None,
+        BeforeValidator(
+            lambda v: None if v is None else str(semver.Version.parse(v))
+        ),
         Field(
             title="Cutoff Version",
             description=(

@@ -8,9 +8,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from functools import total_ordering
-from typing import Self
+from typing import Self, cast
 
-from semver import Version
+import semver
+
+from .imagefilterpolicy import ImageFilterPolicy, RSPImageFilterPolicy
 
 DOCKER_DEFAULT_TAG = "latest"
 """Implicit tag used by Docker/Kubernetes when no tag is specified."""
@@ -122,8 +124,8 @@ class RSPImageTag:
     image_type: RSPImageType
     """Type (release series) of image identified by this tag."""
 
-    version: Version | None
-    """Version information as a semantic version."""
+    version: str | None
+    """Version information as a string representing a semantic version."""
 
     cycle: int | None
     """XML schema version implemented by this image (only for T&S builds)."""
@@ -313,12 +315,14 @@ class RSPImageTag:
 
         # Construct the semantic version.  It should be impossible, given our
         # regexes, for this to fail, but if it does that's handled in from_str.
-        version = Version(
-            major=int(major),
-            minor=int(minor),
-            patch=int(patch),
-            prerelease=pre,
-            build=build,
+        version = str(
+            semver.Version(
+                major=int(major),
+                minor=int(minor),
+                patch=int(patch),
+                prerelease=pre,
+                build=build,
+            )
         )
 
         # If there is extra information, add it to the end of the display name.
@@ -436,7 +440,9 @@ class RSPImageTag:
             if self.tag == other.tag:
                 return 0
             return -1 if self.tag < other.tag else 1
-        rank = self.version.compare(other.version)
+        self_ver = semver.Version.parse(self.version)
+        other_ver = semver.Version.parse(other.version)
+        rank = self_ver.compare(other_ver)
         if rank != 0:
             return rank
 
@@ -444,15 +450,15 @@ class RSPImageTag:
         # since we want newer cycles to sort ahead of older cycles (and newer
         # cycle builds to sort above older cycle builds) in otherwise matching
         # tags, and the cycle information is stored in the build.
-        if self.version.build == other.version.build:
+        if self_ver.build == other_ver.build:
             return 0
-        elif self.version.build:
-            if not other.version.build:
+        elif self_ver.build:
+            if not other_ver.build:
                 return 1
             else:
-                return -1 if self.version.build < other.version.build else 1
+                return -1 if self_ver.build < other_ver.build else 1
         else:
-            return -1 if other.version.build else 0
+            return -1 if other_ver.build else 0
 
 
 class RSPImageTagCollection:
@@ -576,3 +582,88 @@ class RSPImageTagCollection:
 
         # Return the results.
         return type(self)(tags)
+
+    def by_type(self, image_type: RSPImageType) -> Self:
+        """Return all tags of a given type.
+
+        Parameters
+        ----------
+        image_type
+            RSPImageType to select from collection.
+
+        Returns
+        -------
+        RSPImageCollection
+            Collection of tags matching the given type.
+        """
+        return type(self)(self._by_type[image_type])
+
+    def apply_policy(self, policy: RSPImageFilterPolicy) -> Self:
+        """Apply a filter policy and return the remaining tags.
+
+        Note that this relies on the ordering of types, as subset() does.
+
+        Parameters
+        ----------
+        policy
+            Policy governing tag filtering.
+
+        Returns
+        -------
+        RSPImageTagCollection
+            Tags remaining after policy application.
+        """
+        tags: list[RSPImageTag] = []
+        for category in RSPImageType:
+            if category == RSPImageType.ALIAS:
+                # All alias tags are preserved.
+                tags.extend(list(self.by_type(category).all_tags()))
+                continue
+            if category == RSPImageType.UNKNOWN:
+                # No unknown tags are preserved.
+                continue
+            tags.extend(
+                self._apply_category_policy(
+                    policy,
+                    category,
+                )
+            )
+        return type(self)(tags)
+
+    def _apply_category_policy(
+        self,
+        policy: RSPImageFilterPolicy,
+        category: RSPImageType,
+    ) -> list[RSPImageTag]:
+        candidates = list(self.by_type(category).all_tags())
+        remainder: list[RSPImageTag] = []
+
+        # Mypy needs to take it on faith that this is how you map
+        # category names to attributes of the overall policy,
+        # each one being an ImageFilterPolicy.
+        pol_attr = category.value.lower().replace(" ", "_")
+        cat_policy = cast(ImageFilterPolicy, getattr(policy, pol_attr))
+
+        for tag in candidates:
+            # First check the count; if we're at our limit, we're done
+            if cat_policy.number is not None and cat_policy.number <= len(
+                remainder
+            ):
+                break
+            # Apply age policy
+            tag_age = tag.age()
+            if tag_age is not None and cat_policy.age is not None:
+                if tag_age > cat_policy.age:
+                    continue
+            # Apply version policy
+            if (
+                tag.version is not None
+                and cat_policy.cutoff_version is not None
+            ):
+                tag_ver = semver.Version.parse(tag.version)
+                cat_pol_ver = semver.Version.parse(cat_policy.cutoff_version)
+                if tag_ver < cat_pol_ver:
+                    continue
+            # We survived the filter; add the tag.
+            remainder.append(tag)
+        return remainder
