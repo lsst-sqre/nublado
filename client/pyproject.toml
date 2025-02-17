@@ -27,7 +27,7 @@ dependencies = [
     "pyyaml<7",
     "safir<10",
     "structlog",
-    "websockets>=14,<15",
+    "websockets>=14,<16",
 ]
 
 dynamic = ["version"]
