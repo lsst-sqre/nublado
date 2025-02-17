@@ -249,7 +249,6 @@ This yields:
     1: Hello, World!
     2: Goodbye, World!
 
-
 .. _mocks-and-testing:
 
 Mocks and Testing
@@ -323,10 +322,9 @@ It depends on two other fixtures: ``environment_url`` is a string, representing 
         ) -> AsyncGenerator[MockJupyterWebSocket, None]:
             yield mock_jupyter_websocket(url, extra_headers, jupyter_mock)
 
-        with patch(websockets, "connect") as mock:
+        with patch.object(websockets, "connect") as mock:
             mock.side_effect = mock_connect
             yield jupyter_mock
-
 
 Once you've done all that, all you will need to do is supply the test
 fixture ``jupyter`` to your unit tests along with a client to communicate with it.
