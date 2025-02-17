@@ -27,6 +27,11 @@ For the official Rubin images, see sciplat-lab_.
    admin/index
 
 .. toctree::
+   :maxdepth: 2
+
+   client/index
+
+.. toctree::
 
    api
 
@@ -34,11 +39,6 @@ For the official Rubin images, see sciplat-lab_.
    :hidden:
 
    changelog
-
-.. toctree::
-   :maxdepth: 2
-
-   client/index
 
 .. toctree::
    :maxdepth: 2
