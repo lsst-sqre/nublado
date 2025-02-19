@@ -287,7 +287,7 @@ class JupyterLabSession:
         try:
             self._socket_manager = websockets.connect(
                 self._url_for_websocket(url),
-                extra_headers=headers,
+                additional_headers=headers,
                 open_timeout=WEBSOCKET_OPEN_TIMEOUT,
                 max_size=self._max_websocket_size,
             )
