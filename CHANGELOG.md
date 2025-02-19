@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.4.2'></a>
+## 8.4.2 (2025-02-19)
+
+### Bug fixes
+
+- Fix `TypeError create_connection() got an unexpected keyword argument 'extra_headers'` exception when trying to establish websocket connections. Version 14 of [websockets](https://websockets.readthedocs.io/en/stable/) [changed the signature of the `connect` method](https://websockets.readthedocs.io/en/stable/howto/upgrade.html#extra-headers-additional-headers).
+
 <a id='changelog-8.4.1'></a>
 ## 8.4.1 (2025-02-12)
 
