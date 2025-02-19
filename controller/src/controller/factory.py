@@ -126,7 +126,7 @@ class ProcessContext:
                     image_filter=config.dropdown_menu,
                 )
             case GARSourceOptions():
-                gar_client = GARStorageClient(logger=logger)
+                gar_client = GARStorageClient(logger)
                 source = GARImageSource(
                     config=config.images.source,
                     gar=gar_client,
