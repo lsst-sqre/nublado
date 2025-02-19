@@ -5,14 +5,14 @@ import re
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-from enum import Enum
+from datetime import UTC, datetime
 from functools import total_ordering
-from typing import Self, cast
+from typing import Self
 
 import semver
 
-from .imagefilterpolicy import ImageFilterPolicy, RSPImageFilterPolicy
+from .imagefilterpolicy import RSPImageFilterPolicy
+from .rspimagetype import RSPImageType
 
 DOCKER_DEFAULT_TAG = "latest"
 """Implicit tag used by Docker/Kubernetes when no tag is specified."""
@@ -23,23 +23,6 @@ __all__ = [
     "RSPImageTagCollection",
     "RSPImageType",
 ]
-
-
-class RSPImageType(Enum):
-    """The type (generally, release series) of the identified image.
-
-    This is listed in order of priority when constructing menus.  The image
-    types listed first will be shown earlier in the menu.
-    """
-
-    ALIAS = "Alias"
-    RELEASE = "Release"
-    WEEKLY = "Weekly"
-    DAILY = "Daily"
-    CANDIDATE = "Release Candidate"
-    EXPERIMENTAL = "Experimental"
-    UNKNOWN = "Unknown"
-
 
 # Regular expression components used to construct the parsing regexes.
 
@@ -277,7 +260,7 @@ class RSPImageTag:
                 display_name = image_type.value
             return cls(
                 image_type=image_type,
-                version=None,
+                version=subtag.version,
                 tag=tag,
                 cycle=subtag.cycle,
                 display_name=display_name,
@@ -403,20 +386,6 @@ class RSPImageTag:
         if not (month and day):
             return None
         return datetime(int(year), int(month), int(day), tzinfo=UTC)
-
-    def age(self, since: datetime | None = None) -> timedelta | None:
-        """Calculate image age, if possible.
-
-        Parameters
-        ----------
-        since
-            Datestamp to measure age from.  If unspecified, the present.
-        """
-        if self.date is None:
-            return None
-        if since is None:
-            since = datetime.now(tz=UTC)
-        return since - self.date
 
     def _compare(self, other: object) -> int:
         """Compare to image tags for sorting purposes.
@@ -583,30 +552,17 @@ class RSPImageTagCollection:
         # Return the results.
         return type(self)(tags)
 
-    def by_type(self, image_type: RSPImageType) -> Self:
-        """Return all tags of a given type.
-
-        Parameters
-        ----------
-        image_type
-            RSPImageType to select from collection.
-
-        Returns
-        -------
-        RSPImageCollection
-            Collection of tags matching the given type.
-        """
-        return type(self)(self._by_type[image_type])
-
-    def apply_policy(self, policy: RSPImageFilterPolicy) -> Self:
+    def filter(
+        self, policy: RSPImageFilterPolicy, age_basis: datetime
+    ) -> Self:
         """Apply a filter policy and return the remaining tags.
-
-        Note that this relies on the ordering of types, as subset() does.
 
         Parameters
         ----------
         policy
             Policy governing tag filtering.
+        age_basis
+            Timestamp to use as basis for image age calculation.
 
         Returns
         -------
@@ -615,18 +571,8 @@ class RSPImageTagCollection:
         """
         tags: list[RSPImageTag] = []
         for category in RSPImageType:
-            if category == RSPImageType.ALIAS:
-                # All alias tags are preserved.
-                tags.extend(list(self.by_type(category).all_tags()))
-                continue
-            if category == RSPImageType.UNKNOWN:
-                # No unknown tags are preserved.
-                continue
             tags.extend(
-                self._apply_category_policy(
-                    policy,
-                    category,
-                )
+                self._apply_category_policy(policy, category, age_basis)
             )
         return type(self)(tags)
 
@@ -634,28 +580,23 @@ class RSPImageTagCollection:
         self,
         policy: RSPImageFilterPolicy,
         category: RSPImageType,
+        age_basis: datetime,
     ) -> list[RSPImageTag]:
-        candidates = list(self.by_type(category).all_tags())
+        candidates = list(self._by_type[category])
         remainder: list[RSPImageTag] = []
-
-        # Mypy needs to take it on faith that this is how you map
-        # category names to attributes of the overall policy,
-        # each one being an ImageFilterPolicy.
-        pol_attr = category.value.lower().replace(" ", "_")
-        cat_policy = cast(ImageFilterPolicy, getattr(policy, pol_attr))
-
+        cat_policy = policy.policy_for_category(category)
+        if cat_policy is None:
+            remainder.extend(candidates)
+            return remainder
         for tag in candidates:
-            # First check the count; if we're at our limit, we're done
             if cat_policy.number is not None and cat_policy.number <= len(
                 remainder
             ):
                 break
-            # Apply age policy
-            tag_age = tag.age()
-            if tag_age is not None and cat_policy.age is not None:
-                if tag_age > cat_policy.age:
+            if tag.date is not None and cat_policy.age is not None:
+                cutoff_date = age_basis - cat_policy.age
+                if tag.date < cutoff_date:
                     continue
-            # Apply version policy
             if (
                 tag.version is not None
                 and cat_policy.cutoff_version is not None
@@ -664,6 +605,5 @@ class RSPImageTagCollection:
                 cat_pol_ver = semver.Version.parse(cat_policy.cutoff_version)
                 if tag_ver < cat_pol_ver:
                     continue
-            # We survived the filter; add the tag.
             remainder.append(tag)
         return remainder

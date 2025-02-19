@@ -7,6 +7,8 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from safir.pydantic import HumanTimedelta
 
+from .rspimagetype import RSPImageType
+
 __all__ = ["ImageFilterPolicy", "RSPImageFilterPolicy"]
 
 
@@ -121,3 +123,26 @@ class RSPImageFilterPolicy(BaseModel):
             default_factory=ImageFilterPolicy,
         ),
     ]
+
+    def policy_for_category(
+        self, category: RSPImageType
+    ) -> ImageFilterPolicy | None:
+        match category:
+            case RSPImageType.ALIAS:
+                return None  # Always show all alias tags
+            case RSPImageType.RELEASE:
+                return self.release
+            case RSPImageType.WEEKLY:
+                return self.weekly
+            case RSPImageType.DAILY:
+                return self.daily
+            case RSPImageType.CANDIDATE:
+                return self.release_candidate
+            case RSPImageType.EXPERIMENTAL:
+                return self.experimental
+            case RSPImageType.UNKNOWN:
+                return None  # Show all unknowns (subject to change)
+            case _:
+                raise ValueError(
+                    f"{category!s} does not resolve to known image type"
+                )

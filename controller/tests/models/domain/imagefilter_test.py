@@ -13,84 +13,34 @@ from controller.models.domain.imagefilterpolicy import (
 )
 from controller.models.domain.rsptag import (
     RSPImageTagCollection,
-    RSPImageType,
 )
 
 
 def test_imagefilter() -> None:
     """Test behavior of an RSPImageTagCollection object under a filter."""
-
-    # Make some weekly and daily tags.  Because we can run this test at
-    # an arbitrary time...we need to dynamically generate these.
-    def to_weekly_tag(dt: datetime) -> str:
-        ic = dt.isocalendar()
-        icy = str(ic.year).zfill(2)
-        icw = str(ic.week).zfill(2)
-        return f"w_{icy}_{icw}"
-
-    def to_daily_tag(dt: datetime) -> str:
-        mo = str(dt.month).zfill(2)
-        dy = str(dt.day).zfill(2)
-        return f"d_{dt.year}_{mo}_{dy}"
-
-    # Because image ages are calculated based on the tags, and are
-    # therefore calculated as if they were born at midnight UTC, you
-    # might have one fewer image than you expect in a category depending
-    # on local time if you're west of UTC, or one more if you're east of UTC.
-    #
-    # In practice, people will set age-based limits fairly high and
-    # few people will be using the dropdown anyway, so the practical
-    # effect is minimal.  However, it does make for more difficult testing.
-    #
-    # What we're going to do is pick ranges so we will have from one to three
-    # tags in the resulting range, and then check to make sure the middle one
-    # is always present, which it should be.
-
-    now = datetime.now(tz=UTC)
-
-    last_week = now - timedelta(days=7)
-    two_weeks_ago = now - timedelta(days=14)
-    three_weeks_ago = now - timedelta(days=21)
-
-    yesterday = now - timedelta(days=1)
-    day_before_yesterday = now - timedelta(days=2)
-    three_days_ago = now - timedelta(days=3)
-
-    tag_this_week = to_weekly_tag(now)
-    tag_last_week = to_weekly_tag(last_week)
-    tag_two_weeks_ago = to_weekly_tag(two_weeks_ago)
-    tag_three_weeks_ago = to_weekly_tag(three_weeks_ago)
-
-    tag_today = to_daily_tag(now)
-    tag_yesterday = to_daily_tag(yesterday)
-    tag_day_before_yesterday = to_daily_tag(day_before_yesterday)
-    tag_three_days_ago = to_daily_tag(three_days_ago)
-
-    exp_tag_this_week = f"exp_{tag_this_week}"
-    exp_tag_last_week = f"exp_{tag_last_week}"
-    exp_tag_two_weeks_ago = f"exp_{tag_two_weeks_ago}"
-
     tags = [
         "recommended",
         "r28_0_1",
         "r28_0_0",
         "r27_0_0",
         "r26_0_0",
-        tag_this_week,
-        tag_last_week,
-        tag_two_weeks_ago,
-        tag_three_weeks_ago,
-        tag_today,
-        tag_yesterday,
-        tag_day_before_yesterday,
-        tag_three_days_ago,
+        "w_2025_07",
+        "w_2025_06",
+        "w_2025_05",
+        "w_2025_04",
+        "d_2025_02_19",
+        "d_2025_02_18",
+        "d_2025_02_17",
+        "d_2025_02_16",
         "r28_0_0_rc1",
         "r27_0_0_rc1",
-        exp_tag_this_week,
-        exp_tag_last_week,
-        exp_tag_two_weeks_ago,
+        "exp_w_2025_07",
+        "exp_w_2025_06",
+        "exp_w_2025_05",
         "unknown",
     ]
+    age_basis = datetime(2025, 2, 19, 17, tzinfo=UTC)
+    # This is week 8, weekday 3.  w_2025_08 does not yet exist.
 
     shuffled_tags = list(tags)
     SystemRandom().shuffle(shuffled_tags)
@@ -110,12 +60,12 @@ def test_imagefilter() -> None:
             cutoff_version=str(Version(major=27, minor=0, patch=0))
         ),
         weekly=ImageFilterPolicy(
-            # We should get one, two, or three
+            # We should get two
             age=timedelta(weeks=2)
         ),
         daily=ImageFilterPolicy(
-            # We should get one, two, or three from the age policy,
-            # but definitely not four: number will never be the filter
+            # We should get two from the age policy: number will never be
+            # the filter.
             age=timedelta(days=2),
             number=4,
         ),
@@ -125,69 +75,28 @@ def test_imagefilter() -> None:
             number=1,
         ),
         experimental=ImageFilterPolicy(
-            # We should get one, two or three.  For
-            # dated releases we use calver
-            cutoff_version=str(
-                Version(
-                    major=last_week.isocalendar().year,
-                    minor=last_week.isocalendar().week,
-                    patch=0,
-                )
-            )
+            # We should get one.  We'll use calver, which because the
+            # experimental is built from a weekly, should work fine.
+            cutoff_version=str(Version(major=2025, minor=7, patch=0))
         ),
     )
+    # We should also get the alias tag and the unknown tag, first and last
+    # respectively.
 
-    filtered = collection.apply_policy(policy)
-
-    # We should lead off with one alias image not accounted for by the
-    # policy.  The unknown tag should be filtered out.
-
-    total_len = len(list(filtered.all_tags()))
-
-    # These account for the timezone fuzz.
-    #                   A   R   W   D   C   X   U
-    assert total_len >= 1 + 3 + 1 + 1 + 1 + 1 + 0  # West of UTC
-    assert total_len <= 1 + 3 + 3 + 3 + 1 + 3 + 0  # East of UTC
-
-    alias_tags = [
-        x.tag for x in list(filtered.by_type(RSPImageType.ALIAS).all_tags())
+    filtered_tags = [
+        x.tag for x in list(collection.filter(policy, age_basis).all_tags())
     ]
-    assert alias_tags == ["recommended"]
 
-    release_tags = [
-        x.tag for x in list(filtered.by_type(RSPImageType.RELEASE).all_tags())
+    assert filtered_tags == [
+        "recommended",
+        "r28_0_1",
+        "r28_0_0",
+        "r27_0_0",
+        "w_2025_07",
+        "w_2025_06",
+        "d_2025_02_19",
+        "d_2025_02_18",
+        "r28_0_0_rc1",
+        "exp_w_2025_07",
+        "unknown",
     ]
-    assert release_tags == ["r28_0_1", "r28_0_0", "r27_0_0"]
-
-    weekly_tags = [
-        x.tag for x in list(filtered.by_type(RSPImageType.WEEKLY).all_tags())
-    ]
-    assert len(weekly_tags) >= 1
-    assert len(weekly_tags) <= 3
-    assert to_weekly_tag(last_week) in weekly_tags
-
-    daily_tags = [
-        x.tag for x in list(filtered.by_type(RSPImageType.DAILY).all_tags())
-    ]
-    assert len(daily_tags) >= 1
-    assert len(daily_tags) <= 3
-    assert to_daily_tag(yesterday) in daily_tags
-
-    rc_tags = [
-        x.tag
-        for x in list(filtered.by_type(RSPImageType.CANDIDATE).all_tags())
-    ]
-    assert rc_tags == ["r28_0_0_rc1"]
-
-    exp_tags = [
-        x.tag
-        for x in list(filtered.by_type(RSPImageType.EXPERIMENTAL).all_tags())
-    ]
-    assert len(exp_tags) >= 1
-    assert len(exp_tags) <= 3
-    assert f"exp_{to_weekly_tag(yesterday)}" in exp_tags
-
-    unknown_tags = [
-        x.tag for x in list(filtered.by_type(RSPImageType.UNKNOWN).all_tags())
-    ]
-    assert unknown_tags == []

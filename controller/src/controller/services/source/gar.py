@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import override
 
 from structlog.stdlib import BoundLogger
@@ -157,7 +158,9 @@ class GARImageSource(ImageSource):
         # if not very elegant way.
         all_tags = [x.to_rsptag() for x in list(self._images.all_images())]
         all_coll = RSPImageTagCollection(all_tags)
-        filtered_coll = all_coll.apply_policy(self._image_filter)
+        filtered_coll = all_coll.filter(
+            self._image_filter, datetime.now(tz=UTC)
+        )
         filtered_tags = list(filtered_coll.all_tags())
         return [
             MenuImage(i.reference_with_digest, i.display_name)

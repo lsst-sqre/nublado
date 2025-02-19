@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import override
 
 from structlog.stdlib import BoundLogger
@@ -210,7 +211,9 @@ class DockerImageSource(ImageSource):
         registry = self._config.registry
         repository = self._config.repository
         menu_images = []
-        filtered_tags = self._tags.apply_policy(self._image_filter)
+        filtered_tags = self._tags.filter(
+            self._image_filter, datetime.now(tz=UTC)
+        )
         for tag in filtered_tags.all_tags():
             image = self._images.image_for_tag_name(tag.tag)
             if image:
