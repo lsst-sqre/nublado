@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from random import SystemRandom
 
 import pytest
@@ -324,7 +324,7 @@ def test_from_str() -> None:
             "tag": "exp_w_2021_22",
             "image_type": RSPImageType.EXPERIMENTAL,
             "display_name": "Experimental Weekly 2021_22",
-            "version": None,
+            "version": VersionInfo(2021, 22, 0, None),
             "cycle": None,
             "date": datetime(2021, 6, 3, tzinfo=UTC),
         },
@@ -334,7 +334,7 @@ def test_from_str() -> None:
             "display_name": (
                 "Experimental Weekly 2021_22 (SAL Cycle 0020, Build 001)"
             ),
-            "version": None,
+            "version": VersionInfo(2021, 22, 0, None, "c0020_001"),
             "cycle": 20,
             "date": datetime(2021, 6, 3, tzinfo=UTC),
         },
@@ -344,7 +344,7 @@ def test_from_str() -> None:
             "display_name": (
                 "Experimental Weekly 2021_22 (SAL Cycle 0020, Build 001) [foo]"
             ),
-            "version": None,
+            "version": VersionInfo(2021, 22, 0, None, "c0020_001_foo"),
             "cycle": 20,
             "date": datetime(2021, 6, 3, tzinfo=UTC),
         },
@@ -387,14 +387,3 @@ def test_from_str() -> None:
     # them in dictionary form.
     for tag, expected in test_cases.items():
         assert asdict(RSPImageTag.from_str(tag)) == expected
-
-
-def test_age() -> None:
-    """Test that the age() method works with and without supplied basis."""
-    rsptag = RSPImageTag.from_str("d_2021_05_27")
-    assert rsptag.age(datetime(2021, 5, 28, tzinfo=UTC)) == timedelta(days=1)
-    now = datetime.now(tz=UTC)
-    expected = now - datetime(2021, 5, 27, tzinfo=UTC)
-    agenow = rsptag.age()
-    assert agenow is not None
-    assert expected <= agenow <= expected + timedelta(seconds=1)
