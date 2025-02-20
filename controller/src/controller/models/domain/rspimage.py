@@ -5,8 +5,12 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import Self
 
+import semver
+
+from .imagefilterpolicy import RSPImageFilterPolicy
 from .rsptag import RSPImageTag, RSPImageType
 
 __all__ = [
@@ -84,25 +88,6 @@ class RSPImage(RSPImageTag):
             repository=repository,
             digest=digest,
             **asdict(tag),
-        )
-
-    def to_rsptag(self) -> RSPImageTag:
-        """Recover the RSP tag from which this image was derived.
-
-        This is useful for menu calculations.
-
-        Returns
-        -------
-        RSPImageTag
-            RSPImageTag corresponding to this image.
-        """
-        return RSPImageTag(
-            tag=self.tag,
-            image_type=self.image_type,
-            version=self.version,
-            cycle=self.cycle,
-            display_name=self.display_name,
-            date=self.date,
         )
 
     @property
@@ -568,3 +553,59 @@ class RSPImageCollection:
                     other.aliases.add(new.tag)
             old.aliases.add(new.tag)
             self._by_digest[new.digest] = new
+
+    def filter(
+        self, policy: RSPImageFilterPolicy, age_basis: datetime
+    ) -> Self:
+        """Apply a filter policy and return the remaining tags.
+
+        Parameters
+        ----------
+        policy
+            Policy governing tag filtering.
+        age_basis
+            Timestamp to use as basis for image age calculation.
+
+        Returns
+        -------
+        RSPImageTagCollection
+            Tags remaining after policy application.
+        """
+        images: list[RSPImage] = []
+        for category in RSPImageType:
+            images.extend(
+                self._apply_category_policy(policy, category, age_basis)
+            )
+        return type(self)(images)
+
+    def _apply_category_policy(
+        self,
+        policy: RSPImageFilterPolicy,
+        category: RSPImageType,
+        age_basis: datetime,
+    ) -> list[RSPImage]:
+        candidates = list(self._by_type[category])
+        remainder: list[RSPImage] = []
+        cat_policy = policy.policy_for_category(category)
+        if cat_policy is None:
+            remainder.extend(candidates)
+            return remainder
+        for image in candidates:
+            if cat_policy.number is not None and cat_policy.number <= len(
+                remainder
+            ):
+                break
+            if image.date is not None and cat_policy.age is not None:
+                cutoff_date = age_basis - cat_policy.age
+                if image.date < cutoff_date:
+                    continue
+            if (
+                image.version is not None
+                and cat_policy.cutoff_version is not None
+            ):
+                img_ver = semver.Version.parse(image.version)
+                cat_pol_ver = semver.Version.parse(cat_policy.cutoff_version)
+                if img_ver < cat_pol_ver:
+                    continue
+            remainder.append(image)
+        return remainder
