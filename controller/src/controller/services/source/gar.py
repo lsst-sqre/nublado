@@ -14,7 +14,6 @@ from ...models.domain.image import MenuImage
 from ...models.domain.imagefilterpolicy import RSPImageFilterPolicy
 from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
-from ...models.domain.rsptag import RSPImageTagCollection
 from ...models.v1.prepuller import (
     GARSourceOptions,
     PrepulledImage,
@@ -152,20 +151,11 @@ class GARImageSource(ImageSource):
         list of MenuImage
             All known images meeting filter criteria.
         """
-        # This is kind of clunky.  I feel like the implementation of the
-        # storage layer threw away the tags too soon.  That said, adding a
-        # to_rsptag() method to MenuImage lets us do this in a straightforward
-        # if not very elegant way.
-        all_tags = [x.to_rsptag() for x in list(self._images.all_images())]
-        all_coll = RSPImageTagCollection(all_tags)
-        filtered_coll = all_coll.filter(
-            self._image_filter, datetime.now(tz=UTC)
-        )
-        filtered_tags = list(filtered_coll.all_tags())
         return [
             MenuImage(i.reference_with_digest, i.display_name)
-            for i in self._images.all_images()
-            if i.to_rsptag() in filtered_tags
+            for i in self._images.filter(
+                self._image_filter, datetime.now(tz=UTC)
+            ).all_images()
         ]
 
     @override
