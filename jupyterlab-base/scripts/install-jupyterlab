@@ -31,7 +31,7 @@ python3 -m uv pip install --upgrade \
    firefly-client \
    geoviews \
    jupyter-server \
-   'git+https://github.com/lsst-sqre/lsst-rsp@tickets/DM-45854' \
+   'lsst-rsp>=0.7.1' \
    holoviews \
    ipydatawidgets \
    ipympl \
