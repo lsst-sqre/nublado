@@ -556,8 +556,8 @@ class RSPImageCollection:
 
     def filter(
         self, policy: RSPImageFilterPolicy, age_basis: datetime
-    ) -> Self:
-        """Apply a filter policy and return the remaining tags.
+    ) -> list[RSPImage]:
+        """Apply a filter policy and return the remaining images.
 
         Parameters
         ----------
@@ -568,7 +568,7 @@ class RSPImageCollection:
 
         Returns
         -------
-        RSPImageTagCollection
+        list[RSPImage]
             Tags remaining after policy application.
         """
         images: list[RSPImage] = []
@@ -576,7 +576,7 @@ class RSPImageCollection:
             images.extend(
                 self._apply_category_policy(policy, category, age_basis)
             )
-        return type(self)(images)
+        return images
 
     def _apply_category_policy(
         self,
@@ -588,24 +588,23 @@ class RSPImageCollection:
         remainder: list[RSPImage] = []
         cat_policy = policy.policy_for_category(category)
         if cat_policy is None:
-            remainder.extend(candidates)
-            return remainder
+            return candidates
+        cutoff_date = None
+        if cat_policy.age is not None:
+            cutoff_date = age_basis - cat_policy.age
+        cutoff_version: semver.Version | None = None
+        if cat_policy.cutoff_version is not None:
+            cutoff_version = semver.Version.parse(cat_policy.cutoff_version)
         for image in candidates:
             if cat_policy.number is not None and cat_policy.number <= len(
                 remainder
             ):
                 break
-            if image.date is not None and cat_policy.age is not None:
-                cutoff_date = age_basis - cat_policy.age
+            if image.date is not None and cutoff_date is not None:
                 if image.date < cutoff_date:
                     continue
-            if (
-                image.version is not None
-                and cat_policy.cutoff_version is not None
-            ):
-                img_ver = semver.Version.parse(image.version)
-                cat_pol_ver = semver.Version.parse(cat_policy.cutoff_version)
-                if img_ver < cat_pol_ver:
+            if image.version is not None and cutoff_version is not None:
+                if image.version < cutoff_version:
                     continue
             remainder.append(image)
         return remainder

@@ -211,10 +211,8 @@ class DockerImageSource(ImageSource):
         registry = self._config.registry
         repository = self._config.repository
         menu_images = []
-        filtered_tags = self._tags.filter(
-            self._image_filter, datetime.now(tz=UTC)
-        )
-        for tag in filtered_tags.all_tags():
+
+        for tag in self._tags.filter(self._image_filter, datetime.now(tz=UTC)):
             image = self._images.image_for_tag_name(tag.tag)
             if image:
                 reference = image.reference_with_digest

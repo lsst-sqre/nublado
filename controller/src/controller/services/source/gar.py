@@ -155,7 +155,7 @@ class GARImageSource(ImageSource):
             MenuImage(i.reference_with_digest, i.display_name)
             for i in self._images.filter(
                 self._image_filter, datetime.now(tz=UTC)
-            ).all_images()
+            )
         ]
 
     @override

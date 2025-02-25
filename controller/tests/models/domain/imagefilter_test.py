@@ -83,9 +83,7 @@ def test_imagefilter() -> None:
     # We should also get the alias tag and the unknown tag, first and last
     # respectively.
 
-    filtered_tags = [
-        x.tag for x in list(collection.filter(policy, age_basis).all_tags())
-    ]
+    filtered_tags = [x.tag for x in collection.filter(policy, age_basis)]
 
     assert filtered_tags == [
         "recommended",

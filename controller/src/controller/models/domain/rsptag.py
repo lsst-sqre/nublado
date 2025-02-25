@@ -107,8 +107,8 @@ class RSPImageTag:
     image_type: RSPImageType
     """Type (release series) of image identified by this tag."""
 
-    version: str | None
-    """Version information as a string representing a semantic version."""
+    version: semver.Version | None
+    """Version information as a semantic version."""
 
     cycle: int | None
     """XML schema version implemented by this image (only for T&S builds)."""
@@ -298,14 +298,12 @@ class RSPImageTag:
 
         # Construct the semantic version.  It should be impossible, given our
         # regexes, for this to fail, but if it does that's handled in from_str.
-        version = str(
-            semver.Version(
-                major=int(major),
-                minor=int(minor),
-                patch=int(patch),
-                prerelease=pre,
-                build=build,
-            )
+        version = semver.Version(
+            major=int(major),
+            minor=int(minor),
+            patch=int(patch),
+            prerelease=pre,
+            build=build,
         )
 
         # If there is extra information, add it to the end of the display name.
@@ -409,9 +407,7 @@ class RSPImageTag:
             if self.tag == other.tag:
                 return 0
             return -1 if self.tag < other.tag else 1
-        self_ver = semver.Version.parse(self.version)
-        other_ver = semver.Version.parse(other.version)
-        rank = self_ver.compare(other_ver)
+        rank = self.version.compare(other.version)
         if rank != 0:
             return rank
 
@@ -419,15 +415,15 @@ class RSPImageTag:
         # since we want newer cycles to sort ahead of older cycles (and newer
         # cycle builds to sort above older cycle builds) in otherwise matching
         # tags, and the cycle information is stored in the build.
-        if self_ver.build == other_ver.build:
+        if self.version.build == other.version.build:
             return 0
-        elif self_ver.build:
-            if not other_ver.build:
+        elif self.version.build:
+            if not other.version.build:
                 return 1
             else:
-                return -1 if self_ver.build < other_ver.build else 1
+                return -1 if self.version.build < other.version.build else 1
         else:
-            return -1 if other_ver.build else 0
+            return -1 if other.version.build else 0
 
 
 class RSPImageTagCollection:
@@ -554,7 +550,7 @@ class RSPImageTagCollection:
 
     def filter(
         self, policy: RSPImageFilterPolicy, age_basis: datetime
-    ) -> Self:
+    ) -> list[RSPImageTag]:
         """Apply a filter policy and return the remaining tags.
 
         Parameters
@@ -566,7 +562,7 @@ class RSPImageTagCollection:
 
         Returns
         -------
-        RSPImageTagCollection
+        list[RSPImageTag]
             Tags remaining after policy application.
         """
         tags: list[RSPImageTag] = []
@@ -574,7 +570,7 @@ class RSPImageTagCollection:
             tags.extend(
                 self._apply_category_policy(policy, category, age_basis)
             )
-        return type(self)(tags)
+        return tags
 
     def _apply_category_policy(
         self,
@@ -586,24 +582,23 @@ class RSPImageTagCollection:
         remainder: list[RSPImageTag] = []
         cat_policy = policy.policy_for_category(category)
         if cat_policy is None:
-            remainder.extend(candidates)
-            return remainder
+            return candidates
+        cutoff_date: datetime | None = None
+        if cat_policy.age is not None:
+            cutoff_date = age_basis - cat_policy.age
+        cutoff_version: semver.Version | None = None
+        if cat_policy.cutoff_version is not None:
+            cutoff_version = semver.Version.parse(cat_policy.cutoff_version)
         for tag in candidates:
             if cat_policy.number is not None and cat_policy.number <= len(
                 remainder
             ):
                 break
-            if tag.date is not None and cat_policy.age is not None:
-                cutoff_date = age_basis - cat_policy.age
+            if tag.date is not None and cutoff_date is not None:
                 if tag.date < cutoff_date:
                     continue
-            if (
-                tag.version is not None
-                and cat_policy.cutoff_version is not None
-            ):
-                tag_ver = semver.Version.parse(tag.version)
-                cat_pol_ver = semver.Version.parse(cat_policy.cutoff_version)
-                if tag_ver < cat_pol_ver:
+            if tag.version is not None and cutoff_version is not None:
+                if tag.version < cutoff_version:
                     continue
             remainder.append(tag)
         return remainder
