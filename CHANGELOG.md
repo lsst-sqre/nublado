@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.5.0'></a>
+## 8.5.0 (2025-02-24)
+
+### Other changes
+
+- Nublado client: raise upper bound on safir dependency to `<11`.
+
 <a id='changelog-8.4.2'></a>
 ## 8.4.2 (2025-02-19)
 
