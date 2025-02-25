@@ -5,8 +5,12 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import Self
 
+import semver
+
+from .imagefilterpolicy import RSPImageFilterPolicy
 from .rsptag import RSPImageTag, RSPImageType
 
 __all__ = [
@@ -549,3 +553,58 @@ class RSPImageCollection:
                     other.aliases.add(new.tag)
             old.aliases.add(new.tag)
             self._by_digest[new.digest] = new
+
+    def filter(
+        self, policy: RSPImageFilterPolicy, age_basis: datetime
+    ) -> list[RSPImage]:
+        """Apply a filter policy and return the remaining images.
+
+        Parameters
+        ----------
+        policy
+            Policy governing tag filtering.
+        age_basis
+            Timestamp to use as basis for image age calculation.
+
+        Returns
+        -------
+        list[RSPImage]
+            Tags remaining after policy application.
+        """
+        images: list[RSPImage] = []
+        for category in RSPImageType:
+            images.extend(
+                self._apply_category_policy(policy, category, age_basis)
+            )
+        return images
+
+    def _apply_category_policy(
+        self,
+        policy: RSPImageFilterPolicy,
+        category: RSPImageType,
+        age_basis: datetime,
+    ) -> list[RSPImage]:
+        candidates = list(self._by_type[category])
+        remainder: list[RSPImage] = []
+        cat_policy = policy.policy_for_category(category)
+        if cat_policy is None:
+            return candidates
+        cutoff_date = None
+        if cat_policy.age is not None:
+            cutoff_date = age_basis - cat_policy.age
+        cutoff_version: semver.Version | None = None
+        if cat_policy.cutoff_version is not None:
+            cutoff_version = semver.Version.parse(cat_policy.cutoff_version)
+        for image in candidates:
+            if cat_policy.number is not None and cat_policy.number <= len(
+                remainder
+            ):
+                break
+            if image.date is not None and cutoff_date is not None:
+                if image.date < cutoff_date:
+                    continue
+            if image.version is not None and cutoff_version is not None:
+                if image.version < cutoff_version:
+                    continue
+            remainder.append(image)
+        return remainder

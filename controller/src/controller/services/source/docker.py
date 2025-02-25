@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import override
 
 from structlog.stdlib import BoundLogger
@@ -11,6 +12,7 @@ from structlog.stdlib import BoundLogger
 from ...exceptions import InvalidDockerReferenceError, UnknownDockerImageError
 from ...models.domain.docker import DockerReference
 from ...models.domain.image import MenuImage
+from ...models.domain.imagefilterpolicy import RSPImageFilterPolicy
 from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.domain.rsptag import RSPImageTagCollection
@@ -42,6 +44,8 @@ class DockerImageSource(ImageSource):
         Client to query the Docker API for tags.
     logger
         Logger for messages.
+    image_filter
+        Filter policy to apply to images in the remote registry.
     """
 
     def __init__(
@@ -49,8 +53,9 @@ class DockerImageSource(ImageSource):
         config: DockerSourceOptions,
         docker: DockerStorageClient,
         logger: BoundLogger,
+        image_filter: RSPImageFilterPolicy,
     ) -> None:
-        super().__init__(logger)
+        super().__init__(logger, image_filter)
         self._config = config
         self._docker = docker
 
@@ -201,12 +206,13 @@ class DockerImageSource(ImageSource):
         Returns
         -------
         list of MenuImage
-            All known images.
+            All known images meeting filter criteria.
         """
         registry = self._config.registry
         repository = self._config.repository
         menu_images = []
-        for tag in self._tags.all_tags():
+
+        for tag in self._tags.filter(self._image_filter, datetime.now(tz=UTC)):
             image = self._images.image_for_tag_name(tag.tag)
             if image:
                 reference = image.reference_with_digest

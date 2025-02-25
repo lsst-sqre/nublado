@@ -5,12 +5,14 @@ import re
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-from enum import Enum
+from datetime import UTC, datetime
 from functools import total_ordering
 from typing import Self
 
-from semver import Version
+import semver
+
+from .imagefilterpolicy import RSPImageFilterPolicy
+from .rspimagetype import RSPImageType
 
 DOCKER_DEFAULT_TAG = "latest"
 """Implicit tag used by Docker/Kubernetes when no tag is specified."""
@@ -21,23 +23,6 @@ __all__ = [
     "RSPImageTagCollection",
     "RSPImageType",
 ]
-
-
-class RSPImageType(Enum):
-    """The type (generally, release series) of the identified image.
-
-    This is listed in order of priority when constructing menus.  The image
-    types listed first will be shown earlier in the menu.
-    """
-
-    ALIAS = "Alias"
-    RELEASE = "Release"
-    WEEKLY = "Weekly"
-    DAILY = "Daily"
-    CANDIDATE = "Release Candidate"
-    EXPERIMENTAL = "Experimental"
-    UNKNOWN = "Unknown"
-
 
 # Regular expression components used to construct the parsing regexes.
 
@@ -122,7 +107,7 @@ class RSPImageTag:
     image_type: RSPImageType
     """Type (release series) of image identified by this tag."""
 
-    version: Version | None
+    version: semver.Version | None
     """Version information as a semantic version."""
 
     cycle: int | None
@@ -275,7 +260,7 @@ class RSPImageTag:
                 display_name = image_type.value
             return cls(
                 image_type=image_type,
-                version=None,
+                version=subtag.version,
                 tag=tag,
                 cycle=subtag.cycle,
                 display_name=display_name,
@@ -313,7 +298,7 @@ class RSPImageTag:
 
         # Construct the semantic version.  It should be impossible, given our
         # regexes, for this to fail, but if it does that's handled in from_str.
-        version = Version(
+        version = semver.Version(
             major=int(major),
             minor=int(minor),
             patch=int(patch),
@@ -399,20 +384,6 @@ class RSPImageTag:
         if not (month and day):
             return None
         return datetime(int(year), int(month), int(day), tzinfo=UTC)
-
-    def age(self, since: datetime | None = None) -> timedelta | None:
-        """Calculate image age, if possible.
-
-        Parameters
-        ----------
-        since
-            Datestamp to measure age from.  If unspecified, the present.
-        """
-        if self.date is None:
-            return None
-        if since is None:
-            since = datetime.now(tz=UTC)
-        return since - self.date
 
     def _compare(self, other: object) -> int:
         """Compare to image tags for sorting purposes.
@@ -576,3 +547,58 @@ class RSPImageTagCollection:
 
         # Return the results.
         return type(self)(tags)
+
+    def filter(
+        self, policy: RSPImageFilterPolicy, age_basis: datetime
+    ) -> list[RSPImageTag]:
+        """Apply a filter policy and return the remaining tags.
+
+        Parameters
+        ----------
+        policy
+            Policy governing tag filtering.
+        age_basis
+            Timestamp to use as basis for image age calculation.
+
+        Returns
+        -------
+        list[RSPImageTag]
+            Tags remaining after policy application.
+        """
+        tags: list[RSPImageTag] = []
+        for category in RSPImageType:
+            tags.extend(
+                self._apply_category_policy(policy, category, age_basis)
+            )
+        return tags
+
+    def _apply_category_policy(
+        self,
+        policy: RSPImageFilterPolicy,
+        category: RSPImageType,
+        age_basis: datetime,
+    ) -> list[RSPImageTag]:
+        candidates = list(self._by_type[category])
+        remainder: list[RSPImageTag] = []
+        cat_policy = policy.policy_for_category(category)
+        if cat_policy is None:
+            return candidates
+        cutoff_date: datetime | None = None
+        if cat_policy.age is not None:
+            cutoff_date = age_basis - cat_policy.age
+        cutoff_version: semver.Version | None = None
+        if cat_policy.cutoff_version is not None:
+            cutoff_version = semver.Version.parse(cat_policy.cutoff_version)
+        for tag in candidates:
+            if cat_policy.number is not None and cat_policy.number <= len(
+                remainder
+            ):
+                break
+            if tag.date is not None and cutoff_date is not None:
+                if tag.date < cutoff_date:
+                    continue
+            if tag.version is not None and cutoff_version is not None:
+                if tag.version < cutoff_version:
+                    continue
+            remainder.append(tag)
+        return remainder

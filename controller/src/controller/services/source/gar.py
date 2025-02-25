@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import override
 
 from structlog.stdlib import BoundLogger
@@ -10,6 +11,7 @@ from structlog.stdlib import BoundLogger
 from ...exceptions import InvalidDockerReferenceError, UnknownDockerImageError
 from ...models.domain.docker import DockerReference
 from ...models.domain.image import MenuImage
+from ...models.domain.imagefilterpolicy import RSPImageFilterPolicy
 from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.v1.prepuller import (
@@ -39,6 +41,8 @@ class GARImageSource(ImageSource):
         Google Artifact Registry client.
     logger
         Logger for messages.
+    image_filter
+        Filter policy to apply to images in the remote registry.
     """
 
     def __init__(
@@ -46,8 +50,9 @@ class GARImageSource(ImageSource):
         config: GARSourceOptions,
         gar: GARStorageClient,
         logger: BoundLogger,
+        image_filter: RSPImageFilterPolicy,
     ) -> None:
-        super().__init__(logger)
+        super().__init__(logger, image_filter)
         self._config = config
         self._gar = gar
 
@@ -144,11 +149,13 @@ class GARImageSource(ImageSource):
         Returns
         -------
         list of MenuImage
-            All known images.
+            All known images meeting filter criteria.
         """
         return [
             MenuImage(i.reference_with_digest, i.display_name)
-            for i in self._images.all_images()
+            for i in self._images.filter(
+                self._image_filter, datetime.now(tz=UTC)
+            )
         ]
 
     @override

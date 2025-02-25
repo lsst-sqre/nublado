@@ -2,10 +2,12 @@
 
 from typing import Annotated
 
+import semver
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from safir.pydantic import HumanTimedelta
-from semver import Version
+
+from .rspimagetype import RSPImageType
 
 __all__ = ["ImageFilterPolicy", "RSPImageFilterPolicy"]
 
@@ -46,9 +48,15 @@ class ImageFilterPolicy(BaseModel):
         ),
     ] = None
 
+    # This is a little strange, and the reason is, Version is not JSON-
+    # serializable.  So we store it as a string, but we make sure that the
+    # string will parse into a Version, and we store the string as the
+    # canonical string representation of that version.
     cutoff_version: Annotated[
-        Version | None,
-        BeforeValidator(lambda v: v if not isinstance(v, str) else Version(v)),
+        str | None,
+        BeforeValidator(
+            lambda v: None if v is None else str(semver.Version.parse(v))
+        ),
         Field(
             title="Cutoff Version",
             description=(
@@ -115,3 +123,26 @@ class RSPImageFilterPolicy(BaseModel):
             default_factory=ImageFilterPolicy,
         ),
     ]
+
+    def policy_for_category(
+        self, category: RSPImageType
+    ) -> ImageFilterPolicy | None:
+        match category:
+            case RSPImageType.ALIAS:
+                return None  # Always show all alias tags
+            case RSPImageType.RELEASE:
+                return self.release
+            case RSPImageType.WEEKLY:
+                return self.weekly
+            case RSPImageType.DAILY:
+                return self.daily
+            case RSPImageType.CANDIDATE:
+                return self.release_candidate
+            case RSPImageType.EXPERIMENTAL:
+                return self.experimental
+            case RSPImageType.UNKNOWN:
+                return None  # Show all unknowns (subject to change)
+            case _:
+                raise ValueError(
+                    f"{category!s} does not resolve to known image type"
+                )
