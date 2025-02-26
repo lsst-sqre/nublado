@@ -419,6 +419,7 @@ class JupyterLabSession:
                         error = f"{type(e).__name__}: {e!s}"
                         msg = "Ignoring unparsable web socket message"
                         self._logger.warning(msg, error=error, message=message)
+                        continue
 
                     # Accumulate the results if they are of interest, and exit
                     # and return the results if this message indicated the end
