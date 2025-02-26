@@ -6,6 +6,17 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.6.0'></a>
+## 8.6.0 (2025-02-26)
+
+### New features
+
+- Add ability to restrict dropdown menu based on category age/number/version
+
+### Bug fixes
+
+- Fix unbound variable error in nublado client
+
 <a id='changelog-8.5.0'></a>
 ## 8.5.0 (2025-02-24)
 
