@@ -61,7 +61,7 @@ python3 -m uv pip install --upgrade \
    plotly \
    pre-commit \
    pythreejs \
-   'rsp-jupyter-extensions>=0.14.5' \
+   'rsp-jupyter-extensions>=0.15.0' \
    ruff \
    sidecar
 
