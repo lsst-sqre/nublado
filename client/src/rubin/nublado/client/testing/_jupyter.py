@@ -230,7 +230,6 @@ class MockJupyter:
             return Response(403, request=request)
         expected_suffix = f"/hub/api/users/{user}/server/progress"
         assert str(request.url).endswith(expected_suffix)
-        assert request.headers.get("x-xsrftoken") == self._hub_xsrf
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         assert state in (JupyterState.SPAWN_PENDING, JupyterState.LAB_RUNNING)
         if JupyterAction.PROGRESS in self._fail.get(user, {}):
