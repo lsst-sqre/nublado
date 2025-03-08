@@ -22,7 +22,7 @@ from urllib.parse import parse_qs
 from uuid import uuid4
 
 import respx
-from httpx import Request, Response
+from httpx import URL, Request, Response
 
 from .._util import normalize_source
 from ..models import NotebookExecutionResult
@@ -84,28 +84,40 @@ class MockJupyter:
     session.
 
     It also has two result registration methods, ``register_python_result``
-    and ``register_extension_result``.  These allow you to mock responses
-    for specific Python inputs that would be executed in the running Lab, so
-    that you do not need to replicate the target environment in your
-    test suite.
+    and ``register_extension_result``. These allow you to mock responses for
+    specific Python inputs that would be executed in the running Lab, so that
+    you do not need to replicate the target environment in your test suite.
 
     If the username is provided in ``X-Auth-Request-User`` in the request
-    headers, that name will be used.  This will be the case when the mock
-    is behind something emulating a GafaelfawrIngress, and is how the
-    actual Hub would be called.  If it is not, an ``Authorization`` header
-    of the form ``Bearer <token>`` will be looked for, and the username
-    extracted from the (bogus) token as encoded by
-    `~mobu.tests.gafaelfawr.make_gafaelfawr_token`.  This is more accurate
-    from the caller perspective.
+    headers, that name will be used. This will be the case when the mock is
+    behind something emulating a GafaelfawrIngress, and is how the actual Hub
+    would be called. If it is not, an ``Authorization`` header of the form
+    ``Bearer <token>`` will be expected, and the username will be taken to be
+    the portion after ``gt-`` and before the first period.
 
-    The bogus-token functions should be lifted into safir at some point.
+    Parameters
+    ----------
+    base_url
+        Base URL at which to install the Jupyter mocks.
+    user_dir
+        Simulated user home directory for the ``/files`` route.
+    use_subdomains
+        If `True`, simulate per-user subdomains. JupyterHub will use the URL
+        :samp:`nb.{hostname}` where the hostname is taken from ``base_url``,
+        and JupyterLab will use :samp:`{username}.nb.{hostname}`.
     """
 
     def __init__(
         self,
         base_url: str,
         user_dir: Path,
+        *,
+        use_subdomains: bool = False,
     ) -> None:
+        self._base_url = URL(base_url)
+        self._user_dir = user_dir
+        self._use_subdomains = use_subdomains
+
         self.sessions: dict[str, JupyterLabSession] = {}
         self.state: dict[str, JupyterState] = {}
         self.delete_immediate = True
@@ -114,12 +126,11 @@ class MockJupyter:
         self.lab_form: dict[str, dict[str, str]] = {}
         self.expected_session_name = "(no notebook)"
         self.expected_session_type = "console"
+
         self._delete_at: dict[str, datetime | None] = {}
         self._fail: dict[str, dict[JupyterAction, bool]] = {}
         self._hub_xsrf = os.urandom(8).hex()
         self._lab_xsrf = os.urandom(8).hex()
-        self._base_url = base_url
-        self._user_dir = user_dir
         self._code_results: dict[str, str] = {}
         self._extension_results: dict[str, NotebookExecutionResult] = {}
 
@@ -160,32 +171,14 @@ class MockJupyter:
             self._fail[user] = {}
         self._fail[user][action] = True
 
-    def _get_user_from_headers(self, request: Request) -> str | None:
-        x_user = request.headers.get("X-Auth-Request-User", None)
-        if x_user:
-            return x_user
-        # Try Authorization
-        auth = request.headers.get("Authorization", None)
-        # Is it a bearer token?
-        if auth and auth.startswith("Bearer "):
-            tok = auth[len("Bearer ") :]
-            # Is it putatively a Gafaelfawr token?
-            if tok.startswith("gt-"):
-                with suppress(Exception):
-                    # Try extracting the username. If this fails, fall through
-                    # and return None.
-                    return self._extract_user_from_mock_token(token=tok)
-        return None
-
-    @staticmethod
-    def _extract_user_from_mock_token(token: str) -> str:
-        # remove "gt-", and split on the dot that marks the secret
-        return urlsafe_b64decode(token[3:].split(".", 1)[0]).decode()
-
     def login(self, request: Request) -> Response:
         user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
+        if redirect := self._maybe_redirect(request, user):
+            return Response(
+                302, request=request, headers={"Location": redirect}
+            )
         if JupyterAction.LOGIN in self._fail.get(user, {}):
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
@@ -198,6 +191,10 @@ class MockJupyter:
         user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
+        if redirect := self._maybe_redirect(request, user):
+            return Response(
+                302, request=request, headers={"Location": redirect}
+            )
         if JupyterAction.USER in self._fail.get(user, {}):
             return Response(500, request=request)
         assert str(request.url).endswith(f"/hub/api/users/{user}")
@@ -228,9 +225,12 @@ class MockJupyter:
         user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
+        if redirect := self._maybe_redirect(request, user):
+            return Response(
+                302, request=request, headers={"Location": redirect}
+            )
         expected_suffix = f"/hub/api/users/{user}/server/progress"
         assert str(request.url).endswith(expected_suffix)
-        assert request.headers.get("x-xsrftoken") == self._hub_xsrf
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         assert state in (JupyterState.SPAWN_PENDING, JupyterState.LAB_RUNNING)
         if JupyterAction.PROGRESS in self._fail.get(user, {}):
@@ -268,6 +268,10 @@ class MockJupyter:
         user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
+        if redirect := self._maybe_redirect(request, user):
+            return Response(
+                302, request=request, headers={"Location": redirect}
+            )
         if JupyterAction.SPAWN in self._fail.get(user, {}):
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
@@ -277,13 +281,17 @@ class MockJupyter:
         self.lab_form[user] = {
             k: v[0] for k, v in parse_qs(request.content.decode()).items()
         }
-        url = _url(self._base_url, f"hub/spawn-pending/{user}")
+        url = self._url(f"hub/spawn-pending/{user}")
         return Response(302, headers={"Location": url}, request=request)
 
     def spawn_pending(self, request: Request) -> Response:
         user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
+        if redirect := self._maybe_redirect(request, user):
+            return Response(
+                302, request=request, headers={"Location": redirect}
+            )
         assert str(request.url).endswith(f"/hub/spawn-pending/{user}")
         if JupyterAction.SPAWN_PENDING in self._fail.get(user, {}):
             return Response(500, request=request)
@@ -296,6 +304,10 @@ class MockJupyter:
         user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
+        if redirect := self._maybe_redirect(request, user):
+            return Response(
+                302, request=request, headers={"Location": redirect}
+            )
         assert str(request.url).endswith(f"/hub/user/{user}/lab")
         return Response(503, request=request)
 
@@ -303,34 +315,38 @@ class MockJupyter:
         user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
+        if redirect := self._maybe_redirect(request, user):
+            return Response(
+                302, request=request, headers={"Location": redirect}
+            )
         assert str(request.url).endswith(f"/user/{user}/lab")
         if JupyterAction.LAB in self._fail.get(user, {}):
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         if state == JupyterState.LAB_RUNNING:
             # In real life, there's another redirect to
-            # /hub/api/oauth2/authorize, which doesn't set a cookie,
-            # and then redirects to /user/username/oauth_callback.
+            # /hub/api/oauth2/authorize, which doesn't set a cookie, and then
+            # redirects to /user/username/oauth_callback.
             #
-            # We're skipping that one since it doesn't change the
-            # client state at all.
+            # We're skipping that one since it doesn't change the client state
+            # at all.
             xsrf = f"_xsrf={self._lab_xsrf}"
             return Response(
                 302,
                 request=request,
                 headers={
-                    "Location": _url(
-                        self._base_url, f"user/{user}/oauth_callback"
-                    ),
+                    "Location": self._url(f"user/{user}/oauth_callback"),
                     "Set-Cookie": xsrf,
                 },
             )
         else:
+            if self._use_subdomains:
+                host = "nb." + self._base_url.host
+            else:
+                host = self._base_url.host
             return Response(
                 302,
-                headers={
-                    "Location": _url(self._base_url, f"hub/user/{user}/lab")
-                },
+                headers={"Location": self._url(f"hub/user/{user}/lab", host)},
                 request=request,
             )
 
@@ -346,6 +362,10 @@ class MockJupyter:
         user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
+        if redirect := self._maybe_redirect(request, user):
+            return Response(
+                302, request=request, headers={"Location": redirect}
+            )
         assert str(request.url).endswith(f"/user/{user}/oauth_callback")
         return Response(200, request=request)
 
@@ -353,7 +373,11 @@ class MockJupyter:
         user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
-        assert str(request.url).endswith(f"/users/{user}/server")
+        if redirect := self._maybe_redirect(request, user):
+            return Response(
+                302, request=request, headers={"Location": redirect}
+            )
+        assert str(request.url).endswith(f"/hub/api/users/{user}/server")
         assert request.headers.get("x-xsrftoken") == self._hub_xsrf
         if JupyterAction.DELETE_LAB in self._fail.get(user, {}):
             return Response(500, request=request)
@@ -370,6 +394,10 @@ class MockJupyter:
         user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
+        if redirect := self._maybe_redirect(request, user):
+            return Response(
+                302, request=request, headers={"Location": redirect}
+            )
         assert str(request.url).endswith(f"/user/{user}/api/sessions")
         assert request.headers.get("x-xsrftoken") == self._lab_xsrf
         assert user not in self.sessions
@@ -398,6 +426,10 @@ class MockJupyter:
         user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
+        if redirect := self._maybe_redirect(request, user):
+            return Response(
+                302, request=request, headers={"Location": redirect}
+            )
         session_id = self.sessions[user].session_id
         expected_suffix = f"/user/{user}/api/sessions/{session_id}"
         assert str(request.url).endswith(expected_suffix)
@@ -414,9 +446,17 @@ class MockJupyter:
         user = self._get_user_from_headers(request)
         if user is None:
             return Response(403, request=request)
+        if redirect := self._maybe_redirect(request, user):
+            return Response(
+                302, request=request, headers={"Location": redirect}
+            )
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         assert state == JupyterState.LAB_RUNNING
-        contents_url = _url(self._base_url, f"user/{user}/files/")
+        if self._use_subdomains:
+            host = f"{user}.nb." + self._base_url.host
+        else:
+            host = self._base_url.host
+        contents_url = self._url(f"user/{user}/files/", host)
         assert str(request.url).startswith(contents_url)
         path = str(request.url)[len(contents_url) :]
         try:
@@ -478,6 +518,88 @@ class MockJupyter:
                 "error": None,
             }
         return Response(200, json=obj)
+
+    @staticmethod
+    def _extract_user_from_mock_token(token: str) -> str:
+        # remove "gt-", and split on the dot that marks the secret
+        return urlsafe_b64decode(token[3:].split(".", 1)[0]).decode()
+
+    def _get_user_from_headers(self, request: Request) -> str | None:
+        x_user = request.headers.get("X-Auth-Request-User", None)
+        if x_user:
+            return x_user
+        # Try Authorization
+        auth = request.headers.get("Authorization", None)
+        # Is it a bearer token?
+        if auth and auth.startswith("Bearer "):
+            tok = auth[len("Bearer ") :]
+            # Is it putatively a Gafaelfawr token?
+            if tok.startswith("gt-"):
+                with suppress(Exception):
+                    # Try extracting the username. If this fails, fall through
+                    # and return None.
+                    return self._extract_user_from_mock_token(token=tok)
+        return None
+
+    def _maybe_redirect(self, request: Request, user: str) -> str | None:
+        """Maybe redirect for user subdomains.
+
+        If user subdomains are enabled, return the URL to which the user
+        should be redirected.
+
+        Parameters
+        ----------
+        request
+            Incoming request to the mock.
+        user
+            Username parsed from the incoming headers.
+
+        Returns
+        -------
+        str or None
+            URL to which the user should be redirected if user subdomains are
+            enabled and the request is not to the subdomain. Otherwise,
+            `None`, indicating the user should not be redirected.
+        """
+        if not self._use_subdomains:
+            return None
+        host = request.url.host
+        if f"user/{user}" in request.url.path:
+            # Simulate two redirects, one to the JupyterHub hostname and then
+            # a second to the JupyterLab hostname, since that appears to be
+            # what JupyterHub actually does.
+            if host.startswith("nb."):
+                return str(request.url.copy_with(host=f"{user}.{host}"))
+            elif not host.startswith(f"{user}.nb."):
+                return str(request.url.copy_with(host=f"nb.{host}"))
+            else:
+                return None
+        elif "hub/" in request.url.path:
+            if host.startswith("nb."):
+                return None
+            else:
+                return str(request.url.copy_with(host=f"nb.{host}"))
+        else:
+            raise RuntimeError(f"Unknown URL {request.url}")
+
+    def _url(self, route: str, host: str | None = None) -> str:
+        """Construct a URL for a redirect.
+
+        Parameters
+        ----------
+        route
+            Path portion of the redirect.
+        host
+            Host portion of the redirect, if one should be present.
+        """
+        path = self._base_url.path.rstrip("/") + f"/nb/{route}"
+        if host:
+            url = self._base_url.copy_with(
+                host=host, path=path, query=None, fragment=None
+            )
+            return str(url)
+        else:
+            return path
 
 
 class MockJupyterWebSocket:
@@ -584,13 +706,20 @@ class MockJupyterWebSocket:
             return result
 
 
-def mock_jupyter(
-    respx_mock: respx.Router,
-    base_url: str,
-    user_dir: Path,
-) -> MockJupyter:
-    """Set up a mock JupyterHub and lab."""
-    mock = MockJupyter(base_url=base_url, user_dir=user_dir)
+def _install_hub_routes(
+    respx_mock: respx.Router, mock: MockJupyter, base_url: str
+) -> None:
+    """Install the mock routes for a given JupyterHub base URL.
+
+    Parameters
+    ----------
+    respx_mock
+        Mock router to use to install routes.
+    mock
+        Jupyter mock providing the routes.
+    base_url
+        Base URL into which to install routes.
+    """
     respx_mock.get(_url(base_url, "hub/home")).mock(side_effect=mock.login)
     respx_mock.get(_url(base_url, "hub/spawn")).mock(
         return_value=Response(200)
@@ -606,20 +735,74 @@ def mock_jupyter(
     respx_mock.get(url__regex=regex).mock(side_effect=mock.progress)
     regex = _url_regex(base_url, "hub/api/users/[^/]+/server")
     respx_mock.delete(url__regex=regex).mock(side_effect=mock.delete_lab)
-    regex = _url_regex(base_url, r"user/[^/]+/lab")
+
+
+def _install_lab_routes(
+    respx_mock: respx.Router, mock: MockJupyter, base_regex: str
+) -> None:
+    """Install the mock routes for a given JupyterLab base URL.
+
+    Parameters
+    ----------
+    respx_mock
+        Mock router to use to install routes.
+    mock
+        Jupyter mock providing the routes.
+    base_regex
+        Regex of base URL into which to install routes.
+    """
+    regex = base_regex + r"/user/[^/]+/lab"
     respx_mock.get(url__regex=regex).mock(side_effect=mock.lab)
-    regex = _url_regex(base_url, r"user/[^/]+/oauth_callback")
+    regex = base_regex + r"/user/[^/]+/oauth_callback"
     respx_mock.get(url__regex=regex).mock(side_effect=mock.lab_callback)
-    regex = _url_regex(base_url, "user/[^/]+/api/sessions")
+    regex = base_regex + r"/user/[^/]+/api/sessions"
     respx_mock.post(url__regex=regex).mock(side_effect=mock.create_session)
-    regex = _url_regex(base_url, "user/[^/]+/api/sessions/[^/]+$")
+    regex = base_regex + r"/user/[^/]+/api/sessions/[^/]+$"
     respx_mock.delete(url__regex=regex).mock(side_effect=mock.delete_session)
-    regex = _url_regex(base_url, "user/[^/]+/files/[^/]+$")
+    regex = base_regex + "/user/[^/]+/files/[^/]+$"
     respx_mock.get(url__regex=regex).mock(side_effect=mock.get_content)
-    regex = _url_regex(base_url, "user/[^/]+/rubin/execution")
+    regex = base_regex + "/user/[^/]+/rubin/execution"
     respx_mock.post(url__regex=regex).mock(
         side_effect=mock.run_notebook_via_extension
     )
+
+
+def mock_jupyter(
+    respx_mock: respx.Router,
+    base_url: str,
+    user_dir: Path,
+    *,
+    use_subdomains: bool = False,
+) -> MockJupyter:
+    """Set up a mock JupyterHub and JupyterLab.
+
+    Parameters
+    ----------
+    respx_mock
+        Mock router to use to install routes.
+    base_url
+        Base URL for JupyterHub. If per-user subdomains are in use, this is
+        the base URL without subdomains. The subdomain URLs will be created
+        by prepending ``nb.`` or :samp:`{username}.nb.` to the hostname of
+        this URL.
+    user_dir
+        User directory for mocking ``/files`` responses.
+    use_subdomains
+        If set to `True`, use per-user subdomains for JupyterLab and a
+        subdomain for JupyterHub. Requests to the URL outside of the subdomain
+        will be redirected.
+    """
+    mock = MockJupyter(base_url, user_dir, use_subdomains=use_subdomains)
+    _install_hub_routes(respx_mock, mock, base_url)
+    _install_lab_routes(respx_mock, mock, base_url + "/nb")
+    if use_subdomains:
+        parsed_url = URL(base_url)
+        hub_url = parsed_url.copy_with(host=f"nb.{parsed_url.host}")
+        _install_hub_routes(respx_mock, mock, str(hub_url))
+        _install_lab_routes(respx_mock, mock, str(hub_url) + "/nb")
+        path = parsed_url.path.rstrip("/") + "/nb"
+        lab_regex = rf"https://[^.]+\.nb\.{parsed_url.host}{path}"
+        _install_lab_routes(respx_mock, mock, lab_regex)
     return mock
 
 
