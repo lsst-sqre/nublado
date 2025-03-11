@@ -29,8 +29,10 @@ from kubernetes_asyncio.client import (
     V1NetworkPolicyPeer,
     V1NetworkPolicyPort,
     V1NetworkPolicySpec,
+    V1NFSVolumeSource,
     V1ObjectFieldSelector,
     V1ObjectMeta,
+    V1PersistentVolume,
     V1PersistentVolumeClaim,
     V1Pod,
     V1PodSecurityContext,
@@ -52,6 +54,7 @@ from structlog.stdlib import BoundLogger
 
 from ...config import (
     LabConfig,
+    NFSPVCVolumeSource,
     PVCVolumeSource,
     TmpSource,
     UserHomeDirectorySchema,
@@ -178,6 +181,7 @@ class LabBuilder:
             env_config_map=self._build_env_config_map(user, lab, image),
             config_maps=self._build_config_maps(user),
             network_policy=self._build_network_policy(user.username),
+            pvs=self._build_pvs(user.username),
             pvcs=self._build_pvcs(user.username),
             quota=self._build_quota(user),
             secrets=self._build_secrets(user.username, secrets, pull_secret),
@@ -449,19 +453,53 @@ class LabBuilder:
             ),
         )
 
+    def _build_pvs(self, username: str) -> list[V1PersistentVolume]:
+        """Construct persistent volumes for a user's lab.
+
+        This is only needed for NFSPVC.
+        """
+        volumes = (v for v in self._config.volumes)
+        pvs: list[V1PersistentVolume] = []
+        for volume in volumes:
+            vs = volume.source
+            if not isinstance(vs, NFSPVCVolumeSource):
+                continue
+            name = f"{username}-nb-pv-{volume.name}"
+            pv = V1PersistentVolume(
+                metadata=self._build_metadata(name, username),
+                spec=vs.to_kubernetes_volume_spec(),
+                mount_options=vs.mount_options,
+                capacity=vs.resources.requests,
+                nfs=V1NFSVolumeSource(
+                    path=vs.server_path,
+                    read_only=vs.read_only,
+                    server=vs.server,
+                ),
+            )
+            pvs.append(pv)
+        return pvs
+
     def _build_pvcs(self, username: str) -> list[V1PersistentVolumeClaim]:
         """Construct the persistent volume claims for a user's lab."""
         volume_names = {m.volume_name for m in self._config.volume_mounts}
         volumes = (v for v in self._config.volumes if v.name in volume_names)
         pvcs: list[V1PersistentVolumeClaim] = []
         for volume in volumes:
-            if not isinstance(volume.source, PVCVolumeSource):
+            if not (
+                isinstance(
+                    volume.source, (PVCVolumeSource | NFSPVCVolumeSource)
+                )
+            ):
                 continue
             name = f"{username}-nb-pvc-{volume.name}"
             pvc = V1PersistentVolumeClaim(
                 metadata=self._build_metadata(name, username),
                 spec=volume.source.to_kubernetes_spec(),
             )
+            if isinstance(volume.source, NFSPVCVolumeSource):
+                # For NFSPVC only, bind to specified PV, using conventional
+                # PV name (cf. _build_pvs).
+                pvc.volume_name = f"{username}-nb-pv-{volume.name}"
             pvcs.append(pvc)
         return pvcs
 
