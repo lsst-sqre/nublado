@@ -11,6 +11,7 @@ from kubernetes_asyncio.client.models import (
     V1ConfigMap,
     V1Namespace,
     V1NetworkPolicy,
+    V1PersistentVolume,
     V1PersistentVolumeClaim,
     V1Pod,
     V1ResourceQuota,
@@ -151,6 +152,9 @@ class LabObjects(LabStateObjects):
 
     network_policy: V1NetworkPolicy
     """Network policy for the lab."""
+
+    pvs: list[V1PersistentVolume]
+    """Persistent volumes."""
 
     pvcs: list[V1PersistentVolumeClaim]
     """Persistent volume claims."""

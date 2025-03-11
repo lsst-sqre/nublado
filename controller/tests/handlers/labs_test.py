@@ -877,6 +877,19 @@ async def test_tmp_on_disk(
 
 
 @pytest.mark.asyncio
+async def test_nfspvc(
+    client: AsyncClient,
+    user: GafaelfawrUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    """Check that /tmp is constructed correctly if set to use disk rather
+    than memory.
+    """
+    await configure("nfs-pvc")  # assign to config
+    # We need a Safir mock for the PV to be able to test.
+
+
+@pytest.mark.asyncio
 async def test_alternate_paths(
     client: AsyncClient,
     user: GafaelfawrUser,
