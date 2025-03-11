@@ -10,6 +10,7 @@ from typing import Annotated, Literal, Self
 import yaml
 from kubernetes_asyncio.client import (
     V1PersistentVolumeClaimSpec,
+    V1PersistentVolumeSpec,
     V1ResourceRequirements,
 )
 from pydantic import (
@@ -62,6 +63,7 @@ __all__ = [
     "LabNSSFiles",
     "LabSecret",
     "LabSizeDefinition",
+    "NFSPVCVolumeSource",
     "NFSVolumeSource",
     "PVCVolumeResources",
     "PVCVolumeSource",
@@ -238,12 +240,130 @@ class PVCVolumeSource(BaseVolumeSource):
         Returns
         -------
         kubernetes_asyncio.client.models.V1PersistentVolumeClaimSpec
-            Corresponding persistente volume claim spec.
+            Corresponding persistent volume claim spec.
         """
         return V1PersistentVolumeClaimSpec(
             storage_class_name=self.storage_class_name,
             access_modes=[m.value for m in self.access_modes],
             resources=V1ResourceRequirements(requests=self.resources.requests),
+        )
+
+
+class NFSPVCVolumeSource(BaseVolumeSource):
+    """NFS+PVC volume to mount in the container.
+
+    This is the only within-kubernetes way to specify mount options for an
+    NFS mount (if you have access to the host, /etc/nfsmount.conf
+    works as well).  The default mount_options are opinionated and reflect
+    reasonable NFSv4 defaults in the GKE environment.
+
+    PVs and PVCs exist in a one-to-one mapping; hence mounting this volume
+    requires a PV per PVC, even though many clients can use a single NFS
+    server.  Note also that PVs are cluster-scoped, not namespace-scoped,
+    which complicates resource naming.
+
+    The presence of this type will trigger the creation of the PV in the pod
+    resources.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    type: Literal["nfsPvc"]
+
+    server: Annotated[
+        str,
+        Field(
+            title="NFS server",
+            description="Name or IP address of the NFS server for the volume",
+            examples=["10.13.105.122"],
+        ),
+    ]
+
+    server_path: Annotated[
+        str,
+        Field(
+            title="Export path",
+            description="Absolute path of NFS server export of the volume",
+            examples=["/share1/home"],
+            pattern="^/.*",
+        ),
+    ]
+
+    read_only: Annotated[
+        bool,
+        Field(
+            title="Is read-only",
+            description=(
+                "Whether to mount the NFS volume read-only. If this is true,"
+                " any mount of this volume will be read-only even if the mount"
+                " is not marked as such."
+            ),
+        ),
+    ] = False
+
+    mount_options: Annotated[
+        list[str],
+        Field(
+            title="NFS Mount Options",
+            description=(
+                "Mount options for NFS.  Note that if you really "
+                "wanted to, you could use this to turn it back into "
+                "an NFSv3 server."
+            ),
+        ),
+    ] = [
+        "rw",
+        "relatime",
+        "vers=4.1",
+        "rsize=1048576",
+        "wsize=1048576",
+        "namlen=255",
+        "hard",
+        "proto=tcp",
+        "timeo=600",
+        "retrans=2",
+        "sec=sys",
+        "mountproto=tcp",
+        "local_lock=none",
+    ]
+
+    access_modes: Annotated[list[VolumeAccessMode], Field(title="Access mode")]
+
+    storage_class_name: Annotated[str, Field(title="Storage class")]
+
+    resources: Annotated[
+        PVCVolumeResources, Field(title="Resources for volume")
+    ]
+
+    def to_kubernetes_spec(self) -> V1PersistentVolumeClaimSpec:
+        """Convert to the Kubernetes representation.
+
+        Returns
+        -------
+        kubernetes_asyncio.client.models.V1PersistentVolumeClaimSpec
+            Corresponding persistent volume claim spec.
+        """
+        return V1PersistentVolumeClaimSpec(
+            storage_class_name=self.storage_class_name,
+            access_modes=[m.value for m in self.access_modes],
+            resources=V1ResourceRequirements(requests=self.resources.requests),
+        )
+
+    def to_kubernetes_volume_spec(self) -> V1PersistentVolumeSpec:
+        """Convert to the Kubernetes representation for the matching Volume.
+
+        Returns
+        -------
+        kubernetes_asyncio.client.models.V1PersistentVolumeSpec
+            Corresponding persistent volume spec.
+        """
+        return V1PersistentVolumeSpec(
+            storage_class_name=self.storage_class_name,
+            access_modes=[m.value for m in self.access_modes],
+            mount_options=self.mount_options,
+            capacity=V1ResourceRequirements(requests=self.resources.requests),
         )
 
 
@@ -267,7 +387,12 @@ class VolumeConfig(BaseModel):
     ]
 
     source: Annotated[
-        HostPathVolumeSource | NFSVolumeSource | PVCVolumeSource,
+        (
+            HostPathVolumeSource
+            | NFSVolumeSource
+            | PVCVolumeSource
+            | NFSPVCVolumeSource
+        ),
         Field(title="Source of volume"),
     ]
 
