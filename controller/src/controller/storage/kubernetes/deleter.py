@@ -17,6 +17,7 @@ from kubernetes_asyncio.client import (
     ApiException,
     V1DeleteOptions,
     V1Job,
+    V1PersistentVolume,
     V1PersistentVolumeClaim,
     V1Service,
     V1ServiceAccount,
@@ -37,6 +38,7 @@ __all__ = [
     "JobStorage",
     "KubernetesObjectDeleter",
     "PersistentVolumeClaimStorage",
+    "PersistentVolumeStorage",
     "ServiceAccountStorage",
     "ServiceStorage",
 ]
@@ -412,6 +414,30 @@ class JobStorage(KubernetesObjectDeleter[V1Job]):
             read_method=api.read_namespaced_job,
             object_type=V1Job,
             kind="Job",
+            logger=logger,
+        )
+
+
+class PersistentVolumeStorage(KubernetesObjectDeleter[V1PersistentVolume]):
+    """Storage layer for ``PersistentVolume`` objects.
+
+    Parameters
+    ----------
+    api_client
+        Kubernetes API client.
+    logger
+        Logger to use.
+    """
+
+    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+        api = client.CoreV1Api(api_client)
+        super().__init__(
+            create_method=api.create_persistent_volume,
+            delete_method=api.delete_persistent_volume,
+            list_method=api.list_persistent_volume,
+            read_method=api.read_persistent_volume,
+            object_type=V1PersistentVolume,
+            kind="PersistentVolume",
             logger=logger,
         )
 
