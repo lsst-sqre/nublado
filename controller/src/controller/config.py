@@ -9,6 +9,7 @@ from typing import Annotated, Literal, Self
 
 import yaml
 from kubernetes_asyncio.client import (
+    V1NFSVolumeSource,
     V1PersistentVolumeClaimSpec,
     V1PersistentVolumeSpec,
     V1ResourceRequirements,
@@ -363,7 +364,12 @@ class NFSPVCVolumeSource(BaseVolumeSource):
             storage_class_name=self.storage_class_name,
             access_modes=[m.value for m in self.access_modes],
             mount_options=self.mount_options,
-            capacity=V1ResourceRequirements(requests=self.resources.requests),
+            capacity=self.resources.requests,
+            nfs=V1NFSVolumeSource(
+                path=self.server_path,
+                read_only=self.read_only,
+                server=self.server,
+            ),
         )
 
 

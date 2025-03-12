@@ -28,7 +28,6 @@ from kubernetes_asyncio.client import (
     V1NetworkPolicyIngressRule,
     V1NetworkPolicyPort,
     V1NetworkPolicySpec,
-    V1NFSVolumeSource,
     V1ObjectFieldSelector,
     V1ObjectMeta,
     V1PersistentVolume,
@@ -144,6 +143,11 @@ class LabBuilder:
             env_config_map=f"{username}-nb-env",
             quota=f"{username}-nb",
             pod=f"{username}-nb",
+            pvs=[
+                f"{username}-nb-pv-{x.name}"
+                for x in self._config.volumes
+                if isinstance(x.source, NFSPVCVolumeSource)
+            ],
         )
 
     def build_lab(
@@ -450,13 +454,6 @@ class LabBuilder:
             pv = V1PersistentVolume(
                 metadata=self._build_metadata(name, username),
                 spec=vs.to_kubernetes_volume_spec(),
-                mount_options=vs.mount_options,
-                capacity=vs.resources.requests,
-                nfs=V1NFSVolumeSource(
-                    path=vs.server_path,
-                    read_only=vs.read_only,
-                    server=vs.server,
-                ),
             )
             pvs.append(pv)
         return pvs

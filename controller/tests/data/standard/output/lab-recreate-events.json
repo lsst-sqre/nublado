@@ -12,7 +12,11 @@
     "event": "info"
   },
   {
-    "data": "{\"message\": \"Deleting user namespace\", \"progress\": 12}",
+    "data": "{\"message\": \"Deleting user namespace\", \"progress\": 10}",
+    "event": "info"
+  },
+  {
+    "data": "{\"message\": \"Removing Kubernetes PVs\", \"progress\": 15}",
     "event": "info"
   },
   {
