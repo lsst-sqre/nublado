@@ -119,6 +119,9 @@ class LabObjectNames:
     pod: str
     """Name of the pod."""
 
+    pvs: list[str]
+    """Names of PersistentVolume objects, if any."""
+
 
 @dataclass
 class LabStateObjects:
@@ -139,6 +142,9 @@ class LabStateObjects:
     pod: V1Pod
     """User's lab pod."""
 
+    pvs: list[V1PersistentVolume]
+    """Persistent volumes."""
+
 
 @dataclass
 class LabObjects(LabStateObjects):
@@ -152,9 +158,6 @@ class LabObjects(LabStateObjects):
 
     network_policy: V1NetworkPolicy
     """Network policy for the lab."""
-
-    pvs: list[V1PersistentVolume]
-    """Persistent volumes."""
 
     pvcs: list[V1PersistentVolumeClaim]
     """Persistent volume claims."""

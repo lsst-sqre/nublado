@@ -14,6 +14,7 @@ from kubernetes_asyncio.client import (
 
 from ...config import (
     HostPathVolumeSource,
+    NFSPVCVolumeSource,
     NFSVolumeSource,
     PVCVolumeSource,
     VolumeConfig,
@@ -92,6 +93,14 @@ class VolumeBuilder:
                         ),
                     )
                 case PVCVolumeSource() as source:
+                    claim = V1PersistentVolumeClaimVolumeSource(
+                        claim_name=f"{pvc_prefix}-pvc-{spec.name}",
+                        read_only=source.read_only,
+                    )
+                    volume = V1Volume(
+                        name=spec.name, persistent_volume_claim=claim
+                    )
+                case NFSPVCVolumeSource() as source:
                     claim = V1PersistentVolumeClaimVolumeSource(
                         claim_name=f"{pvc_prefix}-pvc-{spec.name}",
                         read_only=source.read_only,
