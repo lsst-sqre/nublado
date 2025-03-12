@@ -882,11 +882,30 @@ async def test_nfspvc(
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    """Check that /tmp is constructed correctly if set to use disk rather
-    than memory.
+    """Check that the nfsPvc volume type creates the appropriate corresponding
+    PV as well as the PVC.
     """
-    await configure("nfs-pvc")  # assign to config
-    # We need a Safir mock for the PV to be able to test.
+    config = await configure("nfs-pvc")
+
+    lab = read_input_lab_specification_json("base", "lab-specification")
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 201
+    await asyncio.sleep(0)
+
+    pod = await mock_kubernetes.read_namespaced_pod(
+        f"{user.username}-nb",
+        f"{config.lab.namespace_prefix}-{user.username}",
+    )
+    for vol in pod.spec.volumes:
+        if vol.persistent_volume_claim is None:
+            continue
+        assert vol.persistent_volume_claim.claim_name == "rachel-nb-pvc-home"
+    pvs = await mock_kubernetes.list_persistent_volume()
+    assert pvs.items[0].metadata.name == "rachel-nb-pv-home"
 
 
 @pytest.mark.asyncio
