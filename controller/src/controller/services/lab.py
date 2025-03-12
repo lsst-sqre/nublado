@@ -701,10 +701,15 @@ class LabManager:
         events.put(Event(type=EventType.INFO, message=msg, progress=progress))
         await self._storage.delete_pod(names, timeout)
 
-        progress += int((end_progress - start_progress) / 2)
+        progress += int((end_progress - start_progress) / 3)
         msg = "Deleting user namespace"
         events.put(Event(type=EventType.INFO, message=msg, progress=progress))
         await self._storage.delete_namespace(names.namespace, timeout)
+
+        msg = "Removing Kubernetes PVs"
+        progress += int((end_progress - start_progress) / 3)
+        events.put(Event(type=EventType.INFO, message=msg, progress=progress))
+        await self._storage.delete_pvs(names, timeout)
 
         self._logger.info("Lab deleted", username=username)
         progress = end_progress
