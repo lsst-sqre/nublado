@@ -14,6 +14,7 @@ from kubernetes_asyncio.client import (
     V1Job,
     V1JobSpec,
     V1ObjectMeta,
+    V1PersistentVolume,
     V1PersistentVolumeClaim,
     V1Pod,
     V1PodSecurityContext,
@@ -28,6 +29,7 @@ from structlog.stdlib import BoundLogger
 
 from ...config import (
     EnabledFileserverConfig,
+    NFSPVCVolumeSource,
     PVCVolumeSource,
     VolumeConfig,
 )
@@ -84,6 +86,7 @@ class FileserverBuilder:
             Kubernetes objects for the fileserver.
         """
         return FileserverObjects(
+            pvs=self._build_pvs(user.username),
             pvcs=self._build_pvcs(user.username),
             ingress=self._build_ingress(user.username),
             service=self._build_service(user.username),
@@ -295,19 +298,50 @@ class FileserverBuilder:
             ),
         )
 
+    def _build_pvs(self, username: str) -> list[V1PersistentVolume]:
+        """Construct the persistent volumes for the user's fileserver.
+
+        This is only needed for NFSPVC volumes.
+        """
+        volume_names = {m.volume_name for m in self._config.volume_mounts}
+        volumes = (v for v in self._volumes if v.name in volume_names)
+
+        pvs: list[V1PersistentVolume] = []
+        for volume in volumes:
+            # This check needs to be here (and not in the volume tuple
+            # creation above) so that mypy knows we have the spec-
+            # generation method on the source.
+            if not isinstance(volume.source, NFSPVCVolumeSource):
+                continue
+            pref = self.build_name(username)
+            name = f"{pref}-pv-{volume.name}"
+            pv = V1PersistentVolume(
+                metadata=self._build_metadata(name, username),
+                spec=volume.source.to_kubernetes_volume_spec(),
+            )
+            pvs.append(pv)
+        return pvs
+
     def _build_pvcs(self, username: str) -> list[V1PersistentVolumeClaim]:
         """Construct the persistent volume claims for a user's file server."""
         volume_names = {m.volume_name for m in self._config.volume_mounts}
         volumes = (v for v in self._volumes if v.name in volume_names)
         pvcs: list[V1PersistentVolumeClaim] = []
         for volume in volumes:
-            if not isinstance(volume.source, PVCVolumeSource):
+            if not isinstance(
+                volume.source, PVCVolumeSource | NFSPVCVolumeSource
+            ):
                 continue
             suffix = f"-pvc-{volume.name}"
             pvc = V1PersistentVolumeClaim(
                 metadata=self._build_metadata(username, name_suffix=suffix),
                 spec=volume.source.to_kubernetes_spec(),
             )
+            if isinstance(volume.source, NFSPVCVolumeSource):
+                # For NFSPVC only, bind to specified PV, using conventional
+                # PV name (cf. _build_pvs).
+                pref = self.build_name(username)
+                pvc.spec.volume_name = f"{pref}-pv-{volume.name}"
             pvcs.append(pvc)
         return pvcs
 

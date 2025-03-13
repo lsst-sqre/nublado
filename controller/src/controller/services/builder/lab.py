@@ -462,16 +462,27 @@ class LabBuilder:
 
         This is only needed for NFSPVC.
         """
-        volumes = (v for v in self._config.volumes)
+        volume_names = {m.volume_name for m in self._config.volume_mounts}
+        volume_names.update(
+            {
+                m.volume_name
+                for ic in self._config.init_containers
+                for m in ic.volume_mounts
+            }
+        )
+        volumes = (v for v in self._config.volumes if v.name in volume_names)
+
         pvs: list[V1PersistentVolume] = []
         for volume in volumes:
-            vs = volume.source
-            if not isinstance(vs, NFSPVCVolumeSource):
+            # This check needs to be here (and not in the volume tuple
+            # creation above) so that mypy knows we have the spec-
+            # generation method on the source.
+            if not isinstance(volume.source, NFSPVCVolumeSource):
                 continue
             name = f"{username}-nb-pv-{volume.name}"
             pv = V1PersistentVolume(
                 metadata=self._build_metadata(name, username),
-                spec=vs.to_kubernetes_volume_spec(),
+                spec=volume.source.to_kubernetes_volume_spec(),
             )
             pvs.append(pv)
         return pvs
@@ -479,8 +490,8 @@ class LabBuilder:
     def _build_pvcs(self, username: str) -> list[V1PersistentVolumeClaim]:
         """Construct the persistent volume claims for a user's lab."""
         volume_names = {m.volume_name for m in self._config.volume_mounts}
-        # We need init_containers' volume mounts as well: for NFSPVC these will
-        # be different volumes.
+        # It's possible that the init containers mount something different
+        # from the main Lab container.
         volume_names.update(
             {
                 m.volume_name
