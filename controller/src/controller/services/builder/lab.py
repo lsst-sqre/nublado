@@ -496,7 +496,7 @@ class LabBuilder:
             if isinstance(volume.source, NFSPVCVolumeSource):
                 # For NFSPVC only, bind to specified PV, using conventional
                 # PV name (cf. _build_pvs).
-                pvc.volume_name = f"{username}-nb-pv-{volume.name}"
+                pvc.spec.volume_name = f"{username}-nb-pv-{volume.name}"
             pvcs.append(pvc)
         return pvcs
 
