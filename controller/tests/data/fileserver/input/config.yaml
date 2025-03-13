@@ -18,9 +18,21 @@ lab:
         path: /share1/project
     - name: extra
       source:
-        type: nfs
+        type: nfsPvc
         server: 10.13.105.122
         serverPath: /share1/extra
+        storageClassName: standard
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 1Gi
+    - name: wontmount
+      source:
+        type: nfs
+        server: 10.13.105.122
+        serverPath: /share1/wontmount
+
     - name: scratch
       source:
         type: persistentVolumeClaim
@@ -88,3 +100,6 @@ fileserver:
       volumeName: project
     - containerPath: /scratch
       volumeName: scratch
+    - containerPath: /extra
+      volumeName: extra
+

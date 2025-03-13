@@ -313,10 +313,9 @@ class FileserverBuilder:
             # generation method on the source.
             if not isinstance(volume.source, NFSPVCVolumeSource):
                 continue
-            pref = self.build_name(username)
-            name = f"{pref}-pv-{volume.name}"
+            suffix = f"-pv-{volume.name}"
             pv = V1PersistentVolume(
-                metadata=self._build_metadata(name, username),
+                metadata=self._build_metadata(username, name_suffix=suffix),
                 spec=volume.source.to_kubernetes_volume_spec(),
             )
             pvs.append(pv)

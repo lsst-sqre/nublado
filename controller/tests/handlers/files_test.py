@@ -358,7 +358,7 @@ async def test_start_errors(
         (
             "create_namespaced_persistent_volume_claim",
             "PersistentVolumeClaim",
-            f"{namespace}/{username}-fs-pvc-scratch",
+            f"{namespace}/{username}-fs-pvc-extra",
         ),
         (
             "create_namespaced_service",

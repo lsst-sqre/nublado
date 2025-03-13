@@ -131,6 +131,11 @@
                   "mountPath": "/mnt/scratch",
                   "name": "scratch",
                   "readOnly": false
+                },
+                {
+                  "mountPath": "/mnt/extra",
+                  "name": "extra",
+                  "readOnly": false
                 }
               ]
             }
@@ -172,6 +177,13 @@
               "name": "project"
             },
             {
+              "name": "extra",
+              "persistentVolumeClaim": {
+                "claimName": "rachel-fs-pvc-extra",
+		"readOnly": false
+              }
+            },
+            {
               "name": "scratch",
               "persistentVolumeClaim": {
                 "claimName": "rachel-fs-pvc-scratch",
@@ -191,6 +203,35 @@
     "kind": "Namespace",
     "metadata": {
       "name": "fileservers"
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "PersistentVolumeClaim",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "fileserver",
+        "nublado.lsst.io/user": "rachel",
+        "argocd.argoproj.io/instance": "fileservers"
+      },
+      "name": "rachel-fs-pvc-extra",
+      "namespace": "fileservers"
+    },
+    "spec": {
+      "accessModes": [
+        "ReadWriteMany"
+      ],
+      "resources": {
+        "requests": {
+          "storage": "1Gi"
+        }
+      },
+      "storageClassName": "standard",
+      "volumeName": "rachel-fs-pv-extra"
     }
   },
   {
@@ -322,6 +363,11 @@
               "mountPath": "/mnt/scratch",
               "name": "scratch",
               "readOnly": false
+            },
+            {
+              "mountPath": "/mnt/extra",
+              "name": "extra",
+              "readOnly": false
             }
           ]
         }
@@ -361,6 +407,13 @@
             "path": "/share1/project"
           },
           "name": "project"
+        },
+        {
+          "name": "extra",
+          "persistentVolumeClaim": {
+            "claimName": "rachel-fs-pvc-extra",
+            "readOnly": false
+          }
         },
         {
           "name": "scratch",
