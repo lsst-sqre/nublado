@@ -6,6 +6,7 @@ from typing import Any
 from kubernetes_asyncio.client import (
     V1Ingress,
     V1Job,
+    V1PersistentVolume,
     V1PersistentVolumeClaim,
     V1Pod,
     V1Service,
@@ -20,6 +21,9 @@ __all__ = [
 @dataclass
 class FileserverObjects:
     """All of the Kubernetes objects making up a user's fileserver."""
+
+    pvs: list[V1PersistentVolume]
+    """Persistent volumes."""
 
     pvcs: list[V1PersistentVolumeClaim]
     """Persistent volume claims."""

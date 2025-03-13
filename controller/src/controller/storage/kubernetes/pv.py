@@ -140,7 +140,7 @@ class PersistentVolumeStorage:
         """
         try:
             async with timeout.enforce():
-                objs = await self._api.list_persistent_volumes(
+                objs = await self._api.list_persistent_volume(
                     _request_timeout=timeout.left()
                 )
         except ApiException as e:
