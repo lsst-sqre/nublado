@@ -731,6 +731,11 @@ class LabManager:
                 if not lab.monitor.in_progress:
                     with contextlib.suppress(UnknownUserError):
                         await self.delete_lab(username)
+                else:
+                    self._logger.warning(
+                        f"Not deleting lab for {username}; "
+                        f"monitor in progress; current state is {lab.state}"
+                    )
 
     async def _gather_current_state(
         self, cutoff: datetime
