@@ -479,6 +479,15 @@ class LabBuilder:
     def _build_pvcs(self, username: str) -> list[V1PersistentVolumeClaim]:
         """Construct the persistent volume claims for a user's lab."""
         volume_names = {m.volume_name for m in self._config.volume_mounts}
+        # We need init_containers' volume mounts as well: for NFSPVC these will
+        # be different volumes.
+        volume_names.update(
+            {
+                m.volume_name
+                for ic in self._config.init_containers
+                for m in ic.volume_mounts
+            }
+        )
         volumes = (v for v in self._config.volumes if v.name in volume_names)
         pvcs: list[V1PersistentVolumeClaim] = []
         for volume in volumes:
