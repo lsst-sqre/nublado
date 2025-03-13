@@ -19,6 +19,7 @@ from .custom import GafaelfawrIngressStorage
 from .deleter import JobStorage, PersistentVolumeClaimStorage, ServiceStorage
 from .ingress import IngressStorage
 from .pod import PodStorage
+from .pv import PersistentVolumeStorage
 
 __all__ = ["FileserverStorage"]
 
@@ -48,6 +49,7 @@ class FileserverStorage:
         self._ingress = IngressStorage(api_client, logger)
         self._job = JobStorage(api_client, logger)
         self._pod = PodStorage(api_client, logger)
+        self._pv = PersistentVolumeStorage(api_client, logger)
         self._pvc = PersistentVolumeClaimStorage(api_client, logger)
         self._service = ServiceStorage(api_client, logger)
 
@@ -80,6 +82,8 @@ class FileserverStorage:
             Raised if the fileserver takes longer than the provided timeout to
             create or start.
         """
+        for pv in objects.pvs:
+            await self._pv.create(pv, timeout, replace=True)
         for pvc in objects.pvcs:
             await self._pvc.create(namespace, pvc, timeout, replace=True)
         await self._gafaelfawr.create(
@@ -155,6 +159,21 @@ class FileserverStorage:
         pvcs = await self._pvc.list(namespace, timeout, label_selector=search)
         for pvc in pvcs:
             await self._pvc.delete(pvc.metadata.name, namespace, timeout)
+        all_pvs = await self._pv.list(timeout)
+        # Filter to the fileserver pvs for this user
+        pvs = [
+            x.metadata.name
+            for x in all_pvs
+            if x.metadata.name.startswith(f"{username}-fs-pv-")
+        ]
+        if not pvs:
+            return
+        tasks = set()
+        async with asyncio.TaskGroup() as tg:
+            for pv in pvs:
+                tasks.add(
+                    tg.create_task(self._pv.delete(pv, timeout, wait=True))
+                )
 
     async def read_fileserver_state(
         self, namespace: str, timeout: Timeout
