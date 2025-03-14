@@ -70,7 +70,7 @@ def test_user() -> User:
     return User(username=username, token=mock_token)
 
 
-@pytest.fixture(params=[False, True])
+@pytest.fixture(ids=["shared", "subdomain"], params=[False, True])
 def jupyter(
     respx_mock: respx.Router,
     environment_url: str,

@@ -1212,7 +1212,6 @@ class NubladoClient:
         JupyterHub rejects all requests with errors about invalid XSRF cookies
         and the client can never recover. Recreating the pool ensures the
         cookie jar is cleared and we receive fresh cookies.
-
         """
         self._hub_xsrf = None
         self._client = AsyncClient(
