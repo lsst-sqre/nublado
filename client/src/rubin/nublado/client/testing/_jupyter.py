@@ -7,6 +7,7 @@ import json
 import os
 import re
 from base64 import urlsafe_b64decode
+from collections import defaultdict
 from collections.abc import AsyncIterator
 from contextlib import redirect_stdout, suppress
 from dataclasses import dataclass
@@ -128,7 +129,7 @@ class MockJupyter:
         self.expected_session_type = "console"
 
         self._delete_at: dict[str, datetime | None] = {}
-        self._fail: dict[str, dict[JupyterAction, bool]] = {}
+        self._fail: defaultdict[str, set[JupyterAction]] = defaultdict(set)
         self._hub_xsrf = os.urandom(8).hex()
         self._lab_xsrf = os.urandom(8).hex()
         self._code_results: dict[str, str] = {}
@@ -167,9 +168,7 @@ class MockJupyter:
 
     def fail(self, user: str, action: JupyterAction) -> None:
         """Configure the given action to fail for the given user."""
-        if user not in self._fail:
-            self._fail[user] = {}
-        self._fail[user][action] = True
+        self._fail[user].add(action)
 
     def login(self, request: Request) -> Response:
         user = self._get_user_from_headers(request)
@@ -179,7 +178,7 @@ class MockJupyter:
             return Response(
                 302, request=request, headers={"Location": redirect}
             )
-        if JupyterAction.LOGIN in self._fail.get(user, {}):
+        if JupyterAction.LOGIN in self._fail[user]:
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         if state == JupyterState.LOGGED_OUT:
@@ -195,7 +194,7 @@ class MockJupyter:
             return Response(
                 302, request=request, headers={"Location": redirect}
             )
-        if JupyterAction.USER in self._fail.get(user, {}):
+        if JupyterAction.USER in self._fail[user]:
             return Response(500, request=request)
         assert str(request.url).endswith(f"/hub/api/users/{user}")
         assert request.headers.get("x-xsrftoken") == self._hub_xsrf
@@ -233,7 +232,7 @@ class MockJupyter:
         assert str(request.url).endswith(expected_suffix)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         assert state in (JupyterState.SPAWN_PENDING, JupyterState.LAB_RUNNING)
-        if JupyterAction.PROGRESS in self._fail.get(user, {}):
+        if JupyterAction.PROGRESS in self._fail[user]:
             body = (
                 'data: {"progress": 0, "message": "Server requested"}\n\n'
                 'data: {"progress": 50, "message": "Spawning server..."}\n\n'
@@ -272,7 +271,7 @@ class MockJupyter:
             return Response(
                 302, request=request, headers={"Location": redirect}
             )
-        if JupyterAction.SPAWN in self._fail.get(user, {}):
+        if JupyterAction.SPAWN in self._fail[user]:
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         assert state == JupyterState.LOGGED_IN
@@ -293,7 +292,7 @@ class MockJupyter:
                 302, request=request, headers={"Location": redirect}
             )
         assert str(request.url).endswith(f"/hub/spawn-pending/{user}")
-        if JupyterAction.SPAWN_PENDING in self._fail.get(user, {}):
+        if JupyterAction.SPAWN_PENDING in self._fail[user]:
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         assert state == JupyterState.SPAWN_PENDING
@@ -320,7 +319,7 @@ class MockJupyter:
                 302, request=request, headers={"Location": redirect}
             )
         assert str(request.url).endswith(f"/user/{user}/lab")
-        if JupyterAction.LAB in self._fail.get(user, {}):
+        if JupyterAction.LAB in self._fail[user]:
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         if state == JupyterState.LAB_RUNNING:
@@ -379,7 +378,7 @@ class MockJupyter:
             )
         assert str(request.url).endswith(f"/hub/api/users/{user}/server")
         assert request.headers.get("x-xsrftoken") == self._hub_xsrf
-        if JupyterAction.DELETE_LAB in self._fail.get(user, {}):
+        if JupyterAction.DELETE_LAB in self._fail[user]:
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         assert state != JupyterState.LOGGED_OUT
@@ -401,7 +400,7 @@ class MockJupyter:
         assert str(request.url).endswith(f"/user/{user}/api/sessions")
         assert request.headers.get("x-xsrftoken") == self._lab_xsrf
         assert user not in self.sessions
-        if JupyterAction.CREATE_SESSION in self._fail.get(user, {}):
+        if JupyterAction.CREATE_SESSION in self._fail[user]:
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         assert state == JupyterState.LAB_RUNNING
@@ -434,7 +433,7 @@ class MockJupyter:
         expected_suffix = f"/user/{user}/api/sessions/{session_id}"
         assert str(request.url).endswith(expected_suffix)
         assert request.headers.get("x-xsrftoken") == self._lab_xsrf
-        if JupyterAction.DELETE_SESSION in self._fail.get(user, {}):
+        if JupyterAction.DELETE_SESSION in self._fail[user]:
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         assert state == JupyterState.LAB_RUNNING
