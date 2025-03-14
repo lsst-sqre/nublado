@@ -8,11 +8,12 @@ import os
 import re
 from base64 import urlsafe_b64decode
 from collections import defaultdict
-from collections.abc import AsyncIterator
-from contextlib import redirect_stdout, suppress
+from collections.abc import AsyncIterator, Callable, Coroutine
+from contextlib import redirect_stdout
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
+from functools import wraps
 from io import StringIO
 from pathlib import Path
 from re import Pattern
@@ -60,6 +61,17 @@ class JupyterState(Enum):
     LOGGED_IN = "logged in"
     SPAWN_PENDING = "spawn pending"
     LAB_RUNNING = "lab running"
+
+
+type MockSideEffect = Callable[
+    [MockJupyter, Request], Coroutine[None, None, Response]
+]
+"""Type of a respx mock side effect function."""
+
+type MockHandler = Callable[
+    [MockJupyter, Request, str], Coroutine[None, None, Response]
+]
+"""Type of a handler for a mocked Jupyter call."""
 
 
 class MockJupyter:
@@ -121,6 +133,10 @@ class MockJupyter:
         self._code_results: dict[str, str] = {}
         self._extension_results: dict[str, NotebookExecutionResult] = {}
 
+    def fail(self, user: str, action: JupyterAction) -> None:
+        """Configure the given action to fail for the given user."""
+        self._fail[user].add(action)
+
     def get_python_result(self, code: str | None) -> str | None:
         """Get the cached results for a specific block of code.
 
@@ -139,10 +155,6 @@ class MockJupyter:
             return None
         return self._code_results.get(code)
 
-    def register_python_result(self, code: str, result: str) -> None:
-        """Register the expected cell output for a given source input."""
-        self._code_results[code] = result
-
     def register_extension_result(
         self, code: str, result: NotebookExecutionResult
     ) -> None:
@@ -152,18 +164,77 @@ class MockJupyter:
         cache_key = normalize_source(code)
         self._extension_results[cache_key] = result
 
-    def fail(self, user: str, action: JupyterAction) -> None:
-        """Configure the given action to fail for the given user."""
-        self._fail[user].add(action)
+    def register_python_result(self, code: str, result: str) -> None:
+        """Register the expected cell output for a given source input."""
+        self._code_results[code] = result
 
-    def login(self, request: Request) -> Response:
-        user = self._get_user_from_headers(request)
-        if user is None:
-            return Response(403, request=request)
-        if redirect := self._maybe_redirect(request, user):
-            return Response(
-                302, request=request, headers={"Location": redirect}
-            )
+    # Below this point are the mock handler methods for the various routes.
+    # None of these methods should normally be called directly by test code.
+    # They are registered with respx and invoked automatically when a request
+    # is sent by the code under test to the mocked JupyterHub or JupyterLab.
+
+    @staticmethod
+    def _check(
+        *, url_format: str | None = None
+    ) -> Callable[[MockHandler], MockSideEffect]:
+        """Wrap `MockJupyter` methods to perform common checks.
+
+        There are various common checks that should be performed for every
+        request to the mock, and the username always has to be extracted from
+        the token and injected as an additional argument to the method. This
+        wrapper performs those checks and then injects the username of the
+        authenticated user into the underlying handler.
+
+        Paramaters
+        ----------
+        url_format
+            A Python format string that, when expanded, must occur in the path
+            of the URL. The ``{user}`` variable is expanded into the
+            discovered username. This is used to check that the authentication
+            credentials match the URL.
+
+        Returns
+        -------
+        typing.Callable
+            Decorator to wrap `MockJupyter` methods.
+
+        Raises
+        ------
+        RuntimeError
+            Raised if the URL path does not match the expected format.
+        """
+
+        def decorator(f: MockHandler) -> MockSideEffect:
+            @wraps(f)
+            async def wrapper(mock: MockJupyter, request: Request) -> Response:
+                # Ensure the request is authenticated.
+                user = mock._get_user_from_headers(request)
+                if user is None:
+                    return Response(403, request=request)
+
+                # If told to check the URL, verify it has the right path.
+                if url_format:
+                    expected = url_format.format(user=user)
+                    request_url = str(request.url)
+                    if expected not in request_url:
+                        msg = f"URL {request_url} does not contain {expected}"
+                        raise RuntimeError(msg)
+
+                # Handle any redirects needed by the multi-domain case.
+                if redirect := mock._maybe_redirect(request, user):
+                    return Response(
+                        302, request=request, headers={"Location": redirect}
+                    )
+
+                # All checks passed. Call the actual handler.
+                return await f(mock, request, user)
+
+            return wrapper
+
+        return decorator
+
+    @_check()
+    async def login(self, request: Request, user: str) -> Response:
         if JupyterAction.LOGIN in self._fail[user]:
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
@@ -172,17 +243,10 @@ class MockJupyter:
         xsrf = f"_xsrf={self._hub_xsrf}"
         return Response(200, request=request, headers={"Set-Cookie": xsrf})
 
-    def user(self, request: Request) -> Response:
-        user = self._get_user_from_headers(request)
-        if user is None:
-            return Response(403, request=request)
-        if redirect := self._maybe_redirect(request, user):
-            return Response(
-                302, request=request, headers={"Location": redirect}
-            )
+    @_check(url_format="/hub/api/users/{user}")
+    async def user(self, request: Request, user: str) -> Response:
         if JupyterAction.USER in self._fail[user]:
             return Response(500, request=request)
-        assert str(request.url).endswith(f"/hub/api/users/{user}")
         assert request.headers.get("x-xsrftoken") == self._hub_xsrf
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         if state == JupyterState.SPAWN_PENDING:
@@ -202,20 +266,12 @@ class MockJupyter:
             body = {"name": user, "servers": {}}
         return Response(200, json=body, request=request)
 
-    async def progress(self, request: Request) -> Response:
+    @_check(url_format="/hub/api/users/{user}/server/progress")
+    async def progress(self, request: Request, user: str) -> Response:
         if self.redirect_loop:
             return Response(
                 303, headers={"Location": str(request.url)}, request=request
             )
-        user = self._get_user_from_headers(request)
-        if user is None:
-            return Response(403, request=request)
-        if redirect := self._maybe_redirect(request, user):
-            return Response(
-                302, request=request, headers={"Location": redirect}
-            )
-        expected_suffix = f"/hub/api/users/{user}/server/progress"
-        assert str(request.url).endswith(expected_suffix)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         assert state in (JupyterState.SPAWN_PENDING, JupyterState.LAB_RUNNING)
         if JupyterAction.PROGRESS in self._fail[user]:
@@ -249,14 +305,8 @@ class MockJupyter:
             request=request,
         )
 
-    def spawn(self, request: Request) -> Response:
-        user = self._get_user_from_headers(request)
-        if user is None:
-            return Response(403, request=request)
-        if redirect := self._maybe_redirect(request, user):
-            return Response(
-                302, request=request, headers={"Location": redirect}
-            )
+    @_check()
+    async def spawn(self, request: Request, user: str) -> Response:
         if JupyterAction.SPAWN in self._fail[user]:
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
@@ -269,15 +319,8 @@ class MockJupyter:
         url = self._url(f"hub/spawn-pending/{user}")
         return Response(302, headers={"Location": url}, request=request)
 
-    def spawn_pending(self, request: Request) -> Response:
-        user = self._get_user_from_headers(request)
-        if user is None:
-            return Response(403, request=request)
-        if redirect := self._maybe_redirect(request, user):
-            return Response(
-                302, request=request, headers={"Location": redirect}
-            )
-        assert str(request.url).endswith(f"/hub/spawn-pending/{user}")
+    @_check(url_format="/hub/spawn-pending/{user}")
+    async def spawn_pending(self, request: Request, user: str) -> Response:
         if JupyterAction.SPAWN_PENDING in self._fail[user]:
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
@@ -285,36 +328,20 @@ class MockJupyter:
         assert request.headers.get("x-xsrftoken") == self._hub_xsrf
         return Response(200, request=request)
 
-    def missing_lab(self, request: Request) -> Response:
-        user = self._get_user_from_headers(request)
-        if user is None:
-            return Response(403, request=request)
-        if redirect := self._maybe_redirect(request, user):
-            return Response(
-                302, request=request, headers={"Location": redirect}
-            )
-        assert str(request.url).endswith(f"/hub/user/{user}/lab")
+    @_check(url_format="/hub/user/{user}/lab")
+    async def missing_lab(self, request: Request, user: str) -> Response:
         return Response(503, request=request)
 
-    def lab(self, request: Request) -> Response:
-        user = self._get_user_from_headers(request)
-        if user is None:
-            return Response(403, request=request)
-        if redirect := self._maybe_redirect(request, user):
-            return Response(
-                302, request=request, headers={"Location": redirect}
-            )
-        assert str(request.url).endswith(f"/user/{user}/lab")
+    @_check(url_format="/user/{user}/lab")
+    async def lab(self, request: Request, user: str) -> Response:
         if JupyterAction.LAB in self._fail[user]:
             return Response(500, request=request)
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         if state == JupyterState.LAB_RUNNING:
             # In real life, there's another redirect to
             # /hub/api/oauth2/authorize, which doesn't set a cookie, and then
-            # redirects to /user/username/oauth_callback.
-            #
-            # We're skipping that one since it doesn't change the client state
-            # at all.
+            # redirects to /user/username/oauth_callback. We're skipping that
+            # one since it doesn't change the client state at all.
             xsrf = f"_xsrf={self._lab_xsrf}"
             return Response(
                 302,
@@ -335,34 +362,20 @@ class MockJupyter:
                 request=request,
             )
 
-    def lab_callback(self, request: Request) -> Response:
+    @_check(url_format="/user/{user}/oauth_callback")
+    async def lab_callback(self, request: Request, user: str) -> Response:
         """Simulate not setting the ``_xsrf`` cookie on first request.
 
         This happens at the end of a chain from ``/user/username/lab`` to
         ``/hub/api/oauth2/authorize``, which then issues a redirect to
-        ``/user/username/oauth_callback``.  It is in the final redirect
-        that the ``_xsrf`` cookie is actually set, and then it returns
-        a 200.
+        ``/user/username/oauth_callback``. It is in the final redirect that
+        the ``_xsrf`` cookie is actually set, and then this callback returns a
+        200 response without setting a cookie.
         """
-        user = self._get_user_from_headers(request)
-        if user is None:
-            return Response(403, request=request)
-        if redirect := self._maybe_redirect(request, user):
-            return Response(
-                302, request=request, headers={"Location": redirect}
-            )
-        assert str(request.url).endswith(f"/user/{user}/oauth_callback")
         return Response(200, request=request)
 
-    def delete_lab(self, request: Request) -> Response:
-        user = self._get_user_from_headers(request)
-        if user is None:
-            return Response(403, request=request)
-        if redirect := self._maybe_redirect(request, user):
-            return Response(
-                302, request=request, headers={"Location": redirect}
-            )
-        assert str(request.url).endswith(f"/hub/api/users/{user}/server")
+    @_check(url_format="/hub/api/users/{user}/server")
+    async def delete_lab(self, request: Request, user: str) -> Response:
         assert request.headers.get("x-xsrftoken") == self._hub_xsrf
         if JupyterAction.DELETE_LAB in self._fail[user]:
             return Response(500, request=request)
@@ -375,15 +388,8 @@ class MockJupyter:
             self._delete_at[user] = now + timedelta(seconds=5)
         return Response(202, request=request)
 
-    def create_session(self, request: Request) -> Response:
-        user = self._get_user_from_headers(request)
-        if user is None:
-            return Response(403, request=request)
-        if redirect := self._maybe_redirect(request, user):
-            return Response(
-                302, request=request, headers={"Location": redirect}
-            )
-        assert str(request.url).endswith(f"/user/{user}/api/sessions")
+    @_check(url_format="/user/{user}/api/sessions")
+    async def create_session(self, request: Request, user: str) -> Response:
         assert request.headers.get("x-xsrftoken") == self._lab_xsrf
         assert user not in self.sessions
         if JupyterAction.CREATE_SESSION in self._fail[user]:
@@ -407,17 +413,10 @@ class MockJupyter:
             request=request,
         )
 
-    def delete_session(self, request: Request) -> Response:
-        user = self._get_user_from_headers(request)
-        if user is None:
-            return Response(403, request=request)
-        if redirect := self._maybe_redirect(request, user):
-            return Response(
-                302, request=request, headers={"Location": redirect}
-            )
+    @_check(url_format="/user/{user}/api/sessions")
+    async def delete_session(self, request: Request, user: str) -> Response:
         session_id = self.sessions[user].session_id
-        expected_suffix = f"/user/{user}/api/sessions/{session_id}"
-        assert str(request.url).endswith(expected_suffix)
+        assert str(request.url).endswith(f"/{session_id}")
         assert request.headers.get("x-xsrftoken") == self._lab_xsrf
         if JupyterAction.DELETE_SESSION in self._fail[user]:
             return Response(500, request=request)
@@ -426,15 +425,9 @@ class MockJupyter:
         del self.sessions[user]
         return Response(204, request=request)
 
-    def get_content(self, request: Request) -> Response:
+    @_check(url_format="/user/{user}/files")
+    async def get_content(self, request: Request, user: str) -> Response:
         """Simulate the /files retrieval endpoint."""
-        user = self._get_user_from_headers(request)
-        if user is None:
-            return Response(403, request=request)
-        if redirect := self._maybe_redirect(request, user):
-            return Response(
-                302, request=request, headers={"Location": redirect}
-            )
         state = self.state.get(user, JupyterState.LOGGED_OUT)
         assert state == JupyterState.LAB_RUNNING
         if self._use_subdomains:
@@ -453,7 +446,10 @@ class MockJupyter:
                 404, text=f"file or directory '{path}' does not exist"
             )
 
-    def run_notebook_via_extension(self, request: Request) -> Response:
+    @_check()
+    async def run_notebook_via_extension(
+        self, request: Request, user: str
+    ) -> Response:
         """Simulate the /rubin/execution endpoint.
 
         Notes
@@ -503,27 +499,41 @@ class MockJupyter:
             }
         return Response(200, json=obj)
 
-    @staticmethod
-    def _extract_user_from_mock_token(token: str) -> str:
-        # remove "gt-", and split on the dot that marks the secret
-        return urlsafe_b64decode(token[3:].split(".", 1)[0]).decode()
-
     def _get_user_from_headers(self, request: Request) -> str | None:
-        x_user = request.headers.get("X-Auth-Request-User", None)
-        if x_user:
-            return x_user
-        # Try Authorization
-        auth = request.headers.get("Authorization", None)
-        # Is it a bearer token?
-        if auth and auth.startswith("Bearer "):
-            tok = auth[len("Bearer ") :]
-            # Is it putatively a Gafaelfawr token?
-            if tok.startswith("gt-"):
-                with suppress(Exception):
-                    # Try extracting the username. If this fails, fall through
-                    # and return None.
-                    return self._extract_user_from_mock_token(token=tok)
-        return None
+        """Get the user from the request headers.
+
+        If the username is provided in ``X-Auth-Request-User`` in the request
+        headers, that name will be used. This will be the case when the mock
+        is behind something emulating a GafaelfawrIngress, and is how the
+        actual Hub would be called. If it is not, an ``Authorization`` header
+        of the form ``bearer <token>`` will be expected, and the username will
+        be taken to be the portion after ``gt-`` and before the first period.
+
+        Parameters
+        ----------
+        request
+            Incoming request.
+
+        Returns
+        -------
+        str or None
+            Authenticated username, or `None` if no authenticated user could
+            be found.
+        """
+        if username := request.headers.get("X-Auth-Request-User", None):
+            return username
+        authorization = request.headers.get("Authorization", None)
+        if not authorization:
+            return None
+        if not authorization.lower().startswith("bearer "):
+            return None
+        token = authorization.split(" ", 1)[1]
+        if not token.startswith("gt-"):
+            return None
+        try:
+            return urlsafe_b64decode(token[3:].split(".", 1)[0]).decode()
+        except Exception:
+            return None
 
     def _maybe_redirect(self, request: Request, user: str) -> str | None:
         """Maybe redirect for user subdomains.
