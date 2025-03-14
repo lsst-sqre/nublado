@@ -70,17 +70,19 @@ def test_user() -> User:
     return User(username=username, token=mock_token)
 
 
-@pytest.fixture
+@pytest.fixture(params=[False, True])
 def jupyter(
     respx_mock: respx.Router,
     environment_url: str,
     test_filesystem: Path,
+    request: pytest.FixtureRequest,
 ) -> Iterator[MockJupyter]:
     """Mock out JupyterHub and Jupyter labs."""
     jupyter_mock = mock_jupyter(
         respx_mock,
         base_url=environment_url,
         user_dir=test_filesystem,
+        use_subdomains=request.param,
     )
 
     # respx has no mechanism to mock aconnect_ws, so we have to do it

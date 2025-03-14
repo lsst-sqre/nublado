@@ -298,17 +298,19 @@ It depends on two other fixtures: ``environment_url`` is a string, representing 
             yield Path(td)
 
 
-    @pytest.fixture
+    @pytest.fixture(ids=["shared", "subdomain"], params=[False, True])
     def jupyter(
         respx_mock: respx.Router,
         environment_url: str,
         test_filesystem: Path,
+        request: pytest.FixtureRequest,
     ) -> Iterator[MockJupyter]:
         """Mock out JupyterHub and Jupyter labs."""
         jupyter_mock = mock_jupyter(
             respx_mock,
             base_url=environment_url,
             user_dir=test_filesystem,
+            use_subdomains=request.param,
         )
 
         # respx has no mechanism to mock aconnect_ws, so we have to do it
@@ -325,6 +327,10 @@ It depends on two other fixtures: ``environment_url`` is a string, representing 
         with patch.object(websockets, "connect") as mock:
             mock.side_effect = mock_connect
             yield jupyter_mock
+
+Note the parameterization of the ``jupyter`` fixture.
+This will run all of your application's tests twice, once with the mock configured to simulate running all of Nublado under one hostname and once when simulating user subdomains.
+This helps test that your application doesn't make assumptions that are valid in only one of the two possible Nublado configurations.
 
 Once you've done all that, all you will need to do is supply the test
 fixture ``jupyter`` to your unit tests along with a client to communicate with it.

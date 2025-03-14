@@ -207,7 +207,7 @@ class JupyterLabSession:
         logger: BoundLogger,
     ) -> None:
         self._username = username
-        self._base_url = base_url
+        self._base_url = urljoin(base_url, hub_route)
         self._kernel_name = kernel_name
         self._notebook_name = notebook_name
         self._hub_route = hub_route
@@ -714,11 +714,7 @@ class JupyterLabSession:
         str
             Full URL to use.
         """
-        hub_base = urljoin(self._base_url, self._hub_route)
-        if hub_base.endswith("/"):
-            return f"{hub_base}{partial}"
-        else:
-            return f"{hub_base}/{partial}"
+        return f"{self._base_url.rstrip('/')}/{partial}"
 
     def _url_for_websocket(self, url: str) -> str:
         """Convert a URL to a WebSocket URL.
@@ -851,56 +847,15 @@ class NubladoClient:
         timeout: timedelta = timedelta(seconds=30),
     ) -> None:
         self.user = user
-        self._base_url = base_url
-        self._hub_route = hub_route
-        if logger is None:
-            logger = structlog.get_logger()
-        self._logger = logger
+        self._hub_url = urljoin(base_url, hub_route)
+        self._lab_url = self._hub_url
+        self._logger = logger or structlog.get_logger()
         self._timeout = timeout
-        self._base_url = base_url
-        self._initialize_client()
+
+        self._client: AsyncClient
         self._hub_xsrf: str | None = None
         self._lab_xsrf: str | None = None
-        self._logger.debug("Created new NubladoClient")
-
-    def _initialize_client(self) -> None:
-        """Construct a connection pool to use for requests to
-        JupyterHub. We have to create a separate connection pool for
-        every user, since each will get user-specific cookies set by
-        JupyterHub. If we shared connection pools, users would
-        overwrite each other's cookies and get authentication
-        failures from labs.
-
-        We reinitialize this every time we log in to the hub.  The
-        reason for this is that we had not been doing so, and
-        additionally had the idle culler set to not only terminate
-        users' servers but to log out those users, which corresponds
-        to removing the user object from JupyterHub (and its
-        associated session database).  That, however, did not affect
-        the NubladoClient object owned by each Mobu bot user.
-
-        Our bot users would, therefore, run for a long time and
-        eventually get culled.  Because they still had XSRF cookies
-        and tokens present in their NubladoClient objects, they would
-        come back and present those, but because they got new user
-        objects (with newly-generated XSRF tokens) inside JupyterHub,
-        there would be an XSRF mismatch and therefore authentication
-        would fail and keep failing until mobu was restarted.
-
-        By forcing reinitialization of the NubladoClient at each new
-        login, we guarantee that the newly-arriving user gets a new
-        XSRF cookie and token, and therefore we will no longer present
-        the hub with a no-longer-valid one.
-        """
-        # Remove hub xsrf token.
-        self._hub_xsrf = None
-        # Create a fresh client, with no cookies set yet, only a token.
-        self._client = AsyncClient(
-            follow_redirects=True,
-            base_url=self._base_url,
-            headers={"Authorization": f"Bearer {self.user.token}"},
-            timeout=self._timeout.total_seconds(),
-        )
+        self._initialize_client()
 
     async def close(self) -> None:
         """Close the underlying HTTP connection pool."""
@@ -924,7 +879,9 @@ class NubladoClient:
 
         This forces a refresh of the authentication cookies set in the client
         session, which may be required to use API calls that return 401 errors
-        instead of redirecting the user to log in.
+        instead of redirecting the user to log in. It also detects the initial
+        redirect if JupyterHub is running in a different domain and updates
+        the JupyterHub base URL accordingly.
 
         The reply will set an ``_xsrf`` cookie that must be lifted into the
         headers for subsequent requests.
@@ -934,97 +891,129 @@ class NubladoClient:
         JupyterProtocolError
             Raised if no ``_xsrf`` cookie was set in the reply from the lab.
         """
-        # Reinitialize HTTP client
         self._initialize_client()
-        url = self._url_for("hub/home")
+
+        # Retrieve the JupyterHub home page based on the current hub URL.
+        url = self._url_for_hub("hub/home")
         r = await self._client.get(url, follow_redirects=False)
-        # As with auth_to_lab, manually extract from cookies at each
-        # redirection, because httpx doesn't do that if following redirects
-        # automatically.
-        while r.is_redirect:
-            self._logger.debug(
-                "Following hub redirect looking for _xsrf cookies",
-                method=r.request.method,
-                url=r.url.copy_with(query=None, fragment=None),
-                status_code=r.status_code,
-            )
-            xsrf = self._extract_xsrf(r)
-            if xsrf and xsrf != self._hub_xsrf:
-                self._hub_xsrf = xsrf
+
+        # The first time the Nublado client attempts to contact JupyterHub, we
+        # may discover that user subdomains are enabled. In this case, the
+        # first reply will be a redirect to the hostname JupyterHub runs at.
+        # Detect this case and update self._hub_url so that we go directly to
+        # the subdomain in the future.
+        #
+        # If user subdomains are not in play, the first redirect will be to
+        # the login URL on the same hostname. In that case, we should not
+        # update self._hub_url.
+        #
+        # Currently, this case never seems to trigger since JupyterHub usually
+        # (but not always?) does not redirect to its own domain and continues
+        # to answer requests from the base domain. Leave this code here for
+        # now in case that changes. It will have to change anyway if we stop
+        # registering JupyterHub routes in the base Science Platform domain
+        # entirely.
+        if r.is_redirect:
+            current = urlparse(self._hub_url)
+            redirect = urlparse(r.headers["Location"])
+            if redirect.hostname and current.hostname != redirect.hostname:
+                self._hub_url = r.headers["Location"].removesuffix("/hub/home")
                 self._logger.debug(
-                    "Set _hub_xsrf",
-                    url=r.url.copy_with(query=None, fragment=None),
-                    status_code=r.status_code,
+                    "Changing JupyterHub base URL",
+                    redirect=r.headers["Location"],
+                    new_base_url=self._hub_url,
                 )
+                url = self._url_for_hub("hub/home")
+                r = await self._client.get(url, follow_redirects=False)
+
+        # JupyterHub may now bounce us through the login page. Follow each
+        # redirect and update the XSRF token if we were provided with a new
+        # one.
+        while r.is_redirect:
+            xsrf = self._extract_xsrf(r)
+            if xsrf:
+                self._hub_xsrf = xsrf
             next_url = urljoin(url, r.headers["Location"])
             r = await self._client.get(next_url, follow_redirects=False)
         r.raise_for_status()
         xsrf = self._extract_xsrf(r)
-        if xsrf and xsrf != self._hub_xsrf:
+        if xsrf:
             self._hub_xsrf = xsrf
-            self._logger.debug(
-                "Set _hub_xsrf",
-                url=r.url.copy_with(query=None, fragment=None),
-                status_code=r.status_code,
-            )
-        elif not self._hub_xsrf:
+        if not self._hub_xsrf:
             msg = "No _xsrf cookie set in login reply from JupyterHub"
             raise JupyterProtocolError(msg)
 
     @_convert_exception
     async def auth_to_lab(self) -> None:
-        """Authenticate to the Jupyter lab.
+        """Authenticate to the user's JupyterLab.
 
         Request the top-level lab page, which will force the OpenID Connect
         authentication with JupyterHub and set authentication cookies. This is
         required before making API calls to the lab, such as running code.
+        Also inspect the redirect chain to see if per-user subdomains are in
+        use and, if so, update our understanding of the base URL for
+        JupyterLab so that subsequent non-``GET`` calls will work correctly.
 
         The reply will set an ``_xsrf`` cookie that must be lifted into the
         headers for subsequent requests.
-
-        Setting ``Sec-Fetch-Mode`` is not currently required, but it
-        suppresses an annoying error message in the lab logs.
 
         Raises
         ------
         JupyterProtocolError
             Raised if no ``_xsrf`` cookie was set in the reply from the lab.
         """
-        url = self._url_for(f"user/{self.user.username}/lab")
+        host_prefix = f"{self.user.username}."
+        partial = f"user/{self.user.username}/lab"
+        url = self._url_for_lab(partial)
+
+        # This is not required, but it suppresses an annoying error message in
+        # the JupyterLab logs about skipping XSRF checks.
         headers = {"Sec-Fetch-Mode": "navigate"}
+
+        # Now, follow each redirect and set the XSRF token when we find it.
+        # It's easiest to do that by disabling redirects and inspecting each
+        # response to see if it's setting a new _xsrf cookie.
+        #
+        # We may also have to update the base URL of the lab if per-user
+        # subdomains are in use. Unfortunately, we cannot use the same trick
+        # as JupyterHub of only looking at the first redirect, since for some
+        # reason JupyterHub first redirects to its own domain and then to the
+        # per-user domain, which is then followed by several more redirects.
+        # Instead, inspect every redirect and take advantage of the fact that
+        # we know that, with per-user subdomains, the first portion of the
+        # correct URL will start with the username. Only update the base URL
+        # if we see a redirect to that name.
         r = await self._client.get(
             url, headers=headers, follow_redirects=False
         )
         while r.is_redirect:
-            self._logger.debug(
-                "Following lab redirect looking for _xsrf cookies",
-                method=r.request.method,
-                url=r.url.copy_with(query=None, fragment=None),
-                status_code=r.status_code,
-            )
+            location = r.headers["Location"]
+            self._logger.debug("Redirect from lab", redirect=location)
+            redirect = urlparse(location)
+            if redirect.hostname and redirect.hostname.startswith(host_prefix):
+                current = urlparse(self._lab_url)
+                if current.netloc != redirect.netloc:
+                    new_parsed = current._replace(netloc=redirect.netloc)
+                    self._lab_url = new_parsed.geturl()
+                    self._logger.debug(
+                        "Changing JupyterLab base URL",
+                        redirect=location,
+                        new_base_url=self._lab_url,
+                    )
             xsrf = self._extract_xsrf(r)
-            if xsrf and xsrf != self._lab_xsrf:
+            if xsrf:
                 self._lab_xsrf = xsrf
-                self._logger.debug(
-                    "Set _lab_xsrf",
-                    url=r.url.copy_with(query=None, fragment=None),
-                    status_code=r.status_code,
-                )
-            next_url = urljoin(url, r.headers["Location"])
             r = await self._client.get(
-                next_url, headers=headers, follow_redirects=False
+                urljoin(url, location), headers=headers, follow_redirects=False
             )
         r.raise_for_status()
         xsrf = self._extract_xsrf(r)
-        if xsrf and xsrf != self._lab_xsrf:
+        if xsrf:
             self._lab_xsrf = xsrf
-            self._logger.debug(
-                "Set _lab_xsrf",
-                url=r.url.copy_with(query=None, fragment=None),
-                status_code=r.status_code,
-            )
+
+        # Ensure that, somewhere in that process, we got an XSRF token.
         if not self._lab_xsrf:
-            msg = "No _xsrf cookie set in login reply from lab"
+            msg = "No _xsrf cookie set in login reply from JupyterLab"
             raise JupyterProtocolError(msg)
 
     @_convert_exception
@@ -1037,8 +1026,8 @@ class NubladoClient:
             Log a warning with additional information if the lab still
             exists.
         """
-        url = self._url_for(f"hub/api/users/{self.user.username}")
-        headers = {"Referer": self._url_for("hub/home")}
+        url = self._url_for_hub(f"hub/api/users/{self.user.username}")
+        headers = {"Referer": self._url_for_hub("hub/home")}
         if self._hub_xsrf:
             headers["X-XSRFToken"] = self._hub_xsrf
         r = await self._client.get(url, headers=headers)
@@ -1085,7 +1074,7 @@ class NubladoClient:
         """
         return JupyterLabSession(
             username=self.user.username,
-            base_url=self._base_url,
+            base_url=self._lab_url,
             kernel_name=kernel_name,
             notebook_name=notebook_name,
             max_websocket_size=max_websocket_size,
@@ -1108,13 +1097,13 @@ class NubladoClient:
         JupyterWebError
             Raised if an error occurred talking to JupyterHub.
         """
-        url = self._url_for("hub/spawn")
+        url = self._url_for_hub("hub/spawn")
         data = config.to_spawn_form()
 
         # Retrieving the spawn page before POSTing to it appears to trigger
         # some necessary internal state construction (and also more accurately
         # simulates a user interaction). See DM-23864.
-        headers = {}
+        headers = {"Sec-Fetch-Mode": "navigate"}
         if self._hub_xsrf:
             headers["X-XSRFToken"] = self._hub_xsrf
         r = await self._client.get(url, headers=headers)
@@ -1132,8 +1121,8 @@ class NubladoClient:
         if await self.is_lab_stopped():
             self._logger.info("Lab is already stopped")
             return
-        url = self._url_for(f"hub/api/users/{self.user.username}/server")
-        headers = {"Referer": self._url_for("hub/home")}
+        url = self._url_for_hub(f"hub/api/users/{self.user.username}/server")
+        headers = {"Referer": self._url_for_hub("hub/home")}
         if self._hub_xsrf:
             headers["X-XSRFToken"] = self._hub_xsrf
         r = await self._client.delete(url, headers=headers)
@@ -1155,10 +1144,17 @@ class NubladoClient:
         """
         client = self._client
         username = self.user.username
-        url = self._url_for(f"hub/api/users/{username}/server/progress")
-        headers = {"Referer": self._url_for("hub/home")}
+        url = self._url_for_hub(f"hub/api/users/{username}/server/progress")
+
+        # Setting Sec-Fetch-Mode gets rid of an annoying log message.
+        headers = {
+            "Referer": self._url_for_hub("hub/home"),
+            "Sec-Fetch-Mode": "same-origin",
+        }
         if self._hub_xsrf:
             headers["X-XSRFToken"] = self._hub_xsrf
+
+        # Watch progress until the spawn finishes.
         while True:
             async with aconnect_sse(client, "GET", url, headers=headers) as s:
                 progress = aiter(JupyterSpawnProgress(s, self._logger))
@@ -1192,37 +1188,65 @@ class NubladoClient:
         cookies = Cookies()
         cookies.extract_cookies(response)
         xsrf = cookies.get("_xsrf")
-        if xsrf is not None:
+        if xsrf:
             self._logger.debug(
-                "Extracted _xsrf cookie",
+                "Found new _xsrf cookie",
                 method=response.request.method,
                 url=response.url.copy_with(query=None, fragment=None),
                 status_code=response.status_code,
-                # Logging the set-cookie header can be useful here but it
-                # leaks secrets.  Don't put that code in a release build.
             )
         return xsrf
 
-    def _url_for(self, partial: str) -> str:
-        """Construct a JupyterHub or Jupyter lab URL from a partial URL.
+    def _initialize_client(self) -> None:
+        """Initialize the HTTP client connection pool for JupyterHub.
+
+        Every instance of the Nublado client needs a separate connection pool
+        because that pool will accumulate JupyterHub and JupyterLab cookies
+        that carry user authetnication information. This method creates or
+        recreates that connection pool.
+
+        This is not only called at startup but also each time we authenticate
+        to JupyterHub. This is because the XSRF cookie issued by JupyterHub is
+        not properly replaced when the JupyterHub user is removed by a
+        database reset or by idle culling configured to purge users. Instead,
+        JupyterHub rejects all requests with errors about invalid XSRF cookies
+        and the client can never recover. Recreating the pool ensures the
+        cookie jar is cleared and we receive fresh cookies.
+
+        """
+        self._hub_xsrf = None
+        self._client = AsyncClient(
+            follow_redirects=True,
+            headers={"Authorization": f"Bearer {self.user.token}"},
+            timeout=self._timeout.total_seconds(),
+        )
+
+    def _url_for_hub(self, partial: str) -> str:
+        """Construct a JupyterHub URL from a partial URL.
 
         Parameters
         ----------
         partial
-            Part of the URL after the prefix for JupyterHub.
+            Part of the URL after the root URL for JupyterHub.
 
         Returns
         -------
         str
             Full URL to use.
         """
-        hub_base = urljoin(self._base_url, self._hub_route)
-        if hub_base.endswith("/"):
-            return f"{hub_base}{partial}"
-        else:
-            return f"{hub_base}/{partial}"
+        return f"{self._hub_url.rstrip('/')}/{partial}"
 
-    def _url_for_lab_websocket(self, username: str, kernel: str) -> str:
-        """Build the URL for the WebSocket to a lab kernel."""
-        url = self._url_for(f"user/{username}/api/kernels/{kernel}/channels")
-        return urlparse(url)._replace(scheme="wss").geturl()
+    def _url_for_lab(self, partial: str) -> str:
+        """Construct a JupyterLab URL from a partial URL.
+
+        Parameters
+        ----------
+        partial
+            Part of the URL after the root URL for the user's JupyterLab.
+
+        Returns
+        -------
+        str
+            Full URL to use.
+        """
+        return f"{self._lab_url.rstrip('/')}/{partial}"

@@ -373,9 +373,9 @@ def test_alias_tracking() -> None:
     assert weekly.aliases == {"recommended", "latest_weekly"}
     assert not weekly.alias_target
     assert recommended.aliases == {"latest_weekly"}
-    assert cast(str, recommended.alias_target) == "w_2077_46"
+    assert cast("str", recommended.alias_target) == "w_2077_46"
     assert latest_weekly.aliases == {"recommended"}
-    assert cast(str, latest_weekly.alias_target) == "w_2077_46"
+    assert cast("str", latest_weekly.alias_target) == "w_2077_46"
     assert [i.tag for i in collection.all_images(hide_aliased=True)] == [
         "recommended",
         "latest_weekly",
@@ -392,10 +392,10 @@ def test_alias_tracking() -> None:
     assert new_weekly.aliases == {"recommended", "latest_weekly", "w_2077_46"}
     assert not new_weekly.alias_target
     assert recommended.aliases == {"latest_weekly", "w_2077_46"}
-    assert cast(str, recommended.alias_target) == "w_2077_47"
+    assert cast("str", recommended.alias_target) == "w_2077_47"
     assert recommended.display_name == "Recommended (Weekly 2077_47)"
     assert latest_weekly.aliases == {"recommended", "w_2077_46"}
-    assert cast(str, latest_weekly.alias_target) == "w_2077_47"
+    assert cast("str", latest_weekly.alias_target) == "w_2077_47"
     assert [i.tag for i in collection.all_images(hide_aliased=True)] == [
         "recommended",
         "latest_weekly",

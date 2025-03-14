@@ -39,6 +39,7 @@ class Provisioner:
         self._home = home
         self._uid = self._validate(uid)
         self._gid = self._validate(gid)
+        self._logger = logging.getLogger(__name__)
 
     async def provision(self) -> None:
         """Create the user's home directory.
@@ -76,14 +77,14 @@ class Provisioner:
             is_empty = len(list(self._home.iterdir())) == 0
             if not is_empty:
                 raise InvalidHomeError(f"{msg} and is not empty")
-            logging.warning(f"{msg} but is empty, resetting ownership")
+            self._logger.warning(f"{msg} but is empty, resetting ownership")
             os.chown(self._home, self._uid, self._gid)
 
         # Check mode. We only care about the permission bits.
         mode = stat.st_mode & 0o777
         if mode != 0o700:
             msg = f"{self._home} has unexpected permissions: 0{mode:o} != 0700"
-            logging.warning(msg)
+            self._logger.warning(msg)
 
     def _validate(self, ugid: int) -> int:
         """Validate that a UID or GID is within range.
