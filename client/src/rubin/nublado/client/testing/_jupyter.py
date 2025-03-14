@@ -19,7 +19,7 @@ from re import Pattern
 from traceback import format_exc
 from typing import Any
 from unittest.mock import ANY
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urljoin, urlparse
 from uuid import uuid4
 
 import respx
@@ -60,20 +60,6 @@ class JupyterState(Enum):
     LOGGED_IN = "logged in"
     SPAWN_PENDING = "spawn pending"
     LAB_RUNNING = "lab running"
-
-
-def _url(environment_url: str, route: str) -> str:
-    """Construct a URL for JupyterHub or its proxy."""
-    assert environment_url
-    base_url = environment_url.rstrip("/")
-    return f"{base_url}/nb/{route}"
-
-
-def _url_regex(environment_url: str, route: str) -> Pattern[str]:
-    """Construct a regex matching a URL for JupyterHub or its proxy."""
-    assert environment_url
-    base_url = environment_url.rstrip("/")
-    return re.compile(re.escape(f"{base_url}/nb/") + route)
 
 
 class MockJupyter:
@@ -704,8 +690,13 @@ class MockJupyterWebSocket:
             return result
 
 
+def _url_regex(host_regex: str, route: str) -> Pattern[str]:
+    """Construct a regex matching a URL for JupyterHub or its proxy."""
+    return re.compile(f"https://{host_regex}/{route}")
+
+
 def _install_hub_routes(
-    respx_mock: respx.Router, mock: MockJupyter, base_url: str
+    respx_mock: respx.Router, mock: MockJupyter, host: str
 ) -> None:
     """Install the mock routes for a given JupyterHub base URL.
 
@@ -715,30 +706,34 @@ def _install_hub_routes(
         Mock router to use to install routes.
     mock
         Jupyter mock providing the routes.
-    base_url
-        Base URL into which to install routes.
+    host
+        Hostname under which to install the mock routes.
     """
-    respx_mock.get(_url(base_url, "hub/home")).mock(side_effect=mock.login)
-    respx_mock.get(_url(base_url, "hub/spawn")).mock(
-        return_value=Response(200)
-    )
-    respx_mock.post(_url(base_url, "hub/spawn")).mock(side_effect=mock.spawn)
-    regex = _url_regex(base_url, "hub/spawn-pending/[^/]+$")
+    base_url = f"https://{host}/nb/hub/"
+    respx_mock.get(urljoin(base_url, "home")).mock(side_effect=mock.login)
+    respx_mock.get(urljoin(base_url, "spawn")).mock(return_value=Response(200))
+    respx_mock.post(urljoin(base_url, "spawn")).mock(side_effect=mock.spawn)
+
+    # These routes require regex matching of the username.
+    host_regex = re.escape(host)
+    regex = _url_regex(host_regex, "nb/hub/spawn-pending/[^/]+$")
     respx_mock.get(url__regex=regex).mock(side_effect=mock.spawn_pending)
-    regex = _url_regex(base_url, "hub/user/[^/]+/lab$")
+    regex = _url_regex(host_regex, "nb/hub/user/[^/]+/lab$")
     respx_mock.get(url__regex=regex).mock(side_effect=mock.missing_lab)
-    regex = _url_regex(base_url, "hub/api/users/[^/]+$")
+    regex = _url_regex(host_regex, "nb/hub/api/users/[^/]+$")
     respx_mock.get(url__regex=regex).mock(side_effect=mock.user)
-    regex = _url_regex(base_url, "hub/api/users/[^/]+/server/progress$")
+    regex = _url_regex(host_regex, "nb/hub/api/users/[^/]+/server/progress$")
     respx_mock.get(url__regex=regex).mock(side_effect=mock.progress)
-    regex = _url_regex(base_url, "hub/api/users/[^/]+/server")
+    regex = _url_regex(host_regex, "nb/hub/api/users/[^/]+/server")
     respx_mock.delete(url__regex=regex).mock(side_effect=mock.delete_lab)
 
 
 def _install_lab_routes(
-    respx_mock: respx.Router, mock: MockJupyter, base_regex: str
+    respx_mock: respx.Router, mock: MockJupyter, host_regex: str
 ) -> None:
-    """Install the mock routes for a given JupyterLab base URL.
+    """Install the mock routes for a regular expression of hostnames.
+
+    The lab routes may be hosted at per-user URLs or at a single base URL.
 
     Parameters
     ----------
@@ -746,20 +741,20 @@ def _install_lab_routes(
         Mock router to use to install routes.
     mock
         Jupyter mock providing the routes.
-    base_regex
-        Regex of base URL into which to install routes.
+    host_regex
+        Regular expression matching the hostname of the route.
     """
-    regex = base_regex + r"/user/[^/]+/lab"
+    regex = _url_regex(host_regex, r"nb/user/[^/]+/lab")
     respx_mock.get(url__regex=regex).mock(side_effect=mock.lab)
-    regex = base_regex + r"/user/[^/]+/oauth_callback"
+    regex = _url_regex(host_regex, r"nb/user/[^/]+/oauth_callback")
     respx_mock.get(url__regex=regex).mock(side_effect=mock.lab_callback)
-    regex = base_regex + r"/user/[^/]+/api/sessions"
+    regex = _url_regex(host_regex, r"nb/user/[^/]+/api/sessions")
     respx_mock.post(url__regex=regex).mock(side_effect=mock.create_session)
-    regex = base_regex + r"/user/[^/]+/api/sessions/[^/]+$"
+    regex = _url_regex(host_regex, r"nb/user/[^/]+/api/sessions/[^/]+$")
     respx_mock.delete(url__regex=regex).mock(side_effect=mock.delete_session)
-    regex = base_regex + "/user/[^/]+/files/[^/]+$"
+    regex = _url_regex(host_regex, "nb/user/[^/]+/files/[^/]+$")
     respx_mock.get(url__regex=regex).mock(side_effect=mock.get_content)
-    regex = base_regex + "/user/[^/]+/rubin/execution"
+    regex = _url_regex(host_regex, "nb/user/[^/]+/rubin/execution")
     respx_mock.post(url__regex=regex).mock(
         side_effect=mock.run_notebook_via_extension
     )
@@ -779,8 +774,9 @@ def mock_jupyter(
     respx_mock
         Mock router to use to install routes.
     base_url
-        Base URL for JupyterHub. If per-user subdomains are in use, this is
-        the base URL without subdomains. The subdomain URLs will be created
+        Base URL for JupyterHub. Only the hostname will be used and ``/nb``
+        will always be appended. If per-user subdomains are in use, this is
+        the base URL without subdomains and the subdomain URLs will be created
         by prepending ``nb.`` or :samp:`{username}.nb.` to the hostname of
         this URL.
     user_dir
@@ -791,16 +787,15 @@ def mock_jupyter(
         will be redirected.
     """
     mock = MockJupyter(base_url, user_dir, use_subdomains=use_subdomains)
-    _install_hub_routes(respx_mock, mock, base_url)
-    _install_lab_routes(respx_mock, mock, base_url + "/nb")
+    host = urlparse(base_url).hostname
+    assert host
+    _install_hub_routes(respx_mock, mock, host)
+    _install_lab_routes(respx_mock, mock, re.escape(host))
     if use_subdomains:
-        parsed_url = URL(base_url)
-        hub_url = parsed_url.copy_with(host=f"nb.{parsed_url.host}")
-        _install_hub_routes(respx_mock, mock, str(hub_url))
-        _install_lab_routes(respx_mock, mock, str(hub_url) + "/nb")
-        path = parsed_url.path.rstrip("/") + "/nb"
-        lab_regex = rf"https://[^.]+\.nb\.{parsed_url.host}{path}"
-        _install_lab_routes(respx_mock, mock, lab_regex)
+        _install_hub_routes(respx_mock, mock, f"nb.{host}")
+        _install_lab_routes(respx_mock, mock, re.escape(f"nb.{host}"))
+        per_user_host_regex = r"[^.]+\.nb\." + re.escape(host)
+        _install_lab_routes(respx_mock, mock, per_user_host_regex)
     return mock
 
 
