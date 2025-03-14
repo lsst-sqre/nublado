@@ -464,8 +464,7 @@ class MockJupyter:
             return Response(200, content=content, request=request)
         except FileNotFoundError:
             return Response(
-                404,
-                content=f"file or directory '{path}' does not exist".encode(),
+                404, text=f"file or directory '{path}' does not exist"
             )
 
     def run_notebook_via_extension(self, request: Request) -> Response:
