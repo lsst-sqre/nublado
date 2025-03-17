@@ -6,30 +6,43 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.7.0'></a>
+## 8.7.0 (2025-03-17)
+
+### New features
+
+- Add support for per-user subdomains to the Nublado client. If they are enabled, they will be automatically detected and the Nublado client will adjust its HTTP requests accordingly.
+- Add support to the Nublado client testing mocks for simulating per-user subdomains.
+- Add `config.allowOptions` to the `GafaelfawrIngress` for file servers so that the server will work correctly with Gafaelfawr 13.0.0 and later.
+
+### Bug fixes
+
+- Set `Sec-Fetch-Mode` in several places in the Nublado client to suppress harmless but annoying warnings in the JupyterHub logs.
+
 <a id='changelog-8.6.0'></a>
 ## 8.6.0 (2025-02-26)
 
 ### New features
 
-- Add ability to restrict dropdown menu based on category age/number/version
+- Add support to the Nublado controller for restricting the list of images shown in the dropdown menu based on age, count within a category, or a version cutoff.
 
 ### Bug fixes
 
-- Fix unbound variable error in nublado client
+- Fix an unbound variable error in the Nublado client in one error handling situation.
 
 <a id='changelog-8.5.0'></a>
 ## 8.5.0 (2025-02-24)
 
 ### Other changes
 
-- Nublado client: raise upper bound on safir dependency to `<11`.
+- Raise the upper bound on the Safir in the Nublado client to `<11`.
 
 <a id='changelog-8.4.2'></a>
 ## 8.4.2 (2025-02-19)
 
 ### Bug fixes
 
-- Fix `TypeError create_connection() got an unexpected keyword argument 'extra_headers'` exception when trying to establish websocket connections. Version 14 of [websockets](https://websockets.readthedocs.io/en/stable/) [changed the signature of the `connect` method](https://websockets.readthedocs.io/en/stable/howto/upgrade.html#extra-headers-additional-headers).
+- Fix `TypeError` exception when trying to establish websocket connections. Version 14 of [websockets](https://websockets.readthedocs.io/en/stable/) [changed the signature of the `connect` method](https://websockets.readthedocs.io/en/stable/howto/upgrade.html#extra-headers-additional-headers).
 
 <a id='changelog-8.4.1'></a>
 ## 8.4.1 (2025-02-12)
