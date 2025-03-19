@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.7.1'></a>
+## 8.7.1 (2025-03-19)
+
+### Bug fixes
+
+- Fix the `NetworkPolicy` created for user labs so that it actually restricts access to only JupyterHub, its proxy, and the lab itself as was intended.
+
 <a id='changelog-8.7.0'></a>
 ## 8.7.0 (2025-03-17)
 
