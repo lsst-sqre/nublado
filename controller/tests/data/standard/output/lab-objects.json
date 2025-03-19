@@ -123,6 +123,14 @@
         {
           "from": [
             {
+              "namespaceSelector": {
+                "matchLabels": {
+                  "nublado.lsst.io/category": "lab",
+                  "nublado.lsst.io/user": "rachel"
+                }
+              }
+            },
+            {
               "namespaceSelector": {},
               "podSelector": {
                 "matchLabels": {
@@ -140,7 +148,8 @@
       ],
       "podSelector": {
         "matchLabels": {
-          "nublado.lsst.io/category": "lab"
+          "nublado.lsst.io/category": "lab",
+          "nublado.lsst.io/user": "rachel"
         }
       },
       "policyTypes": [
