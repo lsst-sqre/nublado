@@ -26,6 +26,7 @@ from kubernetes_asyncio.client import (
     V1Namespace,
     V1NetworkPolicy,
     V1NetworkPolicyIngressRule,
+    V1NetworkPolicyPeer,
     V1NetworkPolicyPort,
     V1NetworkPolicySpec,
     V1ObjectFieldSelector,
@@ -416,16 +417,30 @@ class LabBuilder:
 
     def _build_network_policy(self, username: str) -> V1NetworkPolicy:
         """Construct the network policy for a user's lab."""
+        metadata = self._build_metadata(f"{username}-nb", username)
+        lab_selector = V1LabelSelector(
+            match_labels={
+                "nublado.lsst.io/category": "lab",
+                "nublado.lsst.io/user": username,
+            }
+        )
+        hub_selector = V1LabelSelector(match_labels={"app": "jupyterhub"})
+        ingress_rules = [
+            V1NetworkPolicyPeer(namespace_selector=lab_selector),
+            V1NetworkPolicyPeer(
+                namespace_selector=V1LabelSelector(),
+                pod_selector=hub_selector,
+            ),
+        ]
         return V1NetworkPolicy(
-            metadata=self._build_metadata(f"{username}-nb", username),
+            metadata=metadata,
             spec=V1NetworkPolicySpec(
                 policy_types=["Ingress"],
-                pod_selector=V1LabelSelector(
-                    match_labels={"app": "jupyterhub", "component": "hub"}
-                ),
+                pod_selector=lab_selector,
                 ingress=[
                     V1NetworkPolicyIngressRule(
-                        ports=[V1NetworkPolicyPort(port=8888)]
+                        _from=ingress_rules,
+                        ports=[V1NetworkPolicyPort(port=8888)],
                     ),
                 ],
             ),

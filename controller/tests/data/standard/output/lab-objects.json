@@ -121,6 +121,24 @@
     "spec": {
       "ingress": [
         {
+          "from": [
+            {
+              "namespaceSelector": {
+                "matchLabels": {
+                  "nublado.lsst.io/category": "lab",
+                  "nublado.lsst.io/user": "rachel"
+                }
+              }
+            },
+            {
+              "namespaceSelector": {},
+              "podSelector": {
+                "matchLabels": {
+                  "app": "jupyterhub"
+                }
+              }
+            }
+          ],
           "ports": [
             {
               "port": 8888
@@ -130,8 +148,8 @@
       ],
       "podSelector": {
         "matchLabels": {
-          "app": "jupyterhub",
-          "component": "hub"
+          "nublado.lsst.io/category": "lab",
+          "nublado.lsst.io/user": "rachel"
         }
       },
       "policyTypes": [
