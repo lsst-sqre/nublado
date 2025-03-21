@@ -11,6 +11,7 @@ from jupyterhub.user import User
 from jupyterhub.utils import url_path_join
 from tornado.httputil import HTTPHeaders
 from tornado.web import HTTPError, RequestHandler
+from traitlets import Unicode
 
 type AuthInfo = dict[str, str | dict[str, str]]
 type Route = tuple[str, type[BaseHandler]]
@@ -45,7 +46,8 @@ class _GafaelfawrLogoutHandler(LogoutHandler):
         return True
 
     async def render_logout_page(self) -> None:
-        self.redirect("/logout", permanent=False)
+        url = self.authenticator.after_logout_redirect
+        self.redirect(url, permanent=False)
 
 
 class _GafaelfawrLoginHandler(BaseHandler):
@@ -125,6 +127,15 @@ class GafaelfawrAuthenticator(Authenticator):
     a few extra redirects is a small price to pay for staying within the
     supported and expected interface.
     """
+
+    after_logout_redirect = Unicode(
+        "/logout",
+        help="""
+        URL to redirect to after a JupyterHub logout.
+
+        This should point to the Gafaelfawr logout endpoint.
+        """,
+    ).tag(config=True)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
