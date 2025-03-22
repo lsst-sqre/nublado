@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 
 from kubernetes_asyncio.client import ApiClient, V1Secret
@@ -25,6 +26,7 @@ from .deleter import (
 )
 from .namespace import NamespaceStorage
 from .pod import PodStorage
+from .pv import PersistentVolumeStorage
 
 __all__ = ["LabStorage"]
 
@@ -53,6 +55,7 @@ class LabStorage:
         self._namespace = NamespaceStorage(api_client, logger)
         self._network_policy = NetworkPolicyStorage(api_client, logger)
         self._pod = PodStorage(api_client, logger)
+        self._pv = PersistentVolumeStorage(api_client, logger)
         self._pvc = PersistentVolumeClaimStorage(api_client, logger)
         self._quota = ResourceQuotaStorage(api_client, logger)
         self._secret = SecretStorage(api_client, logger)
@@ -73,9 +76,12 @@ class LabStorage:
         ------
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if the lab object creation took longer than the timeout.
         """
         namespace = objects.namespace.metadata.name
-        await self._namespace.create(objects.namespace, timeout)
+        for pv in objects.pvs:
+            await self._pv.create(pv, timeout)
         for pvc in objects.pvcs:
             await self._pvc.create(namespace, pvc, timeout)
         await self._config_map.create(
@@ -100,6 +106,27 @@ class LabStorage:
         )
         await self._pod.create(namespace, objects.pod, timeout)
 
+    async def create_namespace(
+        self, objects: LabObjects, timeout: Timeout
+    ) -> None:
+        """Create the namespace for a user lab.
+
+        Parameters
+        ----------
+        objects
+            Lab objects.
+        timeout
+            Timeout on operation.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if the namespace creation took longer than the timeout.
+        """
+        await self._namespace.create(objects.namespace, timeout)
+
     async def delete_namespace(self, name: str, timeout: Timeout) -> None:
         """Delete a namespace, waiting for deletion to finish.
 
@@ -119,6 +146,35 @@ class LabStorage:
             delete timeout.
         """
         await self._namespace.delete(name, timeout, wait=True)
+
+    async def delete_pvs(
+        self, names: LabObjectNames, timeout: Timeout
+    ) -> None:
+        """Delete a set of Persistent Volumes from Kubernetes with
+        a grace period.
+
+        Parameters
+        ----------
+        names
+            Names of lab objects.
+        timeout
+            Timeout on operation.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+
+        """
+        pv_names = names.pvs
+        if not pv_names:
+            return
+        tasks = set()
+        async with asyncio.TaskGroup() as tg:
+            for pv in pv_names:
+                tasks.add(
+                    tg.create_task(self._pv.delete(pv, timeout, wait=True))
+                )
 
     async def delete_pod(
         self, names: LabObjectNames, timeout: Timeout
@@ -217,7 +273,10 @@ class LabStorage:
             logger.warning("User Pod missing", name=names.pod)
             return None
         quota = await self._quota.read(names.quota, namespace, timeout)
-        return LabStateObjects(env_config_map=env_map, quota=quota, pod=pod)
+        pvs = [await self._pv.read(x, timeout) for x in names.pvs]
+        return LabStateObjects(
+            env_config_map=env_map, quota=quota, pod=pod, pvs=pvs
+        )
 
     async def read_pod_phase(
         self, names: LabObjectNames, timeout: Timeout

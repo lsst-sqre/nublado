@@ -701,10 +701,15 @@ class LabManager:
         events.put(Event(type=EventType.INFO, message=msg, progress=progress))
         await self._storage.delete_pod(names, timeout)
 
-        progress += int((end_progress - start_progress) / 2)
+        progress += int((end_progress - start_progress) / 3)
         msg = "Deleting user namespace"
         events.put(Event(type=EventType.INFO, message=msg, progress=progress))
         await self._storage.delete_namespace(names.namespace, timeout)
+
+        msg = "Removing Kubernetes PVs"
+        progress += int((end_progress - start_progress) / 3)
+        events.put(Event(type=EventType.INFO, message=msg, progress=progress))
+        await self._storage.delete_pvs(names, timeout)
 
         self._logger.info("Lab deleted", username=username)
         progress = end_progress
@@ -726,6 +731,11 @@ class LabManager:
                 if not lab.monitor.in_progress:
                     with contextlib.suppress(UnknownUserError):
                         await self.delete_lab(username)
+                else:
+                    self._logger.warning(
+                        f"Not deleting lab for {username}; "
+                        f"monitor in progress; current state is {lab.state}"
+                    )
 
     async def _gather_current_state(
         self, cutoff: datetime
@@ -1106,6 +1116,7 @@ class LabManager:
 
         # Build the objects that make up the user's lab.
         state.status = LabStatus.PENDING
+        names = self._builder.build_object_names(username)
         objects = self._builder.build_lab(
             user=user,
             lab=spec,
@@ -1115,13 +1126,31 @@ class LabManager:
         )
         internal_url = self._builder.build_internal_url(username, spec.env)
         self._logger.info("Creating new lab", user=username)
-        await self._storage.create(objects, timeout)
-        msg = "Created Kubernetes objects for user lab"
-        events.put(Event(type=EventType.INFO, message=msg, progress=30))
-        state.internal_url = internal_url
 
-        # Monitor for lab events while waiting for the pod to start.
-        await self._watch_lab_spawn(state, events, timeout)
+        # Create the namespace, because we can't watch for events until the
+        # namespace exists.
+        await self._storage.create_namespace(objects, timeout)
+
+        # Monitor for lab events while creating the remaining Kubernetes
+        # objects and waiting for the pod to start.
+        try:
+            watcher = self._watch_spawn_events(names, events, timeout)
+            watch_task = asyncio.create_task(watcher)
+            await self._storage.create(objects, timeout)
+            msg = "Created Kubernetes objects for user lab"
+            events.put(Event(type=EventType.INFO, message=msg, progress=30))
+            state.internal_url = internal_url
+            await self._storage.wait_for_pod_start(
+                names.pod, names.namespace, timeout
+            )
+        finally:
+            watch_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await watch_task
+        state.status = LabStatus.RUNNING
+        self._logger.info("Lab created", user=username)
+        msg = f"Lab Kubernetes pod started for {username}"
+        events.put(Event(type=EventType.COMPLETE, message=msg))
 
     async def _watch_lab_spawn(
         self,
@@ -1131,9 +1160,8 @@ class LabManager:
     ) -> None:
         """Wait for a lab spawn to complete, reflecting Kubernetes events.
 
-        This is normally run as the last action of `_spawn_lab`, but may be
-        run as a separate operation after state reconciliation when finding a
-        lab that is fully created and waiting for the pod to start.
+        This is run after state reconciliation when finding a lab that is
+        fully created and waiting for the pod to start.
 
         Parameters
         ----------

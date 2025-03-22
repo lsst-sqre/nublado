@@ -90,6 +90,7 @@ async def create_lab(
         user=user, lab=lab, image=image, secrets={}
     )
     timeout = Timeout("Creating lab", config.lab.spawn_timeout, user.username)
+    await lab_storage.create_namespace(objects, timeout)
     await lab_storage.create(objects, timeout)
 
     phase = PodPhase(mock_kubernetes.initial_pod_phase)
