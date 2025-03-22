@@ -187,9 +187,11 @@ class PodStorage(KubernetesObjectDeleter[V1Pod]):
         # phase.
         pod = await self.read(name, namespace, timeout)
         if pod is None:
+            logger.debug("Cannot read status of pod (does not exist)")
             return None
         phase = PodPhase(pod.status.phase)
         if phase not in until_not:
+            logger.debug("Pod phase already %s", phase.value)
             return phase
 
         # The pod is not in a terminal phase. Start the watch and wait for it
