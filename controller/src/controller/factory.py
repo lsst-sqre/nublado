@@ -104,7 +104,7 @@ class ProcessContext:
         # This logger is used only by process-global singletons.  Everything
         # else will use a per-request logger that includes more context about
         # the request (such as the authenticated username).
-        logger = structlog.get_logger(__name__)
+        logger = structlog.get_logger("controller")
 
         slack_client = None
         if config.slack_webhook:

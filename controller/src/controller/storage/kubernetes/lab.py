@@ -73,9 +73,10 @@ class LabStorage:
         ------
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if the lab object creation took longer than the timeout.
         """
         namespace = objects.namespace.metadata.name
-        await self._namespace.create(objects.namespace, timeout)
         for pvc in objects.pvcs:
             await self._pvc.create(namespace, pvc, timeout)
         await self._config_map.create(
@@ -99,6 +100,27 @@ class LabStorage:
             "default", namespace, timeout
         )
         await self._pod.create(namespace, objects.pod, timeout)
+
+    async def create_namespace(
+        self, objects: LabObjects, timeout: Timeout
+    ) -> None:
+        """Create the namespace for a user lab.
+
+        Parameters
+        ----------
+        objects
+            Lab objects.
+        timeout
+            Timeout on operation.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if the namespace creation took longer than the timeout.
+        """
+        await self._namespace.create(objects.namespace, timeout)
 
     async def delete_namespace(self, name: str, timeout: Timeout) -> None:
         """Delete a namespace, waiting for deletion to finish.
