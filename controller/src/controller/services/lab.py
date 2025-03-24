@@ -1214,7 +1214,7 @@ class LabManager:
         """
         name = names.pod
         namespace = names.namespace
-        iterator = self._storage.watch_pod_events(name, namespace, timeout)
+        iterator = self._storage.watch_events(name, namespace, timeout)
         progress = 35
         try:
             async for msg in iterator:

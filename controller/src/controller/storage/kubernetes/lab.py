@@ -343,7 +343,7 @@ class LabStorage:
             timeout=timeout,
         )
 
-    async def watch_pod_events(
+    async def watch_events(
         self, name: str, namespace: str, timeout: Timeout
     ) -> AsyncIterator[str]:
         """Monitor the startup of a pod.
@@ -372,5 +372,5 @@ class LabStorage:
         TimeoutError
             Raised if the timeout expires.
         """
-        async for msg in self._pod.events_for_pod(name, namespace, timeout):
+        async for msg in self._namespace.events(namespace, timeout):
             yield msg

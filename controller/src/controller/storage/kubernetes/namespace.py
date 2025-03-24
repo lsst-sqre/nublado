@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import timedelta
 
 from kubernetes_asyncio import client
-from kubernetes_asyncio.client import ApiClient, ApiException, V1Namespace
+from kubernetes_asyncio.client import (
+    ApiClient,
+    ApiException,
+    CoreV1Event,
+    V1Namespace,
+)
 from structlog.stdlib import BoundLogger
 
 from ...exceptions import ControllerTimeoutError, KubernetesError
@@ -104,6 +110,49 @@ class NamespaceStorage:
             raise KubernetesError.from_exception(
                 "Error deleting namespace", e, kind="Namespace", name=name
             ) from e
+
+    async def events(self, name: str, timeout: Timeout) -> AsyncIterator[str]:
+        """Iterate over Kubernetes events for a namespace.
+
+        Watches for events in a namespace, yielding them. Must be cancelled by
+        the caller when the watch is no longer of interest.
+
+        Parameters
+        ----------
+        name
+            Name of the namespace.
+        timeout
+            How long to watch events for. When this timeout expires, the
+            iterator will end without raising any error.
+
+        Yields
+        ------
+        str
+            The next observed event.
+
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        """
+        logger = self._logger.bind(namespace=name)
+        logger.debug("Watching pod events")
+        watcher = KubernetesWatcher(
+            method=self._api.list_namespaced_event,
+            object_type=CoreV1Event,
+            kind="Event",
+            namespace=name,
+            timeout=timeout,
+            logger=logger,
+        )
+        try:
+            async with timeout.enforce():
+                async for event in watcher.watch():
+                    yield event.object.message
+        except ControllerTimeoutError:
+            pass
+        finally:
+            await watcher.close()
 
     async def list(self, timeout: Timeout) -> list[V1Namespace]:
         """List all namespaces.
