@@ -771,7 +771,7 @@ class LabManager:
             elif not lab or not lab.modified_since(cutoff):
                 msg = "Deleting incomplete namespace"
                 self._logger.warning(msg, user=username, namespace=namespace)
-                timeout = Timeout(msg, KUBERNETES_REQUEST_TIMEOUT)
+                timeout = Timeout(msg, self._config.delete_timeout)
                 await self._storage.delete_namespace(namespace, timeout)
         return observed
 
