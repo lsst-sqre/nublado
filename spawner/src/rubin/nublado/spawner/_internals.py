@@ -469,7 +469,8 @@ class NubladoSpawner(Spawner):
     async def stop(self) -> None:
         """Delete any running pod for the user.
 
-        If the pod does not exist, treat that as success.
+        If the pod does not exist, treat that as success. Uses a hard-coded
+        timeout of five minutes.
 
         Raises
         ------
