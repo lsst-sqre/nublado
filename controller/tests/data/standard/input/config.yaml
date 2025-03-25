@@ -1,6 +1,7 @@
 logLevel: DEBUG
 profile: development
 lab:
+  activityInterval: 2h
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:

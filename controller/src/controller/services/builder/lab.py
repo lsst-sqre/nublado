@@ -325,6 +325,7 @@ class LabBuilder:
 
         # Add standard environment variables.
         size = self._config.get_size_definition(lab.options.size)
+        activity = str(int(self._config.activity_interval.total_seconds()))
         resources = size.to_lab_resources()
         env.update(
             {
@@ -342,6 +343,8 @@ class LabBuilder:
                 "CPU_LIMIT": str(resources.limits.cpu),
                 "MEM_GUARANTEE": str(resources.requests.memory),
                 "MEM_LIMIT": str(resources.limits.memory),
+                # Activity reporting interval.
+                "JUPYTERHUB_ACTIVITY_INTERVAL": activity,
                 # Used by code running in the lab to find other services.
                 "EXTERNAL_INSTANCE_URL": self._base_url,
                 # Information about where our Lab config, runtime-info

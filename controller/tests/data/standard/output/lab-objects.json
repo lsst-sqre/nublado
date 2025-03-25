@@ -3,6 +3,7 @@
     "apiVersion": "v1",
     "data": {
       "CONTAINER_SIZE": "Small (1.0 CPU, 3Gi RAM)",
+      "JUPYTERHUB_ACTIVITY_INTERVAL": "7200",
       "JUPYTERHUB_SERVICE_PREFIX": "/nb/user/rachel/",
       "JUPYTERLAB_CONFIG_DIR": "/opt/lsst/software/jupyterlab",
       "JUPYTERLAB_START_COMMAND": "/opt/lsst/software/jupyterlab/runlab.sh",
