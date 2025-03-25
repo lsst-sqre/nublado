@@ -8,9 +8,9 @@ colorama==0.4.6 ; sys_platform == 'win32' \
     --hash=sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44 \
     --hash=sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6
     # via pytest
-iniconfig==2.0.0 \
-    --hash=sha256:2d91e135bf72d31a410b17c16da610a82cb55f6b0477d1a902134b24a455b8b3 \
-    --hash=sha256:b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374
+iniconfig==2.1.0 \
+    --hash=sha256:3abbd2e30b36733fee78f9c7f7308f2d0050e88f0087fd25c2645f63c773e1c7 \
+    --hash=sha256:9deba5723312380e77435581c6bf4935c94cbfab9b1ed33ef8d238ea168eb760
     # via pytest
 mypy==1.15.0 \
     --hash=sha256:1124a18bc11a6a62887e3e137f37f53fbae476dc36c185d549d4f837a2a6a14e \
@@ -177,9 +177,9 @@ pytest==8.3.5 \
     #   -r inithome/requirements/dev.in
     #   pytest-asyncio
     #   pytest-sugar
-pytest-asyncio==0.25.3 \
-    --hash=sha256:9e89518e0f9bd08928f97a3482fdc4e244df17529460bc038291ccaf8f85c7c3 \
-    --hash=sha256:fc1da2cf9f125ada7e710b4ddad05518d4cee187ae9412e9ac9271003497f07a
+pytest-asyncio==0.26.0 \
+    --hash=sha256:7b51ed894f4fbea1340262bdae5135797ebbe21d8638978e35d31c6d19f72fb0 \
+    --hash=sha256:c4df2a697648241ff39e7f0e4a73050b03f123f760673956cf0d72a4990e312f
     # via -r inithome/requirements/dev.in
 pytest-sugar==1.0.0 \
     --hash=sha256:6422e83258f5b0c04ce7c632176c7732cab5fdb909cb39cca5c9139f81276c0a \

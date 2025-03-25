@@ -6,6 +6,18 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.8.0'></a>
+## 8.8.0 (2025-03-25)
+
+### New features
+
+- Support setting the interval for activity reporting from JupyterLab in the Nubaldo controller configuration.
+
+### Bug fixes
+
+- Add a configuration setting for where to redirect the user after logout from JupyterHub. When user subdomains are in use, this needs to point to `/logout` at the base URL for the Science Platform, not `/logout` at the current hostname, which may be the JupyterHub hostname and thus create an infinite redirect loop.
+- Use the configured delete timeout when deleting invalid labs instead of a hard-coded 30s timeout.
+
 <a id='changelog-8.7.1'></a>
 ## 8.7.1 (2025-03-19)
 
