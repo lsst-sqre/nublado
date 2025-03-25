@@ -751,6 +751,16 @@ class LabConfig(BaseModel):
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
+    activity_interval: Annotated[
+        HumanTimedelta,
+        Field(
+            title="Activity reporting interval",
+            description=(
+                "How frequently the lab should report activity to JupyterHub"
+            ),
+        ),
+    ] = timedelta(hours=1)
+
     application: Annotated[
         str | None,
         Field(
