@@ -293,7 +293,7 @@ jobs:
           fetch-depth: 0 # full history for setuptools_scm
 
       - name: Test building and publishing rubin-nublado-client
-        uses: lsst-sqre/build-and-publish-to-pypi@tickets/DM-49735
+        uses: lsst-sqre/build-and-publish-to-pypi@v3
         with:
           upload: "false"
           working-directory: "client"
@@ -316,6 +316,6 @@ jobs:
         with:
           fetch-depth: 0 # full history for setuptools_scm
 
-      - uses: lsst-sqre/build-and-publish-to-pypi@tickets/DM-49735
+      - uses: lsst-sqre/build-and-publish-to-pypi@v3
         with:
           working-directory: "client"
