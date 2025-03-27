@@ -281,12 +281,29 @@ jobs:
         run: |
           echo Pushed ghcr.io/${{ github.repository }}-jupyterlab-base:${{ steps.build-jupyterlab-base.outputs.tag }}
 
+  test-packaging:
+    name: Test packaging
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    needs: [lint, test, docs]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for setuptools_scm
+
+      - name: Test building and publishing rubin-nublado-client
+        uses: lsst-sqre/build-and-publish-to-pypi@tickets/DM-49735
+        with:
+          upload: "false"
+          working-directory: "client"
+
   pypi:
     name: Upload release to PyPI
     runs-on: ubuntu-latest
 
     timeout-minutes: 10
-    needs: [lint, test, docs]
+    needs: [lint, test, docs, test-packaging]
     environment:
       name: pypi
       url: https://pypi.org/p/rubin-nublado-client
@@ -299,7 +316,6 @@ jobs:
         with:
           fetch-depth: 0 # full history for setuptools_scm
 
-      - uses: lsst-sqre/build-and-publish-to-pypi@v2
+      - uses: lsst-sqre/build-and-publish-to-pypi@tickets/DM-49735
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
           working-directory: "client"
