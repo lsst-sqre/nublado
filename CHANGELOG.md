@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.8.1'></a>
+## 8.8.1 (2025-03-27)
+
+### Bug fixes
+
+- Fix uploads of `rubin-nublado-client` to PyPI.
+
 <a id='changelog-8.8.0'></a>
 ## 8.8.0 (2025-03-25)
 
