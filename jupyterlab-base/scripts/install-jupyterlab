@@ -30,8 +30,6 @@ python3 -m uv pip install --upgrade \
    bqplot \
    firefly-client \
    geoviews \
-   jupyter-server \
-   'lsst-rsp>=0.7.1' \
    holoviews \
    ipydatawidgets \
    ipympl \
@@ -43,6 +41,7 @@ python3 -m uv pip install --upgrade \
    jupyter-dash \
    jupyter_firefly_extensions \
    jupyter-resource-usage \
+   jupyter-server \
    jupyter-server-proxy \
    jupyter_bokeh \
    jupyterhub \
@@ -52,6 +51,7 @@ python3 -m uv pip install --upgrade \
    jupyterlab_widgets \
    lckr-jupyterlab-variableinspector \
    llvmlite \
+   lsst-rsp \
    mypy \
    'nbconvert[webpdf]' \
    nbdime \
@@ -61,7 +61,7 @@ python3 -m uv pip install --upgrade \
    plotly \
    pre-commit \
    pythreejs \
-   'rsp-jupyter-extensions>=0.15.0' \
+   rsp-jupyter-extensions \
    ruff \
    sidecar
 
@@ -84,4 +84,3 @@ uv cache clean
 
 # Increase this to force a rebuild because a dependency package has changed.
 # Serial: 0
-
