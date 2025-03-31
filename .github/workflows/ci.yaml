@@ -237,6 +237,32 @@ jobs:
           image: ${{ github.repository }}-inithome
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to Google Artifact Repository
+        uses: docker/login-action@v3
+        with:
+          registry: us-central1-docker.pkg.dev
+          username: "_json_key_base64"
+          password: ${{ secrets.GAR_PUSH_TOKEN }}
+
+      - name: Docker meta
+        id: inithome-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/inithome
+          tags: |
+            type=raw,${{ steps.build-inithome.outputs.tag }}
+
+      - name: Build and push inithome to GAR
+        uses: docker/build-push-action@v6
+        with:
+          context: "."
+          file: Dockerfile.inithome
+          push: "true"
+          tags: ${{ steps.inithome-meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Report result
         run: |
           echo Pushed ghcr.io/${{ github.repository }}-inithome:${{ steps.build-inithome.outputs.tag }}
