@@ -21,9 +21,6 @@ python3 -m uv pip install --upgrade datashader
 # Here we go.  Most of these are Jupyter-related.  Some (like black and mypy)
 # are just a good idea.
 
-# jupyter_server needs to be installed from git until a release that includes
-# pull #1447 is cut.
-
 # jupyter_firefly_extensions is slightly incompatible with bokeh
 python3 -m uv pip install --upgrade \
    astrowidgets \
@@ -33,8 +30,6 @@ python3 -m uv pip install --upgrade \
    bqplot \
    firefly-client \
    geoviews \
-   'git+https://github.com/jupyter-server/jupyter_server' \
-   'git+https://github.com/lsst-sqre/lsst-rsp@tickets/DM-45854' \
    holoviews \
    ipydatawidgets \
    ipympl \
@@ -46,6 +41,7 @@ python3 -m uv pip install --upgrade \
    jupyter-dash \
    jupyter_firefly_extensions \
    jupyter-resource-usage \
+   jupyter-server \
    jupyter-server-proxy \
    jupyter_bokeh \
    jupyterhub \
@@ -55,6 +51,7 @@ python3 -m uv pip install --upgrade \
    jupyterlab_widgets \
    lckr-jupyterlab-variableinspector \
    llvmlite \
+   lsst-rsp \
    mypy \
    'nbconvert[webpdf]' \
    nbdime \
@@ -84,3 +81,6 @@ jupyter labextension lock "@jupyterlab/hub-extension:menu" \
 
 # Clean up cache
 uv cache clean
+
+# Increase this to force a rebuild because a dependency package has changed.
+# Serial: 0
