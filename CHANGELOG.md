@@ -6,6 +6,17 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.8.2'></a>
+## 8.8.2 (2025-04-03)
+
+### Bug fixes
+
+- Push inithome containers to Google as well as GitHub since GitHub has a low rate limit on anonymous API requests.
+
+### Other changes
+
+- Rebuild jupyterlab-base to pick up new jupyter-server release
+
 <a id='changelog-8.8.1'></a>
 ## 8.8.1 (2025-03-27)
 
