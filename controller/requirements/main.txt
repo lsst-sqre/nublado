@@ -1359,9 +1359,7 @@ rsa==4.9 \
     --hash=sha256:90260d9058e514786967344d0ef75fa8727eed8a7d2e43ce9f4bcf1b536174f7 \
     --hash=sha256:e38464a49c6c85d7f1351b0126661487a7e0a14a50f1675ec50eb34d4f20ef21
     # via google-auth
-safir==10.0.0 \
-    --hash=sha256:11bdf7a129b445da9395008a4fe73bdf43da3c3546f7183d9974a969f2f132de \
-    --hash=sha256:8bbff75a11b87c140214e6f5671852604867c56acf2aa30cd3a14347cbf4e7bc
+safir @ git+https://github.com/lsst-sqre/safir@e9da070f09d387773619e2521aa7095b0523031b#subdirectory=safir
     # via controller (controller/pyproject.toml)
 safir-logging==10.0.0 \
     --hash=sha256:7aa9fd0f194404bddbb1945c3cbf175b32b2331736886512998b91eea9626ecb \

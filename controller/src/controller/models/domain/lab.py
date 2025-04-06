@@ -11,6 +11,7 @@ from kubernetes_asyncio.client.models import (
     V1ConfigMap,
     V1Namespace,
     V1NetworkPolicy,
+    V1PersistentVolume,
     V1PersistentVolumeClaim,
     V1Pod,
     V1ResourceQuota,
@@ -118,6 +119,9 @@ class LabObjectNames:
     pod: str
     """Name of the pod."""
 
+    pvs: list[str]
+    """Names of PersistentVolume objects, if any."""
+
 
 @dataclass
 class LabStateObjects:
@@ -137,6 +141,9 @@ class LabStateObjects:
 
     pod: V1Pod
     """User's lab pod."""
+
+    pvs: list[V1PersistentVolume]
+    """Persistent volumes."""
 
 
 @dataclass
