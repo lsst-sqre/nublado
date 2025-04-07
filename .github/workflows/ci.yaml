@@ -301,7 +301,10 @@ jobs:
           dockerfile: Dockerfile.jupyterlab-base
           image: ${{ github.repository }}-jupyterlab-base
           github_token: ${{ secrets.GITHUB_TOKEN }}
-        if: steps.filter.outputs.rsp_base == 'true'
+        # Always build and push if it's a tag, even if nothing changed.
+        if: >
+          steps.filter.outputs.rsp_base == 'true'
+          || startsWith(github.ref, 'refs/tags/')
 
       - name: Report result
         run: |
