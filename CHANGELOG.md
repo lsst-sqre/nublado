@@ -6,6 +6,19 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.8.3'></a>
+## 8.8.3 (2025-04-23)
+
+### Bug fixes
+
+- Copy config files into correct destination location.
+
+### Other changes
+
+- Simplify jupyterlab-base construction; no need for unprivileged account.
+- Consistently replace `pip` with `uv pip` in jupyterlab-base construction.
+- Add `less` to container image.
+
 <a id='changelog-8.8.2'></a>
 ## 8.8.2 (2025-04-03)
 
