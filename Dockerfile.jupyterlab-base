@@ -91,7 +91,8 @@ WORKDIR /tmp
 # this point, but the Nublado machinery will ensure that the right
 # unprivileged user runs the container.  This is just to keep the
 # Lab as running as root in the container by default.
-USER 1000:1000
+# Conventionally, this is nobody:nogroup.
+USER 65534:65534
 
 CMD ["/usr/local/share/jupyterlab/runlab"]
 
