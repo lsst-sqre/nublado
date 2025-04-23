@@ -28,7 +28,7 @@ apt-get update
 # git: required by setuptools_scm
 # libffi-dev: sometimes needed to build cffi, a cryptography dependency
 # libxss1 ... pandoc: needed for export of notebooks in various formats
-# libdigest-md5-file-perl ... file: generally useful utilities
+# libdigest-md5-file-perl ... less: generally useful utilities
 # man: it is an interactive system, after all
 # curl: required to download the DM stack installer
 # npm: only needed to rebuild jupyter-server until new release is cut
@@ -37,7 +37,7 @@ apt-get -y install --no-install-recommends \
     build-essential git libffi-dev \
     libxss1 libasound2 libcups2 libpango-1.0.0 libgtk-3-0 \
     libnss3 libnspr4 libdrm2 libgbm1 pandoc \
-    libdigest-md5-file-perl jq gh hub unzip ack screen tmux tree file \
+    libdigest-md5-file-perl jq gh hub unzip ack screen tmux tree file less \
     man curl \
     npm \
     nano vim emacs-nox ed

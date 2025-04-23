@@ -6,23 +6,31 @@ set -euo pipefail
 # (not the Stack python).  This will let us iterate the UI without having
 # to worry about stack compatibility.
 
-# First, install uv, because it's a whole lot faster than pip.
-
-python3 -m venv /usr/local/share/jupyterlab/venv
-source /usr/local/share/jupyterlab/venv/bin/activate
+# First, install uv into the system python.  It's a whole lot faster than pip.
 
 python3 -m pip install uv
+
+uv venv /usr/local/share/jupyterlab/venv
+
+# It's claimed you don't need to activate a new uv venv, but experiment
+# says otherwise
+
+source /usr/local/share/jupyterlab/venv/bin/activate
+
+# Install uv in here too
+
+uv pip install uv
 
 # We need to install datashader and its dependencies first, because otherwise
 # we get stuck in a nasty llvm version dependency hole.
 
-python3 -m uv pip install --upgrade datashader
+uv pip install --upgrade datashader
 
 # Here we go.  Most of these are Jupyter-related.  Some (like black and mypy)
 # are just a good idea.
 
 # jupyter_firefly_extensions is slightly incompatible with bokeh
-python3 -m uv pip install --upgrade \
+uv pip install --upgrade \
    astrowidgets \
    black \
    black-nb \
