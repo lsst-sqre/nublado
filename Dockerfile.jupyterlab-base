@@ -44,23 +44,7 @@ COPY jupyterlab-base/jupyter_server/jupyter_server_config.json \
 COPY jupyterlab-base/scripts/install-system-files /tmp/build
 RUN ./install-system-files
 
-# Add our new unprivileged user.
-
-FROM deps-image AS user-image
-
-COPY jupyterlab-base/scripts/make-user /tmp/build
-RUN ./make-user
-
-# Give jupyterlab ownership to unprivileged user
-
-RUN mkdir -p /usr/local/share/jupyterlab
-RUN chown jovyan:jovyan /usr/local/share/jupyterlab
-
-# Switch to unprivileged user
-
-USER jovyan:jovyan
-
-FROM user-image AS jupyterlab-image
+FROM deps-image AS jupyterlab-image
 
 COPY jupyterlab-base/scripts/install-jupyterlab /tmp/build
 RUN ./install-jupyterlab
@@ -68,11 +52,13 @@ RUN ./install-jupyterlab
 FROM jupyterlab-image AS base-rsp-image
 
 RUN mkdir -p /usr/local/share/jupyterlab/etc
-COPY --chown=jovyan:jovyan \
-     jupyterlab-base/jupyter_server/jupyter_server_config.json \
-     jupyterlab-base/jupyter_server/jupyter_server_config.py
+RUN mkdir -p /usr/local/share/jupyterlab/venv/etc/jupyter
+COPY jupyterlab-base/jupyter_server/jupyter_server_config.json \
+     /usr/local/share/jupyterlab/venv/etc/jupyter/jupyter_server_config.d
+COPY jupyterlab-base/jupyter_server/jupyter_server_config.py \
+     /usr/local/share/jupyterlab/venv/etc/jupyter
 
-COPY --chown=jovyan:jovyan jupyterlab-base/runtime/runlab \
+COPY jupyterlab-base/runtime/runlab \
      /usr/local/share/jupyterlab/
 
 FROM base-rsp-image AS manifests-rsp-image
@@ -100,9 +86,12 @@ COPY jupyterlab-base/scripts/cleanup-files /
 RUN ./cleanup-files
 RUN rm ./cleanup-files
 
-# Back to unprivileged
-USER 1000:1000
 WORKDIR /tmp
+# Run as unprivileged user.  There's no /etc/passwd entry for it at
+# this point, but the Nublado machinery will ensure that the right
+# unprivileged user runs the container.  This is just to keep the
+# Lab as running as root in the container by default.
+USER 1000:1000
 
 CMD ["/usr/local/share/jupyterlab/runlab"]
 
