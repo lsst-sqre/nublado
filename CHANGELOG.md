@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.8.4'></a>
+## 8.8.4 (2025-04-28)
+
+### New features
+
+- If jupyterlab-base has a release tag, add tag "latest" to it.
+
 <a id='changelog-8.8.3'></a>
 ## 8.8.3 (2025-04-23)
 
