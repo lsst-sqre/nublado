@@ -8,14 +8,15 @@ set -euo pipefail
 vi_dir="/usr/local/share/jupyterlab/versions-installed"
 mkdir -p ${vi_dir}
 cd ${vi_dir}
-dpkg -l > "system-dpkgs"
-uv pip list > "system-python"
+dpkg -l | tee "system-dpkgs"
+uv pip list | tee "system-python"
 
 # Now JupyterLab python
 
 source /usr/local/share/jupyterlab/venv/bin/activate
-uv pip list > "jupyterlab-python"
-(jupyter labextension list 2>&1) > "lab-extensions"
+uv pip list | tee "jupyterlab-python"
+# This started failing 16 May 2025.  Under investigation.
+((jupyter labextension list 2>&1) | tee "lab-extensions" ) || /bin/true
 deactivate
 
 
