@@ -38,5 +38,15 @@
     "media_type": "application/vnd.docker.distribution.manifest.v2+json",
     "build_time": "2023-03-27T13:02:39Z",
     "update_time": "2023-03-27T13:02:39Z"
+  },
+  {
+    "name": "projects/rubin-shared-services-71ec/locations/us-central1/repositories/sciplat/dockerImages/some-other-image@sha256:deadbeef237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b",
+    "uri": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/some-other-image@sha256:deadbeef237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b",
+    "tags": ["bogus", "0.14"],
+    "image_size_bytes": 2345,
+    "upload_time": "2023-03-27T13:02:39Z",
+    "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+    "build_time": "2023-03-27T13:02:39Z",
+    "update_time": "2023-03-27T13:02:39Z"
   }
 ]

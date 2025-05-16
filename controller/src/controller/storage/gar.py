@@ -52,7 +52,15 @@ class GARStorageClient:
 
         images = []
         async for gar_image in image_list:
-            _, digest = gar_image.uri.rsplit("@", 1)
+            uri = gar_image.uri
+            # Isolate everything after last slash (if any).
+            last_component = uri.split("/")[-1]
+            # Then split that on the at-sign.
+            img_name, digest = last_component.rsplit("@", 1)
+            if img_name != config.image:
+                # One repository may host many images.  We only want the
+                # ones whose names match the one we're spawning.
+                continue
             for tag_name in gar_image.tags:
                 tag = RSPImageTag.from_str(tag_name)
                 image = RSPImage.from_tag(
