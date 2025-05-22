@@ -6,6 +6,15 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.8.6'></a>
+## 8.8.6 (2025-05-21)
+
+### Other changes
+
+- If `jupyter labextension list` exits with nonzero rc, don't fail the build
+
+- Rebuild jupyterlab-base with newer rsp-jupyter-extensions
+
 <a id='changelog-8.8.5'></a>
 ## 8.8.5 (2025-05-16)
 
