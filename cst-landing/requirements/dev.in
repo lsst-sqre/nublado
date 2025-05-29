@@ -1,0 +1,21 @@
+# -*- conf -*-
+#
+# Editable development dependencies for the cst_landing provisioner. Add direct
+# development, test, and documentation dependencies here, as well as implicit
+# dev dependencies with constrained versions.
+#
+# After editing, update cst-landing/requirements/dev.txt by running:
+#     nox -s update-deps
+
+-c main.txt
+
+# Type checking. The top-level pyproject.toml configures the Pydantic mypy
+# plugin, so pydantic has to be installed for mypy to run. We don't use
+# Pydantic ourselves in cst_landing.
+mypy
+pydantic
+
+# Testing.  We don't need asyncio, but again, the toplevel pyproject.toml
+# does
+pytest
+pytest-asyncio

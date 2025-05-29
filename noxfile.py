@@ -14,10 +14,12 @@ nox.options.sessions = [
     "typing-client",
     "typing-hub",
     "typing-inithome",
+    "typing-cst-landing",
     "test",
     "test-client",
     "test-hub",
     "test-inithome",
+    "test-cst-landing",
     "docs",
     "docs-linkcheck",
 ]
@@ -28,7 +30,7 @@ nox.options.reuse_existing_virtualenvs = True
 
 # pip-installable dependencies for development and documentation. This is not
 # used for pytest and typing, since it merges the controller, authenticator,
-# spawner, client, and inithome dependencies.
+# spawner, client, cst-landing, and inithome dependencies.
 PIP_DEPENDENCIES = [
     (
         "-r",
@@ -39,11 +41,16 @@ PIP_DEPENDENCIES = [
         "./inithome/requirements/main.txt",
         "-r",
         "./inithome/requirements/dev.txt",
+        "-r",
+        "./cst-landing/requirements/main.txt",
+        "-r",
+        "./cst-landing/requirements/dev.txt",
     ),
     ("-e", "./authenticator[dev]"),
     ("-e", "./client[dev]"),
     ("-e", "./controller"),
     ("-e", "./inithome"),
+    ("-e", "./cst-landing"),
     ("-e", "./spawner[dev]"),
 ]
 
@@ -114,7 +121,7 @@ def _update_deps(
     session.install("--upgrade", "uv")
     session.install("--upgrade", "pre-commit")
     session.run("pre-commit", "autoupdate")
-    directories = {"controller", "hub", "inithome"}
+    directories = {"controller", "hub", "inithome", "cst-landing"}
     if only:
         directories &= only
     for directory in sorted(directories):
@@ -266,6 +273,27 @@ def typing_inithome(session: nox.Session) -> None:
     )
 
 
+@nox.session(name="typing-cst-landing")
+def typing_cst_landing(session: nox.Session) -> None:
+    """Check cst-landing type annotations with mypy."""
+    session.install(
+        "-r",
+        "./cst-landing/requirements/main.txt",
+        "-r",
+        "./cst-landing/requirements/dev.txt",
+    )
+    session.install("-e", "./cst-landing")
+    session.run(
+        "mypy",
+        *session.posargs,
+        "--namespace-packages",
+        "--explicit-package-bases",
+        "cst-landing/src",
+        "cst-landing/tests",
+        env={"MYPYPATH": "cst-landing/src:cst-landing"},
+    )
+
+
 @nox.session
 def test(session: nox.Session) -> None:
     """Run tests of the Nublado controller."""
@@ -314,6 +342,21 @@ def test_inithome(session: nox.Session) -> None:
     )
     session.install("-e", "./inithome")
     _pytest(session, "inithome", "rubin.nublado.inithome", coverage=False)
+
+
+@nox.session(name="test-cst-landing")
+def test_cst_landing(session: nox.Session) -> None:
+    """Run only tests affecting cst-landing."""
+    session.install(
+        "-r",
+        "./cst-landing/requirements/main.txt",
+        "-r",
+        "./cst-landing/requirements/dev.txt",
+    )
+    session.install("-e", "./cst-landing")
+    _pytest(
+        session, "cst-landing", "rubin.nublado.cst_landing", coverage=False
+    )
 
 
 @nox.session

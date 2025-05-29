@@ -38,8 +38,7 @@ Configure an init container
 See :ref:`config-lab-init` for the details of configuring Nublado init containers.
 See :doc:`home-directories` for more information about the specific use case of setting up user home directories, and the init container that Nublado provides for that purpose.
 
-Here is an example of an init container configuration for a purpose other than setting up home directories: the init container that used to be used at Rubin Telescope and Site deployments to connect the lab container to the appropriate networks.
-(This has now been replaced with a Kubernetes CNI and appropriate annotations.)
+Here is an example of an init container configuration for a purpose other than setting up home directories: the init container that is used at "science" sites to set up the appropriate CST landing page and ensure that Markdown opens in the viewer rather than the editor by default.
 
 .. code-block:: yaml
 
@@ -47,8 +46,13 @@ Here is an example of an init container configuration for a purpose other than s
      config:
        lab:
          initContainers:
-           - name: "multus-init"
+           - name: "cst-landing"
              image:
-               repository: "lsstit/ddsnet4u"
-               tag: "latest"
-             privileged: true
+               repository: "us-central1-docker.pkg.dev/rubin-shared-services-71ec/\
+sciplat/cst-landing"
+          volumeMounts:
+            - containerPath: "/home"
+              volumeName: "home"
+            - containerPath: "/rubin"
+              volumeName "rubin"
+
