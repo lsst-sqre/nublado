@@ -908,6 +908,18 @@ class LabConfig(BaseModel):
         ),
     ] = ["/opt/lsst/software/jupyterlab/runlab.sh"]
 
+    landing_page: Annotated[
+        str,
+        Field(
+            title="Lab landing page",
+            description=(
+                "The landing page for user labs; usually this is '/lab'"
+                " but may be overridden, e.g. science sites will want to"
+                " direct the user to an explanatory splash page."
+            ),
+        ),
+    ] = "/lab"
+
     namespace_prefix: Annotated[
         str,
         Field(
