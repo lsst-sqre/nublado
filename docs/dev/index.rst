@@ -19,6 +19,7 @@ The repository uses the vertical monorepo structure defined in :sqr:`075`.
 
    development
    release
+   custom-lab-behavior
 
 .. toctree::
    :caption: Development
