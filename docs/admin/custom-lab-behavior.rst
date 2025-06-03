@@ -38,7 +38,7 @@ rsp-jupyter-extensions
 ======================
 
 If you need to change the ``rsp-jupyter-extensions`` package, you will need to know that it is a `prebuilt extension <https://jupyterlab.readthedocs.io/en/stable/extension/extension_dev.html#prebuilt-extensions>`_ created from the `JupyterLab extension copier template <https://github.com/jupyterlab/extension-template>`_.
-To this copier template we have added GitHub Actions to rebuild containers and client libraries and push them to their respective locations in artifact registries and PyPi.
+To this copier template we have added GitHub Actions to rebuild containers and client libraries and push them to their respective locations in artifact registries and PyPI.
 We have also added a ``Makefile`` and modified ``pyproject.toml`` in order to make it behave more like a standard SQuaRE repository in some ways.
 
 Developing new extension functionality
@@ -51,7 +51,7 @@ The "prebuilt" part
 ^^^^^^^^^^^^^^^^^^^
 
 The "prebuilt" part of "prebuilt extension" means both that there is no need to install nodejs in the Lab container and that the only thing that needs doing to activate the extension is to ``pip install`` it.
-The build process within ``rsp-jupyter-extensions`` will generate and pack the extension JavaScript.
+The build process within ``rsp-jupyter-extensions`` will generate and pack the extension's JavaScript.
 
 Versioning the extension
 ^^^^^^^^^^^^^^^^^^^^^^^^
