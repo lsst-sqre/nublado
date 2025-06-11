@@ -11,6 +11,7 @@
       "JUPYTER_IMAGE_SPEC": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
       "IMAGE_DESCRIPTION": "Daily 2077_10_23",
       "IMAGE_DIGEST": "sha256:1234",
+      "HOMEDIR_SCHEMA": "username",
       "CPU_GUARANTEE": "0.25",
       "CPU_LIMIT": "1.0",
       "MEM_GUARANTEE": "805306368",

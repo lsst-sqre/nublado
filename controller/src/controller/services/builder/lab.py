@@ -336,6 +336,8 @@ class LabBuilder:
                 "JUPYTER_IMAGE_SPEC": image.reference_with_digest,
                 "IMAGE_DESCRIPTION": image.display_name,
                 "IMAGE_DIGEST": image.digest,
+                # Used at startup to set scratch directories
+                "HOMEDIR_SCHEMA": self._config.homedir_schema.value,
                 # Container data for display frame.
                 "CONTAINER_SIZE": str(size),
                 # Normally set by JupyterHub so keep compatibility.
