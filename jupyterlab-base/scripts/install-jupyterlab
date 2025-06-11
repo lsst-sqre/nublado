@@ -91,4 +91,4 @@ jupyter labextension lock "@jupyterlab/hub-extension:menu" \
 uv cache clean
 
 # Increase this to force a rebuild because a dependency package has changed.
-# Serial: 1
+# Serial: 2

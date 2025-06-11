@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.8.7'></a>
+## 8.8.7 (2025-06-11)
+
+### Other changes
+
+- Added documentation for making packages that modify RSP Jupyterlab behavior.
+
 <a id='changelog-8.8.6'></a>
 ## 8.8.6 (2025-05-21)
 
