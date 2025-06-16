@@ -12,7 +12,7 @@
 # necessary while installing extra Python modules.
 
 # This is just an alias to avoid repeating the base image.
-FROM quay.io/jupyterhub/k8s-hub:4.1.0
+FROM quay.io/jupyterhub/k8s-hub:4.2.0
 
 # The upstream chart already switched users, but we have additional
 # operations that must be done as root.
