@@ -6,48 +6,55 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.8.8'></a>
+## 8.8.8 (2025-06-16)
+
+### Bug fixes
+
+- Update JupyterHub to 5.3.0 (Zero to JupyterHub 4.2.0).
+
 <a id='changelog-8.8.7'></a>
 ## 8.8.7 (2025-06-11)
 
 ### Other changes
 
-- Added documentation for making packages that modify RSP Jupyterlab behavior.
+- Document how to customize Nublado JupyterLab behavior.
 
 <a id='changelog-8.8.6'></a>
 ## 8.8.6 (2025-05-21)
 
-### Other changes
+### New features
 
-- If `jupyter labextension list` exits with nonzero rc, don't fail the build
+- Update the base Jupyter Lab extensions to support specifying the kernel to use via the `/execution` endpoint.
 
-- Rebuild jupyterlab-base with newer rsp-jupyter-extensions
+### Bug fixes
+
+- Fix builds when `jupyter labextension list` exits with a non-zero status.
 
 <a id='changelog-8.8.5'></a>
 ## 8.8.5 (2025-05-16)
 
 ### Bug fixes
 
-- Only find GAR images with the correct image name, instead of all tagged images
+- When building the list of available lab images, only include versions from tags on the lab image name, not other Docker images in the same repository.
 
 <a id='changelog-8.8.4'></a>
 ## 8.8.4 (2025-04-28)
 
 ### New features
 
-- If jupyterlab-base has a release tag, add tag "latest" to it.
+- When tagging jupyterlab-base for a new release, also move the `latest` tag to the new release.
 
 <a id='changelog-8.8.3'></a>
 ## 8.8.3 (2025-04-23)
 
+### New features
+
+- Add `less` to the base JupyterLab container image.
+
 ### Bug fixes
 
-- Copy config files into correct destination location.
-
-### Other changes
-
-- Simplify jupyterlab-base construction; no need for unprivileged account.
-- Consistently replace `pip` with `uv pip` in jupyterlab-base construction.
-- Add `less` to container image.
+- Fix the install locations of configuration files in the base JupyterLab container image.
 
 <a id='changelog-8.8.2'></a>
 ## 8.8.2 (2025-04-03)
@@ -58,7 +65,7 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 ### Other changes
 
-- Rebuild jupyterlab-base to pick up new jupyter-server release
+- Update jupyterlab-server in the base JupyterLab container image.
 
 <a id='changelog-8.8.1'></a>
 ## 8.8.1 (2025-03-27)
