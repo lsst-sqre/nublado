@@ -44,6 +44,7 @@ nitpick_ignore = [
     ["py:class", "pydantic_core._pydantic_core.ValidationError"],
     ["py:class", "pydantic_settings.main.BaseSettings"],
     ["py:class", "pydantic_settings.sources.CliSettingsSource"],
+    ["py:class", "pydantic_settings.sources.providers.cli.CliSettingsSource"],
     ["py:class", "sse_starlette.ServerSentEvent"],
     ["py:class", "starlette.requests.Request"],
     ["py:class", "starlette.responses.Response"],
