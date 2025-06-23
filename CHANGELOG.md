@@ -6,6 +6,14 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.8.9'></a>
+## 8.8.9 (2025-06-23)
+
+### Bug fixes
+
+- Simplify the HTML page shown after the user spawns a file server and point to the RSP documentation.
+- Standardize on `write:files` as the scope for accessing the file server. This was already required to spawn the file server, but `exec:notebook` was still used to control access to the spawned file server.
+
 <a id='changelog-8.8.8'></a>
 ## 8.8.8 (2025-06-16)
 

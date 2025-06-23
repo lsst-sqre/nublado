@@ -370,9 +370,9 @@ async def test_delayed_spawn(
     # appropriate events.
     event_lists = await asyncio.gather(*listeners)
     expected_events = read_output_json("standard", "lab-spawn-events")
-    expected_events = (
-        expected_events[:-1]
-        + [
+    expected_events = [
+        *expected_events[:-1],
+        *[
             {
                 "data": json.dumps(
                     {
@@ -391,9 +391,9 @@ async def test_delayed_spawn(
                 ),
                 "event": "info",
             },
-        ]
-        + expected_events[-1:]
-    )
+        ],
+        *expected_events[-1:],
+    ]
     for event_list in event_lists:
         assert event_list == expected_events
 

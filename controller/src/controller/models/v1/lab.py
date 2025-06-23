@@ -331,7 +331,7 @@ class LabRequestOptions(CommonLabOptions):
 
     @field_validator("enable_debug", "reset_user_env", mode="before")
     @classmethod
-    def _validate_booleans(cls, v: bool | str) -> bool:
+    def _validate_booleans(cls, v: bool | str) -> bool:  # noqa: FBT001
         """Convert boolean values from strings."""
         if isinstance(v, bool):
             return v

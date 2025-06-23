@@ -193,6 +193,9 @@ class RSPImageTag:
             date=None,
         )
 
+    def __hash__(self) -> int:
+        return hash(self.tag)
+
     def __eq__(self, other: object) -> bool:
         return self._compare(other) == 0
 
