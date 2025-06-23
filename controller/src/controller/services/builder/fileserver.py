@@ -204,7 +204,7 @@ class FileserverBuilder:
                 "allowOptions": True,
                 "authType": "basic",
                 "baseUrl": self._base_url,
-                "scopes": {"all": ["exec:notebook"]},
+                "scopes": {"all": ["write:files"]},
                 "service": "nublado-files",
                 "username": username,
             },
