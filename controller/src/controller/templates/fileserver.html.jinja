@@ -4,61 +4,17 @@
 User Fileserver Created
 </title>
 </head>
-</body>
 <h1>
-Your fileserver is ready.
-<h1>
+Your WebDAV fileserver is now ready.
+</h1>
 
-<h2>
-Access Token
-</h2>
+Connect your WebDAV client to this server with:
+<ul>
+<li><strong>Your Server address:</strong> <a href="{{ base_url }}{{ path_prefix }}/{{ username }}">{{ base_url }}{{ path_prefix }}/{{ username }}</a>
+<li><strong>Password:</strong> A security token with <tt>write:files</tt> scope.
+</ul>
 
-<p> If you do not have an access token, go to <a
-href="{{ base_url }}/auth/tokens">the Gafaelfawr tokens page</a> and press
-the "Create Token" button.  </p>
+Consult <a href="https://rsp.lsst.io/guides/api/index.html#webdav">the RSP WebDAV docs</a> for more detailed instructions.
 
-<p>
-Give that token a name, such as "fileserver", the "exec:notebook" scope,
-and a reasonable expiration duration, such as 1 month.
-</p>
-
-<p>
-Press "Create".
-</p>
-
-<p>
-Your token will be displayed.  Copy this token and save it somewhere
-safe; you will never be able to view it from the tokens page again.
-</p>
-
-<h2>
-Using the Fileserver
-</h2>
-
-<p>
-To use the fileserver, you will need a WebDAV client of your choice.
-Mac and Windows have built-in WebDAV clients (this is "Connect to
-Server..." or "Map Network Drive..."), as do Gnome Nautilus and
-Konqueror for Linux.  The open-source command-line client
-<a href="https://github.com/notroj/cadaver">cadaver</a> should build on
-almost any Unix-like system and will work.
-</p>
-
-<p>
-Connect to
-<a href="{{ base_url }}{{ path_prefix }}/{{ username }}">{{ base_url }}{{ path_prefix }}/{{ username }}</a>
-with your WebDAV client (for Konqueror, use "webdav" or "webdavs" rather
-than "http" or "https" as the protocol).  Use the token you acquired
-earlier as the password.  You can use any string for your username
-(since the token belongs to you, it identifies you), but "{{ username }}"
-would be both accurate and traditional.
-</p>
-
-<p>
-If you make no requests in {{ timeout | format_timedelta }}, the fileserver will shut
-down.  If that occurs, simply go back to
-<a href="{{ base_url }}{{ path_prefix }}">{{ base_url }}{{ path_prefix }}</a>
-and a new fileserver will be created for you.
-</p>
 </body>
 </html>
