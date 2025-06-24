@@ -8,12 +8,9 @@ __all__ = [
     "CONFIGURATION_PATH",
     "DOCKER_CREDENTIALS_PATH",
     "DROPDOWN_SENTINEL_VALUE",
-    "FILE_SERVER_RECONCILE_INTERVAL",
     "GROUPNAME_REGEX",
-    "IMAGE_REFRESH_INTERVAL",
     "KUBERNETES_NAME_PATTERN",
     "KUBERNETES_REQUEST_TIMEOUT",
-    "LAB_RECONCILE_INTERVAL",
     "LIMIT_TO_REQUEST_RATIO",
     "MEMORY_TO_TMP_SIZE_RATIO",
     "METADATA_PATH",
@@ -44,16 +41,6 @@ DOCKER_CREDENTIALS_PATH = Path("/etc/secrets/.dockerconfigjson")
 DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 """Used in the lab form for ``image_list`` when ``image_dropdown`` is used."""
 
-FILE_SERVER_RECONCILE_INTERVAL = timedelta(minutes=60)
-"""How frequently to refresh file server state from Kubernetes.
-
-This will detect when file servers disappear out from under us, such as being
-terminated by Kubernetes node replacements or upgrades.
-"""
-
-IMAGE_REFRESH_INTERVAL = timedelta(minutes=5)
-"""How frequently to refresh the list of remote and cached images."""
-
 KUBERNETES_NAME_PATTERN = "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
 """Pattern matching valid Kubernetes names."""
 
@@ -68,14 +55,6 @@ the control plane is nonresponsive.
 
 JUPYTERLAB_DIR = "/usr/local/share/jupyterlab"
 """Location where our RSP Jupyterlab configuration is rooted."""
-
-LAB_RECONCILE_INTERVAL = timedelta(minutes=5)
-"""How frequently to refresh user lab state from Kubernetes.
-
-This will detect when user labs disappear out from under us without user
-action, such as labs being terminated by Kubernetes node replacements or
-upgrades.
-"""
 
 LAB_STOP_GRACE_PERIOD = timedelta(seconds=1)
 """How long to wait for a lab to shut down before SIGKILL.

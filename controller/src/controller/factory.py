@@ -196,6 +196,7 @@ class ProcessContext:
             lab_manager=lab_manager,
             _fileserver_manager=fileserver_manager,
             background=BackgroundTaskManager(
+                config=config,
                 image_service=image_service,
                 prepuller=prepuller,
                 lab_manager=lab_manager,

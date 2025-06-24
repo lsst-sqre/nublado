@@ -64,6 +64,12 @@ Kubernetes
     Resource limits and requests for user file server pods.
     The defaults are chosen based on observed metrics from Google Kubernetes Engine.
 
+``controller.config.fileserver.reconcileInterval``
+    How frequently to reconcile file server state with Kubernetes.
+    This will detect when file servers or their supporting Kubernetes resources disappear unexpectedly, such as by manual deletions.
+    This can be safely set to a long interval since normal file server pod terminations should be caught by a separate Kubernetes watch.
+    The default is one hour.
+
 None of the following are set by default.
 They can be used to add additional Kubernetes configuration to all lab pods if, for example, you want them to run on specific nodes or tag them with annotations that have some external meaning for your environment.
 

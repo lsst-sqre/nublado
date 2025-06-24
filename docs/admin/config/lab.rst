@@ -340,6 +340,11 @@ Kubernetes
 
     See `the Phalanx documentation <https://phalanx.lsst.io/admin/update-pull-secret.html>`__ for more details about managing a pull secret in Phalanx.
 
+``controller.config.lab.reconcileInterval``
+    How frequently to reconcile lab state with Kubernetes.
+    This will detect when user labs disappear without user action, such as when they are terminated by Kubernetes node replacement or upgrades.
+    The default is five minutes.
+
 None of the following are set by default.
 They can be used to add additional Kubernetes configuration to all lab pods if, for example, you want them to run on specific nodes or tag them with annotations that have some external meaning for your environment.
 

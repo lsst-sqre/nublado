@@ -458,6 +458,14 @@ class EnabledFileserverConfig(FileserverConfig):
         ),
     ] = {}
 
+    reconcile_interval: Annotated[
+        HumanTimedelta,
+        Field(
+            title="Reconcile interval",
+            description="How often to reconcile file state against Kubernetes",
+        ),
+    ] = timedelta(minutes=60)
+
     resources: Annotated[
         LabResources | None,
         Field(
@@ -953,6 +961,19 @@ class LabConfig(BaseModel):
             ),
         ),
     ] = None
+
+    reconcile_interval: Annotated[
+        HumanTimedelta,
+        Field(
+            title="Reconcile interval",
+            description=(
+                "How often to reconcile lab state gainst Kubernetes. Consider"
+                " doing this more frequently than for file servers since,"
+                " unlike with file servers, we cannot use a Kubernetes watch"
+                " to monitor for user pod changes."
+            ),
+        ),
+    ] = timedelta(minutes=5)
 
     runtime_mounts_dir: Annotated[
         str,

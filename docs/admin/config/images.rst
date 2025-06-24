@@ -95,6 +95,12 @@ All other available images are collected into a drop-down list with a caution th
 
 See :sqr:`059` for the definition of release, weekly, and daily images.
 
+The frequency with which the image source is checked for new images and the Kubernetes nodes are checked for what images they have cached is controlled by the following setting.
+
+``controller.config.images.refreshInterval``
+    How frequently to refresh the list of remote and cached images.
+    The default is five minutes.
+
 What images to prepull and display as radio button selections are controlled by the following settings.
 
 ``controller.config.images.recommendedTag``
