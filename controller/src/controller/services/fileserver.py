@@ -231,8 +231,12 @@ class FileserverManager:
                 last_modified = self._servers[username].last_modified
                 if last_modified > start:
                     continue
-            msg = "Removing broken fileserver for user"
-            self._logger.warning(msg, user=username)
+            if username in to_delete:
+                msg = "Removing broken fileserver for user"
+                self._logger.warning(msg, user=username)
+            else:
+                msg = "No file server job for user, removing remnants"
+                self._logger.warning(msg, user=username)
             await self.delete(username)
         for username in invalid:
             if username in self._servers:
