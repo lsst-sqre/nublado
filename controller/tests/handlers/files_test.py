@@ -79,6 +79,15 @@ async def test_create_delete(
     assert r.status_code == 200
     assert r.json() == {"running": True}
 
+    # Wait for the reconcile time and then check again to make sure reconcile
+    # didn't incorrectly remove it (a bug in versions <= 8.8.9).
+    await asyncio.sleep(config.fileserver.reconcile_interval.total_seconds())
+    r = await client.get(
+        "/nublado/fileserver/v1/user-status", headers=user.to_headers()
+    )
+    assert r.status_code == 200
+    assert r.json() == {"running": True}
+
     # Remove it, via an admin route. Pre-delete the Ingress since Kubernetes
     # won't do it automatically for us during test.
     await delete_ingress_for_user(mock_kubernetes, username, namespace)
@@ -198,7 +207,8 @@ async def test_wait_for_ingress(
 
     # Wait for longer than twice the reconcile interval to make sure that
     # reconciliation will not delete the pod creation in progress.
-    await asyncio.sleep(0.2)
+    delay = config.fileserver.reconcile_interval.total_seconds() * 2
+    await asyncio.sleep(delay)
 
     # Create the Ingress.
     await create_working_ingress_for_user(mock_kubernetes, username, namespace)
