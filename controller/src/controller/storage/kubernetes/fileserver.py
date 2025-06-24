@@ -178,6 +178,12 @@ class FileserverStorage:
         """
         search = "nublado.lsst.io/category=fileserver"
         jobs = await self._job.list(namespace, timeout, label_selector=search)
+        self._logger.debug(
+            f"Listed fileserver jobs matching {search}",
+            namespace=namespace,
+            names=[j.metadata.name for j in jobs],
+            count=len(jobs),
+        )
 
         # For each job, figure out the corresponding username from labels and
         # retrieve the additional objects we care about.
@@ -185,6 +191,12 @@ class FileserverStorage:
         for job in jobs:
             username = job.metadata.labels.get("nublado.lsst.io/user")
             if not username:
+                self._logger.warning(
+                    "File server job has no user set",
+                    namespace=namespace,
+                    name=job.metadata.name,
+                    labels=job.metadata.labels,
+                )
                 continue
 
             # Check if we already saw a Job for this user, and if so, complain
