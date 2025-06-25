@@ -236,38 +236,103 @@ class FileserverManager:
         known_users = {k for k, v in self._servers.items() if v.running}
 
         # Check each fileserver we found to see if it's properly running. If
-        # not, delete it and remove it from the seen map.
+        # it is and we didn't know about it, add it to our internal state and
+        # assume it's supposed to be running. (This is the normal case for
+        # reconcile during process startup.) If the file server isn't valid,
+        # queue it up for removal.
         to_delete = set()
-        invalid = set()
+        unexpected = set()
         for username, state in seen.items():
-            valid = self._builder.is_valid(username, state)
-            if valid and username not in known_users:
-                self._servers[username] = _State(running=valid)
+            if self._builder.is_valid(username, state):
+                if username not in known_users:
+                    self._servers[username] = _State(running=True)
             elif username in self._servers:
                 to_delete.add(username)
             else:
-                invalid.add(username)
+                unexpected.add(username)
 
-        # Also tidy up any supposedly-running users that we didn't find. They
-        # may have some objects remaining. This should only be possible if
-        # something outside of the controller deleted resources.
+        # Delete running file servers that are invalid in some way.
+        await self._delete_invalid_servers(to_delete, start)
+
+        # Delete invalid file servers that we weren't expecting to be running.
+        await self._delete_unexpected_servers(unexpected, start)
+
+        # Delete any file servers we were expecting to be running but for
+        # which we didn't see a Kubernetes Job at all. This cleans up any
+        # stray resources that might be left over, such as the ingress. This
+        # should only be possible if something outside the controller deleted
+        # resources.
         seen_users = {u for u in seen if u not in to_delete}
-        for username in (known_users - seen_users) | to_delete:
+        await self._delete_missing_servers(known_users - seen_users, start)
+
+        # Log completion.
+        self._logger.debug("File server reconciliation complete")
+
+    async def _delete_invalid_servers(
+        self, to_delete: set[str], start: datetime
+    ) -> None:
+        """Delete running but invalid servers.
+
+        Parameters
+        ----------
+        to_delete
+            Usernames for servers to delete.
+        start
+            Start of the reconcile. Servers modified since then will be left
+            alone.
+        """
+        for username in to_delete:
             if username in self._servers:
                 if self._servers[username].modified_since(start):
                     continue
-            if username in to_delete:
-                msg = "Removing broken fileserver for user"
-                self._logger.warning(msg, user=username)
-            else:
-                msg = "No file server job for user, removing remnants"
-                self._logger.warning(msg, user=username)
+            msg = "Removing broken fileserver for user"
+            self._logger.warning(msg, user=username)
             with contextlib.suppress(UnknownUserError):
                 await self.delete(username)
-        for username in invalid:
+
+    async def _delete_missing_servers(
+        self, to_delete: set[str], start: datetime
+    ) -> None:
+        """Clean up resources for servers that have no ``Job``.
+
+        Parameters
+        ----------
+        to_delete
+            Usernames for servers to delete.
+        start
+            Start of the reconcile. Servers modified since then will be left
+            alone.
+        """
+        for username in to_delete:
+            if username in self._servers:
+                if self._servers[username].modified_since(start):
+                    continue
+            msg = "No file server job for user, removing remnants"
+            self._logger.warning(msg, user=username)
+            with contextlib.suppress(UnknownUserError):
+                await self.delete(username)
+
+    async def _delete_unexpected_servers(
+        self, to_delete: set[str], start: datetime
+    ) -> None:
+        """Delete invalid servers that weren't expected to be running.
+
+        This is not necessarily an error case, since it can happen during
+        startup if the controller didn't finish creating a server before it
+        was shut down.
+
+        Parameters
+        ----------
+        to_delete
+            Usernames for servers to delete.
+        start
+            Start of the reconcile. Servers modified since then will be left
+            alone.
+        """
+        for username in to_delete:
             if username in self._servers:
                 continue
-            msg = "File server present but not running, deleteing"
+            msg = "File server present but not valid or wanted, deleting"
             self._logger.info(msg, user=username)
 
             # There is an unavoidable race condition where if the user for
@@ -281,7 +346,6 @@ class FileserverManager:
             await self._storage.delete(
                 name, self._config.namespace, username, timeout
             )
-        self._logger.debug("File server reconciliation complete")
 
     async def watch_servers(self) -> None:
         """Watch the file server namespace for completed file servers.
