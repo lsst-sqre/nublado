@@ -785,6 +785,15 @@ class LabConfig(BaseModel):
         ),
     ] = None
 
+    default_size: Annotated[
+        LabSize | None,
+        Field(
+            title="Default lab size",
+            description="If not given, the first size will be the default",
+            examples=[LabSize.LARGE],
+        ),
+    ] = None
+
     delete_timeout: Annotated[
         HumanTimedelta,
         Field(
@@ -1098,6 +1107,15 @@ class LabConfig(BaseModel):
                 raise ValueError(f"Duplicate lab size {definition.size.value}")
             seen.add(definition.size)
         return v
+
+    @model_validator(mode="after")
+    def _validate_default_size(self) -> Self:
+        if self.default_size is None:
+            return self
+        for size in self.sizes:
+            if size.size == self.default_size:
+                return self
+        raise ValueError(f"Default size {self.default_size!s} not defined")
 
     @model_validator(mode="after")
     def _validate_volumes(self) -> Self:

@@ -56,6 +56,16 @@ async def get_user_lab_form(
     else:
         sizes = config.lab.sizes
 
+    # Determine the default size.
+    default_size = None
+    if config.lab.default_size:
+        for size in sizes:
+            if size.size == config.lab.default_size:
+                default_size = config.lab.default_size
+                break
+    if not default_size:
+        default_size = sizes[0].size
+
     # Construct and return the spawner form.
     return templates.TemplateResponse(
         context.request,
@@ -65,5 +75,6 @@ async def get_user_lab_form(
             "cached_images": images.menu,
             "all_images": images.dropdown,
             "sizes": sizes,
+            "default_size": default_size,
         },
     )

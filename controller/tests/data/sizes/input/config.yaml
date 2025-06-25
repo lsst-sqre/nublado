@@ -1,0 +1,20 @@
+logLevel: DEBUG
+lab:
+  namespacePrefix: userlabs
+  defaultSize: large
+  sizes:
+    - size: small
+      cpu: 1.0
+      memory: 3Gi
+    - size: large
+      cpu: 9.0
+      memory: 27Gi
+images:
+  source:
+    type: docker
+    registry: lighthouse.ceres
+    repository: library/sketchbook
+  recommendedTag: recommended
+  numReleases: 1
+  numWeeklies: 2
+  numDailies: 3

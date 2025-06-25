@@ -42,7 +42,7 @@ function selectDropdown() {
 <td width="50%">
   <div class="radio radio-inline">
 {%- for definition in sizes %}
-    <input type="radio" name="size" id="{{ definition.size.value }}" value="{{ definition.size.value }}"{% if loop.first %} checked{% endif %}>
+    <input type="radio" name="size" id="{{ definition.size.value }}" value="{{ definition.size.value }}"{% if definition.size == default_size %} checked{% endif %}>
     <label for="{{ definition.size.value }}">
       {{ definition }}
     </label><br />

@@ -7,6 +7,7 @@ from httpx import AsyncClient
 
 from controller.models.domain.gafaelfawr import GafaelfawrUser
 
+from ..support.config import configure
 from ..support.data import read_output_data
 from ..support.gafaelfawr import get_no_spawn_user
 
@@ -21,6 +22,18 @@ async def test_lab_form(client: AsyncClient, user: GafaelfawrUser) -> None:
     assert r.headers["Content-Type"] == "text/html; charset=utf-8"
 
     expected = read_output_data("standard", "lab-form.html").strip()
+    assert r.text == expected
+
+
+@pytest.mark.asyncio
+async def test_default_size(client: AsyncClient, user: GafaelfawrUser) -> None:
+    await configure("sizes")
+    r = await client.get(
+        f"/nublado/spawner/v1/lab-form/{user.username}",
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 200
+    expected = read_output_data("sizes", "lab-form.html").strip()
     assert r.text == expected
 
 
