@@ -139,7 +139,7 @@ async def test_cleanup_on_pod_exit(
 
     # On a regular cluster, the fileserver takes a timeout as an argument and
     # exits after it's been idle that long. Simulate this by finding the pod
-    # and telling it to exit.
+    # and changing its status to indicate it exited.
     pods = await mock_kubernetes.list_namespaced_pod(
         namespace, label_selector=f"job-name={username}-fs"
     )

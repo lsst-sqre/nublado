@@ -10,11 +10,7 @@ from aiojobs import Scheduler
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
-from .constants import (
-    FILE_SERVER_RECONCILE_INTERVAL,
-    IMAGE_REFRESH_INTERVAL,
-    LAB_RECONCILE_INTERVAL,
-)
+from .config import Config
 from .services.fileserver import FileserverManager
 from .services.image import ImageService
 from .services.lab import LabManager
@@ -45,6 +41,8 @@ class BackgroundTaskManager:
 
     Parameters
     ----------
+    config
+        Controller configuration.
     image_service
         Image service.
     prepuller
@@ -62,6 +60,7 @@ class BackgroundTaskManager:
     def __init__(
         self,
         *,
+        config: Config,
         image_service: ImageService,
         prepuller: Prepuller,
         lab_manager: LabManager,
@@ -69,6 +68,7 @@ class BackgroundTaskManager:
         slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
     ) -> None:
+        self._config = config
         self._image_service = image_service
         self._prepuller = prepuller
         self._lab_manager = lab_manager
@@ -104,22 +104,22 @@ class BackgroundTaskManager:
         coros = [
             self._loop(
                 self._image_service.refresh,
-                IMAGE_REFRESH_INTERVAL,
+                self._config.images.refresh_interval,
                 "refreshing image data",
             ),
             self._prepull_loop(),
             self._loop(
                 self._lab_manager.reconcile,
-                LAB_RECONCILE_INTERVAL,
+                self._config.lab.reconcile_interval,
                 "reconciling lab state",
             ),
             self._lab_manager.reap_spawners(),
         ]
-        if self._fileserver_manager:
+        if self._fileserver_manager and self._config.fileserver.enabled:
             coros.append(
                 self._loop(
                     self._fileserver_manager.reconcile,
-                    FILE_SERVER_RECONCILE_INTERVAL,
+                    self._config.fileserver.reconcile_interval,
                     "reconciling file server state",
                 )
             )
@@ -199,6 +199,6 @@ class BackgroundTaskManager:
                 self._logger.exception("Uncaught exception prepulling images")
                 if self._slack:
                     await self._slack.post_uncaught_exception(e)
-                pause = IMAGE_REFRESH_INTERVAL.total_seconds()
+                pause = self._config.images.refresh_interval.total_seconds()
                 self._logger.warning("Pausing failed prepuller for {pause}s")
                 await asyncio.sleep(pause)

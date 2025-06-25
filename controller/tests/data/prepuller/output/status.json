@@ -5,6 +5,7 @@
       "registry": "lighthouse.ceres",
       "repository": "library/sketchbook"
     },
+    "refresh_interval": 300.0,
     "recommended_tag": "recommended",
     "num_releases": 1,
     "num_weeklies": 2,

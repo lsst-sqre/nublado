@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, Field
+from safir.pydantic import HumanTimedelta
 
 from ...constants import DOCKER_CREDENTIALS_PATH
 from ..domain.rspimage import RSPImage
@@ -158,6 +160,17 @@ class PrepullerOptions(BaseModel):
     source: Annotated[
         DockerSourceOptions | GARSourceOptions, Field(title="Source of images")
     ]
+
+    refresh_interval: Annotated[
+        HumanTimedelta,
+        Field(
+            title="Image refresh interval",
+            description=(
+                "How frequently to refresh the list of remote and cached"
+                " images"
+            ),
+        ),
+    ] = timedelta(minutes=5)
 
     recommended_tag: Annotated[
         str,
