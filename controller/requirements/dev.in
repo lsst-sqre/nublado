@@ -20,6 +20,7 @@ pytest
 pytest-asyncio
 pytest-cov
 pytest-sugar
+pytest-timeout
 respx
 types-pyyaml
 

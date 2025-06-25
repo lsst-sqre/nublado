@@ -178,7 +178,7 @@ class BackgroundTaskManager:
                 if self._slack:
                     await self._slack.post_uncaught_exception(e)
             delay = interval - (datetime.now(tz=UTC) - start)
-            if delay.total_seconds() < 1:
+            if delay.total_seconds() <= 0:
                 msg = f"{description.capitalize()} is running continuously"
                 self._logger.warning(msg)
             else:

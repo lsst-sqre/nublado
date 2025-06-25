@@ -38,6 +38,9 @@ class _State:
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     """Lock to prevent two operations from happening at once."""
 
+    in_progress: bool = False
+    """Whether an operation is currently in progress."""
+
     last_modified: datetime = field(
         default_factory=lambda: datetime.now(tz=UTC)
     )
@@ -54,6 +57,25 @@ class _State:
     With this setting, reconcile can check if a file server operation has
     started or recently finished and skip the reconcile.
     """
+
+    def modified_since(self, date: datetime) -> bool:
+        """Whether the file server has been modified since the given time.
+
+        Any file server that has a current in-progress operation is counted as
+        modified.
+
+        Parameters
+        ----------
+        date
+            Reference time.
+
+        Returns
+        -------
+        bool
+            `True` if the internal last-modified time is after the provided
+            time and no operation is in progress, `False` otherwise.
+        """
+        return bool(self.in_progress or self.last_modified > date)
 
 
 class FileserverManager:
@@ -134,6 +156,7 @@ class FileserverManager:
             if state.running:
                 return
             try:
+                state.in_progress = True
                 state.last_modified = datetime.now(tz=UTC)
                 async with timeout.enforce():
                     await self._create_file_server(user, timeout)
@@ -146,6 +169,7 @@ class FileserverManager:
             else:
                 state.running = True
             finally:
+                state.in_progress = False
                 state.last_modified = datetime.now(tz=UTC)
 
     async def delete(self, username: str) -> None:
@@ -168,11 +192,13 @@ class FileserverManager:
             if not state.running:
                 msg = f"File server for {username} not running"
                 raise UnknownUserError(msg)
+            state.in_progress = True
             state.last_modified = datetime.now(tz=UTC)
             try:
                 await self._delete_file_server(username)
                 state.running = False
             finally:
+                state.in_progress = False
                 state.last_modified = datetime.now(tz=UTC)
 
     def get_status(self, username: str) -> FileserverStatus:
@@ -228,8 +254,7 @@ class FileserverManager:
         seen_users = {u for u in seen if u not in to_delete}
         for username in (known_users - seen_users) | to_delete:
             if username in self._servers:
-                last_modified = self._servers[username].last_modified
-                if last_modified > start:
+                if self._servers[username].modified_since(start):
                     continue
             if username in to_delete:
                 msg = "Removing broken fileserver for user"
@@ -237,7 +262,8 @@ class FileserverManager:
             else:
                 msg = "No file server job for user, removing remnants"
                 self._logger.warning(msg, user=username)
-            await self.delete(username)
+            with contextlib.suppress(UnknownUserError):
+                await self.delete(username)
         for username in invalid:
             if username in self._servers:
                 continue

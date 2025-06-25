@@ -196,6 +196,10 @@ async def test_wait_for_ingress(
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == []
 
+    # Wait for longer than twice the reconcile interval to make sure that
+    # reconciliation will not delete the pod creation in progress.
+    await asyncio.sleep(0.2)
+
     # Create the Ingress.
     await create_working_ingress_for_user(mock_kubernetes, username, namespace)
 
@@ -223,6 +227,7 @@ async def test_wait_for_ingress(
 
 
 @pytest.mark.asyncio
+@pytest.mark.timeout(5)
 async def test_timeout_no_pod_start(
     client: AsyncClient,
     user: GafaelfawrUser,

@@ -77,6 +77,7 @@ fileserver:
   namespace: fileservers
   nodeSelector:
     some-label: some-value
+  reconcileInterval: 0.1
   tolerations:
     - key: ""
       operator: Exists
