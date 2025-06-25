@@ -26,6 +26,6 @@ types-pyyaml
 
 # Documentation
 autodoc_pydantic
-documenteer[guide]>=1
+documenteer[guide]>=1.4.5
 scriv
 sphinx-diagrams

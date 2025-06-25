@@ -365,9 +365,9 @@ distlib==0.3.9 \
     --hash=sha256:47f8c22fd27c27e25a65601af709b38e4f0a45ea4fc2e710f65755fa8caaaf87 \
     --hash=sha256:a60f20dea646b8a33f3e7772f74dc0b2d0772d2837ee1342a00645c81edf9403
     # via virtualenv
-documenteer==1.4.3 \
-    --hash=sha256:2b0cb1a5b9982ff8fce7121d479547e754a68bd7628620633653d2a5eeb883b5 \
-    --hash=sha256:6a387ba5589a374b75d5c6f1f2a93d7c356b10002de4a1ffbdda0304873e4742
+documenteer==1.4.5 \
+    --hash=sha256:350e980e6b4e0ba2cf2502df8db34873fec1a42318de32c462f376ffc8728c43 \
+    --hash=sha256:bdd2fc207124f6a122228e10aec9048da61f53364955a2f59ac65439717c1670
     # via -r controller/requirements/dev.in
 docutils==0.21.2 \
     --hash=sha256:3a6b18732edf182daa3cd12775bbb338cf5691468f91eeeb109deff6ebfa986f \
