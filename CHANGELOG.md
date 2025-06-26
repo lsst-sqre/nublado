@@ -6,6 +6,21 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.9.0'></a>
+## 8.9.0 (2025-06-26)
+
+### New features
+
+- Add new `controller.config.lab.defaultSize` configuration option that determines the default lab size in the spawner menu. If not set, or set to a lab size the user does not have sufficient quota to spawn, the default continues to be the first size the user is allowed to spawn.
+- Add `controller.config.fileserver.reconcileInterval` configuration option to control the frequency with which file server state is reconciled with Kubernetes.
+- Add `controller.config.lab.reconcileInterval` configuration option to control the frequency with which lab state is reconciled with Kubernetes.
+- Add `controller.config.images.refreshInterval` configuration option to control how often the image source is checked for new images and the Kubernetes nodes are checked for the list of cached images.
+
+### Bug fixes
+
+- Fix a race condition during file server Kubernetes reconciliation where a file server in the process of being created, but waiting for the ingress to become valid, could be deleted by the background reconciliation job.
+- Fix background task timing with very short intervals. This will probably never arise in a production configuration but was triggered by the test suite.
+
 <a id='changelog-8.8.9'></a>
 ## 8.8.9 (2025-06-23)
 
