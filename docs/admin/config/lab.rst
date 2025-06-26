@@ -294,7 +294,7 @@ See the `Kubernetes documentation <https://kubernetes.io/docs/concepts/configura
 ``controller.config.lab.sizes``
     The list of available lab sizes from which the user can choose.
     If the user has a notebook quota set (see `quota settings in Gafaelfawr <https://gafaelfawr.lsst.io/user-guide/helm.html#quotas>`__), only sizes that fit within that quota will be shown.
-    The order in which the sizes are listed will be preserved in the menu, and the first size listed will be the default.
+    The order in which the sizes are listed will be preserved in the menu.
 
     The default setting defines three sizes: ``small`` with 1 CPU unit and 4GiB of memory, ``medium`` with 2 CPU units and 8GiB of memory, and ``large`` with 4 CPU units and 16GiB of memory.
 
@@ -315,6 +315,11 @@ See the `Kubernetes documentation <https://kubernetes.io/docs/concepts/configura
 
     The ``cpu`` and ``memory`` for a given lab size define the Kubernetes limits.
     The Kubernetes requests are automatically set to 25% of the limits.
+
+``controller.config.lab.defaultSize``
+    The default size.
+    This is the size that will be selected by default on the spawner form.
+    If this is not set, or if it is set to a size that the user does not have sufficient quota to spawn, the first listed size the user is allowed to spawn will be the default.
 
 .. _config-lab-kubernetes:
 
