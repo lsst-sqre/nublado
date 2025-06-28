@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.9.1'></a>
+## 8.9.1 (2025-06-28)
+
+### Other changes
+
+- Rebuild jupyterlab-base with lsst-rsp 0.9.4
+
 <a id='changelog-8.9.0'></a>
 ## 8.9.0 (2025-06-26)
 
