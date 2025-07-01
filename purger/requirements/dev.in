@@ -1,0 +1,20 @@
+-c main.txt
+
+# Make tox faster
+tox-uv
+
+# Type checking
+mypy
+types-pyyaml
+
+# Linting
+ruff
+pre-commit
+
+# Testing
+pytest
+pytest-asyncio
+pytest-cov
+
+# Changelog mgt
+scriv

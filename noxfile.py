@@ -14,10 +14,12 @@ nox.options.sessions = [
     "typing-client",
     "typing-hub",
     "typing-inithome",
+    "typing-purger",
     "test",
     "test-client",
     "test-hub",
     "test-inithome",
+    "test-purger",
     "docs",
     "docs-linkcheck",
 ]
@@ -28,7 +30,7 @@ nox.options.reuse_existing_virtualenvs = True
 
 # pip-installable dependencies for development and documentation. This is not
 # used for pytest and typing, since it merges the controller, authenticator,
-# spawner, client, and inithome dependencies.
+# spawner, client, purger, and inithome dependencies.
 PIP_DEPENDENCIES = [
     (
         "-r",
@@ -39,11 +41,16 @@ PIP_DEPENDENCIES = [
         "./inithome/requirements/main.txt",
         "-r",
         "./inithome/requirements/dev.txt",
+        "-r",
+        "./purger/requirements/main.txt",
+        "-r",
+        "./purger/requirements/dev.txt",
     ),
     ("-e", "./authenticator[dev]"),
     ("-e", "./client[dev]"),
     ("-e", "./controller"),
     ("-e", "./inithome"),
+    ("-e", "./purger"),
     ("-e", "./spawner[dev]"),
 ]
 
@@ -266,6 +273,27 @@ def typing_inithome(session: nox.Session) -> None:
     )
 
 
+@nox.session(name="typing-purger")
+def typing_purger(session: nox.Session) -> None:
+    """Check purger type annotations with mypy."""
+    session.install(
+        "-r",
+        "./purger/requirements/main.txt",
+        "-r",
+        "./purger/requirements/dev.txt",
+    )
+    session.install("-e", "./purger")
+    session.run(
+        "mypy",
+        *session.posargs,
+        "--namespace-packages",
+        "--explicit-package-bases",
+        "purger/src",
+        "purger/tests",
+        env={"MYPYPATH": "purger/src:purger"},
+    )
+
+
 @nox.session
 def test(session: nox.Session) -> None:
     """Run tests of the Nublado controller."""
@@ -314,6 +342,18 @@ def test_inithome(session: nox.Session) -> None:
     )
     session.install("-e", "./inithome")
     _pytest(session, "inithome", "rubin.nublado.inithome", coverage=False)
+
+@nox.session(name="test-purger")
+def test_purger(session: nox.Session) -> None:
+    """Run only tests affecting purger."""
+    session.install(
+        "-r",
+        "./purger/requirements/main.txt",
+        "-r",
+        "./purger/requirements/dev.txt",
+    )
+    session.install("-e", "./purger")
+    _pytest(session, "purger", "rubin.nublado.purger", coverage=False)
 
 
 @nox.session
