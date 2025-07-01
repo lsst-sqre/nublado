@@ -343,6 +343,7 @@ def test_inithome(session: nox.Session) -> None:
     session.install("-e", "./inithome")
     _pytest(session, "inithome", "rubin.nublado.inithome", coverage=False)
 
+
 @nox.session(name="test-purger")
 def test_purger(session: nox.Session) -> None:
     """Run only tests affecting purger."""

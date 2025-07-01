@@ -46,7 +46,7 @@ RUN uv pip install --quiet --no-cache-dir -r requirements.txt
 # Install the Python package.
 COPY . /workdir
 WORKDIR /workdir
-RUN uv pip install --no-cache-dir .
+RUN uv pip install --compile-bytecode --no-cache ./purger
 
 FROM base-image AS runtime-image
 
