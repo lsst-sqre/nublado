@@ -130,7 +130,7 @@ No files or volumes may be mounted over these paths.
 # These must be kept in sync with Gafaelfawr until we can import the models
 # from Gafaelfawr directly.
 
-GROUPNAME_REGEX = "^[a-zA-Z][a-zA-Z0-9._-]*$"
+GROUPNAME_REGEX = "^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z][a-zA-Z0-9._-]*$"
 """Regex matching all valid group names."""
 
 USERNAME_REGEX = (
