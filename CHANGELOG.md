@@ -6,12 +6,19 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.9.2'></a>
+## 8.9.2 (2025-07-02)
+
+### Bug fixes
+
+- Accept group names from Gafaelfawr that start with digits as long as they contain at least one letter. Group names of that type can arise from per-user groups for users with a username starting with a digit.
+
 <a id='changelog-8.9.1'></a>
 ## 8.9.1 (2025-06-28)
 
-### Other changes
+### Bug fixes
 
-- Rebuild jupyterlab-base with lsst-rsp 0.9.4
+- Rebuild jupyterlab-base with lsst-rsp 0.9.4, which fixes a bug in overquota handling when a welcome page is configured and presents a better overquota landing page.
 
 <a id='changelog-8.9.0'></a>
 ## 8.9.0 (2025-06-26)
