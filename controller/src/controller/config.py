@@ -29,7 +29,6 @@ from safir.pydantic import HumanTimedelta
 
 from .constants import (
     KUBERNETES_NAME_PATTERN,
-    LIMIT_TO_REQUEST_RATIO,
     METADATA_PATH,
     RESERVED_ENV,
     RESERVED_PATHS,
@@ -543,7 +542,7 @@ class LabSizeDefinition(BaseModel):
     more than this amount of CPU will result in throttling and more than this
     amount of memory may result in the lab being killed with an out-of-memory
     error. Requests will be less than this, adjusted by
-    ``LIMIT_TO_REQUEST_RATIO``.
+    ``limit_to_request_ratio``.
     """
 
     model_config = ConfigDict(
@@ -577,6 +576,18 @@ class LabSizeDefinition(BaseModel):
         ),
     ]
 
+    limit_to_request_ratio: Annotated[
+        float,
+        Field(
+            title="Limit to request ratio",
+            description=(
+                "Overcommital ratio between the limit (maximum amount)"
+                " and request (guaranteed amount) for CPU and memory for"
+                " user labs"
+            ),
+        ),
+    ] = 4.0
+
     def __str__(self) -> str:
         return f"{self.size.value.title()} ({self.cpu} CPU, {self.memory} RAM)"
 
@@ -585,13 +596,19 @@ class LabSizeDefinition(BaseModel):
         """Amount of memory in bytes."""
         return memory_to_bytes(self.memory)
 
+    @model_validator(mode="after")
+    def _validate_limit_to_request_ratio(self) -> Self:
+        if self.limit_to_request_ratio < 1.0:
+            raise ValueError("Limit cannot be smaller than request")
+        return self
+
     def to_lab_resources(self) -> LabResources:
         """Convert to the equivalent lab resources model."""
         return LabResources(
             limits=ResourceQuantity(cpu=self.cpu, memory=self.memory_bytes),
             requests=ResourceQuantity(
-                cpu=self.cpu / LIMIT_TO_REQUEST_RATIO,
-                memory=int(self.memory_bytes / LIMIT_TO_REQUEST_RATIO),
+                cpu=self.cpu / self.limit_to_request_ratio,
+                memory=int(self.memory_bytes / self.limit_to_request_ratio),
             ),
         )
 
