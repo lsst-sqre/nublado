@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.10.0'></a>
+## 8.10.0 (2025-07-16)
+
+### New features
+
+- Migrate the former `lsst-sqre/rsp-scratchpurger` into Nublado as `purger`.
+
 <a id='changelog-8.9.2'></a>
 ## 8.9.2 (2025-07-02)
 
