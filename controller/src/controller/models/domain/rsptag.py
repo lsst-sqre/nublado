@@ -38,6 +38,8 @@ _DAILY = r"d_(?P<year>\d+)_(?P<month>\d+)_(?P<day>\d+)"
 _EXPERIMENTAL = r"exp"
 # c0020.002
 _CYCLE = r"_c(?P<cycle>\d+)\.(?P<cbuild>\d+)"
+# rsp1.2.3
+_RSP = r"_rsp(?P<rspmajor>\d+)\.(?P<rspminor>\d+)\.(?P<rsppatch>\d+)"
 # recommended_c0020 (used for alias tags)
 _UNKNOWN_WITH_CYCLE = r"(?P<tag>.*)_c(?P<cycle>\d+)"
 # _whatever_your_little_heart_desires
@@ -49,8 +51,19 @@ _REST = r"_(?P<rest>.*)"
 #
 # Note that this is matched top to bottom.  In particular, the release
 # candidate images must precede the release images since they would otherwise
-# parse as a release image with non-empty "rest".
+# parse as a release image with non-empty "rest", and anything with an rsp
+# version tag must precede the same type, but without that tag, or it will
+# match a non-empty "rest".
 _TAG_REGEXES = [
+    # r23_0_0_rc1_rsp1.2.3_c0020.001_20210513
+    (
+        RSPImageType.CANDIDATE,
+        re.compile(_CANDIDATE + _RSP + _CYCLE + _REST + "$"),
+    ),
+    # r23_0_0_rc1_rsp1.2.3_c0020.001
+    (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _RSP + _CYCLE + "$")),
+    # r23_0_0_rsp1.2.3_rc1_20210513
+    (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _RSP + _REST + "$")),
     # r23_0_0_rc1_c0020.001_20210513
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _CYCLE + _REST + "$")),
     # r23_0_0_rc1_c0020.001
@@ -59,6 +72,16 @@ _TAG_REGEXES = [
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _REST + "$")),
     # r23_0_0_rc1
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + "$")),
+    # r23_0_0_rc1_rsp1.2.3
+    (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + "$")),
+    # r22_0_1_rsp1.2.3_c0019.001_20210513
+    (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + _CYCLE + _REST + "$")),
+    # r22_0_1_rsp_1.2.3_c0019.001
+    (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + _CYCLE + "$")),
+    # r22_0_1_rsp1.2.3_20210513
+    (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + _REST + "$")),
+    # r22_0_1_rsp1.2.3
+    (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + "$")),
     # r22_0_1_c0019.001_20210513
     (RSPImageType.RELEASE, re.compile(_RELEASE + _CYCLE + _REST + "$")),
     # r22_0_1_c0019.001
@@ -69,6 +92,14 @@ _TAG_REGEXES = [
     (RSPImageType.RELEASE, re.compile(_RELEASE + "$")),
     # r170 (obsolete) (no new ones, no additional parts)
     (RSPImageType.RELEASE, re.compile(r"r(?P<major>\d\d)(?P<minor>\d)$")),
+    # w_2021_13_rsp1.2.3_c0020.001_20210513
+    (RSPImageType.WEEKLY, re.compile(_WEEKLY + _RSP + _CYCLE + _REST + "$")),
+    # w_2021_13_rsp1.2.3_c0020.001
+    (RSPImageType.WEEKLY, re.compile(_WEEKLY + _RSP + _CYCLE + "$")),
+    # w_2021_13_rsp1.2.3_20210513
+    (RSPImageType.WEEKLY, re.compile(_WEEKLY + _RSP + _REST + "$")),
+    # w_2021_13_rsp1.2.3
+    (RSPImageType.WEEKLY, re.compile(_WEEKLY + _RSP + "$")),
     # w_2021_13_c0020.001_20210513
     (RSPImageType.WEEKLY, re.compile(_WEEKLY + _CYCLE + _REST + "$")),
     # w_2021_13_c0020.001
@@ -77,6 +108,14 @@ _TAG_REGEXES = [
     (RSPImageType.WEEKLY, re.compile(_WEEKLY + _REST + "$")),
     # w_2021_13
     (RSPImageType.WEEKLY, re.compile(_WEEKLY + "$")),
+    # d_2021_05_13_rsp1.2.3_c0019.001_20210513
+    (RSPImageType.DAILY, re.compile(_DAILY + _RSP + _CYCLE + _REST + "$")),
+    # d_2021_05_13_rsp1.2.3_c0019.001
+    (RSPImageType.DAILY, re.compile(_DAILY + _RSP + _CYCLE + "$")),
+    # d_2021_05_13_rsp1.2.3_20210513
+    (RSPImageType.DAILY, re.compile(_DAILY + _RSP + _REST + "$")),
+    # d_2021_05_13_rsp1.2.3
+    (RSPImageType.DAILY, re.compile(_DAILY + _RSP + "$")),
     # d_2021_05_13_c0019.001_20210513
     (RSPImageType.DAILY, re.compile(_DAILY + _CYCLE + _REST + "$")),
     # d_2021_05_13_c0019.001
@@ -90,6 +129,17 @@ _TAG_REGEXES = [
     # recommended_c0029
     (RSPImageType.UNKNOWN, re.compile(_UNKNOWN_WITH_CYCLE + "$")),
 ]
+
+
+@dataclass
+class _Minitag:
+    """A stripped-down tag class used for convenience in tag parsing."""
+
+    major: str = ""
+    minor: str = ""
+    patch: str = ""
+    pre: str = ""
+    display_name: str = ""
 
 
 @total_ordering
@@ -274,40 +324,17 @@ class RSPImageTag:
         # version, which is the same for all image types.
         build = cls._determine_build(cycle, cbuild, rest)
 
-        # The display name starts as the image type and we add more
-        # information as we go.
-        display_name = image_type.value
+        minitag = cls._get_minitag(image_type, data)
 
-        # The rest of the semantic version depends on the image type.
-        if image_type in (RSPImageType.RELEASE, RSPImageType.CANDIDATE):
-            major = data["major"]
-            minor = data["minor"]
-            patch = data.get("patch", "0")
-            pre = data.get("pre")
-            display_name += f" r{major}.{minor}.{patch}"
-            if pre:
-                display_name += "-" + pre
-        else:
-            major = data["year"]
-            if image_type == RSPImageType.WEEKLY:
-                minor = data["week"]
-                patch = "0"
-                display_name += f" {major}_{minor}"
-            else:
-                minor = data["month"]
-                patch = data["day"]
-                display_name += f" {major}_{minor}_{patch}"
-            pre = None
-
-        # Construct the semantic version.  It should be impossible, given our
-        # regexes, for this to fail, but if it does that's handled in from_str.
         version = semver.Version(
-            major=int(major),
-            minor=int(minor),
-            patch=int(patch),
-            prerelease=pre,
+            major=int(minitag.major),
+            minor=int(minitag.minor),
+            patch=int(minitag.patch),
+            prerelease=minitag.pre if minitag.pre else None,
             build=build,
         )
+
+        display_name = minitag.display_name
 
         # If there is extra information, add it to the end of the display name.
         if cycle:
@@ -360,6 +387,58 @@ class RSPImageTag:
         else:
             return rest if rest else None
 
+    @classmethod
+    def _get_minitag(
+        cls, image_type: RSPImageType, tagdata: dict[str, str]
+    ) -> _Minitag:
+        """Return a text representation of a subset of tag data, for
+        help in parsing.
+        """
+        # The display name starts as the image type and we add more
+        # information as we go.
+        display_name = image_type.value
+        rspvtag = cls._extract_rspvstr(tagdata)
+
+        if image_type in (RSPImageType.RELEASE, RSPImageType.CANDIDATE):
+            major = tagdata["major"]
+            minor = tagdata["minor"]
+            patch = tagdata.get("patch", "0")
+            pre = tagdata.get("pre", "")
+            display_name += f" r{major}.{minor}.{patch}"
+            if pre:
+                display_name += "-" + pre
+            if rspvtag:
+                display_name += f" (RSP {rspvtag})"
+        else:
+            major = tagdata["year"]
+            if image_type == RSPImageType.WEEKLY:
+                minor = tagdata["week"]
+                patch = "0"
+                display_name += f" {major}_{minor}"
+                if rspvtag:
+                    display_name += f" (RSP {rspvtag})"
+            else:
+                minor = tagdata["month"]
+                patch = tagdata["day"]
+                display_name += f" {major}_{minor}_{patch}"
+                if rspvtag:
+                    display_name += f" (RSP {rspvtag})"
+            pre = ""
+
+        if rspvtag:
+            if pre:
+                pre += "-" + rspvtag
+            else:
+                pre = rspvtag
+
+        return _Minitag(
+            major=major,
+            minor=minor,
+            patch=patch,
+            pre=pre,
+            display_name=display_name,
+        )
+
     @staticmethod
     def _calculate_date(tagdata: dict[str, str]) -> datetime | None:
         """Calculate the date when the image should have been created.
@@ -387,6 +466,32 @@ class RSPImageTag:
         if not (month and day):
             return None
         return datetime(int(year), int(month), int(day), tzinfo=UTC)
+
+    @staticmethod
+    def _extract_rspvstr(tagdata: dict[str, str]) -> str | None:
+        """Retrieve the rsp tags from the tag match, if given.
+
+        Parameters
+        ----------
+        tagdata
+            The match groups from the regular expression tag match.
+
+        Returns
+        -------
+        str | None
+            The RSP tag, as a string (suitable for converting to semver),
+        if present.
+        """
+        major = tagdata.get("rspmajor")
+        if major is None:
+            return None
+        minor = tagdata.get("rspminor")
+        if minor is None:
+            return None
+        patch = tagdata.get("rsppatch")
+        if patch is None:
+            return None
+        return f"{major}.{minor}.{patch}"
 
     def _compare(self, other: object) -> int:
         """Compare to image tags for sorting purposes.
