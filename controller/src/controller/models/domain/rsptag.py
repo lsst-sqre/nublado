@@ -64,6 +64,8 @@ _TAG_REGEXES = [
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _RSP + _CYCLE + "$")),
     # r23_0_0_rsp1.2.3_rc1_20210513
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _RSP + _REST + "$")),
+    # r23_0_0_rc1_rsp1.2.3
+    (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _RSP + "$")),
     # r23_0_0_rc1_c0020.001_20210513
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _CYCLE + _REST + "$")),
     # r23_0_0_rc1_c0020.001
@@ -71,8 +73,6 @@ _TAG_REGEXES = [
     # r23_0_0_rc1_20210513
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _REST + "$")),
     # r23_0_0_rc1
-    (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + "$")),
-    # r23_0_0_rc1_rsp1.2.3
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + "$")),
     # r22_0_1_rsp1.2.3_c0019.001_20210513
     (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + _CYCLE + _REST + "$")),
