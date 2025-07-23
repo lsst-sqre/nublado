@@ -52,6 +52,10 @@ def test_tag_ordering() -> None:
     assert one != seven
     assert seven < one
 
+    eight = RSPImageTag.from_str("r21_0_1_rsp1.2.4")
+    assert seven != eight
+    assert seven < eight
+
     exp_one = RSPImageTag.from_str("exp_20230209")
     exp_two = RSPImageTag.from_str("exp_random")
     assert exp_one == exp_one
