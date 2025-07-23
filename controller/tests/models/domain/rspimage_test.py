@@ -38,6 +38,7 @@ def test_image() -> None:
         "image_type": RSPImageType.DAILY,
         "display_name": "Daily 2077_10_23",
         "version": VersionInfo(2077, 10, 23),
+        "rsp_version": None,
         "cycle": None,
         "date": datetime(2077, 10, 23, tzinfo=UTC),
         "registry": "lighthouse.ceres",
