@@ -163,6 +163,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Ensure the documentation gets the right version.
+          fetch-depth: 0
 
       - name: Filter paths
         uses: dorny/paths-filter@v3
@@ -304,7 +307,6 @@ jobs:
       - name: Report result
         run: |
           echo Pushed ghcr.io/${{ github.repository }}-purger:${{ steps.build-purger.outputs.tag }}
-
 
   build-rsp-base:
     runs-on: ubuntu-latest
