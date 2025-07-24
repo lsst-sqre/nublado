@@ -7,7 +7,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import total_ordering
-from typing import Self, cast
+from typing import Self, TypeGuard
 
 import semver
 
@@ -56,16 +56,16 @@ _REST = r"_(?P<rest>.*)"
 # will match a non-empty "rest".
 #
 _TAG_REGEXES = [
-    # r23_0_0_rc1_rsp1.2.3_c0020.001_20210513
+    # r23_0_0_rc1_rsp19_c0020.001_20210513
     (
         RSPImageType.CANDIDATE,
         re.compile(_CANDIDATE + _RSP + _CYCLE + _REST + "$"),
     ),
-    # r23_0_0_rc1_rsp1.2.3_c0020.001
+    # r23_0_0_rc1_rsp19_c0020.001
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _RSP + _CYCLE + "$")),
-    # r23_0_0_rsp1.2.3_rc1_20210513
+    # r23_0_0_rc1_rsp19_20210513
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _RSP + _REST + "$")),
-    # r23_0_0_rc1_rsp1.2.3
+    # r23_0_0_rc1_rsp19
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _RSP + "$")),
     # r23_0_0_rc1_c0020.001_20210513
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _CYCLE + _REST + "$")),
@@ -75,13 +75,13 @@ _TAG_REGEXES = [
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _REST + "$")),
     # r23_0_0_rc1
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + "$")),
-    # r22_0_1_rsp1.2.3_c0019.001_20210513
+    # r22_0_1_rsp19_c0019.001_20210513
     (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + _CYCLE + _REST + "$")),
     # r22_0_1_rsp_1.2.3_c0019.001
     (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + _CYCLE + "$")),
-    # r22_0_1_rsp1.2.3_20210513
+    # r22_0_1_rsp19_20210513
     (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + _REST + "$")),
-    # r22_0_1_rsp1.2.3
+    # r22_0_1_rsp19
     (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + "$")),
     # r22_0_1_c0019.001_20210513
     (RSPImageType.RELEASE, re.compile(_RELEASE + _CYCLE + _REST + "$")),
@@ -93,13 +93,13 @@ _TAG_REGEXES = [
     (RSPImageType.RELEASE, re.compile(_RELEASE + "$")),
     # r170 (obsolete) (no new ones, no additional parts)
     (RSPImageType.RELEASE, re.compile(r"r(?P<major>\d\d)(?P<minor>\d)$")),
-    # w_2021_13_rsp1.2.3_c0020.001_20210513
+    # w_2021_13_rsp19_c0020.001_20210513
     (RSPImageType.WEEKLY, re.compile(_WEEKLY + _RSP + _CYCLE + _REST + "$")),
-    # w_2021_13_rsp1.2.3_c0020.001
+    # w_2021_13_rsp19_c0020.001
     (RSPImageType.WEEKLY, re.compile(_WEEKLY + _RSP + _CYCLE + "$")),
-    # w_2021_13_rsp1.2.3_20210513
+    # w_2021_13_rsp19_20210513
     (RSPImageType.WEEKLY, re.compile(_WEEKLY + _RSP + _REST + "$")),
-    # w_2021_13_rsp1.2.3
+    # w_2021_13_rsp19
     (RSPImageType.WEEKLY, re.compile(_WEEKLY + _RSP + "$")),
     # w_2021_13_c0020.001_20210513
     (RSPImageType.WEEKLY, re.compile(_WEEKLY + _CYCLE + _REST + "$")),
@@ -109,13 +109,13 @@ _TAG_REGEXES = [
     (RSPImageType.WEEKLY, re.compile(_WEEKLY + _REST + "$")),
     # w_2021_13
     (RSPImageType.WEEKLY, re.compile(_WEEKLY + "$")),
-    # d_2021_05_13_rsp1.2.3_c0019.001_20210513
+    # d_2021_05_13_rsp19_c0019.001_20210513
     (RSPImageType.DAILY, re.compile(_DAILY + _RSP + _CYCLE + _REST + "$")),
-    # d_2021_05_13_rsp1.2.3_c0019.001
+    # d_2021_05_13_rsp19_c0019.001
     (RSPImageType.DAILY, re.compile(_DAILY + _RSP + _CYCLE + "$")),
-    # d_2021_05_13_rsp1.2.3_20210513
+    # d_2021_05_13_rsp19_20210513
     (RSPImageType.DAILY, re.compile(_DAILY + _RSP + _REST + "$")),
-    # d_2021_05_13_rsp1.2.3
+    # d_2021_05_13_rsp19
     (RSPImageType.DAILY, re.compile(_DAILY + _RSP + "$")),
     # d_2021_05_13_c0019.001_20210513
     (RSPImageType.DAILY, re.compile(_DAILY + _CYCLE + _REST + "$")),
@@ -501,13 +501,9 @@ class RSPImageTag:
             0 if equal, -1 if self is less than other, 1 if self is greater
             than other, `NotImplemented` if they're not comparable.
         """
-        try:
-            self._check_comparable_types(other)
-        except NotImplementedError:
+        if not self._is_comparable_type(other):
             return NotImplemented
-        # If we got this far, we know they are both RSPImageTags even if
-        # mypy doesn't.
-        other = cast("RSPImageTag", other)
+
         if not (self.version and other.version):
             if self.tag == other.tag:
                 return 0
@@ -529,39 +525,37 @@ class RSPImageTag:
         # since we want newer cycles to sort ahead of older cycles (and newer
         # cycle builds to sort above older cycle builds) in otherwise matching
         # tags, and the cycle information is stored in the build.
-        return self._compare_build_versions(other)
+        return self._compare_build_versions(self.version, other.version)
 
-    def _check_comparable_types(self, other: object) -> None:
+    def _is_comparable_type(self, other: object) -> TypeGuard[Self]:
         if not isinstance(other, RSPImageTag):
-            raise NotImplementedError
-        if self.image_type != other.image_type:
-            raise NotImplementedError
+            return False
+        return self.image_type == other.image_type
 
     def _compare_rsp_build_versions(self, other: Self) -> int:
-        if self.rsp_build_version is None or other.rsp_build_version is None:
-            if self.rsp_build_version is None:
-                if other.rsp_build_version is not None:
-                    return -1
-                return 0
-            if other.rsp_build_version is None:
-                return 1
         if self.rsp_build_version == other.rsp_build_version:
             return 0
-        return -1 if self.rsp_build_version < other.rsp_build_version else 1
+        if self.rsp_build_version is None:
+            return -1
+        elif other.rsp_build_version is None:
+            return 1
+        else:
+            return (
+                -1 if (self.rsp_build_version < other.rsp_build_version) else 1
+            )
 
-    def _compare_build_versions(self, other: Self) -> int:
-        if self.version is None or other.version is None:
-            return NotImplemented
-        if self.version.build == other.version.build:
+    @staticmethod
+    def _compare_build_versions(
+        self_v: semver.Version, other_v: semver.Version
+    ) -> int:
+        if self_v.build == other_v.build:
             return 0
-        if self.version.build is None or other.version.build is None:
-            if self.version.build is None:
-                if other.version.build is not None:
-                    return -1
-                return 0
-            if other.version.build is None:
-                return 1
-        return -1 if self.version.build < other.version.build else 1
+        if self_v.build is None:
+            return -1
+        elif other_v.build is None:
+            return 1
+        else:
+            return -1 if self_v.build < other_v.build else 1
 
 
 class RSPImageTagCollection:
