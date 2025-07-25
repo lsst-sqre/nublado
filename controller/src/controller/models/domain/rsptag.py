@@ -7,7 +7,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import total_ordering
-from typing import Self
+from typing import Self, TypeGuard
 
 import semver
 
@@ -38,6 +38,8 @@ _DAILY = r"d_(?P<year>\d+)_(?P<month>\d+)_(?P<day>\d+)"
 _EXPERIMENTAL = r"exp"
 # c0020.002
 _CYCLE = r"_c(?P<cycle>\d+)\.(?P<cbuild>\d+)"
+# rsp19
+_RSP = r"_rsp(?P<rspbuild>\d+)"
 # recommended_c0020 (used for alias tags)
 _UNKNOWN_WITH_CYCLE = r"(?P<tag>.*)_c(?P<cycle>\d+)"
 # _whatever_your_little_heart_desires
@@ -49,8 +51,22 @@ _REST = r"_(?P<rest>.*)"
 #
 # Note that this is matched top to bottom.  In particular, the release
 # candidate images must precede the release images since they would otherwise
-# parse as a release image with non-empty "rest".
+# parse as a release image with non-empty "rest", and anything with an rsp
+# build version tag must precede the same type, but without that tag, or it
+# will match a non-empty "rest".
+#
 _TAG_REGEXES = [
+    # r23_0_0_rc1_rsp19_c0020.001_20210513
+    (
+        RSPImageType.CANDIDATE,
+        re.compile(_CANDIDATE + _RSP + _CYCLE + _REST + "$"),
+    ),
+    # r23_0_0_rc1_rsp19_c0020.001
+    (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _RSP + _CYCLE + "$")),
+    # r23_0_0_rc1_rsp19_20210513
+    (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _RSP + _REST + "$")),
+    # r23_0_0_rc1_rsp19
+    (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _RSP + "$")),
     # r23_0_0_rc1_c0020.001_20210513
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _CYCLE + _REST + "$")),
     # r23_0_0_rc1_c0020.001
@@ -59,6 +75,14 @@ _TAG_REGEXES = [
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + _REST + "$")),
     # r23_0_0_rc1
     (RSPImageType.CANDIDATE, re.compile(_CANDIDATE + "$")),
+    # r22_0_1_rsp19_c0019.001_20210513
+    (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + _CYCLE + _REST + "$")),
+    # r22_0_1_rsp_1.2.3_c0019.001
+    (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + _CYCLE + "$")),
+    # r22_0_1_rsp19_20210513
+    (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + _REST + "$")),
+    # r22_0_1_rsp19
+    (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + "$")),
     # r22_0_1_c0019.001_20210513
     (RSPImageType.RELEASE, re.compile(_RELEASE + _CYCLE + _REST + "$")),
     # r22_0_1_c0019.001
@@ -69,6 +93,14 @@ _TAG_REGEXES = [
     (RSPImageType.RELEASE, re.compile(_RELEASE + "$")),
     # r170 (obsolete) (no new ones, no additional parts)
     (RSPImageType.RELEASE, re.compile(r"r(?P<major>\d\d)(?P<minor>\d)$")),
+    # w_2021_13_rsp19_c0020.001_20210513
+    (RSPImageType.WEEKLY, re.compile(_WEEKLY + _RSP + _CYCLE + _REST + "$")),
+    # w_2021_13_rsp19_c0020.001
+    (RSPImageType.WEEKLY, re.compile(_WEEKLY + _RSP + _CYCLE + "$")),
+    # w_2021_13_rsp19_20210513
+    (RSPImageType.WEEKLY, re.compile(_WEEKLY + _RSP + _REST + "$")),
+    # w_2021_13_rsp19
+    (RSPImageType.WEEKLY, re.compile(_WEEKLY + _RSP + "$")),
     # w_2021_13_c0020.001_20210513
     (RSPImageType.WEEKLY, re.compile(_WEEKLY + _CYCLE + _REST + "$")),
     # w_2021_13_c0020.001
@@ -77,6 +109,14 @@ _TAG_REGEXES = [
     (RSPImageType.WEEKLY, re.compile(_WEEKLY + _REST + "$")),
     # w_2021_13
     (RSPImageType.WEEKLY, re.compile(_WEEKLY + "$")),
+    # d_2021_05_13_rsp19_c0019.001_20210513
+    (RSPImageType.DAILY, re.compile(_DAILY + _RSP + _CYCLE + _REST + "$")),
+    # d_2021_05_13_rsp19_c0019.001
+    (RSPImageType.DAILY, re.compile(_DAILY + _RSP + _CYCLE + "$")),
+    # d_2021_05_13_rsp19_20210513
+    (RSPImageType.DAILY, re.compile(_DAILY + _RSP + _REST + "$")),
+    # d_2021_05_13_rsp19
+    (RSPImageType.DAILY, re.compile(_DAILY + _RSP + "$")),
     # d_2021_05_13_c0019.001_20210513
     (RSPImageType.DAILY, re.compile(_DAILY + _CYCLE + _REST + "$")),
     # d_2021_05_13_c0019.001
@@ -90,6 +130,17 @@ _TAG_REGEXES = [
     # recommended_c0029
     (RSPImageType.UNKNOWN, re.compile(_UNKNOWN_WITH_CYCLE + "$")),
 ]
+
+
+@dataclass
+class _Minitag:
+    """A stripped-down tag class used for convenience in tag parsing."""
+
+    major: str = ""
+    minor: str = ""
+    patch: str = ""
+    pre: str = ""
+    display_name: str = ""
 
 
 @total_ordering
@@ -109,6 +160,9 @@ class RSPImageTag:
 
     version: semver.Version | None
     """Version information as a semantic version."""
+
+    rsp_build_version: int | None
+    """Version information about the RSP build as a counter."""
 
     cycle: int | None
     """XML schema version implemented by this image (only for T&S builds)."""
@@ -152,6 +206,7 @@ class RSPImageTag:
             tag=tag,
             image_type=RSPImageType.ALIAS,
             version=None,
+            rsp_build_version=None,
             cycle=cycle,
             display_name=display_name,
             date=None,
@@ -187,6 +242,7 @@ class RSPImageTag:
         return cls(
             image_type=RSPImageType.UNKNOWN,
             version=None,
+            rsp_build_version=None,
             tag=tag,
             cycle=None,
             display_name=tag,
@@ -229,6 +285,7 @@ class RSPImageTag:
         rest = data.get("rest")
         cycle = data.get("cycle")
         cbuild = data.get("cbuild")
+        rsp_build_version = cls._extract_rsp_build_version(data)
 
         # We can't do very much with unknown tags with a cycle, but we do want
         # to capture the cycle so that they survive cycle filtering. We can
@@ -240,6 +297,7 @@ class RSPImageTag:
             return cls(
                 image_type=image_type,
                 version=None,
+                rsp_build_version=rsp_build_version,
                 tag=tag,
                 cycle=int(cycle) if cycle else None,
                 display_name=display_name,
@@ -264,6 +322,7 @@ class RSPImageTag:
             return cls(
                 image_type=image_type,
                 version=subtag.version,
+                rsp_build_version=subtag.rsp_build_version,
                 tag=tag,
                 cycle=subtag.cycle,
                 display_name=display_name,
@@ -274,42 +333,21 @@ class RSPImageTag:
         # version, which is the same for all image types.
         build = cls._determine_build(cycle, cbuild, rest)
 
-        # The display name starts as the image type and we add more
-        # information as we go.
-        display_name = image_type.value
+        minitag = cls._get_minitag(image_type, data)
 
-        # The rest of the semantic version depends on the image type.
-        if image_type in (RSPImageType.RELEASE, RSPImageType.CANDIDATE):
-            major = data["major"]
-            minor = data["minor"]
-            patch = data.get("patch", "0")
-            pre = data.get("pre")
-            display_name += f" r{major}.{minor}.{patch}"
-            if pre:
-                display_name += "-" + pre
-        else:
-            major = data["year"]
-            if image_type == RSPImageType.WEEKLY:
-                minor = data["week"]
-                patch = "0"
-                display_name += f" {major}_{minor}"
-            else:
-                minor = data["month"]
-                patch = data["day"]
-                display_name += f" {major}_{minor}_{patch}"
-            pre = None
-
-        # Construct the semantic version.  It should be impossible, given our
-        # regexes, for this to fail, but if it does that's handled in from_str.
         version = semver.Version(
-            major=int(major),
-            minor=int(minor),
-            patch=int(patch),
-            prerelease=pre,
+            major=int(minitag.major),
+            minor=int(minitag.minor),
+            patch=int(minitag.patch),
+            prerelease=minitag.pre if minitag.pre else None,
             build=build,
         )
 
+        display_name = minitag.display_name
+
         # If there is extra information, add it to the end of the display name.
+        if rsp_build_version:
+            display_name += f" (RSP Build {rsp_build_version!s})"
         if cycle:
             display_name += f" (SAL Cycle {cycle}, Build {cbuild})"
         if rest:
@@ -319,6 +357,7 @@ class RSPImageTag:
         return cls(
             image_type=image_type,
             version=version,
+            rsp_build_version=rsp_build_version,
             tag=tag,
             cycle=int(cycle) if cycle else None,
             display_name=display_name,
@@ -360,6 +399,45 @@ class RSPImageTag:
         else:
             return rest if rest else None
 
+    @classmethod
+    def _get_minitag(
+        cls, image_type: RSPImageType, tagdata: dict[str, str]
+    ) -> _Minitag:
+        """Return a text representation of a subset of tag data, for
+        help in parsing.
+        """
+        # The display name starts as the image type and we add more
+        # information as we go.
+        display_name = image_type.value
+
+        if image_type in (RSPImageType.RELEASE, RSPImageType.CANDIDATE):
+            major = tagdata["major"]
+            minor = tagdata["minor"]
+            patch = tagdata.get("patch", "0")
+            pre = tagdata.get("pre", "")
+            display_name += f" r{major}.{minor}.{patch}"
+            if pre:
+                display_name += "-" + pre
+        else:
+            major = tagdata["year"]
+            if image_type == RSPImageType.WEEKLY:
+                minor = tagdata["week"]
+                patch = "0"
+                display_name += f" {major}_{minor}"
+            else:
+                minor = tagdata["month"]
+                patch = tagdata["day"]
+                display_name += f" {major}_{minor}_{patch}"
+            pre = ""
+
+        return _Minitag(
+            major=major,
+            minor=minor,
+            patch=patch,
+            pre=pre,
+            display_name=display_name,
+        )
+
     @staticmethod
     def _calculate_date(tagdata: dict[str, str]) -> datetime | None:
         """Calculate the date when the image should have been created.
@@ -388,6 +466,27 @@ class RSPImageTag:
             return None
         return datetime(int(year), int(month), int(day), tzinfo=UTC)
 
+    @staticmethod
+    def _extract_rsp_build_version(tagdata: dict[str, str]) -> int | None:
+        """Retrieve the rsp version from the tag match, if given.
+
+        It will always be a non-negative integer, if it exists.
+
+        Parameters
+        ----------
+        tagdata
+            The match groups from the regular expression tag match.
+
+        Returns
+        -------
+        semver.Version | None
+            The RSP tag, as a semantic version, if present.
+        """
+        bld = tagdata.get("rspbuild")
+        if bld is None:
+            return None
+        return int(bld)
+
     def _compare(self, other: object) -> int:
         """Compare to image tags for sorting purposes.
 
@@ -402,10 +501,9 @@ class RSPImageTag:
             0 if equal, -1 if self is less than other, 1 if self is greater
             than other, `NotImplemented` if they're not comparable.
         """
-        if not isinstance(other, RSPImageTag):
+        if not self._is_comparable_type(other):
             return NotImplemented
-        if self.image_type != other.image_type:
-            return NotImplemented
+
         if not (self.version and other.version):
             if self.tag == other.tag:
                 return 0
@@ -414,19 +512,50 @@ class RSPImageTag:
         if rank != 0:
             return rank
 
+        # If we have two tags with the same version, we should next check
+        # the RSP version.  If it doesn't exist, it should sort as a lower
+        # version than anything with an RSP version tag, to preserve backwards-
+        # compatibility.
+
+        rank = self._compare_rsp_build_versions(other)
+        if rank != 0:
+            return rank
+
         # semver ignores the build for sorting purposes, but we don't want to
         # since we want newer cycles to sort ahead of older cycles (and newer
         # cycle builds to sort above older cycle builds) in otherwise matching
         # tags, and the cycle information is stored in the build.
-        if self.version.build == other.version.build:
+        return self._compare_build_versions(self.version, other.version)
+
+    def _is_comparable_type(self, other: object) -> TypeGuard[Self]:
+        if not isinstance(other, RSPImageTag):
+            return False
+        return self.image_type == other.image_type
+
+    def _compare_rsp_build_versions(self, other: Self) -> int:
+        if self.rsp_build_version == other.rsp_build_version:
             return 0
-        elif self.version.build:
-            if not other.version.build:
-                return 1
-            else:
-                return -1 if self.version.build < other.version.build else 1
+        if self.rsp_build_version is None:
+            return -1
+        elif other.rsp_build_version is None:
+            return 1
         else:
-            return -1 if other.version.build else 0
+            return (
+                -1 if (self.rsp_build_version < other.rsp_build_version) else 1
+            )
+
+    @staticmethod
+    def _compare_build_versions(
+        self_v: semver.Version, other_v: semver.Version
+    ) -> int:
+        if self_v.build == other_v.build:
+            return 0
+        if self_v.build is None:
+            return -1
+        elif other_v.build is None:
+            return 1
+        else:
+            return -1 if self_v.build < other_v.build else 1
 
 
 class RSPImageTagCollection:
