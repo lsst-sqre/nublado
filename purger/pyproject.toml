@@ -18,7 +18,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "pyyaml",
+    "safir"
+]
 dynamic = ["version"]
 
 [project.urls]
