@@ -58,7 +58,7 @@ jobs:
         with:
           cache-dependency: "controller/requirements/*.txt"
           cache-key-prefix: test
-          nox-sessions: "typing typing-inithome test test-inithome"
+          nox-sessions: "typing typing-inithome typing-purger test test-inithome test-purger"
           python-version: ${{ env.PYTHON_VERSION }}
 
   # The Nublado client must support the Python versions of all of the packages
