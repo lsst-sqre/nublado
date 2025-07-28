@@ -30,7 +30,7 @@ jobs:
 
       - uses: lsst-sqre/run-nox@v1
         with:
-          nox-sessions: "update-deps typing typing-inithome test test-inithome"
+          nox-sessions: "update-deps lint typing typing-inithome typing-purger test test-inithome test-purger"
           python-version: ${{ env.PYTHON_VERSION }}
           use-cache: false
 
