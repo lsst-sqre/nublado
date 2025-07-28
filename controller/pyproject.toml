@@ -72,15 +72,6 @@ exclude_lines = [
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "strict"
-filterwarnings = [
-    # Google modules and a Sphinx module call a deprecated pkg_resources API.
-    "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
-    "ignore:.*pkg_resources\\.declare_namespace:DeprecationWarning",
-    # Google modules use PyType_Spec in a deprecated way.
-    "ignore:Type google\\..*metaclass.* custom tp_new:DeprecationWarning",
-    # dateutil uses a deprecated datetime function.
-    "ignore:datetime.datetime.utcfromtimestamp:DeprecationWarning:dateutil.*",
-]
 # The python_files setting is not for test detection (pytest will pick up any
 # test files named *_test.py without this setting) but to enable special
 # assert processing in any non-test supporting files under tests.  We
