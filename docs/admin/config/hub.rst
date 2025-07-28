@@ -61,7 +61,7 @@ The last portion of that URL (``nublado``) names the Cloud SQL database used for
 Naming that database ``nublado`` is recommended, but it can be named anything you choose as long as the URL is consistent.
 Using a separate database solely for the JupyterHub session database is strongly recommended.
 
-See the `Google documentation <https://cloud.google.com/sql/docs/postgres/connect-overview>`__ for more information about Cloud SQL and the Cloud SQL Auth Proxy.
+See the `Google documentation <https://cloud.google.com/sql/docs/postgres/connection-options>`__ for more information about Cloud SQL and the Cloud SQL Auth Proxy.
 
 The following additional settings are supported for configuring how the Cloud SQL Auth Proxy pod is deployed in Kubernetes.
 You will not normally need to set them.
