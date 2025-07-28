@@ -16,7 +16,6 @@ from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.slack.webhook import SlackRouteErrorHandler
-from sse_starlette.sse import AppStatus
 
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
@@ -60,15 +59,6 @@ def create_app(*, load_config: bool = True) -> FastAPI:
 
         await context_dependency.aclose()
         await http_client_dependency.aclose()
-
-        # sse-starlette initializes this process-global variable when it is
-        # first invoked, but it's per-event-loop, and therefore breaks tests
-        # when each test is run in a separate event loop. Clear the variable
-        # to force reinitialization on app shutdown so that each event loop
-        # will get its own.
-        #
-        # See https://github.com/sysid/sse-starlette/issues/59
-        AppStatus.should_exit_event = None
 
     # Configure logging.
     if load_config:
