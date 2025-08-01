@@ -6,6 +6,19 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.11.0'></a>
+## 8.11.0 (2025-08-01)
+
+### New features
+
+- Add build number as optional version part for display and sorting.
+
+### Bug fixes
+
+- Add purger to set of dependencies rebuilt with update-deps.
+
+- Fix the link to the WebDAV documentation in the HTML page returned after a user's file server was started.
+
 <a id='changelog-8.10.0'></a>
 ## 8.10.0 (2025-07-16)
 
