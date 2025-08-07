@@ -25,7 +25,7 @@ dependencies = [
     "pydantic>2,<3",
     "pydantic-settings<3",
     "pyyaml<7",
-    "safir<12",
+    "safir<13",
     "structlog",
     "websockets>=14,<16",
 ]
