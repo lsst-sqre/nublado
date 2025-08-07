@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.12.0'></a>
+## 8.12.0 (2025-08-07)
+
+### Other changes
+
+- Updated wording on `reset user environment` to include `.config`
+
 <a id='changelog-8.11.0'></a>
 ## 8.11.0 (2025-08-01)
 
