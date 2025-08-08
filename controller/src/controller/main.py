@@ -23,6 +23,7 @@ from .handlers import (
     files,
     fileserver,
     form,
+    fsadmin,
     index,
     labs,
     prepuller,
@@ -111,6 +112,7 @@ def create_app(*, load_config: bool = True) -> FastAPI:
     app.include_router(prepuller.router, prefix=path_prefix)
     app.include_router(user_status.router, prefix=path_prefix)
     app.include_router(fileserver.router, prefix=path_prefix)
+    app.include_router(fsadmin.router, prefix=path_prefix)
 
     # Attach the separate router for user file server creation.
     app.include_router(files.router, prefix=files_prefix)

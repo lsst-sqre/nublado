@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from safir.slack.blockkit import SlackException
@@ -23,59 +22,10 @@ from ..models.domain.kubernetes import PodPhase
 from ..models.v1.fileserver import FileserverStatus
 from ..storage.kubernetes.fileserver import FileserverStorage
 from ..timeout import Timeout
+from ._state import ServiceState
 from .builder.fileserver import FileserverBuilder
 
 __all__ = ["FileserverManager"]
-
-
-@dataclass
-class _State:
-    """State of the file server for a given user."""
-
-    running: bool
-    """Whether the file server is running."""
-
-    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
-    """Lock to prevent two operations from happening at once."""
-
-    in_progress: bool = False
-    """Whether an operation is currently in progress."""
-
-    last_modified: datetime = field(
-        default_factory=lambda: datetime.now(tz=UTC)
-    )
-    """Last time an operation was started or completed.
-
-    This is required to prevent race conditions such as the following:
-
-    #. New file server starts being created.
-    #. Reconcile gathers information about the partially created lab and finds
-       that it is incomplete.
-    #. Reconcile deletes the file server objects created so far.
-    #. File server creation finishes and then the file server doesn't work.
-
-    With this setting, reconcile can check if a file server operation has
-    started or recently finished and skip the reconcile.
-    """
-
-    def modified_since(self, date: datetime) -> bool:
-        """Whether the file server has been modified since the given time.
-
-        Any file server that has a current in-progress operation is counted as
-        modified.
-
-        Parameters
-        ----------
-        date
-            Reference time.
-
-        Returns
-        -------
-        bool
-            `True` if the internal last-modified time is after the provided
-            time and no operation is in progress, `False` otherwise.
-        """
-        return bool(self.in_progress or self.last_modified > date)
 
 
 class FileserverManager:
@@ -120,7 +70,7 @@ class FileserverManager:
         self._logger = logger
 
         # Mapping of usernames to internal state.
-        self._servers: dict[str, _State] = {}
+        self._servers: dict[str, ServiceState] = {}
 
     async def create(self, user: GafaelfawrUserInfo) -> None:
         """Ensure a file server exists for the given user.
@@ -145,7 +95,7 @@ class FileserverManager:
         logger = self._logger.bind(user=user.username)
         logger.info("File server requested")
         if user.username not in self._servers:
-            self._servers[user.username] = _State(running=False)
+            self._servers[user.username] = ServiceState(running=False)
         state = self._servers[user.username]
         timeout = Timeout(
             "File server creation",
@@ -245,7 +195,7 @@ class FileserverManager:
         for username, state in seen.items():
             if self._builder.is_valid(username, state):
                 if username not in known_users:
-                    self._servers[username] = _State(running=True)
+                    self._servers[username] = ServiceState(running=True)
             elif username in self._servers:
                 to_delete.add(username)
             else:

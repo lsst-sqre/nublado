@@ -55,6 +55,7 @@ __all__ = [
     "ContainerImage",
     "DisabledFileserverConfig",
     "EnabledFileserverConfig",
+    "FSAdminConfig",
     "FileserverConfig",
     "HostPathVolumeSource",
     "LabConfig",
@@ -493,6 +494,141 @@ class EnabledFileserverConfig(FileserverConfig):
                 "Volumes mounted in the file server and exposed via WebDAV."
                 " The ``containerPath`` settings represent the path visible"
                 " over the WebDAV protocol."
+            ),
+        ),
+    ] = []
+
+
+class FSAdminConfig(BaseModel):
+    """Configuration for filesystem administration environment."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    affinity: Annotated[
+        Affinity | None,
+        Field(
+            title="Affinity rules",
+            description="Node and pod affinity rules for file server pods",
+        ),
+    ] = None
+
+    application: Annotated[
+        str | None,
+        Field(
+            title="Argo CD application",
+            description="Argo CD application into which to put fsadmin pods",
+        ),
+    ] = None
+
+    extra_annotations: Annotated[
+        dict[str, str],
+        Field(
+            title="Extra annotations",
+            description=(
+                "Extra annotations to add to all user file server ``Job`` and"
+                " ``Pod`` Kubernetes resources"
+            ),
+        ),
+    ] = {}
+
+    # We default this so we don't need a configuration-file flag day synced
+    # to the nublado updates.
+    image: Annotated[
+        ContainerImage,
+        Field(
+            title="fsadmin Docker image",
+            description="Docker image to run as fsadmin",
+        ),
+    ] = ContainerImage(
+        repository="ghcr.io/lsst-sqre/nublado-fsadmin",
+        pull_policy=PullPolicy.ALWAYS,
+        tag="latest",
+    )
+
+    mount_prefix: Annotated[
+        str | None,
+        Field(
+            title="Prefix for fsadmin mounts",
+            description=(
+                "If given, the mounts will be collected under this directory."
+            ),
+            examples=["/mnt"],
+        ),
+    ] = None
+
+    namespace: Annotated[
+        str,
+        Field(
+            title="Namespace for fsadmin",
+            description=(
+                "The fsadmin container will be created in this namespace"
+            ),
+        ),
+    ] = "fsadmin"
+
+    node_selector: Annotated[
+        dict[str, str],
+        Field(
+            title="File server node selector",
+            description=(
+                "Labels that must be present on Kubernetes nodes for any"
+                " fsadmin pods to be scheduled there"
+            ),
+            examples=[{"disktype": "ssd"}],
+        ),
+    ] = {}
+
+    pod_name: Annotated[
+        str,
+        Field(
+            title="fsadmin pod name",
+            description="Pod/container name for fsadmin",
+        ),
+    ] = "fsadmin"
+
+    reconcile_interval: Annotated[
+        HumanTimedelta,
+        Field(
+            title="Reconcile interval",
+            description="How often to reconcile file state against Kubernetes",
+        ),
+    ] = timedelta(minutes=60)
+
+    resources: Annotated[
+        LabResources | None,
+        Field(
+            title="Resource requests and limits",
+            description=(
+                "Kubernetes resource requests and limits for fsadmin pods"
+            ),
+        ),
+    ] = None
+
+    timeout: Annotated[
+        HumanTimedelta,
+        Field(
+            title="Creation timeout",
+            description=(
+                "How long to allow for fsadmin pod to be created/deleted"
+            ),
+        ),
+    ] = timedelta(minutes=2)
+
+    tolerations: Annotated[
+        list[Toleration],
+        Field(
+            title="File server pod tolerations",
+            description="Kubernetes tolerations for fsadmin pods",
+        ),
+    ] = []
+
+    volume_mounts: Annotated[
+        list[VolumeMountConfig],
+        Field(
+            title="Volume mounts",
+            description=(
+                "Volumes mounted in the fsadmin pod. The ``containerPath``"
+                " settings represent the path visible inside the container."
             ),
         ),
     ] = []
@@ -1250,6 +1386,11 @@ class Config(BaseSettings):
         DisabledFileserverConfig | EnabledFileserverConfig,
         Field(title="User file server configuration"),
     ] = DisabledFileserverConfig()
+
+    fsadmin: Annotated[
+        FSAdminConfig,
+        Field(title="Filesystem admin configuration"),
+    ] = FSAdminConfig()
 
     images: Annotated[
         PrepullerConfig,
