@@ -8,6 +8,7 @@ __all__ = [
     "CONFIGURATION_PATH",
     "DOCKER_CREDENTIALS_PATH",
     "DROPDOWN_SENTINEL_VALUE",
+    "FSADMIN_NAMESPACE",
     "GROUPNAME_REGEX",
     "KUBERNETES_NAME_PATTERN",
     "KUBERNETES_REQUEST_TIMEOUT",
@@ -40,6 +41,15 @@ DOCKER_CREDENTIALS_PATH = Path("/etc/secrets/.dockerconfigjson")
 
 DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 """Used in the lab form for ``image_list`` when ``image_dropdown`` is used."""
+
+FSADMIN_NAMESPACE = "fsadmin"
+"""Namespace for filesystem administration pod."""
+
+FSADMIN_POD_NAME = "fsadmin"
+"""Name for filesystem administration pod."""
+
+FSADMIN_TIMEOUT = timedelta(minutes=1)
+"""Time to wait for filesystem admin creation/deletion."""
 
 KUBERNETES_NAME_PATTERN = "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
 """Pattern matching valid Kubernetes names."""
