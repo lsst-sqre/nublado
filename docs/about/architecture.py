@@ -58,6 +58,9 @@ with Diagram(
             fileserver_ingress = LoadBalancing("Ingress")
             user_fileserver = KubernetesEngine("Pod")
 
+        with Cluster("Administrative file server"):
+            admin_fileserver = KubernetesEngine("Pod")
+
     user >> ingress >> jupyterproxy >> jupyterhub
     jupyterproxy >> user_lab >> posix
     ingress >> gafaelfawr
@@ -67,5 +70,7 @@ with Diagram(
     controller >> image_puller
     controller >> Edge(style="dashed") >> user_lab
     controller >> Edge(style="dashed") >> [fileserver_ingress, user_fileserver]
+    controller >> Edge(stule="dashed") >> admin_fileserver
+    admin_fileserver >> posix
     user >> fileserver_ingress >> user_fileserver >> posix
     fileserver_ingress >> gafaelfawr

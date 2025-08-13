@@ -63,6 +63,13 @@ class FSAdminStorage:
         timeout
             How long to wait for the fsadmin pod to start.
 
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if fsadmin is not ready before the provided timeout expires.
+
         Notes
         -----
         This is conceptually similar to the fileserver, but since it's a
@@ -105,11 +112,18 @@ class FSAdminStorage:
         timeout
             Timeout on operation.
 
+        Raises
+        ------
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        TimeoutError
+            Raised if fsadmin namespace is not deleted within provided timeout.
+
         Notes
         -----
         It should be safe to just delete the namespace and let Kubernetes
-        do all the cleanup inside it. Let's try that first. Wait until
-        the namespace has gone away before returning.
+        do all the cleanup inside it. Wait until the namespace has gone
+        away before returning.
         """
         await self._namespace.delete(
             self._config.namespace, timeout, wait=True
