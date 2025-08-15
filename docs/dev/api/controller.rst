@@ -42,6 +42,9 @@ This documentation therefore exists only to assist developers and code analysis 
 .. automodapi:: controller.models.domain.fileserver
    :include-all-objects:
 
+.. automodapi:: controller.models.domain.fsadmin
+   :include-all-objects:
+
 .. automodapi:: controller.models.domain.gafaelfawr
    :include-all-objects:
 
@@ -81,6 +84,9 @@ This documentation therefore exists only to assist developers and code analysis 
 .. automodapi:: controller.services.builder.fileserver
    :include-all-objects:
 
+.. automodapi:: controller.services.builder.fsadmin
+   :include-all-objects:
+
 .. automodapi:: controller.services.builder.lab
    :include-all-objects:
 
@@ -91,6 +97,9 @@ This documentation therefore exists only to assist developers and code analysis 
    :include-all-objects:
 
 .. automodapi:: controller.services.fileserver
+   :include-all-objects:
+
+.. automodapi:: controller.services.fsadmin
    :include-all-objects:
 
 .. automodapi:: controller.services.image
@@ -130,6 +139,9 @@ This documentation therefore exists only to assist developers and code analysis 
    :include-all-objects:
 
 .. automodapi:: controller.storage.kubernetes.fileserver
+   :include-all-objects:
+
+.. automodapi:: controller.storage.kubernetes.fsadmin
    :include-all-objects:
 
 .. automodapi:: controller.storage.kubernetes.ingress
