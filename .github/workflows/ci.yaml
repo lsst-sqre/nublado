@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -52,7 +52,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: lsst-sqre/run-nox@v1
         with:
@@ -76,7 +76,7 @@ jobs:
           - "3.13"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: lsst-sqre/run-nox@v1
         with:
@@ -100,7 +100,7 @@ jobs:
           - "3.13"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: lsst-sqre/run-nox@v1
         with:
@@ -114,7 +114,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
@@ -162,7 +162,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
@@ -207,7 +207,7 @@ jobs:
       || startsWith(github.head_ref, 'tickets/')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Full history is required for setuptools_scm versioning.
           fetch-depth: 0
@@ -322,7 +322,7 @@ jobs:
       || startsWith(github.head_ref, 'tickets/')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Full history is required for setuptools_scm versioning.
           fetch-depth: 0
@@ -360,7 +360,7 @@ jobs:
     needs: [lint, test, docs]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # full history for setuptools_scm
 
@@ -384,7 +384,7 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # full history for setuptools_scm
 
