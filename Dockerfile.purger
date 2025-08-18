@@ -17,7 +17,7 @@
 #  its privilege to clean up after people who did not clean up after
 #  themselves.
 
-FROM python:3.13.5-slim-bookworm AS base-image
+FROM python:3.13.7-slim-bookworm AS base-image
 
 # Update system packages
 COPY purger/scripts/install-base-packages.sh .
