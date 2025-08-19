@@ -5,17 +5,15 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-
 from kubernetes_asyncio.client import ApiClient
 from structlog.stdlib import BoundLogger
 
 from ...config import FSAdminConfig
 from ...models.domain.fsadmin import FSAdminObjects
-from ...models.domain.kubernetes import PodChange, PodPhase
+from ...models.domain.kubernetes import PodPhase
 from ...timeout import Timeout
+from ..metadata import MetadataStorage
 from .deleter import PersistentVolumeClaimStorage
-from .namespace import NamespaceStorage
 from .pod import PodStorage
 
 __all__ = ["FSAdminStorage"]
@@ -28,6 +26,8 @@ class FSAdminStorage:
     ----------
     config
         Configuration for fsadmin environment.
+    metadata_storage
+        Holds namespace information.
     api_client
         Kubernetes API client.
     logger
@@ -42,11 +42,15 @@ class FSAdminStorage:
     """
 
     def __init__(
-        self, config: FSAdminConfig, api_client: ApiClient, logger: BoundLogger
+        self,
+        config: FSAdminConfig,
+        metadata_storage: MetadataStorage,
+        api_client: ApiClient,
+        logger: BoundLogger,
     ) -> None:
         self._config = config
         self._logger = logger
-        self._namespace = NamespaceStorage(api_client, logger)
+        self._metadata = metadata_storage
         self._pod = PodStorage(api_client, logger)
         self._pvc = PersistentVolumeClaimStorage(api_client, logger)
 
@@ -77,38 +81,32 @@ class FSAdminStorage:
         don't try to delete and recreate, but use the existing fsadmin
         instance.
         """
-        ns = objects.namespace
-        existing_ns = await self._namespace.read(ns.metadata.name, timeout)
-        if existing_ns is None:
-            await self._namespace.create(ns, timeout)
-
+        ns = self._metadata.namespace
         for pvc in objects.pvcs:
-            pvcobj = await self._pvc.read(
-                ns.metadata.name, pvc.metadata.name, timeout
-            )
+            pvcobj = await self._pvc.read(pvc.metadata.name, ns, timeout)
             if pvcobj is None:
-                await self._pvc.create(ns.metadata.name, pvc, timeout)
+                await self._pvc.create(ns, pvc, timeout)
 
         pod = objects.pod
-        existing_pod = await self._pod.read(
-            ns.metadata.name, pod.metadata.name, timeout
-        )
+        existing_pod = await self._pod.read(pod.metadata.name, ns, timeout)
         if existing_pod is None:
-            await self._pod.create(ns.metadata.name, pod, timeout)
+            await self._pod.create(ns, pod, timeout)
 
         # Wait for the pod to start.
         await self._pod.wait_for_phase(
             pod.metadata.name,
-            ns.metadata.name,
+            ns,
             until_not={PodPhase.UNKNOWN, PodPhase.PENDING},
             timeout=timeout,
         )
 
-    async def delete(self, timeout: Timeout) -> None:
+    async def delete(self, objects: FSAdminObjects, timeout: Timeout) -> None:
         """Delete the fsadmin instance.
 
         Parameters
         ----------
+        objects
+            Kubernetes objects making up the fsadmin environment.
         timeout
             Timeout on operation.
 
@@ -118,16 +116,19 @@ class FSAdminStorage:
             Raised if there is some failure in a Kubernetes API call.
         TimeoutError
             Raised if fsadmin namespace is not deleted within provided timeout.
-
-        Notes
-        -----
-        It should be safe to just delete the namespace and let Kubernetes
-        do all the cleanup inside it. Wait until the namespace has gone
-        away before returning.
         """
-        await self._namespace.delete(
-            self._config.namespace, timeout, wait=True
-        )
+        ns = self._metadata.namespace
+        pod = objects.pod
+        pvcs = objects.pvcs
+        existing_pod = await self._pod.read(pod.metadata.name, ns, timeout)
+        if existing_pod is not None:
+            await self._pod.delete(
+                existing_pod.metadata.name, ns, timeout, wait=True
+            )
+        for pvc in pvcs:
+            if await self._pvc.read(pvc.metadata.name, ns, timeout) is None:
+                continue
+            await self._pvc.delete(pvc.metadata.name, ns, timeout)
 
     async def is_fsadmin_ready(self, timeout: Timeout) -> bool:
         """Check whether the fsadmin environment is ready for work.
@@ -139,43 +140,13 @@ class FSAdminStorage:
 
         Notes
         -----
-        This means "does the namespace exist, does the pod in it exist,
-        and is the pod in it running?"
+        We check whether the pod exists, and if so, whether it is running.
+        We do not need to check the PVCs, because if they're necessary,
+        the pod can't be running unless it has them.
         """
-        existing_ns = await self._namespace.read(
-            self._config.namespace, timeout
-        )
-        if existing_ns is None:  # No namespace
-            return False
-        existing_pod = await self._pod.read(
-            self._config.namespace, self._config.pod_name, timeout
-        )
+        ns = self._metadata.namespace
+        existing_pod = await self._pod.read(self._config.pod_name, ns, timeout)
         if existing_pod is None:  # No pod
             return False
         # Return its running state
         return existing_pod.status.phase == PodPhase.RUNNING
-
-    async def watch_pod(self) -> AsyncIterator[PodChange]:
-        """Watches the fsadmin namespace for pod phase changes.
-
-        Technically, this iterator detects any change to a pod and returns its
-        current phase. The change may not be a phase change. That's good
-        enough for our purposes.
-
-        It will continue forever until cancelled. It is meant to be run from a
-        background task handling fsadmin pod phase changes.
-
-        Yields
-        ------
-        PodChange
-            Phase change of a pod in this namespace.
-
-        Raises
-        ------
-        KubernetesError
-            Raised if there is some failure in a Kubernetes API call.
-        """
-        async for change in self._pod.watch_pod_changes(
-            self._config.namespace
-        ):
-            yield change

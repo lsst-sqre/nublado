@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 from httpx import AsyncClient
+from kubernetes_asyncio.client import V1Pod
 from safir.testing.kubernetes import MockKubernetesApi
 
 from controller.models.domain.gafaelfawr import GafaelfawrUser
-from controller.models.domain.kubernetes import PodPhase
 
 from ..support.config import configure
 
@@ -31,7 +29,7 @@ async def test_create_delete(
     assert r.status_code == 204
 
     # Start fsadmin
-    r = await client.post("/nublado/fsadmin/v1/service", json={})
+    r = await client.post("/nublado/fsadmin/v1/service", json={"start": True})
     assert r.status_code == 204
 
     # Verify it's running
@@ -43,14 +41,6 @@ async def test_create_delete(
     r = await client.get("/nublado/fsadmin/v1/service")
     assert r.status_code == 204
 
-    # Wait for the reconcile time and then check again to make sure reconcile
-    # didn't incorrectly remove it (a bug in versions <= 8.8.9).
-    await asyncio.sleep(config.fsadmin.reconcile_interval.total_seconds())
-    r = await client.get(
-        "/nublado/fsadmin/v1/service", headers=user.to_headers()
-    )
-    assert r.status_code == 204
-
     # Remove it.
     r = await client.delete("/nublado/fsadmin/v1/service")
     assert r.status_code == 204
@@ -59,49 +49,55 @@ async def test_create_delete(
     r = await client.get("/nublado/fsadmin/v1/service")
     assert r.status_code == 404
 
-    # Start it again.  This time with no POST body.
+    # Try to start it with no POST body
     r = await client.post(
         "/nublado/fsadmin/v1/service", headers=user.to_headers()
     )
+    assert r.status_code == 422
+
+    # Try to start it with empty JSON body
+    r = await client.post(
+        "/nublado/fsadmin/v1/service", headers=user.to_headers(), json={}
+    )
+    assert r.status_code == 422
+
+    # Try to start it with bad JSON body
+    r = await client.post(
+        "/nublado/fsadmin/v1/service",
+        headers=user.to_headers(),
+        json={"start": False},
+    )
+    assert r.status_code == 422
+
+    # Try to start it with another bad JSON body
+    r = await client.post(
+        "/nublado/fsadmin/v1/service",
+        headers=user.to_headers(),
+        json={"stop": True},
+    )
+    assert r.status_code == 422
+
+    # Start it for real
+    r = await client.post(
+        "/nublado/fsadmin/v1/service",
+        headers=user.to_headers(),
+        json={"start": True},
+    )
     assert r.status_code == 204
 
-    # Check that pod and namespace were created correctly
-    namespace = "fsadmin"
+    # Check that pod was created correctly
+    namespace = "nublado"
 
-    # We have the namespace...
-    nses = await mock_kubernetes.list_namespace()
-    assert len(nses.items) == 1
-    assert nses.items[0].metadata.name == namespace
-
-    # It has a pod...
+    # Check that it has a pod.
     pods = await mock_kubernetes.list_namespaced_pod(namespace)
-    assert len(pods.items) == 1
+    pod: V1Pod | None = None
+    for ext_pod in pods.items:
+        if ext_pod.metadata.name == config.fsadmin.pod_name:
+            pod = ext_pod
+    assert pod is not None
 
-    pod = pods.items[0]
-    # Verify that the pod's mountpoints look correct...
+    # Verify that the pod's mountpoints look correct.
     mounts = pod.spec.containers[0].volume_mounts
     assert len(mounts) == 3
     prefixed = [x.mount_path.startswith("/user-filesystems/") for x in mounts]
     assert all(prefixed)
-
-    # Check that reconciliation works...
-
-    # We make the pod exit...
-    await mock_kubernetes.patch_namespaced_pod_status(
-        name=pod.metadata.name,
-        namespace=namespace,
-        body=[
-            {
-                "op": "replace",
-                "path": "/status/phase",
-                "value": PodPhase.SUCCEEDED.value,
-            }
-        ],
-    )
-
-    # We wait for reconciliation...
-    await asyncio.sleep(config.fsadmin.reconcile_interval.total_seconds())
-
-    # And check that the namespace is gone.
-    nses = await mock_kubernetes.list_namespace()
-    assert len(nses.items) == 0

@@ -12,7 +12,6 @@ from structlog.stdlib import BoundLogger
 
 from .config import Config
 from .services.fileserver import FileserverManager
-from .services.fsadmin import FSAdminManager
 from .services.image import ImageService
 from .services.lab import LabManager
 from .services.prepuller import Prepuller
@@ -68,7 +67,6 @@ class BackgroundTaskManager:
         image_service: ImageService,
         prepuller: Prepuller,
         lab_manager: LabManager,
-        fsadmin_manager: FSAdminManager,
         fileserver_manager: FileserverManager | None,
         slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
@@ -77,7 +75,6 @@ class BackgroundTaskManager:
         self._image_service = image_service
         self._prepuller = prepuller
         self._lab_manager = lab_manager
-        self._fsadmin_manager = fsadmin_manager
         self._fileserver_manager = fileserver_manager
         self._slack = slack_client
         self._logger = logger
@@ -120,11 +117,6 @@ class BackgroundTaskManager:
                 "reconciling lab state",
             ),
             self._lab_manager.reap_spawners(),
-            self._loop(
-                self._fsadmin_manager.reconcile,
-                self._config.fsadmin.reconcile_interval,
-                "reconciling fsadmin state",
-            ),
         ]
         if self._fileserver_manager and self._config.fileserver.enabled:
             coros.append(

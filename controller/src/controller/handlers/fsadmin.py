@@ -3,20 +3,16 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
 from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..dependencies.context import RequestContext, context_dependency
+from ..models.v1.fsadmin import FSAdminCommand
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
 
 __all__ = ["router"]
-
-
-class _Whatever(BaseModel):
-    pass
 
 
 @router.get(
@@ -61,10 +57,10 @@ async def get_fsadmin_status(
 )
 async def create_fsadmin(
     *,
-    data: _Whatever | None = None,
+    cmd: FSAdminCommand,
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> None:
-    _ = data
+    _ = cmd
     await context.fsadmin_manager.create()
 
 

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from kubernetes_asyncio.client import (
     V1Container,
-    V1Namespace,
-    V1NamespaceSpec,
     V1ObjectMeta,
     V1PersistentVolumeClaim,
     V1Pod,
@@ -59,7 +57,6 @@ class FSAdminBuilder:
         """
         return FSAdminObjects(
             pvcs=self._build_pvcs(),
-            namespace=self._build_namespace(),
             pod=self._build_pod(),
         )
 
@@ -77,13 +74,6 @@ class FSAdminBuilder:
             name=name + suffix,
             labels=labels,
             annotations=annotations,
-        )
-
-    def _build_namespace(self) -> V1Namespace:
-        """Construct the namespace for an fsadmin instance."""
-        return V1Namespace(
-            metadata=self._build_metadata(name=self._config.namespace),
-            spec=V1NamespaceSpec(),
         )
 
     def _build_pod(self) -> V1Pod:

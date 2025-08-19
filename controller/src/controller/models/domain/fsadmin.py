@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 
 from kubernetes_asyncio.client import (
-    V1Namespace,
     V1PersistentVolumeClaim,
     V1Pod,
 )
@@ -16,8 +15,6 @@ __all__ = [
 @dataclass
 class FSAdminObjects:
     """All of the Kubernetes objects making up an fsadmin instance."""
-
-    namespace: V1Namespace
 
     pod: V1Pod
 

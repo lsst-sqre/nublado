@@ -228,6 +228,9 @@ jobs:
           - name: "jupyterlab-base"
             latest: true
             gar: false
+          - name: "fsadmin"
+            latest: true
+            gar: false
 
     steps:
       - uses: actions/checkout@v5
@@ -276,51 +279,6 @@ jobs:
       - name: Report result
         run: |
           echo Pushed ghcr.io/${{ github.repository }}-${{ matrix.container.name }}:${{ steps.build-controller.outputs.tag }}
-
-  build-fsadmin:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-
-    # Only do Docker builds of tagged releases and pull requests from ticket
-    # branches. This will still trigger on pull requests from untrusted
-    # repositories whose branch names match our tickets/* branch convention,
-    # but in this case the build will fail with an error since the secret
-    # won't be set.
-    if: >
-      startsWith(github.ref, 'refs/tags/')
-      || startsWith(github.head_ref, 'tickets/')
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # Full history is required for setuptools_scm versioning.
-          fetch-depth: 0
-
-      - name: Filter paths
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            fsadmin:
-              - "Dockerfile.fsadmin"
-              - "fsadmin/**"
-
-      - uses: lsst-sqre/build-and-push-to-ghcr@v1
-        id: build-fsadmin
-        with:
-          dockerfile: Dockerfile.fsadmin
-          image: ${{ github.repository }}-fsadmin
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          # Add "latest" tag only if it's a release tag.
-          additional-tags: ${{ startsWith(github.ref, 'refs/tags/') && 'latest' || '' }}
-        # Always build and push if it's a tag, even if nothing changed.
-        if: >
-          steps.filter.outputs.rsp_base == 'true'
-          || startsWith(github.ref, 'refs/tags/')
-
-      - name: Report result
-        run: |
-          echo Pushed ghcr.io/${{ github.repository }}-fsadmin:${{ steps.build-fsadmin.outputs.tag }}
 
   test-packaging:
     name: Test packaging

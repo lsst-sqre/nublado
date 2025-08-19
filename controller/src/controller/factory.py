@@ -156,20 +156,19 @@ class ProcessContext:
                 slack_client=slack_client,
                 logger=logger,
             )
-
+        metadata_storage = MetadataStorage(config.metadata_path)
         fsadmin_manager = FSAdminManager(
             config=config.fsadmin,
             fsadmin_builder=FSAdminBuilder(
                 config.fsadmin, config.lab.volumes, logger
             ),
             fsadmin_storage=FSAdminStorage(
-                config.fsadmin, kubernetes_client, logger
+                config.fsadmin, metadata_storage, kubernetes_client, logger
             ),
             slack_client=slack_client,
             logger=logger,
         )
 
-        metadata_storage = MetadataStorage(config.metadata_path)
         image_service = ImageService(
             config=config.images,
             node_selector=config.lab.node_selector,
@@ -220,7 +219,6 @@ class ProcessContext:
                 prepuller=prepuller,
                 lab_manager=lab_manager,
                 fileserver_manager=fileserver_manager,
-                fsadmin_manager=fsadmin_manager,
                 slack_client=slack_client,
                 logger=logger,
             ),

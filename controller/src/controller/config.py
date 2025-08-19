@@ -556,16 +556,6 @@ class FSAdminConfig(BaseModel):
         ),
     ] = None
 
-    namespace: Annotated[
-        str,
-        Field(
-            title="Namespace for fsadmin",
-            description=(
-                "The fsadmin container will be created in this namespace"
-            ),
-        ),
-    ] = "fsadmin"
-
     node_selector: Annotated[
         dict[str, str],
         Field(
@@ -585,14 +575,6 @@ class FSAdminConfig(BaseModel):
             description="Pod/container name for fsadmin",
         ),
     ] = "fsadmin"
-
-    reconcile_interval: Annotated[
-        HumanTimedelta,
-        Field(
-            title="Reconcile interval",
-            description="How often to reconcile file state against Kubernetes",
-        ),
-    ] = timedelta(minutes=60)
 
     resources: Annotated[
         LabResources | None,
