@@ -40,6 +40,7 @@ uv pip install --upgrade \
    geoviews \
    holoviews \
    ipydatawidgets \
+   ipython-genutils \
    ipympl \
    ipyvolume \
    ipyvuetify \
@@ -91,4 +92,5 @@ jupyter labextension lock "@jupyterlab/hub-extension:menu" \
 uv cache clean
 
 # Increase this to force a rebuild because a dependency package has changed.
-# Serial: 5
+# Reset when you actually change a package or its pins.
+# Serial: 0
