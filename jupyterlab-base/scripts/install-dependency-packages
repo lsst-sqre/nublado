@@ -31,7 +31,6 @@ apt-get update
 # libdigest-md5-file-perl ... less: generally useful utilities
 # man: it is an interactive system, after all
 # curl: required to download the DM stack installer
-# npm: only needed to rebuild jupyter-server until new release is cut
 # nano ... ed: enough editors to cover most people's habits
 apt-get -y install --no-install-recommends \
     build-essential git libffi-dev \
@@ -39,8 +38,7 @@ apt-get -y install --no-install-recommends \
     libnss3 libnspr4 libdrm2 libgbm1 pandoc \
     libdigest-md5-file-perl jq gh hub unzip ack screen tmux tree file less \
     man curl \
-    npm \
-    nano vim emacs-nox ed
+    nano vim ed
 
 # Delete cached files we don't need anymore:
 apt-get clean
