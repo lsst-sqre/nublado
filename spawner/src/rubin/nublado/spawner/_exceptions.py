@@ -12,6 +12,7 @@ from httpx import HTTPError, HTTPStatusError, RequestError
 __all__ = [
     "ControllerWebError",
     "InvalidAuthStateError",
+    "InvalidUserOptionsError",
     "MissingFieldError",
     "SpawnFailedError",
 ]
@@ -100,6 +101,10 @@ class ControllerWebError(Exception):
 
 class InvalidAuthStateError(Exception):
     """The JupyterHub auth state for the user contains no token."""
+
+
+class InvalidUserOptionsError(Exception):
+    """The options from the spawner form are incorrect."""
 
 
 class MissingFieldError(Exception):

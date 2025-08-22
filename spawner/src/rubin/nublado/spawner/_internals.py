@@ -17,6 +17,7 @@ from traitlets import Unicode, default
 from ._exceptions import (
     ControllerWebError,
     InvalidAuthStateError,
+    InvalidUserOptionsError,
     MissingFieldError,
     SpawnFailedError,
 )
@@ -388,7 +389,7 @@ class NubladoSpawner(Spawner):
         InvalidAuthStateError
             Raised if there is no ``token`` attribute in the user's
             authentication state. This should always be provided by
-            `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
+            `rubin.nublado.authenticator.GafaelfawrAuthenticator`.
         MissingFieldError
             Raised if the response from the lab controller is invalid.
         SpawnFailedError
@@ -572,7 +573,7 @@ class NubladoSpawner(Spawner):
         InvalidAuthStateError
             Raised if there is no ``token`` attribute in the user's
             authentication state. This should always be provided by
-            `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
+            `rubin.nublado.auth.GafaelfawrAuthenticator`.
         """
         url = self._controller_url("labs", self.user.name, "events")
         kwargs = {
@@ -610,9 +611,59 @@ class NubladoSpawner(Spawner):
         InvalidAuthStateError
             Raised if there is no ``token`` attribute in the user's
             authentication state. This should always be provided by
-            `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
+            `rubin.nublado.auth.GafaelfawrAuthenticator`.
         """
         auth_state = await self.user.get_auth_state()
         if "token" not in auth_state:
             raise InvalidAuthStateError("No token in user auth state")
         return {"Authorization": "Bearer " + auth_state["token"]}
+
+    async def apply_user_options(
+        self, spawner: Spawner, user_options: dict[str, list[str]]
+    ) -> None:
+        """Validate user options.
+
+        Parameters
+        ----------
+        spawner
+            Another copy of the spawner (not used). It's not clear why
+            JupyterHub passes this into this method.
+        user_options
+            Options as list-of-strings from the spawner web form
+
+        Raises
+        ------
+        InvalidUserOptionsError
+
+        Notes
+        -----
+        This method mostly exists to placate the superclass: without this
+        the superclass does not know that any options are legal, and issues
+        a warning when a user spawns a lab.
+
+        To make the method not feel quite so useless, we're using it to
+        validate the form of the user options.  Not all of the allowable
+        options must be specified, but if some option that is not listed
+        in the form is found, we raise an InvalidUserOptionsError.
+
+        The allowable options can be found in the nublado controller
+        model `controller.models.v1.lab.LabRequestOptions`.
+        If that changes, so must this.
+
+        Making this depend on the controller feels weird, but maybe we want
+        to lift the LabRequestOptions up to some common library.  Then we
+        could just validate the model against the provided dict.
+        """
+        allowed = {
+            "enable_debug",
+            "image_class",
+            "image_dropdown",
+            "image_list",
+            "image_tag",
+            "reset_user_env",
+            "size",
+        }
+        have = set(user_options.keys())
+        self.log.info(f"Received user options {', '.join(list(have))}")
+        if extra := (have - allowed):
+            raise InvalidUserOptionsError(", ".join(list(extra)))
