@@ -31,7 +31,6 @@ class BackgroundTaskManager:
     #. Reap tasks that were monitoring lab spawning or deletion.
     #. Watch file servers for changes in pod status (startup or timeout).
     #. Reconcile Kubernetes file server state with internal data structures.
-    #. Reconcile Kubernetes fsadmin state with internal data structures.
 
     This class manages all of these background tasks including, where
     relevant, their schedules. It only does the task management; all of the
@@ -52,8 +51,6 @@ class BackgroundTaskManager:
         Lab management service.
     fileserver_manager
         File server management service.
-    fsadmin_manager
-        Filesystem admin management service.
     slack_client
         Optional Slack webhook client for alerts.
     logger

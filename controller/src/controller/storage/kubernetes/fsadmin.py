@@ -43,6 +43,7 @@ class FSAdminStorage:
 
     def __init__(
         self,
+        *,
         config: FSAdminConfig,
         metadata_storage: MetadataStorage,
         api_client: ApiClient,
@@ -148,5 +149,5 @@ class FSAdminStorage:
         existing_pod = await self._pod.read(self._config.pod_name, ns, timeout)
         if existing_pod is None:  # No pod
             return False
-        # Return its running state
+        # Return whether it is running
         return existing_pod.status.phase == PodPhase.RUNNING

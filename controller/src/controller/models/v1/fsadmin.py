@@ -10,7 +10,7 @@ __all__ = ["FSAdminCommand"]
 
 
 class FSAdminCommand(BaseModel):
-    """Command to start the administrative fileserver."""
+    """Command to start the file system admin pod."""
 
     start: Annotated[
         Literal[True], Field(title="must be True to start fileserver")

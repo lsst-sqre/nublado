@@ -1,6 +1,6 @@
-#######################
-The fsadmin environment
-#######################
+##############################################
+The file system administration pod environment
+##############################################
 
 It is occasionally necessary for administrators to be able to look at
 user filesystems with administrative privilege.

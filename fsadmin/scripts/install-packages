@@ -32,9 +32,6 @@ apt-get -y install \
     sudo \
     quota
 
-# Make life better. Come on, it's 2025.
-chsh -s /bin/bash root
-
 # Delete cached files we don't need any more to reduce the layer size.
 apt-get clean
 rm -rf /var/lib/apt/lists/*

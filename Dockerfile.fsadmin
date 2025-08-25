@@ -6,6 +6,7 @@ COPY fsadmin/screenrc /root/.screenrc
 COPY fsadmin/scripts/install-packages /tmp
 RUN /tmp/install-packages
 RUN rm /tmp/install-packages
+RUN chsh -s /bin/bash root
 
 USER 0:0
 WORKDIR /tmp

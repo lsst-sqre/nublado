@@ -163,7 +163,10 @@ class ProcessContext:
                 config.fsadmin, config.lab.volumes, logger
             ),
             fsadmin_storage=FSAdminStorage(
-                config.fsadmin, metadata_storage, kubernetes_client, logger
+                config=config.fsadmin,
+                metadata_storage=metadata_storage,
+                api_client=kubernetes_client,
+                logger=logger,
             ),
             slack_client=slack_client,
             logger=logger,

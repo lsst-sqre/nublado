@@ -26,7 +26,7 @@ The controller is also responsible for constructing the spawner form for the Jup
 To supplement the JupyterLab interface, which only allows simple file upload and download into the user's home file space, the Nublado controller can optionally also create WebDAV file servers for the user that mount the same file systems that user lab pods mount.
 This allows users to use the WebDAV clients built into most operating systems to more readily copy files to and from the file space underlying their lab.
 
-There is additionally a mechanism to allow creation and destruction of an administrative file server.
+There is additionally a mechanism to allow starting and stopping of an administrative file server.
 This can be useful if a user's files are owned by the wrong user, or to investigate out-of-storage-quota complaints and determine what directories are causing the problem.
 This is not exposed via WebDAV or any Ingresses; rather, an administrator is expected to spawn an administrative file server and connect to it with ``kubectl exec``.
 

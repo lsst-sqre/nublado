@@ -1,15 +1,5 @@
 """Service to manage administrative filesystem environment."""
 
-# This all looks extremely similar to the fileserver service, and
-# that's no accident.  The fsadmin environment is essentially a
-# fileserver with all the guardrails taken off, running in its own
-# namespace (but for obvious reasons, lacking a WebDAV interface).
-#
-# There's probably room for some consolidation and inheritance here,
-# but fsadmin lacks the concept of a username, so we'd have to be
-# careful about method signatures, since most of the fileserver
-# methods want a username as a parameter.
-
 from __future__ import annotations
 
 import asyncio

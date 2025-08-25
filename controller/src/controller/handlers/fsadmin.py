@@ -66,7 +66,7 @@ async def create_fsadmin(
 
 @router.delete(
     "/fsadmin/v1/service",
-    description=("On successful return, the fsadmin instance does not exist."),
+    description="On successful return, the fsadmin instance does not exist.",
     summary="Remove fsadmin instance",
     tags=["admin"],
     status_code=204,

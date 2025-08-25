@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from safir.slack.blockkit import SlackException
@@ -22,10 +23,59 @@ from ..models.domain.kubernetes import PodPhase
 from ..models.v1.fileserver import FileserverStatus
 from ..storage.kubernetes.fileserver import FileserverStorage
 from ..timeout import Timeout
-from ._state import ServiceState
 from .builder.fileserver import FileserverBuilder
 
-__all__ = ["FileserverManager"]
+__all__ = ["FileserverManager", "ServiceState"]
+
+
+@dataclass
+class ServiceState:
+    """State of the fileserver environment."""
+
+    running: bool
+    """Whether the fileserver container is running."""
+
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    """Lock to prevent two operations from happening at once."""
+
+    in_progress: bool = False
+    """Whether an operation is currently in progress."""
+
+    last_modified: datetime = field(
+        default_factory=lambda: datetime.now(tz=UTC)
+    )
+    """Last time an operation was started or completed.
+
+    This is required to prevent race conditions such as the following:
+
+    #. New file server starts being created.
+    #. Reconcile gathers information about the partially created lab and finds
+       that it is incomplete.
+    #. Reconcile deletes the file server objects created so far.
+    #. File server creation finishes and then the file server doesn't work.
+
+    With this setting, reconcile can check if a file server operation has
+    started or recently finished and skip the reconcile.
+    """
+
+    def modified_since(self, date: datetime) -> bool:
+        """Whether the fileserver pod has been modified since the given time.
+
+        Any fileserver instance that has a current in-progress operation is
+        counted as modified.
+
+        Parameters
+        ----------
+        date
+            Reference time.
+
+        Returns
+        -------
+        bool
+            `True` if the internal last-modified time is after the provided
+            time and no operation is in progress, `False` otherwise.
+        """
+        return bool(self.in_progress or self.last_modified > date)
 
 
 class FileserverManager:

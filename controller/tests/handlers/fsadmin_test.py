@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 from httpx import AsyncClient
-from kubernetes_asyncio.client import V1Pod
 from safir.testing.kubernetes import MockKubernetesApi
 
 from controller.models.domain.gafaelfawr import GafaelfawrUser
@@ -33,11 +32,6 @@ async def test_create_delete(
     assert r.status_code == 204
 
     # Verify it's running
-    r = await client.get("/nublado/fsadmin/v1/service")
-    assert r.status_code == 204
-
-    # Request it again; should detect it exists and
-    # return immediately without actually doing anything.
     r = await client.get("/nublado/fsadmin/v1/service")
     assert r.status_code == 204
 
@@ -89,12 +83,11 @@ async def test_create_delete(
     namespace = "nublado"
 
     # Check that it has a pod.
-    pods = await mock_kubernetes.list_namespaced_pod(namespace)
-    pod: V1Pod | None = None
-    for ext_pod in pods.items:
-        if ext_pod.metadata.name == config.fsadmin.pod_name:
-            pod = ext_pod
-    assert pod is not None
+    pod = next(
+        p
+        for p in (await mock_kubernetes.list_namespaced_pod(namespace)).items
+        if p.metadata.name == config.fsadmin.pod_name
+    )
 
     # Verify that the pod's mountpoints look correct.
     mounts = pod.spec.containers[0].volume_mounts

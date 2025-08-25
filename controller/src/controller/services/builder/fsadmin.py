@@ -28,12 +28,12 @@ __all__ = ["FSAdminBuilder"]
 
 
 class FSAdminBuilder:
-    """Construct Kubernetes objects for user file servers.
+    """Construct Kubernetes objects for file system administrative pods.
 
     Parameters
     ----------
     volumes
-        Volumes to mount in the user's file server.
+        Volumes to mount in the file system admin pod.
     """
 
     def __init__(
@@ -55,10 +55,7 @@ class FSAdminBuilder:
         FSAdminObjects
             Kubernetes objects for the fsadmin environment.
         """
-        return FSAdminObjects(
-            pvcs=self._build_pvcs(),
-            pod=self._build_pod(),
-        )
+        return FSAdminObjects(pvcs=self._build_pvcs(), pod=self._build_pod())
 
     def _build_metadata(self, name: str, suffix: str = "") -> V1ObjectMeta:
         """Construct the metadata for an object.
@@ -66,9 +63,7 @@ class FSAdminBuilder:
         This adds some standard labels and annotations providing Nublado
         metadata and telling Argo CD how to handle this object.
         """
-        labels = {
-            "nublado.lsst.io/category": "fsadmin",
-        }
+        labels = {"nublado.lsst.io/category": "fsadmin"}
         annotations = ARGO_CD_ANNOTATIONS.copy()
         return V1ObjectMeta(
             name=name + suffix,
@@ -83,11 +78,9 @@ class FSAdminBuilder:
             (v for v in self._volumes if v.name in wanted_volumes),
             pvc_prefix=self._config.pod_name,
         )
+        prefix = self._config.mount_prefix if self._config.mount_prefix else ""
         mounts = self._volume_builder.build_mounts(
-            self._config.volume_mounts,
-            prefix=self._config.mount_prefix
-            if self._config.mount_prefix
-            else "",
+            self._config.volume_mounts, prefix=prefix
         )
         resources = self._config.resources
 
