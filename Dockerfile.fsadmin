@@ -1,0 +1,14 @@
+FROM python:3.13.6-slim-bookworm
+# Install uv.
+COPY --from=ghcr.io/astral-sh/uv:0.7.15 /uv /bin/uv
+
+COPY fsadmin/screenrc /root/.screenrc
+COPY fsadmin/scripts/install-packages /tmp
+RUN /tmp/install-packages
+RUN rm /tmp/install-packages
+RUN chsh -s /bin/bash root
+
+USER 0:0
+WORKDIR /tmp
+ENV SHELL="/bin/bash"
+CMD [ "tail", "-f", "/dev/null" ]
