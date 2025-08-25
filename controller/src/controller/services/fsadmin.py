@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 
 from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
@@ -54,12 +55,17 @@ class FSAdminManager:
         self._logger = logger
         self._lock = asyncio.Lock()
 
-    async def create(self) -> None:
+    async def create(self) -> datetime.datetime:
         """Ensure the fsadmin environment exists.
 
         If we don't have a filesystem admin environment, create it.  If we do,
         just return. This gets called by the handler when someone POSTs to the
         ``/fsadmin/v1/service`` ingress.
+
+        Return
+        ------
+        datetime.datetime
+            Time at which pod went into ``Running`` phase.
 
         Raises
         ------
@@ -73,10 +79,14 @@ class FSAdminManager:
         timeout = Timeout("Filesystem admin creation", self._config.timeout)
         try:
             async with self._lock:
-                if await self._storage.is_fsadmin_ready(timeout):
-                    return
+                if start_time := await self._storage.get_start_time(timeout):
+                    return start_time
                 fsadmin = self._builder.build()
-                await self._storage.create(fsadmin, timeout)
+                # Delete should be almost-instant if the objects do not exist.
+                # If they do, then the pod isn't working and they need
+                # to be destroyed and recreated.
+                await self._storage.delete(fsadmin, timeout)
+                return await self._storage.create(fsadmin, timeout)
         except Exception as e:
             msg = "Error creating fsadmin"
             self._logger.exception(msg)
@@ -106,20 +116,21 @@ class FSAdminManager:
             await self._maybe_post_slack_exception(e)
             raise
 
-    async def is_ready(self) -> bool:
-        """Get the ready status of the fsadmin container.  This gets called
+    async def get_start_time(self) -> datetime.datetime | None:
+        """Get the start time from the fsadmin container.  This gets called
         by the handler when someone issues a GET against the
         ``/fsadmin/v1/service`` ingress.
 
         Returns
         -------
-        bool
-            True if the fsadmin container is ready.
+        datetime.datetime | None
+            Returns container's start time if the fsadmin container is ready.
+            If not, returns ``None``.
         """
-        timeout = Timeout("Filesystem admin creation", self._config.timeout)
+        timeout = Timeout("Filesystem admin query", self._config.timeout)
         try:
             async with self._lock:
-                return await self._storage.is_fsadmin_ready(timeout)
+                return await self._storage.get_start_time(timeout)
         except Exception as e:
             msg = "Error querying fsadmin status"
             self._logger.exception(msg)

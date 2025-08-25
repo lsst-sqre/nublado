@@ -38,7 +38,7 @@ with Diagram(
     with Cluster("Kubernetes"):
         pv = PV("Storage")
 
-        with Cluster("Administrative file server namespace"):
+        with Cluster("Nublado controller namespace"):
             pod = Pod("fsadmin")
             pvc = PVC("fsadmin-storage")
 

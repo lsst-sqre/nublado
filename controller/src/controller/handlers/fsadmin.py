@@ -7,7 +7,7 @@ from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..dependencies.context import RequestContext, context_dependency
-from ..models.v1.fsadmin import FSAdminCommand
+from ..models.v1.fsadmin import FSAdminCommand, FSAdminStatus
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
 """Router to mount into the application."""
@@ -30,13 +30,13 @@ __all__ = ["router"]
     ),
     summary="Get fsadmin status",
     tags=["admin"],
-    status_code=204,
+    status_code=200,
 )
 async def get_fsadmin_status(
     context: Annotated[RequestContext, Depends(context_dependency)],
-) -> None:
-    if await context.fsadmin_manager.is_ready():
-        return
+) -> FSAdminStatus:
+    if start_time := await context.fsadmin_manager.get_start_time():
+        return FSAdminStatus(start_time=start_time)
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail=[
@@ -53,15 +53,16 @@ async def get_fsadmin_status(
     description="On successful return, the fsadmin instance is operational.",
     summary="Create fsadmin instance",
     tags=["admin"],
-    status_code=204,
+    status_code=200,
 )
 async def create_fsadmin(
     *,
     cmd: FSAdminCommand,
     context: Annotated[RequestContext, Depends(context_dependency)],
-) -> None:
+) -> FSAdminStatus:
     _ = cmd
-    await context.fsadmin_manager.create()
+    start_time = await context.fsadmin_manager.create()
+    return FSAdminStatus(start_time=start_time)
 
 
 @router.delete(

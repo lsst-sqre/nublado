@@ -24,14 +24,14 @@ fsadmin lifecycle API
 The interface is extremely simple:
 
 #. ``GET`` to ``/nublado/fsadmin/v1/service`` provides fsadmin status.
-   If the administrative pod exists in the same namespace as the controller, and the pod is in ``Running`` state, ``GET`` returns an HTTP 200 code.
+   If the administrative pod exists in the same namespace as the controller, and the pod is in ``Running`` state, ``GET`` returns an HTTP 200 code. The HTTP body will be JSON with one field, ``start_time``, whose value will be a textual representation of a UTC ISO 8601 datestamp showing the time the pod went into ``Running`` state.
    Otherwise ``GET`` returns 404 if either of the above conditions are not met.
    It returns 5xx if some other error occurs.
 
 #. ``POST`` to ``/nublado/fsadmin/v1/service`` will create the pod (and any necessary PVCs) in the controller's namespace if they do not exist.
    If they do already exist, ``POST`` is ineffective; notably, it does not delete and recreate an existing fsadmin instance.
    The ``POST`` body must be ``{ "start": true }``.
-   ``POST`` returns an HTTP 204 code if it succeeds, or 5xx if some error occurs.
+   ``POST`` returns an HTTP 200 code if it succeeds, or 5xx if some error occurs. The HTTP body on success will be the same as ``GET``, containing the time the pod went into ``Running`` state.
 
 #. ``DELETE`` to ``/nublado/fsadmin/v1/service`` will remove the administrative pod and any associated PVCs from the controller namespace if it they exist.
    If the resources do not exist, ``DELETE`` silently succeeds.
