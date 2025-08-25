@@ -1,3 +1,37 @@
+# .screenrc
+#
+# Buckle up.
+#
+# First, set scrollback to 10000 lines.
+#
+# Next, define the backtick command to present the name of the current screen
+#  session.  This is conventional, but basically you're looking for the PPID
+#  to get "the name of the screen instance corresponding to this login
+#  session".  It is backtick instance zero, and it refreshes (and updates the
+#  status line) every thirty seconds.
+#
+# Next we define the status line itself:
+#  https://www.kilobitspersecond.com/2014/02/10/\
+#  understanding-gnu-screens-hardstatus-strings/ is a pretty good explanation
+#  of the rest (fortunately it's got most of the same items) but it's still
+#  gibberish.  From left to right:
+#
+# Set colors to bright white on bright black keeping current text style.
+#  hostname, brackets around backtick command (see above: prints session name)
+#  Reset colors to white on bright black, keeping styles.  Separator bar.
+#  Restore colors to previous (bright white on black).  List the windows before
+#  the current window, including flags.  Set colors to bright white on blue
+#  and display window number, window flags, a space, and the window title.
+#  Restore the colors again. and list windows after the current window,
+#  including flags.
+#
+# Then pin the status line to the bottom of the screen.
+#
+# That wasn't so bad, was it?  It was?  Yeah, it was.  That's why there's
+#  tmux in the fsadmin image too, but my fingers can't quit screen.  Tmux
+#  configuration isn't easy either but at least it doesn't look like the
+#  cat threw up.
+
 defscrollback 10000
 backtick 0 30 30 sh -c 'screen -ls | grep --color=no -o "$PPID[^[:space:]]*"'
 hardstatus string "%{= KW} %H [%`] %{= Kw}|%{-} %-Lw%{= bW}%n%f %t%{-}%+Lw"
