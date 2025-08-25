@@ -124,7 +124,7 @@ async def test_created_pod(
 
     # Verify that the pod's mountpoints look correct.
     mounts = pod.spec.containers[0].volume_mounts
-    assert len(mounts) == 3
+    assert len(mounts) == 4
     prefixed = [x.mount_path.startswith("/user-filesystems/") for x in mounts]
     assert all(prefixed)
 

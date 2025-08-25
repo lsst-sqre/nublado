@@ -160,7 +160,10 @@ class ProcessContext:
         fsadmin_manager = FSAdminManager(
             config=config.fsadmin,
             fsadmin_builder=FSAdminBuilder(
-                config.fsadmin, config.lab.volumes, logger
+                config=config.fsadmin,
+                volumes=config.lab.volumes,
+                volume_mounts=config.lab.volume_mounts,
+                logger=logger,
             ),
             fsadmin_storage=FSAdminStorage(
                 config=config.fsadmin,

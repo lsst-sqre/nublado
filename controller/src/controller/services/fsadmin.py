@@ -27,8 +27,6 @@ class FSAdminManager:
     ----------
     config
         Configuration for fsadmin environment.
-    volumes
-        Configuration for volumes to mount.
     fsadmin_builder
         Builder that constructs fsadmin Kubernetes objects.
     fileserver_storage

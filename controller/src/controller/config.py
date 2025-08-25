@@ -541,8 +541,8 @@ class FSAdminConfig(BaseModel):
         ),
     ] = ContainerImage(
         repository="ghcr.io/lsst-sqre/nublado-fsadmin",
-        pull_policy=PullPolicy.ALWAYS,
-        tag="latest",
+        pull_policy=PullPolicy.IF_NOT_PRESENT,
+        tag="8.13.0",
     )
 
     mount_prefix: Annotated[
@@ -601,17 +601,6 @@ class FSAdminConfig(BaseModel):
         Field(
             title="File server pod tolerations",
             description="Kubernetes tolerations for fsadmin pods",
-        ),
-    ] = []
-
-    volume_mounts: Annotated[
-        list[VolumeMountConfig],
-        Field(
-            title="Volume mounts",
-            description=(
-                "Volumes mounted in the fsadmin pod. The ``containerPath``"
-                " settings represent the path visible inside the container."
-            ),
         ),
     ] = []
 

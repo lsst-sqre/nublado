@@ -17,6 +17,7 @@ from ...config import (
     FSAdminConfig,
     PVCVolumeSource,
     VolumeConfig,
+    VolumeMountConfig,
 )
 from ...constants import ARGO_CD_ANNOTATIONS
 from ...models.domain.fsadmin import (
@@ -32,18 +33,26 @@ class FSAdminBuilder:
 
     Parameters
     ----------
+    config
+        Administrative pod configuration.
     volumes
         Volumes to mount in the file system admin pod.
+    volume_mounts
+        How to mount the specified volumes.
+    logger
+        Logger to use.
     """
 
     def __init__(
         self,
         config: FSAdminConfig,
         volumes: list[VolumeConfig],
+        volume_mounts: list[VolumeMountConfig],
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._volumes = volumes
+        self._volume_mounts = volume_mounts
         self._logger = logger
         self._volume_builder = VolumeBuilder()
 
@@ -73,14 +82,26 @@ class FSAdminBuilder:
 
     def _build_pod(self) -> V1Pod:
         """Construct the pod for fsadmin."""
-        wanted_volumes = {m.volume_name for m in self._config.volume_mounts}
+        # We do not want to change the original config, but we want to force
+        # all volumes to read-write (if the underlying volume allows) for the
+        # administrative pod.
+        volume_mounts = [
+            VolumeMountConfig(
+                container_path=x.container_path,
+                sub_path=x.sub_path,
+                read_only=False,
+                volume_name=x.volume_name,
+            )
+            for x in self._volume_mounts
+        ]
+        wanted_volumes = {m.volume_name for m in volume_mounts}
         volumes = self._volume_builder.build_volumes(
             (v for v in self._volumes if v.name in wanted_volumes),
             pvc_prefix=self._config.pod_name,
         )
         prefix = self._config.mount_prefix if self._config.mount_prefix else ""
         mounts = self._volume_builder.build_mounts(
-            self._config.volume_mounts, prefix=prefix
+            volume_mounts, prefix=prefix
         )
         resources = self._config.resources
 
@@ -125,7 +146,7 @@ class FSAdminBuilder:
 
     def _build_pvcs(self) -> list[V1PersistentVolumeClaim]:
         """Construct the persistent volume claims for fsadmin."""
-        volume_names = {m.volume_name for m in self._config.volume_mounts}
+        volume_names = {m.volume_name for m in self._volume_mounts}
         volumes = (v for v in self._volumes if v.name in volume_names)
         pvcs: list[V1PersistentVolumeClaim] = []
         for volume in volumes:

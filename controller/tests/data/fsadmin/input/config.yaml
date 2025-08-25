@@ -46,15 +46,4 @@ images:
     registry: lighthouse.ceres
     repository: library/sketchbook
 fsadmin:
-  image:
-    repository: ghcr.io/lsst-sqre/nublado-fsadmin
-    tag: 1.0.0
   mountPrefix: /user-filesystems
-  volumeMounts:
-    - containerPath: /home
-      volumeName: home
-    - containerPath: /project
-      readOnly: true
-      volumeName: project
-    - containerPath: /scratch
-      volumeName: scratch
