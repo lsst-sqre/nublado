@@ -47,3 +47,13 @@ images:
     repository: library/sketchbook
 fsadmin:
   mountPrefix: /user-filesystems
+  extraVolumes:
+    - name: firefly
+      source:
+        type: nfs
+        server: 10.13.105.122
+        serverPath: /share1/firefly
+  extraVolumeMounts:
+    - containerPath: /firefly
+      volumeName: firefly
+

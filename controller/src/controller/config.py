@@ -531,6 +531,29 @@ class FSAdminConfig(BaseModel):
         ),
     ] = {}
 
+    extra_volumes: Annotated[
+        list[VolumeConfig],
+        Field(
+            title="Extra volumes",
+            description=(
+                "Additional volumes available to mount inside the fsadmin"
+                " pod. Inclusion in this list does not mean that they will"
+                " be mounted. They must separately be listed under"
+                " ``extravolumeMounts``."
+            ),
+        ),
+    ] = []
+
+    extra_volume_mounts: Annotated[
+        list[VolumeMountConfig],
+        Field(
+            title="Extra mounted volumes",
+            description=(
+                "Additional volumes to mount inside the fsadmin pod."
+            ),
+        ),
+    ] = []
+
     # We default this so we don't need a configuration-file flag day synced
     # to the nublado updates.
     image: Annotated[

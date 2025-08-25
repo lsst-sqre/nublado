@@ -85,6 +85,10 @@ class FSAdminBuilder:
         # We do not want to change the original config, but we want to force
         # all volumes to read-write (if the underlying volume allows) for the
         # administrative pod.
+
+        # Glue in extra volumes.
+        volumes = list(self._volumes)
+        volumes.extend(self._config.extra_volumes)
         volume_mounts = [
             VolumeMountConfig(
                 container_path=x.container_path,
@@ -94,9 +98,10 @@ class FSAdminBuilder:
             )
             for x in self._volume_mounts
         ]
+        volume_mounts.extend(self._config.extra_volume_mounts)
         wanted_volumes = {m.volume_name for m in volume_mounts}
         volumes = self._volume_builder.build_volumes(
-            (v for v in self._volumes if v.name in wanted_volumes),
+            (v for v in volumes if v.name in wanted_volumes),
             pvc_prefix=self._config.pod_name,
         )
         prefix = self._config.mount_prefix if self._config.mount_prefix else ""
