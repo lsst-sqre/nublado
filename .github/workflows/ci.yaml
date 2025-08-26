@@ -229,7 +229,7 @@ jobs:
             latest: true
             gar: false
           - name: "fsadmin"
-            latest: true
+            latest: false
             gar: false
 
     steps:

@@ -512,14 +512,6 @@ class FSAdminConfig(BaseModel):
         ),
     ] = None
 
-    application: Annotated[
-        str | None,
-        Field(
-            title="Argo CD application",
-            description="Argo CD application into which to put fsadmin pods",
-        ),
-    ] = None
-
     extra_annotations: Annotated[
         dict[str, str],
         Field(
@@ -562,11 +554,7 @@ class FSAdminConfig(BaseModel):
             title="fsadmin Docker image",
             description="Docker image to run as fsadmin",
         ),
-    ] = ContainerImage(
-        repository="ghcr.io/lsst-sqre/nublado-fsadmin",
-        pull_policy=PullPolicy.IF_NOT_PRESENT,
-        tag="8.13.0",
-    )
+    ]
 
     mount_prefix: Annotated[
         str | None,
@@ -1384,7 +1372,7 @@ class Config(BaseSettings):
     fsadmin: Annotated[
         FSAdminConfig,
         Field(title="Filesystem admin configuration"),
-    ] = FSAdminConfig()
+    ]
 
     images: Annotated[
         PrepullerConfig,

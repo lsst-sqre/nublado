@@ -7,7 +7,9 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 from safir.pydantic import UtcDatetime
 
-__all__ = ["FSAdminCommand"]
+from ..domain.kubernetes import PodPhase
+
+__all__ = ["FSAdminCommand", "FSAdminStatus"]
 
 
 class FSAdminCommand(BaseModel):
@@ -20,6 +22,11 @@ class FSAdminCommand(BaseModel):
 
 class FSAdminStatus(BaseModel):
     """Status for a running file system admin pod."""
+
+    phase: Annotated[
+        PodPhase,
+        Field(title="Phase fsadmin pod is in (should be PodPhase.RUNNING)"),
+    ]
 
     start_time: Annotated[
         UtcDatetime,

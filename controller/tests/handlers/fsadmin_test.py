@@ -39,11 +39,11 @@ async def test_create_delete(
     elapsed = started - now
     assert elapsed.total_seconds() >= 0
 
-    # Verify it's running
+    # # Verify it's running
     r = await client.get("/nublado/fsadmin/v1/service")
     assert r.status_code == 200
 
-    # Try to start it again
+    # # Try to start it again
     r = await client.post("/nublado/fsadmin/v1/service", json={"start": True})
     assert r.status_code == 200
     # Verify that start time did not change

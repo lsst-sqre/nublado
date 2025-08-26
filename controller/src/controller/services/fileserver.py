@@ -25,15 +25,15 @@ from ..storage.kubernetes.fileserver import FileserverStorage
 from ..timeout import Timeout
 from .builder.fileserver import FileserverBuilder
 
-__all__ = ["FileserverManager", "ServiceState"]
+__all__ = ["FileserverManager"]
 
 
 @dataclass
-class ServiceState:
-    """State of the fileserver environment."""
+class _State:
+    """State of the file server for a given user."""
 
     running: bool
-    """Whether the fileserver container is running."""
+    """Whether the file server is running."""
 
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     """Lock to prevent two operations from happening at once."""
@@ -59,10 +59,10 @@ class ServiceState:
     """
 
     def modified_since(self, date: datetime) -> bool:
-        """Whether the fileserver pod has been modified since the given time.
+        """Whether the file server has been modified since the given time.
 
-        Any fileserver instance that has a current in-progress operation is
-        counted as modified.
+        Any file server that has a current in-progress operation is counted as
+        modified.
 
         Parameters
         ----------
@@ -120,7 +120,7 @@ class FileserverManager:
         self._logger = logger
 
         # Mapping of usernames to internal state.
-        self._servers: dict[str, ServiceState] = {}
+        self._servers: dict[str, _State] = {}
 
     async def create(self, user: GafaelfawrUserInfo) -> None:
         """Ensure a file server exists for the given user.
@@ -145,7 +145,7 @@ class FileserverManager:
         logger = self._logger.bind(user=user.username)
         logger.info("File server requested")
         if user.username not in self._servers:
-            self._servers[user.username] = ServiceState(running=False)
+            self._servers[user.username] = _State(running=False)
         state = self._servers[user.username]
         timeout = Timeout(
             "File server creation",
@@ -245,7 +245,7 @@ class FileserverManager:
         for username, state in seen.items():
             if self._builder.is_valid(username, state):
                 if username not in known_users:
-                    self._servers[username] = ServiceState(running=True)
+                    self._servers[username] = _State(running=True)
             elif username in self._servers:
                 to_delete.add(username)
             else:

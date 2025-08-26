@@ -1,19 +1,18 @@
 """Kubernetes storage layer for filesystem administration pod."""
 
-# As with the fsadmin service, this is very similar to the fileserver, but
-# lacks a username.
-
 from __future__ import annotations
 
 import datetime
 
 from kubernetes_asyncio.client import ApiClient
-from safir.datetime import current_datetime
+from safir.datetime import current_datetime, parse_isodatetime
 from structlog.stdlib import BoundLogger
 
 from ...config import FSAdminConfig
+from ...exceptions import InvalidPodPhaseError, PodNotFoundError
 from ...models.domain.fsadmin import FSAdminObjects
 from ...models.domain.kubernetes import PodPhase
+from ...models.v1.fsadmin import FSAdminStatus
 from ...timeout import Timeout
 from ..metadata import MetadataStorage
 from .deleter import PersistentVolumeClaimStorage
@@ -61,7 +60,7 @@ class FSAdminStorage:
 
     async def create(
         self, objects: FSAdminObjects, timeout: Timeout
-    ) -> datetime.datetime:
+    ) -> FSAdminStatus:
         """Create all of the Kubernetes objects for an fsadmin instance.
 
         Create the objects in Kubernetes and then wait for the fsadmin pod
@@ -78,26 +77,24 @@ class FSAdminStorage:
 
         Returns
         -------
-        datetime.datetime
+        FSAdminStatus
+            Pod status.
 
         Raises
         ------
+        InvalidPodPhaseError
+            Pod is not in ``Running`` phase.
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
+        PodNotFoundError
+            Pod does not exist.
         TimeoutError
             Raised if fsadmin is not ready before the provided timeout expires.
-
-        Notes
-        -----
-        This is conceptually similar to the fileserver, but since it's a
-        cluster-wide singleton, if the objects all exist, that's fine.  We
-        don't try to delete and recreate, but use the existing fsadmin
-        instance.
         """
         ns = self._metadata.namespace
         for pvc in objects.pvcs:
-            await self._pvc.create(ns, pvc, timeout)
-        await self._pod.create(ns, objects.pod, timeout)
+            await self._pvc.create(ns, pvc, timeout, replace=True)
+        await self._pod.create(ns, objects.pod, timeout, replace=True)
 
         # Wait for the pod to start.
         await self._pod.wait_for_phase(
@@ -107,7 +104,8 @@ class FSAdminStorage:
             timeout=timeout,
         )
         self._start_time = current_datetime(microseconds=True)
-        return self._start_time
+        # If get_status() fails, the check will clear _start_time
+        return await self.get_status(timeout)
 
     async def delete(self, objects: FSAdminObjects, timeout: Timeout) -> None:
         """Delete the fsadmin instance.
@@ -132,10 +130,17 @@ class FSAdminStorage:
         self._start_time = None
         await self._pod.delete(pod.metadata.name, ns, timeout, wait=True)
         for pvc in pvcs:
-            await self._pvc.delete(pvc.metadata.name, ns, timeout)
+            await self._pvc.delete(pvc.metadata.name, ns, timeout, wait=True)
 
-    async def is_fsadmin_ready(self, timeout: Timeout) -> bool:
-        """Check whether the fsadmin environment is ready for work.
+    async def get_status(self, timeout: Timeout) -> FSAdminStatus:
+        """Return the status of the fsadmin environment.
+
+        If it is ready for work, return an FSAdminStatus object with
+        start_time set to the time the pod went into ``Running`` phase
+        and phase set to PodPhase.RUNNING.
+
+        Otherwise raise an exception: either the pod is missing, or the
+        pod is not in ``Running`` phase.
 
         Parameters
         ----------
@@ -144,50 +149,42 @@ class FSAdminStorage:
 
         Returns
         -------
-        bool
-            Whether the fsadmin pod is ready.
-
-        Notes
-        -----
-        We check whether the pod exists, and if so, whether it is running.
-        We do not need to check the PVCs, because if they're necessary,
-        the pod can't be running unless it has them.
-        """
-        ns = self._metadata.namespace
-        existing_pod = await self._pod.read(self._config.pod_name, ns, timeout)
-        if existing_pod is None:  # No pod
-            return False
-        # Return whether it is running
-        return existing_pod.status.phase == PodPhase.RUNNING
-
-    async def get_start_time(
-        self, timeout: Timeout
-    ) -> datetime.datetime | None:
-        """Get time pod started, or None if it is not ready for work.
-
-        Parameters
-        ----------
-        timeout
-            How long to wait to query the fsadmin pod.
-
-        Returns
-        -------
-        datetime.datetime
-            The time the fsadmin pod went into ``Running`` phase.
+        FSAdminStatus
+            Pod status if ready.
 
         Raises
         ------
+        InvalidPodPhaseError
+            Pod is not in ``Running`` phase.
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
+        PodNotFoundError
+            Pod does not exist.
         TimeoutError
             Raised if fsadmin is not ready before the provided timeout expires.
-
-        Notes
-        -----
-        If the pod exists but is not yet running, or is in the process of
-        terminating, we report None. The start time is only valid for pods
-        which are ready to accept work.
         """
-        if not await self.is_fsadmin_ready(timeout):
-            return None
-        return self._start_time
+        ns = self._metadata.namespace
+        existing_pod = await self._pod.read(self._config.pod_name, ns, timeout)
+        if existing_pod is None:
+            self._start_time = None
+            raise PodNotFoundError(f"{ns}/{self._config.pod_name}")
+        if existing_pod.status.phase != "Running":
+            self._start_time = None
+            raise InvalidPodPhaseError(existing_pod.status.phase)
+        if self._start_time is None:
+            # This could happen if the fsadmin pod is running and the
+            # controller is restarted.
+            #
+            # If that should happen...use the pod status start time as
+            # the start time.  It's a little too early, but it's fairly
+            # close, and the point is, you have a running pod and it's
+            # about this old.
+            start_time = parse_isodatetime(existing_pod.status.start_time)
+            self._logger.warning(
+                "No fsadmin start time found; using pod start time"
+                f" {start_time} in lieu"
+            )
+            self._start_time = start_time
+        return FSAdminStatus(
+            start_time=self._start_time, phase=PodPhase.RUNNING
+        )

@@ -17,3 +17,7 @@ images:
     type: docker
     registry: lighthouse.ceres
     repository: library/sketchbook
+fsadmin:
+  image:
+    repository: ghcr.io/lsst-sqre/nublado-fsadmin
+    tag: 9.0.0

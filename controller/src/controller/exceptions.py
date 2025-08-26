@@ -32,6 +32,7 @@ __all__ = [
     "InsufficientQuotaError",
     "InvalidDockerReferenceError",
     "InvalidLabSizeError",
+    "InvalidPodPhaseError",
     "InvalidTokenError",
     "KubernetesError",
     "LabDeletionError",
@@ -42,6 +43,7 @@ __all__ = [
     "NotConfiguredError",
     "OperationConflictError",
     "PermissionDeniedError",
+    "PodNotFoundError",
     "UnknownDockerImageError",
     "UnknownUserError",
 ]
@@ -72,6 +74,13 @@ class InvalidLabSizeError(ClientRequestError):
     def __init__(self, size: LabSize) -> None:
         msg = f'Invalid lab size "{size.value}"'
         super().__init__(msg, ErrorLocation.body, ["options", "size"])
+
+
+class InvalidPodPhaseError(ClientRequestError):
+    """The pod was not in a valid phase."""
+
+    error = "invalid_phase"
+    status_code = status.HTTP_404_NOT_FOUND
 
 
 class InvalidTokenError(ClientRequestError):
@@ -116,6 +125,16 @@ class PermissionDeniedError(ClientRequestError):
 
     error = "permission_denied"
     status_code = status.HTTP_403_FORBIDDEN
+
+
+class PodNotFoundError(ClientRequestError):
+    """Pod could not be found.
+
+    A requested pod does not exist.
+    """
+
+    error = "not_found"
+    status_code = status.HTTP_404_NOT_FOUND
 
 
 class UnknownDockerImageError(ClientRequestError):

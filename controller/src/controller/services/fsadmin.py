@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import datetime
 
-from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..config import FSAdminConfig
+from ..exceptions import InvalidPodPhaseError, PodNotFoundError
+from ..models.v1.fsadmin import FSAdminStatus
 from ..storage.kubernetes.fsadmin import FSAdminStorage
 from ..timeout import Timeout
 from .builder.fsadmin import FSAdminBuilder
@@ -53,7 +53,7 @@ class FSAdminManager:
         self._logger = logger
         self._lock = asyncio.Lock()
 
-    async def create(self) -> datetime.datetime:
+    async def create(self) -> FSAdminStatus:
         """Ensure the fsadmin environment exists.
 
         If we don't have a filesystem admin environment, create it.  If we do,
@@ -62,34 +62,30 @@ class FSAdminManager:
 
         Return
         ------
-        datetime.datetime
-            Time at which pod went into ``Running`` phase.
+        FSAdminStatus
+            Status for the created pod.
 
         Raises
         ------
         controller.exceptions.ControllerTimeoutError
             Raised if the fsadmin environment could not be created within its
             creation timeout.
+        InvalidPodPhaseError
+            Pod is not in ``Running`` phase.
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
+        PodNotFoundError
+            Pod does not exist.
         """
         self._logger.info("Fsadmin environment requested")
         timeout = Timeout("Filesystem admin creation", self._config.timeout)
-        try:
-            async with self._lock:
-                if start_time := await self._storage.get_start_time(timeout):
-                    return start_time
+        async with self._lock:
+            try:
+                return await self._storage.get_status(timeout)
+            except (PodNotFoundError, InvalidPodPhaseError):
+                # It's not both there and healthy, so (re)create it.
                 fsadmin = self._builder.build()
-                # Delete should be almost-instant if the objects do not exist.
-                # If they do, then the pod isn't working and they need
-                # to be destroyed and recreated.
-                await self._storage.delete(fsadmin, timeout)
                 return await self._storage.create(fsadmin, timeout)
-        except Exception as e:
-            msg = "Error creating fsadmin"
-            self._logger.exception(msg)
-            await self._maybe_post_slack_exception(e)
-            raise
 
     async def delete(self) -> None:
         """Delete the fsadmin environment.  This gets called by the handler
@@ -103,49 +99,31 @@ class FSAdminManager:
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
         """
-        timeout = Timeout("Filesystem admin creation", self._config.timeout)
-        try:
-            async with self._lock:
-                fsadmin = self._builder.build()
-                await self._storage.delete(fsadmin, timeout)
-        except Exception as e:
-            msg = "Error deleting fsadmin"
-            self._logger.exception(msg)
-            await self._maybe_post_slack_exception(e)
-            raise
+        timeout = Timeout("Filesystem admin deletion", self._config.timeout)
+        async with self._lock:
+            fsadmin = self._builder.build()
+            await self._storage.delete(fsadmin, timeout)
 
-    async def get_start_time(self) -> datetime.datetime | None:
-        """Get the start time from the fsadmin container.  This gets called
-        by the handler when someone issues a GET against the
-        ``/fsadmin/v1/service`` ingress.
+    async def get_status(self) -> FSAdminStatus:
+        """Return the status for the fsadmin container, if it exists and is
+        healthy.  If it does not exist, or is not ready to accept work,
+        raise an exception.
 
-        Returns
-        -------
-        datetime.datetime | None
-            Returns container's start time if the fsadmin container is ready.
-            If not, returns ``None``.
+        This gets called by the handler when someone issues a GET against
+        the ``/fsadmin/v1/service`` ingress.
+
+        Raises
+        ------
+        controller.exceptions.ControllerTimeoutError
+            Raised if the fsadmin environment could not be queried within its
+            query timeout.
+        InvalidPodPhaseError
+            Pod is not in ``Running`` phase.
+        KubernetesError
+            Raised if there is some failure in a Kubernetes API call.
+        PodNotFoundError
+            Pod does not exist.
         """
         timeout = Timeout("Filesystem admin query", self._config.timeout)
-        try:
-            async with self._lock:
-                return await self._storage.get_start_time(timeout)
-        except Exception as e:
-            msg = "Error querying fsadmin status"
-            self._logger.exception(msg)
-            await self._maybe_post_slack_exception(e)
-            raise
-
-    async def _maybe_post_slack_exception(self, exc: Exception) -> None:
-        """Post an exception to Slack if Slack reporting is configured.
-
-        Parameters
-        ----------
-        exc
-            Exception to report.
-        """
-        if not self._slack:
-            return
-        if isinstance(exc, SlackException):
-            await self._slack.post_exception(exc)
-        else:
-            await self._slack.post_uncaught_exception(exc)
+        async with self._lock:
+            return await self._storage.get_status(timeout)
