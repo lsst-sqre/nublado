@@ -546,8 +546,6 @@ class FSAdminConfig(BaseModel):
         ),
     ] = []
 
-    # We default this so we don't need a configuration-file flag day synced
-    # to the nublado updates.
     image: Annotated[
         ContainerImage,
         Field(

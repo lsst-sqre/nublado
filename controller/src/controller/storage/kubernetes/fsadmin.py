@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import datetime
-
 from kubernetes_asyncio.client import ApiClient
 from safir.datetime import current_datetime, parse_isodatetime
 from structlog.stdlib import BoundLogger
@@ -56,7 +54,9 @@ class FSAdminStorage:
         self._metadata = metadata_storage
         self._pod = PodStorage(api_client, logger)
         self._pvc = PersistentVolumeClaimStorage(api_client, logger)
-        self._start_time: datetime.datetime | None = None
+        # We only need this until we update Safir to put something in the
+        # pod's status.start_time field.
+        self._fake_start_time = current_datetime(microseconds=True)
 
     async def create(
         self, objects: FSAdminObjects, timeout: Timeout
@@ -103,8 +103,7 @@ class FSAdminStorage:
             until_not={PodPhase.UNKNOWN, PodPhase.PENDING},
             timeout=timeout,
         )
-        self._start_time = current_datetime(microseconds=True)
-        # If get_status() fails, the check will clear _start_time
+        self._fake_start_time = current_datetime(microseconds=True)
         return await self.get_status(timeout)
 
     async def delete(self, objects: FSAdminObjects, timeout: Timeout) -> None:
@@ -127,7 +126,6 @@ class FSAdminStorage:
         ns = self._metadata.namespace
         pod = objects.pod
         pvcs = objects.pvcs
-        self._start_time = None
         await self._pod.delete(pod.metadata.name, ns, timeout, wait=True)
         for pvc in pvcs:
             await self._pvc.delete(pvc.metadata.name, ns, timeout, wait=True)
@@ -136,8 +134,8 @@ class FSAdminStorage:
         """Return the status of the fsadmin environment.
 
         If it is ready for work, return an FSAdminStatus object with
-        start_time set to the time the pod went into ``Running`` phase
-        and phase set to PodPhase.RUNNING.
+        start_time set to the time the pod was created and phase set to
+        PodPhase.RUNNING.
 
         Otherwise raise an exception: either the pod is missing, or the
         pod is not in ``Running`` phase.
@@ -166,25 +164,11 @@ class FSAdminStorage:
         ns = self._metadata.namespace
         existing_pod = await self._pod.read(self._config.pod_name, ns, timeout)
         if existing_pod is None:
-            self._start_time = None
             raise PodNotFoundError(f"{ns}/{self._config.pod_name}")
         if existing_pod.status.phase != "Running":
-            self._start_time = None
             raise InvalidPodPhaseError(existing_pod.status.phase)
-        if self._start_time is None:
-            # This could happen if the fsadmin pod is running and the
-            # controller is restarted.
-            #
-            # If that should happen...use the pod status start time as
-            # the start time.  It's a little too early, but it's fairly
-            # close, and the point is, you have a running pod and it's
-            # about this old.
+        if existing_pod.status.start_time is None:
+            start_time = self._fake_start_time
+        else:
             start_time = parse_isodatetime(existing_pod.status.start_time)
-            self._logger.warning(
-                "No fsadmin start time found; using pod start time"
-                f" {start_time} in lieu"
-            )
-            self._start_time = start_time
-        return FSAdminStatus(
-            start_time=self._start_time, phase=PodPhase.RUNNING
-        )
+        return FSAdminStatus(start_time=start_time)

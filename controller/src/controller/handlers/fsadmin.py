@@ -3,11 +3,10 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from safir.models import ErrorLocation, ErrorModel
+from safir.models import ErrorModel
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from ..dependencies.context import RequestContext, context_dependency
-from ..exceptions import InvalidPodPhaseError, PodNotFoundError
 from ..models.v1.fsadmin import FSAdminCommand, FSAdminStatus
 
 router = APIRouter(route_class=SlackRouteErrorHandler)
@@ -36,11 +35,7 @@ __all__ = ["router"]
 async def get_fsadmin_status(
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> FSAdminStatus:
-    try:
-        return await context.fsadmin_manager.get_status()
-    except (InvalidPodPhaseError, PodNotFoundError) as exc:
-        exc.location = ErrorLocation.body
-        raise
+    return await context.fsadmin_manager.get_status()
 
 
 @router.post(
@@ -61,12 +56,7 @@ async def create_fsadmin(
     cmd: FSAdminCommand,
     context: Annotated[RequestContext, Depends(context_dependency)],
 ) -> FSAdminStatus:
-    _ = cmd
-    try:
-        return await context.fsadmin_manager.create()
-    except (InvalidPodPhaseError, PodNotFoundError) as exc:
-        exc.location = ErrorLocation.body
-        raise
+    return await context.fsadmin_manager.create()
 
 
 @router.delete(

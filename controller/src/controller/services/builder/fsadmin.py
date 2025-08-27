@@ -82,15 +82,12 @@ class FSAdminBuilder:
 
     def _build_pod(self) -> V1Pod:
         """Construct the pod for fsadmin."""
-        # We do not want to change the original config, but we want to force
-        # all volumes to read-write (if the underlying volume allows) for the
-        # administrative pod.
-
         # Glue in extra volumes.
         volumes = list(self._volumes)
         volumes.extend(self._config.extra_volumes)
         volume_mounts = list(self._volume_mounts)
         volume_mounts.extend(self._config.extra_volume_mounts)
+        # Force all mounts to read/write
         for vol in volume_mounts:
             vol.read_only = False
         wanted_volumes = {m.volume_name for m in volume_mounts}
