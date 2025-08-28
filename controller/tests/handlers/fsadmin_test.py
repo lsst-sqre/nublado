@@ -30,7 +30,7 @@ async def test_create_delete(
     assert r.status_code == 204
 
     # Start fsadmin
-    now = current_datetime(microseconds=True)
+    now = current_datetime()
     r = await client.post("/nublado/fsadmin/v1/service", json={"start": True})
     assert r.status_code == 200
     # Verify that start time looks sane
@@ -166,7 +166,7 @@ async def test_locking(
     assert delete_task.done() is False
 
     # "start" the pod
-    now = current_datetime(microseconds=True)
+    now = current_datetime()
     await mock_kubernetes.patch_namespaced_pod_status(
         pod.metadata.name,
         namespace,

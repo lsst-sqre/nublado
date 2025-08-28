@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import datetime
+
 from kubernetes_asyncio.client import ApiClient
-from safir.datetime import current_datetime, parse_isodatetime
 from structlog.stdlib import BoundLogger
 
 from ...config import FSAdminConfig
@@ -54,9 +55,6 @@ class FSAdminStorage:
         self._metadata = metadata_storage
         self._pod = PodStorage(api_client, logger)
         self._pvc = PersistentVolumeClaimStorage(api_client, logger)
-        # We only need this until we update Safir to put something in the
-        # pod's status.start_time field.
-        self._fake_start_time = current_datetime(microseconds=True)
 
     async def create(
         self, objects: FSAdminObjects, timeout: Timeout
@@ -103,7 +101,6 @@ class FSAdminStorage:
             until_not={PodPhase.UNKNOWN, PodPhase.PENDING},
             timeout=timeout,
         )
-        self._fake_start_time = current_datetime(microseconds=True)
         return await self.get_status(timeout)
 
     async def delete(self, objects: FSAdminObjects, timeout: Timeout) -> None:
@@ -167,8 +164,7 @@ class FSAdminStorage:
             raise PodNotFoundError(f"{ns}/{self._config.pod_name}")
         if existing_pod.status.phase != "Running":
             raise InvalidPodPhaseError(existing_pod.status.phase)
-        if existing_pod.status.start_time is None:
-            start_time = self._fake_start_time
-        else:
-            start_time = parse_isodatetime(existing_pod.status.start_time)
+        start_time = datetime.datetime.fromisoformat(
+            existing_pod.status.start_time
+        )
         return FSAdminStatus(start_time=start_time)

@@ -640,13 +640,13 @@ rpds-py==0.27.1 \
     # via
     #   jsonschema
     #   referencing
-safir==12.0.1 \
-    --hash=sha256:0cdf2e347070418d6a6ac270b3d06d1061986996416393931ebdca248e378b5e \
-    --hash=sha256:ee28a12a5db5e185f92d46325abee97a1a7314f181d9dcc8172d9627813e790e
+safir==12.1.1 \
+    --hash=sha256:4b9216aa0ff66d2ecd7eaf7f0f1d47f695033a90f185c10fe5dda9558d4ff16c \
+    --hash=sha256:c639a5cf04993b128d3d51ce93efe59c01e2b0c50cb1fb70620f0c1a19aaef80
     # via rubin-nublado-purger (purger/pyproject.toml)
-safir-logging==12.0.1 \
-    --hash=sha256:bb43052815d9b40d3b4640fa3a8547ac8abf24f586fa0ab5a9bdfe2966629e9d \
-    --hash=sha256:cc43c83d24226d57bc3652bce5097ebfb1bf730e0f5b871fef26bcece3c46af5
+safir-logging==12.1.1 \
+    --hash=sha256:cfcd219c6a5829bff54279cf20793854be86fb8a44443bbbe6deca3af0ef58e7 \
+    --hash=sha256:f42820fe332a756c7293c3c509cf0b1f2c7d74969761e343792855b319b7068c
     # via safir
 sentry-sdk==2.35.1 \
     --hash=sha256:13b6d6cfdae65d61fe1396a061cf9113b20f0ec1bcb257f3826b88f01bb55720 \
