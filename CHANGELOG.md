@@ -6,10 +6,10 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
-<a id='changelog-9.0.0'></a>
-## 9.0.0 (2025-08-28)
+<a id='changelog-8.13.0'></a>
+## 8.13.0 (2025-08-28)
 
-### Backwards-incompatible changes
+### New features
 
 - Added Nublado controller route to control administrative filesystem pod.
     This allows a user with an admin token to spawn a pod that mounts user file systems with administrative privileges.
