@@ -19,5 +19,7 @@ pytest-cov
 # Changelog mgt
 scriv
 
-# Controller has some dependency that pins cachetools back, so...
+# Controller has some dependency that pins cachetools and markdown-it back,
+# so...
 cachetools>=5,<6
+markdown-it-py>=3,<4
