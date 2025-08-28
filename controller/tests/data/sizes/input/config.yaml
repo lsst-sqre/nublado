@@ -18,3 +18,7 @@ images:
   numReleases: 1
   numWeeklies: 2
   numDailies: 3
+fsadmin:
+  image:
+    repository: ghcr.io/lsst-sqre/nublado-fsadmin
+    tag: 9.0.0

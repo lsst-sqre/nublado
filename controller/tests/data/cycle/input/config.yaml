@@ -18,3 +18,7 @@ images:
   cycle: 50
   aliasTags:
     - latest_c0050
+fsadmin:
+  image:
+    repository: ghcr.io/lsst-sqre/nublado-fsadmin
+    tag: 9.0.0

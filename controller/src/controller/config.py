@@ -55,6 +55,7 @@ __all__ = [
     "ContainerImage",
     "DisabledFileserverConfig",
     "EnabledFileserverConfig",
+    "FSAdminConfig",
     "FileserverConfig",
     "HostPathVolumeSource",
     "LabConfig",
@@ -494,6 +495,121 @@ class EnabledFileserverConfig(FileserverConfig):
                 " The ``containerPath`` settings represent the path visible"
                 " over the WebDAV protocol."
             ),
+        ),
+    ] = []
+
+
+class FSAdminConfig(BaseModel):
+    """Configuration for filesystem administration environment."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    affinity: Annotated[
+        Affinity | None,
+        Field(
+            title="Affinity rules",
+            description="Node and pod affinity rules for file server pods",
+        ),
+    ] = None
+
+    extra_annotations: Annotated[
+        dict[str, str],
+        Field(
+            title="Extra annotations",
+            description=(
+                "Extra annotations to add to all user file server ``Job`` and"
+                " ``Pod`` Kubernetes resources"
+            ),
+        ),
+    ] = {}
+
+    extra_volumes: Annotated[
+        list[VolumeConfig],
+        Field(
+            title="Extra volumes",
+            description=(
+                "Additional volumes available to mount inside the fsadmin"
+                " pod. Inclusion in this list does not mean that they will"
+                " be mounted. They must separately be listed under"
+                " ``extravolumeMounts``."
+            ),
+        ),
+    ] = []
+
+    extra_volume_mounts: Annotated[
+        list[VolumeMountConfig],
+        Field(
+            title="Extra mounted volumes",
+            description=(
+                "Additional volumes to mount inside the fsadmin pod."
+            ),
+        ),
+    ] = []
+
+    image: Annotated[
+        ContainerImage,
+        Field(
+            title="fsadmin Docker image",
+            description="Docker image to run as fsadmin",
+        ),
+    ]
+
+    mount_prefix: Annotated[
+        str | None,
+        Field(
+            title="Prefix for fsadmin mounts",
+            description=(
+                "If given, the mounts will be collected under this directory."
+            ),
+            examples=["/mnt"],
+        ),
+    ] = None
+
+    node_selector: Annotated[
+        dict[str, str],
+        Field(
+            title="File server node selector",
+            description=(
+                "Labels that must be present on Kubernetes nodes for any"
+                " fsadmin pods to be scheduled there"
+            ),
+            examples=[{"disktype": "ssd"}],
+        ),
+    ] = {}
+
+    pod_name: Annotated[
+        str,
+        Field(
+            title="fsadmin pod name",
+            description="Pod/container name for fsadmin",
+        ),
+    ] = "fsadmin"
+
+    resources: Annotated[
+        LabResources | None,
+        Field(
+            title="Resource requests and limits",
+            description=(
+                "Kubernetes resource requests and limits for fsadmin pods"
+            ),
+        ),
+    ] = None
+
+    timeout: Annotated[
+        HumanTimedelta,
+        Field(
+            title="Creation timeout",
+            description=(
+                "How long to allow for fsadmin pod to be created/deleted"
+            ),
+        ),
+    ] = timedelta(minutes=2)
+
+    tolerations: Annotated[
+        list[Toleration],
+        Field(
+            title="File server pod tolerations",
+            description="Kubernetes tolerations for fsadmin pods",
         ),
     ] = []
 
@@ -1250,6 +1366,11 @@ class Config(BaseSettings):
         DisabledFileserverConfig | EnabledFileserverConfig,
         Field(title="User file server configuration"),
     ] = DisabledFileserverConfig()
+
+    fsadmin: Annotated[
+        FSAdminConfig,
+        Field(title="Filesystem admin configuration"),
+    ]
 
     images: Annotated[
         PrepullerConfig,

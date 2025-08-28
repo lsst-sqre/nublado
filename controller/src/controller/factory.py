@@ -19,9 +19,11 @@ from .events import LabEvents
 from .exceptions import NotConfiguredError
 from .models.v1.prepuller import DockerSourceOptions, GARSourceOptions
 from .services.builder.fileserver import FileserverBuilder
+from .services.builder.fsadmin import FSAdminBuilder
 from .services.builder.lab import LabBuilder
 from .services.builder.prepuller import PrepullerBuilder
 from .services.fileserver import FileserverManager
+from .services.fsadmin import FSAdminManager
 from .services.image import ImageService
 from .services.lab import LabManager
 from .services.prepuller import Prepuller
@@ -32,6 +34,7 @@ from .storage.docker import DockerStorageClient
 from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.gar import GARStorageClient
 from .storage.kubernetes.fileserver import FileserverStorage
+from .storage.kubernetes.fsadmin import FSAdminStorage
 from .storage.kubernetes.lab import LabStorage
 from .storage.kubernetes.node import NodeStorage
 from .storage.kubernetes.pod import PodStorage
@@ -72,6 +75,9 @@ class ProcessContext:
 
     lab_manager: LabManager
     """State management for user lab pods."""
+
+    fsadmin_manager: FSAdminManager
+    """State management for fsadmin."""
 
     _fileserver_manager: FileserverManager | None
     """State management for user file servers."""
@@ -150,8 +156,25 @@ class ProcessContext:
                 slack_client=slack_client,
                 logger=logger,
             )
-
         metadata_storage = MetadataStorage(config.metadata_path)
+        fsadmin_manager = FSAdminManager(
+            config=config.fsadmin,
+            fsadmin_builder=FSAdminBuilder(
+                config=config.fsadmin,
+                volumes=config.lab.volumes,
+                volume_mounts=config.lab.volume_mounts,
+                logger=logger,
+            ),
+            fsadmin_storage=FSAdminStorage(
+                config=config.fsadmin,
+                metadata_storage=metadata_storage,
+                api_client=kubernetes_client,
+                logger=logger,
+            ),
+            slack_client=slack_client,
+            logger=logger,
+        )
+
         image_service = ImageService(
             config=config.images,
             node_selector=config.lab.node_selector,
@@ -194,6 +217,7 @@ class ProcessContext:
             kubernetes_client=kubernetes_client,
             prepuller=prepuller,
             lab_manager=lab_manager,
+            fsadmin_manager=fsadmin_manager,
             _fileserver_manager=fileserver_manager,
             background=BackgroundTaskManager(
                 config=config,

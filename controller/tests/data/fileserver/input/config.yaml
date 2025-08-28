@@ -89,3 +89,7 @@ fileserver:
       volumeName: project
     - containerPath: /scratch
       volumeName: scratch
+fsadmin:
+  image:
+    repository: ghcr.io/lsst-sqre/nublado-fsadmin
+    tag: 9.0.0

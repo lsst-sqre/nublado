@@ -26,6 +26,10 @@ The controller is also responsible for constructing the spawner form for the Jup
 To supplement the JupyterLab interface, which only allows simple file upload and download into the user's home file space, the Nublado controller can optionally also create WebDAV file servers for the user that mount the same file systems that user lab pods mount.
 This allows users to use the WebDAV clients built into most operating systems to more readily copy files to and from the file space underlying their lab.
 
+There is additionally a mechanism to allow starting and stopping of an administrative file server.
+This can be useful if a user's files are owned by the wrong user, or to investigate out-of-storage-quota complaints and determine what directories are causing the problem.
+This is not exposed via WebDAV or any Ingresses; rather, an administrator is expected to spawn an administrative file server and connect to it with ``kubectl exec``.
+
 Since the lab images used by Rubin Observatory are quite large and pulling an image can therefore take a considerable amount of time, the Nublado controller prepulls a configured set of images on every cluster node.
 This set of images is the same as those available as radio button (not dropdown) options in the user-facing spawner form.
 
@@ -65,6 +69,16 @@ Here is more detail showing a user's file server, omitting the other components:
 .. diagrams:: fileserver.py
 
 Not shown here is that the ``Ingress`` resource is created with a ``GafaelfawrIngress`` custom resource so that access to the file server is protected by Gafaelfawr, similar to the JupyterHub ``Ingress``.
+
+Administrative file server
+--------------------------
+
+Here is more detail showing the administrative file server, omitting the other components:
+
+.. diagrams:: fsadmin.py
+
+Note that there are no Ingresses connecting the administrative file server to the network.
+An administrative user is expected to have access to ``kubectl exec`` in order to access the administrative file server.
 
 Sequence diagrams
 =================

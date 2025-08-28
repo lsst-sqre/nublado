@@ -17,6 +17,7 @@ from ..config import Config
 from ..exceptions import NotConfiguredError
 from ..factory import Factory, ProcessContext
 from ..services.fileserver import FileserverManager
+from ..services.fsadmin import FSAdminManager
 from ..services.image import ImageService
 from ..services.lab import LabManager
 
@@ -51,6 +52,9 @@ class RequestContext:
 
     lab_manager: LabManager
     """User lab state."""
+
+    fsadmin_manager: FSAdminManager
+    """Filesystem admin state."""
 
     _fileserver_manager: FileserverManager | None
     """User fileserver state."""
@@ -103,6 +107,7 @@ class ContextDependency:
             factory=factory,
             image_service=self._process_context.image_service,
             lab_manager=self._process_context.lab_manager,
+            fsadmin_manager=self._process_context.fsadmin_manager,
             _fileserver_manager=fileserver_manager,
         )
 

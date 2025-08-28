@@ -1,0 +1,62 @@
+logLevel: DEBUG
+profile: development
+lab:
+  namespacePrefix: userlabs
+  sizes:
+    - size: small
+      cpu: 1.0
+      memory: 3Gi
+  volumes:
+    - name: home
+      source:
+        type: nfs
+        server: 10.13.105.122
+        serverPath: /share1/home
+    - name: project
+      source:
+        type: hostPath
+        path: /share1/project
+    - name: extra
+      source:
+        type: nfs
+        server: 10.13.105.122
+        serverPath: /share1/extra
+    - name: scratch
+      source:
+        type: persistentVolumeClaim
+        storageClassName: sdf-home
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 1Gi
+  volumeMounts:
+    - containerPath: /home
+      volumeName: home
+    - containerPath: /project
+      readOnly: true
+      volumeName: project
+    - containerPath: /extra
+      volumeName: extra
+    - containerPath: /random
+      volumeName: scratch
+images:
+  source:
+    type: docker
+    registry: lighthouse.ceres
+    repository: library/sketchbook
+fsadmin:
+  image:
+    repository: ghcr.io/lsst-sqre/nublado-fsadmin
+    tag: 9.0.0
+  mountPrefix: /user-filesystems
+  extraVolumes:
+    - name: firefly
+      source:
+        type: nfs
+        server: 10.13.105.122
+        serverPath: /share1/firefly
+  extraVolumeMounts:
+    - containerPath: /firefly
+      volumeName: firefly
+

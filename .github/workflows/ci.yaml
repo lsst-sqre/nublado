@@ -228,6 +228,9 @@ jobs:
           - name: "jupyterlab-base"
             latest: true
             gar: false
+          - name: "fsadmin"
+            latest: false
+            gar: false
 
     steps:
       - uses: actions/checkout@v5

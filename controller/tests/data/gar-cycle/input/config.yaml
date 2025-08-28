@@ -18,3 +18,7 @@ images:
   numWeeklies: 3
   numDailies: 0
   cycle: 50
+fsadmin:
+  image:
+    repository: ghcr.io/lsst-sqre/nublado-fsadmin
+    tag: 9.0.0
