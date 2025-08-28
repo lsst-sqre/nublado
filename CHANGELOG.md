@@ -6,6 +6,20 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.13.0'></a>
+## 8.13.0 (2025-08-28)
+
+### New features
+
+- Added Nublado controller route to control administrative filesystem pod.
+    This allows a user with an admin token to spawn a pod that mounts user file systems with administrative privileges.
+	That pod can then be entered by the administrator with `kubectl exec` for remedial or forensic purposes.
+	The pod can also be deleted through this route, and the status of the pod can be queried.
+
+### Bug fixes
+
+- ipympl has an implicit dependency on ipython-genutils; add it.
+
 <a id='changelog-8.12.2'></a>
 ## 8.12.2 (2025-08-15)
 

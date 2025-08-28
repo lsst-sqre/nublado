@@ -44,6 +44,8 @@ def objects_to_dicts(
         # These attributes intentionally may change on every test run and thus
         # should not be compared.
         serialized["metadata"]["resourceVersion"] = None
+        if "status" in serialized and serialized["status"] is not None:
+            serialized["status"]["startTime"] = None
 
         results.append(strip_none(serialized))
     return results
