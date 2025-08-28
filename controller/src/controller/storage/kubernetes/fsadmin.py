@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import datetime
-
 from kubernetes_asyncio.client import ApiClient
 from structlog.stdlib import BoundLogger
 
@@ -164,7 +162,4 @@ class FSAdminStorage:
             raise PodNotFoundError(f"{ns}/{self._config.pod_name}")
         if existing_pod.status.phase != "Running":
             raise InvalidPodPhaseError(existing_pod.status.phase)
-        start_time = datetime.datetime.fromisoformat(
-            existing_pod.status.start_time
-        )
-        return FSAdminStatus(start_time=start_time)
+        return FSAdminStatus(start_time=existing_pod.status.start_time)

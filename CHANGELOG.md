@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.13.1'></a>
+## 8.13.1 (2025-08-28)
+
+### Other changes
+
+- Adopt updated Safir.
+
 <a id='changelog-8.13.0'></a>
 ## 8.13.0 (2025-08-28)
 

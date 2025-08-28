@@ -29,7 +29,7 @@ dependencies = [
     "pydantic>2",
     "pydantic-settings",
     "PyYAML",
-    "safir[kubernetes]>=12.1.1",
+    "safir[kubernetes]>=12.1.2",
     "semver",
     "sse-starlette",
     "uvicorn[standard]",
