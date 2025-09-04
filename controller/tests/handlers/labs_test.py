@@ -944,7 +944,7 @@ async def test_extra_annotations(
 async def test_quota_no_spawn(client: AsyncClient) -> None:
     """Check that spawning is denied for a user blocked by quota."""
     lab = read_input_lab_specification_json("base", "lab-specification")
-    token, user = get_no_spawn_user()
+    _, user = get_no_spawn_user()
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",

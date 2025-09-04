@@ -13,6 +13,7 @@
 mypy
 
 # Testing
+anys
 asgi-lifespan
 coverage[toml]
 httpx-sse

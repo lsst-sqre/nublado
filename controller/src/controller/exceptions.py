@@ -20,6 +20,7 @@ from safir.slack.blockkit import (
     SlackTextField,
     SlackWebException,
 )
+from safir.slack.sentry import SentryEventInfo
 
 from .models.v1.lab import LabSize
 
@@ -199,6 +200,23 @@ class ControllerTimeoutError(SlackException):
             fields.append(SlackTextField(heading="User", text=self.user))
         return SlackMessage(message=str(self), fields=fields)
 
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        """Return a collection of Sentry event metadata about the exception.
+
+        Returns
+        -------
+        safir.slack.sentry.SentryEventInfo
+            Sentry event metadata for use with \
+            `~safir.sentry.before_send_handler`
+        """
+        info = super().to_sentry()
+        started_at = format_datetime_for_logging(self.started_at)
+        info.contexts.setdefault("info", {})["started_at"] = started_at
+        if self.user:
+            info.username = self.user
+        return info
+
 
 class DockerRegistryError(SlackWebException):
     """An API call to a Docker Registry failed."""
@@ -245,6 +263,22 @@ class DuplicateObjectError(SlackException):
         obj = f"{self.kind} {self.namespace}" if self.namespace else self.kind
         message.blocks.append(SlackTextBlock(heading="Object", text=obj))
         return message
+
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        """Return a collection of Sentry event metadata about the exception.
+
+        Returns
+        -------
+        safir.slack.sentry.SentryEventInfo
+            Sentry event metadata for use with \
+            `~safir.sentry.before_send_handler`
+        """
+        info = super().to_sentry()
+        info.tags["kind"] = self.kind
+        if self.namespace:
+            info.tags["namespace"] = self.namespace
+        return info
 
 
 class GafaelfawrParseError(SlackException):
@@ -421,6 +455,29 @@ class KubernetesError(SlackException):
             message.blocks.append(code)
         return message
 
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        """Return a collection of Sentry event metadata about the exception.
+
+        Returns
+        -------
+        safir.slack.sentry.SentryEventInfo
+            Sentry event metadata for use with \
+            `~safir.sentry.before_send_handler`
+        """
+        info = super().to_sentry()
+        if self.status:
+            info.tags["status"] = str(self.status)
+        if self.name:
+            info.tags["name"] = self.name
+        if self.kind:
+            info.tags["kind"] = self.kind
+        if self.namespace:
+            info.tags["namespace"] = self.namespace
+        if self.body:
+            info.attachments["body"] = self.body
+        return info
+
     def _summary(self) -> str:
         """Summarize the exception.
 
@@ -508,6 +565,24 @@ class MissingObjectError(SlackException):
             obj = self.kind
         message.blocks.append(SlackTextBlock(heading="Object", text=obj))
         return message
+
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        """Return a collection of Sentry event metadata about the exception.
+
+        Returns
+        -------
+        safir.slack.sentry.SentryEventInfo
+            Sentry event metadata for use with \
+            `~safir.sentry.before_send_handler`
+        """
+        info = super().to_sentry()
+        info.tags["kind"] = self.kind
+        if self.name:
+            info.tags["name"] = self.name
+        if self.namespace:
+            info.tags["namespace"] = self.namespace
+        return info
 
 
 class MissingSecretError(MissingObjectError):

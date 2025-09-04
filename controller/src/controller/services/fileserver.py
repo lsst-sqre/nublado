@@ -7,6 +7,7 @@ import contextlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+import sentry_sdk
 from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
@@ -162,7 +163,7 @@ class FileserverManager:
                     await self._create_file_server(user, timeout)
             except Exception as e:
                 logger.exception("File server creation failed")
-                await self._maybe_post_slack_exception(e, user.username)
+                await self._maybe_post_exception(e, user.username)
                 logger.info("Cleaning up orphaned file server objects")
                 await self._delete_file_server(user.username)
                 raise
@@ -373,7 +374,7 @@ class FileserverManager:
                             await self.delete(username)
             except Exception as e:
                 self._logger.exception("Error watching file server pod phase")
-                await self._maybe_post_slack_exception(e)
+                await self._maybe_post_exception(e)
                 await asyncio.sleep(1)
 
     async def _create_file_server(
@@ -428,13 +429,16 @@ class FileserverManager:
         except Exception as e:
             msg = "Error deleting file server"
             self._logger.exception(msg, user=username)
-            await self._maybe_post_slack_exception(e, username)
+            await self._maybe_post_exception(e, username)
             raise
 
-    async def _maybe_post_slack_exception(
+    async def _maybe_post_exception(
         self, exc: Exception, username: str | None = None
     ) -> None:
-        """Post an exception to Slack if Slack reporting is configured.
+        """Post an exception to an external service.
+
+        This will post the exception to Slack if Slack reporting is configured
+        and Sentry if Sentry is enabled.
 
         Parameters
         ----------
@@ -443,11 +447,14 @@ class FileserverManager:
         username
             Username that triggered the exception, if known.
         """
-        if not self._slack:
-            return
         if isinstance(exc, SlackException):
             if username:
                 exc.user = username
+        sentry_sdk.capture_exception(exc)
+
+        if not self._slack:
+            return
+        if isinstance(exc, SlackException):
             await self._slack.post_exception(exc)
         else:
             await self._slack.post_uncaught_exception(exc)
