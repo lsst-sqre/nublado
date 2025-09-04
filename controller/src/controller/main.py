@@ -15,6 +15,7 @@ from safir.fastapi import ClientRequestError, client_request_error_handler
 from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
+from safir.sentry import initialize_sentry
 from safir.slack.webhook import SlackRouteErrorHandler
 
 from .dependencies.config import config_dependency
@@ -30,6 +31,8 @@ from .handlers import (
 )
 
 __all__ = ["create_app"]
+
+initialize_sentry()
 
 
 def create_app(*, load_config: bool = True) -> FastAPI:

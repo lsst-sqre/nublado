@@ -36,6 +36,9 @@ dependencies = [
 ]
 dynamic = ["version"]
 
+[tool.uv.sources]
+safir = { git = "https://github.com/lsst-sqre/safir.git", branch = "tickets/DM-52391/sentry-improvements", subdirectory = "safir" }
+
 [project.scripts]
 controller = "controller.cli:main"
 
