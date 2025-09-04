@@ -36,6 +36,9 @@ dependencies = [
 ]
 dynamic = ["version"]
 
+[tool.uv.sources]
+safir = { git = "https://github.com/lsst-sqre/safir.git", branch = "tickets/DM-52391/slack-sentry-exceptions"}
+
 [project.scripts]
 controller = "controller.cli:main"
 
