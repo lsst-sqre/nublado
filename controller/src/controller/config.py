@@ -29,7 +29,6 @@ from safir.pydantic import HumanTimedelta
 
 from .constants import (
     KUBERNETES_NAME_PATTERN,
-    LIMIT_TO_REQUEST_RATIO,
     METADATA_PATH,
     RESERVED_ENV,
     RESERVED_PATHS,
@@ -41,13 +40,13 @@ from .models.domain.kubernetes import (
     Toleration,
     VolumeAccessMode,
 )
-from .models.v1.lab import LabResources, LabSize, ResourceQuantity
+from .models.v1.lab import LabResources, LabSize
 from .models.v1.prepuller import (
     DockerSourceOptions,
     GARSourceOptions,
     PrepullerOptions,
 )
-from .units import memory_to_bytes
+from .units import bytes_to_si
 
 __all__ = [
     "BaseVolumeSource",
@@ -655,11 +654,11 @@ class PrepullerConfig(PrepullerOptions):
 class LabSizeDefinition(BaseModel):
     """Possible size of lab.
 
-    This will be used as the resource limits in Kubernetes, meaning that using
-    more than this amount of CPU will result in throttling and more than this
-    amount of memory may result in the lab being killed with an out-of-memory
-    error. Requests will be less than this, adjusted by
-    ``LIMIT_TO_REQUEST_RATIO``.
+    This will be used to set resource limits and requests in Kubernetes,
+    meaning that setting a lower CPU request than a limit will result in
+    throttling, and setting a lower memory request than a limit may result in
+    the lab being killed with an out-of-memory error before it has reached its
+    limit.
     """
 
     model_config = ConfigDict(
@@ -675,40 +674,18 @@ class LabSizeDefinition(BaseModel):
         ),
     ]
 
-    cpu: Annotated[
-        float,
+    resources: Annotated[
+        LabResources,
         Field(
-            title="CPU",
-            description="Number of CPU cores",
-            examples=[0.5],
-        ),
-    ]
-
-    memory: Annotated[
-        str,
-        Field(
-            title="Memory",
-            description="Amount of memory in bytes (SI suffixes allowed)",
-            examples=["1536MiB"],
+            title="Kubernetes resources",
+            description="Kubernetes memory and CPU requests and limits",
         ),
     ]
 
     def __str__(self) -> str:
-        return f"{self.size.value.title()} ({self.cpu} CPU, {self.memory} RAM)"
-
-    @property
-    def memory_bytes(self) -> int:
-        """Amount of memory in bytes."""
-        return memory_to_bytes(self.memory)
-
-    def to_lab_resources(self) -> LabResources:
-        """Convert to the equivalent lab resources model."""
-        return LabResources(
-            limits=ResourceQuantity(cpu=self.cpu, memory=self.memory_bytes),
-            requests=ResourceQuantity(
-                cpu=self.cpu / LIMIT_TO_REQUEST_RATIO,
-                memory=int(self.memory_bytes / LIMIT_TO_REQUEST_RATIO),
-            ),
+        return (
+            f"{self.size.value.title()} ({self.resources.limits.cpu} CPU,"
+            f" {bytes_to_si(self.resources.limits.memory)} RAM)"
         )
 
 

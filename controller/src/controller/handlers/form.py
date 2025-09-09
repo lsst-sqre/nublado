@@ -47,7 +47,8 @@ async def get_user_lab_form(
         sizes = [
             s
             for s in config.lab.sizes
-            if s.memory_bytes <= quota.memory_bytes and s.cpu <= quota.cpu
+            if s.resources.limits.memory <= quota.memory_bytes
+            and s.resources.limits.cpu <= quota.cpu
         ]
         if not sizes or not quota.spawn:
             return templates.TemplateResponse(

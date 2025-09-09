@@ -167,17 +167,37 @@ lab:
       secretKey: db-password
   sizes:
     - size: small
-      cpu: 1.0
-      memory: 3Gi
+      resources:
+        limits:
+          cpu: 1.0
+          memory: 3Gi
+        requests:
+          cpu: 0.25
+          memory: 0.75Gi
     - size: medium
-      cpu: 2.0
-      memory: 6Gi
+      resources:
+        limits:
+          cpu: 2.0
+          memory: 6Gi
+        requests:
+          cpu: 0.5
+          memory: 1.5Gi
     - size: large
-      cpu: 9.0
-      memory: 27Gi
+      resources:
+        limits:
+          cpu: 9.0
+          memory: 27Gi
+        requests:
+          cpu: 2.25
+          memory: 6.7Gi
     - size: huge
-      cpu: 12.0
-      memory: 32Gi
+      resources:
+        limits:
+          cpu: 12.0
+          memory: 32Gi
+        requests:
+          cpu: 3
+          memory: 8Gi
   tolerations:
     - effect: NoSchedule
       key: some-toleration

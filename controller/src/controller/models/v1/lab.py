@@ -15,7 +15,7 @@ from pydantic import (
 )
 
 from ...constants import DROPDOWN_SENTINEL_VALUE, USERNAME_REGEX
-from ...units import memory_to_bytes
+from ...units import cpu_to_cores, memory_to_bytes
 from ..domain.gafaelfawr import GafaelfawrUserInfo, UserGroup
 from ..domain.kubernetes import PodPhase
 from ..domain.rspimage import RSPImage
@@ -484,9 +484,16 @@ class ResourceQuantity(BaseModel):
         float,
         Field(
             title="CPU",
-            description="Number of CPU cores",
-            examples=[1.5],
+            description=(
+                "Number of CPU cores. Accepts any valid Kubernetes CPU"
+                " resource specification, which is either a whole number of"
+                " millicores suffixed with m, like 500m, or a decimal number"
+                " representing whole cores, with up to 3 decimal places, like"
+                " 1.234"
+            ),
+            examples=[1.5, "500m", "1.5"],
         ),
+        BeforeValidator(cpu_to_cores),
     ]
 
     memory: Annotated[
@@ -499,11 +506,9 @@ class ResourceQuantity(BaseModel):
                 " the suffix with ``i`` to indicate powers of two (1024 rather"
                 " than 1000) if that is desired."
             ),
-            examples=[1073741824, "1Gi"],
+            examples=[1073741824, "1Gi", "1073741824"],
         ),
-        BeforeValidator(
-            lambda v: memory_to_bytes(v) if isinstance(v, str) else v
-        ),
+        BeforeValidator(memory_to_bytes),
     ]
 
 
@@ -533,6 +538,24 @@ class LabResources(BaseModel):
             ),
         ),
     ]
+
+    @model_validator(mode="after")
+    def validate_cpu(self) -> Self:
+        """Make sure valid CPU resource amounts were specified."""
+        if self.requests.cpu > self.limits.cpu:
+            raise ValueError(
+                "requests.cpu must be less than or equal to limits.cpu"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_memory(self) -> Self:
+        """Make sure valid memory resource amounts were specified."""
+        if self.requests.memory > self.limits.memory:
+            raise ValueError(
+                "requests.memory must be less than or equal to limits.memory"
+            )
+        return self
 
     def to_kubernetes(self) -> V1ResourceRequirements:
         """Convert to the Kubernetes object representation."""

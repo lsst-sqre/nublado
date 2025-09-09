@@ -9,6 +9,7 @@ from controller.constants import DROPDOWN_SENTINEL_VALUE
 from controller.models.v1.lab import (
     ImageClass,
     LabRequestOptions,
+    LabResources,
     LabSize,
     ResourceQuantity,
 )
@@ -188,4 +189,26 @@ def test_lab_request_options() -> None:
                 "size": "medium",
                 "enable_debug": "on",
             }
+        )
+
+
+def test_cpu_resource_validation() -> None:
+    with pytest.raises(ValueError, match="requests.cpu must be less than"):
+        # Ignore type checking here because even though the
+        # ResourceQuantity.memory field must eventually get parsed into an int,
+        # its validator can accept anything.
+        LabResources(
+            requests=ResourceQuantity(cpu=1.1, memory="1Gi"),  # type: ignore[arg-type]
+            limits=ResourceQuantity(cpu=1, memory="1Gi"),  # type: ignore[arg-type]
+        )
+
+
+def test_memory_resource_validation() -> None:
+    with pytest.raises(ValueError, match="requests.memory must be less than"):
+        # Ignore type checking here because even though the
+        # ResourceQuantity.memory field must eventually get parsed into an int,
+        # its validator can accept anything.
+        LabResources(
+            requests=ResourceQuantity(cpu=1, memory="1.1Gi"),  # type: ignore[arg-type]
+            limits=ResourceQuantity(cpu=1, memory="1Gi"),  # type: ignore[arg-type]
         )

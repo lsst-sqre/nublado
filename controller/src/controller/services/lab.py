@@ -296,10 +296,13 @@ class LabManager:
             raise InvalidLabSizeError(spec.options.size) from e
         if user.quota and user.quota.notebook:
             quota = user.quota.notebook
-            if quota.memory_bytes < size.memory_bytes or quota.cpu < size.cpu:
+            if (
+                quota.memory_bytes < size.resources.limits.memory
+                or quota.cpu < size.resources.limits.cpu
+            ):
                 msg = "Insufficient quota to spawn requested lab"
                 raise InsufficientQuotaError(msg)
-        resources = size.to_lab_resources()
+        resources = size.resources
 
         # Check to see if the lab already exists. If so, but it is in a failed
         # state, we will delete the previous lab first.
@@ -1444,7 +1447,9 @@ class _LabMonitor:
                     username=self._username,
                     image=operation.state.options.image,
                     cpu_limit=operation.state.resources.limits.cpu,
+                    cpu_request=operation.state.resources.requests.cpu,
                     memory_limit=operation.state.resources.limits.memory,
+                    memory_request=operation.state.resources.requests.memory,
                     elapsed=elapsed,
                 )
                 await self._events.spawn_failure.publish(failure_event)
@@ -1455,7 +1460,9 @@ class _LabMonitor:
                     username=self._username,
                     image=operation.state.options.image,
                     cpu_limit=operation.state.resources.limits.cpu,
+                    cpu_request=operation.state.resources.requests.cpu,
                     memory_limit=operation.state.resources.limits.memory,
+                    memory_request=operation.state.resources.requests.memory,
                     elapsed=elapsed,
                 )
                 await self._events.spawn_success.publish(success_event)

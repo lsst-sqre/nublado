@@ -10,8 +10,13 @@ lab:
       value: some-value
   sizes:
     - size: small
-      cpu: 1.0
-      memory: 3Gi
+      resources:
+        limits:
+          cpu: 1.0
+          memory: 3Gi
+        requests:
+          cpu: 0.25
+          memory: 0.75Gi
 images:
   source:
     type: docker

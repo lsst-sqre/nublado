@@ -11,7 +11,6 @@ __all__ = [
     "GROUPNAME_REGEX",
     "KUBERNETES_NAME_PATTERN",
     "KUBERNETES_REQUEST_TIMEOUT",
-    "LIMIT_TO_REQUEST_RATIO",
     "MEMORY_TO_TMP_SIZE_RATIO",
     "METADATA_PATH",
     "PREPULLER_POD_TIMEOUT",
@@ -65,17 +64,6 @@ to the lab spammed alert messages about missing files, presumably from the
 JavaScript calls to the lab failing. Kubespawner uses a grace period of 1s and
 appears to assume the lab will not do anything useful in repsonse to SIGTERM,
 so copy its behavior.
-"""
-
-LIMIT_TO_REQUEST_RATIO = 4.0
-"""Ratio of lab resource limits to requests.
-
-The controller configuration only includes the Kubernetes limits. The resource
-requests, which are the resources that must be aviailable for the lab to spawn
-and which are used to determine autoscaling, are determined by dividing the
-limits by this factor. Another way of looking at this value is that it's the
-overcommit factor for labs, assuming many labs will not use their full
-available resources.
 """
 
 MEMORY_TO_TMP_SIZE_RATIO = 4.0

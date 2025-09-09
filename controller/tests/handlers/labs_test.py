@@ -155,8 +155,10 @@ async def test_lab_start_stop(
             {
                 "username": user.username,
                 "image": lab_state.options.image,
-                "cpu_limit": size.cpu,
-                "memory_limit": size.memory_bytes,
+                "cpu_limit": size.resources.limits.cpu,
+                "cpu_request": size.resources.requests.cpu,
+                "memory_limit": size.resources.limits.memory,
+                "memory_request": size.resources.requests.memory,
                 "elapsed": ANY,
             }
         ]
@@ -798,8 +800,10 @@ async def test_spawn_errors(
     failure = {
         "username": user.username,
         "image": ANY,
-        "cpu_limit": size.cpu,
-        "memory_limit": size.memory_bytes,
+        "cpu_limit": size.resources.limits.cpu,
+        "cpu_request": size.resources.requests.cpu,
+        "memory_limit": size.resources.limits.memory,
+        "memory_request": size.resources.requests.memory,
         "elapsed": ANY,
     }
     failure_events = [failure for e in possible_errors]
