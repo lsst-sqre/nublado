@@ -262,7 +262,7 @@ jobs:
         if: ${{ matrix.container.gar }}
         with:
           images: |
-            us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/inithome
+            us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/${{ matrix.container.name }}
           tags: ${{ matrix.container.latest && format('type=raw,{0},latest',steps.build-container.outputs.tag) || format('type=raw,{0}',steps.build-container.outputs.tag) }}
 
       - name: Build and push to GAR
