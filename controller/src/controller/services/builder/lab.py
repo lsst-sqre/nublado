@@ -326,7 +326,7 @@ class LabBuilder:
         # Add standard environment variables.
         size = self._config.get_size_definition(lab.options.size)
         activity = str(int(self._config.activity_interval.total_seconds()))
-        resources = size.to_lab_resources()
+        resources = size.resources
         env.update(
             {
                 # We would like to deprecate this, following KubeSpawner, but
@@ -520,7 +520,7 @@ class LabBuilder:
     ) -> V1Pod:
         """Construct the user's lab pod."""
         size = self._config.get_size_definition(lab.options.size)
-        resources = size.to_lab_resources()
+        resources = size.resources
 
         # Construct the pull secrets.
         pull_secrets = None
@@ -532,7 +532,7 @@ class LabBuilder:
         metadata.annotations.update(self._build_pod_annotations(user))
 
         size = self._config.get_size_definition(lab.options.size)
-        resources = size.to_lab_resources()
+        resources = size.resources
 
         # Gather the volume and volume mount definitions.
         mounted_volumes = [
@@ -937,8 +937,14 @@ class LabBuilder:
             not, returns ``LabSize.CUSTOM``.
         """
         limits = resources.limits
+        requests = resources.requests
+
         for definition in self._config.sizes:
-            memory = definition.memory_bytes
-            if definition.cpu == limits.cpu and memory == limits.memory:
+            if (
+                definition.resources.limits.cpu == limits.cpu
+                and definition.resources.requests.cpu == requests.cpu
+                and definition.resources.limits.memory == limits.memory
+                and definition.resources.requests.memory == requests.memory
+            ):
                 return definition.size
         return LabSize.CUSTOM

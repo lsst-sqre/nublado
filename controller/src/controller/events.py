@@ -51,10 +51,22 @@ class LabMetadata(EventPayload):
         description="Kubernetes pod limit of CPU equivalents",
     )
 
+    cpu_request: float = Field(
+        ...,
+        title="Lab CPU request",
+        description="Kubernetes pod request of CPU equivalents",
+    )
+
     memory_limit: int = Field(
         ...,
         title="Lab memory limit",
         description="Kubernetes pod limit of memory in bytes",
+    )
+
+    memory_request: int = Field(
+        ...,
+        title="Lab memory request",
+        description="Kubernetes pod request of memory in bytes",
     )
 
 
