@@ -8,7 +8,10 @@ from datetime import timedelta
 import pytest
 
 from rubin.nublado.spawner import NubladoSpawner
-from rubin.nublado.spawner._exceptions import SpawnFailedError
+from rubin.nublado.spawner._exceptions import (
+    InvalidUserOptionsError,
+    SpawnFailedError,
+)
 from rubin.nublado.spawner._models import LabStatus
 
 from .support.controller import MockLabController
@@ -76,6 +79,15 @@ async def test_get_url(spawner: NubladoSpawner) -> None:
 async def test_options_form(spawner: NubladoSpawner) -> None:
     expected = f"<p>This is some lab form for {spawner.user.name}</p>"
     assert await spawner.options_form(spawner) == expected
+
+
+@pytest.mark.asyncio
+async def test_user_options(spawner: NubladoSpawner) -> None:
+    user_options = {"image_list": ["img1", "img2"], "enable_debug": ["true"]}
+    await spawner.apply_user_options(spawner, user_options)
+    user_options["bad_option"] = ["BAD HORSE"]
+    with pytest.raises(InvalidUserOptionsError):
+        await spawner.apply_user_options(spawner, user_options)
 
 
 @pytest.mark.asyncio
