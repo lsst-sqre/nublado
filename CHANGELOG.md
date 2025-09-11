@@ -6,6 +6,42 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.14.0'></a>
+## 8.14.0 (2025-09-11)
+
+### New features
+
+- Resource requests for user lab pods can (and must) be specified explicitly.
+  Before this change, only resource limits were specified and requests were calculated to be 1/4 of the limits.
+
+  The `controller.config.lab.sizes` entries now have a different format.
+
+  Old:
+
+  ```yaml
+  sizes:
+    - size: "small"
+      cpu: 1.0      # This was a limit
+      memory: "4Gi" # This was a limit
+  ```
+
+  New:
+  ```yaml
+  sizes:
+    - size: "small"
+      resources:
+        limits:
+          cpu: 1.0
+          memory: "4Gi"
+        requests:
+          cpu: 0.25
+          memory: "0.75Gi"
+  ```
+
+### Bug fixes
+
+- Fix a build bug where the purger Docker image would get pushed to the GAR inithome Docker repository
+
 <a id='changelog-8.13.1'></a>
 ## 8.13.1 (2025-08-28)
 
