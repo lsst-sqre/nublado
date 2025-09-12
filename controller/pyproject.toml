@@ -29,12 +29,15 @@ dependencies = [
     "pydantic>2",
     "pydantic-settings",
     "PyYAML",
-    "safir[kubernetes]>=12.1.2",
+    "safir[kubernetes]>=13.0.0",
     "semver",
     "sse-starlette",
     "uvicorn[standard]",
 ]
 dynamic = ["version"]
+
+[tool.uv.sources]
+safir = { git = "https://github.com/lsst-sqre/safir.git", branch = "tickets/DM-52391/slack-sentry-exceptions"}
 
 [project.scripts]
 controller = "controller.cli:main"
