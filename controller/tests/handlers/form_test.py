@@ -51,7 +51,7 @@ async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
 
 @pytest.mark.asyncio
 async def test_quota_spawn(client: AsyncClient) -> None:
-    token, user = get_no_spawn_user()
+    _, user = get_no_spawn_user()
     r = await client.get(
         f"/nublado/spawner/v1/lab-form/{user.username}",
         headers=user.to_headers(),

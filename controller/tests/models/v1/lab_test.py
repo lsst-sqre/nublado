@@ -193,7 +193,7 @@ def test_lab_request_options() -> None:
 
 
 def test_cpu_resource_validation() -> None:
-    with pytest.raises(ValueError, match="requests.cpu must be less than"):
+    with pytest.raises(ValueError, match=r"requests\.cpu must be less than"):
         # Ignore type checking here because even though the
         # ResourceQuantity.memory field must eventually get parsed into an int,
         # its validator can accept anything.
@@ -204,7 +204,9 @@ def test_cpu_resource_validation() -> None:
 
 
 def test_memory_resource_validation() -> None:
-    with pytest.raises(ValueError, match="requests.memory must be less than"):
+    with pytest.raises(
+        ValueError, match=r"requests\.memory must be less than"
+    ):
         # Ignore type checking here because even though the
         # ResourceQuantity.memory field must eventually get parsed into an int,
         # its validator can accept anything.

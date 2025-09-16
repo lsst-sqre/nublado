@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 
+import sentry_sdk
 from aiojobs import Scheduler
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
@@ -175,6 +176,7 @@ class BackgroundTaskManager:
                 elapsed = datetime.now(tz=UTC) - start
                 msg = f"Uncaught exception {description}"
                 self._logger.exception(msg, delay=elapsed.total_seconds)
+                sentry_sdk.capture_exception(e)
                 if self._slack:
                     await self._slack.post_uncaught_exception(e)
             delay = interval - (datetime.now(tz=UTC) - start)
@@ -197,6 +199,7 @@ class BackgroundTaskManager:
                 await self._prepuller.prepull_images()
             except Exception as e:
                 self._logger.exception("Uncaught exception prepulling images")
+                sentry_sdk.capture_exception(e)
                 if self._slack:
                     await self._slack.post_uncaught_exception(e)
                 pause = self._config.images.refresh_interval.total_seconds()

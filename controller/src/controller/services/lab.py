@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Self
 
+import sentry_sdk
 from safir.asyncio import AsyncMultiQueue
 from safir.slack.blockkit import (
     SlackException,
@@ -567,7 +568,7 @@ class LabManager:
                         lab.last_modified = datetime.now(tz=UTC)
                         msg = "Uncaught exception in monitor thread"
                         self._logger.exception(msg, user=username)
-                        await self._maybe_post_slack_exception(e, username)
+                        await self._maybe_post_exception(e, username)
                         if lab.state:
                             lab.state.status = LabStatus.FAILED
 
@@ -883,7 +884,7 @@ class LabManager:
                 namespace=names.namespace,
                 kind="Pod",
             )
-            await self._maybe_post_slack_exception(e, username)
+            await self._maybe_post_exception(e, username)
 
             # Two options here: pessimistically assume the lab is in a failed
             # state, or optimistically assume that our current in-memory data
@@ -894,7 +895,7 @@ class LabManager:
             return state
         except ControllerTimeoutError as e:
             self._logger.exception("Timeout reading pod phase", user=username)
-            await self._maybe_post_slack_exception(e, username)
+            await self._maybe_post_exception(e, username)
 
             # As above, optimistically assume the best.
             return state
@@ -908,10 +909,13 @@ class LabManager:
             state.status = LabStatus.from_phase(phase)
         return state
 
-    async def _maybe_post_slack_exception(
+    async def _maybe_post_exception(
         self, exc: Exception, username: str
     ) -> None:
-        """Post an exception to Slack if Slack reporting is configured.
+        """Post an exception to an external service.
+
+        This will post the exception to Slack if Slack reporting is configured
+        and Sentry if Sentry is enabled.
 
         Parameters
         ----------
@@ -920,10 +924,13 @@ class LabManager:
         username
             Username that triggered the exception.
         """
+        if isinstance(exc, SlackException):
+            exc.user = username
+        sentry_sdk.capture_exception(exc)
+
         if not self._slack:
             return
         if isinstance(exc, SlackException):
-            exc.user = username
             await self._slack.post_exception(exc)
         else:
             await self._slack.post_uncaught_exception(exc)
@@ -1218,7 +1225,7 @@ class LabManager:
             # not critical to spawning.
             username = names.username
             self._logger.exception("Error watching lab events", user=username)
-            await self._maybe_post_slack_exception(e, username)
+            await self._maybe_post_exception(e, username)
 
 
 class _LabMonitor:
@@ -1295,7 +1302,7 @@ class _LabMonitor:
             except Exception as e:
                 msg = "Uncaught exception in monitor task"
                 self._logger.exception(msg, user=self._username)
-                await self._maybe_post_slack_exception(e)
+                await self._maybe_post_exception(e)
             self._operation = None
 
     def is_done(self) -> bool:
@@ -1394,22 +1401,28 @@ class _LabMonitor:
             except Exception as e:
                 msg = "Uncaught exception in monitor task"
                 self._logger.exception(msg, user=self._username)
-                await self._maybe_post_slack_exception(e)
+                await self._maybe_post_exception(e)
             if self._operation == operation:
                 self._operation = None
 
-    async def _maybe_post_slack_exception(self, exc: Exception) -> None:
-        """Post an exception to Slack if Slack reporting is configured.
+    async def _maybe_post_exception(self, exc: Exception) -> None:
+        """Post an exception to an external service.
+
+        This will post the exception to Slack if Slack reporting is configured
+        and Sentry if Sentry is enabled.
 
         Parameters
         ----------
         exc
             Exception to report.
         """
+        if isinstance(exc, SlackException):
+            exc.user = self._username
+        sentry_sdk.capture_exception(exc)
+
         if not self._slack:
             return
         if isinstance(exc, SlackException):
-            exc.user = self._username
             await self._slack.post_exception(exc)
         else:
             await self._slack.post_uncaught_exception(exc)
@@ -1437,7 +1450,7 @@ class _LabMonitor:
         except Exception as e:
             msg = f"Lab {operation.operation.value} failed"
             self._logger.exception(msg)
-            await self._maybe_post_slack_exception(e)
+            await self._maybe_post_exception(e)
             operation.events.put(Event(type=EventType.ERROR, message=str(e)))
             operation.events.put(Event(type=EventType.FAILED, message=msg))
             operation.state.status = LabStatus.FAILED

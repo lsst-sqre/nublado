@@ -15,7 +15,10 @@ from safir.fastapi import ClientRequestError, client_request_error_handler
 from safir.kubernetes import initialize_kubernetes
 from safir.logging import configure_logging, configure_uvicorn_logging
 from safir.middleware.x_forwarded import XForwardedMiddleware
+from safir.sentry import initialize_sentry
 from safir.slack.webhook import SlackRouteErrorHandler
+
+import controller
 
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
@@ -49,6 +52,7 @@ def create_app(*, load_config: bool = True) -> FastAPI:
         OpenAPI schema generation, where constructing the app is required but
         the configuration won't matter.
     """
+    initialize_sentry(release=controller.__version__)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
