@@ -6,6 +6,15 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.15.0'></a>
+## 8.15.0 (2025-09-16)
+
+### New features
+
+- controller: Optionally report errors to Sentry. If a `SENTRY_DSN` environment
+  variable is present, then exceptions will be reported to Sentry with
+  appropriate tags, contexts, and attachments.
+
 <a id='changelog-8.14.0'></a>
 ## 8.14.0 (2025-09-11)
 
