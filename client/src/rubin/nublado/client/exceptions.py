@@ -18,6 +18,7 @@ from safir.slack.blockkit import (
     SlackTextField,
     SlackWebException,
 )
+from safir.slack.sentry import SentryEventInfo
 from websockets.exceptions import InvalidStatus, WebSocketException
 
 _ANSI_REGEX = re.compile(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]")
@@ -91,11 +92,11 @@ def _sanitize_url(url: str | None) -> str:
 
 
 class NubladoClientSlackException(SlackException):
-    """Represents an exception that can be reported to Slack.
+    """Represents an exception that can be reported to Slack or Sentry.
 
     This adds some additional fields to `~safir.slack.blockkit.SlackException`
     but is otherwise equivalent. It is intended to be subclassed. Subclasses
-    must override the `to_slack` method.
+    must override the `to_slack` and `to_sentry` methods.
 
     Parameters
     ----------
@@ -200,6 +201,27 @@ class NubladoClientSlackException(SlackException):
             fields.append(SlackTextField(heading="Image", text=image))
         return fields
 
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        info = super().to_sentry()
+
+        if node := self.annotations.get("node"):
+            info.tags["node"] = node
+        if notebook := self.annotations.get("notebook"):
+            info.tags["notebook"] = notebook
+        if cell := self.annotations.get("cell"):
+            info.tags["cell"] = cell
+        if cell_number := self.annotations.get("cell_number"):
+            info.tags["cell_number"] = cell_number
+        if self.started_at:
+            context = info.contexts.setdefault("info", {})
+            context["started_at"] = format_datetime_for_logging(
+                self.started_at
+            )
+        if image := self.annotations.get("image"):
+            info.tags["image"] = image
+        return info
+
 
 class NubladoClientSlackWebException(
     SlackWebException, NubladoClientSlackException
@@ -267,6 +289,21 @@ class NubladoClientSlackWebException(
             text = f"{self.method} {url}" if self.method else url
             blocks.append(SlackTextBlock(heading="URL", text=text))
         return blocks
+
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        info = super(NubladoClientSlackException, self).to_sentry()
+        web_info = super(SlackWebException, self).to_sentry()
+
+        info.tags.update(web_info.tags)
+        info.contexts.update(web_info.contexts)
+        info.attachments.update(web_info.attachments)
+
+        if self.body:
+            info.attachments["httpx_response_body"] = _sanitize_body(self.body)
+        if self.url:
+            info.tags["httpx_request_url"] = _sanitize_url(self.url)
+        return info
 
 
 class CodeExecutionError(NubladoClientSlackException):
@@ -344,6 +381,19 @@ class CodeExecutionError(NubladoClientSlackException):
             blocks=self.common_blocks(),
             attachments=attachments,
         )
+
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        """Format the error as a SentryEventInfo."""
+        info = super().to_sentry()
+        if self.status:
+            info.tags["status"] = self.status
+        if self.error:
+            error = _remove_ansi_escapes(self.error)
+            info.attachments["nublado_error"] = error
+        if self.code:
+            info.attachments["nublado_code"] = self.code
+        return info
 
 
 class ExecutionAPIError(NubladoClientSlackException):
@@ -492,6 +542,14 @@ class JupyterSpawnError(NubladoClientSlackException):
             message.blocks.append(block)
         return message
 
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        """Format the error as a SentryEventInfo."""
+        info = super().to_sentry()
+        if self.log:
+            info.attachments["nublado_log"] = self.log
+        return info
+
 
 class JupyterTimeoutError(NubladoClientSlackException):
     """Timed out waiting for the lab to spawn."""
@@ -515,6 +573,14 @@ class JupyterTimeoutError(NubladoClientSlackException):
         if self.log:
             message.blocks.append(SlackTextBlock(heading="Log", text=self.log))
         return message
+
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        """Format the error as a SentryEventInfo."""
+        info = super().to_sentry()
+        if self.log:
+            info.attachments["nublado_log"] = self.log
+        return info
 
 
 class JupyterWebError(NubladoClientSlackWebException):
@@ -662,3 +728,15 @@ class JupyterWebSocketError(NubladoClientSlackException):
             message.attachments.append(block)
 
         return message
+
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        """Format the error as a SentryEventInfo."""
+        info = super().to_sentry()
+        if self.reason:
+            info.tags["reason"] = self.reason
+        if self.code:
+            info.tags["code"] = str(self.code)
+        if self.body:
+            info.attachments["body"] = self.body
+        return info
