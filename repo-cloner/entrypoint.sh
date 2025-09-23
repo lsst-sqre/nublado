@@ -39,14 +39,14 @@ force_permissions() {
 
 # If directory exists, pull the branch.
 # Otherwise, shallow-clone the branch.
-if [ -d ${TARGET} ]; then
+if [ -d "${TARGET}" ]; then
     cd "${TARGET}" ;
     force_permissions
     git checkout "${BRANCH}"
     git pull
     force_permissions
 else
-    cd $(basename "${TARGET}")
+    cd $(dirname "${TARGET}")
     git clone --depth 1 -b "${BRANCH}" "${SRC}"
     force_permissions
 fi
