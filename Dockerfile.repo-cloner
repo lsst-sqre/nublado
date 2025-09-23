@@ -1,0 +1,5 @@
+FROM docker.io/alpine/git
+
+COPY repo-cloner/entrypoint.sh /
+
+ENTRYPOINT [ "/entrypoint.sh" ]

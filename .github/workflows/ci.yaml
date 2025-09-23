@@ -231,6 +231,9 @@ jobs:
           - name: "fsadmin"
             latest: false
             gar: false
+          - name: "repo-cloner"
+            latest: false
+            gar: true
 
     steps:
       - uses: actions/checkout@v5
