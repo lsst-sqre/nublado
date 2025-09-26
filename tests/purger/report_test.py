@@ -1,6 +1,7 @@
 """Test reporting functionality."""
 
 import pytest
+
 from rubin.nublado.purger.config import Config
 from rubin.nublado.purger.exceptions import PlanNotReadyError
 from rubin.nublado.purger.purger import Purger

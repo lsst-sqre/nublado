@@ -1,10 +1,11 @@
 """Test reporting functionality."""
 
 import pytest
-from rubin.nublado.purger.config import Config
-from rubin.nublado.purger.purger import Purger
 from safir.datetime import parse_timedelta
 from safir.logging import LogLevel
+
+from rubin.nublado.purger.config import Config
+from rubin.nublado.purger.purger import Purger
 
 
 @pytest.mark.asyncio

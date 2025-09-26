@@ -111,7 +111,7 @@ class JupyterSpawnProgress:
         self._logger = logger
         self._start = datetime.now(tz=UTC)
 
-    async def __aiter__(self) -> AsyncGenerator[SpawnProgressMessage, None]:
+    async def __aiter__(self) -> AsyncGenerator[SpawnProgressMessage]:
         """Iterate over spawn progress events.
 
         Yields
@@ -782,8 +782,8 @@ def _convert_exception[**P, T](
 
 
 def _convert_generator_exception[**P, T](
-    f: Callable[Concatenate[NubladoClient, P], AsyncGenerator[T, None]],
-) -> Callable[Concatenate[NubladoClient, P], AsyncGenerator[T, None]]:
+    f: Callable[Concatenate[NubladoClient, P], AsyncGenerator[T]],
+) -> Callable[Concatenate[NubladoClient, P], AsyncGenerator[T]]:
     """Convert web errors to a `~rubin.nublado.client.JupyterWebError`.
 
     This can only be used as a decorator on `JupyterClientSession` or another
@@ -794,7 +794,7 @@ def _convert_generator_exception[**P, T](
     @wraps(f)
     async def wrapper(
         client: NubladoClient, *args: P.args, **kwargs: P.kwargs
-    ) -> AsyncGenerator[T, None]:
+    ) -> AsyncGenerator[T]:
         start = datetime.now(tz=UTC)
         generator = f(client, *args, **kwargs)
         try:
@@ -1131,7 +1131,7 @@ class NubladoClient:
     @_convert_generator_exception
     async def watch_spawn_progress(
         self,
-    ) -> AsyncGenerator[SpawnProgressMessage, None]:
+    ) -> AsyncGenerator[SpawnProgressMessage]:
         """Monitor lab spawn progress.
 
         This is an EventStream API, which provides a stream of events until

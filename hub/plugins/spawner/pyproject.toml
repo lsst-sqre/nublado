@@ -1,7 +1,7 @@
 [project]
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
-name = "rubin-nublado-inithome"
-description = "Home directory provisioner for Nublado."
+name = "rubin.nublado.spawner"
+description = "JupyterHub spawner using Nublado lab controller REST API."
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
@@ -11,18 +11,24 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Natural Language :: English",
     "Operating System :: POSIX",
     "Private :: Do Not Upload",
     "Typing :: Typed",
 ]
-requires-python = ">=3.13"
-dependencies = []
+requires-python = ">=3.12"
+dependencies = [
+    "httpx<1",
+    "httpx-sse<1",
+    "jupyterhub<6",
+    "traitlets<6",
+]
 dynamic = ["version"]
 
-[project.scripts]
-inithome = "rubin.nublado.inithome.main:main"
+[project.entry-points."jupyterhub.spawners"]
+nublado = "rubin.nublado.spawner:NubladoSpawner"
 
 [project.urls]
 Homepage = "https://nublado.lsst.io"
@@ -35,4 +41,4 @@ requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
 build-backend = 'setuptools.build_meta'
 
 [tool.setuptools_scm]
-root = ".."
+root = "../../.."

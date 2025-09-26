@@ -12,8 +12,9 @@ updates:
 
   - package-ecosystem: "pip"
     directories:
-      - "/authenticator"
       - "/client"
-      - "/spawner"
+      - "/hub"
+      - "/hub/plugins/authenticator"
+      - "/hub/plugins/spawner"
     schedule:
       interval: "weekly"
