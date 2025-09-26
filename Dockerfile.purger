@@ -25,36 +25,33 @@ RUN ./install-base-packages.sh && rm ./install-base-packages.sh
 
 FROM base-image AS install-image
 
+# Install uv.
+COPY --from=ghcr.io/astral-sh/uv:0.7.15 /uv /bin/uv
+
 # Install system packages only needed for building dependencies.
 COPY purger/scripts/install-dependency-packages.sh .
 RUN ./install-dependency-packages.sh
 
-# Create a Python virtual environment.
-ENV VIRTUAL_ENV=/opt/venv
-RUN python -m venv $VIRTUAL_ENV
+# Disable hard links during uv package installation since we're using a
+# cache on a separate file system.
+ENV UV_LINK_MODE=copy
 
-# Make sure we use the virtualenv.
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
-# Put the latest uv in the virtualenv.
-RUN pip install --upgrade --no-cache-dir uv
-
-# Install the app's Python runtime dependencies.
-COPY purger/requirements/main.txt ./requirements.txt
-RUN uv pip install --quiet --no-cache-dir -r requirements.txt
-
-# Install the Python package.
-COPY . /workdir
-WORKDIR /workdir
-RUN uv pip install --compile-bytecode --no-cache ./purger
+# Install the application.
+WORKDIR /app
+ADD . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-default-groups --compile-bytecode --no-editable
 
 FROM base-image AS runtime-image
 
 # Copy the virtualenv.
-COPY --from=install-image /opt/venv /opt/venv
+COPY --from=install-image /app/.venv /app/.venv
 
 # Make sure we use the virtualenv.
-ENV PATH="/opt/venv/bin:$PATH"
+WORKDIR /app
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Run something innocuous
 CMD ["/bin/tail", "-f", "/dev/null"]

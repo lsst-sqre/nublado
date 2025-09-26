@@ -48,6 +48,24 @@ Source = "https://github.com/lsst-sqre/nublado"
 requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
+[dependency-groups]
+dev = [
+    "anys",
+    "asgi-lifespan",
+    "coverage[toml]",
+    "httpx-sse",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-sugar",
+    "pytest-timeout",
+    "respx",
+]
+typing = [
+    "mypy>=1.15",
+    "types-pyyaml>=6",
+]
+
 [tool.coverage.run]
 parallel = true
 branch = true
@@ -69,6 +87,25 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[tool.mypy]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+ignore_missing_imports = true
+local_partial_types = true
+no_implicit_reexport = true
+plugins = ["pydantic.mypy"]
+show_error_codes = true
+strict_equality = true
+warn_redundant_casts = true
+warn_unreachable = true
+warn_unused_ignores = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"

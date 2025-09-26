@@ -12,7 +12,7 @@ Nublado is an open source package, meaning that you can contribute to Nublado it
 Since Nublado is intended for internal use by Rubin Observatory, community contributions can only be accepted if they align with Rubin Observatory's aims.
 For that reason, it's a good idea to propose changes with a new `GitHub issue`_ before investing time in making a pull request.
 
-Nublado is developed by the LSST SQuaRE team.
+Nublado is developed by the Rubin Observatory SQuaRE team.
 
 .. _GitHub issue: https://github.com/lsst-sqre/nublado/issues/new
 
@@ -21,36 +21,40 @@ Nublado is developed by the LSST SQuaRE team.
 Setting up a local development environment
 ==========================================
 
-Nublado development requires the ``pg_config`` executable be found on your ``$PATH``.
-For Debian-based systems, this is in the ``libpq-dev`` package.
-For RPM-based systems, this is ``libpq-devel``.
-For MacOS, using ``brew``, it is ``postgresql``, or you can get the `PostgreSQL App <https://postgresapp.com/>`_ if you prefer standard Mac application packaging.
+Nublado is developed using `uv workspaces`_.
+You will therefore need uv_ installed to set up a development environment.
+See the `uv installation instructions <https://docs.astral.sh/uv/getting-started/installation/>`__ for details.
 
-Development of Nublado should be done inside a virtual environment.
+.. _uv workspaces: https://docs.astral.sh/uv/concepts/projects/workspaces/
 
-Nublado uses nox_ as its build system, which can manage a virtual environment for you.
-Run:
+Nublado development may require the :command:`pg_config` executable.
+For Debian-based systems, install the ``libpq-dev`` package.
+For RPM-based systems, install ``libpq-devel``.
+For MacOS, using :command:`brew`, install ``postgresql``, or you can get the `PostgreSQL App <https://postgresapp.com/>`_ if you prefer standard Mac application packaging.
+
+Once you have those prerequisites installed, get started by cloning the repository and setting up a virtual environment:
+
+.. code-block:: sh
+
+   git clone https://github.com/lsst-sqre/nublado.git
+   cd nublado
+   make init
+
+This init step does three things:
+
+1. Creates a Python virtual environment in the :file:`.venv` subdirectory with the packages needed to do Nublado development installed.
+2. Installs Nublado in an editable mode in that virtual environment.
+3. Installs the pre-commit hooks.
+
+You can activate the Nublado virtual environment if you wish with:
 
 .. prompt:: bash
 
-   nox -s venv-init
+   source .venv/bin/activate
 
-The resulting virtual environment will be created in :file:`.venv`.
-Enable it by running :command:`source .venv/bin/activate`.
-
-Alternately, you can create a virtual environment with any other method of your choice (such as virtualenvwrapper_).
-If you use a different virtual environment, run the following command after you have enabled it:
-
-.. prompt:: bash
-
-   nox -s init
-
-Either ``venv-init`` or ``init`` does the following:
-
-#. Installs build system dependencies in the virtual environment.
-#. Installs package dependencies, including test and documentation dependencies.
-#. Installs Nublado packages in editable mode so that changes made to the Git checkout will be picked up by the virtual environment.
-#. Installs pre-commit hooks.
+This is optional; you do not have to activate the virtual environment to do development.
+However, if you do, you can omit :command:`uv run` from the start of all commands described below.
+Also, editors with Python integration, such as VSCode, may work more smoothly if you activate the virtualenv before starting them.
 
 .. _pre-commit-hooks:
 
@@ -62,9 +66,6 @@ Some pre-commit hooks automatically reformat code:
 
 ``ruff``
     Lint Python code and attempt to automatically fix some problems.
-
-``black``
-    Automatically formats Python code.
 
 ``blacken-docs``
     Automatically formats Python code in reStructuredText documentation and docstrings.
@@ -80,87 +81,51 @@ This will have to be temporary, though, since the change will fail GitHub CI che
 Running tests
 =============
 
+Nublado uses nox_ as its automation tool for testing.
+
 To run all Nublado tests, run:
 
 .. prompt:: bash
 
-   nox -s
+   uv run nox
 
-This tests the library in the same way that the CI workflow does.
-You may wish to run the individual sessions (``lint``, ``typing``,
-``typing-hub``, ``test``, ``test-hub``, ``test-client``, and ``docs``) when iterating on a specific change.
-Consider using the ``-R`` flag when you haven't updated dependencies, as discussed below.
+This will run several nox sessions to lint and type-check the code, run the test suite, and build the documentation.
 
-mypy and pytest tests are divided into two nox sessions: one for the Nublado controller (the default) and one for JupyterHub and its plugins.
-The JupyterHub plugins have to support different versions of Python and have different frozen dependencies, so must be tested separately.
-Use the ``typing-hub`` and ``test-hub`` sessions to do that.
-Since most code and thus most code changes is part of the controller, the ``typing`` and ``test`` sessions with no suffix test it.
-
-To see a listing of nox sessions:
+To list the available sessions, run:
 
 .. prompt:: bash
 
-   nox --list
+   uv run nox --list
 
-To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``test`` or ``test-hub`` nox session.
+To run a specific test or list of tests, you can add test file names (and any other pytest_ options) after ``--`` when executing the ``test`` nox session.
 For example:
 
 .. prompt:: bash
 
-   nox -s test -- controller/tests/handlers/prepuller_test.py
-
-If you are interating on a specific test failure, you may want to pass the ``-R`` flag to skip the dependency installation step.
-This will make nox run much faster, at the cost of not fixing out-of-date dependencies.
-For example:
-
-.. prompt:: bash
-
-   nox -Rs test -- controller/tests/handlers/prepuller_test.py
-
-Update pinned dependencies
-==========================
-
-All dependencies for Nublado are pinned to ensure reproducible builds and to control when dependencies are updated.
-These pinned dependencies should be updated before each release.
-
-To update dependencies, run:
-
-.. prompt:: bash
-
-   nox -s update-deps
-
-The dependency on ``jupyterhub`` is a special exception
-It is always pinned to a specific point release that matches the version used in :file:`Dockerfile.hub` as the basis for the JupyterHub containers.
-When there is a new release of JupyterHub, update its version in both :file:`Dockerfile.hub` and :file:`hub/requirements/main.in` to the same version, and then regenerate dependencies using the above command.
-
-JupyterHub major version upgrades
----------------------------------
-
-Updating ``jupyterhub`` across major version boundaries adds additional complexity to the above.
-Both ``authenticator`` and ``spawner`` consume the ``jupyterhub`` module as a library, and both of them pin its major version in ``pyproject.toml``.
-Therefore, it is necessary to update :file:`authenticator/pyproject.toml` and :file:`spawner/pyproject.toml` with the new major version.
+   uv run nox -s test -- controller/tests/handlers/labs_test.py
 
 Building documentation
 ======================
 
-Documentation is built with Sphinx_:
+Documentation is built with Sphinx_.
+It is built as part of a normal test run to check that the documentation can still build without warnings, or can be built explicitly with:
 
 .. _Sphinx: https://www.sphinx-doc.org/en/master/
 
 .. prompt:: bash
 
-   nox -s docs
+   uv run nox -s docs
 
 The build documentation is located in the :file:`docs/_build/html` directory.
 
-Additional dependencies required for the documentation build should be added as development dependencies of the Nublado controller, in :file:`controller/requirements/dev.in`.
+Additional dependencies required for the documentation build should be added to the ``docs`` dependency group in :file:`pyproject.toml`.
 
 Documentation builds are incremental, and generate and use cached descriptions of the internal Python APIs.
 If you see errors in building the Python API documentation or have problems with changes to the documentation (particularly diagrams) not showing up, try a clean documentation build with:
 
 .. prompt:: bash
 
-   nox -s docs-clean
+   uvn run nox -s docs-clean
 
 This will be slower, but it will ensure that the documentation build doesn't rely on any cached data.
 
@@ -168,7 +133,41 @@ To check the documentation for broken links, run:
 
 .. code-block:: sh
 
-   nox -s docs-linkcheck
+   uv run nox -s docs-linkcheck
+
+Update pinned dependencies
+==========================
+
+All dependencies for Nublado are pinned to ensure reproducible builds and to control when dependencies are updated.
+These pinned dependencies should be updated before each release.
+
+Different parts of Nublado need to be installable in different contexts with different Python versions, so Nublado pins dependencies in multiple places.
+The :file:`uv.lock` file at the top level handles some utility libraries, documentation builds, and some development dependencies.
+Separte :file:`uv.lock` files in the :file:`client`, :file:`controller`, and :file:`hub` directories pin dependencies for those components.
+
+To update all dependencies, run:
+
+.. prompt:: bash
+
+   make update-deps
+
+You can instead run :command:`make update` to also update the installed dependencies in the development virtual environment.
+
+If you need to add a new dependency as part of development, be sure to add it to the appropriate :file:`uv.lock` file.
+This will generally be the :file:`uv.lock` file closest in proximity to where you made the change, which is often not the one at the top level of the project.
+
+JupyterHub version upgrades
+---------------------------
+
+The dependency on ``jupyterhub`` used to construct the Nublado JupyterHub container is pinned in :file:`hub/pyproject.toml` to a specific version.
+This version must match the version used in the image referenced in :file:`Dockerfile.jupyterhub` as the basis for the JupyterHub image.
+
+The version shown in that file is the Zero to JupyterHub version, which will not match the ``jupyterhub`` package version.
+You will need to look at the `Zero to JupyterHub change log <https://z2jh.jupyter.org/en/stable/changelog.html>`__ for a given Zero to JupyterHub release to determine the corresponding ``jupyterhub`` version.
+
+When there is a new release of Zero to JupyterHub, update its version in :file:`Dockerfile.jupyterhub`, update :file:`hub/pyproject.toml` to corresponding ``jupyterhub`` version, and then regenerate dependencies with :command:`make update-deps`.
+
+If the new version of ``jupyterhub`` is a major version bump, you will also need to update the dependency constraints in :file:`hub/plugins/authenticator/pyproject.toml` and :file:`hub/plugins/spawner/pyproject.toml`.
 
 .. _dev-change-log:
 
@@ -177,10 +176,10 @@ Updating the change log
 
 Nublado uses scriv_ to maintain its change log.
 
-When preparing a pull request, run :command:`scriv create`.
+When preparing a pull request, run :command:`uv run scriv create`.
 This will create a change log fragment in :file:`changelog.d`.
 Edit that fragment, removing the sections that do not apply and adding entries fo this pull request.
-You can pass the ``--edit`` flag to :command:`scriv create` to open the created fragment automatically in an editor.
+You can pass the ``--edit`` flag to :command:`uv run scriv create` to open the created fragment automatically in an editor.
 
 Change log entries use the following sections:
 
@@ -188,6 +187,8 @@ Change log entries use the following sections:
 - **New features**
 - **Bug fixes**
 - **Other changes** (for minor, patch-level changes that are not bug fixes, such as logging formatting changes or updates to the documentation)
+
+Changes that are not visible to the user, including minor documentation changes, should not have a change log fragment to avoid clutttering the change log with changes the user doesn't need to care about.
 
 Do not include a change log entry solely for updating pinned dependencies, without any visible change to Nublado's behavior.
 Every release is implicitly assumed to update all pinned dependencies.
@@ -198,7 +199,7 @@ Specifically:
 - Each bullet point should be entirely on one line, even if it contains multiple sentences.
   This is an exception to the normal documentation convention of a newline after each sentence.
   Unfortunately, GitHub interprets those newlines as hard line breaks, so they would result in an ugly release description.
-- Avoid using too much complex markup, such as nested bullet lists, since the formatting in the GitHub release description may not be what you expect and manually editing it is tedious.
+- Be cautious with complex markup, such as nested bullet lists, since the formatting in the GitHub release description may not be what you expect and manually repairing it is tedious.
 
 .. _style-guide:
 
@@ -213,7 +214,7 @@ Code
 - The code formatting follows :pep:`8`, though in practice lean on Black_ and Ruff_ to format the code for you.
 
 - Use :pep:`484` type annotations.
-  The :command:`nox -s typing` session, which runs mypy_, ensures that the project's types are consistent.
+  The :command:`uv run nox -s typing` session, which runs mypy_, ensures that the project's types are consistent.
 
 - Nublado uses the Ruff_ linter with most checks enabled.
   Try to avoid ``noqa`` markers except for issues that need to be fixed in the future.

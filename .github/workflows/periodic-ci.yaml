@@ -5,15 +5,10 @@
 name: Periodic CI
 
 env:
-  # Current supported Python version for the controller. For applications,
-  # there is generally no reason to support multiple Python versions, so all
-  # actions are run with this version. Quote the version to avoid
-  # interpretation as a floating point number.
-  #
-  # The JupyterHub plugins use a separate matrix of versions because they have
-  # to work with the version of Python that is included in the JupyterHub
-  # images.
-  PYTHON_VERSION: "3.13"
+  # Current supported uv version. The uv documentation recommends pinning
+  # this. The version should match the version used in .pre-commit-config.yaml
+  # and frozen in uv.lock. It is updated by make update-deps.
+  UV_VERSION: "0.8.22"
 
 "on":
   schedule:
@@ -28,11 +23,21 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: lsst-sqre/run-nox@v1
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          nox-sessions: "update-deps lint typing typing-inithome typing-purger test test-inithome test-purger"
-          python-version: ${{ env.PYTHON_VERSION }}
-          use-cache: false
+          python-version-file: ".python-version"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Update dependencies
+        run: make update-deps
+
+      - name: Run nox
+        run: uv run --only-group=nox nox -s lint typing test
 
       - name: Report status
         if: failure()
@@ -44,29 +49,39 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}
 
-  # The Nublado client must support the Python versions of all of the packages
-  # that use it, so its minimum Python version can only be raised once all of
-  # the services that depend on it have moved to a newer version. Use a matrix
-  # to test all supported versions.
+  # The test job tests everything with the latest Python version. The Nublado
+  # client and the JupyterHub support code may additionally support older
+  # Python versions and thus must be independently tested for those versions
+  # using a matrix. Do not include the latest Python version in this matrix;
+  # that will be tested above.
   test-client:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [test]
 
     strategy:
       matrix:
         python:
           - "3.12"
-          - "3.13"
 
     steps:
       - uses: actions/checkout@v5
 
-      - uses: lsst-sqre/run-nox@v1
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          nox-sessions: "typing-client test-client"
           python-version: ${{ matrix.python }}
-          use-cache: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Update dependencies
+        run: make update-deps
+
+      - name: Run nox
+        run: uv run --only-group=nox nox -s typing test
+        working-directory: client
 
       - name: Report status
         if: failure()
@@ -78,29 +93,34 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERT_WEBHOOK }}
 
-  # The JupyterHub Docker image may not always track the Python version we use
-  # and the modules must support that version of Python. Use a matrix to test
-  # every version of Python from that version to the most recent so that we
-  # can safely upgrade when the JupyterHub Python upgrades.
   test-hub:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [test]
 
     strategy:
       matrix:
         python:
           - "3.12"
-          - "3.13"
 
     steps:
       - uses: actions/checkout@v5
 
-      - uses: lsst-sqre/run-nox@v1
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          nox-sessions: "update-deps-hub typing-hub test-hub"
           python-version: ${{ matrix.python }}
-          use-cache: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Update dependencies
+        run: make update-deps
+
+      - name: Run nox
+        run: uv run --only-group=nox nox -s typing test
+        working-directory: hub
 
       - name: Report status
         if: failure()
@@ -122,18 +142,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Update package lists
-        run: sudo apt-get update
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
 
       - name: Install extra packages
-        run: sudo apt install -y graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz
 
-      - uses: lsst-sqre/run-nox@v1
-        with:
-          cache-dependency: "controller/requirements/*.txt"
-          cache-key-prefix: docs
-          nox-sessions: "docs docs-linkcheck"
-          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Run nox
+        run: uv run --only-group=nox nox -s docs docs-linkcheck
 
       - name: Report status
         if: failure()
@@ -155,11 +180,14 @@ jobs:
         with:
           fetch-depth: 0 # full history for setuptools_scm
 
-      - name: Test building and publishing rubin-nublado-client
-        uses: lsst-sqre/build-and-publish-to-pypi@v3
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          upload: "false"
-          working-directory: "client"
+          version: ${{ env.UV_VERSION }}
+
+      - name: Build the package
+        run: uv build --no-sources
+        working-directory: client
 
       - name: Report status
         if: failure()

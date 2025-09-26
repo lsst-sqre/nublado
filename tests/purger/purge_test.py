@@ -4,10 +4,11 @@ from pathlib import Path
 
 import pytest
 import yaml
+from safir.logging import LogLevel
+
 from rubin.nublado.purger.config import Config
 from rubin.nublado.purger.models.plan import FileReason
 from rubin.nublado.purger.purger import Purger
-from safir.logging import LogLevel
 
 from .util import set_age
 

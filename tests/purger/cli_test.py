@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+
 from rubin.nublado.purger.config import Config
 
 

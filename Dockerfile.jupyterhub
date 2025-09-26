@@ -25,17 +25,18 @@ COPY --from=ghcr.io/astral-sh/uv:0.7.15 /uv /bin/uv
 COPY hub/scripts/install-packages.sh .
 RUN ./install-packages.sh && rm install-packages.sh
 
-# Install the dependencies of the extra JupyterHub modules.
-COPY hub/requirements/main.txt ./requirements.txt
-RUN uv pip install --system --compile-bytecode --verify-hashes --no-cache \
-    -r requirements.txt
-RUN rm requirements.txt
+# Disable hard links during uv package installation since we're using a
+# cache on a separate file system.
+ENV UV_LINK_MODE=copy
 
-# Install the extra JupyterHub modules.
-COPY . /workdir
-WORKDIR /workdir
-RUN uv pip install --system --no-deps --compile-bytecode --no-cache \
-    ./authenticator ./spawner
+# Install the dependencies.
+ADD . /app
+WORKDIR /app/hub
+RUN uv export --frozen --no-default-groups --no-emit-project -o requirements.txt
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system --compile-bytecode -r requirements.txt
+WORKDIR /
+RUN rm -r /app
 
 # Copy the modified page template
 COPY hub/templates/page.html /usr/local/etc/jupyterhub/templates/page.html
