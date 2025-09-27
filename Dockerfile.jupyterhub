@@ -23,7 +23,9 @@ COPY --from=ghcr.io/astral-sh/uv:0.7.15 /uv /bin/uv
 
 # Update and install packages.
 COPY hub/scripts/install-packages.sh .
-RUN ./install-packages.sh && rm install-packages.sh
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    ./install-packages.sh && rm install-packages.sh
 
 # Disable hard links during uv package installation since we're using a
 # cache on a separate file system.
