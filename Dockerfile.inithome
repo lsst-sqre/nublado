@@ -6,22 +6,28 @@
 # but want the lab home directory to be a subdirectory of the user's normal
 # home directory.
 #
-# Since it runs as an init container on every spawn, we want to keep the image
-# small. It therefore does not update base image packages for security fixes
-# and instead relies on the Python container itself being rebuilt periodically
-# with new minor versions of Python, which will result in PRs from Dependabot.
+# This Dockerfile has three stages:
 #
-# This Dockerfile has two stages:
-#
+# base-image
+#   Updates the base Python image with security patches and common system
+#   packages. This image becomes the base of all other images.
 # install-image
-#   - Installs git so that setuptools_scm can install the app.
-#   - Installs the app into the virtual environment.
+#   Installs third-party dependencies and the application into a virtual
+#   environment. This virtual environment is ideal for copying across
+#   build stages.
 # runtime-image
 #   - Copies the virtual environment into place.
-#   - Sets up the entrypoint.
+#   - Runs a non-root user.
+#   - Sets up the entrypoint and port.
 
 # This is just an alias to avoid repeating the base image.
 FROM python:3.13.7-slim-bookworm AS base-image
+
+# Update system packages.
+COPY scripts/update-os-packages.sh .
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    ./update-os-packages.sh && rm update-os-packages.sh
 
 FROM base-image AS install-image
 

@@ -35,7 +35,3 @@ apt-get update
 # easier way to inspect the database than an interactive Python session.
 apt-get -y install --no-install-recommends build-essential git libffi-dev \
     libpq-dev python3-dev postgresql-client
-
-# Delete cached files we don't need anymore.
-apt-get clean
-rm -rf /var/lib/apt/lists/*
