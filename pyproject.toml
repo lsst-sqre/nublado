@@ -67,7 +67,7 @@ typing = [
 
 [tool.black]
 line-length = 79
-target-version = ["py312"]
+target-version = ["py313"]
 
 [tool.mypy]
 disallow_untyped_defs = true
