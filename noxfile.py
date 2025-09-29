@@ -2,372 +2,28 @@
 
 import shutil
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 import nox
 from nox.command import CommandFailed
+from nox_uv import session
 
 # Default sessions
-nox.options.sessions = [
-    "lint",
-    "typing",
-    "typing-client",
-    "typing-hub",
-    "typing-inithome",
-    "typing-purger",
-    "test",
-    "test-client",
-    "test-hub",
-    "test-inithome",
-    "test-purger",
-    "docs",
-    "docs-linkcheck",
-]
+nox.options.sessions = ["lint", "typing", "test", "docs"]
 
 # Other nox defaults
 nox.options.default_venv_backend = "uv"
 nox.options.reuse_existing_virtualenvs = True
 
-# pip-installable dependencies for development and documentation. This is not
-# used for pytest and typing, since it merges the controller, authenticator,
-# spawner, client, purger, and inithome dependencies.
-PIP_DEPENDENCIES = [
-    (
-        "-r",
-        "./controller/requirements/main.txt",
-        "-r",
-        "./controller/requirements/dev.txt",
-        "-r",
-        "./inithome/requirements/main.txt",
-        "-r",
-        "./inithome/requirements/dev.txt",
-        "-r",
-        "./purger/requirements/main.txt",
-        "-r",
-        "./purger/requirements/dev.txt",
-    ),
-    ("-e", "./authenticator[dev]"),
-    ("-e", "./client[dev]"),
-    ("-e", "./controller"),
-    ("-e", "./inithome"),
-    ("-e", "./purger"),
-    ("-e", "./spawner[dev]"),
-]
+# Recurse into these subdirectories, which have their own separate noxfile.py.
+_SUBDIRECTORIES = ["client", "controller", "hub"]
 
 
-def _install(session: nox.Session) -> None:
-    """Install the application and all dependencies into the session."""
-    session.install("--upgrade", "uv")
-    for deps in PIP_DEPENDENCIES:
-        session.install(*deps)
-
-
-def _install_dev(session: nox.Session, bin_prefix: str = "") -> None:
-    """Install the application and dev dependencies into the session."""
-    python = f"{bin_prefix}python"
-    precommit = f"{bin_prefix}pre-commit"
-
-    # Install dev dependencies
-    session.run(
-        python,
-        "-m",
-        "pip",
-        "install",
-        "--upgrade",
-        "nox[uv]",
-        "pre-commit",
-        external=True,
-    )
-    for deps in PIP_DEPENDENCIES:
-        session.run(python, "-m", "uv", "pip", "install", *deps, external=True)
-
-    # Install pre-commit hooks
-    session.run(precommit, "install", external=True)
-
-
-def _pytest(
-    session: nox.Session, directory: str, module: str, *, coverage: bool = True
-) -> None:
-    """Run pytest for the given directory and module, if needed."""
-    generic = []
-    per_directory = []
-    found_per_directory = False
-    for arg in session.posargs:
-        if arg.startswith("-"):
-            generic.append(arg)
-        elif arg.startswith(f"{directory}/"):
-            per_directory.append(arg.removeprefix(f"{directory}/"))
-            found_per_directory = True
-        elif "/" in arg and Path(arg).exists():
-            found_per_directory = True
-        else:
-            generic.append(arg)
-    if not session.posargs or not found_per_directory or per_directory:
-        args = []
-        if coverage:
-            args.extend([f"--cov={module}", "--cov-branch", "--cov-report="])
-        with session.chdir(directory):
-            session.run(
-                "pytest",
-                *args,
-                *generic,
-                *per_directory,
-            )
-
-
-def _update_deps(
-    session: nox.Session, *, only: set[str] | None = None
-) -> None:
-    session.install("--upgrade", "uv")
-    session.install("--upgrade", "pre-commit")
-    session.run("pre-commit", "autoupdate")
-    directories = {"controller", "hub", "inithome", "purger"}
-    if only:
-        directories &= only
-    for directory in sorted(directories):
-        command = [
-            "uv",
-            "pip",
-            "compile",
-            "--upgrade",
-            "--generate-hashes",
-            "--universal",
-        ]
-
-        # The JupyterHub Docker image may use a different Python version.
-        if directory == "hub":
-            command.extend(("-p", "3.12"))
-            session.run(
-                *command,
-                "--output-file",
-                f"{directory}/requirements/main.txt",
-                f"{directory}/requirements/main.in",
-            )
-        else:
-            session.run(
-                *command,
-                "--output-file",
-                f"{directory}/requirements/main.txt",
-                f"{directory}/pyproject.toml",
-            )
-        session.run(
-            *command,
-            "--output-file",
-            f"{directory}/requirements/dev.txt",
-            f"{directory}/requirements/dev.in",
-        )
-
-    print("\nTo refresh the development venv, run:\n\n\tnox -s init\n")
-
-
-@nox.session(name="venv-init")
-def venv_init(session: nox.Session) -> None:
-    """Set up a development venv.
-
-    Create a venv in the current directory, replacing any existing one.
-    """
-    session.run("python", "-m", "venv", ".venv", "--clear")
-    _install_dev(session, bin_prefix=".venv/bin/")
-
-    print(
-        "\nTo activate this virtual env, run:\n\n\tsource .venv/bin/activate\n"
-    )
-
-
-@nox.session(name="init", python=False, venv_backend="none")
-def init(session: nox.Session) -> None:
-    """Set up the development environment in the current virtual env."""
-    _install_dev(session, bin_prefix="")
-
-
-@nox.session
-def lint(session: nox.Session) -> None:
-    """Run pre-commit hooks."""
-    session.install("--upgrade", "pre-commit")
-    session.run("pre-commit", "run", "--all-files", *session.posargs)
-
-
-@nox.session
-def typing(session: nox.Session) -> None:
-    """Check controller type annotations with mypy."""
-    session.install(
-        "-r",
-        "./controller/requirements/main.txt",
-        "-r",
-        "./controller/requirements/dev.txt",
-    )
-    session.install("-e", "./controller")
-    session.run(
-        "mypy",
-        *session.posargs,
-        "noxfile.py",
-        "controller/src",
-        "controller/tests",
-    )
-
-
-@nox.session(name="typing-client")
-def typing_client(session: nox.Session) -> None:
-    """Check client type annotations with mypy."""
-    session.install("-e ./client[dev]")
-    session.run(
-        "mypy",
-        *session.posargs,
-        "--namespace-packages",
-        "--explicit-package-bases",
-        "client/src",
-        "client/tests",
-        env={"MYPYPATH": "client/src:client"},
-    )
-
-
-@nox.session(name="typing-hub")
-def typing_hub(session: nox.Session) -> None:
-    """Check hub plugin type annotations with mypy."""
-    session.install(
-        "-r",
-        "./hub/requirements/main.txt",
-        "-r",
-        "./hub/requirements/dev.txt",
-    )
-    session.install("--no-deps", "-e", "./authenticator")
-    session.install("--no-deps", "-e", "./spawner")
-    session.run(
-        "mypy",
-        *session.posargs,
-        "--namespace-packages",
-        "--explicit-package-bases",
-        "authenticator/src",
-        "authenticator/tests",
-        env={"MYPYPATH": "authenticator/src:authenticator"},
-    )
-    session.run(
-        "mypy",
-        *session.posargs,
-        "--namespace-packages",
-        "--explicit-package-bases",
-        "spawner/src",
-        "spawner/tests",
-        env={"MYPYPATH": "spawner/src:spawner"},
-    )
-
-
-@nox.session(name="typing-inithome")
-def typing_inithome(session: nox.Session) -> None:
-    """Check inithome type annotations with mypy."""
-    session.install(
-        "-r",
-        "./inithome/requirements/main.txt",
-        "-r",
-        "./inithome/requirements/dev.txt",
-    )
-    session.install("-e", "./inithome")
-    session.run(
-        "mypy",
-        *session.posargs,
-        "--namespace-packages",
-        "--explicit-package-bases",
-        "inithome/src",
-        "inithome/tests",
-        env={"MYPYPATH": "inithome/src:inithome"},
-    )
-
-
-@nox.session(name="typing-purger")
-def typing_purger(session: nox.Session) -> None:
-    """Check purger type annotations with mypy."""
-    session.install(
-        "-r",
-        "./purger/requirements/main.txt",
-        "-r",
-        "./purger/requirements/dev.txt",
-    )
-    session.install("-e", "./purger")
-    session.run(
-        "mypy",
-        *session.posargs,
-        "--namespace-packages",
-        "--explicit-package-bases",
-        "purger/src",
-        "purger/tests",
-        env={"MYPYPATH": "purger/src:purger"},
-    )
-
-
-@nox.session
-def test(session: nox.Session) -> None:
-    """Run tests of the Nublado controller."""
-    session.install(
-        "-r",
-        "./controller/requirements/main.txt",
-        "-r",
-        "./controller/requirements/dev.txt",
-    )
-    session.install("-e", "./controller")
-    _pytest(session, "controller", "controller")
-
-
-@nox.session(name="test-client")
-def test_client(session: nox.Session) -> None:
-    """Run only tests affecting client."""
-    session.install("-e", "./client[dev]")
-    _pytest(session, "client", "rubin.nublado.client", coverage=False)
-
-
-@nox.session(name="test-hub")
-def test_hub(session: nox.Session) -> None:
-    """Run only tests affecting JupyterHub with its frozen dependencies."""
-    session.install(
-        "-r",
-        "./hub/requirements/main.txt",
-        "-r",
-        "./hub/requirements/dev.txt",
-    )
-    session.install("--no-deps", "-e", "./authenticator")
-    session.install("--no-deps", "-e", "./spawner")
-    _pytest(
-        session, "authenticator", "rubin.nublado.authenticator", coverage=False
-    )
-    _pytest(session, "spawner", "rubin.nublado.spawner")
-
-
-@nox.session(name="test-inithome")
-def test_inithome(session: nox.Session) -> None:
-    """Run only tests affecting inithome."""
-    session.install(
-        "-r",
-        "./inithome/requirements/main.txt",
-        "-r",
-        "./inithome/requirements/dev.txt",
-    )
-    session.install("-e", "./inithome")
-    _pytest(session, "inithome", "rubin.nublado.inithome", coverage=False)
-
-
-@nox.session(name="test-purger")
-def test_purger(session: nox.Session) -> None:
-    """Run only tests affecting purger."""
-    session.install(
-        "-r",
-        "./purger/requirements/main.txt",
-        "-r",
-        "./purger/requirements/dev.txt",
-    )
-    session.install("-e", "./purger")
-    _pytest(session, "purger", "rubin.nublado.purger", coverage=False)
-
-
-@nox.session
+@session(uv_groups=["dev", "docs"])
 def docs(session: nox.Session) -> None:
     """Build the documentation."""
-    _install(session)
     doctree_dir = (session.cache_dir / "doctrees").absolute()
-
-    # https://github.com/sphinx-contrib/redoc/issues/48
-    redoc_js_path = Path("docs/_build/html/_static/redoc.js")
-    if redoc_js_path.exists():
-        redoc_js_path.unlink()
-
     with session.chdir("docs"):
         session.run(
             "sphinx-build",
@@ -384,7 +40,7 @@ def docs(session: nox.Session) -> None:
         )
 
 
-@nox.session(name="docs-clean")
+@session(name="docs-clean", uv_groups=["dev", "docs"])
 def docs_clean(session: nox.Session) -> None:
     """Build the documentation without any cache."""
     if Path("docs/_build").exists():
@@ -394,17 +50,10 @@ def docs_clean(session: nox.Session) -> None:
     docs(session)
 
 
-@nox.session(name="docs-linkcheck")
+@session(name="docs-linkcheck", uv_groups=["dev", "docs"])
 def docs_linkcheck(session: nox.Session) -> None:
-    """Check documentation links."""
-    _install(session)
+    """Check links in the documentation."""
     doctree_dir = (session.cache_dir / "doctrees").absolute()
-
-    # https://github.com/sphinx-contrib/redoc/issues/48
-    redoc_js_path = Path("docs/_build/linkcheck/_static/redoc.js")
-    if redoc_js_path.exists():
-        redoc_js_path.unlink()
-
     with session.chdir("docs"):
         try:
             session.run(
@@ -413,7 +62,8 @@ def docs_linkcheck(session: nox.Session) -> None:
                 "--keep-going",
                 "-n",
                 "-T",
-                "-blinkcheck",
+                "-b",
+                "linkcheck",
                 "-d",
                 str(doctree_dir),
                 ".",
@@ -426,21 +76,70 @@ def docs_linkcheck(session: nox.Session) -> None:
             session.error("Link check reported errors")
 
 
-@nox.session(name="update-deps")
-def update_deps(session: nox.Session) -> None:
-    """Update pinned server dependencies and pre-commit hooks."""
-    _update_deps(session)
+@session(uv_only_groups=["lint"], uv_no_install_project=True)
+def lint(session: nox.Session) -> None:
+    """Run pre-commit hooks."""
+    session.run("pre-commit", "run", "--all-files", *session.posargs)
 
 
-@nox.session(name="update-deps-hub")
-def update_deps_hub(session: nox.Session) -> None:
-    """Update pinned JupyterHub dependencies and pre-commit hooks."""
-    _update_deps(session, only={"hub"})
+@session(uv_groups=["dev", "nox"])
+def test(session: nox.Session) -> None:
+    """Run tests."""
+    # If the user passed in arguments to the session, they may be specific
+    # tests to run. In that case, only run tests in the relevant directory.
+    # This requires some unfortunately complicated argument parsing to
+    # separate out the generic arguments, any tests specific to the parent
+    # directory, and any tests specific to subdirectories.
+    generic = []
+    per_directory: dict[str, list[str]] = defaultdict(list)
+    parent = []
+    found_parent = False
+    for arg in session.posargs:
+        if "tests/" in arg and Path(arg).exists():
+            if arg.startswith("tests/"):
+                parent.append(arg)
+                found_parent = True
+            else:
+                found = False
+                for subdir in _SUBDIRECTORIES:
+                    prefix = f"{subdir}/"
+                    if arg.startswith(f"{prefix}tests"):
+                        per_directory[subdir].append(arg.removeprefix(prefix))
+                        found = True
+                        break
+                if not found:
+                    generic.append(arg)
+        else:
+            generic.append(arg)
+    found_parent = found_parent or not per_directory
+    if not per_directory:
+        per_directory = {s: [] for s in _SUBDIRECTORIES}
+
+    # found_parent now says whether to run tests in the parent directory,
+    # which is true if a test from the parent directory was specified or if
+    # there were no tests from subdirectories specified. per_directory has a
+    # mapping of directories to tests to run.
+    if found_parent:
+        session.run("pytest", *generic, *parent)
+    for subdir, args in per_directory.items():
+        with session.chdir(subdir):
+            session.run("nox", "-s", "test", "--", *generic, *args)
 
 
-@nox.session(name="run")
-def run(session: nox.Session) -> None:
-    """Run the application in development mode."""
-    _install(session)
-    with session.chdir("controller"):
-        session.run("uvicorn", "controller.main:app", "--reload")
+@session(uv_groups=["dev", "nox", "typing"])
+def typing(session: nox.Session) -> None:
+    """Run mypy."""
+    session.run(
+        "mypy",
+        *session.posargs,
+        "--namespace-packages",
+        "--explicit-package-bases",
+        "noxfile.py",
+        "inithome/src",
+        "purger/src",
+        "tests",
+        env={"MYPYPATH": "inithome/src:purger/src"},
+    )
+    for subdir in _SUBDIRECTORIES:
+        with session.chdir(subdir):
+            session.run("nox", "-s", "typing", "--", *session.posargs)

@@ -1,6 +1,69 @@
-# This file contains only the tool configuration for linters. The
-# configuration for the component Python projects may be found in the
-# pyproject.toml files in subdirectories.
+[project]
+# https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
+name = "nublado"
+description = "Nublado Jupyter service for the Rubin Science Platform."
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+keywords = ["rubin", "lsst"]
+# https://pypi.org/classifiers/
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Natural Language :: English",
+    "Operating System :: POSIX",
+    "Private :: Do Not Upload",
+    "Typing :: Typed",
+]
+requires-python = ">=3.13"
+dependencies = [
+    "rubin-nublado-inithome",
+    "rubin-nublado-purger",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://nublado.lsst.io"
+Source = "https://github.com/lsst-sqre/nublado"
+"Change log" = "https://nublado.lsst.io/changelog.html"
+"Issue tracker" = "https://github.com/lsst-sqre/nublado/issues"
+
+[build-system]
+requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "pyfakefs",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-sugar",
+]
+docs = [
+    "documenteer[guide]>=2.3",
+    "scriv[toml]>=1.5",
+    "sphinx-diagrams",
+    # Required to generate API documentation.
+    "controller",
+    "rubin-nublado-authenticator",
+    "rubin-nublado-client",
+    "rubin-nublado-spawner",
+]
+lint = [
+    "pre-commit",
+    "pre-commit-uv",
+    "ruff>=0.12",
+]
+nox = [
+    "nox",
+    "nox-uv",
+]
+typing = [
+    "mypy>=1.15",
+    "types-pyyaml",
+]
 
 [tool.black]
 line-length = 79
@@ -25,12 +88,29 @@ init_typed = true
 warn_required_dynamic_aliases = true
 warn_untyped_fields = true
 
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "strict"
+norecursedirs = ["client/*", "controller/*", "hub/*"]
+# The python_files setting is not for test detection (pytest will pick up any
+# test files named *_test.py without this setting) but to enable special
+# assert processing in any non-test supporting files under tests.  We
+# conventionally put test support functions under tests.support and may
+# sometimes use assert in test fixtures in conftest.py, and pytest only
+# enables magical assert processing (showing a full diff on assert failures
+# with complex data structures rather than only the assert message) in files
+# listed in python_files.
+python_files = ["tests/*.py", "tests/*/*.py"]
+
 # Use the generic Ruff configuration in ruff.toml and extend it with only
 # project-specific settings.
 [tool.ruff]
 extend = "ruff-shared.toml"
 
 [tool.ruff.lint.extend-per-file-ignores]
+"*/noxfile.py" = [
+    "INP001",  # subdirectory nox configuration isn't in a package
+]
 "client/src/rubin/nublado/client/testing/**" = [
     "S101",    # test support functions are allowed to use assert
 ]
@@ -54,10 +134,7 @@ extend = "ruff-shared.toml"
 [tool.ruff.lint.isort]
 known-first-party = [
     "controller",
-    "rubin.nublado.authenticator",
-    "rubin.nublado.client",
-    "rubin.nublado.inithome",
-    "rubin.nublado.spawner",
+    "rubin.nublado",
     "tests",
 ]
 
@@ -73,3 +150,19 @@ format = "md"
 md_header_level = "2"
 new_fragment_template = "file:changelog.d/_template.md.jinja"
 skip_fragments = "_template.md.jinja"
+
+[tool.setuptools]
+py-modules = []
+
+[tool.setuptools_scm]
+
+[tool.uv.sources]
+controller = { path = "controller" }
+rubin-nublado-authenticator = { path = "hub/plugins/authenticator" }
+rubin-nublado-client = { path = "client" }
+rubin-nublado-inithome = { workspace = true }
+rubin-nublado-purger = { workspace = true }
+rubin-nublado-spawner = { path = "hub/plugins/spawner" }
+
+[tool.uv.workspace]
+members = ["inithome", "purger"]

@@ -16,5 +16,6 @@
 .. _semver: https://semver.org/
 .. _worblehat: https://github.com/lsst-sqre/worblehat
 .. _workload identity: https://cloud.google.com/kubernetes-engine/docs/concepts/workload-identity
+.. _uv: https://docs.astral.sh/uv/
 .. _virtualenvwrapper: https://virtualenvwrapper.readthedocs.io/en/stable/
 .. _Zero to JupyterHub: https://z2jh.jupyter.org/en/stable/

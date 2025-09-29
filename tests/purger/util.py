@@ -4,8 +4,9 @@ import datetime
 import os
 from pathlib import Path
 
-from rubin.nublado.purger.models.plan import FileReason
 from safir.pydantic._types import _validate_human_timedelta
+
+from rubin.nublado.purger.models.plan import FileReason
 
 
 def set_age(path: Path, whichtime: FileReason, h_age: str) -> None:
