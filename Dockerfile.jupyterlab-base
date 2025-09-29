@@ -6,13 +6,18 @@ RUN mkdir -p /tmp/build
 WORKDIR /tmp/build
 
 COPY jupyterlab-base/scripts/install-base-packages /tmp/build
-RUN ./install-base-packages
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    ./install-base-packages
 
 # Now we have a patched python container.  Add system dependencies.
 
 FROM base-image AS deps-image
+
 COPY jupyterlab-base/scripts/install-dependency-packages /tmp/build
-RUN ./install-dependency-packages
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    ./install-dependency-packages
 
 # Add other system-level files
 

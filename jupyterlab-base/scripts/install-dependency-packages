@@ -39,7 +39,3 @@ apt-get -y install --no-install-recommends \
     libdigest-md5-file-perl jq gh hub unzip ack screen tmux tree file less \
     man curl \
     nano vim ed
-
-# Delete cached files we don't need anymore:
-apt-get clean
-rm -rf /var/lib/apt/lists/*
