@@ -16,7 +16,7 @@
 # The purger will typically run as root. Its job is to use its privilege
 # to clean up after people who did not clean up after themselves.
 
-FROM python:3.13.7-slim-bookworm AS base-image
+FROM python:3.13.7-slim-trixie AS base-image
 
 # Update system packages.
 COPY scripts/update-os-packages.sh .
