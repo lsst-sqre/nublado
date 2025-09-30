@@ -322,7 +322,7 @@ class LabManager:
             operation_type = lab.monitor.in_progress.value
             self._logger.warning(
                 "Operation in progress",
-                username=username,
+                user=username,
                 operation=operation_type,
             )
             msg = f"Operation in progress for {username}: {operation_type}"
@@ -330,7 +330,7 @@ class LabManager:
         if lab.state and not delete_first:
             self._logger.warning(
                 "Lab already exists",
-                username=username,
+                user=username,
                 status=lab.state.status.value,
             )
             raise LabExistsError(f"Lab already exists for {username}")
@@ -604,7 +604,7 @@ class LabManager:
         # controller.
         for username in set(observed.keys()) - set(self._labs.keys()):
             msg = f"Creating record for user {username} from Kubernetes"
-            self._logger.info(msg)
+            self._logger.info(msg, user=username)
             self._labs[username] = _State(
                 state=observed[username],
                 monitor=_LabMonitor(
@@ -710,7 +710,7 @@ class LabManager:
         events.put(Event(type=EventType.INFO, message=msg, progress=progress))
         await self._storage.delete_namespace(names.namespace, timeout)
 
-        self._logger.info("Lab deleted", username=username)
+        self._logger.info("Lab deleted", user=username)
         progress = end_progress
         msg = f"Lab for {username} deleted"
         events.put(Event(type=EventType.INFO, message=msg, progress=progress))
@@ -1018,7 +1018,7 @@ class LabManager:
                 continue
             if username not in observed:
                 msg = f"Expected user {username} not found in Kubernetes"
-                self._logger.warning(msg)
+                self._logger.warning(msg, user=username)
                 lab.state.status = LabStatus.FAILED
             else:
                 observed_state = observed[username]
@@ -1081,6 +1081,7 @@ class LabManager:
             missing.
         """
         username = state.user.username
+        logger = self._logger.bind(user=username)
         msg = f"Starting lab creation for {username}"
         events.put(Event(type=EventType.INFO, message=msg, progress=1))
 
@@ -1097,10 +1098,10 @@ class LabManager:
                 start_progress=5,
                 end_progress=20,
             )
-            self._logger.info("Lab deleted")
+            logger.info("Lab deleted")
 
         # Retrieve the secrets that will be used to construct the lab secret.
-        self._logger.info("Retrieving secret data")
+        logger.info("Retrieving secret data for lab")
         pull_secret = None
         try:
             secret_data = await self._gather_secret_data(user, timeout)
@@ -1124,7 +1125,7 @@ class LabManager:
             pull_secret=pull_secret,
         )
         internal_url = self._builder.build_internal_url(username, spec.env)
-        self._logger.info("Creating new lab", user=username)
+        logger.info("Creating new lab")
         await self._storage.create(objects, timeout)
         msg = "Created Kubernetes objects for user lab"
         events.put(Event(type=EventType.INFO, message=msg, progress=30))
@@ -1206,6 +1207,7 @@ class LabManager:
         """
         name = names.pod
         namespace = names.namespace
+        logger = self._logger.bind(user=names.username)
         iterator = self._storage.watch_pod_events(name, namespace, timeout)
         progress = 35
         try:
@@ -1213,7 +1215,7 @@ class LabManager:
                 events.put(
                     Event(type=EventType.INFO, message=msg, progress=progress)
                 )
-                self._logger.debug(f"Spawning event: {msg}", progress=progress)
+                logger.debug(f"Spawning event: {msg}", progress=progress)
 
                 # We don't know how many startup events we'll see, so we will
                 # do the same thing Kubespawner does and move one-third closer
@@ -1224,7 +1226,7 @@ class LabManager:
             # watcher thread silently exit, since watching pod spawn events is
             # not critical to spawning.
             username = names.username
-            self._logger.exception("Error watching lab events", user=username)
+            logger.exception("Error watching lab events", user=username)
             await self._maybe_post_exception(e, username)
 
 
