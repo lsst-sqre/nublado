@@ -29,6 +29,7 @@ dependencies = [
     "pydantic>2",
     "pydantic-settings",
     "pyyaml",
+    "rubin-repertoire>=0.5.0",
     "safir[kafka,kubernetes]>=14",
     "semver",
     "sse-starlette",
