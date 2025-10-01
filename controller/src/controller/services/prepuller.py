@@ -2,8 +2,7 @@
 
 import asyncio
 
-import sentry_sdk
-from safir.slack.blockkit import SlackException
+from safir.sentry import report_exception
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
@@ -115,11 +114,6 @@ class Prepuller:
                 )
         except Exception as e:
             self._logger.exception("Failed to prepull image")
-            sentry_sdk.capture_exception(e)
-            if self._slack:
-                if isinstance(e, SlackException):
-                    await self._slack.post_exception(e)
-                else:
-                    await self._slack.post_uncaught_exception(e)
+            await report_exception(e, self._slack)
         else:
             self._logger.info("Prepulled image", delay=timeout.elapsed())

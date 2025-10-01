@@ -11,8 +11,8 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Self
 
-import sentry_sdk
 from safir.asyncio import AsyncMultiQueue
+from safir.sentry import report_exception
 from safir.slack.blockkit import (
     SlackException,
 )
@@ -926,14 +926,7 @@ class LabManager:
         """
         if isinstance(exc, SlackException):
             exc.user = username
-        sentry_sdk.capture_exception(exc)
-
-        if not self._slack:
-            return
-        if isinstance(exc, SlackException):
-            await self._slack.post_exception(exc)
-        else:
-            await self._slack.post_uncaught_exception(exc)
+        await report_exception(exc, self._slack)
 
     async def _monitor_pending_spawn(self, username: str) -> None:
         """Watch pending spawns of labs for the provided users.
@@ -1420,14 +1413,7 @@ class _LabMonitor:
         """
         if isinstance(exc, SlackException):
             exc.user = self._username
-        sentry_sdk.capture_exception(exc)
-
-        if not self._slack:
-            return
-        if isinstance(exc, SlackException):
-            await self._slack.post_exception(exc)
-        else:
-            await self._slack.post_uncaught_exception(exc)
+        await report_exception(exc, self._slack)
 
     async def _monitor_operation(
         self,

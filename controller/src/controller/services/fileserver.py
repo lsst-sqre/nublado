@@ -7,7 +7,7 @@ import contextlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-import sentry_sdk
+from safir.sentry import report_exception
 from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
@@ -447,14 +447,6 @@ class FileserverManager:
         username
             Username that triggered the exception, if known.
         """
-        if isinstance(exc, SlackException):
-            if username:
-                exc.user = username
-        sentry_sdk.capture_exception(exc)
-
-        if not self._slack:
-            return
-        if isinstance(exc, SlackException):
-            await self._slack.post_exception(exc)
-        else:
-            await self._slack.post_uncaught_exception(exc)
+        if isinstance(exc, SlackException) and username:
+            exc.user = username
+        await report_exception(exc, self._slack)
