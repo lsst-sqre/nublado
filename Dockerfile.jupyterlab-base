@@ -1,4 +1,4 @@
-FROM python:3.13.7-slim-bookworm AS base-image
+FROM python:3.13.7-slim-trixie AS base-image
 USER root
 SHELL ["/bin/bash", "-lc"]
 
