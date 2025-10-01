@@ -26,13 +26,11 @@ uv pip install uv
 
 uv pip install --upgrade datashader
 
-# Here we go.  Most of these are Jupyter-related.  Some (like black and mypy)
-# are just a good idea.
+# Here we go.  Most of these are Jupyter-related.
 
 # jupyter_firefly_extensions is slightly incompatible with bokeh
 uv pip install --upgrade \
    astrowidgets \
-   black \
    black-nb \
    bokeh \
    bqplot \
@@ -47,7 +45,6 @@ uv pip install --upgrade \
    ipywebrtc \
    ipywidgets \
    jupyter \
-   jupyter-dash \
    jupyter_firefly_extensions \
    jupyter-resource-usage \
    jupyter-server \
@@ -59,19 +56,15 @@ uv pip install --upgrade \
    jupyterlab_iframe \
    jupyterlab_widgets \
    lckr-jupyterlab-variableinspector \
-   llvmlite \
    lsst-rsp \
-   mypy \
    'nbconvert[webpdf]' \
    nbdime \
    nbval \
    panel \
    playwright \
    plotly \
-   pre-commit \
    pythreejs \
    rsp-jupyter-extensions \
-   ruff \
    sidecar
 
 # Having done that, install chromium (for webpdf export)
