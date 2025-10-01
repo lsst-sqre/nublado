@@ -33,9 +33,6 @@ COPY jupyterlab-base/profile.d/local01-nbstripjq.sh \
      /etc/profile.d/
 
 # /etc/skel
-
-RUN for i in notebooks WORK DATA; do mkdir -p /etc/skel/${i}; done
-
 COPY jupyterlab-base/skel/pythonrc /etc/skel/.pythonrc
 
 # Might want to move these?  Or make them owned by jupyter user?
