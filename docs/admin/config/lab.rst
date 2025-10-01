@@ -296,25 +296,28 @@ See the `Kubernetes documentation <https://kubernetes.io/docs/concepts/configura
     If the user has a notebook quota set (see `quota settings in Gafaelfawr <https://gafaelfawr.lsst.io/user-guide/helm.html#quotas>`__), only sizes that fit within that quota will be shown.
     The order in which the sizes are listed will be preserved in the menu.
 
-    The default setting defines three sizes: ``small`` with 1 CPU unit and 4GiB of memory, ``medium`` with 2 CPU units and 8GiB of memory, and ``large`` with 4 CPU units and 16GiB of memory.
-
     Each element of the list must contain the following keys:
 
     ``size``
         The human-readable name of this lab size.
         Must be chosen from ``fine``, ``diminutive``, ``tiny``, ``small``, ``medium``, ``large``, ``huge``, ``gargantuan``, and ``colossal`` (taken from `d20 creature sizes`_).
 
-    ``cpu``
+    ``resources.limits.cpu``
         Number of CPU units to set as a limit.
         If the pod attempts to use more CPU processing than this limit, it will be throttled.
 
-    ``memory``
+    ``resources.limits.memory``
         Memory allocation limit.
         If the pod attempts to allocate more memory than this limit, processes will be killed by the Linux OOM killer.
         In practice, this often means the pod will become unusable and will have to be recreated.
 
-    The ``cpu`` and ``memory`` for a given lab size define the Kubernetes limits.
-    The Kubernetes requests are automatically set to 25% of the limits.
+    ``resources.requests.memory``
+        Memory allocation request.
+        The amount of memory guaranteed to be available to the pod.
+
+    ``resources.limits.cpu``
+        Number of CPU units to set as a request.
+        The number of vCPUs guaranteed to be available to the pod.
 
 ``controller.config.lab.defaultSize``
     The default size.
