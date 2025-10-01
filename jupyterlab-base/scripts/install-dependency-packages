@@ -25,9 +25,8 @@ apt-get update
 # Install various dependencies for runtime.
 
 # git: required by setuptools_scm
+# build-essential: required to compile Python with C++ deps
 # pandoc: get the dependencies the venv nbconvert will need
-# texlive*: export to PDF
-# jq ... less: useful utilities
 # man: it is an interactive system, after all
 # curl: CLI http client is useful
 # nano ... ed: enough editors to cover most people's habits
