@@ -52,11 +52,10 @@ uv pip install --upgrade \
    jupyterlab_widgets \
    lckr-jupyterlab-variableinspector \
    lsst-rsp \
-   'nbconvert[webpdf]' \
+   nbconvert \
    nbdime \
    nbval \
    panel \
-   playwright \
    plotly \
    pythreejs \
    rsp-jupyter-extensions \
@@ -75,7 +74,7 @@ jupyter labextension lock "@jupyterlab/hub-extension:menu" \
 
 # Clean up cache
 uv cache clean
-pip uninstall -y uv
+pip uninstall -y uv llvmlite
 
 # Increase this to force a rebuild because a dependency package has changed.
 # Reset when you actually change a package or its pins.

@@ -46,6 +46,11 @@ COPY jupyterlab-base/jupyter_server/jupyter_server_config.json \
 COPY jupyterlab-base/scripts/install-system-files /tmp/build
 RUN ./install-system-files
 
+ENV TEXMFHOME=/usr/local/share/texlive
+RUN mkdir -p ${TEXMFHOME}
+COPY jupyterlab-base/scripts/fix-texlive /tmp/build
+RUN ./fix-texlive
+
 FROM deps-image AS jupyterlab-image
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -69,12 +74,6 @@ COPY jupyterlab-base/jupyter_server/jupyter_server_config.py \
 
 COPY jupyterlab-base/runtime/runlab \
      /usr/local/share/jupyterlab/
-
-# install chromium and deps (for webpdf export)
-ARG DEBIAN_FRONTEND=noninteractive
-RUN . /usr/local/share/jupyterlab/venv/bin/activate && \
-    playwright install chromium && \
-    playwright install-deps
 
 FROM base-rsp-image AS manifests-rsp-image
 
