@@ -283,7 +283,6 @@ jobs:
           file: Dockerfile.${{ matrix.container.name }}
           push: "true"
           tags: ${{ steps.build-meta.outputs.tags }}
-          platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
