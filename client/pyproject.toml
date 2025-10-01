@@ -23,7 +23,7 @@ dependencies = [
     "httpx<1",
     "httpx-sse<1",
     "pydantic>2,<3",
-    "safir<14",
+    "safir<15",
     "structlog",
     "websockets>=14,<16",
 ]

@@ -274,16 +274,16 @@ wheels = [
 
 [[package]]
 name = "fastapi"
-version = "0.117.1"
+version = "0.118.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "starlette" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7e/7e/d9788300deaf416178f61fb3c2ceb16b7d0dc9f82a08fdb87a5e64ee3cc7/fastapi-0.117.1.tar.gz", hash = "sha256:fb2d42082d22b185f904ca0ecad2e195b851030bd6c5e4c032d1c981240c631a", size = 307155, upload-time = "2025-09-20T20:16:56.663Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/28/3c/2b9345a6504e4055eaa490e0b41c10e338ad61d9aeaae41d97807873cdf2/fastapi-0.118.0.tar.gz", hash = "sha256:5e81654d98c4d2f53790a7d32d25a7353b30c81441be7d0958a26b5d761fa1c8", size = 310536, upload-time = "2025-09-29T03:37:23.126Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6d/45/d9d3e8eeefbe93be1c50060a9d9a9f366dba66f288bb518a9566a23a8631/fastapi-0.117.1-py3-none-any.whl", hash = "sha256:33c51a0d21cab2b9722d4e56dbb9316f3687155be6b276191790d8da03507552", size = 95959, upload-time = "2025-09-20T20:16:53.661Z" },
+    { url = "https://files.pythonhosted.org/packages/54/20/54e2bdaad22ca91a59455251998d43094d5c3d3567c52c7c04774b3f43f2/fastapi-0.118.0-py3-none-any.whl", hash = "sha256:705137a61e2ef71019d2445b123aa8845bd97273c395b744d5a7dfe559056855", size = 97694, upload-time = "2025-09-29T03:37:21.338Z" },
 ]
 
 [[package]]
@@ -692,7 +692,7 @@ requires-dist = [
     { name = "httpx", specifier = "<1" },
     { name = "httpx-sse", specifier = "<1" },
     { name = "pydantic", specifier = ">2,<3" },
-    { name = "safir", specifier = "<14" },
+    { name = "safir", specifier = "<15" },
     { name = "structlog" },
     { name = "websockets", specifier = ">=14,<16" },
 ]
@@ -714,7 +714,7 @@ typing = [{ name = "mypy", specifier = ">=1.15" }]
 
 [[package]]
 name = "safir"
-version = "13.0.1"
+version = "14.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -730,21 +730,21 @@ dependencies = [
     { name = "starlette" },
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d1/4f/36e1dc464dbafac1d0cd8f293180e614471fcd7e47df80e3f4520f3e22b3/safir-13.0.1.tar.gz", hash = "sha256:863491183f2cffc5ecb584870db9822e3101988c3d198e83236faa3d21567b66", size = 490171, upload-time = "2025-09-23T17:08:14.864Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/51/f1/498de1e836f2c4259385d4d74b433472db6c66a82f23834b1509de1a0eae/safir-14.0.0.tar.gz", hash = "sha256:10b607052e5ebd1fecb14a8bc3186d8889b4de3a5a6ddfda1a40c9c0337602a8", size = 497503, upload-time = "2025-09-30T16:31:14.351Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d9/a0/41d1d413f989dcc4f3b619c23f209ec06ee376c0391d58e6b4f4c4081ca3/safir-13.0.1-py3-none-any.whl", hash = "sha256:9c989a0c7f5964db0829bab7561d45672bd07bca72da5a0cf8842679c29b3ed4", size = 175708, upload-time = "2025-09-23T17:08:13.057Z" },
+    { url = "https://files.pythonhosted.org/packages/4e/2b/ed6740827746a7d236e5d5e12fa3dd86a2b7def747dc9532c727f5377887/safir-14.0.0-py3-none-any.whl", hash = "sha256:f943f9ed8ee4b53c5313065e05b2a36d0d02588c8d67db75badeba0f89249d7c", size = 176495, upload-time = "2025-09-30T16:31:12.882Z" },
 ]
 
 [[package]]
 name = "safir-logging"
-version = "13.0.1"
+version = "14.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d0/56/c7ce121e5d335b8979ea9a5e53297de41ed4af6e735cf30bf5752b5fa4c5/safir_logging-13.0.1.tar.gz", hash = "sha256:9db44d99dacaabb73ab9f63a581f2a7ed20b3be981d1c5aef5494a846f92be1c", size = 8416, upload-time = "2025-09-23T17:08:18.855Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/38/164f5bfa54b65c9ccf419d297d91e30a2bad55f54c3da4249a54855edae4/safir_logging-14.0.0.tar.gz", hash = "sha256:58543bca169733a88d31883232737783f1a8d94ff8797da362af6d10639126b2", size = 8423, upload-time = "2025-09-30T16:31:17.637Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c5/d2/2c3547a3c8dd3c1d4a6e0b978bc7407da95506f6418cbee0c97052d1f78b/safir_logging-13.0.1-py3-none-any.whl", hash = "sha256:6eb005ab8ce02168e81b805ea7195c42fa704d7b898a2a177ff1e62b6fe01181", size = 10464, upload-time = "2025-09-23T17:08:18.016Z" },
+    { url = "https://files.pythonhosted.org/packages/88/3f/53beccfb5b0de93b8390d8bd9b4cb5d6d49399ce4f794c3f27f0c5af85cb/safir_logging-14.0.0-py3-none-any.whl", hash = "sha256:850164d2ad84f840a9007d084b3655184eb8cbc12bd25586aa6a522297665ae3", size = 10463, upload-time = "2025-09-30T16:31:16.535Z" },
 ]
 
 [[package]]
