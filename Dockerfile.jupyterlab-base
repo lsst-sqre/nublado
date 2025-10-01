@@ -48,12 +48,19 @@ RUN ./install-system-files
 
 FROM deps-image AS jupyterlab-image
 
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get -y install build-essential
+
 COPY jupyterlab-base/scripts/install-jupyterlab /tmp/build
 RUN ./install-jupyterlab
 
-FROM jupyterlab-image AS base-rsp-image
+FROM deps-image AS base-rsp-image
 
 RUN mkdir -p /usr/local/share/jupyterlab/etc
+
+COPY --from=jupyterlab-image /usr/local/share/jupyterlab/venv \
+    /usr/local/share/jupyterlab/venv
+
 RUN mkdir -p /usr/local/share/jupyterlab/venv/etc/jupyter
 COPY jupyterlab-base/jupyter_server/jupyter_server_config.json \
      /usr/local/share/jupyterlab/venv/etc/jupyter/jupyter_server_config.d
@@ -62,6 +69,12 @@ COPY jupyterlab-base/jupyter_server/jupyter_server_config.py \
 
 COPY jupyterlab-base/runtime/runlab \
      /usr/local/share/jupyterlab/
+
+# install chromium and deps (for webpdf export)
+ARG DEBIAN_FRONTEND=noninteractive
+RUN . /usr/local/share/jupyterlab/venv/bin/activate && \
+    playwright install chromium && \
+    playwright install-deps
 
 FROM base-rsp-image AS manifests-rsp-image
 

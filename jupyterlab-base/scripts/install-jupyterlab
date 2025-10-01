@@ -21,19 +21,14 @@ source /usr/local/share/jupyterlab/venv/bin/activate
 
 uv pip install uv
 
-# We need to install datashader and its dependencies first, because otherwise
-# we get stuck in a nasty llvm version dependency hole.
-
-uv pip install --upgrade datashader
-
 # Here we go.  Most of these are Jupyter-related.
 
 # jupyter_firefly_extensions is slightly incompatible with bokeh
 uv pip install --upgrade \
    astrowidgets \
    black-nb \
-   bokeh \
    bqplot \
+   datashader \
    firefly-client \
    geoviews \
    holoviews \
@@ -67,11 +62,6 @@ uv pip install --upgrade \
    rsp-jupyter-extensions \
    sidecar
 
-# Having done that, install chromium (for webpdf export)
-playwright install chromium
-# And its dependencies
-playwright install-deps
-
 # File sharing doesn't work in the RSP environment; remove the extension.
 jupyter labextension disable "@jupyterlab/filebrowser-extension:share-file"
 # And Jupyter News is just obnoxious
@@ -85,6 +75,7 @@ jupyter labextension lock "@jupyterlab/hub-extension:menu" \
 
 # Clean up cache
 uv cache clean
+pip uninstall -y uv
 
 # Increase this to force a rebuild because a dependency package has changed.
 # Reset when you actually change a package or its pins.
