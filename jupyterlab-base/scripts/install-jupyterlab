@@ -69,6 +69,8 @@ uv pip install --upgrade \
 
 # Having done that, install chromium (for webpdf export)
 playwright install chromium
+# And its dependencies
+playwright install-deps
 
 # File sharing doesn't work in the RSP environment; remove the extension.
 jupyter labextension disable "@jupyterlab/filebrowser-extension:share-file"
