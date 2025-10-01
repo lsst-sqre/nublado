@@ -25,13 +25,14 @@ apt-get update
 # Install various dependencies for runtime.
 
 # git: required by setuptools_scm
-# build-essential: required to compile Python with C++ deps
 # pandoc: get the dependencies the venv nbconvert will need
+# jq ... less: useful utilities
 # man: it is an interactive system, after all
-# curl: required to download the DM stack installer
+# curl: CLI http client is useful
 # nano ... ed: enough editors to cover most people's habits
+#  (I gave up on emacs in the base container, alas)
 apt-get -y install --no-install-recommends \
-    git build-essential pandoc \
+    git pandoc \
     jq gh hub unzip ack screen tmux tree file less \
     man curl \
     nano vim ed
