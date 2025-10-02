@@ -1,4 +1,4 @@
-FROM python:3.13.7-slim-bookworm AS base-image
+FROM python:3.13.7-slim-trixie AS base-image
 USER root
 SHELL ["/bin/bash", "-lc"]
 
@@ -33,9 +33,6 @@ COPY jupyterlab-base/profile.d/local01-nbstripjq.sh \
      /etc/profile.d/
 
 # /etc/skel
-
-RUN for i in notebooks WORK DATA; do mkdir -p /etc/skel/${i}; done
-
 COPY jupyterlab-base/skel/pythonrc /etc/skel/.pythonrc
 
 # Might want to move these?  Or make them owned by jupyter user?
@@ -49,14 +46,26 @@ COPY jupyterlab-base/jupyter_server/jupyter_server_config.json \
 COPY jupyterlab-base/scripts/install-system-files /tmp/build
 RUN ./install-system-files
 
+ENV TEXMFHOME=/usr/local/share/texlive
+RUN mkdir -p ${TEXMFHOME}
+COPY jupyterlab-base/scripts/fix-texlive /tmp/build
+RUN ./fix-texlive
+
 FROM deps-image AS jupyterlab-image
+
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get -y install build-essential
 
 COPY jupyterlab-base/scripts/install-jupyterlab /tmp/build
 RUN ./install-jupyterlab
 
-FROM jupyterlab-image AS base-rsp-image
+FROM deps-image AS base-rsp-image
 
 RUN mkdir -p /usr/local/share/jupyterlab/etc
+
+COPY --from=jupyterlab-image /usr/local/share/jupyterlab/venv \
+    /usr/local/share/jupyterlab/venv
+
 RUN mkdir -p /usr/local/share/jupyterlab/venv/etc/jupyter
 COPY jupyterlab-base/jupyter_server/jupyter_server_config.json \
      /usr/local/share/jupyterlab/venv/etc/jupyter/jupyter_server_config.d

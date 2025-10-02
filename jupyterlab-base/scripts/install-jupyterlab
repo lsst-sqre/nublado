@@ -21,21 +21,14 @@ source /usr/local/share/jupyterlab/venv/bin/activate
 
 uv pip install uv
 
-# We need to install datashader and its dependencies first, because otherwise
-# we get stuck in a nasty llvm version dependency hole.
-
-uv pip install --upgrade datashader
-
-# Here we go.  Most of these are Jupyter-related.  Some (like black and mypy)
-# are just a good idea.
+# Here we go.  Most of these are Jupyter-related.
 
 # jupyter_firefly_extensions is slightly incompatible with bokeh
 uv pip install --upgrade \
    astrowidgets \
-   black \
    black-nb \
-   bokeh \
    bqplot \
+   datashader \
    firefly-client \
    geoviews \
    holoviews \
@@ -47,7 +40,6 @@ uv pip install --upgrade \
    ipywebrtc \
    ipywidgets \
    jupyter \
-   jupyter-dash \
    jupyter_firefly_extensions \
    jupyter-resource-usage \
    jupyter-server \
@@ -59,23 +51,15 @@ uv pip install --upgrade \
    jupyterlab_iframe \
    jupyterlab_widgets \
    lckr-jupyterlab-variableinspector \
-   llvmlite \
    lsst-rsp \
-   mypy \
-   'nbconvert[webpdf]' \
+   nbconvert \
    nbdime \
    nbval \
    panel \
-   playwright \
    plotly \
-   pre-commit \
    pythreejs \
    rsp-jupyter-extensions \
-   ruff \
    sidecar
-
-# Having done that, install chromium (for webpdf export)
-playwright install chromium
 
 # File sharing doesn't work in the RSP environment; remove the extension.
 jupyter labextension disable "@jupyterlab/filebrowser-extension:share-file"
@@ -90,6 +74,7 @@ jupyter labextension lock "@jupyterlab/hub-extension:menu" \
 
 # Clean up cache
 uv cache clean
+pip uninstall -y uv llvmlite
 
 # Increase this to force a rebuild because a dependency package has changed.
 # Reset when you actually change a package or its pins.
