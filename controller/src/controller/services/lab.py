@@ -1110,7 +1110,7 @@ class LabManager:
 
         # Build the objects that make up the user's lab.
         state.status = LabStatus.PENDING
-        objects = self._builder.build_lab(
+        objects = await self._builder.build_lab(
             user=user,
             lab=spec,
             image=image,

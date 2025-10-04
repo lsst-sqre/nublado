@@ -1,0 +1,55 @@
+{
+  "applications": ["nublado"],
+  "datasets": {
+    "dp1": {
+      "butler_config": "https://data.example.com/api/butler/repo/dp1/butler.yaml",
+      "description": "Data Preview 1 contains image and catalog products from the Rubin Science Pipelines v29 processing of observations obtained with the LSST Commissioning Camera of seven ~1 square degree fields, over seven weeks in late 2024.",
+      "docs_url": "https://dp1.exmple.com/",
+      "hips_list": "https://example.com/api/hips/v2/dp1/list"
+    }
+  },
+  "influxdb_databases": {
+    "idfdev_efd": {
+      "url": "https://data.example.com/influxdb/",
+      "database": "efd",
+      "schema_registry": "http://sasquatch-schema-registry.sasquatch:8081/",
+      "credentials_url": "https://example.com/repertoire/discovery/influxdb/idfdev_efd"
+    }
+  },
+  "services": {
+    "data": {
+      "cutout": {
+        "dp1": {
+          "url": "https://data.example.com/api/cutout",
+          "versions": {
+            "soda-async-1.0": {
+              "url": "https://data.example.com/api/cutout/dp1/jobs",
+              "ivoa_standard_id": "ivo://ivoa.net/std/SODA#async-1.0"
+            },
+            "soda-sync-1.0": {
+              "url": "https://data.example.com/api/cutout/dp1/sync",
+              "ivoa_standard_id": "ivo://ivoa.net/std/SODA#sync-1.0"
+            }
+          },
+          "openapi": "https://data.example.com/api/cutout/openapi.json"
+        }
+      }
+    },
+    "internal": {
+      "gafaelfawr": {
+        "url": "https://data.example.com/auth/api",
+        "versions": {
+          "v1": {
+            "url": "https://data.example.com/auth/api/v1"
+          }
+        },
+        "openapi": "https://data.example.com/auth/openapi.json"
+      }
+    },
+    "ui": {
+      "nublado": {
+        "url": "https://nb.data.example.com/nb"
+      }
+    }
+  }
+}

@@ -48,6 +48,7 @@ from kubernetes_asyncio.client import (
     V1Volume,
     V1VolumeMount,
 )
+from rubin.repertoire import DiscoveryClient
 from structlog.stdlib import BoundLogger
 
 from ...config import (
@@ -85,15 +86,23 @@ class LabBuilder:
         Lab configuration.
     base_url
         Base URL for this Notebook Aspect instance.
+    discovery_client
+        Repertoire discovery client.
     logger
         Logger to use.
     """
 
     def __init__(
-        self, config: LabConfig, base_url: str, logger: BoundLogger
+        self,
+        *,
+        config: LabConfig,
+        base_url: str,
+        discovery_client: DiscoveryClient,
+        logger: BoundLogger,
     ) -> None:
         self._config = config
         self._base_url = base_url
+        self._discovery = discovery_client
         self._logger = logger
         self._volume_builder = VolumeBuilder()
 
@@ -144,7 +153,7 @@ class LabBuilder:
             pod=f"{username}-nb",
         )
 
-    def build_lab(
+    async def build_lab(
         self,
         *,
         user: GafaelfawrUserInfo,
@@ -176,7 +185,7 @@ class LabBuilder:
         return LabObjects(
             namespace=self._build_namespace(user.username),
             env_config_map=self._build_env_config_map(user, lab, image),
-            config_maps=self._build_config_maps(user),
+            config_maps=await self._build_config_maps(user),
             network_policy=self._build_network_policy(user.username),
             pvcs=self._build_pvcs(user.username),
             quota=self._build_quota(user),
@@ -302,14 +311,14 @@ class LabBuilder:
         name = f"{self._config.namespace_prefix}-{username}"
         return V1Namespace(metadata=self._build_metadata(name, username))
 
-    def _build_config_maps(
+    async def _build_config_maps(
         self, user: GafaelfawrUserInfo
     ) -> list[V1ConfigMap]:
         """Build the config maps used by the user's lab pod."""
-        config_maps = [self._build_nss_config_map(user)]
-        if file_config_map := self._build_file_config_map(user.username):
-            config_maps.append(file_config_map)
-        return config_maps
+        return [
+            self._build_nss_config_map(user),
+            await self._build_file_config_map(user.username),
+        ]
 
     def _build_env_config_map(
         self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
@@ -370,17 +379,21 @@ class LabBuilder:
             data=env,
         )
 
-    def _build_file_config_map(self, username: str) -> V1ConfigMap | None:
+    async def _build_file_config_map(self, username: str) -> V1ConfigMap:
         """Build the config map holding supplemental mounted files."""
-        if not self._config.files:
-            return None
+        discovery_dict = await self._discovery.build_nublado_dict()
+        discovery_json = json.dumps(discovery_dict, sort_keys=True, indent=2)
+        data = {"discovery-v1-json": discovery_json}
+        if self._config.files:
+            extra_files = {
+                re.sub(r"[_.]", "-", Path(k).name): v
+                for k, v in self._config.files.items()
+            }
+            data.update(extra_files)
         return V1ConfigMap(
             metadata=self._build_metadata(f"{username}-nb-files", username),
             immutable=True,
-            data={
-                re.sub(r"[_.]", "-", Path(k).name): v
-                for k, v in self._config.files.items()
-            },
+            data=data,
         )
 
     def _build_nss_config_map(self, user: GafaelfawrUserInfo) -> V1ConfigMap:
@@ -614,11 +627,29 @@ class LabBuilder:
         return mounts
 
     def _build_pod_config_map_volume(
-        self, config_map: str, path: str
+        self, config_map: str, path: str, key: str | None = None
     ) -> MountedVolume:
-        """Construct the mounted volume for a file from a ``ConfigMap``."""
+        """Construct the mounted volume for a file from a ``ConfigMap``.
+
+        Parameters
+        ----------
+        config_map
+            Name of the ``ConfigMap`` from which the file is mounted.
+        path
+            Path where the file is mounted.
+        key
+            If given, the key in the ``ConfigMap``. If not given, this will
+            be the filename of the path with periods and underscores changed
+            into dashes (the same scheme used when constructing the
+            ``ConfigMap``).
+
+        Returns
+        -------
+        MountedVolume
+            Information about the volume and its mount.
+        """
         subpath = Path(path).name
-        name = re.sub(r"[_.]", "-", subpath)
+        name = key if key is not None else re.sub(r"[_.]", "-", subpath)
         key_to_path = V1KeyToPath(mode=0o0644, key=name, path=subpath)
         return MountedVolume(
             volume=V1Volume(
@@ -637,10 +668,17 @@ class LabBuilder:
 
     def _build_pod_file_volumes(self, username: str) -> list[MountedVolume]:
         """Construct the volumes that mount files from a ``ConfigMap``."""
-        return [
+        volumes = [
             self._build_pod_config_map_volume(f"{username}-nb-files", f)
             for f in self._config.files
         ]
+        discovery_volume = self._build_pod_config_map_volume(
+            f"{username}-nb-files",
+            "/etc/nublado/discovery/v1.json",
+            "discovery-v1-json",
+        )
+        volumes.append(discovery_volume)
+        return volumes
 
     def _build_pod_nss_volumes(self, username: str) -> list[MountedVolume]:
         """Construct the volumes for NSS files."""

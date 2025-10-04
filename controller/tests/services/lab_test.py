@@ -86,7 +86,7 @@ async def create_lab(
     #
     # Create this lab with an empty set of secret data, since it shouldn't
     # matter for what we're testing and saves some effort.
-    objects = lab_builder.build_lab(
+    objects = await lab_builder.build_lab(
         user=user, lab=lab, image=image, secrets={}
     )
     timeout = Timeout("Creating lab", config.lab.spawn_timeout, user.username)

@@ -10,6 +10,7 @@ from typing import Self
 import structlog
 from httpx import AsyncClient, Limits
 from kubernetes_asyncio.client.api_client import ApiClient, Configuration
+from rubin.repertoire import DiscoveryClient
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
@@ -64,6 +65,9 @@ class ProcessContext:
     http_client: AsyncClient
     """Shared HTTP client."""
 
+    discovery_client: DiscoveryClient
+    """Shared service discovery client."""
+
     kubernetes_client: ApiClient
     """Shared Kubernetes client."""
 
@@ -101,6 +105,7 @@ class ProcessContext:
         """
         limits = Limits(max_connections=None)
         http_client = AsyncClient(timeout=20, limits=limits)
+        discovery_client = DiscoveryClient(http_client)
 
         # Disable the connection pool limits in kubernetes-asyncio.
         kubernetes_configuration = Configuration.get_default_copy()
@@ -203,7 +208,12 @@ class ProcessContext:
         lab_manager = LabManager(
             config=config.lab,
             image_service=image_service,
-            lab_builder=LabBuilder(config.lab, config.base_url, logger),
+            lab_builder=LabBuilder(
+                config=config.lab,
+                base_url=config.base_url,
+                discovery_client=discovery_client,
+                logger=logger,
+            ),
             metadata_storage=metadata_storage,
             lab_storage=LabStorage(kubernetes_client, logger),
             events=lab_events,
@@ -213,6 +223,7 @@ class ProcessContext:
         return cls(
             config=config,
             http_client=http_client,
+            discovery_client=discovery_client,
             image_service=image_service,
             kubernetes_client=kubernetes_client,
             prepuller=prepuller,
@@ -381,9 +392,10 @@ class Factory:
             Newly-created lab builder.
         """
         return LabBuilder(
-            self._context.config.lab,
-            self._context.config.base_url,
-            self._logger,
+            config=self._context.config.lab,
+            base_url=self._context.config.base_url,
+            discovery_client=self._context.discovery_client,
+            logger=self._logger,
         )
 
     def create_lab_storage(self) -> LabStorage:

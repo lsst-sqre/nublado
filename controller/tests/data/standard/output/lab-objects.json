@@ -46,6 +46,7 @@
   {
     "apiVersion": "v1",
     "data": {
+      "discovery-v1-json": "{\n  \"datasets\": {\n    \"dp1\": {\n      \"butler_config\": \"https://data.example.com/api/butler/repo/dp1/butler.yaml\"\n    }\n  },\n  \"influxdb_databases\": {\n    \"idfdev_efd\": {\n      \"credentials_url\": \"https://example.com/repertoire/discovery/influxdb/idfdev_efd\",\n      \"database\": \"efd\",\n      \"schema_registry\": \"http://sasquatch-schema-registry.sasquatch:8081/\",\n      \"url\": \"https://data.example.com/influxdb/\"\n    }\n  },\n  \"services\": {\n    \"data\": {\n      \"cutout\": {\n        \"dp1\": {\n          \"url\": \"https://data.example.com/api/cutout\",\n          \"versions\": {\n            \"soda-async-1.0\": {\n              \"url\": \"https://data.example.com/api/cutout/dp1/jobs\"\n            },\n            \"soda-sync-1.0\": {\n              \"url\": \"https://data.example.com/api/cutout/dp1/sync\"\n            }\n          }\n        }\n      }\n    }\n  }\n}",
       "lsst-dask-yml": "# No longer used, but preserves compatibility with runlab\ndask_worker.yml: |\n  enabled: false\n",
       "panda": "# Licensed under the Apache License, Version 2.0 (the \"License\");\n# You may not use this file except in compliance with the License.\n# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0\n#\n# Authors:\n# - Wen Guan, <wen.guan@cern.ch>, 2020\n[common]\n# if logdir is configured, idds will write to idds.log in this directory.\n# else idds will go to stdout/stderr.\n# With supervisord, it's good to write to stdout/stderr, then supervisord can manage and rotate logs.\n# logdir = /var/log/idds\nloglevel = INFO\n[rest]\nhost = https://iddsserver.cern.ch:443/idds\n#url_prefix = /idds\n#cacher_dir = /tmp\ncacher_dir = /data/idds\n"
     },
@@ -401,6 +402,12 @@
               "subPath": "panda"
             },
             {
+              "mountPath": "/etc/nublado/discovery/v1.json",
+              "name": "discovery-v1-json",
+              "readOnly": true,
+              "subPath": "v1.json"
+            },
+            {
               "mountPath": "/opt/lsst/software/jupyterlab/secrets",
               "name": "secrets",
               "readOnly": true
@@ -651,6 +658,19 @@
             "name": "rachel-nb-files"
           },
           "name": "panda"
+        },
+        {
+          "configMap": {
+            "items": [
+              {
+                "key": "discovery-v1-json",
+                "mode": 420,
+                "path": "v1.json"
+              }
+            ],
+            "name": "rachel-nb-files"
+          },
+          "name": "discovery-v1-json"
         },
         {
           "name": "secrets",
