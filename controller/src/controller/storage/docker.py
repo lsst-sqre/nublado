@@ -8,6 +8,7 @@ from httpx import AsyncClient, HTTPError, Response
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import DockerRegistryError
+from ..models.domain.arch_filter import filter_arch_tags
 from ..models.domain.docker import DockerCredentials
 from ..models.v1.prepuller import DockerSourceOptions
 
@@ -127,7 +128,10 @@ class DockerStorageClient:
         self._authorization: dict[str, str] = {}
 
     async def list_tags(self, config: DockerSourceOptions) -> list[str]:
-        """List all the tags for a given registry and repository.
+        """List tags for a given registry and repository.
+
+        This is not comprehensive, because we filter out platform-specific
+        tags that have matching base tags.
 
         Parameters
         ----------
@@ -137,7 +141,7 @@ class DockerStorageClient:
         Returns
         -------
         list of str
-            All the tags found for that repository.
+            All the non-platform-specific tags found for that repository.
         """
         url = f"https://{config.registry}/v2/{config.repository}/tags/list"
         headers = self._build_headers(config.registry)
@@ -155,13 +159,14 @@ class DockerStorageClient:
             msg = f"Cannot parse response from Docker registry: {error}"
             raise DockerRegistryError(msg, method="GET", url=url) from e
         else:
+            filtered = filter_arch_tags(tags)
             self._logger.debug(
                 "Listed all image tags",
                 registry=config.registry,
                 repository=config.repository,
-                count=len(tags),
+                count=len(filtered),
             )
-            return tags
+            return filtered
 
     async def get_image_digest(
         self, config: DockerSourceOptions, tag: str
