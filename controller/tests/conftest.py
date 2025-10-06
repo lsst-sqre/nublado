@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
@@ -17,6 +18,7 @@ from kubernetes_asyncio.client import (
     V1ServiceAccount,
 )
 from pydantic import SecretStr
+from rubin.repertoire import Discovery, register_mock_discovery
 from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 
@@ -98,6 +100,15 @@ async def factory(
     async with Factory.standalone(config) as factory:
         yield factory
         await factory.stop_background_services()
+
+
+@pytest.fixture(autouse=True)
+def mock_discovery(
+    respx_mock: respx.Router, monkeypatch: pytest.MonkeyPatch
+) -> Discovery:
+    monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
+    path = Path(__file__).parent / "data" / "base" / "input" / "discovery.json"
+    return register_mock_discovery(respx_mock, path)
 
 
 @pytest.fixture
