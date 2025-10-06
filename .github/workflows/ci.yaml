@@ -219,54 +219,30 @@ jobs:
         container:
           - name: "controller"
             latest: false
-            images: "ghcr.io/nublado-controller"
-            gar: false
+            images: "ghcr.io/lsst-sqre/nublado-controller"
           - name: "jupyterhub"
             latest: false
-            images: "ghcr.io/nublado-jupyterhub"
-            gar: false
+            images: "ghcr.io/lsst-sqre/nublado-jupyterhub"
           - name: "inithome"
             latest: false
-            images: "ghcr.io/nublado-inithome,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/inithome"
-            gar: true
+            images: "ghcr.io/lsst-sqre/nublado-inithome,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/inithome"
           - name: "purger"
             latest: false
-            images: "ghcr.io/nublado-purger,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/purger"
-            gar: true
+            images: "ghcr.io/lsst-sqre/nublado-purger,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/purger"
           - name: "jupyterlab-base"
             latest: true
-            images: "ghcr.io/nublado-jupyterlab-base"
-            gar: false
+            images: "ghcr.io/lsst-sqre/nublado-jupyterlab-base"
           - name: "fsadmin"
             latest: false
-            images: "ghcr.io/nublado-fsadmin"
-            gar: false
+            images: "ghcr.io/lsst-sqre/nublado-fsadmin"
           - name: "repo-cloner"
             latest: false
-            images: "ghcr.io/nublado-repo-cloner,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/repo-cloner"
-            gar: true
+            images: "ghcr.io/lsst-sqre/nublado-repo-cloner,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/repo-cloner"
     with:
         images: ${{ matrix.container.images }}
-        # Seems like there should be a cleverer way to do images, like
-        # images: format('ghcr.io/{0}-{1}{2}',
-        #     ${{ github.repository }},
-        #     ${{ matrix.container.name }},
-        #     ${{ matrix.container.gar &&
-        #         format(',us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/{0}',
-        #         matrix.container.name)
-        #     }}
-        #
-        # But I sure can't figure it out.
         dockerfile: Dockerfile.${{ matrix.container.name }}
-        additional-tags: ${{ matrix.container.latest && startsWith(github.ref, 'refs/tags/') && 'latest' }}
-
-
-# There's probably some more elegant way to do the images, like the thing
-# below, but I couldn't figure out how to make the equivalent of nested
-# interpolation to work, although it probably relies on format() somehow.
-#
-
-#${{ matrix.container.gar && 'ghcr.io/'github.repository'-'matrix.container.name',us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/'matrix.container.name || 'ghcr.io/'github.repository'-'matrix.container.name }}
+        additional-tags: ${{ matrix.container.latest && startsWith(github.ref, 'refs/tags/') && 'latest' || '' }}
+    secrets: inherit
 
   test-packaging:
     name: Test packaging
