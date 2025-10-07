@@ -7,11 +7,10 @@ import asyncio
 import datetime
 from pathlib import Path
 
-import structlog
 import yaml
-from safir.logging import Profile, configure_logging
-from safir.slack.blockkit import SlackTextBlock
+from safir.logging import configure_logging
 from safir.slack.webhook import SlackRouteErrorHandler
+from structlog.stdlib import BoundLogger, get_logger
 
 from .config import Config
 from .constants import ROOT_LOGGER
@@ -24,11 +23,11 @@ class Purger:
     """Object to plan and execute filesystem purges."""
 
     def __init__(
-        self, config: Config, logger: structlog.BoundLogger | None = None
+        self, config: Config, logger: BoundLogger | None = None
     ) -> None:
         self._config = config
         if logger is None:
-            self._logger = structlog.get_logger(ROOT_LOGGER)
+            self._logger = get_logger(ROOT_LOGGER)
             configure_logging(
                 name=ROOT_LOGGER,
                 profile=config.logging.profile,
@@ -226,18 +225,7 @@ class Purger:
         if self._plan is None:
             raise PlanNotReadyError("Cannot report: plan not ready")
         rpt_text = str(self._plan)
-        if self._config.alert_hook is not None:
-            rpt_msg = SlackTextBlock(
-                heading="Purge plan",
-                text=rpt_text,  # May be truncated
-            )
-            self._logger.info(rpt_msg)
-        elif self._config.logging.profile == Profile.production:
-            # Just log the plan.
-            self._logger.info({"plan": self._plan})
-        else:
-            # Log the human-friendly plan.
-            self._logger.info(rpt_text)
+        self._logger.info(rpt_text)
 
     async def purge(self) -> None:
         """Purge files and after-purge-empty directories."""
@@ -301,20 +289,14 @@ class Purger:
                     victim.rmdir()
                 except (FileNotFoundError, PermissionError) as exc:
                     failed_files[victim] = exc
+
         if failed_files:
-            if self._config.alert_hook is not None:
-                rpt_text = ", ".join(
-                    [f"{x!s}: {failed_files[x]!s}" for x in failed_files]
-                )
-                rpt_msg = SlackTextBlock(
-                    heading="Purge encountered errors",
-                    text=rpt_text,  # May be truncated
-                )
-                self._logger.warning(rpt_msg, failed_files=failed_files)
-            else:
-                self._logger.warning(
-                    "Purge encountered errors", failed_files=failed_files
-                )
+            failed_files_str = {
+                str(k): str(v) for k, v in failed_files.items()
+            }
+            self._logger.warning(
+                "Purge encountered errors", failed_files=failed_files_str
+            )
         else:
             self._logger.debug("Purge complete")
         # We've acted on the plan, so it is no longer valid.  We must
