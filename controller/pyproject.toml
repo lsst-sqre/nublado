@@ -38,9 +38,6 @@ dependencies = [
 ]
 dynamic = ["version"]
 
-[project.scripts]
-controller = "controller.cli:main"
-
 [project.urls]
 Homepage = "https://nublado.lsst.io"
 Source = "https://github.com/lsst-sqre/nublado"
