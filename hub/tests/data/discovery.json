@@ -1,0 +1,9 @@
+{
+  "services": {
+    "ui": {
+      "logout": {
+        "url": "https://example.com/logout"
+      }
+    }
+  }
+}
