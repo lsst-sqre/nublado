@@ -5,14 +5,11 @@ import asyncio
 import os
 from pathlib import Path
 
-import yaml
-from pydantic import HttpUrl, ValidationError
 from safir.datetime import parse_timedelta
-from safir.logging import LogLevel, Profile
+
+from rubin.nublado.purger.constants import CONFIG_FILE_ENV_VAR
 
 from .config import Config
-from .constants import CONFIG_FILE, ENV_PREFIX
-from .models.v1.policy import Policy
 from .purger import Purger
 
 
@@ -21,12 +18,14 @@ def _add_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         "-c",
         "--config-file",
         "--config",
+        type=Path,
         help="Application configuration file",
     )
     parser.add_argument(
         "-p",
         "--policy-file",
         "--policy",
+        type=Path,
         help="Purger policy configuration file",
     )
     parser.add_argument(
@@ -50,6 +49,7 @@ def _add_future_time(
         "--future_duration",
         "--time",
         "--future-time",
+        type=parse_timedelta,
         help="Duration from now to future time to build a plan for",
     )
 
@@ -57,63 +57,23 @@ def _add_future_time(
 
 
 def _postprocess_args_to_config(raw_args: argparse.Namespace) -> Config:
-    config: Config | None = None
-    override_cf = raw_args.config_file or os.getenv(
-        ENV_PREFIX + "CONFIG_FILE", ""
-    )
-    config_file = Path(override_cf) if override_cf else Path(CONFIG_FILE)
-    try:
-        config_obj = yaml.safe_load(config_file.read_text())
-        config = Config.model_validate(config_obj)
-    except (FileNotFoundError, UnicodeDecodeError, ValidationError) as exc:
-        # If the file is not there, or readable, or parseable, just
-        # start with an empty config and add our command-line options.
-        #
-        # But also complain.  We don't have a logger yet, so shout to stdout
-        # instead.
-        print(f"Could not load config '{config_file!s}': {exc}")  # noqa:T201
-        config = Config()
-    # Validate policy.  If the file is specified, use that; if not, use
-    # defaults from config.
-    override_pf = raw_args.policy_file or os.getenv(
-        ENV_PREFIX + "POLICY_FILE", ""
-    )
-    policy_file = Path(override_pf) if override_pf else config.policy_file
-    policy_obj = yaml.safe_load(policy_file.read_text())
-    Policy.model_validate(policy_obj)
-    # If we get this far, it's a legal policy file.
-    config.policy_file = policy_file
+    if env_config_path := os.getenv(CONFIG_FILE_ENV_VAR):
+        config_file = Path(env_config_path)
+    else:
+        config_file = raw_args.config_file
+
+    config = Config.from_file(config_file)
+    config.policy_file = raw_args.policy_file or config.policy_file
 
     # For dry-run and debug, if specified, use that, and if not, do whatever
     # the config says.
-    override_debug = raw_args.debug or bool(
-        os.getenv(ENV_PREFIX + "DEBUG", "")
-    )
-    if override_debug:
-        config.logging.log_level = LogLevel.DEBUG
-        config.logging.log_profile = Profile.development
-    override_dry_run = raw_args.dry_run or bool(
-        os.getenv(ENV_PREFIX + "DRY_RUN", None)
-    )
-    if override_dry_run:
-        config.dry_run = True
+    config.debug = raw_args.debug or config.debug
+    config.configure_logging()
+    config.dry_run = raw_args.dry_run or config.dry_run
 
     # Add the time-into-the-future (used for warning only)
-    override_future_duration = (
-        "future_duration" in raw_args and raw_args.future_duration
-    ) or os.getenv(ENV_PREFIX + "FUTURE_DURATION", None)
-    if override_future_duration:
-        later = parse_timedelta(override_future_duration)
-        if later:
-            config.future_duration = later
-
-    # Add the Slack alert hook, if we have it.  We should not set this in the
-    # config YAML, or the command line, because it's a secret.
-    # It ends up getting injected into the environment (which isn't much
-    # better) via a K8s secret.
-    hook = os.getenv(ENV_PREFIX + "ALERT_HOOK", "")
-    if hook:
-        config.alert_hook = HttpUrl(url=hook)
+    if future_duration := getattr(raw_args, "future_duration", None):
+        config.future_duration = future_duration
     return config
 
 

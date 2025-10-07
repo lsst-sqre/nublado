@@ -1,4 +1,3 @@
 policy_file: /etc/purger/policy.yaml
 dry_run: false
-logging:
-  log_level: debug
+log_level: debug

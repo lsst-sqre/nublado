@@ -3,8 +3,6 @@
 from pathlib import Path
 
 import pytest
-import yaml
-from safir.logging import LogLevel
 
 from rubin.nublado.purger.config import Config
 from rubin.nublado.purger.models.plan import FileReason
@@ -16,7 +14,7 @@ from .util import set_age
 @pytest.mark.asyncio
 async def test_purge(purger_config: Config, fake_root: Path) -> None:
     set_age(fake_root / "scratch" / "large", FileReason.ATIME, "8h")
-    purger = Purger(config=purger_config)
+    purger = Purger(purger_config)
     await purger.plan()
     assert purger._plan is not None
     assert len(purger._plan.files) == 1
@@ -45,32 +43,15 @@ async def test_dry_run(purger_config: Config, fake_root: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_named_directory_and_parent_not_removed(
-    purger_config: Config, fake_root: Path
+    purger_config_small: Config, fake_root: Path
 ) -> None:
-    # Rewrite policy to purge small files in `foo/bar`
-    # Rewrite policy doc with shorter ctime
-    policy_doc = yaml.safe_load(purger_config.policy_file.read_text())
-    policy_doc["directories"][1]["intervals"]["small"] = {}
-    policy_doc["directories"][1]["intervals"]["small"]["access_interval"] = (
-        "1s"
-    )
-    policy_doc["directories"][1]["intervals"]["small"]["creation_interval"] = (
-        "1s"
-    )
-    policy_doc["directories"][1]["intervals"]["small"][
-        "modification_interval"
-    ] = "1s"
-    new_policy = yaml.dump(policy_doc)
-    purger_config.policy_file.write_text(new_policy)
-
     for fn in ("small", "medium", "large"):
         set_age(
             fake_root / "scratch" / "foo" / "bar" / fn,
             FileReason.MTIME,
             "1000w",
         )
-    purger_config.logging.log_level = LogLevel.DEBUG
-    purger = Purger(config=purger_config)
+    purger = Purger(config=purger_config_small)
     await purger.plan()
     assert purger._plan is not None
     assert len(purger._plan.files) == 3
@@ -91,23 +72,8 @@ async def test_named_directory_and_parent_not_removed(
 
 @pytest.mark.asyncio
 async def test_directory_removed(
-    purger_config: Config, fake_root: Path
+    purger_config_small: Config, fake_root: Path
 ) -> None:
-    # Rewrite policy to purge small files in `foo/bar`
-    # Rewrite policy doc with shorter ctime
-    policy_doc = yaml.safe_load(purger_config.policy_file.read_text())
-    policy_doc["directories"][1]["intervals"]["small"] = {}
-    policy_doc["directories"][1]["intervals"]["small"]["access_interval"] = (
-        "1s"
-    )
-    policy_doc["directories"][1]["intervals"]["small"]["creation_interval"] = (
-        "1s"
-    )
-    policy_doc["directories"][1]["intervals"]["small"][
-        "modification_interval"
-    ] = "1s"
-    new_policy = yaml.dump(policy_doc)
-    purger_config.policy_file.write_text(new_policy)
     victim = fake_root / "scratch" / "foo" / "bar" / "delete_me"
     assert not victim.exists()
     victim.mkdir()
@@ -115,8 +81,7 @@ async def test_directory_removed(
     vfile = victim / "sacrifice"
     vfile.write_text("bye")
     set_age(vfile, FileReason.ATIME, "1000w")
-    purger_config.logging.log_level = LogLevel.DEBUG
-    purger = Purger(config=purger_config)
+    purger = Purger(config=purger_config_small)
     await purger.plan()
     assert purger._plan is not None
     await purger.purge()
