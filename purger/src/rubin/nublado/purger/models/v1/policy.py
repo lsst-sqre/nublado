@@ -2,8 +2,9 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, TypeAlias
+from typing import Annotated, Self, TypeAlias
 
+import yaml
 from pydantic import BeforeValidator, Field
 from safir.pydantic import CamelCaseModel, HumanTimedelta
 
@@ -224,3 +225,20 @@ class Policy(CamelCaseModel):
         self,
     ) -> dict[str, list[dict[str, str | int | dict[str, dict[str, int]]]]]:
         return {"directories": [x.to_dict() for x in self.directories]}
+
+    @classmethod
+    def from_file(cls, path: Path) -> Self:
+        """Construct the policy from a YAML file.
+
+        Parameters
+        ----------
+        path
+            Path to the policy file in YAML.
+
+        Returns
+        -------
+        Config
+            The corresponding configuration.
+        """
+        with path.open("r") as f:
+            return cls.model_validate(yaml.safe_load(f))

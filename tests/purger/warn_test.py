@@ -2,7 +2,6 @@
 
 import pytest
 from safir.datetime import parse_timedelta
-from safir.logging import LogLevel
 
 from rubin.nublado.purger.config import Config
 from rubin.nublado.purger.purger import Purger
@@ -19,7 +18,6 @@ async def test_warn(purger_config: Config) -> None:
 @pytest.mark.asyncio
 async def test_file_count(purger_config: Config) -> None:
     purger_config.future_duration = parse_timedelta("3650d")
-    purger_config.logging.log_level = LogLevel.DEBUG
     purger = Purger(config=purger_config)
     await purger.plan()
     assert purger._plan is not None

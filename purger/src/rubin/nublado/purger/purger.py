@@ -8,7 +8,6 @@ import datetime
 from pathlib import Path
 
 import yaml
-from safir.logging import configure_logging
 from safir.slack.webhook import SlackRouteErrorHandler
 from structlog.stdlib import BoundLogger, get_logger
 
@@ -26,22 +25,14 @@ class Purger:
         self, config: Config, logger: BoundLogger | None = None
     ) -> None:
         self._config = config
-        if logger is None:
-            self._logger = get_logger(ROOT_LOGGER)
-            configure_logging(
-                name=ROOT_LOGGER,
-                log_level=config.logging.log_level,
-                profile=config.logging.log_profile,
-                add_timestamp=config.logging.add_timestamp,
-            )
-        else:
-            self._logger = logger
+        self._logger = logger or get_logger(ROOT_LOGGER)
+
         if self._config.alert_hook:
             SlackRouteErrorHandler.initialize(
                 str(self._config.alert_hook), ROOT_LOGGER, self._logger
             )
             self._logger.debug("Slack webhook initialized")
-        cfgdict = self._config.to_dict()
+        cfgdict = self._config.model_dump(mode="json")
         if "alert_hook" in cfgdict:
             cfgdict["alert_hook"] = "<SECRET>"
         self._logger.info("Purger initialized", config=cfgdict)

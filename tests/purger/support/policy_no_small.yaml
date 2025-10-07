@@ -1,0 +1,16 @@
+directories:
+  - path: /scratch
+    threshold: 10B
+    intervals:
+      large:
+        access_interval: 1h
+        creation_interval: 24h
+        modification_interval: 4h
+  - path: /scratch/foo/bar
+    threshold: 20B
+    intervals:
+      large:
+        access_interval: 3s
+        creation_interval: 10s
+        modification_interval: 5s
+
