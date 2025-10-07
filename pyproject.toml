@@ -156,6 +156,12 @@ py-modules = []
 
 [tool.setuptools_scm]
 
+[tool.uv]
+required-environments = [
+    "sys_platform == 'manylinux' and platform_machine == 'x86_64'",
+    "sys_platform == 'manylinux' and platform_machine == 'aarch64'",
+]
+
 [tool.uv.sources]
 controller = { path = "controller" }
 rubin-nublado-authenticator = { path = "hub/plugins/authenticator" }
