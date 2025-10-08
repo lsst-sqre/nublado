@@ -12,10 +12,12 @@ from typing import Any, Concatenate
 from httpx import AsyncClient, HTTPError, Limits, Response
 from httpx_sse import ServerSentEvent, aconnect_sse
 from jupyterhub.spawner import Spawner
+from rubin.repertoire import DiscoveryClient, RepertoireError
 from traitlets import Unicode, default
 
 from ._exceptions import (
     ControllerWebError,
+    DiscoveryError,
     InvalidAuthStateError,
     MissingFieldError,
     SpawnFailedError,
@@ -49,6 +51,9 @@ def _convert_exception[**P, T](
             # translated one.
             spawner.log.exception("Exception raised in REST spawner")
             raise ControllerWebError.from_exception(e) from e
+        except RepertoireError as e:
+            spawner.log.exception("Exception raised in REST spawner")
+            raise DiscoveryError(str(e)) from e
 
     return wrapper
 
@@ -89,13 +94,9 @@ class NubladoSpawner(Spawner):
         """,
     ).tag(config=True)
 
-    controller_url = Unicode(
-        "http://localhost:8080/nublado",
+    repertoire_base_url = Unicode(
         help="""
-        Base URL for the Nublado lab controller.
-
-        All URLs for talking to the Nublado lab controller will be constructed
-        relative to this base URL.
+        Base URL of service discovery service, used to get the controller URL.
         """,
     ).tag(config=True)
 
@@ -107,6 +108,11 @@ class NubladoSpawner(Spawner):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+
+        # Service discovery client, used to locate the Nublado controller.
+        self._discovery = DiscoveryClient(
+            self._client, base_url=self.repertoire_base_url
+        )
 
         # Holds the events from a spawn in progress.
         self._events: list[SpawnEvent] = []
@@ -197,7 +203,7 @@ class NubladoSpawner(Spawner):
             `rubin.nublado.authenticator.GafaelfawrAuthenticator`.
         """
         r = await self._client.get(
-            self._controller_url("lab-form", self.user.name),
+            await self._controller_url("lab-form", self.user.name),
             headers=await self._user_authorization(),
         )
         r.raise_for_status()
@@ -237,7 +243,7 @@ class NubladoSpawner(Spawner):
         that was stopped, so use an exit status of 0 in both cases.
         """
         r = await self._client.get(
-            self._controller_url("labs", self.user.name),
+            await self._controller_url("labs", self.user.name),
             headers=self._admin_authorization(),
         )
         if r.status_code == 404:
@@ -479,7 +485,7 @@ class NubladoSpawner(Spawner):
             response from the lab controller.
         """
         r = await self._client.delete(
-            self._controller_url("labs", self.user.name),
+            await self._controller_url("labs", self.user.name),
             timeout=300.0,
             headers=self._admin_authorization(),
         )
@@ -489,7 +495,7 @@ class NubladoSpawner(Spawner):
         else:
             r.raise_for_status()
 
-    def _controller_url(self, *components: str) -> str:
+    async def _controller_url(self, *components: str) -> str:
         """Build a URL to the Nublado lab controller.
 
         Parameters
@@ -502,7 +508,11 @@ class NubladoSpawner(Spawner):
         str
             URL to the lab controller using the configured base URL.
         """
-        return self.controller_url + "/spawner/v1/" + "/".join(components)
+        base_url = await self._discovery.url_for_internal("nublado-controller")
+        if not base_url:
+            msg = "nublado-controller not found in service discovery"
+            raise DiscoveryError(msg)
+        return base_url.rstrip("/") + "/spawner/v1/" + "/".join(components)
 
     async def _create_lab(self) -> Response:
         """Send the request to create the lab.
@@ -518,7 +528,7 @@ class NubladoSpawner(Spawner):
             Raised if the call to the Nublado lab controller failed.
         """
         return await self._client.post(
-            self._controller_url("labs", self.user.name, "create"),
+            await self._controller_url("labs", self.user.name, "create"),
             headers=await self._user_authorization(),
             json={
                 "options": self.options_from_form(self.user_options),
@@ -539,7 +549,7 @@ class NubladoSpawner(Spawner):
             Raised if the response from the lab controller is invalid.
         """
         r = await self._client.get(
-            self._controller_url("labs", self.user.name),
+            await self._controller_url("labs", self.user.name),
             headers=self._admin_authorization(),
         )
         r.raise_for_status()
@@ -574,7 +584,7 @@ class NubladoSpawner(Spawner):
             authentication state. This should always be provided by
             `~rsp_restspawner.auth.GafaelfawrAuthenticator`.
         """
-        url = self._controller_url("labs", self.user.name, "events")
+        url = await self._controller_url("labs", self.user.name, "events")
         kwargs = {
             "timeout": timeout.total_seconds(),
             "headers": await self._user_authorization(),

@@ -5,13 +5,19 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 import respx
-from rubin.repertoire import register_mock_discovery
+from rubin.repertoire import DiscoveryClient, register_mock_discovery
 
 from rubin.nublado.spawner import NubladoSpawner
 
 from .support.controller import MockLabController, register_mock_lab_controller
 from .support.jupyterhub import MockHub, MockUser
+
+
+@pytest.fixture(scope="session")
+def admin_token_path() -> Path:
+    return Path(__file__).parent / "data" / "admin-token"
 
 
 @pytest.fixture
@@ -22,26 +28,32 @@ def discovery_url(respx_mock: respx.Router) -> str:
     return base_url
 
 
-@pytest.fixture
-def mock_lab_controller(respx_mock: respx.Router) -> MockLabController:
-    url = "https://rsp.example.org/nublado"
-    admin_token = (Path(__file__).parent / "data" / "admin-token").read_text()
+@pytest_asyncio.fixture
+async def mock_lab_controller(
+    admin_token_path: Path, discovery_url: str, respx_mock: respx.Router
+) -> MockLabController:
+    discovery = DiscoveryClient(base_url=discovery_url)
+    nublado_url = await discovery.url_for_internal("nublado-controller")
+    assert nublado_url
     return register_mock_lab_controller(
         respx_mock,
-        url,
+        nublado_url,
         user_token="token-of-affection",
-        admin_token=admin_token.strip(),
+        admin_token=admin_token_path.read_text().strip(),
     )
 
 
 @pytest.fixture
-def spawner(mock_lab_controller: MockLabController) -> NubladoSpawner:
+def spawner(
+    admin_token_path: Path,
+    discovery_url: str,
+    mock_lab_controller: MockLabController,
+) -> NubladoSpawner:
     """Add spawner state that normally comes from JupyterHub."""
-    result = NubladoSpawner()
-    result.admin_token_path = str(
-        Path(__file__).parent / "data" / "admin-token"
+    result = NubladoSpawner(
+        admin_token_path=str(admin_token_path),
+        repertoire_base_url=discovery_url,
     )
-    result.controller_url = mock_lab_controller.base_url
     result.hub = MockHub()
     result.user = MockUser(
         name="rachel",

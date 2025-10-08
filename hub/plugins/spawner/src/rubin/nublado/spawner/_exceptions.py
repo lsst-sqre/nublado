@@ -11,6 +11,7 @@ from httpx import HTTPError, HTTPStatusError, RequestError
 
 __all__ = [
     "ControllerWebError",
+    "DiscoveryError",
     "InvalidAuthStateError",
     "MissingFieldError",
     "SpawnFailedError",
@@ -96,6 +97,10 @@ class ControllerWebError(Exception):
         if self.body:
             result += f"\nBody:\n{self.body}\n"
         return result
+
+
+class DiscoveryError(Exception):
+    """Service discovery of the Nublado controller failed."""
 
 
 class InvalidAuthStateError(Exception):

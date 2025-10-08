@@ -1,5 +1,10 @@
 {
   "services": {
+    "internal": {
+      "nublado-controller": {
+        "url": "https://rsp.example.com/nublado"
+      }
+    },
     "ui": {
       "logout": {
         "url": "https://example.com/logout"
