@@ -21,8 +21,8 @@ classifiers = [
 requires-python = ">=3.12"
 dependencies = [
     "jupyterhub==5.3.0",
-    "jupyterhub-idle-culler",
-    "psycopg2",
+    "jupyterhub-idle-culler>=1",
+    "psycopg2>=2",
     "rubin-nublado-authenticator",
     "rubin-nublado-spawner",
     # Zero-to-JupyterHub unconditionally imports this, so we have to have it
@@ -109,6 +109,12 @@ py-modules = []
 
 [tool.setuptools_scm]
 root = ".."
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'manylinux' and platform_machine == 'x86_64'",
+    "sys_platform == 'manylinux' and platform_machine == 'aarch64'",
+]
 
 [tool.uv.sources]
 rubin-nublado-authenticator = { workspace = true }
