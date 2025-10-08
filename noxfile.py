@@ -92,13 +92,11 @@ def test(session: nox.Session) -> None:
     # directory, and any tests specific to subdirectories.
     generic = []
     per_directory: dict[str, list[str]] = defaultdict(list)
-    parent = []
-    found_parent = False
+    parent_tests = []
     for arg in session.posargs:
         if "tests/" in arg and Path(arg).exists():
             if arg.startswith("tests/"):
-                parent.append(arg)
-                found_parent = True
+                parent_tests.append(arg)
             else:
                 found = False
                 for subdir in _SUBDIRECTORIES:
@@ -111,19 +109,21 @@ def test(session: nox.Session) -> None:
                     generic.append(arg)
         else:
             generic.append(arg)
-    found_parent = found_parent or not per_directory
-    if not per_directory:
-        per_directory = {s: [] for s in _SUBDIRECTORIES}
 
-    # found_parent now says whether to run tests in the parent directory,
-    # which is true if a test from the parent directory was specified or if
-    # there were no tests from subdirectories specified. per_directory has a
-    # mapping of directories to tests to run.
-    if found_parent:
-        session.run("pytest", *generic, *parent)
-    for subdir, args in per_directory.items():
-        with session.chdir(subdir):
-            session.run("nox", "-s", "test", "--", *generic, *args)
+    any_tests = any(parent_tests + list(per_directory.values()))
+
+    # Run in the parent dir if a parent dir test was specified, or if no tests
+    # were specified
+    if parent_tests or not any_tests:
+        session.run("pytest", *generic, *parent_tests)
+
+    # Run in a subdirectory if a test in that subdirectory was specified, or if
+    # no tests were specified
+    for subdir in _SUBDIRECTORIES:
+        subdir_tests = per_directory[subdir]
+        if subdir_tests or not any_tests:
+            with session.chdir(subdir):
+                session.run("nox", "-s", "test", "--", *generic, *subdir_tests)
 
 
 @session(uv_groups=["dev", "nox", "typing"])
