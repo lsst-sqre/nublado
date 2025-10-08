@@ -94,7 +94,9 @@ def test(session: nox.Session) -> None:
     per_directory: dict[str, list[str]] = defaultdict(list)
     parent_tests = []
     for arg in session.posargs:
-        if "tests/" in arg and Path(arg).exists():
+        # Ignore a speficied test when testing if the file exists
+        test_file = arg.split("::")[0]
+        if "tests/" in arg and Path(test_file).exists():
             if arg.startswith("tests/"):
                 parent_tests.append(arg)
             else:
