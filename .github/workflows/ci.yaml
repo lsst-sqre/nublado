@@ -21,8 +21,6 @@ env:
       - "t/**"
       - "tickets/**"
       - "u/**"
-    tags:
-      - "*"
   release:
     types: [published]
 
@@ -104,24 +102,49 @@ jobs:
         run: uv run --only-group=nox nox -s typing test
         working-directory: hub
 
-  docs:
+  changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
+
+    permissions:
+      pull-requests: read
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+      docs-specific: ${{ steps.filter.outputs.docs-specific }}
 
     steps:
       - uses: actions/checkout@v5
-        with:
-          # Ensure the documentation gets the right version.
-          fetch-depth: 0
 
-      - name: Filter paths
-        uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
             docs:
               - "CHANGELOG.md"
               - "docs/**"
+              - "client/src/rubin/nublado/**"
+              - "controller/src/controller/**"
+              - "hub/plugins/authenticator/src/rubin/nublado/**"
+              - "hub/plugins/spawner/src/rubin/nublado/**"
+            docs-specific:
+              - "CHANGELOG.md"
+              - "docs/**"
+
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    needs: changes
+    if: >-
+      (needs.changes.outputs.docs == 'true')
+      || (github.event_name == 'workflow_dispatch')
+      || (github.event_name == 'release' && github.event.action == 'published')
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Ensure the documentation gets the right version.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -153,14 +176,21 @@ jobs:
           password: ${{ secrets.LTD_PASSWORD }}
         if: >
           (github.event_name == 'push' && github.ref_name == 'main')
+          || (github.event_name == 'workflow_dispatch')
           || (github.event_name == 'pull_request'
               && (startsWith(github.head_ref, 'tickets/')
                   || startsWith(github.head_ref, 't/'))
-              && steps.filter.outputs.docs == 'true')
+              && needs.changes.outputs.docs-specific == 'true')
 
   linkcheck:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    needs: changes
+    if: >-
+      (needs.changes.outputs.docs-specific == 'true')
+      || (github.event_name == 'workflow_dispatch')
+      || (github.event_name == 'release' && github.event.action == 'published')
 
     steps:
       - uses: actions/checkout@v5
@@ -168,53 +198,41 @@ jobs:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
 
-      - name: Filter paths
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            docs:
-              - "CHANGELOG.md"
-              - "docs/**"
-
       - name: Set up Python
-        if: steps.filter.outputs.docs == 'true'
         uses: actions/setup-python@v6
         with:
           python-version-file: ".python-version"
 
       - name: Install uv
-        if: steps.filter.outputs.docs == 'true'
         uses: astral-sh/setup-uv@v6
         with:
           version: ${{ env.UV_VERSION }}
 
       - name: Update package lists
-        if: steps.filter.outputs.docs == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y graphviz
 
       - name: Run nox
-        if: steps.filter.outputs.docs == 'true'
         run: uv run --only-group=nox nox -s docs-linkcheck
 
   build:
     needs: [test, test-hub]
     uses: lsst-sqre/multiplatform-build-and-push/.github/workflows/build.yaml@v1
+
     # Only do Docker builds of tagged releases and pull requests from ticket
     # branches. This will still trigger on pull requests from untrusted
     # repositories whose branch names match our tickets/* branch convention,
     # but in this case the build will fail with an error since the secret
     # won't be set.
     if: >
-      (github.event_name != 'merge_group'
-       && startsWith(github.head_ref, 'tickets/'))
+      (github.event_name == 'release' && github.event.action == 'published')
+      || (github.event_name != 'merge_group'
+          && startsWith(github.head_ref, 'tickets/'))
+
     strategy:
-      # make 'latest' true if you want to also tag release builds with
-      #   'latest'.
-      # make 'gar' true if you want to also upload to Google Artifact
-      #   Registry.
+      # latest: also tag release builds with "latest"
+      # gar: also upload to Google Artifact Registry
       matrix:
         container:
           - name: "controller"

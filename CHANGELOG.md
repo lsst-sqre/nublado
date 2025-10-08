@@ -6,24 +6,39 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.16.0'></a>
+## 8.16.0 (2025-10-08)
+
+### New features
+
+- Mount [Repertoire](https://repertoire.lsst.io/) discovery information at `/etc/nublado/discovery/v1.json` in user notebook pods.
+- Use Repertoire service discovery to find the logout URL for the JupyterHub Gafaelfawr plugin.
+- Export of notebooks to PDF in the jupyterlab-base image now uses TeX instead of Chromium, which shrinks the size of the image by over 1GiB.
+- Instrument client exceptions with Sentry metadata.
+
+### Bug fixes
+
+- Always use `user` for the username in logging contexts, and include username in more log messages.
+- Filter out platform-specific tags from the spawner menu when corresponding generic tag exists.
+
+### Other changes
+
+- The jupyterlab-base image is now based on the Debian trixie release.
+- Use [uv workspaces](https://docs.astral.sh/uv/concepts/projects/workspaces/) and [uv lock files](https://docs.astral.sh/uv/concepts/projects/sync/) to manage packages and dependencies.
+
 <a id='changelog-8.15.0'></a>
 ## 8.15.0 (2025-09-16)
 
 ### New features
 
-- controller: Optionally report errors to Sentry. If a `SENTRY_DSN` environment
-  variable is present, then exceptions will be reported to Sentry with
-  appropriate tags, contexts, and attachments.
+- Optionally report Nublado controller errors to Sentry.
 
 <a id='changelog-8.14.0'></a>
 ## 8.14.0 (2025-09-11)
 
 ### New features
 
-- Resource requests for user lab pods can (and must) be specified explicitly.
-  Before this change, only resource limits were specified and requests were calculated to be 1/4 of the limits.
-
-  The `controller.config.lab.sizes` entries now have a different format.
+- Resource requests for user lab pods can (and must) be specified explicitly. Before this change, only resource limits were specified and requests were calculated to be 1/4 of the limits. The `controller.config.lab.sizes` entries now have a different format.
 
   Old:
 
@@ -35,6 +50,7 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
   ```
 
   New:
+
   ```yaml
   sizes:
     - size: "small"
@@ -49,7 +65,7 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 ### Bug fixes
 
-- Fix a build bug where the purger Docker image would get pushed to the GAR inithome Docker repository
+- Push the purger Docker image to the correct Google Artifact Registry rather than overwriting the inithome container.
 
 <a id='changelog-8.13.1'></a>
 ## 8.13.1 (2025-08-28)
@@ -63,46 +79,41 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 ### New features
 
-- Added Nublado controller route to control administrative filesystem pod.
-    This allows a user with an admin token to spawn a pod that mounts user file systems with administrative privileges.
-	That pod can then be entered by the administrator with `kubectl exec` for remedial or forensic purposes.
-	The pod can also be deleted through this route, and the status of the pod can be queried.
+- Added Nublado controller route to control administrative filesystem pod. This allows a user with an admin token to spawn a pod that mounts user file systems with administrative privileges. That pod can then be entered by the administrator with `kubectl exec` for remedial or forensic purposes.	The pod can also be deleted through this route, and the status of the pod can be queried.
 
 ### Bug fixes
 
-- ipympl has an implicit dependency on ipython-genutils; add it.
+- Install ipython-genutils in jupyterlab-base since ipympl has an implicit dependency on it.
 
 <a id='changelog-8.12.2'></a>
 ## 8.12.2 (2025-08-15)
 
-### New features
+### Other changes
 
 - Rebuild jupyterlab-base with newer dependencies.
 
 <a id='changelog-8.12.1'></a>
 ## 8.12.1 (2025-08-07)
 
-### Other changes
+### Bug fixes
 
-- Update dependencies for jupyterlab-base
+- Improve handling of exceptions in the notebook execution extension.
 
 <a id='changelog-8.12.0'></a>
 ## 8.12.0 (2025-08-07)
 
-### Other changes
+### New features
 
-- Updated wording on `reset user environment` to include `.config`
+- Include `.config` in the list of directories moved aside when the user asks to reset their user environment.
 
 <a id='changelog-8.11.0'></a>
 ## 8.11.0 (2025-08-01)
 
 ### New features
 
-- Add build number as optional version part for display and sorting.
+- Add a build number as an optional portion of the image tag format.
 
 ### Bug fixes
-
-- Add purger to set of dependencies rebuilt with update-deps.
 
 - Fix the link to the WebDAV documentation in the HTML page returned after a user's file server was started.
 
@@ -111,7 +122,7 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 ### New features
 
-- Migrate the former `lsst-sqre/rsp-scratchpurger` into Nublado as `purger`.
+- Add a cron job to purge file systems of old files. This was formerly maintained in the lsst-sqre/rsp-scratchpurger repository.
 
 <a id='changelog-8.9.2'></a>
 ## 8.9.2 (2025-07-02)
