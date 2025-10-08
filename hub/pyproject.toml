@@ -48,6 +48,7 @@ dev = [
     "pytest-cov",
     "pytest-sugar",
     "respx",
+    "rubin-repertoire",
 ]
 nox = [
     "nox",
