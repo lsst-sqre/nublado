@@ -6,11 +6,20 @@ from pathlib import Path
 
 import pytest
 import respx
+from rubin.repertoire import register_mock_discovery
 
 from rubin.nublado.spawner import NubladoSpawner
 
 from .support.controller import MockLabController, register_mock_lab_controller
 from .support.jupyterhub import MockHub, MockUser
+
+
+@pytest.fixture
+def discovery_url(respx_mock: respx.Router) -> str:
+    path = Path(__file__).parent / "data" / "discovery.json"
+    base_url = "https://example.com/repertoire"
+    register_mock_discovery(respx_mock, path, base_url)
+    return base_url
 
 
 @pytest.fixture

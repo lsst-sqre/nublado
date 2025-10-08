@@ -9,6 +9,7 @@ from jupyterhub.auth import Authenticator
 from jupyterhub.handlers import BaseHandler, LogoutHandler
 from jupyterhub.user import User
 from jupyterhub.utils import url_path_join
+from rubin.repertoire import DiscoveryClient
 from tornado.httputil import HTTPHeaders
 from tornado.web import HTTPError, RequestHandler
 from traitlets import Unicode
@@ -46,7 +47,7 @@ class _GafaelfawrLogoutHandler(LogoutHandler):
         return True
 
     async def render_logout_page(self) -> None:
-        url = self.authenticator.after_logout_redirect
+        url = await self.authenticator.get_logout_url()
         self.redirect(url, permanent=False)
 
 
@@ -128,17 +129,16 @@ class GafaelfawrAuthenticator(Authenticator):
     supported and expected interface.
     """
 
-    after_logout_redirect = Unicode(
-        "/logout",
+    repertoire_base_url = Unicode(
+        "/repertoire",
         help="""
-        URL to redirect to after a JupyterHub logout.
-
-        This should point to the Gafaelfawr logout endpoint.
+        Base URL of service discovery service, used to get the logout URL.
         """,
     ).tag(config=True)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+        self._discovery = DiscoveryClient(base_url=self.repertoire_base_url)
 
         # Automatically log in rather than prompting the user with a link.
         self.auto_login = True
@@ -194,6 +194,11 @@ class GafaelfawrAuthenticator(Authenticator):
             ("/gafaelfawr/login", _GafaelfawrLoginHandler),
             ("/logout", _GafaelfawrLogoutHandler),
         ]
+
+    async def get_logout_url(self) -> str:
+        """Get the URL to which to send the user after logout."""
+        url = await self._discovery.url_for_ui("logout")
+        return url if url is not None else "/logout"
 
     def login_url(self, base_url: str) -> str:
         """Override the login URL.

@@ -2648,12 +2648,14 @@ name = "rubin-nublado-authenticator"
 source = { directory = "hub/plugins/authenticator" }
 dependencies = [
     { name = "jupyterhub" },
+    { name = "rubin-repertoire" },
     { name = "tornado" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "jupyterhub", specifier = "<6" },
+    { name = "rubin-repertoire", specifier = ">=0.4.0,<1" },
     { name = "tornado", specifier = "<7" },
 ]
 

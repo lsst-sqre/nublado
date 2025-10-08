@@ -7,6 +7,8 @@ This tests the logic that's sufficiently separable to run in a test harness.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -107,3 +109,18 @@ async def test_login_handler() -> None:
         "name": "rachel",
         "auth_state": {"token": "token-of-affection"},
     }
+
+
+@pytest.mark.asyncio
+async def test_logout_url(discovery_url: str) -> None:
+    """Test use of service discovery to get the logout URL.
+
+    As with the login handler, we can't test it directly because mocking out
+    the guts of Tornado and JupyterHub is too tedious and fragile. Assume the
+    handler glue works and make sure discovery returns the right URL.
+    """
+    authenticator = GafaelfawrAuthenticator(repertoire_base_url=discovery_url)
+    path = Path(__file__).parent / "data" / "discovery.json"
+    discovery = json.loads(path.read_text())
+    logout_url = discovery["services"]["ui"]["logout"]["url"]
+    assert await authenticator.get_logout_url() == logout_url
