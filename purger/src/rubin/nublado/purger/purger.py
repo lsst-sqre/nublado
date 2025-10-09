@@ -8,7 +8,6 @@ import datetime
 from pathlib import Path
 
 import yaml
-from safir.logging import configure_logging
 from safir.slack.webhook import SlackRouteErrorHandler
 from structlog.stdlib import BoundLogger, get_logger
 
@@ -26,22 +25,14 @@ class Purger:
         self, config: Config, logger: BoundLogger | None = None
     ) -> None:
         self._config = config
-        if logger is None:
-            self._logger = get_logger(ROOT_LOGGER)
-            configure_logging(
-                name=ROOT_LOGGER,
-                log_level=config.logging.log_level,
-                profile=config.logging.log_profile,
-                add_timestamp=config.logging.add_timestamp,
-            )
-        else:
-            self._logger = logger
+        self._logger = logger or get_logger(ROOT_LOGGER)
+
         if self._config.alert_hook:
             SlackRouteErrorHandler.initialize(
                 str(self._config.alert_hook), ROOT_LOGGER, self._logger
             )
             self._logger.debug("Slack webhook initialized")
-        cfgdict = self._config.to_dict()
+        cfgdict = self._config.model_dump(mode="json")
         if "alert_hook" in cfgdict:
             cfgdict["alert_hook"] = "<SECRET>"
         self._logger.info("Purger initialized", config=cfgdict)
@@ -229,19 +220,6 @@ class Purger:
 
     async def purge(self) -> None:
         """Purge files and after-purge-empty directories."""
-        if self._config.dry_run:
-            self._logger.warning(
-                "Cannot purge because dry_run enabled; reporting instead"
-            )
-            await self.report()
-            return
-        if self._config.future_duration:
-            self._logger.warning(
-                "Cannot purge because future_duration is set; reporting"
-                " instead"
-            )
-            await self.report()
-            return
         self._logger.debug("Awaiting lock for purge()")
         async with self._lock:
             self._logger.debug("Acquired lock for purge()")
@@ -254,6 +232,19 @@ class Purger:
             raise NotLockedError("Cannot purge: do not have lock")
         if self._plan is None:
             raise PlanNotReadyError("Cannot purge: plan not ready")
+        if self._config.dry_run:
+            self._logger.warning(
+                "Cannot purge because dry_run enabled; reporting instead"
+            )
+            await self._perform_report()
+            return
+        if self._config.future_duration:
+            self._logger.warning(
+                "Cannot purge because future_duration is set; reporting"
+                " instead"
+            )
+            await self._perform_report()
+            return
         failed_files: dict[Path, Exception] = {}
         for purge_file in self._plan.files:
             path = purge_file.path
