@@ -220,19 +220,6 @@ class Purger:
 
     async def purge(self) -> None:
         """Purge files and after-purge-empty directories."""
-        if self._config.dry_run:
-            self._logger.warning(
-                "Cannot purge because dry_run enabled; reporting instead"
-            )
-            await self.report()
-            return
-        if self._config.future_duration:
-            self._logger.warning(
-                "Cannot purge because future_duration is set; reporting"
-                " instead"
-            )
-            await self.report()
-            return
         self._logger.debug("Awaiting lock for purge()")
         async with self._lock:
             self._logger.debug("Acquired lock for purge()")
@@ -245,6 +232,19 @@ class Purger:
             raise NotLockedError("Cannot purge: do not have lock")
         if self._plan is None:
             raise PlanNotReadyError("Cannot purge: plan not ready")
+        if self._config.dry_run:
+            self._logger.warning(
+                "Cannot purge because dry_run enabled; reporting instead"
+            )
+            await self._perform_report()
+            return
+        if self._config.future_duration:
+            self._logger.warning(
+                "Cannot purge because future_duration is set; reporting"
+                " instead"
+            )
+            await self._perform_report()
+            return
         failed_files: dict[Path, Exception] = {}
         for purge_file in self._plan.files:
             path = purge_file.path
