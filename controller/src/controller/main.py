@@ -70,7 +70,7 @@ def create_app(*, load_config: bool = True) -> FastAPI:
         config = config_dependency.config
         configure_logging(
             name="controller",
-            profile=config.profile,
+            profile=config.log_profile,
             log_level=config.log_level,
         )
         configure_uvicorn_logging(config.log_level)

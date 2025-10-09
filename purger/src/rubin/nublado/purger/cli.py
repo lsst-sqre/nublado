@@ -91,7 +91,7 @@ def _postprocess_args_to_config(raw_args: argparse.Namespace) -> Config:
     )
     if override_debug:
         config.logging.log_level = LogLevel.DEBUG
-        config.logging.profile = Profile.development
+        config.logging.log_profile = Profile.development
     override_dry_run = raw_args.dry_run or bool(
         os.getenv(ENV_PREFIX + "DRY_RUN", None)
     )

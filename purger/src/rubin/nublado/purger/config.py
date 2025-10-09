@@ -13,19 +13,6 @@ from .constants import ENV_PREFIX, POLICY_FILE
 class LoggingConfig(CamelCaseModel):
     """Configuration for the purger's logs."""
 
-    profile: Annotated[
-        Profile,
-        Field(
-            title="Logging profile",
-            validation_alias=ENV_PREFIX + "LOGGING_PROFILE",
-        ),
-    ] = Profile.production
-
-    log_level: Annotated[
-        LogLevel,
-        Field(title="Log level", validation_alias=ENV_PREFIX + "LOG_LEVEL"),
-    ] = LogLevel.INFO
-
     add_timestamp: Annotated[
         bool,
         Field(
@@ -34,10 +21,23 @@ class LoggingConfig(CamelCaseModel):
         ),
     ] = False
 
+    log_level: Annotated[
+        LogLevel,
+        Field(title="Log level", validation_alias=ENV_PREFIX + "LOG_LEVEL"),
+    ] = LogLevel.INFO
+
+    log_profile: Annotated[
+        Profile,
+        Field(
+            title="Logging profile",
+            validation_alias=ENV_PREFIX + "LOGGING_PROFILE",
+        ),
+    ] = Profile.production
+
     def to_dict(self) -> dict[str, str | bool]:
         return {
-            "profile": self.profile.value,
             "log_level": self.log_level.value,
+            "log_profile": self.log_profile.value,
             "add_timestamp": self.add_timestamp,
         }
 
