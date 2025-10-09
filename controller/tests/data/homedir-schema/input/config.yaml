@@ -1,5 +1,5 @@
 logLevel: DEBUG
-profile: development
+logProfile: development
 lab:
   # The prefix and suffix have extra slashes to test the validator. Normal
   # configurations should not have trailing slashes in the prefix and should

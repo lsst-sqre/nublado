@@ -30,8 +30,8 @@ class Purger:
             self._logger = get_logger(ROOT_LOGGER)
             configure_logging(
                 name=ROOT_LOGGER,
-                profile=config.logging.profile,
                 log_level=config.logging.log_level,
+                profile=config.logging.log_profile,
                 add_timestamp=config.logging.add_timestamp,
             )
         else:

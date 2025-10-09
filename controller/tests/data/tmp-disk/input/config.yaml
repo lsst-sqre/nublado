@@ -1,5 +1,5 @@
 logLevel: DEBUG
-profile: development
+logProfile: development
 lab:
   namespacePrefix: userlabs
   tmpSource: disk

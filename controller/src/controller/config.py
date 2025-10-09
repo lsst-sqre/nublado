@@ -1272,6 +1272,19 @@ class Config(BaseSettings):
         ),
     ] = LogLevel.INFO
 
+    log_profile: Annotated[
+        Profile,
+        Field(
+            title="Application logging profile",
+            description=(
+                "production uses JSON logging. development uses logging that"
+                " may be easier for humans to read but that cannot be easily"
+                " parsed by computers or Google Log Explorer."
+            ),
+            examples=[Profile.development],
+        ),
+    ] = Profile.production
+
     metadata_path: Annotated[
         Path,
         Field(
@@ -1312,19 +1325,6 @@ class Config(BaseSettings):
             ),
         ),
     ] = "/nublado"
-
-    profile: Annotated[
-        Profile,
-        Field(
-            title="Application logging profile",
-            description=(
-                "``production`` uses JSON logging. ``development`` uses"
-                " logging that may be easier for humans to read but that"
-                " cannot be easily parsed by computers or Google Log Explorer."
-            ),
-            examples=[Profile.development],
-        ),
-    ] = Profile.production
 
     slack_webhook: Annotated[
         SecretStr | None,

@@ -1,5 +1,5 @@
 logLevel: DEBUG
-profile: development
+logProfile: development
 lab:
   jupyterlab_config_dir: "/usr/local/share/jupyterlab"
   lab_start_command: ["/usr/local/share/jupyterlab/runlab"]
