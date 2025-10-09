@@ -14,13 +14,6 @@ def test_report(fake_root: Path) -> None:
 
 
 @pytest.mark.usefixtures("purger_config")
-def test_purge(fake_root: Path) -> None:
-    config_file = fake_root / "config.yaml"
-    proc = subprocess.run(["rsp_purge", "-c", str(config_file)], check=False)
-    assert proc.returncode == 0
-
-
-@pytest.mark.usefixtures("purger_config")
 def test_execute(fake_root: Path) -> None:
     config_file = fake_root / "config.yaml"
     proc = subprocess.run(["rsp_execute", "-c", str(config_file)], check=False)
@@ -35,7 +28,7 @@ def test_bad_config_file() -> None:
 
 
 def test_bad_policy_file() -> None:
-    proc = subprocess.run(["rsp_purge"], check=False)
+    proc = subprocess.run(["rsp_execute"], check=False)
     assert proc.returncode != 0
 
 

@@ -101,13 +101,6 @@ def report() -> None:
     asyncio.run(reporter.report())
 
 
-def purge() -> None:
-    """Purge files."""
-    purger = _get_executor("Purge files.")
-    asyncio.run(purger.plan())
-    asyncio.run(purger.purge())
-
-
 def execute() -> None:
     """Make a plan, report, and purge files."""
     purger = _get_executor("Report and purge files.")

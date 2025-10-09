@@ -218,13 +218,6 @@ class Purger:
         rpt_text = str(self._plan)
         self._logger.info(rpt_text)
 
-    async def purge(self) -> None:
-        """Purge files and after-purge-empty directories."""
-        self._logger.debug("Awaiting lock for purge()")
-        async with self._lock:
-            self._logger.debug("Acquired lock for purge()")
-            await self._perform_purge()
-
     async def _perform_purge(self) -> None:
         # This does the actual work.
         # We split it so we can do a do-it-all run under a single lock.
