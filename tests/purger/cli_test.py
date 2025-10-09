@@ -57,3 +57,11 @@ def test_cli_override(fake_root: Path) -> None:
     )
     assert proc.returncode == 0
     assert "Cannot purge because dry_run enabled" in str(proc.stdout)
+
+    proc = subprocess.run(
+        ["rsp_execute", "-c", str(config_file)],
+        check=False,
+        capture_output=True,
+    )
+    assert proc.returncode == 0
+    assert "Cannot purge because dry_run enabled" not in str(proc.stdout)
