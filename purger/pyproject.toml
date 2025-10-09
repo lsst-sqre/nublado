@@ -33,7 +33,6 @@ requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
 build-backend = 'setuptools.build_meta'
 
 [project.scripts]
-rsp_purge = "rubin.nublado.purger.cli:purge"
 rsp_report = "rubin.nublado.purger.cli:report"
 rsp_warn = "rubin.nublado.purger.cli:warn"
 rsp_execute = "rubin.nublado.purger.cli:execute"
