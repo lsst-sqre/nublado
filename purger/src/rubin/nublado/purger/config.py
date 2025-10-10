@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Annotated, Self
 
 import yaml
-from pydantic import Field, HttpUrl
+from pydantic import Field, SecretStr
 from pydantic.alias_generators import to_camel
 from pydantic_settings import (
     BaseSettings,
@@ -61,6 +61,29 @@ class EnvFirstSettings(BaseSettings):
         return (env_settings, init_settings)
 
 
+class SentryConfig(EnvFirstSettings):
+    """Sentry configuration for the Nublado file purger.
+
+    This configuration is not used internally. The values declared in Phalanx
+    get injected as environment variables, and the Safir Sentry initialization
+    helper uses them before the Config object is constructed, so that Sentry
+    can be initialized as early as possible in the app's lifecycle.
+
+    It has to be present in the model so that we can forbid unknown
+    configuration settings. Otherwise, Phalanx wouldn't be able to use the full
+    ``config`` key of the Helm values as the configuration file.
+    """
+
+    enabled: bool = Field(False, title="Whether to send exceptions to Sentry")
+    traces_sample_rate: float = Field(
+        0.0,
+        title="Sentry trace sample rate",
+        description="The percentage of traces to be sent to sentry.",
+        ge=0.0,
+        le=1.0,
+    )
+
+
 class Config(EnvFirstSettings):
     """Configuration for the purger."""
 
@@ -113,7 +136,7 @@ class Config(EnvFirstSettings):
     ] = False
 
     alert_hook: Annotated[
-        HttpUrl | None,
+        SecretStr | None,
         Field(
             title="Slack webhook URL used for sending alerts",
             description=(
@@ -122,6 +145,8 @@ class Config(EnvFirstSettings):
             ),
         ),
     ] = None
+
+    sentry: SentryConfig | None = None
 
     @classmethod
     def from_file(cls, path: Path) -> Self:

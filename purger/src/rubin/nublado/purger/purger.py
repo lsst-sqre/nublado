@@ -8,12 +8,11 @@ import datetime
 from pathlib import Path
 
 import yaml
-from safir.slack.webhook import SlackRouteErrorHandler
 from structlog.stdlib import BoundLogger, get_logger
 
 from .config import Config
 from .constants import ROOT_LOGGER
-from .exceptions import NotLockedError, PlanNotReadyError
+from .exceptions import NotLockedError, PlanNotReadyError, PurgeFailedError
 from .models.plan import FileClass, FileReason, FileRecord, Plan
 from .models.v1.policy import DirectoryPolicy, Policy
 
@@ -22,20 +21,15 @@ class Purger:
     """Object to plan and execute filesystem purges."""
 
     def __init__(
-        self, config: Config, logger: BoundLogger | None = None
+        self,
+        config: Config,
+        logger: BoundLogger | None = None,
     ) -> None:
         self._config = config
         self._logger = logger or get_logger(ROOT_LOGGER)
-
-        if self._config.alert_hook:
-            SlackRouteErrorHandler.initialize(
-                str(self._config.alert_hook), ROOT_LOGGER, self._logger
-            )
-            self._logger.debug("Slack webhook initialized")
-        cfgdict = self._config.model_dump(mode="json")
-        if "alert_hook" in cfgdict:
-            cfgdict["alert_hook"] = "<SECRET>"
-        self._logger.info("Purger initialized", config=cfgdict)
+        self._logger.info(
+            "Purger initialized", config=self._config.model_dump(mode="json")
+        )
         # Anything that uses the plan should acquire the lock before
         # proceeding.
         self._lock = asyncio.Lock()
@@ -278,11 +272,15 @@ class Purger:
             failed_files_str = {
                 str(k): str(v) for k, v in failed_files.items()
             }
-            self._logger.warning(
+            self._logger.error(
                 "Purge encountered errors", failed_files=failed_files_str
             )
-        else:
-            self._logger.debug("Purge complete")
+
+            raise PurgeFailedError(
+                "Purge encountered Errors", failed_files=failed_files_str
+            )
+
+        self._logger.debug("Purge complete")
         # We've acted on the plan, so it is no longer valid.  We must
         # rerun plan() before running purge() or report() again.
         self._plan = None
