@@ -10,12 +10,18 @@ import click
 from safir.asyncio import run_with_asyncio
 from safir.click import display_help
 from safir.datetime import parse_timedelta
+from safir.sentry import initialize_sentry
+from safir.slack.webhook import SlackWebhookClient
+from structlog.stdlib import get_logger
 
 from rubin.nublado.purger.constants import (
+    ALERT_HOOK_ENV_VAR,
     CONFIG_FILE,
     CONFIG_FILE_ENV_VAR,
+    ROOT_LOGGER,
 )
 
+from . import __version__
 from .config import Config
 from .purger import Purger
 
@@ -55,7 +61,22 @@ def _common[**P, R](
     @functools.wraps(func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         # Configure slack alerting and report any exceptions
-        return await func(*args, **kwargs)
+        logger = get_logger(ROOT_LOGGER)
+        if alert_hook := os.environ.get(ALERT_HOOK_ENV_VAR, None):
+            slack_client = SlackWebhookClient(
+                alert_hook,
+                "Nublado File Purger",
+                logger=logger,
+            )
+        else:
+            slack_client = None
+
+        try:
+            return await func(*args, **kwargs)
+        except Exception as exc:
+            if slack_client:
+                await slack_client.post_exception(exc)
+            raise
 
     return wrapper
 
@@ -177,3 +198,9 @@ async def warn(
     )
     await purger.plan()
     await purger.report()
+
+
+def main_with_sentry() -> None:
+    """Call the main command group after initializing Sentry."""
+    initialize_sentry(release=__version__)
+    main()

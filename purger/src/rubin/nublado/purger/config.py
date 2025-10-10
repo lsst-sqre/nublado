@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Annotated, Self
 
 import yaml
-from pydantic import Field, HttpUrl
+from pydantic import Field, SecretStr
 from pydantic.alias_generators import to_camel
 from pydantic_settings import (
     BaseSettings,
@@ -113,7 +113,7 @@ class Config(EnvFirstSettings):
     ] = False
 
     alert_hook: Annotated[
-        HttpUrl | None,
+        SecretStr | None,
         Field(
             title="Slack webhook URL used for sending alerts",
             description=(

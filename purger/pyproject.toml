@@ -33,7 +33,7 @@ requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
 build-backend = 'setuptools.build_meta'
 
 [project.scripts]
-rsp_purger = "rubin.nublado.purger.cli:main"
+rsp_purger = "rubin.nublado.purger.cli:main_with_sentry"
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
