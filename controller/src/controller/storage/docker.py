@@ -320,9 +320,7 @@ class DockerStorageClient:
         dict of str to str
             Headers to pass to this host.
         """
-        headers = {
-            "Accept": "application/vnd.docker.distribution.manifest.v2+json"
-        }
+        headers = {"Accept": "application/vnd.oci.image.index.v1+json"}
         if host in self._authorization:
             headers["Authorization"] = self._authorization[host]
         return headers
