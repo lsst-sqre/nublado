@@ -39,6 +39,7 @@ dev = [
     "pyfakefs",
     "pytest",
     "pytest-asyncio",
+    "pytest-cov",
     "pytest-sugar",
 ]
 docs = [

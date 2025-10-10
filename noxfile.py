@@ -10,7 +10,7 @@ from nox.command import CommandFailed
 from nox_uv import session
 
 # Default sessions
-nox.options.sessions = ["lint", "typing", "test", "docs"]
+nox.options.sessions = ["lint", "typing", "test", "converage-report", "docs"]
 
 # Other nox defaults
 nox.options.default_venv_backend = "uv"
@@ -18,6 +18,15 @@ nox.options.reuse_existing_virtualenvs = True
 
 # Recurse into these subdirectories, which have their own separate noxfile.py.
 _SUBDIRECTORIES = ["client", "controller", "hub"]
+
+
+@session(name="coverage-report", requires=["test"], uv_groups=["dev", "nox"])
+def coverage_report(session: nox.Session) -> None:
+    """Generate a code coverage report from the test suite."""
+    session.run("coverage", "report", *session.posargs)
+    for subdir in _SUBDIRECTORIES:
+        with session.chdir(subdir):
+            session.run("nox", "-s", "coverage-report", "--", *session.posargs)
 
 
 @session(uv_groups=["dev", "docs"])
@@ -94,7 +103,7 @@ def test(session: nox.Session) -> None:
     per_directory: dict[str, list[str]] = defaultdict(list)
     parent_tests = []
     for arg in session.posargs:
-        # Ignore a speficied test when testing if the file exists
+        # Ignore a speficied test when testing if the file exists.
         test_file = arg.split("::")[0]
         if "tests/" in arg and Path(test_file).exists():
             if arg.startswith("tests/"):
@@ -112,15 +121,24 @@ def test(session: nox.Session) -> None:
         else:
             generic.append(arg)
 
+    # Whether any specific tests were specified.
     any_tests = any(parent_tests + list(per_directory.values()))
 
     # Run in the parent dir if a parent dir test was specified, or if no tests
-    # were specified
+    # were specified.
     if parent_tests or not any_tests:
-        session.run("pytest", *generic, *parent_tests)
+        session.run(
+            "pytest",
+            "--cov=rubin.nublado.purger",
+            "--cov=rubin.nublado.inithome",
+            "--cov-branch",
+            "--cov-report=",
+            *generic,
+            *parent_tests,
+        )
 
-    # Run in a subdirectory if a test in that subdirectory was specified, or if
-    # no tests were specified
+    # Run in a subdirectory if a test in that subdirectory was specified, or
+    # if no tests were specified.
     for subdir in _SUBDIRECTORIES:
         subdir_tests = per_directory[subdir]
         if subdir_tests or not any_tests:
