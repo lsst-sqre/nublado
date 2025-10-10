@@ -1,6 +1,7 @@
 """Client for the Docker v2 API."""
 
 import json
+import re
 from pathlib import Path
 from typing import Self
 
@@ -145,28 +146,50 @@ class DockerStorageClient:
         """
         url = f"https://{config.registry}/v2/{config.repository}/tags/list"
         headers = self._build_headers(config.registry)
-        try:
-            r = await self._client.get(url, headers=headers)
-            if r.status_code == 401:
-                headers = await self._authenticate(config.registry, r)
+        all_filtered_tags: list[str] = []
+        while True:
+            try:
                 r = await self._client.get(url, headers=headers)
-            r.raise_for_status()
-            tags = r.json()["tags"]
-        except HTTPError as e:
-            raise DockerRegistryError.from_exception(e) from e
-        except Exception as e:
-            error = f"{type(e).__name__}: {e!s}"
-            msg = f"Cannot parse response from Docker registry: {error}"
-            raise DockerRegistryError(msg, method="GET", url=url) from e
-        else:
-            filtered = filter_arch_tags(tags)
-            self._logger.debug(
-                "Listed all image tags",
-                registry=config.registry,
-                repository=config.repository,
-                count=len(filtered),
-            )
-            return filtered
+                if r.status_code == 401:
+                    headers = await self._authenticate(config.registry, r)
+                    r = await self._client.get(url, headers=headers)
+                r.raise_for_status()
+                tags = r.json()["tags"]
+            except HTTPError as e:
+                raise DockerRegistryError.from_exception(e) from e
+            except Exception as e:
+                error = f"{type(e).__name__}: {e!s}"
+                msg = f"Cannot parse response from Docker registry: {error}"
+                raise DockerRegistryError(msg, method="GET", url=url) from e
+            else:
+                filtered = filter_arch_tags(tags)
+                self._logger.debug(
+                    "Listed all image tags",
+                    registry=config.registry,
+                    repository=config.repository,
+                    count=len(filtered),
+                )
+                all_filtered_tags.extend(filtered)
+            link = r.headers.get("Link", None)
+            if not link:
+                break
+            link_url = self._parse_next_link_header(link)
+            if not link_url:
+                break
+            url = f"https://{config.registry}{link_url}"
+
+        return all_filtered_tags
+
+    @staticmethod
+    def _parse_next_link_header(link: str) -> str | None:
+        # If there's a 'rel="next"' link, return the URL it points to.
+        # Otherwise, return None.
+        if link.find('rel="next"') == -1:
+            return None
+        mat = re.match("<(.*)>", link)
+        if not mat:
+            return None
+        return mat.group(1)
 
     async def get_image_digest(
         self, config: DockerSourceOptions, tag: str
