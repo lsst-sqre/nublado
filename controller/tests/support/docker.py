@@ -30,6 +30,14 @@ class MockDockerRegistry:
     require_bearer
         Whether to require bearer token authentication, which requires another
         round trip to exchange the username and password for a bearer token.
+    paginate
+        Whether to paginate responses with Link header (GHCR.io does, but
+        Docker Hub does not).
+    duplicate_tags
+        Whether to (incorrectly) return the same tag multiple times when
+        paginating.  This is only used to test error-handling functionality
+        in the tag-handling code.
+
 
     Attributes
     ----------
@@ -44,12 +52,17 @@ class MockDockerRegistry:
         credentials: DockerCredentials,
         *,
         require_bearer: bool = False,
+        paginate: bool = False,
+        duplicate_tags: bool = False,
     ) -> None:
         self.tags = tags
         self._username = credentials.username
         self._password = credentials.password
         self._require_bearer = require_bearer
+        self._paginate = paginate
+        self._duplicate_tags = duplicate_tags
         self._token = os.urandom(16).hex()
+        self._tagindex = 0
 
         # The token authentication protocol for the Docker API returns
         # parameters in the WWW-Authenticate header that should be passed into
@@ -102,7 +115,46 @@ class MockDockerRegistry:
         """
         if not self._check_auth(request):
             return self._make_auth_challenge()
-        return Response(200, json={"tags": list(self.tags.keys())})
+        if not self._paginate:
+            return Response(200, json={"tags": list(self.tags.keys())})
+        return self._return_paginated_response(request)
+
+    def _return_paginated_response(self, request: Request) -> Response:
+        # We use an unrealistically small pagination size of 3 tags, to
+        # exercise the pagination code.
+        p_size = 3
+        tags = list(self.tags.keys())  # We want a list, not a set.
+        initial_idx = 0
+
+        query = request.url.query
+        last_tag = ""
+        if query:
+            p_list = parse_qsl(query)
+            for item in p_list:
+                if item[0].decode() == "last":
+                    last_tag = item[1].decode()
+                    break
+        if last_tag:
+            # Let the ValueError propagate
+            initial_idx = tags.index(last_tag)
+        these_tags = tags[initial_idx : initial_idx + p_size]
+        # This seems like as good a time as any to try duplicated tags.
+        # We expect to see them in the caller when retrieving an additional
+        # page, so what we will do is, assuming that we aren't on the first
+        # page, and that we are handing back more than zero tags, make the
+        # first one a copy of the last tag in the previous set.
+        if self._duplicate_tags and initial_idx > 0 and these_tags:
+            these_tags[0] = tags[initial_idx - 1]
+            return Response(200, json=these_tags)
+        resp_json = {"tags": these_tags}
+        if initial_idx + p_size >= len(tags):
+            # No next link; we've run out of tags.
+            return Response(200, json=resp_json)
+        # n=0 is what we get from ghcr in the wild.  Setting it does indeed
+        # seem to select a page size, and 0 means "maximum", which is 100.
+        path = request.url.path
+        next_link = f'<{path}?last={these_tags[-1]}&n=0>; rel="next"'
+        return Response(200, json=resp_json, headers={"Link": next_link})
 
     def get_digest(self, request: Request, tag: str) -> Response:
         """Simulate the image manifest route for a Docker Registry.
