@@ -338,3 +338,50 @@ async def test_conflict(
     await asyncio.sleep(0.2)
     pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
     assert objects_to_dicts(pod_list.items) == expected
+
+
+@pytest.mark.asyncio
+async def test_node_change(
+    factory: Factory,
+    config: Config,
+    mock_kubernetes: MockKubernetesApi,
+    mock_slack: MockSlackWebhook,
+) -> None:
+    """Test the prepuller service configured to talk to Docker."""
+    await factory.image_service.refresh()
+
+    # Start the prepuller and give it a moment to run.
+    await factory.start_background_services()
+    await asyncio.sleep(0.2)
+
+    # The default data configures Kubernetes with missing images on some
+    # nodes. Check that we created the correct prepuller pods.
+    pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
+    expected = read_output_json("standard", "prepull-objects")
+    assert objects_to_dicts(pod_list.items) == expected
+
+    # Remove the last node from the list of nodes and refresh the image
+    # service, simulating a node removal in the middle of a run.
+    nodes = read_input_node_json("base", "nodes")
+    mock_kubernetes.set_nodes_for_test(nodes[:-1])
+    await factory.image_service.refresh()
+
+    # Update all of the pods to have a status of completed and send an event.
+    for pod in pod_list.items:
+        await mark_pod_complete(mock_kubernetes, pod)
+
+    # The prepuller should notice the status change and delete the pods.
+    await asyncio.sleep(0.2)
+    pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
+    assert pod_list.items == []
+
+    # Everything should show as up-to-date because we optimistically update
+    # the image service even though it hasn't run again.
+    status = factory.image_service.prepull_status()
+    for image in status.images.pending:
+        if image.tag == "d_2077_10_23":
+            assert image.nodes == ["node1", "node2"]
+
+    # There should be no Slack errors from the prepuller updating the image
+    # service.
+    assert mock_slack.messages == []
