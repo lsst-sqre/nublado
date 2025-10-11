@@ -190,18 +190,18 @@ class ImageService:
             Model suitable for returning from the route handler.
         """
         nodes = {n.name for n in self._nodes.values() if n.eligible}
-
         recommended = self._config.recommended_tag
+        all_images = self._source.prepulled_images(nodes)
+
+        # (Ab)using a dict comprehension to create the method arguments is
+        # awkward, but otherwise the None handling makes the code unreasonably
+        # verbose.
         images = {
             "recommended": self._to_prepull.image_for_tag_name(recommended),
             "latest_weekly": self._to_prepull.latest(RSPImageType.WEEKLY),
             "latest_daily": self._to_prepull.latest(RSPImageType.DAILY),
             "latest_release": self._to_prepull.latest(RSPImageType.RELEASE),
         }
-        all_images = self._source.prepulled_images(nodes)
-
-        # (Ab)using a dict comprehension is awkward, but otherwise the None
-        # handling makes the code unreasonably verbose.
         spawner_images = {
             k: PrepulledImage.from_rsp_image(v, nodes) if v else None
             for k, v in images.items()
@@ -255,7 +255,12 @@ class ImageService:
         """
         if self._to_prepull.image_for_digest(image.digest):
             self._source.mark_prepulled(image, node)
-            self._nodes[node].images.add(image)
+
+            # It's possible that we've refreshed the dict of nodes between the
+            # time this prepull was kicked off and the time it finished, so
+            # handle the case where the node no longer exists.
+            if node in self._nodes:
+                self._nodes[node].images.add(image)
 
     def missing_images_by_node(self) -> dict[str, list[RSPImage]]:
         """Determine what images need to be cached.
@@ -297,7 +302,8 @@ class ImageService:
                 node_image.missing = sorted(all_nodes - image.nodes)
                 pending.append(node_image)
             for node in image.nodes:
-                nodes[node].cached.append(image.reference)
+                if node in nodes:
+                    nodes[node].cached.append(image.reference)
         return PrepullerStatus(
             config=self._config,
             images=PrepullerImageStatus(prepulled=prepulled, pending=pending),
