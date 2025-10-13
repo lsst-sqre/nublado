@@ -136,7 +136,7 @@ class MockDockerRegistry:
                     break
         if last_tag:
             # Let the ValueError propagate
-            initial_idx = tags.index(last_tag)
+            initial_idx = tags.index(last_tag) + 1
         these_tags = tags[initial_idx : initial_idx + p_size]
         # This seems like as good a time as any to try duplicated tags.
         # We expect to see them in the caller when retrieving an additional
@@ -144,8 +144,8 @@ class MockDockerRegistry:
         # page, and that we are handing back more than zero tags, make the
         # first one a copy of the last tag in the previous set.
         if self._duplicate_tags and initial_idx > 0 and these_tags:
-            these_tags[0] = tags[initial_idx - 1]
-            return Response(200, json=these_tags)
+            these_tags[0] = tags[(initial_idx - 1)]
+            return Response(200, json={"tags": these_tags})
         resp_json = {"tags": these_tags}
         if initial_idx + p_size >= len(tags):
             # No next link; we've run out of tags.
@@ -219,6 +219,8 @@ def register_mock_docker(
     credentials_path: Path,
     tags: dict[str, str],
     require_bearer: bool = False,
+    paginate: bool = True,
+    duplicate_tags: bool = False,
 ) -> MockDockerRegistry:
     """Mock out a Docker registry.
 
@@ -238,6 +240,13 @@ def register_mock_docker(
         registry.
     require_bearer
         Whether to require bearer token authentication.
+    paginate
+        Whether to paginate responses with Link header (GHCR.io does, but
+        Docker Hub does not).
+    duplicate_tags
+        Whether to (incorrectly) return the same tag multiple times when
+        paginating.  This is only used to test error-handling functionality
+        in the tag-handling code.
 
     Returns
     -------
@@ -253,7 +262,12 @@ def register_mock_docker(
     credentials = store.get(host)
     assert credentials
     mock = MockDockerRegistry(
-        tags, auth_url, credentials, require_bearer=require_bearer
+        tags,
+        auth_url,
+        credentials,
+        require_bearer=require_bearer,
+        paginate=paginate,
+        duplicate_tags=duplicate_tags,
     )
 
     respx_mock.get(base_url + "/auth").mock(side_effect=mock.authenticate)

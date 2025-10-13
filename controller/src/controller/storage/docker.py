@@ -179,9 +179,10 @@ class DockerStorageClient:
                 if isect:
                     tagword = f"tag{'s' if len(isect) > 1 else ''}"
                     self._logger.error(
-                        f"Duplicate {tagword}: {isect}."
-                        " Bailing out of tag-reading loop"
+                        f"Duplicate {tagword}: {isect}"
+                        f" Bailing out of tag-reading loop"
                     )
+                    all_filtered_tags.update(f_set.difference(isect))
                     break
                 all_filtered_tags.update(f_set)
             link = r.headers.get("Link", None)

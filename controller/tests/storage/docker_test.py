@@ -32,6 +32,7 @@ async def test_api(
         repository=config.images.source.repository,
         credentials_path=config.images.source.credentials_path,
         tags=tags,
+        paginate=True,
     )
     docker = factory.create_docker_storage()
     assert set(await docker.list_tags(config.images.source)) == tag_names
@@ -95,3 +96,36 @@ def test_credential_store(tmp_path: Path) -> None:
     assert store.get("example.com") == credentials
     assert store.get("foo.example.com") == credentials
     assert store.get("example.org") == other_credentials
+
+
+@pytest.mark.asyncio
+async def test_duplicate_tag(
+    config: Config,
+    factory: Factory,
+    respx_mock: respx.Router,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    tag_names = {"w_2021_21", "w_2021_22", "d_2021_06_14", "d_2021_06_15"}
+    tags = {t: "sha256:" + os.urandom(32).hex() for t in tag_names}
+    assert isinstance(config.images.source, DockerSourceOptions)
+    register_mock_docker(
+        respx_mock,
+        host=config.images.source.registry,
+        repository=config.images.source.repository,
+        credentials_path=config.images.source.credentials_path,
+        tags=tags,
+        paginate=True,
+        duplicate_tags=True,
+    )
+    docker = factory.create_docker_storage()
+    results = set(await docker.list_tags(config.images.source))
+    # Check that we're missing at least one tag.
+    assert len(results) < len(tag_names)
+    # Check that we got one error line, and that "Duplicate tag" was in
+    # the captured logs.
+    errs = 0
+    for rec in caplog.records:
+        if rec.levelname == "ERROR":
+            errs += 1
+    assert errs == 1
+    assert "Duplicate tag" in caplog.text
