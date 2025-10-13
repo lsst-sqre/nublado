@@ -199,5 +199,5 @@ class BackgroundTaskManager:
                 self._logger.exception("Uncaught exception prepulling images")
                 await report_exception(e, self._slack)
                 pause = self._config.images.refresh_interval.total_seconds()
-                self._logger.warning("Pausing failed prepuller for {pause}s")
+                self._logger.warning(f"Pausing failed prepuller for {pause}s")
                 await asyncio.sleep(pause)
