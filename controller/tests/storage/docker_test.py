@@ -11,10 +11,14 @@ import pytest
 import respx
 
 from controller.config import Config
+from controller.exceptions import DockerRegistryError
 from controller.factory import Factory
 from controller.models.domain.docker import DockerCredentials
 from controller.models.v1.prepuller import DockerSourceOptions
-from controller.storage.docker import DockerCredentialStore
+from controller.storage.docker import (
+    DockerCredentialStore,
+    DockerStorageClient,
+)
 
 from ..support.docker import register_mock_docker
 
@@ -40,6 +44,64 @@ async def test_api(
     assert digest == tags["w_2021_21"]
     digest = await docker.get_image_digest(config.images.source, "w_2021_22")
     assert digest == tags["w_2021_22"]
+
+
+@pytest.mark.asyncio
+async def test_api_nonpaginated(
+    config: Config, factory: Factory, respx_mock: respx.Router
+) -> None:
+    tag_names = {"w_2021_21", "w_2021_22", "d_2021_06_14", "d_2021_06_15"}
+    tags = {t: "sha256:" + os.urandom(32).hex() for t in tag_names}
+    assert isinstance(config.images.source, DockerSourceOptions)
+    register_mock_docker(
+        respx_mock,
+        host=config.images.source.registry,
+        repository=config.images.source.repository,
+        credentials_path=config.images.source.credentials_path,
+        tags=tags,
+        paginate=False,
+    )
+    docker = factory.create_docker_storage()
+    assert set(await docker.list_tags(config.images.source)) == tag_names
+    digest = await docker.get_image_digest(config.images.source, "w_2021_21")
+    assert digest == tags["w_2021_21"]
+    digest = await docker.get_image_digest(config.images.source, "w_2021_22")
+    assert digest == tags["w_2021_22"]
+
+
+@pytest.mark.asyncio
+async def test_bad_accept(
+    config: Config,
+    factory: Factory,
+    respx_mock: respx.Router,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tag_names = {"w_2021_21", "w_2021_22", "d_2021_06_14", "d_2021_06_15"}
+    tags = {t: "sha256:" + os.urandom(32).hex() for t in tag_names}
+    assert isinstance(config.images.source, DockerSourceOptions)
+    register_mock_docker(
+        respx_mock,
+        host=config.images.source.registry,
+        repository=config.images.source.repository,
+        credentials_path=config.images.source.credentials_path,
+        tags=tags,
+        paginate=True,
+    )
+
+    def _bad_manifest_headers(
+        d_obj: DockerStorageClient, host: str
+    ) -> dict[str, str]:
+        # Don't send the right Accept: header, just "application/json".
+        return d_obj._build_headers(host)
+
+    monkeypatch.setattr(
+        DockerStorageClient, "_build_manifest_headers", _bad_manifest_headers
+    )
+    docker = factory.create_docker_storage()
+
+    assert set(await docker.list_tags(config.images.source)) == tag_names
+    with pytest.raises(DockerRegistryError):
+        await docker.get_image_digest(config.images.source, "w_2021_21")
 
 
 @pytest.mark.asyncio
