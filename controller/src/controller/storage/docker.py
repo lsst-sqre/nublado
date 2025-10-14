@@ -174,18 +174,20 @@ class DockerStorageClient:
                     repository=config.repository,
                     count=count,
                 )
-                f_set = set(filtered)
-                isect = f_set.intersection(all_filtered_tags)
-                if isect:
-                    tagword = f"tag{'s' if len(isect) > 1 else ''}"
+                current_tags = set(filtered)
+                duplicates = current_tags.intersection(all_filtered_tags)
+                if duplicates:
+                    tag_word = "tag" if len(duplicates) == 1 else "tags"
                     self._logger.error(
-                        f"Duplicate {tagword}: {isect}"
+                        f"Duplicate {tag_word}: {duplicates}"
                         f" Bailing out of tag-reading loop"
                     )
-                    all_filtered_tags.update(f_set.difference(isect))
+                    all_filtered_tags.update(
+                        current_tags.difference(duplicates)
+                    )
                     break
-                all_filtered_tags.update(f_set)
-            link = r.headers.get("Link", None)
+                all_filtered_tags.update(current_tags)
+            link = r.headers.get("Link")
             if not link:
                 # Normal loop exit: we have no links to follow.
                 break
