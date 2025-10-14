@@ -1,163 +1,206 @@
 """CLI for the filesystem purger."""
 
-import argparse
-import asyncio
+import functools
 import os
+from collections.abc import Awaitable, Callable
+from datetime import timedelta
 from pathlib import Path
 
-import yaml
-from pydantic import HttpUrl, ValidationError
+import click
+from safir.asyncio import run_with_asyncio
+from safir.click import display_help
 from safir.datetime import parse_timedelta
-from safir.logging import LogLevel, Profile
+from safir.sentry import initialize_sentry
+from safir.slack.webhook import SlackWebhookClient
+from structlog.stdlib import get_logger
 
+from rubin.nublado.purger.constants import (
+    ALERT_HOOK_ENV_VAR,
+    CONFIG_FILE,
+    CONFIG_FILE_ENV_VAR,
+    ROOT_LOGGER,
+)
+
+from . import __version__
 from .config import Config
-from .constants import CONFIG_FILE, ENV_PREFIX
-from .models.v1.policy import Policy
 from .purger import Purger
 
 
-def _add_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    parser.add_argument(
-        "-c",
-        "--config-file",
-        "--config",
-        help="Application configuration file",
+def _common[**P, R](
+    func: Callable[P, Awaitable[R]],
+) -> Callable[P, R]:
+    """Add common Click options and error reporting common a command."""
+
+    @click.option(
+        "--debug",
+        "-d",
+        is_flag=True,
+        help="Enable debug logging",
     )
-    parser.add_argument(
-        "-p",
-        "--policy-file",
-        "--policy",
-        help="Purger policy configuration file",
-    )
-    parser.add_argument(
-        "-d", "--debug", action="store_true", help="Enable debug logging"
-    )
-    parser.add_argument(
-        "-x",
+    @click.option(
         "--dry-run",
-        action="store_true",
+        "-x",
+        is_flag=True,
         help="Do not act, but report what would be done",
     )
-
-    return parser
-
-
-def _add_future_time(
-    parser: argparse.ArgumentParser,
-) -> argparse.ArgumentParser:
-    parser.add_argument(
-        "-t",
-        "--future_duration",
-        "--time",
-        "--future-time",
-        help="Duration from now to future time to build a plan for",
+    @click.option(
+        "--policy-file",
+        "-p",
+        type=Path,
+        help="Purger policy configuration file",
+        default=None,
     )
-
-    return parser
-
-
-def _postprocess_args_to_config(raw_args: argparse.Namespace) -> Config:
-    config: Config | None = None
-    override_cf = raw_args.config_file or os.getenv(
-        ENV_PREFIX + "CONFIG_FILE", ""
+    @click.option(
+        "--config-file",
+        "-c",
+        help="Application configuration file",
+        type=Path,
+        default=CONFIG_FILE,
     )
-    config_file = Path(override_cf) if override_cf else Path(CONFIG_FILE)
-    try:
-        config_obj = yaml.safe_load(config_file.read_text())
-        config = Config.model_validate(config_obj)
-    except (FileNotFoundError, UnicodeDecodeError, ValidationError) as exc:
-        # If the file is not there, or readable, or parseable, just
-        # start with an empty config and add our command-line options.
-        #
-        # But also complain.  We don't have a logger yet, so shout to stdout
-        # instead.
-        print(f"Could not load config '{config_file!s}': {exc}")  # noqa:T201
-        config = Config()
-    # Validate policy.  If the file is specified, use that; if not, use
-    # defaults from config.
-    override_pf = raw_args.policy_file or os.getenv(
-        ENV_PREFIX + "POLICY_FILE", ""
-    )
-    policy_file = Path(override_pf) if override_pf else config.policy_file
-    policy_obj = yaml.safe_load(policy_file.read_text())
-    Policy.model_validate(policy_obj)
-    # If we get this far, it's a legal policy file.
-    config.policy_file = policy_file
+    @run_with_asyncio
+    @functools.wraps(func)
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        # Configure slack alerting and report any exceptions
+        logger = get_logger(ROOT_LOGGER)
+        if alert_hook := os.environ.get(ALERT_HOOK_ENV_VAR, None):
+            slack_client = SlackWebhookClient(
+                alert_hook,
+                "Nublado File Purger",
+                logger=logger,
+            )
+        else:
+            slack_client = None
+
+        try:
+            return await func(*args, **kwargs)
+        except Exception as exc:
+            if slack_client:
+                await slack_client.post_exception(exc)
+            raise
+
+    return wrapper
+
+
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
+@click.version_option(message="%(version)s")
+def main() -> None:
+    """Nublado file purger command-line interface."""
+
+
+@main.command()
+@click.argument("topic", default=None, required=False, nargs=1)
+@click.argument("subtopic", default=None, required=False, nargs=1)
+@click.pass_context
+def help(ctx: click.Context, topic: str | None, subtopic: str | None) -> None:
+    """Show help for any command."""
+    display_help(main, ctx, topic, subtopic)
+
+
+def _make_purger(
+    *,
+    config_file: Path,
+    policy_file: Path | None,
+    dry_run: bool,
+    debug: bool,
+    future_duration: timedelta | None = None,
+) -> Purger:
+    """Construct a Purger, overriding config from CLI options."""
+    # Prefer config file from env var
+    if env_config_path := os.getenv(CONFIG_FILE_ENV_VAR):
+        config_file = Path(env_config_path)
+
+    config = Config.from_file(config_file)
+
+    if policy_file:
+        config.policy_file = policy_file
 
     # For dry-run and debug, if specified, use that, and if not, do whatever
     # the config says.
-    override_debug = raw_args.debug or bool(
-        os.getenv(ENV_PREFIX + "DEBUG", "")
-    )
-    if override_debug:
-        config.logging.log_level = LogLevel.DEBUG
-        config.logging.log_profile = Profile.development
-    override_dry_run = raw_args.dry_run or bool(
-        os.getenv(ENV_PREFIX + "DRY_RUN", None)
-    )
-    if override_dry_run:
-        config.dry_run = True
+    if debug:
+        config.debug = debug
+        config.configure_logging()
+
+    if dry_run:
+        config.dry_run = dry_run
 
     # Add the time-into-the-future (used for warning only)
-    override_future_duration = (
-        "future_duration" in raw_args and raw_args.future_duration
-    ) or os.getenv(ENV_PREFIX + "FUTURE_DURATION", None)
-    if override_future_duration:
-        later = parse_timedelta(override_future_duration)
-        if later:
-            config.future_duration = later
+    if future_duration:
+        config.future_duration = future_duration
 
-    # Add the Slack alert hook, if we have it.  We should not set this in the
-    # config YAML, or the command line, because it's a secret.
-    # It ends up getting injected into the environment (which isn't much
-    # better) via a K8s secret.
-    hook = os.getenv(ENV_PREFIX + "ALERT_HOOK", "")
-    if hook:
-        config.alert_hook = HttpUrl(url=hook)
-    return config
-
-
-def _get_executor(desc: str) -> Purger:
-    parser = argparse.ArgumentParser(description=desc)
-    parser = _add_args(parser)
-    args = parser.parse_args()
-    config = _postprocess_args_to_config(args)
     return Purger(config=config)
 
 
-def _get_warner(desc: str) -> Purger:
-    parser = argparse.ArgumentParser(description=desc)
-    parser = _add_args(parser)
-    parser = _add_future_time(parser)
-    args = parser.parse_args()
-    config = _postprocess_args_to_config(args)
-    return Purger(config=config)
-
-
-def report() -> None:
+@main.command
+@_common
+async def report(
+    *,
+    config_file: Path,
+    policy_file: Path | None,
+    dry_run: bool,
+    debug: bool,
+) -> None:
     """Report what files would be purged."""
-    reporter = _get_executor("Report what files would be purged.")
-    asyncio.run(reporter.plan())
-    asyncio.run(reporter.report())
+    purger = _make_purger(
+        config_file=config_file,
+        policy_file=policy_file,
+        dry_run=dry_run,
+        debug=debug,
+    )
+    await purger.plan()
+    await purger.report()
 
 
-def purge() -> None:
-    """Purge files."""
-    purger = _get_executor("Purge files.")
-    asyncio.run(purger.plan())
-    asyncio.run(purger.purge())
-
-
-def execute() -> None:
+@main.command
+@_common
+async def execute(
+    *,
+    config_file: Path,
+    policy_file: Path | None,
+    dry_run: bool,
+    debug: bool,
+) -> None:
     """Make a plan, report, and purge files."""
-    purger = _get_executor("Report and purge files.")
-    asyncio.run(purger.execute())
+    purger = _make_purger(
+        config_file=config_file,
+        policy_file=policy_file,
+        dry_run=dry_run,
+        debug=debug,
+    )
+    await purger.execute()
 
 
-def warn() -> None:
+@main.command
+@click.option(
+    "--future-duration",
+    "-t",
+    type=parse_timedelta,
+    help="Duration from now to future time to build a plan for",
+    default=None,
+)
+@_common
+async def warn(
+    *,
+    config_file: Path,
+    policy_file: Path | None,
+    dry_run: bool,
+    debug: bool,
+    future_duration: timedelta,
+) -> None:
     """Make a plan for some time in the future, and report as if it were
     that time.
     """
-    warner = _get_warner("Make a plan for a future time and report it.")
-    asyncio.run(warner.plan())
-    asyncio.run(warner.report())
+    purger = _make_purger(
+        config_file=config_file,
+        policy_file=policy_file,
+        dry_run=dry_run,
+        debug=debug,
+        future_duration=future_duration,
+    )
+    await purger.plan()
+    await purger.report()
+
+
+def main_with_sentry() -> None:
+    """Call the main command group after initializing Sentry."""
+    initialize_sentry(release=__version__)
+    main()

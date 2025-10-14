@@ -8,7 +8,32 @@ import pytest
 import yaml
 
 from rubin.nublado.purger.config import Config
-from rubin.nublado.purger.models.v1.policy import Policy
+
+
+def config(root: Path, relative_policy_file: str) -> Config:
+    """Write a policy file and config file that reference real temp files."""
+    scratch_dir = root / "scratch"
+    scratch_foo_bar = scratch_dir / "foo" / "bar"
+
+    # Load template policy file
+    policy_file = Path(__file__).parent / "support" / relative_policy_file
+    policy = yaml.safe_load(policy_file.read_text())
+
+    # Change policy to point at fake root
+    policy["directories"][0]["path"] = str(scratch_dir)
+    policy["directories"][1]["path"] = str(scratch_foo_bar)
+
+    new_policy_file = root / "policy.yaml"
+    new_policy_file.write_text(yaml.dump(policy))
+
+    # Write a new config file that points at the new policy document
+    config_file = Path(__file__).parent / "support" / "config.yaml"
+    config = yaml.safe_load(config_file.read_text())
+    config["policy_file"] = str(new_policy_file)
+    new_config_file = root / "config.yaml"
+    new_config_file.write_text(yaml.dump(config))
+
+    return Config.from_file(new_config_file)
 
 
 @pytest.fixture
@@ -32,35 +57,19 @@ def fake_root() -> Iterator[Path]:
 
 @pytest.fixture
 def purger_config(fake_root: Path) -> Config:
-    scratch_dir = fake_root / "scratch"
-    scratch_foo_bar = scratch_dir / "foo" / "bar"
+    return config(fake_root, "policy.yaml")
 
-    # Load template policy file
-    policy_file = Path(__file__).parent / "support" / "policy.yaml"
-    policy_doc = yaml.safe_load(policy_file.read_text())
-    policy = Policy.model_validate(policy_doc)
-    config_file = Path(__file__).parent / "support" / "config.yaml"
-    config_doc = yaml.safe_load(config_file.read_text())
-    config = Config.model_validate(config_doc)
 
-    # Change policy to point at fake root
-    policy.directories[0].path = scratch_dir
-    policy.directories[1].path = scratch_foo_bar
+@pytest.fixture
+def purger_config_small(fake_root: Path) -> Config:
+    return config(fake_root, "policy_small.yaml")
 
-    # Write out new policy document
-    new_policy_dict = policy.to_dict()
-    new_policy_doc = yaml.dump(new_policy_dict)
-    new_policy_file = fake_root / "policy.yaml"
-    new_policy_file.write_text(new_policy_doc)
 
-    # Point config at new policy document
-    config = Config()
-    config.policy_file = new_policy_file
+@pytest.fixture
+def purger_config_no_small(fake_root: Path) -> Config:
+    return config(fake_root, "policy_no_small.yaml")
 
-    # Write out new config
-    new_config_dict = config.to_dict()
-    new_config_doc = yaml.dump(new_config_dict)
-    new_config_file = fake_root / "config.yaml"
-    new_config_file.write_text(new_config_doc)
 
-    return config
+@pytest.fixture
+def purger_config_low_ctime(fake_root: Path) -> Config:
+    return config(fake_root, "policy_low_ctime.yaml")

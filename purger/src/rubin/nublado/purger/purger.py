@@ -3,18 +3,15 @@ planning actions according to its policy, reporting its plans, and
 executing its plans.
 """
 
-import asyncio
 import datetime
 from pathlib import Path
 
 import yaml
-from safir.logging import configure_logging
-from safir.slack.webhook import SlackRouteErrorHandler
 from structlog.stdlib import BoundLogger, get_logger
 
 from .config import Config
 from .constants import ROOT_LOGGER
-from .exceptions import NotLockedError, PlanNotReadyError
+from .exceptions import PlanNotReadyError, PurgeFailedError
 from .models.plan import FileClass, FileReason, FileRecord, Plan
 from .models.v1.policy import DirectoryPolicy, Policy
 
@@ -23,31 +20,15 @@ class Purger:
     """Object to plan and execute filesystem purges."""
 
     def __init__(
-        self, config: Config, logger: BoundLogger | None = None
+        self,
+        config: Config,
+        logger: BoundLogger | None = None,
     ) -> None:
         self._config = config
-        if logger is None:
-            self._logger = get_logger(ROOT_LOGGER)
-            configure_logging(
-                name=ROOT_LOGGER,
-                log_level=config.logging.log_level,
-                profile=config.logging.log_profile,
-                add_timestamp=config.logging.add_timestamp,
-            )
-        else:
-            self._logger = logger
-        if self._config.alert_hook:
-            SlackRouteErrorHandler.initialize(
-                str(self._config.alert_hook), ROOT_LOGGER, self._logger
-            )
-            self._logger.debug("Slack webhook initialized")
-        cfgdict = self._config.to_dict()
-        if "alert_hook" in cfgdict:
-            cfgdict["alert_hook"] = "<SECRET>"
-        self._logger.info("Purger initialized", config=cfgdict)
-        # Anything that uses the plan should acquire the lock before
-        # proceeding.
-        self._lock = asyncio.Lock()
+        self._logger = logger or get_logger(ROOT_LOGGER)
+        self._logger.info(
+            "Purger initialized", config=self._config.model_dump(mode="json")
+        )
         self._plan: Plan | None = None
 
     def set_policy_file(self, policy_file: Path) -> None:
@@ -56,20 +37,7 @@ class Purger:
         self._logger.debug(f"Reset policy file: '{old}' -> '{policy_file}'")
 
     async def plan(self) -> None:
-        """Scan our directories and assemble a plan.  We can only do this
-        when an operation is not in progress, hence the lock.
-        """
-        self._logger.debug("Attempting to acquire lock for plan()")
-        async with self._lock:
-            self._logger.debug("Lock for plan() acquired.")
-            await self._perform_plan()
-
-    async def _perform_plan(self) -> None:
-        # This does the actual work.
-        # We split it so we can do a do-it-all run under a single lock.
-        if not self._lock.locked():
-            raise NotLockedError("Cannot plan: do not have lock")
-
+        """Scan our directories and assemble a plan."""
         self._logger.debug(f"Reloading policy from {self._config.policy_file}")
         policy_doc = yaml.safe_load(self._config.policy_file.read_text())
         policy = Policy.model_validate(policy_doc)
@@ -212,23 +180,14 @@ class Purger:
 
     async def report(self) -> None:
         """Report what directories are to be purged."""
-        self._logger.debug("Awaiting lock for report()")
-        async with self._lock:
-            self._logger.debug("Acquired lock for report()")
-            await self._perform_report()
-
-    async def _perform_report(self) -> None:
-        # This does the actual work.
-        # We split it so we can do a do-it-all run under a single lock.
-        if not self._lock.locked():
-            raise NotLockedError("Cannot report: do not have lock")
         if self._plan is None:
             raise PlanNotReadyError("Cannot report: plan not ready")
         rpt_text = str(self._plan)
         self._logger.info(rpt_text)
 
     async def purge(self) -> None:
-        """Purge files and after-purge-empty directories."""
+        if self._plan is None:
+            raise PlanNotReadyError("Cannot purge: plan not ready")
         if self._config.dry_run:
             self._logger.warning(
                 "Cannot purge because dry_run enabled; reporting instead"
@@ -242,18 +201,6 @@ class Purger:
             )
             await self.report()
             return
-        self._logger.debug("Awaiting lock for purge()")
-        async with self._lock:
-            self._logger.debug("Acquired lock for purge()")
-            await self._perform_purge()
-
-    async def _perform_purge(self) -> None:
-        # This does the actual work.
-        # We split it so we can do a do-it-all run under a single lock.
-        if not self._lock.locked():
-            raise NotLockedError("Cannot purge: do not have lock")
-        if self._plan is None:
-            raise PlanNotReadyError("Cannot purge: plan not ready")
         failed_files: dict[Path, Exception] = {}
         for purge_file in self._plan.files:
             path = purge_file.path
@@ -294,11 +241,15 @@ class Purger:
             failed_files_str = {
                 str(k): str(v) for k, v in failed_files.items()
             }
-            self._logger.warning(
+            self._logger.error(
                 "Purge encountered errors", failed_files=failed_files_str
             )
-        else:
-            self._logger.debug("Purge complete")
+
+            raise PurgeFailedError(
+                "Purge encountered Errors", failed_files=failed_files_str
+            )
+
+        self._logger.debug("Purge complete")
         # We've acted on the plan, so it is no longer valid.  We must
         # rerun plan() before running purge() or report() again.
         self._plan = None
@@ -333,9 +284,6 @@ class Purger:
         This is the do-it-all method and will be the usual entrypoint for
         actual use.
         """
-        self._logger.debug("Awaiting lock for execute()")
-        async with self._lock:
-            self._logger.debug("Acquired lock for execute()")
-            await self._perform_plan()
-            await self._perform_report()
-            await self._perform_purge()
+        await self.plan()
+        await self.report()
+        await self.purge()
