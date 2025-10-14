@@ -5,15 +5,11 @@ from typing import override
 from safir.slack.blockkit import SlackException, SlackMessage, SlackTextBlock
 from safir.slack.sentry import SentryEventInfo
 
-__all__ = ["NotLockedError", "PlanNotReadyError", "PurgeFailedError"]
+__all__ = ["PlanNotReadyError", "PurgeFailedError"]
 
 
 class PlanNotReadyError(SlackException):
     """An operation needing a Plan was requested, but no Plan is ready."""
-
-
-class NotLockedError(SlackException):
-    """An operation requiring a lock was requested with no lock held."""
 
 
 class PurgeFailedError(SlackException):

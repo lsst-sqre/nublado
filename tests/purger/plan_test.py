@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from rubin.nublado.purger.config import Config
-from rubin.nublado.purger.exceptions import NotLockedError
 from rubin.nublado.purger.models.plan import FileReason
 from rubin.nublado.purger.purger import Purger
 
@@ -86,10 +85,3 @@ async def test_subdir(purger_config: Config, fake_root: Path) -> None:
     assert len(purger._plan.files) == 1
     assert purger._plan.files[0].path.parent.name == "bar"
     assert purger._plan.files[0].path.name == "large"
-
-
-@pytest.mark.asyncio
-async def test_no_lock(purger_config: Config) -> None:
-    purger = Purger(config=purger_config)
-    with pytest.raises(NotLockedError):
-        await purger._perform_plan()
