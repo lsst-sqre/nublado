@@ -1,8 +1,10 @@
 """Client for the Docker v2 API."""
 
 import json
+import re
 from pathlib import Path
 from typing import Self
+from urllib.parse import urlparse
 
 from httpx import AsyncClient, HTTPError, Response
 from structlog.stdlib import BoundLogger
@@ -143,30 +145,84 @@ class DockerStorageClient:
         list of str
             All the non-platform-specific tags found for that repository.
         """
+        # We're assuming HTTPS.  If you have an HTTP-only registry without
+        # TLS in 2025, well, I feel bad for you, son.  You got 99 problems
+        # and your URL's just one.
         url = f"https://{config.registry}/v2/{config.repository}/tags/list"
         headers = self._build_headers(config.registry)
-        try:
-            r = await self._client.get(url, headers=headers)
-            if r.status_code == 401:
-                headers = await self._authenticate(config.registry, r)
+        all_filtered_tags: set[str] = set()
+        while True:
+            try:
                 r = await self._client.get(url, headers=headers)
-            r.raise_for_status()
-            tags = r.json()["tags"]
-        except HTTPError as e:
-            raise DockerRegistryError.from_exception(e) from e
-        except Exception as e:
-            error = f"{type(e).__name__}: {e!s}"
-            msg = f"Cannot parse response from Docker registry: {error}"
-            raise DockerRegistryError(msg, method="GET", url=url) from e
-        else:
-            filtered = filter_arch_tags(tags)
-            self._logger.debug(
-                "Listed all image tags",
-                registry=config.registry,
-                repository=config.repository,
-                count=len(filtered),
-            )
-            return filtered
+                if r.status_code == 401:
+                    headers = await self._authenticate(config.registry, r)
+                    r = await self._client.get(url, headers=headers)
+                r.raise_for_status()
+                tags = r.json()["tags"]
+            except HTTPError as e:
+                raise DockerRegistryError.from_exception(e) from e
+            except Exception as e:
+                error = f"{type(e).__name__}: {e!s}"
+                msg = f"Cannot parse response from Docker registry: {error}"
+                raise DockerRegistryError(msg, method="GET", url=url) from e
+            else:
+                filtered = filter_arch_tags(tags)
+                count = len(filtered)
+                self._logger.debug(
+                    f"Listed {count} image tags",
+                    registry=config.registry,
+                    repository=config.repository,
+                    count=count,
+                )
+                current_tags = set(filtered)
+                duplicates = current_tags.intersection(all_filtered_tags)
+                if duplicates:
+                    tag_word = "tag" if len(duplicates) == 1 else "tags"
+                    self._logger.error(
+                        f"Duplicate {tag_word}: {duplicates}"
+                        f" Bailing out of tag-reading loop"
+                    )
+                    all_filtered_tags.update(
+                        current_tags.difference(duplicates)
+                    )
+                    break
+                all_filtered_tags.update(current_tags)
+            link = r.headers.get("Link")
+            if not link:
+                # Normal loop exit: we have no links to follow.
+                break
+            link_url = self._parse_next_link_header(link)
+            if not link_url:
+                # Normal loop exit: we have no "next" link to follow.
+                break
+            url = self._get_next_url(link_url, config)
+        return list(all_filtered_tags)
+
+    @staticmethod
+    def _get_next_url(link_url: str, config: DockerSourceOptions) -> str:
+        parsed = urlparse(link_url)
+        if parsed.netloc:
+            # It specified a netloc, so use it as is.
+            return link_url
+        # Relative to the current netloc (this is how GHCR does it).
+        if link_url[0] != "/":
+            link_url = f"/{link_url}"
+        return f"https://{config.registry}{link_url}"
+
+    @staticmethod
+    def _parse_next_link_header(link: str) -> str | None:
+        # If there's a rel="next" link, return the URL it points to.
+        # Otherwise, return None.
+        # Borrowed from safir.database._pagination.PaginationLinkData
+        link_re = re.compile(
+            r'\s*<(?P<target>[^>]+)>;\s*rel="(?P<type>[^"]+)"'
+        )
+        mat = re.match(link_re, link)
+        if not mat:
+            return None
+        if mat.group("type") != "next":
+            return None
+        return mat.group("target")
 
     async def get_image_digest(
         self, config: DockerSourceOptions, tag: str
@@ -193,7 +249,7 @@ class DockerStorageClient:
         url = (
             f"https://{config.registry}/v2/{config.repository}/manifests/{tag}"
         )
-        headers = self._build_headers(config.registry)
+        headers = self._build_manifest_headers(config.registry)
         try:
             r = await self._client.head(url, headers=headers)
             if r.status_code == 401:
@@ -281,6 +337,20 @@ class DockerStorageClient:
 
         return self._build_headers(host)
 
+    def _build_manifest_headers(self, host: str) -> dict[str, str]:
+        """Construct the headers we need for a query to a given host to
+        inspect a manifest. This requires additional media types.
+        """
+        headers = self._build_headers(host)
+        headers["Accept"] = (
+            "application/vnd.docker.distribution.manifest.v2+json, "
+            "application/vnd.docker.distribution.manifest.list.v2+json, "
+            "application/vnd.oci.image.manifest.v1+json, "
+            "application/vnd.oci.image.index.v1+json, "
+            "application/json;q=0.5"
+        )
+        return headers
+
     def _build_headers(self, host: str) -> dict[str, str]:
         """Construct the headers used for a query to a given host.
 
@@ -297,9 +367,7 @@ class DockerStorageClient:
         dict of str to str
             Headers to pass to this host.
         """
-        headers = {
-            "Accept": "application/vnd.docker.distribution.manifest.v2+json"
-        }
+        headers = {"Accept": "application/json"}
         if host in self._authorization:
             headers["Authorization"] = self._authorization[host]
         return headers

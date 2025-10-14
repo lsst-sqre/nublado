@@ -30,6 +30,17 @@ class MockDockerRegistry:
     require_bearer
         Whether to require bearer token authentication, which requires another
         round trip to exchange the username and password for a bearer token.
+    paginate
+        Whether to paginate responses with Link header (GHCR does, but
+        Docker Hub does not).
+    duplicate_tags
+        Whether to (incorrectly) return the same tag multiple times when
+        paginating.  This is only used to test error-handling functionality
+        in the tag-handling code, and only makes sense with paginate.
+    netloc_paginate
+        Whether to return a URL with a scheme and netloc when paginating
+        (GHCR does not).  This only makes sense with paginate.
+
 
     Attributes
     ----------
@@ -44,12 +55,19 @@ class MockDockerRegistry:
         credentials: DockerCredentials,
         *,
         require_bearer: bool = False,
+        paginate: bool = False,
+        duplicate_tags: bool = False,
+        netloc_paginate: bool = False,
     ) -> None:
         self.tags = tags
         self._username = credentials.username
         self._password = credentials.password
         self._require_bearer = require_bearer
+        self._paginate = paginate
+        self._duplicate_tags = duplicate_tags if paginate else False
+        self._netloc_paginate = netloc_paginate if paginate else False
         self._token = os.urandom(16).hex()
+        self._tagindex = 0
 
         # The token authentication protocol for the Docker API returns
         # parameters in the WWW-Authenticate header that should be passed into
@@ -102,7 +120,51 @@ class MockDockerRegistry:
         """
         if not self._check_auth(request):
             return self._make_auth_challenge()
-        return Response(200, json={"tags": list(self.tags.keys())})
+        if not self._paginate:
+            return Response(200, json={"tags": list(self.tags.keys())})
+        return self._return_paginated_response(request)
+
+    def _return_paginated_response(self, request: Request) -> Response:
+        # We use an unrealistically small pagination size of 3 tags, to
+        # exercise the pagination code.
+        p_size = 3
+        tags = list(self.tags.keys())  # We want a list, not a set.
+        initial_idx = 0
+
+        query = request.url.query
+        last_tag = ""
+        if query:
+            p_list = parse_qsl(query)
+            for item in p_list:
+                if item[0].decode() == "last":
+                    last_tag = item[1].decode()
+                    break
+        if last_tag:
+            # Let the ValueError propagate
+            initial_idx = tags.index(last_tag) + 1
+        these_tags = tags[initial_idx : initial_idx + p_size]
+        # This seems like as good a time as any to try duplicated tags.
+        # We expect to see them in the caller when retrieving an additional
+        # page, so what we will do is, assuming that we aren't on the first
+        # page, and that we are handing back more than zero tags, make the
+        # first one a copy of the last tag in the previous set.
+        if self._duplicate_tags and initial_idx > 0 and these_tags:
+            these_tags[0] = tags[(initial_idx - 1)]
+            return Response(200, json={"tags": these_tags})
+        resp_json = {"tags": these_tags}
+        if initial_idx + p_size >= len(tags):
+            # No next link; we've run out of tags.
+            return Response(200, json=resp_json)
+        # n=0 is what we get from ghcr in the wild.  Setting it does indeed
+        # seem to select a page size, and 0 means "maximum", which is 100.
+        target = request.url.path
+        target = target if target.startswith("/") else f"/{target}"
+        if self._netloc_paginate:
+            # We're just ignoring port for testing purposes and assuming
+            # scheme is 'https'.  The actual code does the latter too.
+            target = f"https://{request.url.host}{target}"
+        next_link = f'<{target}?last={these_tags[-1]}&n=0>; rel="next"'
+        return Response(200, json=resp_json, headers={"Link": next_link})
 
     def get_digest(self, request: Request, tag: str) -> Response:
         """Simulate the image manifest route for a Docker Registry.
@@ -121,17 +183,40 @@ class MockDockerRegistry:
         -------
         httpx.Response
             Returns 200 with the digest in the header if the tag is known,
-            404 if it is not, and 401 with an authentication challenge if not
-            authenticated.
+            404 if it is not or if the Accept: header does not specify an
+            appropriate media type, and 401 with an authentication challenge
+            if not authenticated.
         """
         if not self._check_auth(request):
             return self._make_auth_challenge()
+        if not self._check_appropriate_accept(request):
+            return Response(404)
         if tag in self.tags:
             return Response(
                 200, headers={"Docker-Content-Digest": self.tags[tag]}
             )
         else:
             return Response(404)
+
+    @staticmethod
+    def _check_appropriate_accept(request: Request) -> bool:
+        """Make sure that an Accept header allowing multi-architecture
+        manifests is present.
+        """
+        accept = request.headers.get("Accept")
+        allowed = (
+            "application/vnd.docker.distribution.manifest.v2+json",
+            "application/vnd.docker.distribution.manifest.list.v2+json",
+            "application/vnd.oci.image.manifest.v1+json",
+            "application/vnd.oci.image.index.v1+json",
+        )
+        if accept:
+            alternatives = accept.split(",")
+            for alt in alternatives:
+                acc = alt[:pos] if (pos := alt.find(";") > -1) else alt
+                if acc in allowed:
+                    return True
+        return False
 
     def _check_auth(self, request: Request) -> bool:
         """Check whether the request is authenticated."""
@@ -167,6 +252,9 @@ def register_mock_docker(
     credentials_path: Path,
     tags: dict[str, str],
     require_bearer: bool = False,
+    paginate: bool = True,
+    duplicate_tags: bool = False,
+    netloc_paginate: bool = False,
 ) -> MockDockerRegistry:
     """Mock out a Docker registry.
 
@@ -186,6 +274,16 @@ def register_mock_docker(
         registry.
     require_bearer
         Whether to require bearer token authentication.
+    paginate
+        Whether to paginate responses with Link header (GHCR.io does, but
+        Docker Hub does not).
+    duplicate_tags
+        Whether to (incorrectly) return the same tag multiple times when
+        paginating.  This is only used to test error-handling functionality
+        in the tag-handling code.
+    netloc_paginate
+        Whether to return a URL with a scheme and netloc when paginating
+        (GHCR does not).  This only makes sense with paginate.
 
     Returns
     -------
@@ -201,7 +299,13 @@ def register_mock_docker(
     credentials = store.get(host)
     assert credentials
     mock = MockDockerRegistry(
-        tags, auth_url, credentials, require_bearer=require_bearer
+        tags,
+        auth_url,
+        credentials,
+        require_bearer=require_bearer,
+        paginate=paginate,
+        duplicate_tags=duplicate_tags,
+        netloc_paginate=netloc_paginate,
     )
 
     respx_mock.get(base_url + "/auth").mock(side_effect=mock.authenticate)
