@@ -1,7 +1,6 @@
 """Client for the Docker v2 API."""
 
 import json
-import re
 from pathlib import Path
 from typing import Self
 from urllib.parse import urlparse
@@ -9,10 +8,11 @@ from urllib.parse import urlparse
 from httpx import AsyncClient, HTTPError, Response
 from structlog.stdlib import BoundLogger
 
-from ..exceptions import DockerRegistryError
+from ..exceptions import DockerRegistryError, RepeatedURLError
 from ..models.domain.arch_filter import filter_arch_tags
 from ..models.domain.docker import DockerCredentials
 from ..models.v1.prepuller import DockerSourceOptions
+from .util import parse_next_link_header
 
 __all__ = [
     "DockerCredentialStore",
@@ -151,7 +151,13 @@ class DockerStorageClient:
         url = f"https://{config.registry}/v2/{config.repository}/tags/list"
         headers = self._build_headers(config.registry)
         all_filtered_tags: set[str] = set()
-        while True:
+        seen_urls: set[str] = set()
+        while url is not None:
+            if url in seen_urls:
+                raise RepeatedURLError(
+                    url=url, message=f"Repeated page URL {url}"
+                )
+            seen_urls.add(url)
             try:
                 r = await self._client.get(url, headers=headers)
                 if r.status_code == 401:
@@ -187,42 +193,47 @@ class DockerStorageClient:
                     )
                     break
                 all_filtered_tags.update(current_tags)
-            link = r.headers.get("Link")
-            if not link:
-                # Normal loop exit: we have no links to follow.
-                break
-            link_url = self._parse_next_link_header(link)
-            if not link_url:
-                # Normal loop exit: we have no "next" link to follow.
-                break
-            url = self._get_next_url(link_url, config)
+            url = self._get_next_page(r)
         return list(all_filtered_tags)
 
     @staticmethod
-    def _get_next_url(link_url: str, config: DockerSourceOptions) -> str:
-        parsed = urlparse(link_url)
-        if parsed.netloc:
-            # It specified a netloc, so use it as is.
-            return link_url
-        # Relative to the current netloc (this is how GHCR does it).
-        if link_url[0] != "/":
-            link_url = f"/{link_url}"
-        return f"https://{config.registry}{link_url}"
+    def _get_next_page(r: Response, config: DockerSourceOptions) -> str | None:
+        # Docker Hub itself puts a "next" URL in the JSON response body.
+        # GHCR uses a Link: header with rel="next".
+        #
+        # The first is the Docker Hub API:
+        # https://docs.docker.com/reference/api/hub/latest/\
+        #    #tag/repositories/operation/ListRepositoryTags
+        #
+        # No idea why GHCR decided to change that.
+        #
+        # We'll try the first thing first.
+
+        r_obj = r.json()
+        if "next" in r_obj:
+            next_url = r_obj["next"]
+        else:
+            link = r.headers.get("Link")
+            if not link:
+                return None
+            next_url = parse_next_link_header(link)
+        if not next_url:
+            return None
+        return canonicalize_next_url(next_url, config)
 
     @staticmethod
-    def _parse_next_link_header(link: str) -> str | None:
-        # If there's a rel="next" link, return the URL it points to.
-        # Otherwise, return None.
-        # Borrowed from safir.database._pagination.PaginationLinkData
-        link_re = re.compile(
-            r'\s*<(?P<target>[^>]+)>;\s*rel="(?P<type>[^"]+)"'
-        )
-        mat = re.match(link_re, link)
-        if not mat:
-            return None
-        if mat.group("type") != "next":
-            return None
-        return mat.group("target")
+    def _canonicalize_next_url(
+        next_url: str, config: DockerSourceOptions
+    ) -> str:
+        parsed = urlparse(next_url)
+        if parsed.netloc:
+            # It specified a netloc, so use it as is (this is how Docker Hub
+            # does it).
+            return next_url
+        # Relative to the current netloc (this is how GHCR does it).
+        if next_url[0] != "/":
+            next_url = f"/{link_url}"
+        return f"https://{config.registry}{next_url}"
 
     async def get_image_digest(
         self, config: DockerSourceOptions, tag: str

@@ -45,6 +45,7 @@ __all__ = [
     "OperationConflictError",
     "PermissionDeniedError",
     "PodNotFoundError",
+    "RepeatedURLError",
     "UnknownDockerImageError",
     "UnknownUserError",
 ]
@@ -613,3 +614,7 @@ class MissingSecretError(MissingObjectError):
 
 class NoOperationError(SlackException):
     """No operation was in progress when attempting to wait."""
+
+
+class RepeatedURLError(SlackWebException):
+    """While paging through tag responses, a repeated page URL was found."""
