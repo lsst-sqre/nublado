@@ -6,6 +6,20 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.17.0'></a>
+## 8.17.0 (2025-10-14)
+
+### New features
+
+- Use Repertoire service discovery in the JupyterHub spawner plugin to find the Nublado controller API.
+- Enable Sentry and Slack error reporting in the file purger.
+
+### Bug fixes
+
+- Support pagination when listing the tags for lab images from a Docker repository in the Nublado controller. This is required when using GitHub Container Registry as an image source if there are a significant number of image tags.
+- Send the correct `Accept` header when requesting container checksums from a Docker registry that may contain multi-architecture images.
+- Ignore prepuller updates for nodes that no longer exist instead of raising uncaught exceptions and pausing the prepuller.
+
 <a id='changelog-8.16.0'></a>
 ## 8.16.0 (2025-10-08)
 

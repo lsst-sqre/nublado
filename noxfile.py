@@ -10,7 +10,7 @@ from nox.command import CommandFailed
 from nox_uv import session
 
 # Default sessions
-nox.options.sessions = ["lint", "typing", "test", "converage-report", "docs"]
+nox.options.sessions = ["lint", "typing", "test", "coverage-report", "docs"]
 
 # Other nox defaults
 nox.options.default_venv_backend = "uv"
