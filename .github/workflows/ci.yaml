@@ -23,6 +23,7 @@ env:
       - "u/**"
   release:
     types: [published]
+  workflow_dispatch: {}
 
 jobs:
   test:
@@ -111,6 +112,7 @@ jobs:
     outputs:
       docs: ${{ steps.filter.outputs.docs }}
       docs-specific: ${{ steps.filter.outputs.docs-specific }}
+      jupyterlab-base: ${{ steps.filter.outputs.jupyterlab-base }}
 
     steps:
       - uses: actions/checkout@v5
@@ -129,6 +131,9 @@ jobs:
             docs-specific:
               - "CHANGELOG.md"
               - "docs/**"
+            jupyterlab-base:
+              - "Dockerfile.jupyterlab-base"
+              - "jupyterlab-base/**"
 
   docs:
     runs-on: ubuntu-latest
@@ -219,6 +224,7 @@ jobs:
   build:
     needs: [test, test-hub]
     uses: lsst-sqre/multiplatform-build-and-push/.github/workflows/build.yaml@v1
+    secrets: inherit
 
     # Only do Docker builds of tagged releases and pull requests from ticket
     # branches. This will still trigger on pull requests from untrusted
@@ -227,40 +233,57 @@ jobs:
     # won't be set.
     if: >
       (github.event_name == 'release' && github.event.action == 'published')
+      || (github.event_name == 'workflow_dispatch')
       || (github.event_name != 'merge_group'
           && startsWith(github.head_ref, 'tickets/'))
 
     strategy:
-      # latest: also tag release builds with "latest"
-      # gar: also upload to Google Artifact Registry
       matrix:
         container:
           - name: "controller"
-            latest: false
-            images: "ghcr.io/lsst-sqre/nublado-controller"
-          - name: "jupyterhub"
-            latest: false
-            images: "ghcr.io/lsst-sqre/nublado-jupyterhub"
-          - name: "inithome"
-            latest: false
-            images: "ghcr.io/lsst-sqre/nublado-inithome,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/inithome"
-          - name: "purger"
-            latest: false
-            images: "ghcr.io/lsst-sqre/nublado-purger,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/purger"
-          - name: "jupyterlab-base"
-            latest: true
-            images: "ghcr.io/lsst-sqre/nublado-jupyterlab-base"
+            gar: false
           - name: "fsadmin"
-            latest: false
-            images: "ghcr.io/lsst-sqre/nublado-fsadmin"
+            gar: false
+          - name: "inithome"
+            gar: true
+          - name: "jupyterhub"
+            gar: false
+          - name: "purger"
+            gar: true
           - name: "repo-cloner"
-            latest: false
-            images: "ghcr.io/lsst-sqre/nublado-repo-cloner,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/repo-cloner"
+            gar: true
+
+    # For each image name, construct an image named lsst-sqre/nublado-<name>
+    # and push it to GitHub Container Registry. If gar is true, also push the
+    # image to us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat.
+    # In that repository, the images are named with only <name>, without the
+    # leading "nublado-". This is the private Google Artifact Registry used by
+    # the US Rubin Science Platform.
     with:
-        images: ${{ matrix.container.images }}
-        dockerfile: Dockerfile.${{ matrix.container.name }}
-        additional-tags: ${{ matrix.container.latest && startsWith(github.ref, 'refs/tags/') && 'latest' || '' }}
+      images: ghcr.io/lsst-sqre/nublado-${{ matrix.container.name }}${{ matrix.container.gar && ',us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/' || '' }}${{ matrix.container.gar && matrix.container.name || '' }}
+      dockerfile: Dockerfile.${{ matrix.container.name }}
+
+  build-jupyterlab:
+    needs: changes
+    uses: lsst-sqre/multiplatform-build-and-push/.github/workflows/build.yaml@v1
     secrets: inherit
+
+    # Only do Docker builds of tagged releases and pull requests from ticket
+    # branches. This will still trigger on pull requests from untrusted
+    # repositories whose branch names match our tickets/* branch convention,
+    # but in this case the build will fail with an error since the secret
+    # won't be set.
+    if: >
+      (needs.changes.outputs.jupyterlab-base == 'true'
+       && github.event_name != 'merge_group'
+       && startsWith(github.head_ref, 'tickets/'))
+      || (github.event_name == 'workflow_dispatch')
+      || (github.event_name == 'release' && github.event_name == 'published')
+
+    with:
+      images: "ghcr.io/lsst-sqre/nublado-jupyterlab-base"
+      dockerfile: Dockerfile.jupyterlab-base
+      additional-tags: ${{ github.event_name == 'release' && 'latest' || '' }}
 
   test-packaging:
     name: Test packaging
