@@ -11,7 +11,7 @@ import pytest
 import respx
 
 from controller.config import Config
-from controller.exceptions import DockerRegistryError
+from controller.exceptions import DockerRegistryError, DuplicateUrlError
 from controller.factory import Factory
 from controller.models.domain.docker import DockerCredentials
 from controller.models.v1.prepuller import DockerSourceOptions
@@ -161,7 +161,7 @@ def test_credential_store(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_duplicate_tag(
+async def test_duplicate_url(
     config: Config,
     factory: Factory,
     respx_mock: respx.Router,
@@ -177,17 +177,8 @@ async def test_duplicate_tag(
         credentials_path=config.images.source.credentials_path,
         tags=tags,
         paginate=True,
-        duplicate_tags=True,
+        duplicate_url=True,
     )
     docker = factory.create_docker_storage()
-    results = set(await docker.list_tags(config.images.source))
-    # Check that we're missing at least one tag.
-    assert len(results) < len(tag_names)
-    # Check that we got one error line, and that "Duplicate tag" was in
-    # the captured logs.
-    errs = 0
-    for rec in caplog.records:
-        if rec.levelname == "ERROR":
-            errs += 1
-    assert errs == 1
-    assert "Duplicate tag" in caplog.text
+    with pytest.raises(DuplicateUrlError):
+        await docker.list_tags(config.images.source)
