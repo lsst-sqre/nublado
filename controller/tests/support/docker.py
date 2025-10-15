@@ -125,37 +125,40 @@ class MockDockerRegistry:
         return self._return_paginated_response(request)
 
     def _return_paginated_response(self, request: Request) -> Response:
-        # We use an unrealistically small pagination size of 3 tags,
-        # to exercise the pagination code.
         #
-        # The pagination strategy is the same as ghcr.io uses, where
-        # on subsequent calls, you tell it the last tag you saw, and
-        # it starts from just past there when returning the next list.
+        # This is a very simple pagination strategy.  We just split the
+        # list of tags in half, and on first response, return the first
+        # half (or slightly less, if there are an odd number of tags),
+        # and when given a page parameter, return the rest.
         #
-        # Since Docker Hub doesn't paginate tags at all, this is the
-        # most realistic use case for us since we also use ghcr.io.
-        # Nexus uses an opaque continuation token.
-        p_size = 3
+        # Actual Docker registries behave differently.  ghcr.io tells
+        # you the last tag it gave you, you tell it that was the last one
+        # you saw on the previous call, and it starts from just past there
+        # in its list when giving you the next set of tags.
+        #
+        # Docker Hub doesn't paginate tags at all, at least out to the
+        # 1500-ish tags range.
+        #
+        # Nexus uses an opaque continuation token that presumably maps to
+        # a checksum of some pointer into its list of tags.
+        #
         tags = list(self.tags.keys())  # We want a list, not a set.
-        initial_idx = 0
+        midpoint = int(len(tags) / 2)
+        done = False
 
+        these_tags = tags[:midpoint]
         query = request.url.query
-        last_tag = ""
         if query:
-            p_list = parse_qsl(query)
-            for item in p_list:
-                if item[0].decode() == "last":
-                    last_tag = item[1].decode()
-                    break
-        if last_tag:
-            # Let the ValueError propagate
-            initial_idx = tags.index(last_tag) + 1
-        these_tags = tags[initial_idx : initial_idx + p_size]
+            # We're going to pretend that any query parameter means,
+            # "give me the second half"
+            these_tags = tags[midpoint:]
+            done = True
         resp_json = {"tags": these_tags}
-        if initial_idx + p_size >= len(tags):
+        if done:
             # No next link; we've run out of tags.
             return Response(200, json=resp_json)
         target = request.url.path
+        # Canonicalize target path to start with '/'
         target = target if target.startswith("/") else f"/{target}"
         if self._netloc_paginate:
             # We're just ignoring port for testing purposes and assuming
@@ -166,10 +169,8 @@ class MockDockerRegistry:
             # that sends you on an infinite loop when paginating tags.
             next_link = f'<{target}>; rel="next"'
         else:
-            # n=0 is what we get from ghcr in the wild.  Setting it
-            # does indeed seem to select a page size, and 0 means
-            # "maximum", which means 100 in mid-October 2025.
-            next_link = f'<{target}?last={these_tags[-1]}&n=0>; rel="next"'
+            # Ask for the second half this time.
+            next_link = f'<{target}?page=1>; rel="next"'
         return Response(200, json=resp_json, headers={"Link": next_link})
 
     def get_digest(self, request: Request, tag: str) -> Response:
@@ -209,27 +210,11 @@ class MockDockerRegistry:
         """Make sure that an Accept header allowing multi-architecture
         manifests is present.
 
-        What we actually send from the client is all of these, and then
-        `application/json` at a lower quality factor, to accomodate older
-        registries that don't know about multi-architecture builds.
+        Our client actually sends several of these, comma-separated.  This
+        is the first.
         """
-        accept = request.headers.get("Accept")
-        allowed = (
-            "application/vnd.docker.distribution.manifest.v2+json",
-            "application/vnd.docker.distribution.manifest.list.v2+json",
-            "application/vnd.oci.image.manifest.v1+json",
-            "application/vnd.oci.image.index.v1+json",
-        )
-        if accept:
-            alternatives = accept.split(",")
-            for alt in alternatives:
-                # Strip any attributes
-                acc = alt[:pos] if (pos := alt.find(";") > -1) else alt
-                if acc in allowed:
-                    # Succeed at first match
-                    return True
-        # We did not get any of the multi-arch Accept: headers.
-        return False
+        accept = request.headers.get("Accept").split(",")[0].strip()
+        return accept == "application/vnd.docker.distribution.manifest.v2+json"
 
     def _check_auth(self, request: Request) -> bool:
         """Check whether the request is authenticated."""
