@@ -206,7 +206,7 @@ class DockerStorageClient:
         seen_urls: set[str] = set()
         while True:
             if url in seen_urls:
-                raise DuplicateUrlError(f"Repeated tag URL: {url}", url=url)
+                raise DuplicateUrlError(f"Repeated tag page URL: {url}")
             seen_urls.add(url)
             try:
                 r = await self._client.get(url, headers=headers)

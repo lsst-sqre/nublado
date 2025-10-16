@@ -282,7 +282,7 @@ class DuplicateObjectError(SlackException):
         return info
 
 
-class DuplicateUrlError(SlackWebException):
+class DuplicateUrlError(SlackException):
     """A duplicate link was encountered while paginating tag results."""
 
 
