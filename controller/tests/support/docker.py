@@ -33,8 +33,8 @@ class MockDockerRegistry:
     paginate
         Whether to paginate responses with Link header (GHCR does, but
         Docker Hub does not).
-    duplicate_tags
-        Whether to (incorrectly) return the same tag multiple times when
+    duplicate_url
+        Whether to (incorrectly) return the same "next" tag multiple times when
         paginating.  This is only used to test error-handling functionality
         in the tag-handling code, and only makes sense with paginate.
     netloc_paginate
@@ -56,7 +56,7 @@ class MockDockerRegistry:
         *,
         require_bearer: bool = False,
         paginate: bool = False,
-        duplicate_tags: bool = False,
+        duplicate_url: bool = False,
         netloc_paginate: bool = False,
     ) -> None:
         self.tags = tags
@@ -64,7 +64,7 @@ class MockDockerRegistry:
         self._password = credentials.password
         self._require_bearer = require_bearer
         self._paginate = paginate
-        self._duplicate_tags = duplicate_tags if paginate else False
+        self._duplicate_url = duplicate_url if paginate else False
         self._netloc_paginate = netloc_paginate if paginate else False
         self._token = os.urandom(16).hex()
         self._tagindex = 0
@@ -125,45 +125,52 @@ class MockDockerRegistry:
         return self._return_paginated_response(request)
 
     def _return_paginated_response(self, request: Request) -> Response:
-        # We use an unrealistically small pagination size of 3 tags, to
-        # exercise the pagination code.
-        p_size = 3
+        #
+        # This is a very simple pagination strategy.  We just split the
+        # list of tags in half, and on first response, return the first
+        # half (or slightly less, if there are an odd number of tags),
+        # and when given a page parameter, return the rest.
+        #
+        # Actual Docker registries behave differently.  ghcr.io tells
+        # you the last tag it gave you, you tell it that was the last one
+        # you saw on the previous call, and it starts from just past there
+        # in its list when giving you the next set of tags.
+        #
+        # Docker Hub doesn't paginate tags at all, at least out to the
+        # 1500-ish tags range.
+        #
+        # Nexus uses an opaque continuation token that presumably maps to
+        # a checksum of some pointer into its list of tags.
+        #
         tags = list(self.tags.keys())  # We want a list, not a set.
-        initial_idx = 0
+        midpoint = int(len(tags) / 2)
+        done = False
 
+        these_tags = tags[:midpoint]
         query = request.url.query
-        last_tag = ""
         if query:
-            p_list = parse_qsl(query)
-            for item in p_list:
-                if item[0].decode() == "last":
-                    last_tag = item[1].decode()
-                    break
-        if last_tag:
-            # Let the ValueError propagate
-            initial_idx = tags.index(last_tag) + 1
-        these_tags = tags[initial_idx : initial_idx + p_size]
-        # This seems like as good a time as any to try duplicated tags.
-        # We expect to see them in the caller when retrieving an additional
-        # page, so what we will do is, assuming that we aren't on the first
-        # page, and that we are handing back more than zero tags, make the
-        # first one a copy of the last tag in the previous set.
-        if self._duplicate_tags and initial_idx > 0 and these_tags:
-            these_tags[0] = tags[(initial_idx - 1)]
-            return Response(200, json={"tags": these_tags})
+            # We're going to pretend that any query parameter means,
+            # "give me the second half"
+            these_tags = tags[midpoint:]
+            done = True
         resp_json = {"tags": these_tags}
-        if initial_idx + p_size >= len(tags):
+        if done:
             # No next link; we've run out of tags.
             return Response(200, json=resp_json)
-        # n=0 is what we get from ghcr in the wild.  Setting it does indeed
-        # seem to select a page size, and 0 means "maximum", which is 100.
         target = request.url.path
+        # Canonicalize target path to start with '/'
         target = target if target.startswith("/") else f"/{target}"
         if self._netloc_paginate:
             # We're just ignoring port for testing purposes and assuming
             # scheme is 'https'.  The actual code does the latter too.
             target = f"https://{request.url.host}{target}"
-        next_link = f'<{target}?last={these_tags[-1]}&n=0>; rel="next"'
+        if self._duplicate_url:
+            # Return a link to the base URL, to simulate a faulty registry
+            # that sends you on an infinite loop when paginating tags.
+            next_link = f'<{target}>; rel="next"'
+        else:
+            # Ask for the second half this time.
+            next_link = f'<{target}?page=1>; rel="next"'
         return Response(200, json=resp_json, headers={"Link": next_link})
 
     def get_digest(self, request: Request, tag: str) -> Response:
@@ -202,21 +209,12 @@ class MockDockerRegistry:
     def _check_appropriate_accept(request: Request) -> bool:
         """Make sure that an Accept header allowing multi-architecture
         manifests is present.
+
+        Our client actually sends several of these, comma-separated.  This
+        is the first.
         """
-        accept = request.headers.get("Accept")
-        allowed = (
-            "application/vnd.docker.distribution.manifest.v2+json",
-            "application/vnd.docker.distribution.manifest.list.v2+json",
-            "application/vnd.oci.image.manifest.v1+json",
-            "application/vnd.oci.image.index.v1+json",
-        )
-        if accept:
-            alternatives = accept.split(",")
-            for alt in alternatives:
-                acc = alt[:pos] if (pos := alt.find(";") > -1) else alt
-                if acc in allowed:
-                    return True
-        return False
+        accept = request.headers.get("Accept").split(",")[0].strip()
+        return accept == "application/vnd.docker.distribution.manifest.v2+json"
 
     def _check_auth(self, request: Request) -> bool:
         """Check whether the request is authenticated."""
@@ -253,7 +251,7 @@ def register_mock_docker(
     tags: dict[str, str],
     require_bearer: bool = False,
     paginate: bool = True,
-    duplicate_tags: bool = False,
+    duplicate_url: bool = False,
     netloc_paginate: bool = False,
 ) -> MockDockerRegistry:
     """Mock out a Docker registry.
@@ -277,8 +275,8 @@ def register_mock_docker(
     paginate
         Whether to paginate responses with Link header (GHCR.io does, but
         Docker Hub does not).
-    duplicate_tags
-        Whether to (incorrectly) return the same tag multiple times when
+    duplicate_url
+        Whether to (incorrectly) return the same URL multiple times when
         paginating.  This is only used to test error-handling functionality
         in the tag-handling code.
     netloc_paginate
@@ -304,7 +302,7 @@ def register_mock_docker(
         credentials,
         require_bearer=require_bearer,
         paginate=paginate,
-        duplicate_tags=duplicate_tags,
+        duplicate_url=duplicate_url,
         netloc_paginate=netloc_paginate,
     )
 

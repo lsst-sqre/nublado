@@ -2,6 +2,7 @@
 
 import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 from urllib.parse import urlparse
@@ -9,7 +10,7 @@ from urllib.parse import urlparse
 from httpx import AsyncClient, HTTPError, Response
 from structlog.stdlib import BoundLogger
 
-from ..exceptions import DockerRegistryError
+from ..exceptions import DockerRegistryError, DuplicateUrlError
 from ..models.domain.arch_filter import filter_arch_tags
 from ..models.domain.docker import DockerCredentials
 from ..models.v1.prepuller import DockerSourceOptions
@@ -18,6 +19,57 @@ __all__ = [
     "DockerCredentialStore",
     "DockerStorageClient",
 ]
+
+
+# _LINK_REGEX and _PaginationLinkData are adapted from Safir:
+# src/database/_pagination.py
+
+_LINK_REGEX = re.compile(
+    r'\s*<(?P<target>[^>]+)>;\s*rel=(?P<maybe_quote>"?)(?P<type>[^"]+)\2'
+)
+
+
+@dataclass
+class _PaginationLinkData:
+    """Holds the data returned in an :rfc:`8288` ``Link`` header."""
+
+    prev_url: str | None
+    """URL of the previous page, or `None` for the first page."""
+
+    next_url: str | None
+    """URL of the next page, or `None` for the last page."""
+
+    first_url: str | None
+    """URL of the first page."""
+
+    @classmethod
+    def from_header(cls, header: str | None) -> Self:
+        """Parse an :rfc:`8288` ``Link`` with pagination URLs.
+
+        Parameters
+        ----------
+        header
+            Contents of an RFC 8288 ``Link`` header.
+
+        Returns
+        -------
+        PaginationLinkData
+            Parsed form of that header.
+        """
+        links = {}
+        if header:
+            for element in header.split(","):
+                if m := re.match(_LINK_REGEX, element):
+                    if m.group("type") in ("prev", "next", "first"):
+                        links[m.group("type")] = m.group("target")
+                    elif m.group("type") == "previous":
+                        links["prev"] = m.group("target")
+
+        return cls(
+            prev_url=links.get("prev"),
+            next_url=links.get("next"),
+            first_url=links.get("first"),
+        )
 
 
 class DockerCredentialStore:
@@ -151,7 +203,11 @@ class DockerStorageClient:
         url = f"https://{config.registry}/v2/{config.repository}/tags/list"
         headers = self._build_headers(config.registry)
         all_filtered_tags: set[str] = set()
+        seen_urls: set[str] = set()
         while True:
+            if url in seen_urls:
+                raise DuplicateUrlError(f"Repeated tag page URL: {url}")
+            seen_urls.add(url)
             try:
                 r = await self._client.get(url, headers=headers)
                 if r.status_code == 401:
@@ -175,17 +231,6 @@ class DockerStorageClient:
                     count=count,
                 )
                 current_tags = set(filtered)
-                duplicates = current_tags.intersection(all_filtered_tags)
-                if duplicates:
-                    tag_word = "tag" if len(duplicates) == 1 else "tags"
-                    self._logger.error(
-                        f"Duplicate {tag_word}: {duplicates}"
-                        f" Bailing out of tag-reading loop"
-                    )
-                    all_filtered_tags.update(
-                        current_tags.difference(duplicates)
-                    )
-                    break
                 all_filtered_tags.update(current_tags)
             link = r.headers.get("Link")
             if not link:
@@ -195,11 +240,11 @@ class DockerStorageClient:
             if not link_url:
                 # Normal loop exit: we have no "next" link to follow.
                 break
-            url = self._get_next_url(link_url, config)
+            url = self._canonicalize_url(link_url, config)
         return list(all_filtered_tags)
 
     @staticmethod
-    def _get_next_url(link_url: str, config: DockerSourceOptions) -> str:
+    def _canonicalize_url(link_url: str, config: DockerSourceOptions) -> str:
         parsed = urlparse(link_url)
         if parsed.netloc:
             # It specified a netloc, so use it as is.
@@ -211,18 +256,9 @@ class DockerStorageClient:
 
     @staticmethod
     def _parse_next_link_header(link: str) -> str | None:
-        # If there's a rel="next" link, return the URL it points to.
-        # Otherwise, return None.
-        # Borrowed from safir.database._pagination.PaginationLinkData
-        link_re = re.compile(
-            r'\s*<(?P<target>[^>]+)>;\s*rel="(?P<type>[^"]+)"'
-        )
-        mat = re.match(link_re, link)
-        if not mat:
-            return None
-        if mat.group("type") != "next":
-            return None
-        return mat.group("target")
+        # If there's a rel="next" link, return the URL it points to, otherwise
+        # `None`
+        return _PaginationLinkData.from_header(link).next_url
 
     async def get_image_digest(
         self, config: DockerSourceOptions, tag: str

@@ -28,6 +28,7 @@ __all__ = [
     "ControllerTimeoutError",
     "DockerRegistryError",
     "DuplicateObjectError",
+    "DuplicateUrlError",
     "GafaelfawrParseError",
     "GafaelfawrWebError",
     "InsufficientQuotaError",
@@ -279,6 +280,10 @@ class DuplicateObjectError(SlackException):
         if self.namespace:
             info.tags["namespace"] = self.namespace
         return info
+
+
+class DuplicateUrlError(SlackException):
+    """A duplicate link was encountered while paginating tag results."""
 
 
 class GafaelfawrParseError(SlackException):
