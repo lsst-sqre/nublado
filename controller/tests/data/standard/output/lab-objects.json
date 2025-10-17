@@ -2,27 +2,27 @@
   {
     "apiVersion": "v1",
     "data": {
+      "API_ROUTE": "/api",
+      "AUTO_REPO_SPECS": "https://github.com/lsst-sqre/system-test@prod",
       "CONTAINER_SIZE": "Small (1.0 CPU, 3Gi RAM)",
+      "CPU_GUARANTEE": "0.25",
+      "CPU_LIMIT": "1.0",
+      "CULL_KERNEL_CONNECTED": "True",
+      "CULL_KERNEL_IDLE_TIMEOUT": "432000",
+      "CULL_KERNEL_INTERVAL": "300",
+      "EXTERNAL_INSTANCE_URL": "http://127.0.0.1:8080",
+      "FIREFLY_ROUTE": "/portal/app",
+      "HUB_ROUTE": "/nb/hub",
+      "IMAGE_DESCRIPTION": "Daily 2077_10_23",
+      "IMAGE_DIGEST": "sha256:1234",
       "JUPYTERHUB_ACTIVITY_INTERVAL": "7200",
       "JUPYTERHUB_SERVICE_PREFIX": "/nb/user/rachel/",
       "JUPYTERLAB_CONFIG_DIR": "/opt/lsst/software/jupyterlab",
       "JUPYTERLAB_START_COMMAND": "/opt/lsst/software/jupyterlab/runlab.sh",
       "JUPYTER_IMAGE": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
       "JUPYTER_IMAGE_SPEC": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
-      "IMAGE_DESCRIPTION": "Daily 2077_10_23",
-      "IMAGE_DIGEST": "sha256:1234",
-      "CPU_GUARANTEE": "0.25",
-      "CPU_LIMIT": "1.0",
       "MEM_GUARANTEE": "805306368",
       "MEM_LIMIT": "3221225472",
-      "EXTERNAL_INSTANCE_URL": "http://127.0.0.1:8080",
-      "API_ROUTE": "/api",
-      "AUTO_REPO_SPECS": "https://github.com/lsst-sqre/system-test@prod",
-      "CULL_KERNEL_IDLE_TIMEOUT": "432000",
-      "CULL_KERNEL_CONNECTED": "True",
-      "CULL_KERNEL_INTERVAL": "300",
-      "FIREFLY_ROUTE": "/portal/app",
-      "HUB_ROUTE": "/nb/hub",
       "NO_ACTIVITY_TIMEOUT": "432000",
       "NUBLADO_RUNTIME_MOUNTS_DIR": "/opt/lsst/software/jupyterlab",
       "TAP_ROUTE": "/api/tap"
@@ -35,9 +35,9 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "nublado-users",
         "nublado.lsst.io/category": "lab",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "nublado-users"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-nb-env",
       "namespace": "userlabs-rachel"
@@ -46,7 +46,7 @@
   {
     "apiVersion": "v1",
     "data": {
-      "discovery-v1-json": "{\n  \"datasets\": {\n    \"dp1\": {\n      \"butler_config\": \"https://data.example.com/api/butler/repo/dp1/butler.yaml\"\n    }\n  },\n  \"influxdb_databases\": {\n    \"idfdev_efd\": {\n      \"credentials_url\": \"https://example.com/repertoire/discovery/influxdb/idfdev_efd\",\n      \"database\": \"efd\",\n      \"schema_registry\": \"http://sasquatch-schema-registry.sasquatch:8081/\",\n      \"url\": \"https://data.example.com/influxdb/\"\n    }\n  },\n  \"services\": {\n    \"data\": {\n      \"cutout\": {\n        \"dp1\": {\n          \"url\": \"https://data.example.com/api/cutout\",\n          \"versions\": {\n            \"soda-async-1.0\": {\n              \"url\": \"https://data.example.com/api/cutout/dp1/jobs\"\n            },\n            \"soda-sync-1.0\": {\n              \"url\": \"https://data.example.com/api/cutout/dp1/sync\"\n            }\n          }\n        }\n      }\n    }\n  }\n}",
+      "discovery-v1-json": "{\n  \"datasets\": {\n    \"dp1\": {\n      \"butler_config\": \"https://data.example.com/api/butler/repo/dp1/butler.yaml\",\n      \"services\": {\n        \"cutout\": {\n          \"url\": \"https://data.example.com/api/cutout\",\n          \"versions\": {\n            \"soda-async-1.0\": {\n              \"url\": \"https://data.example.com/api/cutout/dp1/jobs\"\n            },\n            \"soda-sync-1.0\": {\n              \"url\": \"https://data.example.com/api/cutout/dp1/sync\"\n            }\n          }\n        },\n        \"hips\": {\n          \"url\": \"https://example.com/api/hips/v2/dp1/list\",\n          \"versions\": {\n            \"hips-list-1.0\": {\n              \"url\": \"https://example.com/api/hips/v2/dp1/list\"\n            }\n          }\n        }\n      }\n    }\n  },\n  \"influxdb_databases\": {\n    \"idfdev_efd\": {\n      \"credentials_url\": \"https://example.com/repertoire/discovery/influxdb/idfdev_efd\",\n      \"database\": \"efd\",\n      \"schema_registry\": \"http://sasquatch-schema-registry.sasquatch:8081/\",\n      \"url\": \"https://data.example.com/influxdb/\"\n    }\n  }\n}",
       "lsst-dask-yml": "# No longer used, but preserves compatibility with runlab\ndask_worker.yml: |\n  enabled: false\n",
       "panda": "# Licensed under the Apache License, Version 2.0 (the \"License\");\n# You may not use this file except in compliance with the License.\n# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0\n#\n# Authors:\n# - Wen Guan, <wen.guan@cern.ch>, 2020\n[common]\n# if logdir is configured, idds will write to idds.log in this directory.\n# else idds will go to stdout/stderr.\n# With supervisord, it's good to write to stdout/stderr, then supervisord can manage and rotate logs.\n# logdir = /var/log/idds\nloglevel = INFO\n[rest]\nhost = https://iddsserver.cern.ch:443/idds\n#url_prefix = /idds\n#cacher_dir = /tmp\ncacher_dir = /data/idds\n"
     },
@@ -58,9 +58,9 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "nublado-users",
         "nublado.lsst.io/category": "lab",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "nublado-users"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-nb-files",
       "namespace": "userlabs-rachel"
@@ -69,8 +69,8 @@
   {
     "apiVersion": "v1",
     "data": {
-      "passwd": "root:x:0:0:root:/root:/bin/bash\nbin:x:1:1:bin:/bin:/sbin/nologin\ndaemon:x:2:2:daemon:/sbin:/sbin/nologin\nadm:x:3:4:adm:/var/adm:/sbin/nologin\nlp:x:4:7:lp:/var/spool/lpd:/sbin/nologin\nsync:x:5:0:sync:/sbin:/bin/sync\nshutdown:x:6:0:shutdown:/sbin:/sbin/shutdown\nhalt:x:7:0:halt:/sbin:/sbin/halt\nmail:x:8:12:mail:/var/spool/mail:/sbin/nologin\noperator:x:11:0:operator:/root:/sbin/nologin\ngames:x:12:100:games:/usr/games:/sbin/nologin\nftp:x:14:50:FTP User:/var/ftp:/sbin/nologin\ntss:x:59:59:Account used by the trousers package to sandbox the tcsd daemon:/dev/null:/sbin/nologin\ndbus:x:81:81:System message bus:/:/sbin/nologin\nnobody:x:99:99:Nobody:/:/sbin/nologin\nsystemd-network:x:192:192:systemd Network Management:/:/sbin/nologin\nlsst_lcl:x:1000:1000::/home/lsst_lcl:/bin/bash\nrachel:x:1101:1101:Rachel (?):/home/rachel:/bin/bash\n",
-      "group": "root:x:0:\nbin:x:1:\ndaemon:x:2:\nsys:x:3:\nadm:x:4:\ntty:x:5:\ndisk:x:6:\nlp:x:7:\nmem:x:8:\nkmem:x:9:\nwheel:x:10:\ncdrom:x:11:\nmail:x:12:\nman:x:15:\ndialout:x:18:\nfloppy:x:19:\ngames:x:20:\nutmp:x:22:\ntape:x:33:\nutempter:x:35:\nvideo:x:39:\nftp:x:50:\nlock:x:54:\ntss:x:59:\naudio:x:63:\ndbus:x:81:\nscreen:x:84:\nnobody:x:99:\nusers:x:100:\nsystemd-journal:x:190:\nsystemd-network:x:192:\ncgred:x:997:\nssh_keys:x:998:\ninput:x:999:\nrachel:x:1101:\nlunatics:x:2028:rachel\nmechanics:x:2001:rachel\nstorytellers:x:2021:rachel\n99numbers:x:2029:rachel\n"
+      "group": "root:x:0:\nbin:x:1:\ndaemon:x:2:\nsys:x:3:\nadm:x:4:\ntty:x:5:\ndisk:x:6:\nlp:x:7:\nmem:x:8:\nkmem:x:9:\nwheel:x:10:\ncdrom:x:11:\nmail:x:12:\nman:x:15:\ndialout:x:18:\nfloppy:x:19:\ngames:x:20:\nutmp:x:22:\ntape:x:33:\nutempter:x:35:\nvideo:x:39:\nftp:x:50:\nlock:x:54:\ntss:x:59:\naudio:x:63:\ndbus:x:81:\nscreen:x:84:\nnobody:x:99:\nusers:x:100:\nsystemd-journal:x:190:\nsystemd-network:x:192:\ncgred:x:997:\nssh_keys:x:998:\ninput:x:999:\nrachel:x:1101:\nlunatics:x:2028:rachel\nmechanics:x:2001:rachel\nstorytellers:x:2021:rachel\n99numbers:x:2029:rachel\n",
+      "passwd": "root:x:0:0:root:/root:/bin/bash\nbin:x:1:1:bin:/bin:/sbin/nologin\ndaemon:x:2:2:daemon:/sbin:/sbin/nologin\nadm:x:3:4:adm:/var/adm:/sbin/nologin\nlp:x:4:7:lp:/var/spool/lpd:/sbin/nologin\nsync:x:5:0:sync:/sbin:/bin/sync\nshutdown:x:6:0:shutdown:/sbin:/sbin/shutdown\nhalt:x:7:0:halt:/sbin:/sbin/halt\nmail:x:8:12:mail:/var/spool/mail:/sbin/nologin\noperator:x:11:0:operator:/root:/sbin/nologin\ngames:x:12:100:games:/usr/games:/sbin/nologin\nftp:x:14:50:FTP User:/var/ftp:/sbin/nologin\ntss:x:59:59:Account used by the trousers package to sandbox the tcsd daemon:/dev/null:/sbin/nologin\ndbus:x:81:81:System message bus:/:/sbin/nologin\nnobody:x:99:99:Nobody:/:/sbin/nologin\nsystemd-network:x:192:192:systemd Network Management:/:/sbin/nologin\nlsst_lcl:x:1000:1000::/home/lsst_lcl:/bin/bash\nrachel:x:1101:1101:Rachel (?):/home/rachel:/bin/bash\n"
     },
     "immutable": true,
     "kind": "ConfigMap",
@@ -80,9 +80,9 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "nublado-users",
         "nublado.lsst.io/category": "lab",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "nublado-users"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-nb-nss",
       "namespace": "userlabs-rachel"
@@ -97,9 +97,9 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "nublado-users",
         "nublado.lsst.io/category": "lab",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "nublado-users"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "userlabs-rachel"
     }
@@ -113,9 +113,9 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "nublado-users",
         "nublado.lsst.io/category": "lab",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "nublado-users"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-nb",
       "namespace": "userlabs-rachel"
@@ -168,9 +168,9 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "nublado-users",
         "nublado.lsst.io/category": "lab",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "nublado-users"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-nb-pvc-scratch",
       "namespace": "userlabs-rachel"
@@ -196,9 +196,9 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "nublado-users",
         "nublado.lsst.io/category": "lab",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "nublado-users"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-nb-pvc-temporary",
       "namespace": "userlabs-rachel"
@@ -226,9 +226,9 @@
         "nublado.lsst.io/user-name": "Rachel (?)"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "nublado-users",
         "nublado.lsst.io/category": "lab",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "nublado-users"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-nb",
       "namespace": "userlabs-rachel"
@@ -343,7 +343,9 @@
           "securityContext": {
             "allowPrivilegeEscalation": false,
             "capabilities": {
-              "drop": ["all"]
+              "drop": [
+                "all"
+              ]
             },
             "readOnlyRootFilesystem": true,
             "runAsGroup": 1101,
@@ -536,7 +538,9 @@
           "securityContext": {
             "allowPrivilegeEscalation": false,
             "capabilities": {
-              "drop": ["all"]
+              "drop": [
+                "all"
+              ]
             },
             "readOnlyRootFilesystem": true,
             "runAsGroup": 1101,
@@ -686,9 +690,9 @@
         },
         {
           "emptyDir": {
-	    "medium": "Memory",
-	    "sizeLimit": 805306368
-	  },
+            "medium": "Memory",
+            "sizeLimit": 805306368
+          },
           "name": "tmp"
         },
         {
@@ -741,9 +745,9 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "nublado-users",
         "nublado.lsst.io/category": "lab",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "nublado-users"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-nb",
       "namespace": "userlabs-rachel"
@@ -768,9 +772,9 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "nublado-users",
         "nublado.lsst.io/category": "lab",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "nublado-users"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "pull-secret",
       "namespace": "userlabs-rachel"
@@ -792,9 +796,9 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "nublado-users",
         "nublado.lsst.io/category": "lab",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "nublado-users"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-nb",
       "namespace": "userlabs-rachel"
@@ -810,9 +814,9 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "nublado-users",
         "nublado.lsst.io/category": "lab",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "nublado-users"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "lab",
       "namespace": "userlabs-rachel"
