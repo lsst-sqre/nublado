@@ -29,6 +29,7 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 - Use Repertoire service discovery to find the logout URL for the JupyterHub Gafaelfawr plugin.
 - Export of notebooks to PDF in the jupyterlab-base image now uses TeX instead of Chromium, which shrinks the size of the image by over 1GiB.
 - Instrument client exceptions with Sentry metadata.
+- Publish multi-platform images that support both linux/amd64 and linux/arm64.
 
 ### Bug fixes
 
