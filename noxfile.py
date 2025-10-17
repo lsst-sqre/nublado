@@ -3,7 +3,9 @@
 import shutil
 import sys
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
 import nox
 from nox.command import CommandFailed
@@ -20,13 +22,18 @@ nox.options.reuse_existing_virtualenvs = True
 _SUBDIRECTORIES = ["client", "controller", "hub"]
 
 
+def _recurse(session: nox.Session, target: str) -> None:
+    """Recurse into all subdirectories and run the target there."""
+    for subdir in _SUBDIRECTORIES:
+        with session.chdir(subdir):
+            session.run("nox", "-s", target, "--", *session.posargs)
+
+
 @session(name="coverage-report", requires=["test"], uv_groups=["dev", "nox"])
 def coverage_report(session: nox.Session) -> None:
     """Generate a code coverage report from the test suite."""
     session.run("coverage", "report", *session.posargs)
-    for subdir in _SUBDIRECTORIES:
-        with session.chdir(subdir):
-            session.run("nox", "-s", "coverage-report", "--", *session.posargs)
+    _recurse(session, "coverage-report")
 
 
 @session(uv_groups=["dev", "docs"])
@@ -91,59 +98,94 @@ def lint(session: nox.Session) -> None:
     session.run("pre-commit", "run", "--all-files", *session.posargs)
 
 
+@dataclass
+class TestArguments:
+    """Holds parsed test arguments, used to control test recursion.
+
+    If the user passed in arguments to the session, they may be specific tests
+    to run. In that case, only run tests in the relevant directory. This
+    requires some unfortunately complicated argument parsing to separate out
+    the generic arguments, any tests specific to the parent directory, and any
+    tests specific to subdirectories. This class handles that parsing.
+    """
+
+    generic: list[str]
+    """Arguments that don't limit execution and are always used."""
+
+    per_directory: dict[str, list[str]]
+    """Arguments that apply to only one subdirectory."""
+
+    parent_tests: list[str]
+    """Specific tests to run only in the parent directory."""
+
+    @classmethod
+    def from_session(cls, session: nox.Session) -> Self:
+        """Parse the session arguments into this data structure."""
+        generic = []
+        per_directory: dict[str, list[str]] = defaultdict(list)
+        parent_tests = []
+
+        # Parse the session arguments.
+        for arg in session.posargs:
+            # Ignore a speficied test when testing if the file exists.
+            test_file = arg.split("::")[0]
+            if "tests/" in arg and Path(test_file).exists():
+                if arg.startswith("tests/"):
+                    parent_tests.append(arg)
+                else:
+                    found = False
+                    for subdir in _SUBDIRECTORIES:
+                        prefix = f"{subdir}/"
+                        if arg.startswith(f"{prefix}tests"):
+                            adjusted_arg = arg.removeprefix(prefix)
+                            per_directory[subdir].append(adjusted_arg)
+                            found = True
+                            break
+                    if not found:
+                        generic.append(arg)
+            else:
+                generic.append(arg)
+
+        # Return the results.
+        return cls(
+            generic=generic,
+            per_directory=per_directory,
+            parent_tests=parent_tests,
+        )
+
+    @property
+    def run_all_tests(self) -> bool:
+        """Return whether all tests are being run."""
+        return not any(self.parent_tests + list(self.per_directory.values()))
+
+
 @session(uv_groups=["dev", "nox"])
 def test(session: nox.Session) -> None:
     """Run tests."""
-    # If the user passed in arguments to the session, they may be specific
-    # tests to run. In that case, only run tests in the relevant directory.
-    # This requires some unfortunately complicated argument parsing to
-    # separate out the generic arguments, any tests specific to the parent
-    # directory, and any tests specific to subdirectories.
-    generic = []
-    per_directory: dict[str, list[str]] = defaultdict(list)
-    parent_tests = []
-    for arg in session.posargs:
-        # Ignore a speficied test when testing if the file exists.
-        test_file = arg.split("::")[0]
-        if "tests/" in arg and Path(test_file).exists():
-            if arg.startswith("tests/"):
-                parent_tests.append(arg)
-            else:
-                found = False
-                for subdir in _SUBDIRECTORIES:
-                    prefix = f"{subdir}/"
-                    if arg.startswith(f"{prefix}tests"):
-                        per_directory[subdir].append(arg.removeprefix(prefix))
-                        found = True
-                        break
-                if not found:
-                    generic.append(arg)
-        else:
-            generic.append(arg)
-
-    # Whether any specific tests were specified.
-    any_tests = any(parent_tests + list(per_directory.values()))
+    args = TestArguments.from_session(session)
 
     # Run in the parent dir if a parent dir test was specified, or if no tests
     # were specified.
-    if parent_tests or not any_tests:
+    if args.parent_tests or args.run_all_tests:
         session.run(
             "pytest",
             "--cov=rubin.nublado.purger",
             "--cov=rubin.nublado.inithome",
             "--cov-branch",
             "--cov-report=",
-            *generic,
-            *parent_tests,
+            *args.generic,
+            *args.parent_tests,
         )
 
     # Run in a subdirectory if a test in that subdirectory was specified, or
     # if no tests were specified.
     for subdir in _SUBDIRECTORIES:
-        subdir_tests = per_directory[subdir]
-        if subdir_tests or not any_tests:
+        subdir_tests = args.per_directory[subdir]
+        if subdir_tests or args.run_all_tests:
             with session.chdir(subdir):
-                session.run("nox", "-s", "test", "--", *generic, *subdir_tests)
+                session.run(
+                    "nox", "-s", "test", "--", *args.generic, *subdir_tests
+                )
 
 
 @session(uv_groups=["dev", "nox", "typing"])
@@ -160,6 +202,4 @@ def typing(session: nox.Session) -> None:
         "tests",
         env={"MYPYPATH": "inithome/src:purger/src"},
     )
-    for subdir in _SUBDIRECTORIES:
-        with session.chdir(subdir):
-            session.run("nox", "-s", "typing", "--", *session.posargs)
+    _recurse(session, "typing")
