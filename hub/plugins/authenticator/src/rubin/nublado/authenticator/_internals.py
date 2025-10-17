@@ -147,9 +147,10 @@ class GafaelfawrAuthenticator(Authenticator):
         # user's token and pass it to the spawned pod.
         self.enable_auth_state = True
 
-        # Refresh the auth state before spawning to ensure we have the user's
-        # most recent token and group information.
+        # Refresh the auth state before spawning and before shutdown to ensure
+        # we have the user's most recent token and group information.
         self.refresh_pre_spawn = True
+        self.refresh_pre_stop = True
 
         # Any authenticated user is allowed.  That, after all, is the point of
         # this class.  If Gafaelfawr says you are authenticated, and have the
