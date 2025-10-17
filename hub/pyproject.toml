@@ -20,7 +20,7 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "jupyterhub==5.3.0",
+    "jupyterhub==5.4.1",
     "jupyterhub-idle-culler>=1",
     "psycopg2>=2",
     "rubin-nublado-authenticator",
