@@ -33,11 +33,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: ".python-version"
-
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -59,18 +54,15 @@ jobs:
       matrix:
         python:
           - "3.12"
+          - "3.14"
 
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python }}
-
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
+          python-version: ${{ matrix.python }}
           version: ${{ env.UV_VERSION }}
 
       - name: Run nox
@@ -85,18 +77,15 @@ jobs:
       matrix:
         python:
           - "3.12"
+          - "3.14"
 
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python }}
-
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
+          python-version: ${{ matrix.python }}
           version: ${{ env.UV_VERSION }}
 
       - name: Run nox
@@ -151,11 +140,6 @@ jobs:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: ".python-version"
-
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -202,11 +186,6 @@ jobs:
         with:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: ".python-version"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
