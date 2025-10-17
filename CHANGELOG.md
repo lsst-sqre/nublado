@@ -6,6 +6,19 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.17.1'></a>
+## 8.17.1 (2025-10-17)
+
+### Bug fixes
+
+- Enable `refresh_pre_stop` in the Gafaelfawr authenticator plugin to JupyterHub in the hope that this will fix some rarely-seen problems with long-running labs.
+- Update JupyterHub to 5.4.1 (Zero to JupyterHub 4.3.1).
+
+### Other changes
+
+- Update to the latest Repertoire client for compatibility with the new service discovery model. This release requires Repertoire 0.6.0 or later.
+- Test the Nublado client and JuypterHub plugins with Python 3.14 as well as 3.12 and 3.13.
+
 <a id='changelog-8.17.0'></a>
 ## 8.17.0 (2025-10-14)
 
