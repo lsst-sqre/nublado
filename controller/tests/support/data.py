@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from base64 import b64encode
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,30 @@ __all__ = [
     "read_output_json",
     "write_output_json",
 ]
+
+
+def assert_json_output_matches(seen: Any, config: str, filename: str) -> None:
+    """Read expected output and assert the seen output matches.
+
+    If the environment variable ``OVERWRITE_OUTPUT`` is set to a true value,
+    the file holding the expected output will instead be replaced with a
+    formatted version of the seen output, allowing easy update of complex test
+    data.
+
+    Parameters
+    ----------
+    seen
+        Output seen in the test.
+    config
+        Configuration from which to read data (the name of one of the
+        directories under :file:`tests/data`).
+    filename
+        File to read.
+    """
+    if os.getenv("OVERWRITE_OUTPUT"):
+        write_output_json(config, filename, seen)
+    else:
+        assert seen == read_output_json(config, filename)
 
 
 def read_input_data(config: str, filename: str) -> str:
@@ -242,4 +267,4 @@ def write_output_json(config: str, filename: str, data: Any) -> None:
     """
     base_path = Path(__file__).parent.parent / "data" / config
     with (base_path / "output" / (filename + ".json")).open("w") as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, sort_keys=True)

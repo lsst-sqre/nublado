@@ -32,6 +32,7 @@ from controller.models.v1.lab import LabState
 from ..support.config import configure
 from ..support.constants import TEST_BASE_URL
 from ..support.data import (
+    assert_json_output_matches,
     read_input_lab_specification_json,
     read_output_data,
     read_output_json,
@@ -498,7 +499,7 @@ async def test_lab_objects(
     namespace = f"{config.lab.namespace_prefix}-{user.username}"
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
     seen = objects_to_dicts(objects)
-    assert seen == read_output_json("standard", "lab-objects")
+    assert_json_output_matches(seen, "standard", "lab-objects")
 
 
 @pytest.mark.asyncio
