@@ -151,12 +151,18 @@ class GARImageSource(ImageSource):
         list of MenuImage
             All known images meeting filter criteria.
         """
-        return [
+        self._logger.debug(
+            f"Constructing menu from {len(list(self._images.all_images()))}"
+            " images"
+        )
+        menu_images = [
             MenuImage(i.reference_with_digest, i.display_name)
             for i in self._images.filter(
                 self._image_filter, datetime.now(tz=UTC)
             )
         ]
+        self._logger.debug(f"Filtered menu contains {len(menu_images)} images")
+        return menu_images
 
     @override
     def prepulled_images(self, nodes: set[str]) -> list[PrepulledImage]:
@@ -211,9 +217,17 @@ class GARImageSource(ImageSource):
         include = {prepull.recommended_tag}
         if prepull.pin:
             include.update(prepull.pin)
-        return images.subset(
+        self._logger.debug(
+            "Choosing prepull images from"
+            f" {len(list(images.all_images()))} images"
+        )
+        prepull_subset = images.subset(
             releases=prepull.num_releases,
             weeklies=prepull.num_weeklies,
             dailies=prepull.num_dailies,
             include=include,
         )
+        self._logger.debug(
+            f"Chose {len(list(prepull_subset.all_images()))} images"
+        )
+        return prepull_subset
