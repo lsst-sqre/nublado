@@ -202,7 +202,7 @@ class DockerStorageClient:
         # and your URL's just one.
         url = f"https://{config.registry}/v2/{config.repository}/tags/list"
         headers = self._build_headers(config.registry)
-        all_filtered_tags: set[str] = set()
+        unfiltered_tags: set[str] = set()
         seen_urls: set[str] = set()
         while True:
             if url in seen_urls:
@@ -222,16 +222,15 @@ class DockerStorageClient:
                 msg = f"Cannot parse response from Docker registry: {error}"
                 raise DockerRegistryError(msg, method="GET", url=url) from e
             else:
-                filtered = filter_arch_tags(tags)
-                count = len(filtered)
+                count = len(tags)
                 self._logger.debug(
                     f"Listed {count} image tags",
                     registry=config.registry,
                     repository=config.repository,
                     count=count,
                 )
-                current_tags = set(filtered)
-                all_filtered_tags.update(current_tags)
+                current_tags = set(tags)
+                unfiltered_tags.update(current_tags)
             link = r.headers.get("Link")
             if not link:
                 # Normal loop exit: we have no links to follow.
@@ -241,7 +240,12 @@ class DockerStorageClient:
                 # Normal loop exit: we have no "next" link to follow.
                 break
             url = self._canonicalize_url(link_url, config)
-        return list(all_filtered_tags)
+        self._logger.debug(
+            f"Architecture-filtering {len(unfiltered_tags)} tags"
+        )
+        filtered_tags = filter_arch_tags(list(unfiltered_tags))
+        self._logger.debug(f"After filtering, {len(filtered_tags)} remain")
+        return filtered_tags
 
     @staticmethod
     def _canonicalize_url(link_url: str, config: DockerSourceOptions) -> str:

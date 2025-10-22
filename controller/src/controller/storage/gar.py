@@ -34,7 +34,8 @@ class GARStorageClient:
     async def list_images(
         self, config: GARSourceOptions, cycle: int | None = None
     ) -> RSPImageCollection:
-        """Return all images stored in the remote repository.
+        """Return images stored in the remote repository, with arch-specific
+        images filtered out if a corresponding base image exists.
 
         Parameters
         ----------
@@ -75,7 +76,9 @@ class GARStorageClient:
         # Now we have all the images.  Having done that, we need to filter
         # out the ones with arch-specific tags corresponding to an extant
         # base tag.
+        self._logger.debug(f"Architecture-filtering {len(images)} images")
         filtered_images = filter_arch_images(images)
+        self._logger.debug(f"After filtering, {len(filtered_images)} remain")
 
         self._logger.debug(
             "Listed all images",
