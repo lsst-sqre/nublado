@@ -54,7 +54,6 @@ async def test_api_with_arch_filter(
         "w_2021_21",
         "w_2021_21-arm64",
         "w_2021_21-amd64",
-        "w_2021_22",
         "w_2021_22-arm64",
         "w_2021_22-amd64",
         "d_2021_06_14-amd64",
@@ -62,7 +61,8 @@ async def test_api_with_arch_filter(
     }
     expected_tag_names = {
         "w_2021_21",
-        "w_2021_22",
+        "w_2021_22-amd64",
+        "w_2021_22-arm64",
         "d_2021_06_14-amd64",
         "d_2021_06_15",
     }
@@ -82,8 +82,6 @@ async def test_api_with_arch_filter(
     )
     digest = await docker.get_image_digest(config.images.source, "w_2021_21")
     assert digest == tags["w_2021_21"]
-    digest = await docker.get_image_digest(config.images.source, "w_2021_22")
-    assert digest == tags["w_2021_22"]
 
 
 @pytest.mark.asyncio
