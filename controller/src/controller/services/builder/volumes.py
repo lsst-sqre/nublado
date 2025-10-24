@@ -58,7 +58,7 @@ class VolumeBuilder:
         ]
 
     def build_volumes(
-        self, volumes: Iterable[VolumeConfig], pvc_prefix: str
+        self, volumes: Iterable[VolumeConfig], pvc_prefix: str, uid: int = 0
     ) -> list[V1Volume]:
         """Construct Kubernetes ``V1Volume`` objects for configured volumes.
 
@@ -70,6 +70,10 @@ class VolumeBuilder:
             Prefix to add to the names of persistent volume claims. The name
             of the claim will be followed by ``-pvc-`` and the name of the
             volume.
+        uid
+            UID of the user for whom the volume is being built. This is used
+            to balance the load across multiple interfaces if the NFS server
+            provides multiple addresses.
 
         Returns
         -------
@@ -83,12 +87,21 @@ class VolumeBuilder:
                     host_path = V1HostPathVolumeSource(path=source.path)
                     volume = V1Volume(name=spec.name, host_path=host_path)
                 case NFSVolumeSource() as source:
+                    nfsservers: list[str] = []
+                    if isinstance(source.server, str):
+                        nfsservers = [source.server]
+                    else:
+                        nfsservers = source.server
+                    # If there are multiple servers, use UID mod server-list-
+                    # length to choose which one to connect to.
+                    server_idx = uid % len(nfsservers)
+                    server = nfsservers[server_idx]
                     volume = V1Volume(
                         name=spec.name,
                         nfs=V1NFSVolumeSource(
                             path=source.server_path,
                             read_only=source.read_only,
-                            server=source.server,
+                            server=server,
                         ),
                     )
                 case PVCVolumeSource() as source:

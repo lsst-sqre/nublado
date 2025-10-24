@@ -15,7 +15,7 @@ from kubernetes_asyncio.client import ApiException
 from safir.metrics import MockEventPublisher
 from safir.testing.kubernetes import MockKubernetesApi
 
-from controller.config import Config
+from controller.config import Config, NFSVolumeSource
 from controller.factory import Factory
 from controller.models.domain.docker import DockerReference
 from controller.models.domain.gafaelfawr import GafaelfawrUser
@@ -32,7 +32,9 @@ from controller.timeout import Timeout
 from ..support.data import (
     read_input_data,
     read_input_lab_specification_json,
+    read_input_node_json,
     read_input_secrets_json,
+    read_input_users_json,
 )
 
 
@@ -260,3 +262,75 @@ async def test_spawn_timeout(
     assert b"Lab spawn failed" in events[-1]
     assert events[-2]
     assert b"Lab spawn timed out" in events[-2]
+
+
+@pytest.mark.asyncio
+async def test_multi_nfs(
+    config: Config,
+    factory: Factory,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    # First, patch the volume definition to be a list
+    vols = config.lab.volumes
+    for vol in vols:
+        if vol.name == "home":
+            assert isinstance(vol.source, NFSVolumeSource)
+            vol.source.server = ["10.13.105.122", "10.13.105.123"]
+
+    # Create two users' lab objects and verify that the servers for their
+    # home directories are not the same.
+
+    users = read_input_users_json("base", "users")
+    user1 = next(iter(users.values()))
+    lab1 = read_input_lab_specification_json(
+        "multi-nfs", f"{user1.username}-lab"
+    )
+    user2 = list(users.values())[1]
+    assert (user1.uid % 2) != (user2.uid % 2)
+    lab2 = read_input_lab_specification_json(
+        "multi-nfs", f"{user2.username}-lab"
+    )
+
+    nodes = read_input_node_json("base", "nodes")
+    mock_kubernetes.set_nodes_for_test(nodes)
+
+    await factory.start_background_services()
+    await factory.image_service.refresh()
+
+    assert lab1.options.image_list is not None
+    reference1 = DockerReference.from_str(lab1.options.image_list)
+    image1 = await factory.image_service.image_for_reference(reference1)
+    lab1.options.image_list = image1.reference_with_digest
+
+    assert lab2.options.image_list is not None
+    reference2 = DockerReference.from_str(lab2.options.image_list)
+    image2 = await factory.image_service.image_for_reference(reference2)
+    lab2.options.image_list = image2.reference_with_digest
+
+    lab_builder = factory.create_lab_builder()
+    lab_storage = factory.create_lab_storage()
+
+    objects1 = await lab_builder.build_lab(
+        user=user1, lab=lab1, image=image1, secrets={}
+    )
+    timeout1 = Timeout(
+        "Creating lab", config.lab.spawn_timeout, user1.username
+    )
+    await lab_storage.create(objects1, timeout1)
+    objects2 = await lab_builder.build_lab(
+        user=user2, lab=lab2, image=image2, secrets={}
+    )
+    timeout2 = Timeout(
+        "Creating lab", config.lab.spawn_timeout, user2.username
+    )
+    await lab_storage.create(objects2, timeout2)
+
+    # We finally have the labs created for both users.
+    # Now hunt through their objects to pull out the home mounts.
+    vols1 = [x.nfs for x in objects1.pod.spec.volumes if x.nfs is not None]
+    vols2 = [x.nfs for x in objects2.pod.spec.volumes if x.nfs is not None]
+    home1 = next(x for x in vols1 if x.path == "/share1/home")
+    home2 = next(x for x in vols2 if x.path == "/share1/home")
+    assert home1.server != home2.server
+
+    await factory.stop_background_services()
