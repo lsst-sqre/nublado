@@ -94,6 +94,7 @@ class FSAdminBuilder:
         volumes = self._volume_builder.build_volumes(
             (v for v in volumes if v.name in wanted_volumes),
             pvc_prefix=self._config.pod_name,
+            uid=0,
         )
         prefix = self._config.mount_prefix if self._config.mount_prefix else ""
         mounts = self._volume_builder.build_mounts(

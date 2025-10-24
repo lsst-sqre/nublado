@@ -226,6 +226,7 @@ class FileserverBuilder:
         volumes = self._volume_builder.build_volumes(
             (v for v in self._volumes if v.name in wanted_volumes),
             pvc_prefix=self.build_name(user.username),
+            uid=user.uid,
         )
         mounts = self._volume_builder.build_mounts(
             self._config.volume_mounts, prefix="/mnt"

@@ -1,0 +1,10 @@
+{
+  "options": {
+    "image_list": "lighthouse.ceres/library/sketchbook:latest_daily@sha256:1234",
+    "size": "small"
+  },
+  "env": {
+    "CONTAINER_SIZE": "Small (1.0 CPU, 3Gi RAM)",
+    "JUPYTERHUB_SERVICE_PREFIX": "/nb/user/rachel/"
+  }
+}
