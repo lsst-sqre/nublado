@@ -28,8 +28,7 @@ from websockets.asyncio.client import ClientConnection
 from websockets.exceptions import WebSocketException
 
 from ._constants import WEBSOCKET_OPEN_TIMEOUT
-from ._util import source_list_by_cell
-from .exceptions import (
+from ._exceptions import (
     CodeExecutionError,
     ExecutionAPIError,
     JupyterProtocolError,
@@ -38,6 +37,7 @@ from .exceptions import (
     JupyterWebSocketError,
     NubladoClientSlackException,
 )
+from ._util import source_list_by_cell
 from .models import (
     CodeContext,
     JupyterOutput,
@@ -758,7 +758,7 @@ def _annotate_exception_from_context(
 def _convert_exception[**P, T](
     f: Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]],
 ) -> Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]]:
-    """Convert web error to `~rubin.nublado.client.exceptions.JupyterWebError`.
+    """Convert web error to `~rubin.nublado.client.JupyterWebError`.
 
     This can only be used as a decorator on `JupyterClientSession` or another
     object that has a ``user`` property containing an

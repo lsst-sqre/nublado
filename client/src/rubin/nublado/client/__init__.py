@@ -1,6 +1,6 @@
 """Client for Nublado, not including JupyterHub plugins."""
 
-from .exceptions import (
+from ._exceptions import (
     CodeExecutionError,
     ExecutionAPIError,
     JupyterProtocolError,

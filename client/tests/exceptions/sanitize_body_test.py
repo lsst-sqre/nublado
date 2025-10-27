@@ -3,7 +3,7 @@
 import httpx
 import pytest
 
-from rubin.nublado.client.exceptions import ExecutionAPIError
+from rubin.nublado.client import ExecutionAPIError
 
 
 @pytest.mark.asyncio

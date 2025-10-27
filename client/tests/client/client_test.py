@@ -6,8 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from rubin.nublado.client import NubladoClient
-from rubin.nublado.client.exceptions import CodeExecutionError
+from rubin.nublado.client import CodeExecutionError, NubladoClient
 from rubin.nublado.client.models import (
     NubladoImageByClass,
     NubladoImageClass,
