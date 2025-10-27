@@ -13,6 +13,14 @@ from ._exceptions import (
     NubladoClientSlackWebException,
 )
 from ._gafaelfawr import GafaelfawrUser
+from ._mock import (
+    MockJupyter,
+    MockJupyterAction,
+    MockJupyterState,
+    MockJupyterWebSocket,
+    mock_jupyter,
+    mock_jupyter_websocket,
+)
 from ._models import (
     CodeContext,
     JupyterOutput,
@@ -39,6 +47,10 @@ __all__ = [
     "JupyterTimeoutError",
     "JupyterWebError",
     "JupyterWebSocketError",
+    "MockJupyter",
+    "MockJupyterAction",
+    "MockJupyterState",
+    "MockJupyterWebSocket",
     "NotebookExecutionErrorModel",
     "NotebookExecutionResult",
     "NubladoClient",
@@ -51,4 +63,6 @@ __all__ = [
     "NubladoImageClass",
     "NubladoImageSize",
     "SpawnProgressMessage",
+    "mock_jupyter",
+    "mock_jupyter_websocket",
 ]

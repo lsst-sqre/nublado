@@ -112,7 +112,7 @@ extend = "ruff-shared.toml"
 "*/noxfile.py" = [
     "INP001",  # subdirectory nox configuration isn't in a package
 ]
-"client/src/rubin/nublado/client/testing/**" = [
+"client/src/rubin/nublado/client/_mock.py" = [
     "S101",    # test support functions are allowed to use assert
 ]
 "client/tests/support/hello.ipynb" = [

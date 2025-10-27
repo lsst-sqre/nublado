@@ -14,10 +14,11 @@ import structlog
 import websockets
 from structlog.stdlib import BoundLogger
 
-from rubin.nublado.client import GafaelfawrUser, NubladoClient
-from rubin.nublado.client.testing import (
+from rubin.nublado.client import (
+    GafaelfawrUser,
     MockJupyter,
     MockJupyterWebSocket,
+    NubladoClient,
     mock_jupyter,
     mock_jupyter_websocket,
 )

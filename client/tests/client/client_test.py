@@ -8,12 +8,12 @@ import pytest
 
 from rubin.nublado.client import (
     CodeExecutionError,
+    MockJupyter,
     NubladoClient,
     NubladoImageByClass,
     NubladoImageClass,
     NubladoImageSize,
 )
-from rubin.nublado.client.testing import MockJupyter
 
 
 @pytest.mark.asyncio
