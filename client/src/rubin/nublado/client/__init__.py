@@ -1,3 +1,28 @@
+"""Client for Nublado, not including JupyterHub plugins."""
+
+from .exceptions import (
+    CodeExecutionError,
+    ExecutionAPIError,
+    JupyterProtocolError,
+    JupyterSpawnError,
+    JupyterTimeoutError,
+    JupyterWebError,
+    JupyterWebSocketError,
+    NubladoClientSlackException,
+    NubladoClientSlackWebException,
+)
 from .nubladoclient import JupyterLabSession, NubladoClient
 
-__all__ = ["JupyterLabSession", "NubladoClient"]
+__all__ = [
+    "CodeExecutionError",
+    "ExecutionAPIError",
+    "JupyterLabSession",
+    "JupyterProtocolError",
+    "JupyterSpawnError",
+    "JupyterTimeoutError",
+    "JupyterWebError",
+    "JupyterWebSocketError",
+    "NubladoClient",
+    "NubladoClientSlackException",
+    "NubladoClientSlackWebException",
+]
