@@ -4,7 +4,7 @@ copyright = "2022-2023 Association of Universities for Research in Astronomy, In
 
 [project.openapi]
 openapi_path = "_static/openapi.json"
-doc_path = "api"
+doc_path = "client/rest-api"
 
 [project.openapi.generator]
 function = "controller.main:create_openapi"

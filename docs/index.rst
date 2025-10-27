@@ -4,9 +4,8 @@
    :hidden:
 
    About <about/index>
-   Client <client/index>
+   User guide <user-guide/index>
    Administrators <admin/index>
-   API <api>
    Change log <changelog>
    Contributing <dev/index>
 
@@ -36,8 +35,8 @@ For the official Rubin images, see sciplat-lab_.
 
       See an overview of the Nublado architecture.
 
-   .. grid-item-card:: Client
-      :link: client/index
+   .. grid-item-card:: User Guide
+      :link: user-guide/index
       :link-type: doc
 
       Learn how to use the Nublado client.
