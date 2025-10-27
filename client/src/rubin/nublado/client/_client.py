@@ -38,14 +38,14 @@ from ._exceptions import (
     NubladoClientSlackException,
 )
 from ._gafaelfawr import GafaelfawrUser
-from ._util import source_list_by_cell
-from .models import (
+from ._models import (
     CodeContext,
     JupyterOutput,
     NotebookExecutionResult,
     NubladoImage,
     SpawnProgressMessage,
 )
+from ._util import source_list_by_cell
 
 __all__ = ["JupyterLabSession", "NubladoClient"]
 

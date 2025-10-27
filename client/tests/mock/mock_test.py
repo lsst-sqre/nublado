@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from rubin.nublado.client import NubladoClient
-from rubin.nublado.client.models import (
+from rubin.nublado.client import (
     NotebookExecutionResult,
+    NubladoClient,
     NubladoImageByClass,
     NubladoImageClass,
     NubladoImageSize,
