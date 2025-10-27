@@ -9,7 +9,6 @@ from ._image import (
     NubladoImageSize,
 )
 from ._jupyter import JupyterOutput, SpawnProgressMessage
-from ._user import User
 
 __all__ = [
     "CodeContext",

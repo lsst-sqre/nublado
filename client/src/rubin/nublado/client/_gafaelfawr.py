@@ -4,18 +4,13 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-__all__ = [
-    "User",
-]
+__all__ = ["GafaelfawrUser"]
 
 
-class User(BaseModel):
+class GafaelfawrUser(BaseModel):
     """Configuration for the user the client operates as."""
 
-    username: str = Field(
-        ...,
-        title="Username",
-    )
+    username: str = Field(..., title="Username")
 
     token: str = Field(
         ...,

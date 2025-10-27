@@ -14,8 +14,7 @@ import structlog
 import websockets
 from structlog.stdlib import BoundLogger
 
-from rubin.nublado.client import NubladoClient
-from rubin.nublado.client.models import User
+from rubin.nublado.client import GafaelfawrUser, NubladoClient
 from rubin.nublado.client.testing import (
     MockJupyter,
     MockJupyterWebSocket,
@@ -63,11 +62,11 @@ def _create_mock_token(username: str, token: str) -> str:
 
 
 @pytest.fixture
-def test_user() -> User:
+def test_user() -> GafaelfawrUser:
     username = "rachel"
     token = "token-of-authority"
     mock_token = _create_mock_token(username, token)
-    return User(username=username, token=mock_token)
+    return GafaelfawrUser(username=username, token=mock_token)
 
 
 @pytest.fixture(ids=["shared", "subdomain"], params=[False, True])
@@ -105,7 +104,7 @@ def jupyter(
 def configured_client(
     environment_url: str,
     configured_logger: BoundLogger,
-    test_user: User,
+    test_user: GafaelfawrUser,
     test_filesystem: Path,
     jupyter: MockJupyter,
 ) -> NubladoClient:

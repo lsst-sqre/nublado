@@ -12,10 +12,12 @@ from ._exceptions import (
     NubladoClientSlackException,
     NubladoClientSlackWebException,
 )
+from ._gafaelfawr import GafaelfawrUser
 
 __all__ = [
     "CodeExecutionError",
     "ExecutionAPIError",
+    "GafaelfawrUser",
     "JupyterLabSession",
     "JupyterProtocolError",
     "JupyterSpawnError",

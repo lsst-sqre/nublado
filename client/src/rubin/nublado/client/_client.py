@@ -37,6 +37,7 @@ from ._exceptions import (
     JupyterWebSocketError,
     NubladoClientSlackException,
 )
+from ._gafaelfawr import GafaelfawrUser
 from ._util import source_list_by_cell
 from .models import (
     CodeContext,
@@ -44,7 +45,6 @@ from .models import (
     NotebookExecutionResult,
     NubladoImage,
     SpawnProgressMessage,
-    User,
 )
 
 __all__ = ["JupyterLabSession", "NubladoClient"]
@@ -762,7 +762,7 @@ def _convert_exception[**P, T](
 
     This can only be used as a decorator on `JupyterClientSession` or another
     object that has a ``user`` property containing an
-    `~rubin.nublado.client.models.user.User`.
+    `~rubin.nublado.client.GafaelfawrUser`.
     """
 
     @wraps(f)
@@ -788,7 +788,7 @@ def _convert_generator_exception[**P, T](
 
     This can only be used as a decorator on `JupyterClientSession` or another
     object that has a ``user`` property containing an
-    `~rubin.nublado.client.models.user.User`.
+    `~rubin.nublado.client.GafaelfawrUser`.
     """
 
     @wraps(f)
@@ -840,7 +840,7 @@ class NubladoClient:
     def __init__(
         self,
         *,
-        user: User,
+        user: GafaelfawrUser,
         base_url: str,
         hub_route: str = "/nb",
         logger: BoundLogger | None = None,
