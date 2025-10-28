@@ -48,6 +48,7 @@ docs = [
     "sphinx-diagrams",
     # Required to generate API documentation.
     "controller",
+    "respx",
     "rubin-nublado-authenticator",
     "rubin-nublado-client",
     "rubin-nublado-spawner",
@@ -165,11 +166,11 @@ required-environments = [
 
 [tool.uv.sources]
 controller = { path = "controller" }
-rubin-nublado-authenticator = { path = "hub/plugins/authenticator" }
-rubin-nublado-client = { path = "client" }
+rubin-nublado-authenticator = { path = "hub/plugins/authenticator", editable = true }
+rubin-nublado-client = { path = "client", editable = true }
 rubin-nublado-inithome = { workspace = true }
 rubin-nublado-purger = { workspace = true }
-rubin-nublado-spawner = { path = "hub/plugins/spawner" }
+rubin-nublado-spawner = { path = "hub/plugins/spawner", editable = true }
 
 [tool.uv.workspace]
 members = ["inithome", "purger"]

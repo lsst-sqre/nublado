@@ -133,12 +133,9 @@ class NubladoClientSlackException(SlackException):
     def to_slack(self) -> SlackMessage:
         """Format the error as a Slack Block Kit message.
 
-        This is the generic version that only reports the text of the
-        exception and common fields. Most classes will want to override it.
-
         Returns
         -------
-        SlackMessage
+        `~safir.slack.blockkit.SlackMessage`
             Formatted Slack message.
         """
         return SlackMessage(
@@ -152,7 +149,7 @@ class NubladoClientSlackException(SlackException):
 
         Returns
         -------
-        list of SlackBaseBlock
+        list of safir.slack.blockkit.SlackBaseBlock
             Common blocks to add to the Slack message.
         """
         blocks: list[SlackBaseBlock] = []
@@ -182,7 +179,7 @@ class NubladoClientSlackException(SlackException):
 
         Returns
         -------
-        list of SlackBaseField
+        list of safir.slack.blockkit.SlackBaseField
             Common fields to add to the Slack message.
         """
         failed_at = format_datetime_for_logging(self.failed_at)
@@ -203,6 +200,13 @@ class NubladoClientSlackException(SlackException):
 
     @override
     def to_sentry(self) -> SentryEventInfo:
+        """Return an object with tags and contexts to add to Sentry events.
+
+        Returns
+        -------
+        `~safir.slack.blockkit.SentryEventInfo`
+            Annotated Sentry object.
+        """
         info = super().to_sentry()
 
         if node := self.annotations.get("node"):
@@ -229,8 +233,8 @@ class NubladoClientSlackWebException(
     """Represents an exception that can be reported to Slack.
 
     Similar to `NubladoClientSlackException`, this adds some additional fields
-    to ~safir.slack.blockkit.SlackWebException` but is otherwise equivalent. It
-    is intended to be subclassed. Subclasses may want to override the
+    to `~safir.slack.blockkit.SlackWebException` but is otherwise equivalent.
+    It is intended to be subclassed. Subclasses may want to override the
     `to_slack` method.
     """
 
@@ -261,12 +265,9 @@ class NubladoClientSlackWebException(
     def to_slack(self) -> SlackMessage:
         """Format the error as a Slack Block Kit message.
 
-        This is the generic version that only reports the text of the
-        exception and common fields. Most classes will want to override it.
-
         Returns
         -------
-        SlackMessage
+        `~safir.slack.blockkit.SlackMessage`
             Formatted Slack message.
         """
         msg = SlackMessage(
@@ -292,6 +293,13 @@ class NubladoClientSlackWebException(
 
     @override
     def to_sentry(self) -> SentryEventInfo:
+        """Return an object with tags and contexts to add to Sentry events.
+
+        Returns
+        -------
+        `~safir.slack.blockkit.SentryEventInfo`
+            Annotated Sentry object.
+        """
         info = super(NubladoClientSlackException, self).to_sentry()
         web_info = super(SlackWebException, self).to_sentry()
 
@@ -352,7 +360,6 @@ class CodeExecutionError(NubladoClientSlackException):
 
     @override
     def to_slack(self) -> SlackMessage:
-        """Format the error as a Slack Block Kit message."""
         if self.annotations.get("notebook"):
             notebook = self.annotations["notebook"]
             intro = f"Error while running `{notebook}`"
@@ -384,7 +391,6 @@ class CodeExecutionError(NubladoClientSlackException):
 
     @override
     def to_sentry(self) -> SentryEventInfo:
-        """Format the error as a SentryEventInfo."""
         info = super().to_sentry()
         if self.status:
             info.tags["status"] = self.status
@@ -535,7 +541,6 @@ class JupyterSpawnError(NubladoClientSlackException):
 
     @override
     def to_slack(self) -> SlackMessage:
-        """Format the error as a Slack Block Kit message."""
         message = super().to_slack()
         if self.log:
             block = SlackTextBlock(heading="Log", text=self.log)
@@ -544,7 +549,6 @@ class JupyterSpawnError(NubladoClientSlackException):
 
     @override
     def to_sentry(self) -> SentryEventInfo:
-        """Format the error as a SentryEventInfo."""
         info = super().to_sentry()
         if self.log:
             info.attachments["nublado_log"] = self.log
@@ -703,13 +707,6 @@ class JupyterWebSocketError(NubladoClientSlackException):
 
     @override
     def to_slack(self) -> SlackMessage:
-        """Format this exception as a Slack notification.
-
-        Returns
-        -------
-        SlackMessage
-            Formatted message.
-        """
         message = super().to_slack()
 
         if self.reason:
@@ -731,7 +728,6 @@ class JupyterWebSocketError(NubladoClientSlackException):
 
     @override
     def to_sentry(self) -> SentryEventInfo:
-        """Format the error as a SentryEventInfo."""
         info = super().to_sentry()
         if self.reason:
             info.tags["reason"] = self.reason

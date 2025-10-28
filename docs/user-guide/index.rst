@@ -15,6 +15,7 @@ The latter is a Python library available from PyPI and can be declared as a depe
    overview
    lab
    testing
+   api
 
 .. toctree::
    :caption: Other languages
