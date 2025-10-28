@@ -26,16 +26,36 @@ __all__ = [
 
 @dataclass
 class CodeContext:
-    """Optional context for exception reporting during code execution."""
+    """Optional context for exception reporting during code execution.
+
+    This class can be passed into some `~rubin.nublado.client.NubladoClient`
+    methods and will be used to annotate any raised exceptions with any
+    available context information.
+    """
 
     image: str | None = None
+    """Docker image used for JupyterLab."""
+
     notebook: str | None = None
+    """Name of the notebook."""
+
     path: str | None = None
+    """Path to the notebook."""
+
     cell: str | None = None
+    """Identifier of notebook cell (usually a UUID)."""
+
     cell_number: str | None = None
+    """Number of the notebook cell."""
+
     cell_source: str | None = None
+    """Contents of the notebook cell."""
+
     cell_line_number: str | None = None
+    """Line number within the cell being executed."""
+
     cell_line_source: str | None = None
+    """Line within the cell being executed."""
 
 
 class NotebookExecutionErrorModel(BaseModel):
