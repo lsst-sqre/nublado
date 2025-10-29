@@ -45,18 +45,18 @@ async def test_hub_flow(
                     break
                 assert message.progress > progress_pct
                 progress_pct = message.progress
+
     # Is the lab running?  Should be.
-    assert not (await configured_client.is_lab_stopped())
-    try:
+    assert not await configured_client.is_lab_stopped()
+
+    # Attempting to create a session without authenticating to the lab should
+    # fail with a RuntimeError.
+    with pytest.raises(RuntimeError):
         async with configured_client.open_lab_session() as lab_session:
             pass
-        raise RuntimeError(
-            "Pre-auth-to-lab session should have raised Exception"
-        )
-    except AssertionError:
-        pass
-    await configured_client.auth_to_lab()
+
     # Do things with the lab.
+    await configured_client.auth_to_lab()
     async with configured_client.open_lab_session() as lab_session:
         code = "print(2+2)"
         four = (await lab_session.run_python(code)).strip()
