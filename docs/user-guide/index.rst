@@ -13,7 +13,7 @@ The latter is a Python library available from PyPI and can be declared as a depe
    :maxdepth: 2
    :caption: Python client
 
-   overview
+   create
    lab
    testing
    api

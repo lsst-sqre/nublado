@@ -1,17 +1,23 @@
 """Text fixtures for Nublado client tests."""
 
 from base64 import urlsafe_b64encode
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncGenerator, AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 import pytest
+import pytest_asyncio
 import respx
 import safir.logging
 import structlog
 import websockets
+from rubin.repertoire import (
+    Discovery,
+    DiscoveryClient,
+    register_mock_discovery,
+)
 from structlog.stdlib import BoundLogger
 
 from rubin.nublado.client import (
@@ -21,11 +27,6 @@ from rubin.nublado.client import (
     mock_jupyter,
     mock_jupyter_websocket,
 )
-
-
-@pytest.fixture
-def environment_url() -> str:
-    return "https://data.example.org"
 
 
 @pytest.fixture
@@ -61,21 +62,28 @@ def _create_mock_token(username: str, token: str) -> str:
     return f"gt-{enc_u}.{enc_t}"
 
 
-@pytest.fixture(ids=["shared", "subdomain"], params=[False, True])
-def jupyter(
+@pytest_asyncio.fixture
+async def jupyter(
     respx_mock: respx.Router,
-    environment_url: str,
     username: str,
     token: str,
     test_filesystem: Path,
-    request: pytest.FixtureRequest,
-) -> Iterator[MockJupyter]:
-    """Mock out JupyterHub and Jupyter labs."""
+) -> AsyncGenerator[MockJupyter]:
+    """Mock out JupyterHub and Jupyter labs.
+
+    Sets subdomain mode in the mock based on whether the hostname of the
+    Nublado URL in service discovery starts with ``nb.``. This allows
+    switching to subdomain mode by parameterizing the ``mock_discovery``
+    fixture.
+    """
+    discovery_client = DiscoveryClient()
+    base_url = await discovery_client.url_for_ui("nublado")
+    assert base_url
     jupyter_mock = mock_jupyter(
         respx_mock,
-        base_url=environment_url,
+        base_url=base_url,
         user_dir=test_filesystem,
-        use_subdomains=request.param,
+        use_subdomains="//nb." in base_url,
     )
 
     # respx has no mechanism to mock aconnect_ws, so we have to do it
@@ -96,7 +104,6 @@ def jupyter(
 
 @pytest.fixture
 def configured_client(
-    environment_url: str,
     configured_logger: BoundLogger,
     username: str,
     token: str,
@@ -107,13 +114,24 @@ def configured_client(
         username=username,
         token=token,
         logger=configured_logger,
-        base_url=environment_url,
     )
     # For the test client, we also have to add the two headers that would
     # be added by a GafaelfawrIngress in real life.
     client._client.headers["X-Auth-Request-User"] = username
     client._client.headers["X-Auth-Request-Token"] = token
     return client
+
+
+@pytest.fixture(autouse=True, params=["single", "subdomain"])
+def mock_discovery(
+    respx_mock: respx.Router,
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+) -> Discovery:
+    monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
+    filename = f"{request.param}.json"
+    path = Path(__file__).parent / "data" / "discovery" / filename
+    return register_mock_discovery(respx_mock, path)
 
 
 @pytest.fixture

@@ -11,6 +11,7 @@ from ._exceptions import (
     JupyterWebSocketError,
     NubladoClientSlackException,
     NubladoClientSlackWebException,
+    NubladoDiscoveryError,
 )
 from ._mock import (
     MockJupyter,
@@ -54,6 +55,7 @@ __all__ = [
     "NubladoClient",
     "NubladoClientSlackException",
     "NubladoClientSlackWebException",
+    "NubladoDiscoveryError",
     "NubladoImage",
     "NubladoImageByClass",
     "NubladoImageByReference",

@@ -1,7 +1,6 @@
-"""Client for communicating with Jupyter using the RSP Notebook Aspect.
+"""Client for the Nublado JupyterHub and JupyterLab service.
 
-Allows the caller to login to JupyterHub, spawn lab containers, and then run
-Jupyter kernels remotely.
+Allows the caller to login to spawn labs and execute code within the lab.
 """
 
 from __future__ import annotations
@@ -23,6 +22,7 @@ import structlog
 import websockets
 from httpx import AsyncClient, Cookies, HTTPError, Response
 from httpx_sse import EventSource, aconnect_sse
+from rubin.repertoire import DiscoveryClient
 from structlog.stdlib import BoundLogger
 from websockets.asyncio.client import ClientConnection
 from websockets.exceptions import WebSocketException
@@ -36,6 +36,7 @@ from ._exceptions import (
     JupyterWebError,
     JupyterWebSocketError,
     NubladoClientSlackException,
+    NubladoDiscoveryError,
 )
 from ._models import (
     CodeContext,
@@ -160,7 +161,7 @@ class JupyterLabSession:
     username
         User the session is for.
     base_url
-        Base URL for talking to JupyterHub or the lab (via the proxy).
+        Base URL for talking to JupyterLab.
     kernel_name
         Name of the kernel to use for the session.
     notebook_name
@@ -199,17 +200,15 @@ class JupyterLabSession:
         base_url: str,
         kernel_name: str = "LSST",
         notebook_name: str | None = None,
-        hub_route: str = "/nb",
         max_websocket_size: int | None,
         http_client: AsyncClient,
         xsrf: str | None,
         logger: BoundLogger,
     ) -> None:
         self._username = username
-        self._base_url = urljoin(base_url, hub_route)
+        self._base_url = base_url
         self._kernel_name = kernel_name
         self._notebook_name = notebook_name
-        self._hub_route = hub_route
         self._max_websocket_size = max_websocket_size
         self._client = http_client
         self._xsrf = xsrf
@@ -806,10 +805,12 @@ class NubladoClient:
         User whose lab should be managed.
     token
         Token to use for authentication.
-    base_url
-        Base URL for JupyterHub and the proxy to talk to the labs.
+    discovery_client
+        If given, Repertoire_ discovery client to use. Otherwise, a new client
+        will be created.
     logger
-        Logger to use (optional)
+        Logger to use. If not given, the default structlog logger will be
+        used.
     timeout
         Timeout to use when talking to JupyterHub and Jupyter lab. This is
         used as a connection, read, and write timeout for all regular HTTP
@@ -836,22 +837,22 @@ class NubladoClient:
         *,
         username: str,
         token: str,
-        base_url: str,
-        hub_route: str = "/nb",
+        discovery_client: DiscoveryClient | None = None,
         logger: BoundLogger | None = None,
         timeout: timedelta = timedelta(seconds=30),
     ) -> None:
         self.username = username
         self._token = token
-        self._hub_url = urljoin(base_url, hub_route)
-        self._lab_url = self._hub_url
         self._logger = logger or structlog.get_logger()
         self._timeout = timeout
 
         self._client: AsyncClient
         self._hub_xsrf: str | None = None
         self._lab_xsrf: str | None = None
+        self._lab_url: str | None = None
         self._initialize_client()
+
+        self._discovery = discovery_client or DiscoveryClient(self._client)
 
     async def close(self) -> None:
         """Close the underlying HTTP connection pool."""
@@ -890,37 +891,8 @@ class NubladoClient:
         self._initialize_client()
 
         # Retrieve the JupyterHub home page based on the current hub URL.
-        url = self._url_for_hub("hub/home")
+        url = await self._url_for("hub/home")
         r = await self._client.get(url, follow_redirects=False)
-
-        # The first time the Nublado client attempts to contact JupyterHub, we
-        # may discover that user subdomains are enabled. In this case, the
-        # first reply will be a redirect to the hostname JupyterHub runs at.
-        # Detect this case and update self._hub_url so that we go directly to
-        # the subdomain in the future.
-        #
-        # If user subdomains are not in play, the first redirect will be to
-        # the login URL on the same hostname. In that case, we should not
-        # update self._hub_url.
-        #
-        # Currently, this case never seems to trigger since JupyterHub usually
-        # (but not always?) does not redirect to its own domain and continues
-        # to answer requests from the base domain. Leave this code here for
-        # now in case that changes. It will have to change anyway if we stop
-        # registering JupyterHub routes in the base Science Platform domain
-        # entirely.
-        if r.is_redirect:
-            current = urlparse(self._hub_url)
-            redirect = urlparse(r.headers["Location"])
-            if redirect.hostname and current.hostname != redirect.hostname:
-                self._hub_url = r.headers["Location"].removesuffix("/hub/home")
-                self._logger.debug(
-                    "Changing JupyterHub base URL",
-                    redirect=r.headers["Location"],
-                    new_base_url=self._hub_url,
-                )
-                url = self._url_for_hub("hub/home")
-                r = await self._client.get(url, follow_redirects=False)
 
         # JupyterHub may now bounce us through the login page. Follow each
         # redirect and update the XSRF token if we were provided with a new
@@ -959,8 +931,8 @@ class NubladoClient:
             Raised if no ``_xsrf`` cookie was set in the reply from the lab.
         """
         host_prefix = f"{self.username}."
-        partial = f"user/{self.username}/lab"
-        url = self._url_for_lab(partial)
+        url = await self._url_for(f"user/{self.username}/lab")
+        self._lab_url = await self._url_for("")
 
         # This is not required, but it suppresses an annoying error message in
         # the JupyterLab logs about skipping XSRF checks.
@@ -992,7 +964,7 @@ class NubladoClient:
                     new_parsed = current._replace(netloc=redirect.netloc)
                     self._lab_url = new_parsed.geturl()
                     self._logger.debug(
-                        "Changing JupyterLab base URL",
+                        "Found JupyterLab base URL",
                         redirect=location,
                         new_base_url=self._lab_url,
                     )
@@ -1022,8 +994,8 @@ class NubladoClient:
             Log a warning with additional information if the lab still
             exists.
         """
-        url = self._url_for_hub(f"hub/api/users/{self.username}")
-        headers = {"Referer": self._url_for_hub("hub/home")}
+        url = await self._url_for(f"hub/api/users/{self.username}")
+        headers = {"Referer": await self._url_for("hub/home")}
         if self._hub_xsrf:
             headers["X-XSRFToken"] = self._hub_xsrf
         r = await self._client.get(url, headers=headers)
@@ -1068,6 +1040,8 @@ class NubladoClient:
         JupyterLabSession
             Context manager to open the WebSocket session.
         """
+        if not self._lab_url:
+            raise RuntimeError("Must call auth_to_lab before open_lab_session")
         return JupyterLabSession(
             username=self.username,
             base_url=self._lab_url,
@@ -1093,7 +1067,7 @@ class NubladoClient:
         JupyterWebError
             Raised if an error occurred talking to JupyterHub.
         """
-        url = self._url_for_hub("hub/spawn")
+        url = await self._url_for("hub/spawn")
         data = config.to_spawn_form()
 
         # Retrieving the spawn page before POSTing to it appears to trigger
@@ -1117,8 +1091,8 @@ class NubladoClient:
         if await self.is_lab_stopped():
             self._logger.info("Lab is already stopped")
             return
-        url = self._url_for_hub(f"hub/api/users/{self.username}/server")
-        headers = {"Referer": self._url_for_hub("hub/home")}
+        url = await self._url_for(f"hub/api/users/{self.username}/server")
+        headers = {"Referer": await self._url_for("hub/home")}
         if self._hub_xsrf:
             headers["X-XSRFToken"] = self._hub_xsrf
         r = await self._client.delete(url, headers=headers)
@@ -1139,12 +1113,12 @@ class NubladoClient:
             Next progress message from JupyterHub.
         """
         client = self._client
-        username = self.username
-        url = self._url_for_hub(f"hub/api/users/{username}/server/progress")
+        route = f"hub/api/users/{self.username}/server/progress"
+        url = await self._url_for(route)
 
         # Setting Sec-Fetch-Mode gets rid of an annoying log message.
         headers = {
-            "Referer": self._url_for_hub("hub/home"),
+            "Referer": await self._url_for("hub/home"),
             "Sec-Fetch-Mode": "same-origin",
         }
         if self._hub_xsrf:
@@ -1216,7 +1190,7 @@ class NubladoClient:
             timeout=self._timeout.total_seconds(),
         )
 
-    def _url_for_hub(self, partial: str) -> str:
+    async def _url_for(self, partial: str) -> str:
         """Construct a JupyterHub URL from a partial URL.
 
         Parameters
@@ -1228,20 +1202,14 @@ class NubladoClient:
         -------
         str
             Full URL to use.
+
+        Raises
+        ------
+        NubladoDiscoveryError
+            Raised if the Nublado service was not found in service discovery.
         """
-        return f"{self._hub_url.rstrip('/')}/{partial}"
-
-    def _url_for_lab(self, partial: str) -> str:
-        """Construct a JupyterLab URL from a partial URL.
-
-        Parameters
-        ----------
-        partial
-            Part of the URL after the root URL for the user's JupyterLab.
-
-        Returns
-        -------
-        str
-            Full URL to use.
-        """
-        return f"{self._lab_url.rstrip('/')}/{partial}"
+        hub_url = await self._discovery.url_for_ui("nublado")
+        if not hub_url:
+            msg = "nublado service not found in service discovery"
+            raise NubladoDiscoveryError(msg)
+        return f"{hub_url.rstrip('/')}/{partial}"
