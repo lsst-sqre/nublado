@@ -34,7 +34,6 @@ This does not run any code within the lab:
 
     import structlog
     from rubin.nublado.client import (
-        GafaelfawrUser,
         NubladoClient,
         NubladoImageByClass,
         NubladoImageClass,
@@ -59,7 +58,8 @@ This does not run any code within the lab:
 
 
     client = NubladoClient(
-        user=GafaelfawrUser(username="some-user", token="some-token"),
+        username="some-user",
+        token="some-token",
         base_url="https://data.example.org",
     )
     asyncio.run(ensure_lab(client))
@@ -73,7 +73,7 @@ Using the above method, run FizzBuzz for ``n`` from 1 to 15:
 
     import asyncio
 
-    from rubin.nublado.client import GafaelfawrUser, NubladoClient
+    from rubin.nublado.client import NubladoClient
 
     FIZZBUZZ = """
     output = ""
@@ -101,7 +101,8 @@ Using the above method, run FizzBuzz for ``n`` from 1 to 15:
 
 
     client = NubladoClient(
-        user=GafaelfawrUser(username="some-user", token="some-token"),
+        username="some-user",
+        token="some-token",
         base_url="https://data.example.org",
     )
     output = asyncio.run(run_fizzbuzz(client=client))
@@ -121,7 +122,7 @@ One way to run that notebook is with `JupyterLabSession.run_notebook`, which wil
 
 .. code-block:: python
 
-    from rubin.nublado.client import GafaelfawrUser, NubladoClient
+    from rubin.nublado.client import NubladoClient
 
 
     async def run_notebook(client: NubladoClient) -> list[str]:
@@ -132,7 +133,8 @@ One way to run that notebook is with `JupyterLabSession.run_notebook`, which wil
 
 
     client = NubladoClient(
-        user=GafaelfawrUser(username="some-user", token="some-token"),
+        username="some-user",
+        token="some-token",
         base_url="https://data.example.org",
     )
     output = asyncio.run(run_notebook(client))
@@ -144,11 +146,7 @@ Instead of a list of output strings, this returns the full rendered notebook as 
 
 .. code-block:: python
 
-    from rubin.nublado.client import (
-        GafaelfawrUser,
-        NubladoClient,
-        NotebookExecutionResult,
-    )
+    from rubin.nublado.client import NubladoClient, NotebookExecutionResult
 
 
     async def run_notebook(client: NubladoClient) -> NotebookExecutionResult:
@@ -161,7 +159,8 @@ Instead of a list of output strings, this returns the full rendered notebook as 
 
 
     client = NubladoClient(
-        user=User(username="some-user", token="some-token"),
+        username="some-user",
+        token="some-token",
         base_url="https://data.example.org",
     )
     result = asyncio.run(run_notebook(client))

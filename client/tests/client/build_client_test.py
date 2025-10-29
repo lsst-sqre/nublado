@@ -2,15 +2,19 @@
 
 from structlog.stdlib import BoundLogger
 
-from rubin.nublado.client import GafaelfawrUser, NubladoClient
+from rubin.nublado.client import NubladoClient
 
 
 def test_client(
     environment_url: str,
     configured_logger: BoundLogger,
-    test_user: GafaelfawrUser,
+    username: str,
+    token: str,
 ) -> None:
-    cl = NubladoClient(
-        user=test_user, logger=configured_logger, base_url=environment_url
+    client = NubladoClient(
+        username=username,
+        token=token,
+        logger=configured_logger,
+        base_url=environment_url,
     )
-    assert cl.user.username == "rachel"
+    assert client.username == "rachel"

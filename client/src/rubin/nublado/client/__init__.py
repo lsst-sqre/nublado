@@ -12,7 +12,6 @@ from ._exceptions import (
     NubladoClientSlackException,
     NubladoClientSlackWebException,
 )
-from ._gafaelfawr import GafaelfawrUser
 from ._mock import (
     MockJupyter,
     MockJupyterAction,
@@ -39,7 +38,6 @@ __all__ = [
     "CodeContext",
     "CodeExecutionError",
     "ExecutionAPIError",
-    "GafaelfawrUser",
     "JupyterLabSession",
     "JupyterOutput",
     "JupyterProtocolError",

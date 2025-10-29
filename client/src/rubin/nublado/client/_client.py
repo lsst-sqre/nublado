@@ -37,7 +37,6 @@ from ._exceptions import (
     JupyterWebSocketError,
     NubladoClientSlackException,
 )
-from ._gafaelfawr import GafaelfawrUser
 from ._models import (
     CodeContext,
     JupyterOutput,
@@ -758,12 +757,7 @@ def _annotate_exception_from_context(
 def _convert_exception[**P, T](
     f: Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]],
 ) -> Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]]:
-    """Convert web error to `~rubin.nublado.client.JupyterWebError`.
-
-    This can only be used as a decorator on `JupyterClientSession` or another
-    object that has a ``user`` property containing an
-    `~rubin.nublado.client.GafaelfawrUser`.
-    """
+    """Convert web error to `~rubin.nublado.client.JupyterWebError`."""
 
     @wraps(f)
     async def wrapper(
@@ -773,9 +767,8 @@ def _convert_exception[**P, T](
         try:
             return await f(client, *args, **kwargs)
         except HTTPError as e:
-            username = client.user.username
             raise JupyterWebError.raise_from_exception_with_timestamps(
-                e, username, {}, start
+                e, client.username, {}, start
             ) from e
 
     return wrapper
@@ -784,12 +777,7 @@ def _convert_exception[**P, T](
 def _convert_generator_exception[**P, T](
     f: Callable[Concatenate[NubladoClient, P], AsyncGenerator[T]],
 ) -> Callable[Concatenate[NubladoClient, P], AsyncGenerator[T]]:
-    """Convert web errors to a `~rubin.nublado.client.JupyterWebError`.
-
-    This can only be used as a decorator on `JupyterClientSession` or another
-    object that has a ``user`` property containing an
-    `~rubin.nublado.client.GafaelfawrUser`.
-    """
+    """Convert web errors to a `~rubin.nublado.client.JupyterWebError`."""
 
     @wraps(f)
     async def wrapper(
@@ -802,9 +790,8 @@ def _convert_generator_exception[**P, T](
                 async for result in generator:
                     yield result
         except HTTPError as e:
-            username = client.user.username
             raise JupyterWebError.raise_from_exception_with_timestamps(
-                e, username, {}, start
+                e, client.username, {}, start
             ) from e
 
     return wrapper
@@ -815,8 +802,10 @@ class NubladoClient:
 
     Parameters
     ----------
-    user
-        User as which to authenticate.
+    username
+        User whose lab should be managed.
+    token
+        Token to use for authentication.
     base_url
         Base URL for JupyterHub and the proxy to talk to the labs.
     logger
@@ -825,6 +814,11 @@ class NubladoClient:
         Timeout to use when talking to JupyterHub and Jupyter lab. This is
         used as a connection, read, and write timeout for all regular HTTP
         calls.
+
+    Attributes
+    ----------
+    username
+        User whose lab is managed by this object.
 
     Notes
     -----
@@ -840,13 +834,15 @@ class NubladoClient:
     def __init__(
         self,
         *,
-        user: GafaelfawrUser,
+        username: str,
+        token: str,
         base_url: str,
         hub_route: str = "/nb",
         logger: BoundLogger | None = None,
         timeout: timedelta = timedelta(seconds=30),
     ) -> None:
-        self.user = user
+        self.username = username
+        self._token = token
         self._hub_url = urljoin(base_url, hub_route)
         self._lab_url = self._hub_url
         self._logger = logger or structlog.get_logger()
@@ -962,8 +958,8 @@ class NubladoClient:
         JupyterProtocolError
             Raised if no ``_xsrf`` cookie was set in the reply from the lab.
         """
-        host_prefix = f"{self.user.username}."
-        partial = f"user/{self.user.username}/lab"
+        host_prefix = f"{self.username}."
+        partial = f"user/{self.username}/lab"
         url = self._url_for_lab(partial)
 
         # This is not required, but it suppresses an annoying error message in
@@ -1026,7 +1022,7 @@ class NubladoClient:
             Log a warning with additional information if the lab still
             exists.
         """
-        url = self._url_for_hub(f"hub/api/users/{self.user.username}")
+        url = self._url_for_hub(f"hub/api/users/{self.username}")
         headers = {"Referer": self._url_for_hub("hub/home")}
         if self._hub_xsrf:
             headers["X-XSRFToken"] = self._hub_xsrf
@@ -1073,7 +1069,7 @@ class NubladoClient:
             Context manager to open the WebSocket session.
         """
         return JupyterLabSession(
-            username=self.user.username,
+            username=self.username,
             base_url=self._lab_url,
             kernel_name=kernel_name,
             notebook_name=notebook_name,
@@ -1111,7 +1107,7 @@ class NubladoClient:
 
         # POST the options form to the spawn page. This should redirect to
         # the spawn-pending page, which will return a 200.
-        self._logger.info("Spawning lab image", user=self.user.username)
+        self._logger.info("Spawning lab image", user=self.username)
         r = await self._client.post(url, headers=headers, data=data)
         r.raise_for_status()
 
@@ -1121,7 +1117,7 @@ class NubladoClient:
         if await self.is_lab_stopped():
             self._logger.info("Lab is already stopped")
             return
-        url = self._url_for_hub(f"hub/api/users/{self.user.username}/server")
+        url = self._url_for_hub(f"hub/api/users/{self.username}/server")
         headers = {"Referer": self._url_for_hub("hub/home")}
         if self._hub_xsrf:
             headers["X-XSRFToken"] = self._hub_xsrf
@@ -1143,7 +1139,7 @@ class NubladoClient:
             Next progress message from JupyterHub.
         """
         client = self._client
-        username = self.user.username
+        username = self.username
         url = self._url_for_hub(f"hub/api/users/{username}/server/progress")
 
         # Setting Sec-Fetch-Mode gets rid of an annoying log message.
@@ -1216,7 +1212,7 @@ class NubladoClient:
         self._hub_xsrf = None
         self._client = AsyncClient(
             follow_redirects=True,
-            headers={"Authorization": f"Bearer {self.user.token}"},
+            headers={"Authorization": f"Bearer {self._token}"},
             timeout=self._timeout.total_seconds(),
         )
 
