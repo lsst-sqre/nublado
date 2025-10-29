@@ -240,8 +240,9 @@ jobs:
     # leading "nublado-". This is the private Google Artifact Registry used by
     # the US Rubin Science Platform.
     with:
-      images: ghcr.io/lsst-sqre/nublado-${{ matrix.container.name }}${{ matrix.container.gar && ',us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/' || '' }}${{ matrix.container.gar && matrix.container.name || '' }}
+      cache: false
       dockerfile: Dockerfile.${{ matrix.container.name }}
+      images: ghcr.io/lsst-sqre/nublado-${{ matrix.container.name }}${{ matrix.container.gar && ',us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/' || '' }}${{ matrix.container.gar && matrix.container.name || '' }}
 
   build-jupyterlab:
     needs: changes
@@ -262,9 +263,10 @@ jobs:
       || (github.event_name == 'release' && github.event_name == 'published')
 
     with:
-      images: "ghcr.io/lsst-sqre/nublado-jupyterlab-base"
-      dockerfile: Dockerfile.jupyterlab-base
       additional-tags: ${{ github.event_name == 'release' && 'latest' || '' }}
+      cache: false
+      dockerfile: Dockerfile.jupyterlab-base
+      images: "ghcr.io/lsst-sqre/nublado-jupyterlab-base"
 
   test-packaging:
     name: Test packaging
