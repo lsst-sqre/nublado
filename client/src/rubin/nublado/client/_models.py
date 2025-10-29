@@ -1,12 +1,76 @@
-"""Base models for rsp_jupyter_client."""
+"""Models used in the Nublado client public API."""
 
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
 from enum import Enum, StrEnum
-from typing import Literal, override
+from typing import Annotated, Any, Literal, override
 
 from pydantic import BaseModel, Field
+
+__all__ = [
+    "CodeContext",
+    "JupyterOutput",
+    "NotebookExecutionErrorModel",
+    "NotebookExecutionResult",
+    "NubladoImage",
+    "NubladoImageByClass",
+    "NubladoImageByReference",
+    "NubladoImageByTag",
+    "NubladoImageClass",
+    "NubladoImageSize",
+    "SpawnProgressMessage",
+]
+
+
+@dataclass
+class CodeContext:
+    """Optional context for exception reporting during code execution."""
+
+    image: str | None = None
+    notebook: str | None = None
+    path: str | None = None
+    cell: str | None = None
+    cell_number: str | None = None
+    cell_source: str | None = None
+    cell_line_number: str | None = None
+    cell_line_source: str | None = None
+
+
+class NotebookExecutionErrorModel(BaseModel):
+    """The error from the ``/user/:username/rubin/execution`` endpoint."""
+
+    traceback: Annotated[str, Field(description="The exeception traceback.")]
+
+    ename: Annotated[str, Field(description="The exception name.")]
+
+    evalue: Annotated[str, Field(description="The exception value.")]
+
+    err_msg: Annotated[str, Field(description="The exception message.")]
+
+
+class NotebookExecutionResult(BaseModel):
+    """The result of the /user/:username/rubin/execution endpoint."""
+
+    notebook: Annotated[
+        str,
+        Field(description="The notebook that was executed, as a JSON string."),
+    ]
+
+    resources: Annotated[
+        dict[str, Any],
+        Field(
+            description=(
+                "The resources used to execute the notebook, as a JSON string."
+            )
+        ),
+    ]
+
+    error: Annotated[
+        NotebookExecutionErrorModel | None,
+        Field(description="The error that occurred during execution."),
+    ] = None
 
 
 class NubladoImageClass(StrEnum):
@@ -127,3 +191,49 @@ class NubladoImageByClass(NubladoImage):
         if self.debug:
             result["enable_debug"] = "true"
         return result
+
+
+@dataclass(frozen=True, slots=True)
+class JupyterOutput:
+    """Output from a Jupyter lab kernel.
+
+    Parsing WebSocket messages will result in a stream of these objects with
+    partial output, ending in a final one with the ``done`` flag set.
+
+    Note that there is some subtlety here: a notebook cell can either
+    print its output (that is, write to stdout), or, in an executed notebook,
+    the cell will display the last Python command run.
+
+    These are currently represented by two unhandled message types,
+    ``execute_result`` (which is the result of the last Python command run;
+    this is analogous to what you get in the Pytheon REPL loop) and
+    ``display_data``.  ``display_data`` would be what you get, for instance,
+    when you ask Bokeh to show a figure: it's a bunch of Javascript that
+    will be interpreted by your browser.
+
+    The protocol is found at https://jupyter-client.readthedocs.io/en/latest/
+    but what we want to use is half a layer above that.  We care what
+    some messages on the various channels are, but not at all about the
+    low-level implementation details of how those channels are established
+    over ZMQ, for instance.
+    """
+
+    content: str
+    """Partial output from code execution (may be empty)."""
+
+    done: bool = False
+    """Whether this indicates the end of execution."""
+
+
+@dataclass(frozen=True, slots=True)
+class SpawnProgressMessage:
+    """A progress message from lab spawning."""
+
+    progress: int
+    """Percentage progress on spawning."""
+
+    message: str
+    """A progress message."""
+
+    ready: bool
+    """Whether the server is ready."""

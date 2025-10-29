@@ -26,8 +26,8 @@ from uuid import uuid4
 import respx
 from httpx import URL, Request, Response
 
+from .._models import NotebookExecutionResult
 from .._util import normalize_source
-from ..models import NotebookExecutionResult
 
 
 class JupyterAction(Enum):

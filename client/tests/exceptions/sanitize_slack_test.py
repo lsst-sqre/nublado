@@ -4,7 +4,7 @@ import httpx
 import pytest
 from safir.slack.blockkit import SlackCodeBlock, SlackTextBlock
 
-from rubin.nublado.client.exceptions import JupyterWebError
+from rubin.nublado.client import JupyterWebError
 
 
 @pytest.mark.asyncio
