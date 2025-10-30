@@ -1,3 +1,15 @@
+:html_theme.sidebar_secondary.remove:
+
+.. toctree::
+   :hidden:
+
+   About <about/index>
+   Client <client/index>
+   Administrators <admin/index>
+   API <api>
+   Change log <changelog>
+   Contributing <dev/index>
+
 #######
 Nublado
 #######
@@ -16,31 +28,28 @@ For the official Rubin images, see sciplat-lab_.
 
 .. _sciplat-lab: https://github.com/lsst-sqre/sciplat-lab
 
-.. toctree::
-   :maxdepth: 2
+.. grid:: 2
 
-   about/index
+   .. grid-item-card:: About
+      :link: about/index
+      :link-type: doc
 
-.. toctree::
-   :maxdepth: 2
+      See an overview of the Nublado architecture.
 
-   admin/index
+   .. grid-item-card:: Client
+      :link: client/index
+      :link-type: doc
 
-.. toctree::
-   :maxdepth: 2
+      Learn how to use the Nublado client.
 
-   client/index
+   .. grid-item-card:: Administrators
+      :link: admin/index
+      :link-type: doc
 
-.. toctree::
+      Learn how to configure and administer the Nublado service.
 
-   api
+   .. grid-item-card:: Development
+      :link: dev/index
+      :link-type: doc
 
-.. toctree::
-   :hidden:
-
-   changelog
-
-.. toctree::
-   :maxdepth: 2
-
-   dev/index
+      Learn how to contribute to the Nublado codebase.
