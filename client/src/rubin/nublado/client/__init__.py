@@ -3,7 +3,6 @@
 from ._client import JupyterLabSession, NubladoClient
 from ._exceptions import (
     CodeExecutionError,
-    ExecutionAPIError,
     JupyterProtocolError,
     JupyterSpawnError,
     JupyterTimeoutError,
@@ -40,7 +39,6 @@ from ._models import (
 __all__ = [
     "CodeContext",
     "CodeExecutionError",
-    "ExecutionAPIError",
     "JupyterAsyncClient",
     "JupyterLabSession",
     "JupyterOutput",
