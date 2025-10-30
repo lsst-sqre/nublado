@@ -14,30 +14,26 @@ from functools import wraps
 from pathlib import Path
 from types import TracebackType
 from typing import Concatenate, Literal, Self
-from urllib.parse import urljoin, urlparse
 from uuid import uuid4
 
 import httpx
 import structlog
-import websockets
-from httpx import AsyncClient, Cookies, HTTPError, Response
-from httpx_sse import EventSource, aconnect_sse
+from httpx import HTTPError
+from httpx_sse import EventSource
 from rubin.repertoire import DiscoveryClient
 from structlog.stdlib import BoundLogger
 from websockets.asyncio.client import ClientConnection
 from websockets.exceptions import WebSocketException
 
-from ._constants import WEBSOCKET_OPEN_TIMEOUT
 from ._exceptions import (
     CodeExecutionError,
     ExecutionAPIError,
-    JupyterProtocolError,
     JupyterTimeoutError,
     JupyterWebError,
     JupyterWebSocketError,
     NubladoClientSlackException,
-    NubladoDiscoveryError,
 )
+from ._http import JupyterAsyncClient
 from ._models import (
     CodeContext,
     JupyterOutput,
@@ -197,27 +193,24 @@ class JupyterLabSession:
         self,
         *,
         username: str,
-        base_url: str,
+        jupyter_client: JupyterAsyncClient,
         kernel_name: str = "LSST",
         notebook_name: str | None = None,
         max_websocket_size: int | None,
-        http_client: AsyncClient,
-        xsrf: str | None,
+        websocket_open_timeout: timedelta = timedelta(seconds=60),
         logger: BoundLogger,
     ) -> None:
         self._username = username
-        self._base_url = base_url
+        self._client = jupyter_client
         self._kernel_name = kernel_name
         self._notebook_name = notebook_name
         self._max_websocket_size = max_websocket_size
-        self._client = http_client
-        self._xsrf = xsrf
+        self._websocket_open_timeout = websocket_open_timeout
         self._logger = logger
 
         self._session_id: str | None = None
-        self._socket_manager: (
-            AbstractAsyncContextManager[ClientConnection] | None
-        ) = None
+        self._session: AbstractAsyncContextManager[ClientConnection] | None
+        self._session = None
         self._socket: ClientConnection | None = None
 
     async def __aenter__(self) -> Self:
@@ -246,22 +239,19 @@ class JupyterLabSession:
         # and raised background exceptions. This approach allows more explicit
         # control of when the context manager is shut down and ensures it
         # happens immediately when the context exits.
-        username = self._username
+        route = f"user/{self._username}/api/sessions"
         notebook = self._notebook_name
-        url = self._url_for(f"user/{username}/api/sessions")
         body = {
             "kernel": {"name": self._kernel_name},
             "name": notebook or "(no notebook)",
             "path": notebook if notebook else uuid4().hex,
             "type": "notebook" if notebook else "console",
         }
-        headers = {}
-        if self._xsrf:
-            headers["X-XSRFToken"] = self._xsrf
         start = datetime.now(tz=UTC)
+
+        # Create the kernel.
         try:
-            r = await self._client.post(url, json=body, headers=headers)
-            r.raise_for_status()
+            r = await self._client.post(route, json=body)
         except HTTPError as e:
             raise JupyterWebError.raise_from_exception_with_timestamps(
                 e, self._username, {}, start
@@ -270,26 +260,17 @@ class JupyterLabSession:
         self._session_id = response["id"]
         kernel = response["kernel"]["id"]
 
-        # Build a request for the same URL using httpx so that it will
-        # generate request headers, and copy select headers required for
-        # authentication into the WebSocket call.
-        url = self._url_for(f"user/{username}/api/kernels/{kernel}/channels")
-        request = self._client.build_request("GET", url)
-        headers = {h: request.headers[h] for h in ("authorization", "cookie")}
-        if self._xsrf:
-            headers["X-XSRFToken"] = self._xsrf
-
-        # Open the WebSocket connection using those headers.
-        self._logger.debug("Opening WebSocket connection")
+        # Open a WebSocket to the now-running kernel.
+        route = f"user/{self._username}/api/kernels/{kernel}/channels"
         start = datetime.now(tz=UTC)
+        self._logger.debug("Opening WebSocket connection")
         try:
-            self._socket_manager = websockets.connect(
-                self._url_for_websocket(url),
-                additional_headers=headers,
-                open_timeout=WEBSOCKET_OPEN_TIMEOUT,
+            self._session = await self._client.open_websocket(
+                route,
+                open_timeout=self._websocket_open_timeout,
                 max_size=self._max_websocket_size,
             )
-            self._socket = await self._socket_manager.__aenter__()
+            self._socket = await self._session.__aenter__()
         except WebSocketException as e:
             user = self._username
             raise JupyterWebSocketError.from_exception(
@@ -312,25 +293,21 @@ class JupyterLabSession:
         session_id = self._session_id
 
         # Close the WebSocket.
-        if self._socket_manager:
+        if self._session:
             start = datetime.now(tz=UTC)
             try:
-                await self._socket_manager.__aexit__(exc_type, exc_val, exc_tb)
+                await self._session.__aexit__(exc_type, exc_val, exc_tb)
             except WebSocketException as e:
                 raise JupyterWebSocketError.from_exception(
                     e, username, started_at=start
                 ) from e
-            self._socket_manager = None
+            self._session = None
             self._socket = None
 
         # Delete the lab session.
-        url = self._url_for(f"user/{username}/api/sessions/{session_id}")
-        headers = {}
-        if self._xsrf:
-            headers["X-XSRFToken"] = self._xsrf
+        route = f"user/{username}/api/sessions/{session_id}"
         try:
-            r = await self._client.delete(url, headers=headers)
-            r.raise_for_status()
+            await self._client.delete(route)
         except HTTPError as e:
             # Be careful to not raise an exception if we're already processing
             # an exception, since the exception from inside the context
@@ -464,10 +441,9 @@ class JupyterLabSession:
             Raised if called before entering the context and thus before
             creating the WebSocket session.
         """
-        nb_url_path = str(notebook)
-        url = self._url_for(f"user/{self._username}/files/{nb_url_path}")
-        self._logger.debug(f"Getting content from {url}")
-        resp = await self._client.get(url)
+        route = f"user/{self._username}/files/{notebook!s}"
+        self._logger.debug(f"Getting content from {route}")
+        resp = await self._client.get(route)
         notebook_text = resp.text
         sources = source_list_by_cell(notebook_text)
         self._logger.debug(f"Content: {sources}")
@@ -565,7 +541,6 @@ class JupyterLabSession:
         ----------
         path
             Path of notebook (relative to $HOME) to run.
-
         content
             Notebook content as a string.  Only used if ``path`` is ``None``.
 
@@ -584,36 +559,27 @@ class JupyterLabSession:
             Raised if neither notebook path nor notebook contents are supplied.
         """
         if path is not None:
-            str_path = str(path)
-            url = self._url_for(f"user/{self._username}/files/{str_path}")
-            self._logger.debug(f"Getting content from {url}")
-            resp = await self._client.get(url)
-            if resp.status_code == 200:
-                content = resp.text
+            route = f"user/{self._username}/files/{path!s}"
+            self._logger.debug(f"Getting content from {route}")
+            resp = await self._client.get(route)
+            content = resp.text
         if not content:
             raise JupyterWebError(
                 "No notebook content to execute", user=self._username
             )
-        exec_url = self._url_for(f"user/{self._username}/rubin/execution")
+
+        # The timeout is designed to catch issues connecting to JupyterLab but
+        # to wait as long as possible for the notebook itself to execute.
+        route = f"user/{self._username}/rubin/execution"
+        start = datetime.now(tz=UTC)
+        timeout = httpx.Timeout(5.0, read=None)
         try:
-            start = datetime.now(tz=UTC)
-            # The timeout is designed to catch issues connecting to JupyterLab
-            # but to wait as long as possible for the notebook itself
-            # to execute.
-            headers: dict[str, str] = {}
-            headers.update(self._client.headers)
-            if self._xsrf:
-                headers["X-XSRFToken"] = self._xsrf
             r = await self._client.post(
-                exec_url,
-                content=content,
-                headers=headers,
-                timeout=httpx.Timeout(5.0, read=None),
+                route, content=content, timeout=timeout
             )
-            r.raise_for_status()
         except httpx.ReadTimeout as e:
             raise ExecutionAPIError(
-                url=exec_url,
+                url=str(e.request.url),
                 username=self._username,
                 status=500,
                 reason="/rubin/execution endpoint timeout",
@@ -625,7 +591,7 @@ class JupyterLabSession:
             # This often occurs from timeouts, so we want to convert the
             # generic HTTPError to an ExecutionAPIError
             raise ExecutionAPIError(
-                url=exec_url,
+                url=str(e.request.url),
                 username=self._username,
                 status=r.status_code,
                 reason="Internal Server Error",
@@ -698,36 +664,6 @@ class JupyterLabSession:
             msg = "Ignoring unrecognized WebSocket message"
             self._logger.warning(msg, message_type=msg_type, message=data)
             return None
-
-    def _url_for(self, partial: str) -> str:
-        """Construct a JupyterHub or Jupyter lab URL from a partial URL.
-
-        Parameters
-        ----------
-        partial
-            Part of the URL after the prefix for JupyterHub.
-
-        Returns
-        -------
-        str
-            Full URL to use.
-        """
-        return f"{self._base_url.rstrip('/')}/{partial}"
-
-    def _url_for_websocket(self, url: str) -> str:
-        """Convert a URL to a WebSocket URL.
-
-        Parameters
-        ----------
-        url
-            Regular HTTP URL.
-
-        Returns
-        -------
-        str
-            URL converted to the ``wss`` scheme.
-        """
-        return urlparse(url)._replace(scheme="wss").geturl()
 
 
 def _annotate_exception_from_context(
@@ -842,147 +778,54 @@ class NubladoClient:
         timeout: timedelta = timedelta(seconds=30),
     ) -> None:
         self.username = username
-        self._token = token
+        self._discovery = discovery_client or DiscoveryClient()
         self._logger = logger or structlog.get_logger()
         self._timeout = timeout
+        self._token = token
+        self._client = self._build_jupyter_client()
 
-        self._client: AsyncClient
-        self._hub_xsrf: str | None = None
-        self._lab_xsrf: str | None = None
-        self._lab_url: str | None = None
-        self._initialize_client()
+    async def aclose(self) -> None:
+        """Close the underlying HTTP connection pool.
 
-        self._discovery = discovery_client or DiscoveryClient(self._client)
-
-    async def close(self) -> None:
-        """Close the underlying HTTP connection pool."""
+        This invalidates the client object. It can no longer be used after
+        this method is called.
+        """
         await self._client.aclose()
-
-    @property
-    def http(self) -> AsyncClient:
-        return self._client
-
-    @property
-    def lab_xsrf(self) -> str | None:
-        return self._lab_xsrf
-
-    @property
-    def hub_xsrf(self) -> str | None:
-        return self._hub_xsrf
 
     @_convert_exception
     async def auth_to_hub(self) -> None:
         """Retrieve the JupyterHub home page.
 
-        This forces a refresh of the authentication cookies set in the client
-        session, which may be required to use API calls that return 401 errors
-        instead of redirecting the user to log in. It also detects the initial
-        redirect if JupyterHub is running in a different domain and updates
-        the JupyterHub base URL accordingly.
-
-        The reply will set an ``_xsrf`` cookie that must be lifted into the
-        headers for subsequent requests.
+        This resets the underlying HTTP client to clear cookies and force a
+        complete refresh of stored state, including XSRF tokens. Less
+        aggressive reset mechanisms resulted in periodic errors about stale
+        XSRF cookies.
 
         Raises
         ------
         JupyterProtocolError
             Raised if no ``_xsrf`` cookie was set in the reply from the lab.
         """
-        self._initialize_client()
-
-        # Retrieve the JupyterHub home page based on the current hub URL.
-        url = await self._url_for("hub/home")
-        r = await self._client.get(url, follow_redirects=False)
-
-        # JupyterHub may now bounce us through the login page. Follow each
-        # redirect and update the XSRF token if we were provided with a new
-        # one.
-        while r.is_redirect:
-            xsrf = self._extract_xsrf(r)
-            if xsrf:
-                self._hub_xsrf = xsrf
-            next_url = urljoin(url, r.headers["Location"])
-            r = await self._client.get(next_url, follow_redirects=False)
-        r.raise_for_status()
-        xsrf = self._extract_xsrf(r)
-        if xsrf:
-            self._hub_xsrf = xsrf
-        if not self._hub_xsrf:
-            msg = "No _xsrf cookie set in login reply from JupyterHub"
-            raise JupyterProtocolError(msg)
+        await self._client.aclose()
+        self._client = self._build_jupyter_client()
+        await self._client.get("hub/home", fetch_mode="navigate")
 
     @_convert_exception
     async def auth_to_lab(self) -> None:
         """Authenticate to the user's JupyterLab.
 
         Request the top-level lab page, which will force the OpenID Connect
-        authentication with JupyterHub and set authentication cookies. This is
-        required before making API calls to the lab, such as running code.
-        Also inspect the redirect chain to see if per-user subdomains are in
-        use and, if so, update our understanding of the base URL for
-        JupyterLab so that subsequent non-``GET`` calls will work correctly.
-
-        The reply will set an ``_xsrf`` cookie that must be lifted into the
-        headers for subsequent requests.
+        authentication with JupyterHub and set authentication cookies. This
+        will be done implicitly the first time, but for long-running clients,
+        you may need to do this periodically to refresh credentials.
 
         Raises
         ------
         JupyterProtocolError
             Raised if no ``_xsrf`` cookie was set in the reply from the lab.
         """
-        host_prefix = f"{self.username}."
-        url = await self._url_for(f"user/{self.username}/lab")
-        self._lab_url = await self._url_for("")
-
-        # This is not required, but it suppresses an annoying error message in
-        # the JupyterLab logs about skipping XSRF checks.
-        headers = {"Sec-Fetch-Mode": "navigate"}
-
-        # Now, follow each redirect and set the XSRF token when we find it.
-        # It's easiest to do that by disabling redirects and inspecting each
-        # response to see if it's setting a new _xsrf cookie.
-        #
-        # We may also have to update the base URL of the lab if per-user
-        # subdomains are in use. Unfortunately, we cannot use the same trick
-        # as JupyterHub of only looking at the first redirect, since for some
-        # reason JupyterHub first redirects to its own domain and then to the
-        # per-user domain, which is then followed by several more redirects.
-        # Instead, inspect every redirect and take advantage of the fact that
-        # we know that, with per-user subdomains, the first portion of the
-        # correct URL will start with the username. Only update the base URL
-        # if we see a redirect to that name.
-        r = await self._client.get(
-            url, headers=headers, follow_redirects=False
-        )
-        while r.is_redirect:
-            location = r.headers["Location"]
-            self._logger.debug("Redirect from lab", redirect=location)
-            redirect = urlparse(location)
-            if redirect.hostname and redirect.hostname.startswith(host_prefix):
-                current = urlparse(self._lab_url)
-                if current.netloc != redirect.netloc:
-                    new_parsed = current._replace(netloc=redirect.netloc)
-                    self._lab_url = new_parsed.geturl()
-                    self._logger.debug(
-                        "Found JupyterLab base URL",
-                        redirect=location,
-                        new_base_url=self._lab_url,
-                    )
-            xsrf = self._extract_xsrf(r)
-            if xsrf:
-                self._lab_xsrf = xsrf
-            r = await self._client.get(
-                urljoin(url, location), headers=headers, follow_redirects=False
-            )
-        r.raise_for_status()
-        xsrf = self._extract_xsrf(r)
-        if xsrf:
-            self._lab_xsrf = xsrf
-
-        # Ensure that, somewhere in that process, we got an XSRF token.
-        if not self._lab_xsrf:
-            msg = "No _xsrf cookie set in login reply from JupyterLab"
-            raise JupyterProtocolError(msg)
+        route = f"user/{self.username}/lab"
+        await self._client.get(route, fetch_mode="navigate")
 
     @_convert_exception
     async def is_lab_stopped(self, *, log_running: bool = False) -> bool:
@@ -994,12 +837,8 @@ class NubladoClient:
             Log a warning with additional information if the lab still
             exists.
         """
-        url = await self._url_for(f"hub/api/users/{self.username}")
-        headers = {"Referer": await self._url_for("hub/home")}
-        if self._hub_xsrf:
-            headers["X-XSRFToken"] = self._hub_xsrf
-        r = await self._client.get(url, headers=headers)
-        r.raise_for_status()
+        route = f"hub/api/users/{self.username}"
+        r = await self._client.get(route, add_referer=True)
 
         # We currently only support a single lab per user, so the lab is
         # running if and only if the server data for the user is not empty.
@@ -1040,16 +879,12 @@ class NubladoClient:
         JupyterLabSession
             Context manager to open the WebSocket session.
         """
-        if not self._lab_url:
-            raise RuntimeError("Must call auth_to_lab before open_lab_session")
         return JupyterLabSession(
             username=self.username,
-            base_url=self._lab_url,
+            jupyter_client=self._client,
             kernel_name=kernel_name,
             notebook_name=notebook_name,
             max_websocket_size=max_websocket_size,
-            http_client=self._client,
-            xsrf=self._lab_xsrf,
             logger=self._logger,
         )
 
@@ -1067,23 +902,17 @@ class NubladoClient:
         JupyterWebError
             Raised if an error occurred talking to JupyterHub.
         """
-        url = await self._url_for("hub/spawn")
         data = config.to_spawn_form()
 
         # Retrieving the spawn page before POSTing to it appears to trigger
         # some necessary internal state construction (and also more accurately
         # simulates a user interaction). See DM-23864.
-        headers = {"Sec-Fetch-Mode": "navigate"}
-        if self._hub_xsrf:
-            headers["X-XSRFToken"] = self._hub_xsrf
-        r = await self._client.get(url, headers=headers)
-        r.raise_for_status()
+        await self._client.get("hub/spawn", fetch_mode="navigate")
 
         # POST the options form to the spawn page. This should redirect to
         # the spawn-pending page, which will return a 200.
-        self._logger.info("Spawning lab image", user=self.username)
-        r = await self._client.post(url, headers=headers, data=data)
-        r.raise_for_status()
+        self._logger.info("Spawning lab", user=self.username)
+        await self._client.post("hub/spawn", data=data)
 
     @_convert_exception
     async def stop_lab(self) -> None:
@@ -1091,12 +920,9 @@ class NubladoClient:
         if await self.is_lab_stopped():
             self._logger.info("Lab is already stopped")
             return
-        url = await self._url_for(f"hub/api/users/{self.username}/server")
-        headers = {"Referer": await self._url_for("hub/home")}
-        if self._hub_xsrf:
-            headers["X-XSRFToken"] = self._hub_xsrf
-        r = await self._client.delete(url, headers=headers)
-        r.raise_for_status()
+        route = f"hub/api/users/{self.username}/server"
+        self._logger.info("Stopping lab", user=self.username)
+        await self._client.delete(route, add_referer=True)
 
     @_convert_generator_exception
     async def watch_spawn_progress(
@@ -1112,22 +938,11 @@ class NubladoClient:
         SpawnProgressMessage
             Next progress message from JupyterHub.
         """
-        client = self._client
         route = f"hub/api/users/{self.username}/server/progress"
-        url = await self._url_for(route)
-
-        # Setting Sec-Fetch-Mode gets rid of an annoying log message.
-        headers = {
-            "Referer": await self._url_for("hub/home"),
-            "Sec-Fetch-Mode": "same-origin",
-        }
-        if self._hub_xsrf:
-            headers["X-XSRFToken"] = self._hub_xsrf
-
-        # Watch progress until the spawn finishes.
         while True:
-            async with aconnect_sse(client, "GET", url, headers=headers) as s:
-                progress = aiter(JupyterSpawnProgress(s, self._logger))
+            stream_manager = await self._client.open_sse_stream(route)
+            async with stream_manager as stream:
+                progress = aiter(JupyterSpawnProgress(stream, self._logger))
                 async with aclosing(progress):
                     async for message in progress:
                         yield message
@@ -1142,74 +957,12 @@ class NubladoClient:
             await asyncio.sleep(1)
             self._logger.info("Retrying spawn progress request")
 
-    def _extract_xsrf(self, response: Response) -> str | None:
-        """Extract the XSRF token from the cookies in a response.
-
-        Parameters
-        ----------
-        response
-            Response from a Jupyter server.
-
-        Returns
-        -------
-        str or None
-            Extracted XSRF value or `None` if none was present.
-        """
-        cookies = Cookies()
-        cookies.extract_cookies(response)
-        xsrf = cookies.get("_xsrf")
-        if xsrf:
-            self._logger.debug(
-                "Found new _xsrf cookie",
-                method=response.request.method,
-                url=response.url.copy_with(query=None, fragment=None),
-                status_code=response.status_code,
-            )
-        return xsrf
-
-    def _initialize_client(self) -> None:
-        """Initialize the HTTP client connection pool for JupyterHub.
-
-        Every instance of the Nublado client needs a separate connection pool
-        because that pool will accumulate JupyterHub and JupyterLab cookies
-        that carry user authetnication information. This method creates or
-        recreates that connection pool.
-
-        This is not only called at startup but also each time we authenticate
-        to JupyterHub. This is because the XSRF cookie issued by JupyterHub is
-        not properly replaced when the JupyterHub user is removed by a
-        database reset or by idle culling configured to purge users. Instead,
-        JupyterHub rejects all requests with errors about invalid XSRF cookies
-        and the client can never recover. Recreating the pool ensures the
-        cookie jar is cleared and we receive fresh cookies.
-        """
-        self._hub_xsrf = None
-        self._client = AsyncClient(
-            follow_redirects=True,
-            headers={"Authorization": f"Bearer {self._token}"},
-            timeout=self._timeout.total_seconds(),
+    def _build_jupyter_client(self) -> JupyterAsyncClient:
+        """Construct a new HTTP client to talk to Jupyter."""
+        return JupyterAsyncClient(
+            discovery_client=self._discovery,
+            logger=self._logger,
+            timeout=self._timeout,
+            token=self._token,
+            username=self.username,
         )
-
-    async def _url_for(self, partial: str) -> str:
-        """Construct a JupyterHub URL from a partial URL.
-
-        Parameters
-        ----------
-        partial
-            Part of the URL after the root URL for JupyterHub.
-
-        Returns
-        -------
-        str
-            Full URL to use.
-
-        Raises
-        ------
-        NubladoDiscoveryError
-            Raised if the Nublado service was not found in service discovery.
-        """
-        hub_url = await self._discovery.url_for_ui("nublado")
-        if not hub_url:
-            msg = "nublado service not found in service discovery"
-            raise NubladoDiscoveryError(msg)
-        return f"{hub_url.rstrip('/')}/{partial}"
