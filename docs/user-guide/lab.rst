@@ -1,50 +1,8 @@
-############
-Client guide
-############
-
-This page describes the use of the ``rubin.nublado.client.NubladoClient`` class and its provided testing classes.
-
-Installing the Client
-=====================
-
-The client can be installed from PyPI with:
-
-.. prompt:: bash
-
-   pip install rubin-nublado-client
-
-.. _client-usage:
-
-Using the Client
-================
-
-The ``NubladoClient`` is designed to make interaction with JupyterHub and Jupyterlab, as they are configured in the RSP environment, easy.
-
-A particular instance of the client represents a single user in a particular RSP environment.
-A user, in this context, means a token (which will have a set of scopes allowing various actions within the RSP) bound to a username.
-Both of these will be available in the service you are writing with each request, in the ``X-Auth-Request-Token`` and ``X-Auth-Request-User`` headers on the request.
-You should not, in general, need to go to Gafaelfawr to extract any further information about the token, but you must be prepared to handle 401s and 403s in case the token you have is invalid, expired, or does not grant sufficient scope for the service you want to use.
-
-Sequence of Events
-==================
-
-A typical interaction with the client usually looks like this:
-
-#. Authenticate to the Hub with the ``auth_to_hub()`` method.
-#. Determine whether or not you have a running lab with ``is_lab_stopped()``.
-#. If you need to, spawn a lab with ``spawn_lab()``.
-#. Wait for the lab to spawn by looping through ``watch_spawn_progress()`` until you get a progress message indicating the lab is ready.
-#. Authenticate to the Lab with ``auth_to_lab()``
-#. Use ``open_lab_session()`` as a context manager to interact with your lab.
-#. Do whatever it is you wanted to do with the lab; more below.
-#. When done, use ``stop_lab()`` to shut down the lab, if desired.
-
-The ``client_test`` test in the client test suite steps through this process and may be a useful model.
-
 .. _lab-interaction:
 
-Interacting With The Lab
-========================
+########################
+Interacting with the lab
+########################
 
 ``NubladoClient`` provides three methods of interacting with a spawned lab.  These are methods on the ``JupyterLabSession`` object you will have available inside the session context manager.  They are:
 
@@ -52,10 +10,10 @@ Interacting With The Lab
 #. ``run_notebook()``.  This runs each cell of a supplied notebook using ``run_python()``, accumulating the results and ultimately returning them as a list of cell outputs.
 #.  ``run_notebook_via_rsp_extension()``.   This executes a notebook via the ``/rubin/execution`` endpoint of the  `RSP Jupyter Extensions <https://github.com/lsst-sqre/rsp-jupyter-extensions>`__.  `Times Square <https://times-square.lsst.io>`__ and `Noteburst <https://noteburst.lsst.io>`__ use this method. The extensions run within the user lab, and the execution extension, in turn, uses `nbconvert <https://nbconvert.readthedocs.io/en/latest/>`__ to execute notebooks and return their rendered form.  If you need to execute a notebook and capture output that did not go to stdout (for instance, the Javascript created by a Bokeh call, that will ultimately run in your browser), this is at present the way to do it.
 
-.. client-use-examples:
+.. _client-use-examples:
 
-Client Use Examples
--------------------
+Usage examples
+==============
 
 The following uses the client to determine whether a user Lab is
 running and to start it if necessary.  It does not run any code within
@@ -250,106 +208,3 @@ This yields:
 
     1: Hello, World!
     2: Goodbye, World!
-
-.. _mocks-and-testing:
-
-Mocks and Testing
-=================
-
-In the module ``rubin.nublado.client`` you will find the ``MockJupyter`` class.
-This provides a simulation of the RSP Nublado Hub/Proxy/Controller environment, as well as a partial simulation of the Labs it spawns.
-The reason you would use this is to be able to meaningfully test your service without having to test against a live RSP or spin up your own RSP to test the service against.
-
-Creating the Jupyter Mock Test Fixture
---------------------------------------
-
-The ``rubin.nublado.client.MockJupyter`` class is fundamentally an instance of the ``respx`` class (used for testing ``httpx`` services), with a websocket emulator patched into it.
-
-It depends on two other fixtures: ``environment_url`` is a string, representing the base URL of the RSP environment, and ``filesystem`` is a ``pathlib.Path`` representing the home directory of the user the ``NubladoClient`` is running as.  These collectively look like:
-
-.. code-block:: python
-
-    from collections.abc import AsyncGenerator, Iterator
-    from contextlib import asynccontextmanager
-    from pathlib import Path
-    from unittest.mock import patch
-
-    import pytest
-    import respx
-    import websockets
-
-    from nublado.rubin.client import (
-        MockJupyter,
-        MockJupyterWebSocket,
-        mock_jupyter,
-        mock_jupyter_websocket,
-    )
-
-
-    @pytest.fixture
-    def environment_url() -> str:
-        return "https://data.example.org"
-
-
-    @pytest.fixture
-    def test_filesystem() -> Iterator[Path]:
-        with TemporaryDirectory() as td:
-            # Do whatever you need to do in order to set up the home
-            # directory contents here
-            yield Path(td)
-
-
-    @pytest.fixture(ids=["shared", "subdomain"], params=[False, True])
-    def jupyter(
-        respx_mock: respx.Router,
-        environment_url: str,
-        test_filesystem: Path,
-        request: pytest.FixtureRequest,
-    ) -> Iterator[MockJupyter]:
-        """Mock out JupyterHub and Jupyter labs."""
-        jupyter_mock = mock_jupyter(
-            respx_mock,
-            base_url=environment_url,
-            user_dir=test_filesystem,
-            use_subdomains=request.param,
-        )
-
-        # respx has no mechanism to mock aconnect_ws, so we have to do it
-        # ourselves.
-        @asynccontextmanager
-        async def mock_connect(
-            url: str,
-            extra_headers: dict[str, str],
-            max_size: int | None,
-            open_timeout: int,
-        ) -> AsyncGenerator[MockJupyterWebSocket, None]:
-            yield mock_jupyter_websocket(url, extra_headers, jupyter_mock)
-
-        with patch.object(websockets, "connect") as mock:
-            mock.side_effect = mock_connect
-            yield jupyter_mock
-
-Note the parameterization of the ``jupyter`` fixture.
-This will run all of your application's tests twice, once with the mock configured to simulate running all of Nublado under one hostname and once when simulating user subdomains.
-This helps test that your application doesn't make assumptions that are valid in only one of the two possible Nublado configurations.
-
-Once you've done all that, all you will need to do is supply the test fixture ``jupyter`` to your unit tests along with a client to communicate with it.
-
-The client is much simpler.
-The only special things you need to do with the ``NubladoClient`` are to configure it with the same environment URL your mock Jupyter has, and give it ``X-Auth-Request-User`` and ``X-Auth-Request-Token`` headers that, in real life, would come in via ``GafaelfawrIngress``.
-It will make all its usual HTTP calls, which will be intercepted by the ``jupyter`` test fixture and responded to appropriately.
-
-
-Mocking Payloads
-----------------
-
-The Python code being used as a client payload is expected, in the wild, to run within an RSP kernel; usually the ``LSST`` kernel, which is extremely heavyweight and has a great many features not found in a vanilla Python installation.
-
-The ``MockJupyter`` class contains a pair of methods that enable the user to register code or notebook contents with the mock, and if the mock sees those things as execution payloads, it will reply with the registered results rather than trying to actually execute them.
-
-These methods are ``register_python_result()`` and ``register_extension_result()``.
-The first is used for mocking ``run_python()`` and ``run_notebook()``, and the second for mocking ``run_notebook_via_rsp_extension()``.
-For any case involving Python that uses modules outside the standard library, use the ``register`` methods to pre-load appropriate replies for that code.
-
-These are generally the only two methods of ``MockJupyter`` that the service developer should use directly.
-All tests should then interact with the mock Jupyter service through ``NubladoClient``, possibly with execution output mocked via registration.
