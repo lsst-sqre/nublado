@@ -37,7 +37,6 @@ but we don't really care."""
 
 __all__ = [
     "CodeExecutionError",
-    "ExecutionAPIError",
     "JupyterProtocolError",
     "JupyterSpawnError",
     "JupyterTimeoutError",
@@ -412,75 +411,8 @@ class CodeExecutionError(NubladoClientSlackException):
         return info
 
 
-class ExecutionAPIError(NubladoClientSlackException):
-    """An HTTP request to the execution endpoint failed."""
-
-    @classmethod
-    def from_response(cls, username: str, response: httpx.Response) -> Self:
-        return cls(
-            url=_sanitize_url(str(response.url)),
-            username=username,
-            status=response.status_code,
-            reason=response.reason_phrase,
-            method=response.request.method,
-            body=_sanitize_body(response.text),
-        )
-
-    @classmethod
-    async def from_stream(
-        cls,
-        username: str,
-        stream: httpx.Response,
-        started_at: datetime.datetime | None = None,
-        failed_at: datetime.datetime | None = None,
-    ) -> Self:
-        body_bytes = await stream.aread()
-        return cls(
-            url=_sanitize_url(str(stream.url)),
-            username=username,
-            status=stream.status_code,
-            reason=stream.reason_phrase,
-            method=stream.request.method,
-            body=_sanitize_body(body_bytes.decode()),
-            started_at=started_at,
-            failed_at=failed_at,
-        )
-
-    def __init__(
-        self,
-        *,
-        url: str,
-        username: str,
-        status: int,
-        reason: str | None,
-        method: str,
-        body: str | None = None,
-        started_at: datetime.datetime | None = None,
-        failed_at: datetime.datetime | None = None,
-    ) -> None:
-        clean_url = _sanitize_url(url)
-        super().__init__(
-            f"Status {status} from {method} {clean_url}",
-            started_at=started_at,
-            failed_at=failed_at,
-        )
-        self.url = clean_url
-        self.status = status
-        self.reason = reason
-        self.method = method
-        self.msg = _sanitize_body(body) if body else None
-        self.user = username
-
-    @override
-    def __str__(self) -> str:
-        return (
-            f"{self.user}: status {self.status} ({self.reason}) from"
-            f" {self.method} {self.url}"
-        )
-
-
 class JupyterProtocolError(NubladoClientSlackException):
-    """Some error occurred when talking to JupyterHub or JupyterLab."""
+    """Unexpected response from JupyterHub or JupyterLab."""
 
 
 class JupyterSpawnError(NubladoClientSlackException):

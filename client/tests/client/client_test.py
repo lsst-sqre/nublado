@@ -56,10 +56,6 @@ async def test_hub_flow(
         assert four == "4"
         hello = await lab_session.run_notebook(Path("hello.ipynb"))
         assert hello == ["Hello, world!\n"]
-        ner = await lab_session.run_notebook_via_rsp_extension(
-            path=Path("hello.ipynb")
-        )
-        assert ner.error is None
 
         # Try something that will raise an exception and test that
         # the CodeErrorException contains all the things we expect.
@@ -82,6 +78,11 @@ async def test_hub_flow(
         assert exc.error.startswith("Traceback (most recent call last):")
         assert exc.error.endswith("SyntaxError: invalid syntax\n")
         assert exc.code == "What do you get when you multipy six by nine?"
+
+    # Run a complete notebook.
+    notebook_path = Path(__file__).parent.parent / "support" / "hello.ipynb"
+    ner = await configured_client.run_notebook(notebook_path.read_text())
+    assert ner.error is None
 
     # Stop the lab
     await configured_client.stop_lab()
