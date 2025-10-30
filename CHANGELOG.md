@@ -6,6 +6,17 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-8.18.0'></a>
+## 8.18.0 (2025-10-30)
+
+### New features
+
+- Provide pretty-printed tooltips for user SQL query history
+
+### Bug fixes
+
+- Correctly display tags when architecture-specific versions of a given tag showed up on different pages of a paginated tag list.
+
 <a id='changelog-8.17.1'></a>
 ## 8.17.1 (2025-10-17)
 
