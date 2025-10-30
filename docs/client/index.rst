@@ -70,12 +70,12 @@ the Lab:
 
     import structlog
 
-    from rubin.nublado.client import NubladoClient
-    from rubin.nublado.client.models import (
+    from rubin.nublado.client import (
+        GafaelfawrUser,
+        NubladoClient,
         NubladoImageByClass,
         NubladoImageClass,
         NubladoImageSize,
-        User,
     )
 
     LAB_SPAWN_TIMEOUT = 90
@@ -84,7 +84,7 @@ the Lab:
     async def ensure_lab() -> None:
         """Start a Lab if one is not present."""
         client = NubladoClient(
-            user=User(username="some-user", token="some-token"),
+            user=GafaelfawrUser(username="some-user", token="some-token"),
             base_url="https://data.example.org",
         )
         await client.auth_to_hub()
@@ -113,11 +113,10 @@ The next example assumes that you have already done the above--that is, you know
 
     import asyncio
 
-    from rubin.nublado.client import NubladoClient
-    from rubin.nublado.client.models import User
+    from rubin.nublado.client import GafaelfawrUser, NubladoClient
 
     client = NubladoClient(
-        user=User(username="some-user", token="some-token"),
+        user=GafaelfawrUser(username="some-user", token="some-token"),
         base_url="https://data.example.org",
     )
     FIZZBUZZ = """
@@ -178,8 +177,11 @@ Then the following will run the notebook via each method, compare their outputs,
     from dataclasses import dataclass
     from pathlib import Path
 
-    from rubin.nublado.client import NubladoClient
-    from rubin.nublado.client.models import NotebookExecutionResult, User
+    from rubin.nublado.client import (
+        GafaelfawrUser,
+        NubladoClient,
+        NotebookExecutionResult,
+    )
 
 
     @dataclass
@@ -254,15 +256,14 @@ This yields:
 Mocks and Testing
 =================
 
-In the module ``rubin.nublado.client.testing`` you will find the ``MockJupyter`` class.
+In the module ``rubin.nublado.client`` you will find the ``MockJupyter`` class.
 This provides a simulation of the RSP Nublado Hub/Proxy/Controller environment, as well as a partial simulation of the Labs it spawns.
 The reason you would use this is to be able to meaningfully test your service without having to test against a live RSP or spin up your own RSP to test the service against.
-Although there are quite a few additional classes within the module, ``MockJupyter`` should be the only one you need directly, except to set up the test fixture.
 
 Creating the Jupyter Mock Test Fixture
 --------------------------------------
 
-The ``rubin.nublado.client.testing.MockJupyter`` class is fundamentally an instance of the ``respx`` class (used for testing ``httpx`` services), with a websocket emulator patched into it.
+The ``rubin.nublado.client.MockJupyter`` class is fundamentally an instance of the ``respx`` class (used for testing ``httpx`` services), with a websocket emulator patched into it.
 
 It depends on two other fixtures: ``environment_url`` is a string, representing the base URL of the RSP environment, and ``filesystem`` is a ``pathlib.Path`` representing the home directory of the user the ``NubladoClient`` is running as.  These collectively look like:
 
@@ -277,7 +278,7 @@ It depends on two other fixtures: ``environment_url`` is a string, representing 
     import respx
     import websockets
 
-    from nublado.rubin.client.testing import (
+    from nublado.rubin.client import (
         MockJupyter,
         MockJupyterWebSocket,
         mock_jupyter,
@@ -332,8 +333,7 @@ Note the parameterization of the ``jupyter`` fixture.
 This will run all of your application's tests twice, once with the mock configured to simulate running all of Nublado under one hostname and once when simulating user subdomains.
 This helps test that your application doesn't make assumptions that are valid in only one of the two possible Nublado configurations.
 
-Once you've done all that, all you will need to do is supply the test
-fixture ``jupyter`` to your unit tests along with a client to communicate with it.
+Once you've done all that, all you will need to do is supply the test fixture ``jupyter`` to your unit tests along with a client to communicate with it.
 
 The client is much simpler.
 The only special things you need to do with the ``NubladoClient`` are to configure it with the same environment URL your mock Jupyter has, and give it ``X-Auth-Request-User`` and ``X-Auth-Request-Token`` headers that, in real life, would come in via ``GafaelfawrIngress``.

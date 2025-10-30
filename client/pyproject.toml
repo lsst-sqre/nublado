@@ -116,7 +116,7 @@ filterwarnings = [
 # with complex data structures rather than only the assert message) in files
 # listed in python_files.
 python_files = [
-    "src/rubin/nublado/client/testing/*.py",
+    "src/rubin/nublado/client/_mock.py",
     "tests/*.py",
     "tests/*/*.py",
 ]
