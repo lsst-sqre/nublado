@@ -1,19 +1,19 @@
-.. _mocks-and-testing:
+.. py:currentmodule:: rubin.nublado.client
 
 ###################################
 Testing users of the Nublado client
 ###################################
 
-In the module ``rubin.nublado.client`` you will find the ``MockJupyter`` class.
-This provides a simulation of the RSP Nublado Hub/Proxy/Controller environment, as well as a partial simulation of the Labs it spawns.
-The reason you would use this is to be able to meaningfully test your service without having to test against a live RSP or spin up your own RSP to test the service against.
+The `MockJupyter` class can be used to write unit tests of users of the Nublado Python client without needing a running Phalanx environment.
+It simulates the subset of the JupyterHub and JupyterLab API used by the Nublado client and simulates Python code execution inside the notebook with `eval`.
 
 Creating the mock in a test fixture
 ===================================
 
-The ``rubin.nublado.client.MockJupyter`` class is fundamentally an instance of the ``respx`` class (used for testing ``httpx`` services), with a websocket emulator patched into it.
+`MockJupyter` requires RESPX_ in addition to :py:mod:`rubin.nublado.client`.
+Add ``respx`` to your project's development dependencies.
 
-It depends on two other fixtures: ``environment_url`` is a string, representing the base URL of the RSP environment, and ``filesystem`` is a ``pathlib.Path`` representing the home directory of the user the ``NubladoClient`` is running as.  These collectively look like:
+Then, add a fixture (usually to :file:`tests/conftest.py`) to create the `MockJupyter` class and patch the underlying WebSocket connection used for the JupyterLab kernel.
 
 .. code-block:: python
 
@@ -40,30 +40,15 @@ It depends on two other fixtures: ``environment_url`` is a string, representing 
 
 
     @pytest.fixture
-    def test_filesystem() -> Iterator[Path]:
-        with TemporaryDirectory() as td:
-            # Do whatever you need to do in order to set up the home
-            # directory contents here
-            yield Path(td)
+    def user_dir() -> Path:
+        return Path(__file__).parent / "data" / "files"
 
 
-    @pytest.fixture(ids=["shared", "subdomain"], params=[False, True])
     def jupyter(
-        respx_mock: respx.Router,
-        environment_url: str,
-        test_filesystem: Path,
-        request: pytest.FixtureRequest,
+        respx_mock: respx.Router, environment_url: str, user_dir: Path
     ) -> Iterator[MockJupyter]:
-        """Mock out JupyterHub and Jupyter labs."""
-        jupyter_mock = mock_jupyter(
-            respx_mock,
-            base_url=environment_url,
-            user_dir=test_filesystem,
-            use_subdomains=request.param,
-        )
+        mock = mock_jupyter(respx_mock, environment_url, user_dir)
 
-        # respx has no mechanism to mock aconnect_ws, so we have to do it
-        # ourselves.
         @asynccontextmanager
         async def mock_connect(
             url: str,
@@ -75,28 +60,47 @@ It depends on two other fixtures: ``environment_url`` is a string, representing 
 
         with patch.object(websockets, "connect") as mock:
             mock.side_effect = mock_connect
-            yield jupyter_mock
+            yield mock
 
-Note the parameterization of the ``jupyter`` fixture.
-This will run all of your application's tests twice, once with the mock configured to simulate running all of Nublado under one hostname and once when simulating user subdomains.
-This helps test that your application doesn't make assumptions that are valid in only one of the two possible Nublado configurations.
+Note the separate ``environment_url`` and ``user_dir`` fixtures.
+These can be customized as desired.
+For example, you may change the ``user_dir`` path to where you keep test notebooks for your service.
 
-Once you've done all that, all you will need to do is supply the test fixture ``jupyter`` to your unit tests along with a client to communicate with it.
+By default, `MockJupyter` emulates a Nublado instance running in a single domain.
+If you want to emulate per-user subdomains instead, pass ``use_subdomains=True`` as an argument to `mock_jupyter`.
+This should be invisible to your application; the Nublado client should transparently handle both configurations.
 
-The client is much simpler.
-The only special things you need to do with the ``NubladoClient`` are to configure it with the same environment URL your mock Jupyter has, and give it ``X-Auth-Request-User`` and ``X-Auth-Request-Token`` headers that, in real life, would come in via ``GafaelfawrIngress``.
-It will make all its usual HTTP calls, which will be intercepted by the ``jupyter`` test fixture and responded to appropriately.
+Writing tests
+=============
+
+Any test you write that uses the Nublado client should depend on the ``jupyter`` fixture, directly or indirectly, so that the mock will be in place.
+
+When creating a token used by `NubladoClient` for your tests, ensure the token has the format :samp:`gt-{username}.{random}` where the username portion is the base64-encoded username passed as a constructor argument to `NubladoClient`.
+The random portion can be anything.
+This special token format is required by `MockJupyter`; requests where the token is missing or does not match the username will be rejected, usually resulting in test failures.
+
+Here is a function that generates suitable tokens:
+
+.. code-block:: python
+
+   import os
+   from base64 import urlsafe_b64encode
+
+
+   def create_token(username: str) -> str:
+       encoded_username = urlsafe_b64encode(username.encode()).decode()
+       return f"gt-{encoded_username}.{os.urandom(4).hex()}"
 
 Mocking payloads
-================
+----------------
 
-The Python code being used as a client payload is expected, in the wild, to run within an RSP kernel; usually the ``LSST`` kernel, which is extremely heavyweight and has a great many features not found in a vanilla Python installation.
+By default, `MockJupyter` runs the code provided to `JupyterLabSession.run_python` or `JupyterLabSession.run_notebook` using `eval`.
+To change this behavior, you can call `MockJupyter.register_python_result`, passing it a code string and a result.
+Any subsequent attempt to execute that code string will return the registered result rather than executing the code.
 
-The ``MockJupyter`` class contains a pair of methods that enable the user to register code or notebook contents with the mock, and if the mock sees those things as execution payloads, it will reply with the registered results rather than trying to actually execute them.
+The `MockJupyter.register_extension_result` method provides similar functionality for `JupyterLabSession.run_notebook_via_rsp_extension`.
+It takes the notebook contents (as a JSON string) and a corresponding `NotebookExecutionResult`.
+Any subsequent execution of a notebook matching that string will return the registered notebook execution result.
 
-These methods are ``register_python_result()`` and ``register_extension_result()``.
-The first is used for mocking ``run_python()`` and ``run_notebook()``, and the second for mocking ``run_notebook_via_rsp_extension()``.
-For any case involving Python that uses modules outside the standard library, use the ``register`` methods to pre-load appropriate replies for that code.
-
-These are generally the only two methods of ``MockJupyter`` that the service developer should use directly.
-All tests should then interact with the mock Jupyter service through ``NubladoClient``, possibly with execution output mocked via registration.
+If `MockJupyter.register_extension_result` has not been called with a matching notebook string value, the `MockJupyter` replacement for full notebook execution will return the input notebook.
+The mock will never attempt to run :command:`nbconvert` in the way that the Nublado JupyterLab extension would do.

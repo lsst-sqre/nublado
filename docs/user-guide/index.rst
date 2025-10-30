@@ -10,11 +10,13 @@ The latter is a Python library available from PyPI and can be declared as a depe
    pip install rubin-nublado-client
 
 .. toctree::
+   :maxdepth: 2
    :caption: Python client
 
    overview
    lab
    testing
+   api
 
 .. toctree::
    :caption: Other languages

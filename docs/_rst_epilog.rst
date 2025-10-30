@@ -2,6 +2,7 @@
 .. _d20 creature sizes: https://www.d20srd.org/srd/combat/movementPositionAndDistance.htm#bigandLittleCreaturesInCombat
 .. _downward API: https://kubernetes.io/docs/concepts/workloads/pods/downward-api/
 .. _Gafaelfawr: https://gafaelfawr.lsst.io/
+.. _HTTPX: https://www.python-httpx.org/
 .. _kubernetes-asyncio: https://github.com/tomplus/kubernetes_asyncio
 .. _JupyterHub: https://jupyter.org/hub
 .. _Mend Renovate: https://www.mend.io/renovate/
@@ -9,6 +10,7 @@
 .. _nox: https://nox.thea.codes/en/stable/
 .. _Nublado Phalanx application: https://phalanx.lsst.io/applications/nublado/index.html
 .. _Phalanx: https://phalanx.lsst.io/
+.. _RESPX: https://lundberg.github.io/respx/
 .. _Ruff: https://docs.astral.sh/ruff/
 .. _pytest: https://docs.pytest.org/en/stable/
 .. _sciplat-lab: https://github.com/lsst-sqre/sciplat-lab

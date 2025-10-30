@@ -15,7 +15,6 @@ import websockets
 from structlog.stdlib import BoundLogger
 
 from rubin.nublado.client import (
-    GafaelfawrUser,
     MockJupyter,
     MockJupyterWebSocket,
     NubladoClient,
@@ -62,18 +61,12 @@ def _create_mock_token(username: str, token: str) -> str:
     return f"gt-{enc_u}.{enc_t}"
 
 
-@pytest.fixture
-def test_user() -> GafaelfawrUser:
-    username = "rachel"
-    token = "token-of-authority"
-    mock_token = _create_mock_token(username, token)
-    return GafaelfawrUser(username=username, token=mock_token)
-
-
 @pytest.fixture(ids=["shared", "subdomain"], params=[False, True])
 def jupyter(
     respx_mock: respx.Router,
     environment_url: str,
+    username: str,
+    token: str,
     test_filesystem: Path,
     request: pytest.FixtureRequest,
 ) -> Iterator[MockJupyter]:
@@ -105,15 +98,29 @@ def jupyter(
 def configured_client(
     environment_url: str,
     configured_logger: BoundLogger,
-    test_user: GafaelfawrUser,
+    username: str,
+    token: str,
     test_filesystem: Path,
     jupyter: MockJupyter,
 ) -> NubladoClient:
     client = NubladoClient(
-        user=test_user, logger=configured_logger, base_url=environment_url
+        username=username,
+        token=token,
+        logger=configured_logger,
+        base_url=environment_url,
     )
     # For the test client, we also have to add the two headers that would
     # be added by a GafaelfawrIngress in real life.
-    client._client.headers["X-Auth-Request-User"] = test_user.username
-    client._client.headers["X-Auth-Request-Token"] = test_user.token
+    client._client.headers["X-Auth-Request-User"] = username
+    client._client.headers["X-Auth-Request-Token"] = token
     return client
+
+
+@pytest.fixture
+def token(username: str) -> str:
+    return _create_mock_token(username, "token-of-authority")
+
+
+@pytest.fixture
+def username() -> str:
+    return "rachel"

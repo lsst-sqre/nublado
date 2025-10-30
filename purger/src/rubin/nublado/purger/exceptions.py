@@ -24,7 +24,6 @@ class PurgeFailedError(SlackException):
 
     @override
     def to_slack(self) -> SlackMessage:
-        """Format this exception as a slack message."""
         message = super().to_slack()
         attachment = SlackTextBlock(heading="Failed Files", text=self.report)
         message.attachments.append(attachment)
@@ -32,7 +31,6 @@ class PurgeFailedError(SlackException):
 
     @override
     def to_sentry(self) -> SentryEventInfo:
-        """Return Sentry metadata for this exception."""
         info = super().to_sentry()
         info.contexts["failed_files"] = self.failed_files
         return info
