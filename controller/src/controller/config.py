@@ -168,11 +168,11 @@ class NFSVolumeSource(BaseVolumeSource):
     type: Literal["nfs"]
 
     server: Annotated[
-        str,
+        str | list[str],
         Field(
             title="NFS server",
-            description="Name or IP address of the NFS server for the volume",
-            examples=["10.13.105.122"],
+            description="Name(s)/IP address(es) of the volume's NFS server",
+            examples=["10.13.105.122", "[10.13.105.122, 10.13.105.123]"],
         ),
     ]
 

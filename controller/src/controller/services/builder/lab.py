@@ -556,7 +556,7 @@ class LabBuilder:
             self._build_pod_tmp_volume(mem_size=resources.limits.memory),
             self._build_pod_downward_api_volume(user.username),
         ]
-        volumes = self._build_pod_volumes(user.username, mounted_volumes)
+        volumes = self._build_pod_volumes(user, mounted_volumes)
         mounts = self._build_pod_volume_mounts(user.username, mounted_volumes)
 
         # Build the pod object itself.
@@ -599,11 +599,13 @@ class LabBuilder:
         return annotations
 
     def _build_pod_volumes(
-        self, username: str, mounted_volumes: list[MountedVolume]
+        self, user: GafaelfawrUserInfo, mounted_volumes: list[MountedVolume]
     ) -> list[V1Volume]:
         """Construct the volumes that will be mounted by the user's pod."""
         volumes = self._volume_builder.build_volumes(
-            self._config.volumes, f"{username}-nb"
+            self._config.volumes,
+            f"{user.username}-nb",
+            uid=user.uid,
         )
         volumes.extend(v.volume for v in mounted_volumes)
         return volumes
