@@ -10,7 +10,6 @@ from collections.abc import AsyncGenerator, AsyncIterator, Callable, Coroutine
 from contextlib import AbstractAsyncContextManager, aclosing
 from datetime import UTC, datetime, timedelta
 from functools import wraps
-from pathlib import Path
 from types import TracebackType
 from typing import Concatenate, Literal, Self
 from uuid import uuid4
@@ -40,7 +39,6 @@ from ._models import (
     NubladoImage,
     SpawnProgressMessage,
 )
-from ._util import source_list_by_cell
 
 __all__ = ["JupyterLabSession", "NubladoClient"]
 
@@ -411,118 +409,6 @@ class JupyterLabSession:
 
         # Return the accumulated output.
         return result
-
-    async def run_notebook(
-        self, notebook: Path, context: CodeContext | None = None
-    ) -> list[str]:
-        """Run a notebook of Python code in a Jupyter lab kernel.
-
-        Parameters
-        ----------
-        notebook
-            Path of notebook (relative to $HOME) to run.
-        context
-            Optional set of overrides for exception reporting.
-
-        Returns
-        -------
-        list[str]
-            Output from the kernel, one string per cell.
-
-        Raises
-        ------
-        CodeExecutionError
-            Raised if an error was reported by the Jupyter lab kernel.
-        JupyterWebSocketError
-            Raised if there was a WebSocket protocol error while running code
-            or waiting for the response.
-        JupyterWebError
-            Raised if called before entering the context and thus before
-            creating the WebSocket session.
-        """
-        route = f"user/{self._username}/files/{notebook!s}"
-        self._logger.debug(f"Getting content from {route}")
-        resp = await self._client.get(route)
-        notebook_text = resp.text
-        sources = source_list_by_cell(notebook_text)
-        self._logger.debug(f"Content: {sources}")
-        retlist: list[str] = []
-        for cellsrc in sources:
-            try:
-                output = await self.run_python_cell(
-                    cellsrc.source, context=context
-                )
-            except (
-                CodeExecutionError,
-                JupyterWebSocketError,
-                JupyterWebError,
-            ) as exc:
-                if not context:
-                    context = CodeContext()
-                # Add annotations (if not provided) describing error location
-                if not context.cell:
-                    context.cell = cellsrc.cell_id
-                if not context.cell_number:
-                    context.cell_number = f"#{cellsrc.cell_number}"
-                if not context.notebook:
-                    context.notebook = notebook.name
-                if not context.path:
-                    context.path = str(notebook)
-                if not context.cell_source:
-                    context.cell_source = "\n".join(cellsrc.source)
-                _annotate_exception_from_context(exc, context)
-                raise
-            retlist.append(output)
-        return retlist
-
-    async def run_python_cell(
-        self, source: list[str], context: CodeContext | None = None
-    ) -> str:
-        """Run a cell of Python code in a Jupyter lab kernel.
-
-        Parameters
-        ----------
-        source
-            code to run
-        context
-            context of source code to run
-
-        Returns
-        -------
-        str
-            Output from the kernel, one string per cell.
-
-        Raises
-        ------
-        CodeExecutionError
-            Raised if an error was reported by the Jupyter lab kernel.
-        JupyterWebSocketError
-            Raised if there was a WebSocket protocol error while running code
-            or waiting for the response.
-        JupyterWebError
-            Raised if called before entering the context and thus before
-            creating the WebSocket session.
-        """
-        current = ""
-        for idx, line in list(enumerate(source)):
-            try:
-                output = await self.run_python(line, context=context)
-            except (
-                CodeExecutionError,
-                JupyterWebSocketError,
-                JupyterWebError,
-            ) as exc:
-                if not context:
-                    context = CodeContext()
-                context.cell_source = "\n".join(source)
-                # Line within cell is one-indexed
-                context.cell_line_number = f"#{idx + 1}"
-                context.cell_line_source = line
-                _annotate_exception_from_context(exc, context)
-                raise
-            if output:
-                current += output
-        return current
 
     def _parse_message(
         self, message: str | bytes, message_id: str

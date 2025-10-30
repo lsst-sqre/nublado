@@ -25,8 +25,6 @@ They are:
   This code will run in the kernel specified by the session (``LSST`` by default).
   This must be done inside a lab session context manager.
 
-- `JupyterLabSession.run_notebook`: Runs each cell of a supplied notebook using `JupyterLabSession.run_python`, accumulating the results and returning them as a list of cell outputs.
-
 - `NubladoClient.run_notebook`: Executes a notebook via the ``/rubin/execution`` endpoint of the  `RSP Jupyter Extensions <https://github.com/lsst-sqre/rsp-jupyter-extensions>`__.
   `Times Square <https://times-square.lsst.io>`__ and `Noteburst <https://noteburst.lsst.io>`__ use this method.
   This API uses `nbconvert <https://nbconvert.readthedocs.io/en/latest/>`__ to execute a notebook and return its rendered form.
@@ -123,28 +121,9 @@ This will display the following:
 Running a notebook
 ------------------
 
-Assume there is a notebook named :file:`notebook.ipynb` in the current directory.
-One way to run that notebook is with `JupyterLabSession.run_notebook`, which will run each cell with `JupyterLabSession.run_python`:
-
-.. code-block:: python
-
-    from rubin.nublado.client import NubladoClient
-
-
-    async def run_notebook(client: NubladoClient) -> list[str]:
-        await ensure_lab(client)
-        await client.auth_to_lab()
-        async with client.open_lab_session() as lab_session:
-            return await lab_session.run_notebook(Path("notebook.ipynb"))
-
-
-    client = NubladoClient(username="some-user", token="some-token")
-    output = asyncio.run(run_notebook(client))
-    for line in output:
-        print(line)
-
-The other way is to use `NubladoClient.run_notebook`, which returns a `NotebookExecutionResult` object.
+To execute an entire notebook at once, use `NubladoClient.run_notebook`, which returns a `NotebookExecutionResult` object.
 Instead of a list of output strings, this returns the full rendered notebook as a JSON string, along with additional resources used to execute the notebook and the error, if any.
+See `NotebookExecutionResult` for the details of the output.
 
 .. code-block:: python
 
