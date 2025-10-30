@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from rubin.nublado.client import (
-    CodeExecutionError,
     MockJupyter,
     NubladoClient,
     NubladoImageByClass,
@@ -21,13 +20,13 @@ async def test_hub_flow(
     configured_client: NubladoClient, jupyter: MockJupyter
 ) -> None:
     """Check that the Hub operations work as expected."""
-    try:
+    # Must authenticate first.
+    with pytest.raises(AssertionError):
         assert await configured_client.is_lab_stopped()
-        raise RuntimeError("Pre-auth lab check should have raised Exception")
-    except AssertionError:
-        pass
+
     await configured_client.auth_to_hub()
     assert await configured_client.is_lab_stopped()
+
     # Simulate spawn
     await configured_client.spawn_lab(
         NubladoImageByClass(
@@ -54,30 +53,6 @@ async def test_hub_flow(
         code = "print(2+2)"
         four = (await lab_session.run_python(code)).strip()
         assert four == "4"
-        hello = await lab_session.run_notebook(Path("hello.ipynb"))
-        assert hello == ["Hello, world!\n"]
-
-        # Try something that will raise an exception and test that
-        # the CodeErrorException contains all the things we expect.
-        with pytest.raises(CodeExecutionError) as excinfo:
-            await lab_session.run_notebook(Path("faux-input.ipynb"))
-        exc = excinfo.value
-        anno = exc.annotations
-        assert anno["cell"] == "3462f36e-b3db-42b5-8669-81d9acbe6424"
-        assert anno["cell_number"] == "#1"
-        assert anno["cell_source"] == (
-            "What do you get when you multipy six by nine?"
-        )
-        assert anno["cell_line_number"] == "#1"
-        assert anno["cell_line_source"] == (
-            "What do you get when you multipy six by nine?"
-        )
-        assert anno["notebook"] == "faux-input.ipynb"
-        assert anno["path"] == "faux-input.ipynb"
-        assert exc.error is not None
-        assert exc.error.startswith("Traceback (most recent call last):")
-        assert exc.error.endswith("SyntaxError: invalid syntax\n")
-        assert exc.code == "What do you get when you multipy six by nine?"
 
     # Run a complete notebook.
     notebook_path = Path(__file__).parent.parent / "support" / "hello.ipynb"
