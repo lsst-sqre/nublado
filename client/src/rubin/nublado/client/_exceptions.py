@@ -46,6 +46,7 @@ __all__ = [
     "NubladoClientSlackException",
     "NubladoClientSlackWebException",
     "NubladoDiscoveryError",
+    "NubladoRedirectError",
 ]
 
 
@@ -317,6 +318,10 @@ class NubladoClientSlackWebException(
 
 class NubladoDiscoveryError(NubladoClientSlackException):
     """Error finding a required service in service discovery."""
+
+
+class NubladoRedirectError(NubladoClientSlackException):
+    """Unexpected redirect outside of the Nublado URL space."""
 
 
 class CodeExecutionError(NubladoClientSlackException):
