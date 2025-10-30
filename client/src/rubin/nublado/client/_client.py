@@ -5,7 +5,6 @@ Allows the caller to login to spawn labs and execute code within the lab.
 
 from __future__ import annotations
 
-import asyncio
 import json
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Coroutine
 from contextlib import AbstractAsyncContextManager, aclosing
@@ -939,23 +938,12 @@ class NubladoClient:
             Next progress message from JupyterHub.
         """
         route = f"hub/api/users/{self.username}/server/progress"
-        while True:
-            stream_manager = await self._client.open_sse_stream(route)
-            async with stream_manager as stream:
-                progress = aiter(JupyterSpawnProgress(stream, self._logger))
-                async with aclosing(progress):
-                    async for message in progress:
-                        yield message
-
-            # Sometimes we get only the initial request message and then the
-            # progress API immediately closes the connection. If that happens,
-            # try reconnecting to the progress stream after a short delay.  I
-            # believe this was a bug in kubespawner, so once we've switched to
-            # the lab controller everywhere, we can probably drop this code.
-            if message.progress > 0:
-                break
-            await asyncio.sleep(1)
-            self._logger.info("Retrying spawn progress request")
+        stream_manager = await self._client.open_sse_stream(route)
+        async with stream_manager as stream:
+            progress = aiter(JupyterSpawnProgress(stream, self._logger))
+            async with aclosing(progress):
+                async for message in progress:
+                    yield message
 
     def _build_jupyter_client(self) -> JupyterAsyncClient:
         """Construct a new HTTP client to talk to Jupyter."""
