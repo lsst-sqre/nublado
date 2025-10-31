@@ -2,25 +2,52 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
 from contextlib import AbstractAsyncContextManager
-from datetime import timedelta
-from typing import Any, Literal
+from datetime import UTC, datetime, timedelta
+from functools import wraps
+from typing import Any, Concatenate, Literal
 from urllib.parse import urljoin, urlparse
 
 import websockets
-from httpx import AsyncClient, Cookies, Response, Timeout
+from httpx import AsyncClient, Cookies, HTTPError, Response, Timeout
 from httpx_sse import EventSource, aconnect_sse
 from rubin.repertoire import DiscoveryClient
 from structlog.stdlib import BoundLogger
 from websockets.asyncio.client import ClientConnection
 
-from ._exceptions import NubladoDiscoveryError, NubladoRedirectError
+from ._exceptions import (
+    JupyterWebError,
+    NubladoDiscoveryError,
+    NubladoRedirectError,
+)
 
 type SecFetchMode = Literal[
     "cors", "navigate", "no-cors", "same-origin", "websocket"
 ]
 
 __all__ = ["JupyterAsyncClient"]
+
+
+def _convert_exception[**P, T](
+    f: Callable[Concatenate[JupyterAsyncClient, P], Coroutine[None, None, T]],
+) -> Callable[Concatenate[JupyterAsyncClient, P], Coroutine[None, None, T]]:
+    """Convert HTTPX exceptions to Nublado exceptions."""
+
+    @wraps(f)
+    async def wrapper(
+        client: JupyterAsyncClient, *args: P.args, **kwargs: P.kwargs
+    ) -> T:
+        start = datetime.now(tz=UTC)
+        try:
+            return await f(client, *args, **kwargs)
+        except HTTPError as e:
+            username = client._username  # noqa: SLF001
+            exc = JupyterWebError.from_exception(e, username)
+            exc.started_at = start
+            raise exc from e
+
+    return wrapper
 
 
 class JupyterAsyncClient:
@@ -96,6 +123,7 @@ class JupyterAsyncClient:
         """
         await self._client.aclose()
 
+    @_convert_exception
     async def delete(
         self, route: str, *, add_referer: bool = False
     ) -> Response:
@@ -126,6 +154,7 @@ class JupyterAsyncClient:
         r.raise_for_status()
         return r
 
+    @_convert_exception
     async def get(
         self,
         route: str,
@@ -167,6 +196,7 @@ class JupyterAsyncClient:
         headers = await self._headers_for(route, fetch_mode=fetch_mode)
         return await self._get(url, headers)
 
+    @_convert_exception
     async def open_sse_stream(
         self, route: str
     ) -> AbstractAsyncContextManager[EventSource]:
@@ -192,6 +222,7 @@ class JupyterAsyncClient:
         headers = await self._headers_for(route, add_referer=True)
         return aconnect_sse(self._client, "GET", url, headers=headers)
 
+    @_convert_exception
     async def open_websocket(
         self,
         route: str,
@@ -231,6 +262,7 @@ class JupyterAsyncClient:
             max_size=max_size,
         )
 
+    @_convert_exception
     async def post(
         self,
         route: str,
@@ -444,9 +476,9 @@ class JupyterAsyncClient:
         r = await self._client.get(url, headers=headers)
         while r.is_redirect:
             self._extract_xsrf(r)
-            next_url = urljoin(url, r.headers["Location"])
-            await self._check_redirect(next_url)
-            r = await self._client.get(next_url, headers=headers)
+            url = urljoin(url, r.headers["Location"])
+            await self._check_redirect(url)
+            r = await self._client.get(url, headers=headers)
         r.raise_for_status()
         self._extract_xsrf(r)
         return r
