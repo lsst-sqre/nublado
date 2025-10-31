@@ -45,6 +45,7 @@ __all__ = [
     "JupyterWebSocketError",
     "NubladoClientSlackException",
     "NubladoClientSlackWebException",
+    "NubladoDiscoveryError",
 ]
 
 
@@ -312,6 +313,10 @@ class NubladoClientSlackWebException(
         if self.url:
             info.tags["httpx_request_url"] = _sanitize_url(self.url)
         return info
+
+
+class NubladoDiscoveryError(NubladoClientSlackException):
+    """Error finding a required service in service discovery."""
 
 
 class CodeExecutionError(NubladoClientSlackException):

@@ -1,8 +1,22 @@
 .. py:currentmodule:: rubin.nublado.client
 
-########################
-Interacting with the lab
-########################
+################
+Using the client
+################
+
+A typical interaction with the client usually looks like this:
+
+#. Authenticate to the Hub with `NubladoClient.auth_to_hub` method.
+#. Determine whether you already have a running lab with `NubladoClient.is_lab_stopped`.
+#. If you need to, spawn a lab with `NubladoClient.spawn_lab`.
+#. Wait for the lab to spawn by looping through `NubladoClient.watch_spawn_progress` until you get a progress message indicating the lab is ready.
+#. Authenticate to the Lab with `NubladoClient.auth_to_lab`.
+#. Create a lab session with `NubladoClient.open_lab_session`.
+#. Do whatever it is you wanted to do with the lab (see :doc:`lab`).
+#. When done, use `NubladoClient.stop_lab` to shut down the lab, if desired.
+
+Running code in JupyterLab
+==========================
 
 `NubladoClient` provides three methods of interacting with a spawned lab.
 These are methods on the `JupyterLabSession` object you will have available inside the session context manager.
@@ -51,17 +65,13 @@ This does not run any code within the lab:
             )
             await client.spawn_lab(image)
             async with asyncio.timeout(90):
-                async with aclosing(client.watch_spawn_progress()):
+                async with aclosing(client.watch_spawn_progress()) as progress:
                     async for message in progress:
                         if message.ready:
                             break
 
 
-    client = NubladoClient(
-        username="some-user",
-        token="some-token",
-        base_url="https://data.example.org",
-    )
+    client = NubladoClient(username="some-user", token="some-token")
     asyncio.run(ensure_lab(client))
 
 Execute code inside the lab
@@ -100,11 +110,7 @@ Using the above method, run FizzBuzz for ``n`` from 1 to 15:
         return output
 
 
-    client = NubladoClient(
-        username="some-user",
-        token="some-token",
-        base_url="https://data.example.org",
-    )
+    client = NubladoClient(username="some-user", token="some-token")
     output = asyncio.run(run_fizzbuzz(client=client))
     print(output)
 
@@ -132,11 +138,7 @@ One way to run that notebook is with `JupyterLabSession.run_notebook`, which wil
             return await lab_session.run_notebook(Path("notebook.ipynb"))
 
 
-    client = NubladoClient(
-        username="some-user",
-        token="some-token",
-        base_url="https://data.example.org",
-    )
+    client = NubladoClient(username="some-user", token="some-token")
     output = asyncio.run(run_notebook(client))
     for line in output:
         print(line)
@@ -158,11 +160,7 @@ Instead of a list of output strings, this returns the full rendered notebook as 
             )
 
 
-    client = NubladoClient(
-        username="some-user",
-        token="some-token",
-        base_url="https://data.example.org",
-    )
+    client = NubladoClient(username="some-user", token="some-token")
     result = asyncio.run(run_notebook(client))
     cells = json.loads(result.notebook)["cells"]
     for cell in cells:

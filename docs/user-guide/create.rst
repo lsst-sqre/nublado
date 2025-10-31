@@ -1,8 +1,8 @@
 .. py:currentmodule:: rubin.nublado.client
 
-#####################
-Client usage overview
-#####################
+#########################
+Creating a Nublado client
+#########################
 
 The primary class for the Nublado client is `NubladoClient`.
 A particular instance of that class represents a single user with an authentication token for a particular RSP environment.
@@ -27,16 +27,28 @@ The three most common ways to obtain those are:
 
 The application should request ``exec:notebook`` scope, along with any other scopes it may need for any Python code it wants to execute in a notebook.
 
-Sequence of events
-==================
+Overriding service discovery
+============================
 
-A typical interaction with the client usually looks like this:
+`NubladoClient` uses service discovery via Repertoire_ to find the base URL for Nublado.
+When it is used inside a context where service discovery is already configured, such as within a Phalanx_ application, no special attention is required.
+Service discovery will be used transparently inside `NubladoClient`.
 
-#. Authenticate to the Hub with `NubladoClient.auth_to_hub` method.
-#. Determine whether you already have a running lab with `NubladoClient.is_lab_stopped`.
-#. If you need to, spawn a lab with `NubladoClient.spawn_lab`.
-#. Wait for the lab to spawn by looping through `NubladoClient.watch_spawn_progress` until you get a progress message indicating the lab is ready.
-#. Authenticate to the Lab with `NubladoClient.auth_to_lab`.
-#. Create a lab session with `NubladoClient.open_lab_session`.
-#. Do whatever it is you wanted to do with the lab (see :doc:`lab`).
-#. When done, use `NubladoClient.stop_lab` to shut down the lab, if desired.
+In service test suites, you will need to mock service discovery results.
+See the `Repertoire documentation <https://repertoire.lsst.io/user-guide/testing.html>`__ for more details on how to do so.
+Nublado asks for the URL of the UI service ``nublado``, so the following mock service discovery information will generally be sufficient:
+
+.. code-block:: json
+
+   {
+     "services": {
+       "ui": {
+         "nublado": {
+           "url": "https://nb.data.example.org/nb"
+         }
+       }
+     }
+   }
+
+If you already have a service discovery client, you can pass this in as the ``discovery_client`` argument to `NubladoClient` to reuse the existing client.
+This may be useful if you needed to override the base URL of Repertoire, such as when using the client outside of Phalanx.
