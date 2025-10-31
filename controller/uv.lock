@@ -550,7 +550,7 @@ wheels = [
 
 [[package]]
 name = "fastapi"
-version = "0.120.2"
+version = "0.120.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-doc" },
@@ -558,9 +558,9 @@ dependencies = [
     { name = "starlette" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a0/fb/79e556bc8f9d360e5cc2fa7364a7ad6bda6f1736938b43a2791fa8baee7b/fastapi-0.120.2.tar.gz", hash = "sha256:4c5ab43e2a90335bbd8326d1b659eac0f3dbcc015e2af573c4f5de406232c4ac", size = 338684, upload-time = "2025-10-29T13:47:35.802Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/85/c6/f324c07f5ebe34237b56b6396a94568d2d4a705df8a2ff82fa45029e7252/fastapi-0.120.3.tar.gz", hash = "sha256:17db50718ee86c9e01e54f9d8600abf130f6f762711cd0d8f02eb392668271ba", size = 339363, upload-time = "2025-10-30T20:41:33.072Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/81/cc/1c33d05f62c9349bb80dfe789cc9a7409bdfb337a63fa347fd651d25294a/fastapi-0.120.2-py3-none-any.whl", hash = "sha256:bedcf2c14240e43d56cb9a339b32bcf15104fe6b5897c0222603cb7ec416c8eb", size = 108383, upload-time = "2025-10-29T13:47:32.978Z" },
+    { url = "https://files.pythonhosted.org/packages/37/3a/1eef3ab55ede5af09186723898545a94d0a32b7ac9ea4e7af7bcb95f132a/fastapi-0.120.3-py3-none-any.whl", hash = "sha256:bfee21c98db9128dc425a686eafd14899e26e4471aab33076bff2427fd6dcd22", size = 108255, upload-time = "2025-10-30T20:41:31.247Z" },
 ]
 
 [[package]]
@@ -716,16 +716,16 @@ grpc = [
 
 [[package]]
 name = "google-auth"
-version = "2.42.0"
+version = "2.42.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
     { name = "pyasn1-modules" },
     { name = "rsa" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/11/75/28881e9d7de9b3d61939bc9624bd8fa594eb787a00567aba87173c790f09/google_auth-2.42.0.tar.gz", hash = "sha256:9bbbeef3442586effb124d1ca032cfb8fb7acd8754ab79b55facd2b8f3ab2802", size = 295400, upload-time = "2025-10-28T17:38:08.599Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/25/6b/22a77135757c3a7854c9f008ffed6bf4e8851616d77faf13147e9ab5aae6/google_auth-2.42.1.tar.gz", hash = "sha256:30178b7a21aa50bffbdc1ffcb34ff770a2f65c712170ecd5446c4bef4dc2b94e", size = 295541, upload-time = "2025-10-30T16:42:19.381Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/87/24/ec82aee6ba1a076288818fe5cc5125f4d93fffdc68bb7b381c68286c8aaa/google_auth-2.42.0-py2.py3-none-any.whl", hash = "sha256:f8f944bcb9723339b0ef58a73840f3c61bc91b69bf7368464906120b55804473", size = 222550, upload-time = "2025-10-28T17:38:05.496Z" },
+    { url = "https://files.pythonhosted.org/packages/92/05/adeb6c495aec4f9d93f9e2fc29eeef6e14d452bba11d15bdb874ce1d5b10/google_auth-2.42.1-py2.py3-none-any.whl", hash = "sha256:eb73d71c91fc95dbd221a2eb87477c278a355e7367a35c0d84e6b0e5f9b4ad11", size = 222550, upload-time = "2025-10-30T16:42:17.878Z" },
 ]
 
 [[package]]
@@ -1671,7 +1671,7 @@ wheels = [
 
 [[package]]
 name = "safir"
-version = "14.0.0"
+version = "14.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1687,9 +1687,9 @@ dependencies = [
     { name = "starlette" },
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/51/f1/498de1e836f2c4259385d4d74b433472db6c66a82f23834b1509de1a0eae/safir-14.0.0.tar.gz", hash = "sha256:10b607052e5ebd1fecb14a8bc3186d8889b4de3a5a6ddfda1a40c9c0337602a8", size = 497503, upload-time = "2025-09-30T16:31:14.351Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/dc/de0c9669c36910abd4d274eb457147b209ce91d632752d3a88ce0dff49c1/safir-14.1.0.tar.gz", hash = "sha256:c51a7b01954c8a8e2ee818b9c0e3981706f026906c6596d40d4efc1f08fc31b7", size = 529200, upload-time = "2025-10-30T17:53:39.828Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4e/2b/ed6740827746a7d236e5d5e12fa3dd86a2b7def747dc9532c727f5377887/safir-14.0.0-py3-none-any.whl", hash = "sha256:f943f9ed8ee4b53c5313065e05b2a36d0d02588c8d67db75badeba0f89249d7c", size = 176495, upload-time = "2025-09-30T16:31:12.882Z" },
+    { url = "https://files.pythonhosted.org/packages/1b/bc/730123e8cb064052df4b0c231fdff57c18ce20756bc57fdf157ba32cd624/safir-14.1.0-py3-none-any.whl", hash = "sha256:9599ddf78b6b20e9fd4a503ce520cf4d743f70d18de2c8b555bf1f95145ea76d", size = 177514, upload-time = "2025-10-30T17:53:38.715Z" },
 ]
 
 [package.optional-dependencies]
@@ -1705,14 +1705,14 @@ kubernetes = [
 
 [[package]]
 name = "safir-logging"
-version = "14.0.0"
+version = "14.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ec/38/164f5bfa54b65c9ccf419d297d91e30a2bad55f54c3da4249a54855edae4/safir_logging-14.0.0.tar.gz", hash = "sha256:58543bca169733a88d31883232737783f1a8d94ff8797da362af6d10639126b2", size = 8423, upload-time = "2025-09-30T16:31:17.637Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/fe/92d6d5a0124026715149d05147912ff28549ac75039cca680cf484e78dab/safir_logging-14.1.0.tar.gz", hash = "sha256:bfb5b87469627c64d3d85c55f222eaf58aefb513e3f5e7b9964d4f494d3b64ab", size = 8418, upload-time = "2025-10-30T17:53:42.859Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/3f/53beccfb5b0de93b8390d8bd9b4cb5d6d49399ce4f794c3f27f0c5af85cb/safir_logging-14.0.0-py3-none-any.whl", hash = "sha256:850164d2ad84f840a9007d084b3655184eb8cbc12bd25586aa6a522297665ae3", size = 10463, upload-time = "2025-09-30T16:31:16.535Z" },
+    { url = "https://files.pythonhosted.org/packages/a7/68/e8a1cbef5fcd0e0bb65f1d5992f51f79139380367eb8eca304f93febaed1/safir_logging-14.1.0-py3-none-any.whl", hash = "sha256:35e89641f012c083a5df0d83aa5508342c5fc76f3476dfe34878fe7af4b3bf32", size = 10469, upload-time = "2025-10-30T17:53:42.066Z" },
 ]
 
 [[package]]
@@ -1757,14 +1757,14 @@ wheels = [
 
 [[package]]
 name = "sse-starlette"
-version = "3.0.2"
+version = "3.0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/42/6f/22ed6e33f8a9e76ca0a412405f31abb844b779d52c5f96660766edcd737c/sse_starlette-3.0.2.tar.gz", hash = "sha256:ccd60b5765ebb3584d0de2d7a6e4f745672581de4f5005ab31c3a25d10b52b3a", size = 20985, upload-time = "2025-07-27T09:07:44.565Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/db/3c/fa6517610dc641262b77cc7bf994ecd17465812c1b0585fe33e11be758ab/sse_starlette-3.0.3.tar.gz", hash = "sha256:88cfb08747e16200ea990c8ca876b03910a23b547ab3bd764c0d8eb81019b971", size = 21943, upload-time = "2025-10-30T18:44:20.117Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ef/10/c78f463b4ef22eef8491f218f692be838282cd65480f6e423d7730dfd1fb/sse_starlette-3.0.2-py3-none-any.whl", hash = "sha256:16b7cbfddbcd4eaca11f7b586f3b8a080f1afe952c15813455b162edea619e5a", size = 11297, upload-time = "2025-07-27T09:07:43.268Z" },
+    { url = "https://files.pythonhosted.org/packages/23/a0/984525d19ca5c8a6c33911a0c164b11490dd0f90ff7fd689f704f84e9a11/sse_starlette-3.0.3-py3-none-any.whl", hash = "sha256:af5bf5a6f3933df1d9c7f8539633dc8444ca6a97ab2e2a7cd3b6e431ac03a431", size = 11765, upload-time = "2025-10-30T18:44:18.834Z" },
 ]
 
 [[package]]
