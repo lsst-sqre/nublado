@@ -6,7 +6,6 @@ import datetime
 import re
 from typing import Self, override
 
-import httpx
 from safir.datetime import format_datetime_for_logging
 from safir.slack.blockkit import (
     SlackBaseBlock,
@@ -20,6 +19,8 @@ from safir.slack.blockkit import (
 )
 from safir.slack.sentry import SentryEventInfo
 from websockets.exceptions import InvalidStatus, WebSocketException
+
+from ._models import CodeContext
 
 _ANSI_REGEX = re.compile(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]")
 """Regex that matches ANSI escape sequences."""
@@ -36,16 +37,14 @@ _OAUTH_STATE_REGEX = re.compile(r"(?im:response_type%3Dcode%26state%3D(.*))")
 but we don't really care."""
 
 __all__ = [
-    "CodeExecutionError",
-    "JupyterProtocolError",
-    "JupyterSpawnError",
-    "JupyterTimeoutError",
-    "JupyterWebError",
-    "JupyterWebSocketError",
-    "NubladoClientSlackException",
-    "NubladoClientSlackWebException",
     "NubladoDiscoveryError",
+    "NubladoError",
+    "NubladoExecutionError",
+    "NubladoProtocolError",
     "NubladoRedirectError",
+    "NubladoTimeoutError",
+    "NubladoWebError",
+    "NubladoWebSocketError",
 ]
 
 
@@ -92,8 +91,8 @@ def _sanitize_url(url: str | None) -> str:
     return re.sub(url_match.group(1), "<redacted>", url)
 
 
-class NubladoClientSlackException(SlackException):
-    """Represents an exception that can be reported to Slack or Sentry.
+class NubladoError(SlackException):
+    """A Nublado client error.
 
     This adds some additional fields to `~safir.slack.blockkit.SlackException`
     but is otherwise equivalent. It is intended to be subclassed. Subclasses
@@ -101,34 +100,69 @@ class NubladoClientSlackException(SlackException):
 
     Parameters
     ----------
-    msg
+    message
         Exception message.
     user
-        User mobu was operating as when the exception happened.
-    started_at
-        When the operation started.
+        User Nublado client was acting on behalf of.
+    context
+        The code context for this operation, if any.
     failed_at
-        When the operation failed (defaults to the current time).
+        When the operation failed. Omit to use the current time.
+    started_at
+        When the operation that failed began.
 
     Attributes
     ----------
+    context
+        The code context for this operation, if any.
+    failed_at
+        When the operation failed.
     started_at
         When the operation that ended in an exception started.
-    annotations
-        Additional annotations.
+    user
+        User Nublado client was acting on behalf of.
     """
 
     def __init__(
         self,
-        msg: str,
+        message: str,
         user: str | None = None,
         *,
-        started_at: datetime.datetime | None = None,
+        context: CodeContext | None = None,
         failed_at: datetime.datetime | None = None,
+        started_at: datetime.datetime | None = None,
     ) -> None:
-        super().__init__(msg, user, failed_at=failed_at)
+        super().__init__(message, user, failed_at=failed_at)
         self.started_at = started_at
-        self.annotations: dict[str, str] = {}
+        self.context = context if context else CodeContext()
+
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        """Return an object with tags and contexts to add to Sentry events.
+
+        Returns
+        -------
+        `~safir.slack.blockkit.SentryEventInfo`
+            Annotated Sentry object.
+        """
+        info = super().to_sentry()
+        if image := self.context.image:
+            info.tags["image"] = image
+        if self.context.node:
+            info.tags["node"] = self.context.node
+        if self.context.notebook:
+            info.tags["notebook"] = self.context.notebook
+        if self.context.cell:
+            info.tags["cell"] = self.context.cell
+        if self.context.cell_number:
+            info.tags["cell_number"] = self.context.cell_number
+
+        if self.started_at:
+            context = info.contexts.setdefault("info", {})
+            started_at = format_datetime_for_logging(self.started_at)
+            context["started_at"] = started_at
+
+        return info
 
     @override
     def to_slack(self) -> SlackMessage:
@@ -141,11 +175,11 @@ class NubladoClientSlackException(SlackException):
         """
         return SlackMessage(
             message=self.message,
-            blocks=self.common_blocks(),
-            fields=self.common_fields(),
+            blocks=self._build_slack_blocks(),
+            fields=self._build_slack_fields(),
         )
 
-    def common_blocks(self) -> list[SlackBaseBlock]:
+    def _build_slack_blocks(self) -> list[SlackBaseBlock]:
         """Return common blocks to put in any alert.
 
         Returns
@@ -154,28 +188,25 @@ class NubladoClientSlackException(SlackException):
             Common blocks to add to the Slack message.
         """
         blocks: list[SlackBaseBlock] = []
-        if self.annotations.get("node"):
-            node = self.annotations["node"]
+        if node := self.context.node:
             blocks.append(SlackTextBlock(heading="Node", text=node))
-        if self.annotations.get("notebook"):
-            notebook = self.annotations["notebook"]
-            if self.annotations.get("cell"):
-                cell = self.annotations["cell"]
-                text = f"`{notebook}` cell `{cell}`"
-                if self.annotations.get("cell_number"):
-                    text += f" ({self.annotations['cell_number']})"
+        if notebook := self.context.notebook:
+            if self.context.cell:
+                text = f"`{notebook}` cell `{self.context.cell}`"
+                if self.context.cell_number:
+                    text += f" ({self.context.cell_number})"
                 blocks.append(SlackTextBlock(heading="Cell", text=text))
             else:
                 block = SlackTextBlock(heading="Notebook", text=notebook)
                 blocks.append(block)
-        elif self.annotations.get("cell"):
-            text = self.annotations["cell"]
-            if self.annotations.get("cell_number"):
-                text += " ({self.annotations['cell_number']})"
+        elif self.context.cell:
+            text = self.context.cell
+            if self.context.cell_number:
+                text += " ({self.context.cell_number})"
             blocks.append(SlackTextBlock(heading="Cell", text=text))
         return blocks
 
-    def common_fields(self) -> list[SlackBaseField]:
+    def _build_slack_fields(self) -> list[SlackBaseField]:
         """Return common fields to put in any alert.
 
         Returns
@@ -194,164 +225,79 @@ class NubladoClientSlackException(SlackException):
             fields.insert(0, field)
         if self.user:
             fields.append(SlackTextField(heading="User", text=self.user))
-        if self.annotations.get("image"):
-            image = self.annotations["image"]
+        if image := self.context.image:
             fields.append(SlackTextField(heading="Image", text=image))
         return fields
 
-    @override
-    def to_sentry(self) -> SentryEventInfo:
-        """Return an object with tags and contexts to add to Sentry events.
 
-        Returns
-        -------
-        `~safir.slack.blockkit.SentryEventInfo`
-            Annotated Sentry object.
-        """
-        info = super().to_sentry()
-
-        if node := self.annotations.get("node"):
-            info.tags["node"] = node
-        if notebook := self.annotations.get("notebook"):
-            info.tags["notebook"] = notebook
-        if cell := self.annotations.get("cell"):
-            info.tags["cell"] = cell
-        if cell_number := self.annotations.get("cell_number"):
-            info.tags["cell_number"] = cell_number
-        if self.started_at:
-            context = info.contexts.setdefault("info", {})
-            context["started_at"] = format_datetime_for_logging(
-                self.started_at
-            )
-        if image := self.annotations.get("image"):
-            info.tags["image"] = image
-        return info
+class NubladoDiscoveryError(NubladoError):
+    """Error finding a required service in service discovery."""
 
 
-class NubladoClientSlackWebException(
-    SlackWebException, NubladoClientSlackException
-):
-    """Represents an exception that can be reported to Slack.
+class NubladoExecutionError(NubladoError):
+    """Error generated by code execution in a notebook on JupyterLab.
 
-    Similar to `NubladoClientSlackException`, this adds some additional fields
-    to `~safir.slack.blockkit.SlackWebException` but is otherwise equivalent.
-    It is intended to be subclassed. Subclasses may want to override the
-    `to_slack` method.
+    Parameters
+    ----------
+    user
+        User mobu was operating as when the exception happened.
+    code
+        Python code that failed execution.
+    context
+        The code context for this operation, if any.
+    error
+        Error result from the code execution (usually a traceback).
+    failed_at
+        When the operation failed. Omit to use the current time.
+    status
+        JupyterLab execution status from the WebSocket message.
+    started_at
+        When the operation that failed began.
+
+    Attributes
+    ----------
+    context
+        The code context for this operation, if any.
+    code
+        Python code that failed execution.
+    error
+        Error result from the code execution (usually a traceback).
+    failed_at
+        When the operation failed.
+    started_at
+        When the operation that ended in an exception started.
+    status
+        JupyterLab execution status from the WebSocket message.
+    user
+        User Nublado client was acting on behalf of.
     """
 
     def __init__(
         self,
-        message: str,
-        *,
-        failed_at: datetime.datetime | None = None,
-        started_at: datetime.datetime | None = None,
-        method: str | None = None,
-        url: str | None = None,
-        user: str | None = None,
-        status: int | None = None,
-        body: str | None = None,
-    ) -> None:
-        super().__init__(
-            message,
-            user=user,
-            failed_at=failed_at,
-            method=method,
-            url=_sanitize_url(url) if url else None,
-            status=status,
-            body=_sanitize_body(body) if body else None,
-        )
-        self.started_at = started_at
-
-    @override
-    def to_slack(self) -> SlackMessage:
-        """Format the error as a Slack Block Kit message.
-
-        Returns
-        -------
-        `~safir.slack.blockkit.SlackMessage`
-            Formatted Slack message.
-        """
-        msg = SlackMessage(
-            message=_sanitize_body(_sanitize_url(self.message)),
-            blocks=self.common_blocks(),
-            fields=self.common_fields(),
-        )
-        if self.body:
-            block = SlackCodeBlock(
-                heading="Body", code=_sanitize_body(self.body)
-            )
-            msg.attachments.append(block)
-        return msg
-
-    @override
-    def common_blocks(self) -> list[SlackBaseBlock]:
-        blocks = NubladoClientSlackException.common_blocks(self)
-        url = _sanitize_url(self.url)
-        if self.url:
-            text = f"{self.method} {url}" if self.method else url
-            blocks.append(SlackTextBlock(heading="URL", text=text))
-        return blocks
-
-    @override
-    def to_sentry(self) -> SentryEventInfo:
-        """Return an object with tags and contexts to add to Sentry events.
-
-        Returns
-        -------
-        `~safir.slack.blockkit.SentryEventInfo`
-            Annotated Sentry object.
-        """
-        info = super(NubladoClientSlackException, self).to_sentry()
-        web_info = super(SlackWebException, self).to_sentry()
-
-        info.tags.update(web_info.tags)
-        info.contexts.update(web_info.contexts)
-        info.attachments.update(web_info.attachments)
-
-        if self.body:
-            info.attachments["httpx_response_body"] = _sanitize_body(self.body)
-        if self.url:
-            info.tags["httpx_request_url"] = _sanitize_url(self.url)
-        return info
-
-
-class NubladoDiscoveryError(NubladoClientSlackException):
-    """Error finding a required service in service discovery."""
-
-
-class NubladoRedirectError(NubladoClientSlackException):
-    """Unexpected redirect outside of the Nublado URL space."""
-
-
-class CodeExecutionError(NubladoClientSlackException):
-    """Error generated by code execution in a notebook on JupyterLab."""
-
-    def __init__(
-        self,
-        *,
         user: str,
+        *,
         code: str | None = None,
-        code_type: str = "code",
+        context: CodeContext | None = None,
         error: str | None = None,
+        failed_at: datetime.datetime | None = None,
         status: str | None = None,
         started_at: datetime.datetime | None = None,
-        failed_at: datetime.datetime | None = None,
     ) -> None:
-        super().__init__("Code execution failed", user)
+        super().__init__(
+            "Code execution failed",
+            user,
+            started_at=started_at,
+            failed_at=failed_at,
+            context=context,
+        )
         self.code = code
-        self.code_type = code_type
         self.error = error
         self.status = status
-        self.started_at = started_at
-        if failed_at:
-            self.failed_at = failed_at
 
     @override
     def __str__(self) -> str:
-        if self.annotations.get("notebook"):
-            notebook = self.annotations["notebook"]
-            if self.annotations.get("cell"):
-                cell = self.annotations["cell"]
+        if notebook := self.context.notebook:
+            if cell := self.context.cell:
                 msg = f"{self.user}: cell {cell} of notebook {notebook} failed"
             else:
                 msg = f"{self.user}: cell of notebook {notebook} failed"
@@ -360,43 +306,12 @@ class CodeExecutionError(NubladoClientSlackException):
             if self.code:
                 msg += f"\nCode: {self.code}"
         elif self.code:
-            msg = f"{self.user}: running {self.code_type} '{self.code}' failed"
+            msg = f"{self.user}: running code '{self.code}' failed"
         else:
-            msg = f"{self.user}: running {self.code_type} failed"
+            msg = f"{self.user}: running code failed"
         if self.error:
             msg += f"\nError: {_remove_ansi_escapes(self.error)}"
         return msg
-
-    @override
-    def to_slack(self) -> SlackMessage:
-        if self.annotations.get("notebook"):
-            notebook = self.annotations["notebook"]
-            intro = f"Error while running `{notebook}`"
-            if self.annotations.get("cell"):
-                cell = self.annotations["cell"]
-                intro += f" cell `{cell}`"
-        else:
-            intro = f"Error while running {self.code_type}"
-        if self.status:
-            intro += f" (status: {self.status})"
-
-        attachments: list[SlackBaseBlock] = []
-        if self.error:
-            error = _remove_ansi_escapes(self.error)
-            attachment = SlackCodeBlock(heading="Error", code=error)
-            attachments.append(attachment)
-        if self.code:
-            attachment = SlackCodeBlock(
-                heading="Code executed", code=self.code
-            )
-            attachments.append(attachment)
-
-        return SlackMessage(
-            message=intro,
-            fields=self.common_fields(),
-            blocks=self.common_blocks(),
-            attachments=attachments,
-        )
 
     @override
     def to_sentry(self) -> SentryEventInfo:
@@ -410,179 +325,204 @@ class CodeExecutionError(NubladoClientSlackException):
             info.attachments["nublado_code"] = self.code
         return info
 
+    @override
+    def to_slack(self) -> SlackMessage:
+        message = super().to_slack()
+        if self.context.notebook:
+            intro = f"Error while running `{self.context.notebook}`"
+            if self.context.cell:
+                intro += f" cell `{self.context.cell}`"
+        else:
+            intro = "Error while running code"
+        if self.status:
+            intro += f" (status: {self.status})"
+        message.message = intro
 
-class JupyterProtocolError(NubladoClientSlackException):
+        if self.error:
+            error = _remove_ansi_escapes(self.error)
+            attachment = SlackCodeBlock(heading="Error", code=error)
+            message.attachments.append(attachment)
+        if code := self.code:
+            attachment = SlackCodeBlock(heading="Code executed", code=code)
+            message.attachments.append(attachment)
+
+        return message
+
+
+class NubladoProtocolError(NubladoError):
     """Unexpected response from JupyterHub or JupyterLab."""
 
 
-class JupyterSpawnError(NubladoClientSlackException):
-    """The Jupyter Lab pod failed to spawn."""
-
-    @classmethod
-    def from_exception(
-        cls,
-        log: str,
-        exc: Exception,
-        user: str,
-        started_at: datetime.datetime | None = None,
-        failed_at: datetime.datetime | None = None,
-    ) -> Self:
-        """Convert from an arbitrary exception to a spawn error.
-
-        Parameters
-        ----------
-        log
-            Log of the spawn to this point.
-        exc
-            Exception that terminated the spawn attempt.
-        user
-            Username of the user spawning the lab.
-        started_at
-            When the operation started.
-        failed_at
-            When the operation failed (defaults to the current time).
-
-        Returns
-        -------
-        JupyterSpawnError
-            Converted exception.
-        """
-        if str(exc):
-            return cls(
-                log,
-                user,
-                f"{type(exc).__name__}: {exc!s}",
-                started_at=started_at,
-                failed_at=failed_at,
-            )
-        else:
-            return cls(
-                log,
-                user,
-                type(exc).__name__,
-                started_at=started_at,
-                failed_at=failed_at,
-            )
-
-    def __init__(
-        self,
-        log: str,
-        user: str,
-        message: str | None = None,
-        started_at: datetime.datetime | None = None,
-        failed_at: datetime.datetime | None = None,
-    ) -> None:
-        if message:
-            message = f"Spawning lab failed: {message}"
-        else:
-            message = "Spawning lab failed"
-        super().__init__(
-            message, user, started_at=started_at, failed_at=failed_at
-        )
-        self.log = log
-
-    @override
-    def to_slack(self) -> SlackMessage:
-        message = super().to_slack()
-        if self.log:
-            block = SlackTextBlock(heading="Log", text=self.log)
-            message.blocks.append(block)
-        return message
-
-    @override
-    def to_sentry(self) -> SentryEventInfo:
-        info = super().to_sentry()
-        if self.log:
-            info.attachments["nublado_log"] = self.log
-        return info
+class NubladoRedirectError(NubladoError):
+    """Unexpected redirect outside of the Nublado URL space."""
 
 
-class JupyterTimeoutError(NubladoClientSlackException):
-    """Timed out waiting for the lab to spawn."""
+class NubladoTimeoutError(NubladoError):
+    """Timed out opening or waiting for WebSocket messages."""
+
+
+class NubladoWebError(SlackWebException, NubladoError):
+    """Represents an exception that can be reported to Slack.
+
+    Similar to `NubladoError`, this adds some additional fields to
+    `~safir.slack.blockkit.SlackWebException` but is otherwise equivalent. It
+    is intended to be subclassed. Subclasses may want to override the
+    `to_slack` and `to_sentry` methods.
+
+    Parameters
+    ----------
+    message
+        Exception string value, which is the default Slack message.
+    user
+        Username on whose behalf the request is being made.
+    body
+        Body of failure message, if any.
+    context
+        The code context for this operation, if any.
+    failed_at
+        When the exception happened. Omit to use the current time.
+    method
+        Method of request.
+    started_at
+        When the operation that failed began.
+    status
+        Status code of failure, if any.
+    url
+        URL of the request.
+
+    Attributes
+    ----------
+    message
+        Exception string value, which is the default Slack message.
+    body
+        Body of failure message, if any.
+    context
+        The code context for this operation, if any.
+    failed_at
+        When the exception happened. Omit to use the current time.
+    method
+        Method of request.
+    started_at
+        When the operation that failed began.
+    status
+        Status code of failure, if any.
+    url
+        URL of the request.
+    user
+        Username on whose behalf the request is being made.
+    """
 
     def __init__(
         self,
-        msg: str,
-        user: str,
-        log: str | None = None,
-        *,
-        started_at: datetime.datetime | None = None,
-        failed_at: datetime.datetime | None = None,
-    ) -> None:
-        super().__init__(msg, user, started_at=started_at, failed_at=failed_at)
-        self.log = log
-
-    @override
-    def to_slack(self) -> SlackMessage:
-        """Format the error as a Slack Block Kit message."""
-        message = super().to_slack()
-        if self.log:
-            message.blocks.append(SlackTextBlock(heading="Log", text=self.log))
-        return message
-
-    @override
-    def to_sentry(self) -> SentryEventInfo:
-        """Format the error as a SentryEventInfo."""
-        info = super().to_sentry()
-        if self.log:
-            info.attachments["nublado_log"] = self.log
-        return info
-
-
-class JupyterWebError(NubladoClientSlackWebException):
-    """An error occurred when talking to JupyterHub or a Jupyter lab."""
-
-    @classmethod
-    def raise_from_exception_with_timestamps(
-        cls,
-        exc: httpx.HTTPError,
+        message: str,
         user: str | None = None,
-        annotations: dict[str, str] | None = None,
-        started_at: datetime.datetime | None = None,
+        *,
+        body: str | None = None,
+        context: CodeContext | None = None,
         failed_at: datetime.datetime | None = None,
-    ) -> Self:
-        """Create an exception from an HTTPX_ exception and an optional
-        start time.
+        method: str | None = None,
+        started_at: datetime.datetime | None = None,
+        status: int | None = None,
+        url: str | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            user=user,
+            failed_at=failed_at,
+            method=method,
+            url=_sanitize_url(url) if url else None,
+            status=status,
+            body=_sanitize_body(body) if body else None,
+        )
+        self.started_at = started_at
+        self.context = context if context else CodeContext()
 
-        Parameters
-        ----------
-        exc
-            Exception from HTTPX.
-        user
-            User on whose behalf the request is being made, if known.
-        annotations
-            Additional annotations for the exception.
-        started_at
-            When the operation started.
-        failed_at
-            When the operation failed (defaults to the current time).
+    @override
+    def to_slack(self) -> SlackMessage:
+        """Return an object with tags and contexts to add to Sentry events.
 
         Returns
         -------
-        JupyterWebError
+        `~safir.slack.blockkit.SentryEventInfo`
+            Annotated Sentry object.
         """
-        new = cls.from_exception(exc, user=user)
-        if started_at:
-            new.started_at = started_at
-        if failed_at:
-            new.failed_at = failed_at
-        if annotations:
-            new.annotations.update(annotations)
-        return new
+        message = NubladoError.to_slack(self)
+        message.message = _sanitize_url(message.message)
+        if self.url:
+            url = _sanitize_url(self.url)
+            text = f"{self.method} {url}" if self.method else url
+            message.blocks.append(SlackTextBlock(heading="URL", text=text))
+        if self.body:
+            body = _sanitize_body(self.body)
+            block = SlackCodeBlock(heading="Response", code=body)
+            message.attachments.append(block)
+        return message
+
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        """Format the error as a Slack Block Kit message.
+
+        Returns
+        -------
+        `~safir.slack.blockkit.SlackMessage`
+            Formatted Slack message.
+        """
+        info = super(NubladoError, self).to_sentry()
+        web_info = super(SlackWebException, self).to_sentry()
+
+        info.tags.update(web_info.tags)
+        info.contexts.update(web_info.contexts)
+        info.attachments.update(web_info.attachments)
+
+        # Replace the body and URL with sanitized versions.
+        if self.body:
+            info.attachments["httpx_response_body"] = _sanitize_body(self.body)
+        if self.url:
+            info.tags["httpx_request_url"] = _sanitize_url(self.url)
+
+        return info
 
 
-class JupyterWebSocketError(NubladoClientSlackException):
-    """An error occurred talking to the Jupyter lab WebSocket."""
+class NubladoWebSocketError(NubladoError):
+    """An error occurred talking to the Jupyter lab WebSocket.
+
+    Parameters
+    ----------
+    message
+        Exception string value, which is the default Slack message.
+    user
+        Username on whose behalf the request is being made.
+    body
+        Body of failure message, if any.
+    code
+        WebSocket status code of failure, if any.
+    context
+        The code context for this operation, if any.
+    failed_at
+        When the exception happened. Omit to use the current time.
+    started_at
+        When the operation that failed began.
+
+    Attributes
+    ----------
+    message
+        Exception string value, which is the default Slack message.
+    user
+        Username on whose behalf the request is being made.
+    body
+        Body of failure message, if any.
+    code
+        WebSocket status code of failure, if any.
+    context
+        The code context for this operation, if any.
+    failed_at
+        When the exception happened. Omit to use the current time.
+    started_at
+        When the operation that failed began.
+    """
 
     @classmethod
-    def from_exception(
-        cls,
-        exc: WebSocketException,
-        user: str,
-        annotations: dict[str, str] | None = None,
-        started_at: datetime.datetime | None = None,
-        failed_at: datetime.datetime | None = None,
-    ) -> Self:
+    def from_exception(cls, exc: WebSocketException, user: str) -> Self:
         """Convert from a `~websockets.exceptions.WebSocketException`.
 
         Parameters
@@ -591,16 +531,10 @@ class JupyterWebSocketError(NubladoClientSlackException):
             Underlying exception.
         user
             User the code is running as.
-        annotations
-            Additional annotations for the exception.
-        started_at
-            When the operation started.
-        failed_at
-            When the operation failed (defaults to the current time).
 
         Returns
         -------
-        JupyterWebSocketError
+        NubladoWebSocketError
             Newly-created exception.
         """
         if str(exc):
@@ -608,73 +542,53 @@ class JupyterWebSocketError(NubladoClientSlackException):
         else:
             error = type(exc).__name__
         if isinstance(exc, InvalidStatus):
-            status = exc.response.status_code
-            body = (
-                _sanitize_body(exc.response.body.decode()).encode("utf-8")
-                if exc.response.body
-                else None
-            )
             return cls(
-                f"Lab WebSocket unexpectedly closed: {error}",
+                f"JupyterLab WebSocket unexpectedly closed: {error}",
                 user=user,
-                status=status,
-                body=body,
-                annotations=annotations,
-                started_at=started_at,
-                failed_at=failed_at,
+                body=exc.response.body.decode() if exc.response.body else None,
+                code=exc.response.status_code,
             )
         else:
-            return cls(f"Error talking to lab WebSocket: {error}", user=user)
+            return cls(f"Error talking to lab WebSocket: {error}", user)
 
     def __init__(
         self,
-        msg: str,
-        *,
+        message: str,
         user: str,
+        *,
+        body: str | None = None,
         code: int | None = None,
-        reason: str | None = None,
-        status: int | None = None,
-        body: bytes | None = None,
-        annotations: dict[str, str] | None = None,
-        started_at: datetime.datetime | None = None,
+        context: CodeContext | None = None,
         failed_at: datetime.datetime | None = None,
+        started_at: datetime.datetime | None = None,
     ) -> None:
-        super().__init__(msg, user, started_at=started_at, failed_at=failed_at)
+        super().__init__(
+            message,
+            user,
+            started_at=started_at,
+            failed_at=failed_at,
+            context=context,
+        )
         self.code = code
-        self.reason = reason
-        self.status = status
-        self.body = _sanitize_body(body.decode()) if body else None
-        if annotations:
-            self.annotations.update(annotations)
-
-    @override
-    def to_slack(self) -> SlackMessage:
-        message = super().to_slack()
-
-        if self.reason:
-            reason = self.reason
-            if self.code:
-                reason = f"{self.reason} ({self.code})"
-            else:
-                reason = self.reason
-            field = SlackTextField(heading="Reason", text=reason)
-            message.fields.append(field)
-        elif self.code:
-            field = SlackTextField(heading="Code", text=str(self.code))
-            message.fields.append(field)
-        if self.body:
-            block = SlackTextBlock(heading="Body", text=self.body)
-            message.attachments.append(block)
-
-        return message
+        self.body = body
 
     @override
     def to_sentry(self) -> SentryEventInfo:
         info = super().to_sentry()
-        if self.reason:
-            info.tags["reason"] = self.reason
         if self.code:
             info.tags["code"] = str(self.code)
         if self.body:
-            info.attachments["body"] = self.body
+            info.attachments["body"] = _sanitize_body(self.body)
         return info
+
+    @override
+    def to_slack(self) -> SlackMessage:
+        message = super().to_slack()
+        if self.code:
+            field = SlackTextField(heading="Code", text=str(self.code))
+            message.fields.append(field)
+        if self.body:
+            body = _sanitize_body(self.body)
+            block = SlackTextBlock(heading="Body", text=body)
+            message.attachments.append(block)
+        return message
