@@ -3,7 +3,7 @@
 import httpx
 import pytest
 
-from rubin.nublado.client import JupyterWebError
+from rubin.nublado.client import NubladoWebError
 
 
 @pytest.mark.asyncio
@@ -18,13 +18,10 @@ async def test_url_redaction() -> None:
         extensions={"reason_phrase": reason_phrase},
         request=req,
     )
-    exc: httpx.HTTPError | None = None
     try:
         resp.raise_for_status()
-    except httpx.HTTPError as h_exc:
-        exc = h_exc
-    assert isinstance(exc, httpx.HTTPError)
-    web_error = JupyterWebError.from_exception(exc, user="edgar")
-    assert web_error.url is not None
-    assert web_error.url.find("lost") == -1
-    assert web_error.url.find("<redacted>") != -1
+    except httpx.HTTPError as e:
+        exc = NubladoWebError.from_exception(e, user="edgar")
+    assert exc.url is not None
+    assert exc.url.find("lost") == -1
+    assert exc.url.find("<redacted>") != -1

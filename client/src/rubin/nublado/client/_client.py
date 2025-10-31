@@ -23,12 +23,11 @@ from websockets.asyncio.client import ClientConnection
 from websockets.exceptions import WebSocketException
 
 from ._exceptions import (
-    CodeExecutionError,
-    JupyterProtocolError,
-    JupyterTimeoutError,
-    JupyterWebError,
-    JupyterWebSocketError,
-    NubladoClientSlackException,
+    NubladoExecutionError,
+    NubladoProtocolError,
+    NubladoTimeoutError,
+    NubladoWebError,
+    NubladoWebSocketError,
 )
 from ._http import JupyterAsyncClient
 from ._models import (
@@ -152,8 +151,8 @@ class JupyterLabSession:
     ----------
     username
         User the session is for.
-    base_url
-        Base URL for talking to JupyterLab.
+    jupyter_client
+        HTTP client used to talk to JupyterLab.
     kernel_name
         Name of the kernel to use for the session.
     notebook_name
@@ -161,8 +160,10 @@ class JupyterLabSession:
         session and might influence logging on the lab side. If set, the
         session type will be set to ``notebook``. If not set, the session type
         will be set to ``console``.
-    http_client
-        HTTP client to talk to the Jupyter lab.
+    max_websocket_size
+        Maximum size of a WebSocket message to allow.
+    websocket_open_timeout
+        Timeout for opening a WebSocket.
     logger
         Logger to use.
     """
@@ -210,31 +211,8 @@ class JupyterLabSession:
         self._socket: ClientConnection | None = None
 
     async def __aenter__(self) -> Self:
-        """Create the session and open the WebSocket connection.
-
-        Raises
-        ------
-        JupyterTimeoutError
-            Raised if the attempt to open a WebSocket to the lab timed out.
-        JupyterWebError
-            Raised if an error occurred while creating the lab session.
-        JupyterWebSocketError
-            Raised if a protocol or network error occurred while trying to
-            create the WebSocket.
-        """
-        # This class implements an explicit context manager instead of using
-        # an async generator and contextlib.asynccontextmanager, and similarly
-        # explicitly calls the __aenter__ and __aexit__ methods in the
-        # WebSocket library rather than using it as a context manager.
-        #
-        # Initially, it was implemented as a generator, but when using that
-        # approach the code after the yield in the generator was called at an
-        # arbitrary time in the future, rather than when the context manager
-        # exited. This meant that it was often called after the httpx client
-        # had been closed, which meant it was unable to delete the lab session
-        # and raised background exceptions. This approach allows more explicit
-        # control of when the context manager is shut down and ensures it
-        # happens immediately when the context exits.
+        """Create the session and open the WebSocket connection."""
+        user = self._username
         route = f"user/{self._username}/api/sessions"
         notebook = self._notebook_name
         body = {
@@ -246,17 +224,26 @@ class JupyterLabSession:
         start = datetime.now(tz=UTC)
 
         # Create the kernel.
-        try:
-            r = await self._client.post(route, json=body)
-        except HTTPError as e:
-            raise JupyterWebError.raise_from_exception_with_timestamps(
-                e, self._username, {}, start
-            ) from e
+        r = await self._client.post(route, json=body)
         response = r.json()
         self._session_id = response["id"]
         kernel = response["kernel"]["id"]
 
         # Open a WebSocket to the now-running kernel.
+        #
+        # This class implements an explicit context manager instead of using
+        # an async generator and contextlib.asynccontextmanager, and similarly
+        # explicitly calls the __aenter__ and __aexit__ methods in the
+        # WebSocket library rather than using it as a context manager.
+        #
+        # Initially, it was implemented as a generator, but when using that
+        # approach the code after the yield in the generator was called at an
+        # arbitrary time in the future, rather than when the context manager
+        # exited. This meant that it was often called after the HTTPX client
+        # had been closed, which meant it was unable to delete the lab session
+        # and raised background exceptions. This approach allows more explicit
+        # control of when the context manager is shut down and ensures it
+        # happens immediately when the context exits.
         route = f"user/{self._username}/api/kernels/{kernel}/channels"
         start = datetime.now(tz=UTC)
         self._logger.debug("Opening WebSocket connection")
@@ -268,14 +255,12 @@ class JupyterLabSession:
             )
             self._socket = await self._session.__aenter__()
         except WebSocketException as e:
-            user = self._username
-            raise JupyterWebSocketError.from_exception(
-                e, user, started_at=start
-            ) from e
+            exc = NubladoWebSocketError.from_exception(e, self._username)
+            exc.started_at = start
+            raise exc from e
         except TimeoutError as e:
             msg = "Timed out attempting to open WebSocket to lab session"
-            user = self._username
-            raise JupyterTimeoutError(msg, user, started_at=start) from e
+            raise NubladoTimeoutError(msg, user, started_at=start) from e
         return self
 
     async def __aexit__(
@@ -288,34 +273,30 @@ class JupyterLabSession:
         username = self._username
         session_id = self._session_id
 
-        # Close the WebSocket.
-        if self._session:
-            start = datetime.now(tz=UTC)
-            try:
-                await self._session.__aexit__(exc_type, exc_val, exc_tb)
-            except WebSocketException as e:
-                raise JupyterWebSocketError.from_exception(
-                    e, username, started_at=start
-                ) from e
-            self._session = None
-            self._socket = None
-
-        # Delete the lab session.
+        # Close the WebSocket and elete the lab session. Be careful to not
+        # raise an exception if we're already processing an exception, since
+        # the exception from inside the context manager is almost certainly
+        # more interesting than the exception from closing the lab session.
+        start = datetime.now(tz=UTC)
         route = f"user/{username}/api/sessions/{session_id}"
         try:
+            if self._session:
+                await self._session.__aexit__(exc_type, exc_val, exc_tb)
+            self._session = None
+            self._socket = None
             await self._client.delete(route)
-        except HTTPError as e:
-            # Be careful to not raise an exception if we're already processing
-            # an exception, since the exception from inside the context
-            # manager is almost certainly more interesting than the exception
-            # from closing the lab session.
+        except NubladoWebError:
             if exc_type:
                 self._logger.exception("Failed to close session")
             else:
-                start = datetime.now(tz=UTC)
-                raise JupyterWebError.raise_from_exception_with_timestamps(
-                    e, self._username, {}, start
-                ) from e
+                raise
+        except WebSocketException as e:
+            if exc_type:
+                self._logger.exception("Failed to close WebSocket")
+            else:
+                exc = NubladoWebSocketError.from_exception(e, self._username)
+                exc.started_at = start
+                raise exc from e
 
         return False
 
@@ -336,19 +317,23 @@ class JupyterLabSession:
 
         Raises
         ------
-        CodeExecutionError
+        NubladoDiscoveryError
+            Raised if Nublado is missing from service discovery.
+        NubladoExecutionError
             Raised if an error was reported by the Jupyter lab kernel.
-        JupyterWebSocketError
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        NubladoWebSocketError
             Raised if there was a WebSocket protocol error while running code
             or waiting for the response.
-        JupyterWebError
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
+        RuntimeError
             Raised if called before entering the context and thus before
             creating the WebSocket session.
         """
         if not self._socket:
-            raise JupyterWebError(
-                "JupyterLabSession not opened", user=self._username
-            )
+            raise RuntimeError("JupyterLabSession not opened")
         start = datetime.now(tz=UTC)
         message_id = uuid4().hex
         request = {
@@ -381,11 +366,6 @@ class JupyterLabSession:
                 async for message in messages:
                     try:
                         output = self._parse_message(message, message_id)
-                    except CodeExecutionError as e:
-                        e.code = code
-                        e.started_at = start
-                        _annotate_exception_from_context(e, context)
-                        raise
                     except Exception as e:
                         error = f"{type(e).__name__}: {e!s}"
                         msg = "Ignoring unparsable web socket message"
@@ -400,11 +380,18 @@ class JupyterLabSession:
                     result += output.content
                     if output.done:
                         break
+        except NubladoExecutionError as e:
+            e.code = code
+            e.started_at = start
+            if context:
+                e.context = context
+            raise
         except WebSocketException as e:
-            user = self._username
-            new_exc = JupyterWebSocketError.from_exception(e, user)
-            new_exc.started_at = start
-            raise new_exc from e
+            exc = NubladoWebSocketError.from_exception(e, self._username)
+            exc.started_at = start
+            if context:
+                exc.context = context
+            raise exc from e
 
         # Return the accumulated output.
         return result
@@ -429,10 +416,10 @@ class JupyterLabSession:
 
         Raises
         ------
-        CodeExecutionError
-            Raised if code execution fails.
         KeyError
             Raised if the WebSocket message wasn't in the expected format.
+        NubladoExecutionError
+            Raised if code execution fails.
         """
         if isinstance(message, bytes):
             message = message.decode()
@@ -446,7 +433,6 @@ class JupyterLabSession:
 
         # Analyze the message type to figure out what to do with the response.
         msg_type = data["msg_type"]
-        start = datetime.now(tz=UTC)
         if msg_type in self._IGNORED_MESSAGE_TYPES:
             return None
         elif msg_type == "stream":
@@ -456,41 +442,14 @@ class JupyterLabSession:
             if status == "ok":
                 return JupyterOutput(content="", done=True)
             else:
-                raise CodeExecutionError(
-                    user=self._username, status=status, started_at=start
-                )
+                raise NubladoExecutionError(self._username, status=status)
         elif msg_type == "error":
             error = "".join(data["content"]["traceback"])
-            raise CodeExecutionError(
-                user=self._username, error=error, started_at=start
-            )
+            raise NubladoExecutionError(user=self._username, error=error)
         else:
             msg = "Ignoring unrecognized WebSocket message"
             self._logger.warning(msg, message_type=msg_type, message=data)
             return None
-
-
-def _annotate_exception_from_context(
-    e: NubladoClientSlackException, context: CodeContext | None = None
-) -> None:
-    if not context:
-        return
-    if context.image is not None:
-        e.annotations["image"] = context.image
-    if context.notebook is not None:
-        e.annotations["notebook"] = context.notebook
-    if context.path is not None:
-        e.annotations["path"] = context.path
-    if context.cell is not None:
-        e.annotations["cell"] = context.cell
-    if context.cell_number is not None:
-        e.annotations["cell_number"] = context.cell_number
-    if context.cell_source is not None:
-        e.annotations["cell_source"] = context.cell_source
-    if context.cell_line_number is not None:
-        e.annotations["cell_line_number"] = context.cell_line_number
-    if context.cell_line_source is not None:
-        e.annotations["cell_line_source"] = context.cell_line_source
 
 
 class NubladoClient:
@@ -517,16 +476,6 @@ class NubladoClient:
     ----------
     username
         User whose lab is managed by this object.
-
-    Notes
-    -----
-    This class creates its own `httpx.AsyncClient` for each instance, separate
-    from the one used by the rest of the application, since it needs to
-    isolate the cookies set by JupyterHub and the lab from those for any other
-    user.
-
-    Although principally intended as a Lab/Hub client, the underlying
-    `httpx.AsyncClient` is exposed via the `http` property.
     """
 
     def __init__(
@@ -563,8 +512,14 @@ class NubladoClient:
 
         Raises
         ------
-        JupyterProtocolError
-            Raised if no ``_xsrf`` cookie was set in the reply from the lab.
+        NubladoDiscoveryError
+            Raised if Nublado is missing from service discovery.
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        NubladoWebError
+            Raised if an HTTP error occurred talking to JupyterHub.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         await self._client.aclose()
         self._client = self._build_jupyter_client()
@@ -580,8 +535,15 @@ class NubladoClient:
 
         Raises
         ------
-        JupyterProtocolError
-            Raised if no ``_xsrf`` cookie was set in the reply from the lab.
+        NubladoDiscoveryError
+            Raised if Nublado is missing from service discovery.
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        NubladoWebError
+            Raised if an HTTP error occurred talking to JupyterHub or
+            JupyterLab.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         route = f"user/{self.username}/lab"
         await self._client.get(route, fetch_mode="navigate")
@@ -594,6 +556,17 @@ class NubladoClient:
         log_running
             Log a warning with additional information if the lab still
             exists.
+
+        Raises
+        ------
+        NubladoDiscoveryError
+            Raised if Nublado is missing from service discovery.
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        NubladoWebError
+            Raised if an HTTP error occurred talking to JupyterHub.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         route = f"hub/api/users/{self.username}"
         r = await self._client.get(route, add_referer=True)
@@ -677,9 +650,18 @@ class NubladoClient:
 
         Raises
         ------
-        JupyterProtocolError
+        NubladoDiscoveryError
+            Raised if Nublado is missing from service discovery.
+        NubladoProtocolError
             Raised if the return value from the notebook execution extension
             could not be parsed.
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        NubladoWebError
+            Raised if an HTTP error occurred talking to JupyterHub or
+            JupyterLab.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         timeout = None
         if read_timeout:
@@ -695,7 +677,7 @@ class NubladoClient:
             return NotebookExecutionResult.model_validate(result)
         except ValidationError as e:
             msg = f"Cannot parse notebook execution results: {e!s}"
-            raise JupyterProtocolError(msg) from e
+            raise NubladoProtocolError(msg) from e
 
     async def spawn_lab(self, config: NubladoImage) -> None:
         """Spawn a Jupyter lab pod.
@@ -707,8 +689,14 @@ class NubladoClient:
 
         Raises
         ------
-        JupyterWebError
-            Raised if an error occurred talking to JupyterHub.
+        NubladoDiscoveryError
+            Raised if Nublado is missing from service discovery.
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        NubladoWebError
+            Raised if an HTTP error occurred talking to JupyterHub.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         data = config.to_spawn_form()
 
@@ -723,7 +711,19 @@ class NubladoClient:
         await self._client.post("hub/spawn", data=data)
 
     async def stop_lab(self) -> None:
-        """Stop the user's Jupyter lab."""
+        """Stop the user's Jupyter lab.
+
+        Raises
+        ------
+        NubladoDiscoveryError
+            Raised if Nublado is missing from service discovery.
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        NubladoWebError
+            Raised if an HTTP error occurred talking to JupyterHub.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
+        """
         if await self.is_lab_stopped():
             self._logger.info("Lab is already stopped")
             return
@@ -743,6 +743,17 @@ class NubladoClient:
         ------
         SpawnProgressMessage
             Next progress message from JupyterHub.
+
+        Raises
+        ------
+        NubladoDiscoveryError
+            Raised if Nublado is missing from service discovery.
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        NubladoWebError
+            Raised if an HTTP error occurred talking to JupyterHub.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         start = datetime.now(tz=UTC)
         route = f"hub/api/users/{self.username}/server/progress"
@@ -754,7 +765,7 @@ class NubladoClient:
                     async for message in progress:
                         yield message
         except HTTPError as e:
-            exc = JupyterWebError.from_exception(e, self.username)
+            exc = NubladoWebError.from_exception(e, self.username)
             exc.started_at = start
             raise exc from e
 

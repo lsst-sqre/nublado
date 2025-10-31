@@ -145,3 +145,18 @@ See `NotebookExecutionResult` for the details of the output.
     for cell in cells:
         # Do something with each cell
         ...
+
+Error handling
+==============
+
+`NubladoClient` may raise a variety of exceptions depending on the problem.
+Most anticipated exceptions inherit from `NubladoError`.
+`NubladoClient` may also raise `~rubin.repertoire.RepertoireError` or one of its subclasses for failures in service discovery.
+
+`NubladoError` supports Slack reporting and Sentry annotations.
+See the Safir documentaiton on `reporting exceptions to Slack <https://safir.lsst.io/user-guide/slack-webhook.html#reporting-an-exception-to-a-slack-webhook>`__ and `integrating with Sentry <https://safir.lsst.io/user-guide/sentry.html>`__ for more information.
+
+Any `NubladoError` or its subclasses can be annotated with a `CodeContext` object to provide additional context about what code was being executed when the exception occurred.
+If this information is present, it will be used in Slack and Sentry reporting.
+A `CodeContext` model can be assigned to the ``context`` attribute of the exception.
+Some `NubladoClient` and `JupyterLabSession` methods take a ``context`` as an optional argument and add it to all raised exceptions.

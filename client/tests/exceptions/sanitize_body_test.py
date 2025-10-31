@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from httpx import HTTPError, Request, Response
 
-from rubin.nublado.client import NubladoClientSlackWebException
+from rubin.nublado.client import NubladoWebError
 
 
 @pytest.mark.asyncio
@@ -23,7 +23,7 @@ async def test_token_redaction() -> None:
     try:
         resp.raise_for_status()
     except HTTPError as e:
-        exc = NubladoClientSlackWebException.from_exception(e)
+        exc = NubladoWebError.from_exception(e)
     assert exc.body is not None
     assert exc.body.find("Nevermore") == -1
     assert exc.body.find("<redacted>") != -1

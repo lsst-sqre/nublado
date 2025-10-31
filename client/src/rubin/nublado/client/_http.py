@@ -17,9 +17,9 @@ from structlog.stdlib import BoundLogger
 from websockets.asyncio.client import ClientConnection
 
 from ._exceptions import (
-    JupyterWebError,
     NubladoDiscoveryError,
     NubladoRedirectError,
+    NubladoWebError,
 )
 
 type SecFetchMode = Literal[
@@ -43,7 +43,7 @@ def _convert_exception[**P, T](
             return await f(client, *args, **kwargs)
         except HTTPError as e:
             username = client._username  # noqa: SLF001
-            exc = JupyterWebError.from_exception(e, username)
+            exc = NubladoWebError.from_exception(e, username)
             exc.started_at = start
             raise exc from e
 
@@ -147,6 +147,10 @@ class JupyterAsyncClient:
         ------
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
+        NubladoWebError
+            Raised if there were HTTP errors talking to Nublado.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         url = await self._url_for(route)
         headers = await self._headers_for(route, add_referer=add_referer)
@@ -191,6 +195,10 @@ class JupyterAsyncClient:
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
             Raised if the redirect leaves the Nublado URL space.
+        NubladoWebError
+            Raised if there were HTTP errors talking to Nublado.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         url = await self._url_for(route)
         headers = await self._headers_for(route, fetch_mode=fetch_mode)
@@ -217,6 +225,10 @@ class JupyterAsyncClient:
         ------
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
+        NubladoWebError
+            Raised if there were HTTP errors talking to Nublado.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         url = await self._url_for(route)
         headers = await self._headers_for(route, add_referer=True)
@@ -250,6 +262,10 @@ class JupyterAsyncClient:
         ------
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         url = await self._url_for(route)
         headers = await self._headers_for(route)
@@ -303,6 +319,12 @@ class JupyterAsyncClient:
         ------
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        NubladoWebError
+            Raised if there were HTTP errors talking to Nublado.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         url = await self._url_for(route)
         headers = await self._headers_for(route, fetch_mode="same-origin")
@@ -404,6 +426,13 @@ class JupyterAsyncClient:
         ------
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        NubladoWebError
+            Raised if there were HTTP errors trying to find the base URL fo
+            the user's lab.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         base_url = await self._hub_base_url()
         route = f"user/{self._username}/lab"
@@ -469,6 +498,12 @@ class JupyterAsyncClient:
         ------
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        NubladoWebError
+            Raised if there were HTTP errors talking to Nublado.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         r = await self._client.get(url, headers=headers)
         while r.is_redirect:
@@ -528,6 +563,8 @@ class JupyterAsyncClient:
         ------
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         hub_url = await self._discovery.url_for_ui("nublado")
         if not hub_url:
@@ -562,6 +599,13 @@ class JupyterAsyncClient:
         ------
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        NubladoWebError
+            Raised if there were HTTP errors trying to find the base URL fo
+            the user's lab.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
         """
         if route.startswith("user/"):
             if not self._lab_base_url:
