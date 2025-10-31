@@ -6,12 +6,11 @@ Allows the caller to login to spawn labs and execute code within the lab.
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncGenerator, AsyncIterator, Callable, Coroutine
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import AbstractAsyncContextManager, aclosing
 from datetime import UTC, datetime, timedelta
-from functools import wraps
 from types import TracebackType
-from typing import Concatenate, Literal, Self
+from typing import Literal, Self
 from uuid import uuid4
 
 import structlog
@@ -494,49 +493,6 @@ def _annotate_exception_from_context(
         e.annotations["cell_line_source"] = context.cell_line_source
 
 
-def _convert_exception[**P, T](
-    f: Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]],
-) -> Callable[Concatenate[NubladoClient, P], Coroutine[None, None, T]]:
-    """Convert web error to `~rubin.nublado.client.JupyterWebError`."""
-
-    @wraps(f)
-    async def wrapper(
-        client: NubladoClient, *args: P.args, **kwargs: P.kwargs
-    ) -> T:
-        start = datetime.now(tz=UTC)
-        try:
-            return await f(client, *args, **kwargs)
-        except HTTPError as e:
-            raise JupyterWebError.raise_from_exception_with_timestamps(
-                e, client.username, {}, start
-            ) from e
-
-    return wrapper
-
-
-def _convert_generator_exception[**P, T](
-    f: Callable[Concatenate[NubladoClient, P], AsyncGenerator[T]],
-) -> Callable[Concatenate[NubladoClient, P], AsyncGenerator[T]]:
-    """Convert web errors to a `~rubin.nublado.client.JupyterWebError`."""
-
-    @wraps(f)
-    async def wrapper(
-        client: NubladoClient, *args: P.args, **kwargs: P.kwargs
-    ) -> AsyncGenerator[T]:
-        start = datetime.now(tz=UTC)
-        generator = f(client, *args, **kwargs)
-        try:
-            async with aclosing(generator):
-                async for result in generator:
-                    yield result
-        except HTTPError as e:
-            raise JupyterWebError.raise_from_exception_with_timestamps(
-                e, client.username, {}, start
-            ) from e
-
-    return wrapper
-
-
 class NubladoClient:
     """Client for talking to JupyterHub and Jupyter labs that use Nublado.
 
@@ -597,7 +553,6 @@ class NubladoClient:
         """
         await self._client.aclose()
 
-    @_convert_exception
     async def auth_to_hub(self) -> None:
         """Retrieve the JupyterHub home page.
 
@@ -615,7 +570,6 @@ class NubladoClient:
         self._client = self._build_jupyter_client()
         await self._client.get("hub/home", fetch_mode="navigate")
 
-    @_convert_exception
     async def auth_to_lab(self) -> None:
         """Authenticate to the user's JupyterLab.
 
@@ -632,7 +586,6 @@ class NubladoClient:
         route = f"user/{self.username}/lab"
         await self._client.get(route, fetch_mode="navigate")
 
-    @_convert_exception
     async def is_lab_stopped(self, *, log_running: bool = False) -> bool:
         """Determine if the lab is fully stopped.
 
@@ -693,7 +646,6 @@ class NubladoClient:
             logger=self._logger,
         )
 
-    @_convert_exception
     async def run_notebook(
         self, content: str, *, read_timeout: timedelta | None = None
     ) -> NotebookExecutionResult:
@@ -745,7 +697,6 @@ class NubladoClient:
             msg = f"Cannot parse notebook execution results: {e!s}"
             raise JupyterProtocolError(msg) from e
 
-    @_convert_exception
     async def spawn_lab(self, config: NubladoImage) -> None:
         """Spawn a Jupyter lab pod.
 
@@ -771,7 +722,6 @@ class NubladoClient:
         self._logger.info("Spawning lab", user=self.username)
         await self._client.post("hub/spawn", data=data)
 
-    @_convert_exception
     async def stop_lab(self) -> None:
         """Stop the user's Jupyter lab."""
         if await self.is_lab_stopped():
@@ -781,7 +731,6 @@ class NubladoClient:
         self._logger.info("Stopping lab", user=self.username)
         await self._client.delete(route, add_referer=True)
 
-    @_convert_generator_exception
     async def watch_spawn_progress(
         self,
     ) -> AsyncGenerator[SpawnProgressMessage]:
@@ -795,13 +744,19 @@ class NubladoClient:
         SpawnProgressMessage
             Next progress message from JupyterHub.
         """
+        start = datetime.now(tz=UTC)
         route = f"hub/api/users/{self.username}/server/progress"
         stream_manager = await self._client.open_sse_stream(route)
-        async with stream_manager as stream:
-            progress = aiter(JupyterSpawnProgress(stream, self._logger))
-            async with aclosing(progress):
-                async for message in progress:
-                    yield message
+        try:
+            async with stream_manager as stream:
+                progress = aiter(JupyterSpawnProgress(stream, self._logger))
+                async with aclosing(progress):
+                    async for message in progress:
+                        yield message
+        except HTTPError as e:
+            exc = JupyterWebError.from_exception(e, self.username)
+            exc.started_at = start
+            raise exc from e
 
     def _build_jupyter_client(self) -> JupyterAsyncClient:
         """Construct a new HTTP client to talk to Jupyter."""
