@@ -12,7 +12,9 @@ from ._exceptions import (
     NubladoClientSlackException,
     NubladoClientSlackWebException,
     NubladoDiscoveryError,
+    NubladoRedirectError,
 )
+from ._http import JupyterAsyncClient
 from ._mock import (
     MockJupyter,
     MockJupyterAction,
@@ -39,6 +41,7 @@ __all__ = [
     "CodeContext",
     "CodeExecutionError",
     "ExecutionAPIError",
+    "JupyterAsyncClient",
     "JupyterLabSession",
     "JupyterOutput",
     "JupyterProtocolError",
@@ -62,6 +65,7 @@ __all__ = [
     "NubladoImageByTag",
     "NubladoImageClass",
     "NubladoImageSize",
+    "NubladoRedirectError",
     "SpawnProgressMessage",
     "mock_jupyter",
     "mock_jupyter_websocket",
