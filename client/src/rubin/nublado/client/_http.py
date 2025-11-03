@@ -251,11 +251,14 @@ class JupyterAsyncClient:
             Route relative to the base URL of Nublado. Routes starting with
             ``user`` are considered JupyterLab routes.
         contents
-            Raw contents for the POST body.
+            Raw contents for the POST body. Only one of ``contents``,
+            ``data``, or ``json`` may be specified.
         data
-            Data for the POST body.
+            Data for the POST body. Only one of ``contents``, ``data``, or
+            ``json`` may be specified.
         json
-            Data for a POST body formatted as JSON.
+            Data for a POST body formatted as JSON. Only one of ``contents``,
+            ``data``, or ``json`` may be specified.
         timeout
             HTTPX timeout settings, overriding the defaults.
         add_referer
