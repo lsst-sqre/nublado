@@ -12,6 +12,7 @@ The repository uses the vertical monorepo structure defined in :sqr:`075`.
    :caption: Architecture
 
    controller
+   client-auth
 
 .. toctree::
    :caption: Guides

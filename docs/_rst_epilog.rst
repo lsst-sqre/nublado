@@ -6,6 +6,7 @@
 .. _kubernetes-asyncio: https://github.com/tomplus/kubernetes_asyncio
 .. _JupyterHub: https://jupyter.org/hub
 .. _Mend Renovate: https://www.mend.io/renovate/
+.. _mobu: https://mobu.lsst.io/
 .. _mypy: https://mypy.readthedocs.io/en/stable/
 .. _nox: https://nox.thea.codes/en/stable/
 .. _Nublado Phalanx application: https://phalanx.lsst.io/applications/nublado/index.html
