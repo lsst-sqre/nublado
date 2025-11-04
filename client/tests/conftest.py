@@ -1,10 +1,9 @@
 """Text fixtures for Nublado client tests."""
 
 from base64 import urlsafe_b64encode
-from collections.abc import AsyncGenerator, AsyncIterator, Iterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 import pytest
@@ -30,21 +29,6 @@ from rubin.nublado.client import (
 
 
 @pytest.fixture
-def test_filesystem() -> Iterator[Path]:
-    with TemporaryDirectory() as td:
-        nb = Path(__file__).parent / "support" / "hello.ipynb"
-        contents = nb.read_text()
-        o_nb = Path(td) / "hello.ipynb"
-        o_nb.write_text(contents)
-        nb = Path(__file__).parent / "support" / "faux-input-nb"
-        contents = nb.read_text()
-        o_nb = Path(td) / "faux-input.ipynb"
-        o_nb.write_text(contents)
-
-        yield Path(td)
-
-
-@pytest.fixture
 def configured_logger() -> BoundLogger:
     safir.logging.configure_logging(
         name="nublado-client",
@@ -64,10 +48,7 @@ def _create_mock_token(username: str, token: str) -> str:
 
 @pytest_asyncio.fixture
 async def jupyter(
-    respx_mock: respx.Router,
-    username: str,
-    token: str,
-    test_filesystem: Path,
+    respx_mock: respx.Router, username: str, token: str
 ) -> AsyncGenerator[MockJupyter]:
     """Mock out JupyterHub and Jupyter labs.
 
@@ -80,10 +61,7 @@ async def jupyter(
     base_url = await discovery_client.url_for_ui("nublado")
     assert base_url
     jupyter_mock = mock_jupyter(
-        respx_mock,
-        base_url=base_url,
-        user_dir=test_filesystem,
-        use_subdomains="//nb." in base_url,
+        respx_mock, base_url=base_url, use_subdomains="//nb." in base_url
     )
 
     # respx has no mechanism to mock aconnect_ws, so we have to do it
@@ -107,7 +85,6 @@ def configured_client(
     configured_logger: BoundLogger,
     username: str,
     token: str,
-    test_filesystem: Path,
     jupyter: MockJupyter,
 ) -> NubladoClient:
     return NubladoClient(

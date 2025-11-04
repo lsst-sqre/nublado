@@ -39,15 +39,10 @@ Then, add a fixture (usually to :file:`tests/conftest.py`) to create the `MockJu
         return "https://data.example.org"
 
 
-    @pytest.fixture
-    def user_dir() -> Path:
-        return Path(__file__).parent / "data" / "files"
-
-
     def jupyter(
-        respx_mock: respx.Router, environment_url: str, user_dir: Path
+        respx_mock: respx.Router, environment_url: str
     ) -> Iterator[MockJupyter]:
-        mock = mock_jupyter(respx_mock, environment_url, user_dir)
+        mock = mock_jupyter(respx_mock, environment_url)
 
         @asynccontextmanager
         async def mock_connect(
@@ -62,9 +57,8 @@ Then, add a fixture (usually to :file:`tests/conftest.py`) to create the `MockJu
             mock.side_effect = mock_connect
             yield mock
 
-Note the separate ``environment_url`` and ``user_dir`` fixtures.
-These can be customized as desired.
-For example, you may change the ``user_dir`` path to where you keep test notebooks for your service.
+Note the separate ``environment_url`` fixture.
+This can be customized as desired.
 
 By default, `MockJupyter` emulates a Nublado instance running in a single domain.
 If you want to emulate per-user subdomains instead, pass ``use_subdomains=True`` as an argument to `mock_jupyter`.
