@@ -152,17 +152,14 @@ async def test_register_extension(
     await configured_client.auth_to_lab()
 
     # Now test our mock
-    async with configured_client.open_lab_session() as lab_session:
-        ner = await lab_session.run_notebook_via_rsp_extension(
-            path=Path("faux-input.ipynb")
-        )
-        ner_out = json.dumps(json.loads(ner.notebook)["cells"][0]["outputs"])
-        supplied_out = json.dumps(
-            json.loads(OUTPUT_NB.read_text())["cells"][0]["outputs"]
-        )
-        assert ner_out == supplied_out
-        assert ner.resources == {}
-        assert ner.error is None
+    ner = await configured_client.run_notebook(INPUT_NB.read_text())
+    ner_out = json.dumps(json.loads(ner.notebook)["cells"][0]["outputs"])
+    supplied_out = json.dumps(
+        json.loads(OUTPUT_NB.read_text())["cells"][0]["outputs"]
+    )
+    assert ner_out == supplied_out
+    assert ner.resources == {}
+    assert ner.error is None
 
     # Stop the lab
     await configured_client.stop_lab()

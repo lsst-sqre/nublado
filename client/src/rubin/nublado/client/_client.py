@@ -15,10 +15,10 @@ from types import TracebackType
 from typing import Concatenate, Literal, Self
 from uuid import uuid4
 
-import httpx
 import structlog
-from httpx import HTTPError
+from httpx import HTTPError, Timeout
 from httpx_sse import EventSource
+from pydantic import ValidationError
 from rubin.repertoire import DiscoveryClient
 from structlog.stdlib import BoundLogger
 from websockets.asyncio.client import ClientConnection
@@ -26,7 +26,7 @@ from websockets.exceptions import WebSocketException
 
 from ._exceptions import (
     CodeExecutionError,
-    ExecutionAPIError,
+    JupyterProtocolError,
     JupyterTimeoutError,
     JupyterWebError,
     JupyterWebSocketError,
@@ -524,86 +524,6 @@ class JupyterLabSession:
                 current += output
         return current
 
-    async def run_notebook_via_rsp_extension(
-        self, *, path: Path | None = None, content: str | None = None
-    ) -> NotebookExecutionResult:
-        """Run a notebook through the RSP ``noninteractive`` extension, which
-        will return the the executed notebook.
-
-        This is our way around having to deal individually with the
-        ``execute_result`` and ``data_display`` message types, which can
-        represent a wild variety of use cases: those things will be found
-        in the output notebook and it is the caller's responsibility to deal
-        with them.
-
-        Parameters
-        ----------
-        path
-            Path of notebook (relative to $HOME) to run.
-        content
-            Notebook content as a string.  Only used if ``path`` is ``None``.
-
-        Returns
-        -------
-        NotebookExecutionResult
-            The executed Jupyter Notebook.
-
-        Raises
-        ------
-        ExecutionAPIError
-            Raised if there is an error interacting with the JupyterLab
-            Notebook execution extension.
-
-        JupyterWebError
-            Raised if neither notebook path nor notebook contents are supplied.
-        """
-        if path is not None:
-            route = f"user/{self._username}/files/{path!s}"
-            self._logger.debug(f"Getting content from {route}")
-            resp = await self._client.get(route)
-            content = resp.text
-        if not content:
-            raise JupyterWebError(
-                "No notebook content to execute", user=self._username
-            )
-
-        # The timeout is designed to catch issues connecting to JupyterLab but
-        # to wait as long as possible for the notebook itself to execute.
-        route = f"user/{self._username}/rubin/execution"
-        start = datetime.now(tz=UTC)
-        timeout = httpx.Timeout(5.0, read=None)
-        try:
-            r = await self._client.post(
-                route, content=content, timeout=timeout
-            )
-        except httpx.ReadTimeout as e:
-            raise ExecutionAPIError(
-                url=str(e.request.url),
-                username=self._username,
-                status=500,
-                reason="/rubin/execution endpoint timeout",
-                method="POST",
-                body=str(e),
-                started_at=start,
-            ) from e
-        except httpx.HTTPStatusError as e:
-            # This often occurs from timeouts, so we want to convert the
-            # generic HTTPError to an ExecutionAPIError
-            raise ExecutionAPIError(
-                url=str(e.request.url),
-                username=self._username,
-                status=r.status_code,
-                reason="Internal Server Error",
-                method="POST",
-                body=str(e),
-                started_at=start,
-            ) from e
-        if r.status_code != 200:
-            raise ExecutionAPIError.from_response(self._username, r)
-        self._logger.debug("Got response from /rubin/execution", text=r.text)
-
-        return NotebookExecutionResult.model_validate_json(r.text)
-
     def _parse_message(
         self, message: str | bytes, message_id: str
     ) -> JupyterOutput | None:
@@ -886,6 +806,58 @@ class NubladoClient:
             max_websocket_size=max_websocket_size,
             logger=self._logger,
         )
+
+    @_convert_exception
+    async def run_notebook(
+        self, content: str, *, read_timeout: timedelta | None = None
+    ) -> NotebookExecutionResult:
+        """Run a notebook via the Nublado notebook execution extension.
+
+        This runs the notebook using :command:`nbconvert` via a Nublado
+        JupyterLab extension, rather than executing it cell-by-cell within a
+        session and kernel.
+
+        Parameters
+        ----------
+        content
+            Content of the notebook to execute.
+        read_timeout
+            If provided, overrides the default read timeout for Nublado API
+            calls. The default timeout is 30 seconds and the notebook
+            execution is synchronous, so providing a longer timeout is
+            recommended unless the notebook is quick to execute. This will
+            only change the read timeout, used when waiting for results, not
+            the timeouts on connecting and sending the request.
+
+        Returns
+        -------
+        NotebookExecutionResult
+            Execution results from the notebook. If the notebook execution
+            failed due to an issue with a cell, rather than a lower-level
+            issue with notebook execution, the ``error`` attribute of this
+            result will be filled in.
+
+        Raises
+        ------
+        JupyterProtocolError
+            Raised if the return value from the notebook execution extension
+            could not be parsed.
+        """
+        timeout = None
+        if read_timeout:
+            timeout = Timeout(
+                self._timeout.total_seconds(),
+                read=read_timeout.total_seconds(),
+            )
+        route = f"user/{self.username}/rubin/execution"
+        r = await self._client.post(route, content=content, timeout=timeout)
+        result = r.json()
+        self._logger.debug("Got notebook execution result", result=result)
+        try:
+            return NotebookExecutionResult.model_validate(result)
+        except ValidationError as e:
+            msg = f"Cannot parse notebook execution results: {e!s}"
+            raise JupyterProtocolError(msg) from e
 
     @_convert_exception
     async def spawn_lab(self, config: NubladoImage) -> None:

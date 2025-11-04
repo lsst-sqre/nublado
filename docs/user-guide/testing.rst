@@ -98,7 +98,7 @@ By default, `MockJupyter` runs the code provided to `JupyterLabSession.run_pytho
 To change this behavior, you can call `MockJupyter.register_python_result`, passing it a code string and a result.
 Any subsequent attempt to execute that code string will return the registered result rather than executing the code.
 
-The `MockJupyter.register_extension_result` method provides similar functionality for `JupyterLabSession.run_notebook_via_rsp_extension`.
+The `MockJupyter.register_extension_result` method provides similar functionality for `NubladoClient.run_notebook`.
 It takes the notebook contents (as a JSON string) and a corresponding `NotebookExecutionResult`.
 Any subsequent execution of a notebook matching that string will return the registered notebook execution result.
 

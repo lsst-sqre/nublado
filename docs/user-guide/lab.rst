@@ -11,7 +11,7 @@ A typical interaction with the client usually looks like this:
 #. If you need to, spawn a lab with `NubladoClient.spawn_lab`.
 #. Wait for the lab to spawn by looping through `NubladoClient.watch_spawn_progress` until you get a progress message indicating the lab is ready.
 #. Authenticate to the Lab with `NubladoClient.auth_to_lab`.
-#. Create a lab session with `NubladoClient.open_lab_session`.
+#. Create a lab session with `NubladoClient.open_lab_session` (not required when running an entire notebook with `NubladoClient.run_notebook`).
 #. Do whatever it is you wanted to do with the lab (see :doc:`lab`).
 #. When done, use `NubladoClient.stop_lab` to shut down the lab, if desired.
 
@@ -19,15 +19,15 @@ Running code in JupyterLab
 ==========================
 
 `NubladoClient` provides three methods of interacting with a spawned lab.
-These are methods on the `JupyterLabSession` object you will have available inside the session context manager.
 They are:
 
 - `JupyterLabSession.run_python`: Runs a string representing arbitrary Python code and returns standard output from each cell.
   This code will run in the kernel specified by the session (``LSST`` by default).
+  This must be done inside a lab session context manager.
 
 - `JupyterLabSession.run_notebook`: Runs each cell of a supplied notebook using `JupyterLabSession.run_python`, accumulating the results and returning them as a list of cell outputs.
 
-- `JupyterLabSession.run_notebook_via_rsp_extension`: Executes a notebook via the ``/rubin/execution`` endpoint of the  `RSP Jupyter Extensions <https://github.com/lsst-sqre/rsp-jupyter-extensions>`__.
+- `NubladoClient.run_notebook`: Executes a notebook via the ``/rubin/execution`` endpoint of the  `RSP Jupyter Extensions <https://github.com/lsst-sqre/rsp-jupyter-extensions>`__.
   `Times Square <https://times-square.lsst.io>`__ and `Noteburst <https://noteburst.lsst.io>`__ use this method.
   This API uses `nbconvert <https://nbconvert.readthedocs.io/en/latest/>`__ to execute a notebook and return its rendered form.
   If you need to capture output other than standard output, such as images, use this approach.
@@ -143,10 +143,12 @@ One way to run that notebook is with `JupyterLabSession.run_notebook`, which wil
     for line in output:
         print(line)
 
-The other way is to use `JupyterLabSession.run_notebook_via_rsp_extension`, which returns a `NotebookExecutionResult` object.
+The other way is to use `NubladoClient.run_notebook`, which returns a `NotebookExecutionResult` object.
 Instead of a list of output strings, this returns the full rendered notebook as a JSON string, along with additional resources used to execute the notebook and the error, if any.
 
 .. code-block:: python
+
+    from pathlib import Path
 
     from rubin.nublado.client import NubladoClient, NotebookExecutionResult
 
@@ -154,10 +156,8 @@ Instead of a list of output strings, this returns the full rendered notebook as 
     async def run_notebook(client: NubladoClient) -> NotebookExecutionResult:
         await ensure_lab(client)
         await client.auth_to_lab()
-        async with client.open_lab_session() as lab_session:
-            return await lab_session.run_notebook_via_rsp_extension(
-                Path("notebook.ipynb")
-            )
+        notebook_path = Path("path/to/notebook.ipynb")
+        return await client.run_notebook(notebook_path.read_text())
 
 
     client = NubladoClient(username="some-user", token="some-token")
