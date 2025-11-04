@@ -112,7 +112,7 @@ class MockJupyter:
         and JupyterLab will use :samp:`{username}.nb.{hostname}`.
     """
 
-    def __init__(self, base_url: str, *, use_subdomains: bool = False) -> None:
+    def __init__(self, base_url: str, *, use_subdomains: bool = True) -> None:
         self._base_url = URL(base_url)
         self._use_subdomains = use_subdomains
 
