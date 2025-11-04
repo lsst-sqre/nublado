@@ -110,16 +110,11 @@ def configured_client(
     test_filesystem: Path,
     jupyter: MockJupyter,
 ) -> NubladoClient:
-    client = NubladoClient(
+    return NubladoClient(
         username=username,
         token=token,
         logger=configured_logger,
     )
-    # For the test client, we also have to add the two headers that would
-    # be added by a GafaelfawrIngress in real life.
-    client._client.headers["X-Auth-Request-User"] = username
-    client._client.headers["X-Auth-Request-Token"] = token
-    return client
 
 
 @pytest.fixture(autouse=True, params=["single", "subdomain"])

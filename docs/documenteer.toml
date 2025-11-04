@@ -26,6 +26,7 @@ nitpick_ignore = [
     # Modules that do not provide intersphinx documentation.
     ["py:class", "dataclasses_avroschema.main.AvroModel"],
     ["py:class", "dataclasses_avroschema.pydantic.main.AvroBaseModel"],
+    ["py:class", "httpx_sse._api.EventSource"],
     ["py:class", "pydantic_core._pydantic_core.ValidationError"],
     ["py:class", "respx.router.Router"],
     ["py:class", "sse_starlette.ServerSentEvent"],

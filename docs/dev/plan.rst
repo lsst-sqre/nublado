@@ -94,8 +94,6 @@ Minor changes
 
 - Get rid of the unused singleuser ``NetworkPolicy`` installed by Zero to JupyterHub.
 
-- Reject users without a GID rather than falling back on using the UID as the GID.
-
 - Reconsider the labels and annotations that are added to created pods.
 
 - Change lab extensions to use ``JUPYTER_IMAGE_SPEC`` instead of ``JUPYTER_IMAGE`` and retire the latter.
