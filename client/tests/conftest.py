@@ -1,19 +1,18 @@
 """Text fixtures for Nublado client tests."""
 
-from base64 import urlsafe_b64encode
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
 import pytest
 import pytest_asyncio
 import respx
-import safir.logging
 import structlog
 from rubin.repertoire import (
     Discovery,
     DiscoveryClient,
     register_mock_discovery,
 )
+from safir.logging import LogLevel, Profile, configure_logging
 from structlog.stdlib import BoundLogger
 
 from rubin.nublado.client import (
@@ -24,26 +23,38 @@ from rubin.nublado.client import (
 
 
 @pytest.fixture
-def configured_logger() -> BoundLogger:
-    safir.logging.configure_logging(
-        name="nublado-client",
-        profile=safir.logging.Profile.development,
-        log_level=safir.logging.LogLevel.DEBUG,
+def client(
+    logger: BoundLogger,
+    username: str,
+    token: str,
+    mock_jupyter: MockJupyter,
+) -> NubladoClient:
+    return NubladoClient(username, token, logger=logger)
+
+
+@pytest.fixture
+def logger() -> BoundLogger:
+    configure_logging(
+        name="nublado", profile=Profile.development, log_level=LogLevel.DEBUG
     )
-    return structlog.get_logger("nublado-client")
+    return structlog.get_logger("nublado")
 
 
-def _create_mock_token(username: str, token: str) -> str:
-    # A mock token is: "gt-<base-64 encoded username>.<base64 encoded token>"
-    # That is then decoded to extract the username in the Jupyter mock.
-    enc_u = urlsafe_b64encode(username.encode()).decode()
-    enc_t = urlsafe_b64encode(token.encode()).decode()
-    return f"gt-{enc_u}.{enc_t}"
+@pytest.fixture(autouse=True, params=["single", "subdomain"])
+def mock_discovery(
+    respx_mock: respx.Router,
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+) -> Discovery:
+    monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
+    filename = f"{request.param}.json"
+    path = Path(__file__).parent / "data" / "discovery" / filename
+    return register_mock_discovery(respx_mock, path)
 
 
 @pytest_asyncio.fixture
 async def mock_jupyter(
-    respx_mock: respx.Router, username: str, token: str
+    respx_mock: respx.Router,
 ) -> AsyncGenerator[MockJupyter]:
     """Mock out JupyterHub and Jupyter labs.
 
@@ -61,34 +72,8 @@ async def mock_jupyter(
 
 
 @pytest.fixture
-def configured_client(
-    configured_logger: BoundLogger,
-    username: str,
-    token: str,
-    mock_jupyter: MockJupyter,
-) -> NubladoClient:
-    return NubladoClient(
-        username=username,
-        token=token,
-        logger=configured_logger,
-    )
-
-
-@pytest.fixture(autouse=True, params=["single", "subdomain"])
-def mock_discovery(
-    respx_mock: respx.Router,
-    monkeypatch: pytest.MonkeyPatch,
-    request: pytest.FixtureRequest,
-) -> Discovery:
-    monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
-    filename = f"{request.param}.json"
-    path = Path(__file__).parent / "data" / "discovery" / filename
-    return register_mock_discovery(respx_mock, path)
-
-
-@pytest.fixture
 def token(username: str) -> str:
-    return _create_mock_token(username, "token-of-authority")
+    return MockJupyter.create_mock_token(username)
 
 
 @pytest.fixture

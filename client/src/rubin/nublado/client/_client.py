@@ -480,9 +480,9 @@ class NubladoClient:
 
     def __init__(
         self,
-        *,
         username: str,
         token: str,
+        *,
         discovery_client: DiscoveryClient | None = None,
         logger: BoundLogger | None = None,
         timeout: timedelta = timedelta(seconds=30),

@@ -6,7 +6,7 @@ import asyncio
 import json
 import os
 import re
-from base64 import urlsafe_b64decode
+from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections import defaultdict
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Coroutine
 from contextlib import asynccontextmanager, redirect_stdout
@@ -131,6 +131,24 @@ class MockJupyter:
         self._lab_xsrf = os.urandom(8).hex()
         self._code_results: dict[str, str] = {}
         self._extension_results: dict[str, NotebookExecutionResult] = {}
+
+    @staticmethod
+    def create_mock_token(username: str) -> str:
+        """Create a mock Gafaelfawr token for the given user.
+
+        Parameters
+        ----------
+        username
+            Username for which to create a token.
+
+        Returns
+        -------
+        str
+            Mock token usable only with `MockJupyter` that will be considered
+            a valid token for the given username.
+        """
+        encoded_username = urlsafe_b64encode(username.encode()).decode()
+        return f"gt-{encoded_username}.{os.urandom(4).hex()}"
 
     def fail(self, user: str, action: MockJupyterAction) -> None:
         """Configure the given action to fail for the given user."""
