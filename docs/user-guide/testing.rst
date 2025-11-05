@@ -34,15 +34,8 @@ Then, add a fixture (usually to :file:`tests/conftest.py`) to create the `MockJu
     )
 
 
-    @pytest.fixture
-    def environment_url() -> str:
-        return "https://data.example.org"
-
-
-    def jupyter(
-        respx_mock: respx.Router, environment_url: str
-    ) -> Iterator[MockJupyter]:
-        mock = mock_jupyter(respx_mock, environment_url)
+    def jupyter(respx_mock: respx.Router) -> Iterator[MockJupyter]:
+        mock = mock_jupyter(respx_mock)
 
         @asynccontextmanager
         async def mock_connect(
@@ -57,8 +50,9 @@ Then, add a fixture (usually to :file:`tests/conftest.py`) to create the `MockJu
             mock.side_effect = mock_connect
             yield mock
 
-Note the separate ``environment_url`` fixture.
-This can be customized as desired.
+`mock_jupyter` uses service discovery to determine what Nublado URLs to mock.
+You therefore must set up the service discovery mock before setting up the Jupyter mock.
+See the `Repertoire documentation <https://repertoire.lsst.io/user-guide/testing.html>`__ for more information.
 
 By default, `MockJupyter` emulates a Nublado instance configured with per-user subdomains.
 If you want to emulate hosting JupyterHub and JupyterLab on the same hostname instead, pass ``use_subdomains=False`` as an argument to `mock_jupyter`.

@@ -59,10 +59,8 @@ async def jupyter(
     """
     discovery_client = DiscoveryClient()
     base_url = await discovery_client.url_for_ui("nublado")
-    assert base_url
-    jupyter_mock = mock_jupyter(
-        respx_mock, base_url=base_url, use_subdomains="//nb." in base_url
-    )
+    use_subdomains = bool(base_url and "//nb." in base_url)
+    mock = await mock_jupyter(respx_mock, use_subdomains=use_subdomains)
 
     # respx has no mechanism to mock aconnect_ws, so we have to do it
     # ourselves.
@@ -73,11 +71,11 @@ async def jupyter(
         max_size: int | None,
         open_timeout: int,
     ) -> AsyncIterator[MockJupyterWebSocket]:
-        yield mock_jupyter_websocket(url, additional_headers, jupyter_mock)
+        yield mock_jupyter_websocket(url, additional_headers, mock)
 
-    with patch.object(websockets, "connect") as mock:
-        mock.side_effect = mock_connect
-        yield jupyter_mock
+    with patch.object(websockets, "connect") as mock_websockets:
+        mock_websockets.side_effect = mock_connect
+        yield mock
 
 
 @pytest.fixture

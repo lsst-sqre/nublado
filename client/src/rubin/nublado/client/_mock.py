@@ -24,6 +24,7 @@ from uuid import uuid4
 
 import respx
 from httpx import URL, Request, Response
+from rubin.repertoire import DiscoveryClient
 
 from ._models import NotebookExecutionResult
 from ._util import normalize_source
@@ -729,11 +730,8 @@ def _install_lab_routes(
     respx_mock.post(url__regex=regex).mock(side_effect=mock.run_notebook)
 
 
-def mock_jupyter(
-    respx_mock: respx.Router,
-    base_url: str,
-    *,
-    use_subdomains: bool = False,
+async def mock_jupyter(
+    respx_mock: respx.Router, *, use_subdomains: bool = False
 ) -> MockJupyter:
     """Set up a mock JupyterHub and JupyterLab.
 
@@ -741,15 +739,14 @@ def mock_jupyter(
     ----------
     respx_mock
         Mock router to use to install routes.
-    base_url
-        Base URL for JupyterHub. If per-user subdomains are in use, the
-        per-user subdomains will be created by prepending :samp:`{username}.`
-        to the hostname of this URL.
     use_subdomains
         If set to `True`, use per-user subdomains for JupyterLab and a
         subdomain for JupyterHub. Requests to the URL outside of the subdomain
         will be redirected.
     """
+    discovery_client = DiscoveryClient()
+    base_url = await discovery_client.url_for_ui("nublado")
+    assert base_url
     mock = MockJupyter(base_url, use_subdomains=use_subdomains)
     _install_hub_routes(respx_mock, mock, base_url)
     _install_lab_routes(respx_mock, mock, re.escape(base_url))
