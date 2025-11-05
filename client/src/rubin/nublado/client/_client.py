@@ -38,7 +38,7 @@ from ._models import (
     SpawnProgressMessage,
 )
 
-__all__ = ["JupyterLabSession", "NubladoClient"]
+__all__ = ["JupyterLabSessionManager", "NubladoClient"]
 
 
 class _aclosing_iter[T: AsyncIterator](AbstractAsyncContextManager):  # noqa: N801
@@ -140,12 +140,12 @@ class JupyterSpawnProgress:
                 yield event
 
 
-class JupyterLabSession:
+class JupyterLabSessionManager:
     """Represents an open session with a Jupyter Lab.
 
     A context manager providing an open WebSocket session. The session will be
     automatically deleted when exiting the context manager. Objects of this
-    type should be created by calling `NubladoClient.open_lab_session`.
+    type should be created by calling `NubladoClient.lab_session`.
 
     Parameters
     ----------
@@ -333,7 +333,7 @@ class JupyterLabSession:
             creating the WebSocket session.
         """
         if not self._socket:
-            raise RuntimeError("JupyterLabSession not opened")
+            raise RuntimeError("JupyterLabSessionManager not opened")
         start = datetime.now(tz=UTC)
         message_id = uuid4().hex
         request = {
@@ -580,14 +580,15 @@ class NubladoClient:
             self._logger.warning(msg, servers=data["servers"])
         return result
 
-    def open_lab_session(
+    def lab_session(
         self,
         notebook_name: str | None = None,
         *,
-        max_websocket_size: int | None = None,
         kernel_name: str = "LSST",
-    ) -> JupyterLabSession:
-        """Open a Jupyter lab session.
+        max_websocket_size: int | None = None,
+        websocket_open_timeout: timedelta = timedelta(seconds=60),
+    ) -> JupyterLabSessionManager:
+        """Create a lab session manager.
 
         Returns a context manager object so must be called via ``async with``
         or the equivalent. The lab session will automatically be deleted when
@@ -600,22 +601,25 @@ class NubladoClient:
             session and might influence logging on the lab side. If set, the
             session type will be set to ``notebook``. If not set, the session
             type will be set to ``console``.
-        max_websocket_size
-            Maximum size of a WebSocket message, or `None` for no limit.
         kernel_name
             Name of the kernel to use for the session.
+        max_websocket_size
+            Maximum size of a WebSocket message, or `None` for no limit.
+        websocket_open_timeout
+            Timeout for opening a WebSocket.
 
         Returns
         -------
-        JupyterLabSession
+        JupyterLabSessionManager
             Context manager to open the WebSocket session.
         """
-        return JupyterLabSession(
+        return JupyterLabSessionManager(
             username=self.username,
             jupyter_client=self._client,
             kernel_name=kernel_name,
             notebook_name=notebook_name,
             max_websocket_size=max_websocket_size,
+            websocket_open_timeout=websocket_open_timeout,
             logger=self._logger,
         )
 

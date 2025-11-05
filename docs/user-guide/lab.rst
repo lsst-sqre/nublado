@@ -11,7 +11,7 @@ A typical interaction with the client usually looks like this:
 #. If you need to, spawn a lab with `NubladoClient.spawn_lab`.
 #. Wait for the lab to spawn by looping through `NubladoClient.watch_spawn_progress` until you get a progress message indicating the lab is ready.
 #. Authenticate to the Lab with `NubladoClient.auth_to_lab`.
-#. Create a lab session with `NubladoClient.open_lab_session` (not required when running an entire notebook with `NubladoClient.run_notebook`).
+#. Create a lab session with `NubladoClient.lab_session` (not required when running an entire notebook with `NubladoClient.run_notebook`).
 #. Do whatever it is you wanted to do with the lab (see :doc:`lab`).
 #. When done, use `NubladoClient.stop_lab` to shut down the lab, if desired.
 
@@ -21,7 +21,7 @@ Running code in JupyterLab
 `NubladoClient` provides three methods of interacting with a spawned lab.
 They are:
 
-- `JupyterLabSession.run_python`: Runs a string representing arbitrary Python code and returns standard output from each cell.
+- `JupyterLabSessionManager.run_python`: Runs a string representing arbitrary Python code and returns standard output from each cell.
   This code will run in the kernel specified by the session (``LSST`` by default).
   This must be done inside a lab session context manager.
 
@@ -103,7 +103,7 @@ Using the above method, run FizzBuzz for ``n`` from 1 to 15:
     async def run_fizzbuzz(client: NubladoClient) -> str:
         await ensure_lab(client)
         await client.auth_to_lab()
-        async with client.open_lab_session() as lab_session:
+        async with client.lab_session() as lab_session:
             output = await lab_session.run_python(FIZZBUZZ)
         return output
 
@@ -159,4 +159,4 @@ See the Safir documentaiton on `reporting exceptions to Slack <https://safir.lss
 Any `NubladoError` or its subclasses can be annotated with a `CodeContext` object to provide additional context about what code was being executed when the exception occurred.
 If this information is present, it will be used in Slack and Sentry reporting.
 A `CodeContext` model can be assigned to the ``context`` attribute of the exception.
-Some `NubladoClient` and `JupyterLabSession` methods take a ``context`` as an optional argument and add it to all raised exceptions.
+Some `NubladoClient` and `JupyterLabSessionManager` methods take a ``context`` as an optional argument and add it to all raised exceptions.

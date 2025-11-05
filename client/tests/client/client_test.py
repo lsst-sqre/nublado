@@ -46,7 +46,7 @@ async def test_hub_flow(client: NubladoClient) -> None:
     assert not await client.is_lab_stopped()
 
     # Do things with the lab.
-    async with client.open_lab_session() as lab_session:
+    async with client.lab_session() as lab_session:
         code = "print(2+2)"
         four = (await lab_session.run_python(code)).strip()
         assert four == "4"
