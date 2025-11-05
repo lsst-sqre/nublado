@@ -47,23 +47,24 @@ This should be invisible to your application; the Nublado client should transpar
 Writing tests
 =============
 
-Any test you write that uses the Nublado client should depend on the ``mock_jupyter`` fixture, directly or indirectly, so that the mock will be in place.
+Any test you write that uses the Nublado client should depend on the ``mock_jupyter`` fixture defined above, directly or indirectly, so that the mock will be in place.
+Alternately, you can mark the fixture as `auto-use <https://docs.pytest.org/en/stable/how-to/fixtures.html#autouse-fixtures-fixtures-you-don-t-have-to-request>`__.
 
-When creating a token used by `NubladoClient` for your tests, ensure the token has the format :samp:`gt-{username}.{random}` where the username portion is the base64-encoded username passed as a constructor argument to `NubladoClient`.
-The random portion can be anything.
-This special token format is required by `MockJupyter`; requests where the token is missing or does not match the username will be rejected, usually resulting in test failures.
-
-Here is a function that generates suitable tokens:
+When using this mock, you must use a token created with `MockJupyter.create_mock_token` to authenticate.
+The result of this static method should be passed in as the ``token`` constructor parameter to `NubladoClient`.
+For example:
 
 .. code-block:: python
 
-   import os
-   from base64 import urlsafe_b64encode
+   from rubin.nublado.client import MockJupyter, NubladoClient
 
 
-   def create_token(username: str) -> str:
-       encoded_username = urlsafe_b64encode(username.encode()).decode()
-       return f"gt-{encoded_username}.{os.urandom(4).hex()}"
+   def test_something(mock_jupyter: MockJupyter) -> None:
+       token = mock_jupyter.create_mock_token("some-user")
+       client = NubladoClient("some-user", token)
+
+       # More tests go here
+       ...
 
 Mocking payloads
 ----------------

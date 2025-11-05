@@ -22,7 +22,7 @@ OUTPUT_NB = Path(__file__).parent.parent / "support" / "faux-output-nb"
 
 @pytest.mark.asyncio
 async def test_register_python(
-    configured_client: NubladoClient, mock_jupyter: MockJupyter
+    client: NubladoClient, mock_jupyter: MockJupyter
 ) -> None:
     """Register 'python' code with the mock and check its output."""
     code = "What do you get when you multiply six by nine?"
@@ -30,10 +30,10 @@ async def test_register_python(
     mock_jupyter.register_python_result(code, "42")
 
     # Do the whole lab flow
-    await configured_client.auth_to_hub()
-    assert await configured_client.is_lab_stopped()
+    await client.auth_to_hub()
+    assert await client.is_lab_stopped()
     # Simulate spawn
-    await configured_client.spawn_lab(
+    await client.spawn_lab(
         NubladoImageByClass(
             image_class=NubladoImageClass.RECOMMENDED,
             size=NubladoImageSize.Medium,
@@ -41,7 +41,7 @@ async def test_register_python(
         )
     )
     # Watch the progress meter
-    progress = configured_client.watch_spawn_progress()
+    progress = client.watch_spawn_progress()
     progress_pct = -1
     async with aclosing(progress):
         async with asyncio.timeout(30):
@@ -50,22 +50,22 @@ async def test_register_python(
                     break
                 assert message.progress > progress_pct
                 progress_pct = message.progress
-    await configured_client.auth_to_lab()
+    await client.auth_to_lab()
 
     # Now test our mock
-    async with configured_client.open_lab_session() as lab_session:
+    async with client.open_lab_session() as lab_session:
         forty_two = (await lab_session.run_python(code)).strip()
         assert forty_two == "42"
 
     # Stop the lab
-    await configured_client.stop_lab()
+    await client.stop_lab()
     # Is the lab running?  Should not be.
-    assert await configured_client.is_lab_stopped()
+    assert await client.is_lab_stopped()
 
 
 @pytest.mark.asyncio
 async def test_register_extension(
-    configured_client: NubladoClient, mock_jupyter: MockJupyter
+    client: NubladoClient, mock_jupyter: MockJupyter
 ) -> None:
     """Register 'python' code with the mock and check its output."""
     # Register our code with the mock.
@@ -75,10 +75,10 @@ async def test_register_extension(
     )
 
     # Do the whole lab flow
-    await configured_client.auth_to_hub()
-    assert await configured_client.is_lab_stopped()
+    await client.auth_to_hub()
+    assert await client.is_lab_stopped()
     # Simulate spawn
-    await configured_client.spawn_lab(
+    await client.spawn_lab(
         NubladoImageByClass(
             image_class=NubladoImageClass.RECOMMENDED,
             size=NubladoImageSize.Medium,
@@ -86,7 +86,7 @@ async def test_register_extension(
         )
     )
     # Watch the progress meter
-    progress = configured_client.watch_spawn_progress()
+    progress = client.watch_spawn_progress()
     progress_pct = -1
     async with aclosing(progress):
         async with asyncio.timeout(30):
@@ -95,10 +95,10 @@ async def test_register_extension(
                     break
                 assert message.progress > progress_pct
                 progress_pct = message.progress
-    await configured_client.auth_to_lab()
+    await client.auth_to_lab()
 
     # Now test our mock
-    ner = await configured_client.run_notebook(INPUT_NB.read_text())
+    ner = await client.run_notebook(INPUT_NB.read_text())
     ner_out = json.dumps(json.loads(ner.notebook)["cells"][0]["outputs"])
     supplied_out = json.dumps(
         json.loads(OUTPUT_NB.read_text())["cells"][0]["outputs"]
@@ -108,6 +108,6 @@ async def test_register_extension(
     assert ner.error is None
 
     # Stop the lab
-    await configured_client.stop_lab()
+    await client.stop_lab()
     # Is the lab running?  Should not be.
-    assert await configured_client.is_lab_stopped()
+    assert await client.is_lab_stopped()
