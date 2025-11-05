@@ -22,12 +22,12 @@ OUTPUT_NB = Path(__file__).parent.parent / "support" / "faux-output-nb"
 
 @pytest.mark.asyncio
 async def test_register_python(
-    configured_client: NubladoClient, jupyter: MockJupyter
+    configured_client: NubladoClient, mock_jupyter: MockJupyter
 ) -> None:
     """Register 'python' code with the mock and check its output."""
     code = "What do you get when you multiply six by nine?"
     # Register our code with the mock.
-    jupyter.register_python_result(code, "42")
+    mock_jupyter.register_python_result(code, "42")
 
     # Do the whole lab flow
     await configured_client.auth_to_hub()
@@ -65,11 +65,11 @@ async def test_register_python(
 
 @pytest.mark.asyncio
 async def test_register_extension(
-    configured_client: NubladoClient, jupyter: MockJupyter
+    configured_client: NubladoClient, mock_jupyter: MockJupyter
 ) -> None:
     """Register 'python' code with the mock and check its output."""
     # Register our code with the mock.
-    jupyter.register_extension_result(
+    mock_jupyter.register_extension_result(
         INPUT_NB.read_text(),
         NotebookExecutionResult(notebook=OUTPUT_NB.read_text(), resources={}),
     )

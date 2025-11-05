@@ -13,55 +13,41 @@ Creating the mock in a test fixture
 `MockJupyter` requires RESPX_ in addition to :py:mod:`rubin.nublado.client`.
 Add ``respx`` to your project's development dependencies.
 
-Then, add a fixture (usually to :file:`tests/conftest.py`) to create the `MockJupyter` class and patch the underlying WebSocket connection used for the JupyterLab kernel.
+Then, add a fixture (usually to :file:`tests/conftest.py`) that calls `register_mock_jupyter` and yields the `MockJupyter` object.
 
 .. code-block:: python
 
-    from collections.abc import AsyncGenerator, Iterator
-    from contextlib import asynccontextmanager
-    from pathlib import Path
-    from unittest.mock import patch
+    from collections.abc import AsyncGenerator
 
     import pytest
     import respx
-    import websockets
-
-    from nublado.rubin.client import (
-        MockJupyter,
-        MockJupyterWebSocket,
-        mock_jupyter,
-        mock_jupyter_websocket,
-    )
+    from nublado.rubin.client import MockJupyter, register_mock_jupyter
 
 
-    def jupyter(respx_mock: respx.Router) -> Iterator[MockJupyter]:
-        mock = mock_jupyter(respx_mock)
-
-        @asynccontextmanager
-        async def mock_connect(
-            url: str,
-            extra_headers: dict[str, str],
-            max_size: int | None,
-            open_timeout: int,
-        ) -> AsyncGenerator[MockJupyterWebSocket, None]:
-            yield mock_jupyter_websocket(url, extra_headers, jupyter_mock)
-
-        with patch.object(websockets, "connect") as mock:
-            mock.side_effect = mock_connect
+    @pytest.fixture
+    async def mock_jupyter(
+        respx_mock: respx.Router,
+    ) -> AsyncGenerator[MockJupyter]:
+        async with register_mock_jupyter(respx_mock) as mock:
             yield mock
 
-`mock_jupyter` uses service discovery to determine what Nublado URLs to mock.
-You therefore must set up the service discovery mock before setting up the Jupyter mock.
+.. warning::
+
+   `register_mock_jupyter` will globally patch the ``websockets.connect`` function to mock the JuypterLab web socket.
+   If your application uses ``websockets.connect`` outside of the Nublado client, you cannot use this Jupyter mock and will have to find some other way to test.
+
+`register_mock_jupyter` uses service discovery to determine what Nublado URLs to mock.
+You therefore must set up the service discovery mock before setting up the Jupyter mock (such as by declaring it auto-use).
 See the `Repertoire documentation <https://repertoire.lsst.io/user-guide/testing.html>`__ for more information.
 
-By default, `MockJupyter` emulates a Nublado instance configured with per-user subdomains.
-If you want to emulate hosting JupyterHub and JupyterLab on the same hostname instead, pass ``use_subdomains=False`` as an argument to `mock_jupyter`.
+By default, `register_mock_jupyter` sets up a mock of a Nublado instance configured with per-user subdomains.
+If you want to emulate hosting JupyterHub and JupyterLab on the same hostname instead, pass ``use_subdomains=False`` as an argument to `register_mock_jupyter`.
 This should be invisible to your application; the Nublado client should transparently handle both configurations.
 
 Writing tests
 =============
 
-Any test you write that uses the Nublado client should depend on the ``jupyter`` fixture, directly or indirectly, so that the mock will be in place.
+Any test you write that uses the Nublado client should depend on the ``mock_jupyter`` fixture, directly or indirectly, so that the mock will be in place.
 
 When creating a token used by `NubladoClient` for your tests, ensure the token has the format :samp:`gt-{username}.{random}` where the username portion is the base64-encoded username passed as a constructor argument to `NubladoClient`.
 The random portion can be anything.
