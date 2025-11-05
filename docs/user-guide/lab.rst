@@ -21,7 +21,7 @@ Running code in JupyterLab
 `NubladoClient` provides three methods of interacting with a spawned lab.
 They are:
 
-- `JupyterLabSessionManager.run_python`: Runs a string representing arbitrary Python code and returns standard output from each cell.
+- `JupyterLabSession.run_python`: Runs a string representing arbitrary Python code and returns standard output from each cell.
   This code will run in the kernel specified by the session (``LSST`` by default).
   This must be done inside a lab session context manager.
 
@@ -159,4 +159,4 @@ See the Safir documentaiton on `reporting exceptions to Slack <https://safir.lss
 Any `NubladoError` or its subclasses can be annotated with a `CodeContext` object to provide additional context about what code was being executed when the exception occurred.
 If this information is present, it will be used in Slack and Sentry reporting.
 A `CodeContext` model can be assigned to the ``context`` attribute of the exception.
-Some `NubladoClient` and `JupyterLabSessionManager` methods take a ``context`` as an optional argument and add it to all raised exceptions.
+Some `NubladoClient` and `JupyterLabSession` methods take a ``context`` as an optional argument and add it to all raised exceptions.

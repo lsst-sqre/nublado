@@ -69,7 +69,7 @@ For example:
 Mocking payloads
 ----------------
 
-By default, `MockJupyter` runs the code provided to `JupyterLabSessionManager.run_python` using `eval`.
+By default, `MockJupyter` runs the code provided to `JupyterLabSession.run_python` using `eval`.
 To change this behavior, you can call `MockJupyter.register_python_result`, passing it a code string and a result.
 Any subsequent attempt to execute that code string will return the registered result rather than executing the code.
 
