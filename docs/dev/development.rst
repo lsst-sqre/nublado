@@ -188,10 +188,28 @@ Change log entries use the following sections:
 - **Bug fixes**
 - **Other changes** (for minor, patch-level changes that are not bug fixes, such as logging formatting changes or updates to the documentation)
 
-Changes that are not visible to the user, including minor documentation changes, should not have a change log fragment to avoid clutttering the change log with changes the user doesn't need to care about.
+The change log entries should be written in imperative tense and describe to the user the change in behavior or the impact on the user at a high level.
+Technical descriptions of how the change was implemented belong in commit messages, not change log entries.
 
-Do not include a change log entry solely for updating pinned dependencies, without any visible change to Nublado's behavior.
+Rules for what to put in the change log
+---------------------------------------
+
+Changes that are not visible to the user, including minor documentation changes, should not have a change log fragment.
+"User" here means a user of the Nublado client, the administrator of a Phalanx environment where Nublado is deployed, or someone who interacts with Nublado to use JupyterLab.
+
+Changes that require changes to the Phalanx Helm chart, but do not require changes to any of the per-environment :file:`values-{environment}.yaml` files, are not user-visible in this sense and do not warrant change log entries unless they have some other user-visible impact.
+Even if they are user-visible, changes that do not require modifications to :file:`values-{environment}.yaml` are generally not backwards-incompatible changes.
+Normally, they are features or bug fixes.
+
+If the change to a dependency results in a user-visible behavior change, describe that change in the Nublado change log.
+Do not only say that the dependency was updated.
+If the change to a dependency has no user-visible impact, do not create a change log entry for it.
+
 Every release is implicitly assumed to update all pinned dependencies.
+This should not be noted in the change log unless there is a user-visible behavior change.
+
+Formatting change log entries
+-----------------------------
 
 These entries will eventually be cut and pasted into the release description for the next release, so the Markdown for the change descriptions must be compatible with GitHub's Markdown conventions for the release description.
 Specifically:
