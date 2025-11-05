@@ -60,8 +60,8 @@ Then, add a fixture (usually to :file:`tests/conftest.py`) to create the `MockJu
 Note the separate ``environment_url`` fixture.
 This can be customized as desired.
 
-By default, `MockJupyter` emulates a Nublado instance running in a single domain.
-If you want to emulate per-user subdomains instead, pass ``use_subdomains=True`` as an argument to `mock_jupyter`.
+By default, `MockJupyter` emulates a Nublado instance configured with per-user subdomains.
+If you want to emulate hosting JupyterHub and JupyterLab on the same hostname instead, pass ``use_subdomains=False`` as an argument to `mock_jupyter`.
 This should be invisible to your application; the Nublado client should transparently handle both configurations.
 
 Writing tests
