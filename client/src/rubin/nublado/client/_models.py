@@ -132,6 +132,20 @@ class NubladoImage(BaseModel, metaclass=ABCMeta):
 
     debug: bool = Field(False, title="Whether to enable lab debugging")
 
+    def to_logging_context(self) -> dict[str, str | bool]:
+        """Convert to structured data to include the lab spawn log message.
+
+        Returns
+        -------
+        dict of str
+            Logging context intended to be passed to structlog.
+        """
+        return {
+            "debug": self.debug,
+            "image_class": self.image_class.value,
+            "size": self.size.value.lower(),
+        }
+
     @abstractmethod
     def to_spawn_form(self) -> dict[str, str]:
         """Convert to data suitable for posting to Nublado's spawn form.
@@ -153,6 +167,12 @@ class NubladoImageByReference(NubladoImage):
     reference: str = Field(..., title="Docker reference of lab image to spawn")
 
     @override
+    def to_logging_context(self) -> dict[str, str | bool]:
+        result = super().to_logging_context()
+        result["image"] = self.reference
+        return result
+
+    @override
     def to_spawn_form(self) -> dict[str, str]:
         result = {
             "image_list": self.reference,
@@ -171,6 +191,12 @@ class NubladoImageByTag(NubladoImage):
     )
 
     tag: str = Field(..., title="Tag of image to spawn")
+
+    @override
+    def to_logging_context(self) -> dict[str, str | bool]:
+        result = super().to_logging_context()
+        result["image_tag"] = self.tag
+        return result
 
     @override
     def to_spawn_form(self) -> dict[str, str]:
