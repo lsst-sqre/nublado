@@ -1,17 +1,14 @@
 """Text fixtures for Nublado client tests."""
 
 from base64 import urlsafe_b64encode
-from collections.abc import AsyncGenerator, AsyncIterator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
 import respx
 import safir.logging
 import structlog
-import websockets
 from rubin.repertoire import (
     Discovery,
     DiscoveryClient,
@@ -21,10 +18,8 @@ from structlog.stdlib import BoundLogger
 
 from rubin.nublado.client import (
     MockJupyter,
-    MockJupyterWebSocket,
     NubladoClient,
-    mock_jupyter,
-    mock_jupyter_websocket,
+    register_mock_jupyter,
 )
 
 
@@ -47,7 +42,7 @@ def _create_mock_token(username: str, token: str) -> str:
 
 
 @pytest_asyncio.fixture
-async def jupyter(
+async def mock_jupyter(
     respx_mock: respx.Router, username: str, token: str
 ) -> AsyncGenerator[MockJupyter]:
     """Mock out JupyterHub and Jupyter labs.
@@ -59,22 +54,9 @@ async def jupyter(
     """
     discovery_client = DiscoveryClient()
     base_url = await discovery_client.url_for_ui("nublado")
-    use_subdomains = bool(base_url and "//nb." in base_url)
-    mock = await mock_jupyter(respx_mock, use_subdomains=use_subdomains)
-
-    # respx has no mechanism to mock aconnect_ws, so we have to do it
-    # ourselves.
-    @asynccontextmanager
-    async def mock_connect(
-        url: str,
-        additional_headers: dict[str, str],
-        max_size: int | None,
-        open_timeout: int,
-    ) -> AsyncIterator[MockJupyterWebSocket]:
-        yield mock_jupyter_websocket(url, additional_headers, mock)
-
-    with patch.object(websockets, "connect") as mock_websockets:
-        mock_websockets.side_effect = mock_connect
+    async with register_mock_jupyter(
+        respx_mock, use_subdomains=bool(base_url and "//nb." in base_url)
+    ) as mock:
         yield mock
 
 
@@ -83,7 +65,7 @@ def configured_client(
     configured_logger: BoundLogger,
     username: str,
     token: str,
-    jupyter: MockJupyter,
+    mock_jupyter: MockJupyter,
 ) -> NubladoClient:
     return NubladoClient(
         username=username,

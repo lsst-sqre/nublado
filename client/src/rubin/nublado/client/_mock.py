@@ -8,8 +8,8 @@ import os
 import re
 from base64 import urlsafe_b64decode
 from collections import defaultdict
-from collections.abc import AsyncIterator, Callable, Coroutine
-from contextlib import redirect_stdout
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Coroutine
+from contextlib import asynccontextmanager, redirect_stdout
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -18,11 +18,12 @@ from io import StringIO
 from re import Pattern
 from traceback import format_exc
 from typing import Any
-from unittest.mock import ANY
+from unittest.mock import ANY, patch
 from urllib.parse import parse_qs, urljoin, urlparse
 from uuid import uuid4
 
 import respx
+import websockets
 from httpx import URL, Request, Response
 from rubin.repertoire import DiscoveryClient
 
@@ -33,9 +34,7 @@ __all__ = [
     "MockJupyter",
     "MockJupyterAction",
     "MockJupyterState",
-    "MockJupyterWebSocket",
-    "mock_jupyter",
-    "mock_jupyter_websocket",
+    "register_mock_jupyter",
 ]
 
 
@@ -730,37 +729,7 @@ def _install_lab_routes(
     respx_mock.post(url__regex=regex).mock(side_effect=mock.run_notebook)
 
 
-async def mock_jupyter(
-    respx_mock: respx.Router, *, use_subdomains: bool = False
-) -> MockJupyter:
-    """Set up a mock JupyterHub and JupyterLab.
-
-    Parameters
-    ----------
-    respx_mock
-        Mock router to use to install routes.
-    use_subdomains
-        If set to `True`, use per-user subdomains for JupyterLab and a
-        subdomain for JupyterHub. Requests to the URL outside of the subdomain
-        will be redirected.
-    """
-    discovery_client = DiscoveryClient()
-    base_url = await discovery_client.url_for_ui("nublado")
-    assert base_url
-    mock = MockJupyter(base_url, use_subdomains=use_subdomains)
-    _install_hub_routes(respx_mock, mock, base_url)
-    _install_lab_routes(respx_mock, mock, re.escape(base_url))
-    if use_subdomains:
-        parsed_base_url = urlparse(base_url)
-        host = parsed_base_url.hostname
-        assert host
-        path = parsed_base_url.path.rstrip("/")
-        base_regex = r"https://[^.]+\." + re.escape(host) + re.escape(path)
-        _install_lab_routes(respx_mock, mock, base_regex)
-    return mock
-
-
-def mock_jupyter_websocket(
+def _mock_jupyter_websocket(
     url: str, headers: dict[str, str], jupyter: MockJupyter
 ) -> MockJupyterWebSocket:
     """Create a new mock ClientWebSocketResponse that simulates a lab.
@@ -785,3 +754,46 @@ def mock_jupyter_websocket(
     session = jupyter.sessions[user]
     assert match.group(2) == session.kernel_id
     return MockJupyterWebSocket(user, session.session_id, parent=jupyter)
+
+
+@asynccontextmanager
+async def register_mock_jupyter(
+    respx_mock: respx.Router, *, use_subdomains: bool = False
+) -> AsyncGenerator[MockJupyter]:
+    """Set up a mock JupyterHub and JupyterLab.
+
+    Parameters
+    ----------
+    respx_mock
+        Mock router to use to install routes.
+    use_subdomains
+        If set to `True`, use per-user subdomains for JupyterLab and a
+        subdomain for JupyterHub. Requests to the URL outside of the subdomain
+        will be redirected.
+    """
+    discovery_client = DiscoveryClient()
+    base_url = await discovery_client.url_for_ui("nublado")
+    assert base_url
+    mock = MockJupyter(base_url, use_subdomains=use_subdomains)
+    _install_hub_routes(respx_mock, mock, base_url)
+    _install_lab_routes(respx_mock, mock, re.escape(base_url))
+    if use_subdomains:
+        parsed_base_url = urlparse(base_url)
+        host = parsed_base_url.hostname
+        assert host
+        path = parsed_base_url.path.rstrip("/")
+        base_regex = r"https://[^.]+\." + re.escape(host) + re.escape(path)
+        _install_lab_routes(respx_mock, mock, base_regex)
+
+    @asynccontextmanager
+    async def mock_connect(
+        url: str,
+        additional_headers: dict[str, str],
+        max_size: int | None,
+        open_timeout: int,
+    ) -> AsyncGenerator[MockJupyterWebSocket]:
+        yield _mock_jupyter_websocket(url, additional_headers, mock)
+
+    with patch.object(websockets, "connect") as mock_websockets:
+        mock_websockets.side_effect = mock_connect
+        yield mock

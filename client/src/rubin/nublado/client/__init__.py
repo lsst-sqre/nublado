@@ -16,9 +16,7 @@ from ._mock import (
     MockJupyter,
     MockJupyterAction,
     MockJupyterState,
-    MockJupyterWebSocket,
-    mock_jupyter,
-    mock_jupyter_websocket,
+    register_mock_jupyter,
 )
 from ._models import (
     CodeContext,
@@ -42,7 +40,6 @@ __all__ = [
     "MockJupyter",
     "MockJupyterAction",
     "MockJupyterState",
-    "MockJupyterWebSocket",
     "NotebookExecutionErrorModel",
     "NotebookExecutionResult",
     "NubladoClient",
@@ -62,6 +59,5 @@ __all__ = [
     "NubladoWebError",
     "NubladoWebSocketError",
     "SpawnProgressMessage",
-    "mock_jupyter",
-    "mock_jupyter_websocket",
+    "register_mock_jupyter",
 ]

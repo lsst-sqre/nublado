@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from rubin.nublado.client import (
-    MockJupyter,
     NubladoClient,
     NubladoImageByClass,
     NubladoImageClass,
@@ -16,9 +15,7 @@ from rubin.nublado.client import (
 
 
 @pytest.mark.asyncio
-async def test_hub_flow(
-    configured_client: NubladoClient, jupyter: MockJupyter
-) -> None:
+async def test_hub_flow(configured_client: NubladoClient) -> None:
     """Check that the Hub operations work as expected."""
     # Must authenticate first.
     with pytest.raises(AssertionError):
