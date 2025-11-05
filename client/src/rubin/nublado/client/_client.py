@@ -52,11 +52,11 @@ class _aclosing_iter[T: AsyncIterator](AbstractAsyncContextManager):  # noqa: N8
     therefore require cleanup by calling their `aclose` method once the
     generator is no longer needed. This step is done automatically by the
     async loop implementation when the generator is garbage-collected, but
-    this may happen at an arbitrary point and produces pytest warnings
-    saying that the `aclose` method on the generator was never called.
+    this may happen at an arbitrary point and produces pytest warnings saying
+    that the `aclose` method on the generator was never called.
 
-    This class provides a variant of `contextlib.aclosing` that can be
-    used to close generators masquerading as iterators. Many Python libraries
+    This class provides a variant of `contextlib.aclosing` that can be used to
+    close generators masquerading as iterators. Some Python libraries
     implement `__aiter__` by returning a generator rather than an iterator,
     which is equivalent except for this cleanup behavior. Async iterators do
     not require this explicit cleanup step because they don't support async
@@ -118,7 +118,7 @@ class JupyterSpawnProgress:
             Raised if a protocol error occurred while connecting to the
             EventStream API or reading or parsing a message from it.
         """
-        async with _aclosing_iter(self._source.aiter_sse()) as sse_events:
+        async with aclosing(self._source.aiter_sse()) as sse_events:
             async for sse in sse_events:
                 try:
                     event_dict = sse.json()
