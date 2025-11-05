@@ -15,7 +15,6 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum
 from functools import wraps
 from io import StringIO
-from pathlib import Path
 from re import Pattern
 from traceback import format_exc
 from typing import Any
@@ -107,23 +106,14 @@ class MockJupyter:
     ----------
     base_url
         Base URL at which to install the Jupyter mocks.
-    user_dir
-        Simulated user home directory for the ``/files`` route.
     use_subdomains
         If `True`, simulate per-user subdomains. JupyterHub will use the URL
         :samp:`nb.{hostname}` where the hostname is taken from ``base_url``,
         and JupyterLab will use :samp:`{username}.nb.{hostname}`.
     """
 
-    def __init__(
-        self,
-        base_url: str,
-        user_dir: Path,
-        *,
-        use_subdomains: bool = False,
-    ) -> None:
+    def __init__(self, base_url: str, *, use_subdomains: bool = False) -> None:
         self._base_url = URL(base_url)
-        self._user_dir = user_dir
         self._use_subdomains = use_subdomains
 
         self.sessions: dict[str, _JupyterLabSession] = {}
@@ -434,31 +424,8 @@ class MockJupyter:
         del self.sessions[user]
         return Response(204, request=request)
 
-    @_check(url_format="/user/{user}/files")
-    async def get_content(self, request: Request, user: str) -> Response:
-        """Simulate the /files retrieval endpoint."""
-        state = self.state.get(user, MockJupyterState.LOGGED_OUT)
-        assert state == MockJupyterState.LAB_RUNNING
-        if self._use_subdomains:
-            host = f"{user}." + self._base_url.host
-        else:
-            host = self._base_url.host
-        contents_url = self._url(f"user/{user}/files/", host)
-        assert str(request.url).startswith(contents_url)
-        path = str(request.url)[len(contents_url) :]
-        try:
-            filename = self._user_dir / path
-            content = filename.read_bytes()
-            return Response(200, content=content, request=request)
-        except FileNotFoundError:
-            return Response(
-                404, text=f"file or directory '{path}' does not exist"
-            )
-
     @_check()
-    async def run_notebook_via_extension(
-        self, request: Request, user: str
-    ) -> Response:
+    async def run_notebook(self, request: Request, user: str) -> Response:
         """Simulate the /rubin/execution endpoint.
 
         Notes
@@ -758,18 +725,13 @@ def _install_lab_routes(
     respx_mock.post(url__regex=regex).mock(side_effect=mock.create_session)
     regex = _url_regex(base_regex, r"user/[^/]+/api/sessions/[^/]+$")
     respx_mock.delete(url__regex=regex).mock(side_effect=mock.delete_session)
-    regex = _url_regex(base_regex, r"user/[^/]+/files/[^/]+$")
-    respx_mock.get(url__regex=regex).mock(side_effect=mock.get_content)
     regex = _url_regex(base_regex, r"user/[^/]+/rubin/execution")
-    respx_mock.post(url__regex=regex).mock(
-        side_effect=mock.run_notebook_via_extension
-    )
+    respx_mock.post(url__regex=regex).mock(side_effect=mock.run_notebook)
 
 
 def mock_jupyter(
     respx_mock: respx.Router,
     base_url: str,
-    user_dir: Path,
     *,
     use_subdomains: bool = False,
 ) -> MockJupyter:
@@ -783,14 +745,12 @@ def mock_jupyter(
         Base URL for JupyterHub. If per-user subdomains are in use, the
         per-user subdomains will be created by prepending :samp:`{username}.`
         to the hostname of this URL.
-    user_dir
-        User directory for mocking ``/files`` responses.
     use_subdomains
         If set to `True`, use per-user subdomains for JupyterLab and a
         subdomain for JupyterHub. Requests to the URL outside of the subdomain
         will be redirected.
     """
-    mock = MockJupyter(base_url, user_dir, use_subdomains=use_subdomains)
+    mock = MockJupyter(base_url, use_subdomains=use_subdomains)
     _install_hub_routes(respx_mock, mock, base_url)
     _install_lab_routes(respx_mock, mock, re.escape(base_url))
     if use_subdomains:
