@@ -10,6 +10,7 @@ A typical interaction with the client usually looks like this:
 #. Determine whether you already have a running lab with `NubladoClient.is_lab_stopped`.
 #. If you need to, spawn a lab with `NubladoClient.spawn_lab`.
 #. Wait for the lab to spawn by looping through `NubladoClient.watch_spawn_progress` until you get a progress message indicating the lab is ready.
+   Alternately, call `NubladoClient.wait_for_spawn` if you don't care about the spawn messages.
 #. Authenticate to the Lab with `NubladoClient.auth_to_lab`.
 #. Create a lab session with `NubladoClient.lab_session` (not required when running an entire notebook with `NubladoClient.run_notebook`).
 #. Do whatever it is you wanted to do with the lab (see :doc:`lab`).
@@ -63,10 +64,7 @@ This does not run any code within the lab:
             )
             await client.spawn_lab(image)
             async with asyncio.timeout(90):
-                async with aclosing(client.watch_spawn_progress()) as progress:
-                    async for message in progress:
-                        if message.ready:
-                            break
+                await client.wait_for_spawn()
 
 
     client = NubladoClient(username="some-user", token="some-token")
