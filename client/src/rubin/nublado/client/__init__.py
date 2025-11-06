@@ -1,6 +1,6 @@
 """Client for Nublado, not including JupyterHub plugins."""
 
-from ._client import JupyterLabSession, NubladoClient
+from ._client import JupyterLabSessionManager, NubladoClient
 from ._exceptions import (
     NubladoDiscoveryError,
     NubladoError,
@@ -35,7 +35,7 @@ from ._models import (
 __all__ = [
     "CodeContext",
     "JupyterAsyncClient",
-    "JupyterLabSession",
+    "JupyterLabSessionManager",
     "JupyterOutput",
     "MockJupyter",
     "MockJupyterAction",

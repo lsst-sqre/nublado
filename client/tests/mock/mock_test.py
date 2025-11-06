@@ -53,7 +53,7 @@ async def test_register_python(
     await client.auth_to_lab()
 
     # Now test our mock
-    async with client.open_lab_session() as lab_session:
+    async with client.lab_session() as lab_session:
         forty_two = (await lab_session.run_python(code)).strip()
         assert forty_two == "42"
 
