@@ -10,7 +10,7 @@ from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections import defaultdict
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Coroutine
 from contextlib import asynccontextmanager, redirect_stdout
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from functools import wraps
@@ -33,6 +33,7 @@ from ._util import normalize_source
 __all__ = [
     "MockJupyter",
     "MockJupyterAction",
+    "MockJupyterLabSession",
     "MockJupyterState",
     "register_mock_jupyter",
 ]
@@ -54,6 +55,17 @@ class MockJupyterAction(Enum):
     DELETE_SESSION = "delete_session"
 
 
+@dataclass
+class MockJupyterLabSession:
+    """Metadata for an open Jupyter lab session."""
+
+    session_id: str = field(default_factory=lambda: uuid4().hex)
+    """Session ID."""
+
+    kernel_id: str = field(default_factory=lambda: uuid4().hex)
+    """Requested kernel."""
+
+
 class MockJupyterState(Enum):
     """Possible states the Jupyter lab can be in."""
 
@@ -61,14 +73,6 @@ class MockJupyterState(Enum):
     LOGGED_IN = "logged in"
     SPAWN_PENDING = "spawn pending"
     LAB_RUNNING = "lab running"
-
-
-@dataclass
-class _JupyterLabSession:
-    """Metadata for an open Jupyter lab session."""
-
-    session_id: str
-    kernel_id: str
 
 
 type _MockSideEffect = Callable[
@@ -116,21 +120,19 @@ class MockJupyter:
         self._base_url = URL(base_url)
         self._use_subdomains = use_subdomains
 
-        self.sessions: dict[str, _JupyterLabSession] = {}
-        self.state: dict[str, MockJupyterState] = {}
-        self.delete_immediate = True
-        self.spawn_timeout = False
-        self.redirect_loop = False
-        self.lab_form: dict[str, dict[str, str]] = {}
-        self.expected_session_name = "(no notebook)"
-        self.expected_session_type = "console"
-
-        self._delete_at: dict[str, datetime | None] = {}
-        self._fail: defaultdict[str, set[MockJupyterAction]] = defaultdict(set)
         self._hub_xsrf = os.urandom(8).hex()
         self._lab_xsrf = os.urandom(8).hex()
-        self._code_results: dict[str, str] = {}
-        self._extension_results: dict[str, NotebookExecutionResult] = {}
+
+        self._code_results: dict[str, str | BaseException] = {}
+        self._delete_at: dict[str, datetime | None] = {}
+        self._delete_delay: timedelta | None = None
+        self._fail: defaultdict[str, set[MockJupyterAction]] = defaultdict(set)
+        self._lab_form: dict[str, dict[str, str]] = {}
+        self._notebook_results: dict[str, NotebookExecutionResult] = {}
+        self._redirect_loop = False
+        self._sessions: dict[str, MockJupyterLabSession] = {}
+        self._spawn_timeout = False
+        self._state: dict[str, MockJupyterState] = {}
 
     @staticmethod
     def create_mock_token(username: str) -> str:
@@ -150,45 +152,184 @@ class MockJupyter:
         encoded_username = urlsafe_b64encode(username.encode()).decode()
         return f"gt-{encoded_username}.{os.urandom(4).hex()}"
 
-    def fail(self, user: str, action: MockJupyterAction) -> None:
-        """Configure the given action to fail for the given user."""
-        self._fail[user].add(action)
+    def build_code_result(
+        self, code: str, variables: dict[str, Any]
+    ) -> str | None:
+        """Get the execution results for a piece of code.
 
-    def get_python_result(self, code: str | None) -> str | None:
-        """Get the cached results for a specific block of code.
+        Normally, this is only used by the JupyterLab WebSocket mock, but test
+        suites can call it directly if they want to see what the mock would
+        return for a given piece of code.
+
+        .. warning::
+
+           Code for which no result has been registered via
+           `register_python_result` will be executed via `exec`. This mock
+           therefore supports arbitrary code execution via its handlers and
+           must never be exposed to untrusted messages.
 
         Parameters
         ----------
         code
-            Code for which to retrieve results.
+            Code for which to retrieve or generate results.
+        variables
+            Dictionary holding global and local variables. This may be written
+            to by the code, and the caller should keep passing the same
+            dictionary if variable continuity across cell execution (emulating
+            a real notebook) is desired.
 
         Returns
         -------
-        str or None
-            Corresponding results, or `None` if there are no results for this
-            code.
-        """
-        if not code:
-            return None
-        return self._code_results.get(code)
+        str
+            Corresponding results.
 
-    def register_extension_result(
-        self, code: str, result: NotebookExecutionResult
+        Raises
+        ------
+        Exception
+            Raised if there is no registered result for a given piece of code
+            and the code produces an exception when run with `exec`, or if the
+            registered code result is a `BaseException` object (which is then
+            raised).
+        """
+        if result := self._code_results.get(code):
+            if isinstance(result, BaseException):
+                raise result
+            return result
+
+        # No registered result, so execute the code with exec.
+        output = StringIO()
+        with redirect_stdout(output):
+            exec(code, variables)  # noqa: S102
+        return output.getvalue()
+
+    def fail(self, username: str, action: MockJupyterAction) -> None:
+        """Configure the given action to fail for the given user.
+
+        This can be used by test suites to test handling of Nublado failures
+        at various calls in the process of executing code in a JupyterLab.
+
+        Parameters
+        ----------
+        username
+            Username for whom is action should fail.
+        action
+            An action on the mock Nublado that should fail.
+        """
+        self._fail[username].add(action)
+
+    def get_last_spawn_form(self, username: str) -> dict[str, str] | None:
+        """Get the contents of the last spawn form submitted for a user.
+
+        Parameters
+        ----------
+        username
+            Username of the user.
+
+        Returns
+        -------
+        dict of str or None
+            Key and value pairs submitted to the Nublado spawn form, or `None`
+            if that user hasn't submitted a spawn form. Note that although a
+            native Python parsing of a form submission will return a list of
+            values for each key, this method checks that only one value is
+            present for each key and then removes the list wrapper.
+        """
+        return self._lab_form.get(username)
+
+    def get_session(self, username: str) -> MockJupyterLabSession | None:
+        """Retrieve the currently active mock JupyterLab session for a user.
+
+        Parameters
+        ----------
+        username
+            Username of the user.
+
+        Returns
+        -------
+        MockJupyterLabSession or None
+            Current open JupyterLab session for that user, or `None` if none
+            is open.
+        """
+        return self._sessions.get(username)
+
+    def register_notebook_result(
+        self, notebook: str, result: NotebookExecutionResult
     ) -> None:
-        """Register the expected notebook execution result for a given input
-        notebook text.
-        """
-        cache_key = normalize_source(code)
-        self._extension_results[cache_key] = result
+        """Register the result of full notebook execution.
 
-    def register_python_result(self, code: str, result: str) -> None:
-        """Register the expected cell output for a given source input."""
+        Parameters
+        ----------
+        code
+            Full notebook contents as a JSON-formatted string.
+        result
+            Results to return when that notebook is executed via the mock.
+        """
+        cache_key = normalize_source(notebook)
+        self._notebook_results[cache_key] = result
+
+    def register_python_result(
+        self, code: str, result: str | BaseException
+    ) -> None:
+        """Register the expected cell output for a given source input.
+
+        Whenever the given code is executed inside a JupyterLab session in the
+        mock, the given result will be returned or, if it is an exception
+        type, raised.
+
+        Parameters
+        ----------
+        code
+            Expected code block.
+        result
+            Result (standard output) of execution, or a `BaseException` object
+            to raise that exception.
+        """
         self._code_results[code] = result
 
-    # Below this point are the mock handler methods for the various routes.
-    # None of these methods should normally be called directly by test code.
-    # They are registered with respx and invoked automatically when a request
-    # is sent by the code under test to the mocked JupyterHub or JupyterLab.
+    def set_delete_delay(self, delay: timedelta | None) -> None:
+        """Set whether to delete labs immediately.
+
+        By default, the mock deletes user labs immediately. Sometimes the
+        caller may want to test handling of the lab shutdown. It can do that
+        by calling this method on the mock and set a delay for how long it
+        should take to delete a lab.
+
+        Parameters
+        ----------
+        delay
+            How long to wait before deleting the lab or `None` to not wait.
+            The lab deletion will actually happen after this delay has passed
+            and the client calls the mock route that returns the list of a
+            user's current labs (called by
+            `~rubin.nublado.client.NubladoClient.is_lab_stopped`).
+        """
+        self._delete_delay = delay
+
+    def set_redirect_loop(self, *, enabled: bool) -> None:
+        """Set whether to return an infinite redirect loop.
+
+        If enabled, the endpoint for watching spawn progress will instead
+        return an infinite redirect loop to the same URL.
+
+        Parameters
+        ----------
+        enabled
+            Whether to enable a redirect loop.
+        """
+        self._redirect_loop = enabled
+
+    def set_spawn_timeout(self, *, enabled: bool) -> None:
+        """Set whether to time out during lab spawn.
+
+        If enabled, the endpoint for watching spawn progress will hang for
+        60s and then return nothing.
+
+        Parameters
+        ----------
+        enabled
+            Whether to enable a spawn timeout.
+        """
+        self._spawn_timeout = enabled
 
     @staticmethod
     def _check(
@@ -224,24 +365,18 @@ class MockJupyter:
         def decorator(f: _MockHandler) -> _MockSideEffect:
             @wraps(f)
             async def wrapper(mock: MockJupyter, request: Request) -> Response:
-                # Ensure the request is authenticated.
                 user = mock._get_user_from_headers(request)
                 if user is None:
                     return Response(403, request=request)
 
                 # If told to check the URL, verify it has the right path.
                 if url_format:
-                    expected = url_format.format(user=user)
-                    request_url = str(request.url)
-                    if expected not in request_url:
-                        msg = f"URL {request_url} does not contain {expected}"
-                        raise RuntimeError(msg)
+                    assert url_format.format(user=user) in str(request.url)
 
                 # Handle any redirects needed by the multi-domain case.
                 if redirect := mock._maybe_redirect(request, user):
-                    return Response(
-                        302, request=request, headers={"Location": redirect}
-                    )
+                    headers = {"Location": redirect}
+                    return Response(302, request=request, headers=headers)
 
                 # All checks passed. Call the actual handler.
                 return await f(mock, request, user)
@@ -250,13 +385,18 @@ class MockJupyter:
 
         return decorator
 
+    # Below this point are the mock handler methods for the various routes.
+    # None of these methods should normally be called directly by test code.
+    # They are registered with respx and invoked automatically when a request
+    # is sent by the code under test to the mocked JupyterHub or JupyterLab.
+
     @_check()
     async def login(self, request: Request, user: str) -> Response:
         if MockJupyterAction.LOGIN in self._fail[user]:
             return Response(500, request=request)
-        state = self.state.get(user, MockJupyterState.LOGGED_OUT)
+        state = self._state.get(user, MockJupyterState.LOGGED_OUT)
         if state == MockJupyterState.LOGGED_OUT:
-            self.state[user] = MockJupyterState.LOGGED_IN
+            self._state[user] = MockJupyterState.LOGGED_IN
         xsrf = f"_xsrf={self._hub_xsrf}"
         return Response(200, request=request, headers={"Set-Cookie": xsrf})
 
@@ -265,19 +405,18 @@ class MockJupyter:
         if MockJupyterAction.USER in self._fail[user]:
             return Response(500, request=request)
         assert request.headers.get("x-xsrftoken") == self._hub_xsrf
-        state = self.state.get(user, MockJupyterState.LOGGED_OUT)
+        state = self._state.get(user, MockJupyterState.LOGGED_OUT)
         if state == MockJupyterState.SPAWN_PENDING:
             server = {"name": "", "pending": "spawn", "ready": False}
             body = {"name": user, "servers": {"": server}}
         elif state == MockJupyterState.LAB_RUNNING:
-            delete_at = self._delete_at.get(user)
-            if delete_at and datetime.now(tz=UTC) > delete_at:
-                del self._delete_at[user]
-                self.state[user] = MockJupyterState.LOGGED_IN
-            if delete_at:
-                server = {"name": "", "pending": "delete", "ready": False}
-            else:
-                server = {"name": "", "pending": None, "ready": True}
+            server = {"name": "", "pending": None, "ready": True}
+            if delete_at := self._delete_at.get(user):
+                if datetime.now(tz=UTC) > delete_at:
+                    del self._delete_at[user]
+                    self._state[user] = MockJupyterState.LOGGED_IN
+                else:
+                    server = {"name": "", "pending": "delete", "ready": False}
             body = {"name": user, "servers": {"": server}}
         else:
             body = {"name": user, "servers": {}}
@@ -285,11 +424,10 @@ class MockJupyter:
 
     @_check(url_format="/hub/api/users/{user}/server/progress")
     async def progress(self, request: Request, user: str) -> Response:
-        if self.redirect_loop:
-            return Response(
-                303, headers={"Location": str(request.url)}, request=request
-            )
-        state = self.state.get(user, MockJupyterState.LOGGED_OUT)
+        if self._redirect_loop:
+            headers = {"Location": str(request.url)}
+            return Response(303, headers=headers, request=request)
+        state = self._state.get(user, MockJupyterState.LOGGED_OUT)
         assert state in (
             MockJupyterState.SPAWN_PENDING,
             MockJupyterState.LAB_RUNNING,
@@ -305,35 +443,31 @@ class MockJupyter:
                 'data: {"progress": 100, "ready": true, "message": "Ready"}\n'
                 "\n"
             )
-        elif self.spawn_timeout:
+        elif self._spawn_timeout:
             # Cause the spawn to time out by pausing for longer than the test
             # should run for and then returning nothing.
             await asyncio.sleep(60)
             body = ""
         else:
-            self.state[user] = MockJupyterState.LAB_RUNNING
+            self._state[user] = MockJupyterState.LAB_RUNNING
             body = (
                 'data: {"progress": 0, "message": "Server requested"}\n\n'
                 'data: {"progress": 50, "message": "Spawning server..."}\n\n'
                 'data: {"progress": 100, "ready": true, "message": "Ready"}\n'
                 "\n"
             )
-        return Response(
-            200,
-            text=body,
-            headers={"Content-Type": "text/event-stream"},
-            request=request,
-        )
+        headers = {"Content-Type": "text/event-stream"}
+        return Response(200, text=body, headers=headers, request=request)
 
     @_check()
     async def spawn(self, request: Request, user: str) -> Response:
         if MockJupyterAction.SPAWN in self._fail[user]:
             return Response(500, request=request)
-        state = self.state.get(user, MockJupyterState.LOGGED_OUT)
+        state = self._state.get(user, MockJupyterState.LOGGED_OUT)
         assert state == MockJupyterState.LOGGED_IN
         assert request.headers.get("x-xsrftoken") == self._hub_xsrf
-        self.state[user] = MockJupyterState.SPAWN_PENDING
-        self.lab_form[user] = {
+        self._state[user] = MockJupyterState.SPAWN_PENDING
+        self._lab_form[user] = {
             k: v[0] for k, v in parse_qs(request.content.decode()).items()
         }
         url = self._url(f"hub/spawn-pending/{user}")
@@ -343,7 +477,7 @@ class MockJupyter:
     async def spawn_pending(self, request: Request, user: str) -> Response:
         if MockJupyterAction.SPAWN_PENDING in self._fail[user]:
             return Response(500, request=request)
-        state = self.state.get(user, MockJupyterState.LOGGED_OUT)
+        state = self._state.get(user, MockJupyterState.LOGGED_OUT)
         assert state == MockJupyterState.SPAWN_PENDING
         assert request.headers.get("x-xsrftoken") == self._hub_xsrf
         return Response(200, request=request)
@@ -356,28 +490,22 @@ class MockJupyter:
     async def lab(self, request: Request, user: str) -> Response:
         if MockJupyterAction.LAB in self._fail[user]:
             return Response(500, request=request)
-        state = self.state.get(user, MockJupyterState.LOGGED_OUT)
+        state = self._state.get(user, MockJupyterState.LOGGED_OUT)
+
+        # In the running state, there should be another redirect to
+        # /hub/api/oauth2/authorize, which doesn't set a cookie and then
+        # redirects to /user/username/oauth_callback. We're skipping that one
+        # because it doesn't change the client state at all.
         if state == MockJupyterState.LAB_RUNNING:
-            # In real life, there's another redirect to
-            # /hub/api/oauth2/authorize, which doesn't set a cookie, and then
-            # redirects to /user/username/oauth_callback. We're skipping that
-            # one since it doesn't change the client state at all.
-            xsrf = f"_xsrf={self._lab_xsrf}"
-            return Response(
-                302,
-                request=request,
-                headers={
-                    "Location": self._url(f"user/{user}/oauth_callback"),
-                    "Set-Cookie": xsrf,
-                },
-            )
+            headers = {
+                "Location": self._url(f"user/{user}/oauth_callback"),
+                "Set-Cookie": f"_xsrf={self._lab_xsrf}",
+            }
+            return Response(302, headers=headers, request=request)
         else:
             host = self._base_url.host
-            return Response(
-                302,
-                headers={"Location": self._url(f"hub/user/{user}/lab", host)},
-                request=request,
-            )
+            headers = {"Location": self._url(f"hub/user/{user}/lab", host)}
+            return Response(302, headers=headers, request=request)
 
     @_check(url_format="/user/{user}/oauth_callback")
     async def lab_callback(self, request: Request, user: str) -> Response:
@@ -396,50 +524,45 @@ class MockJupyter:
         assert request.headers.get("x-xsrftoken") == self._hub_xsrf
         if MockJupyterAction.DELETE_LAB in self._fail[user]:
             return Response(500, request=request)
-        state = self.state.get(user, MockJupyterState.LOGGED_OUT)
+        state = self._state.get(user, MockJupyterState.LOGGED_OUT)
         assert state != MockJupyterState.LOGGED_OUT
-        if self.delete_immediate:
-            self.state[user] = MockJupyterState.LOGGED_IN
+        if not self._delete_delay:
+            self._state[user] = MockJupyterState.LOGGED_IN
         else:
-            now = datetime.now(tz=UTC)
-            self._delete_at[user] = now + timedelta(seconds=5)
+            self._delete_at[user] = datetime.now(tz=UTC) + self._delete_delay
         return Response(202, request=request)
 
     @_check(url_format="/user/{user}/api/sessions")
     async def create_session(self, request: Request, user: str) -> Response:
         assert request.headers.get("x-xsrftoken") == self._lab_xsrf
-        assert user not in self.sessions
+        assert user not in self._sessions
         if MockJupyterAction.CREATE_SESSION in self._fail[user]:
             return Response(500, request=request)
-        state = self.state.get(user, MockJupyterState.LOGGED_OUT)
+        state = self._state.get(user, MockJupyterState.LOGGED_OUT)
         assert state == MockJupyterState.LAB_RUNNING
         body = json.loads(request.content.decode())
-        assert body["kernel"]["name"] == "LSST"
-        assert body["name"] == self.expected_session_name
-        assert body["type"] == self.expected_session_type
-        session = _JupyterLabSession(
-            session_id=uuid4().hex, kernel_id=uuid4().hex
-        )
-        self.sessions[user] = session
-        return Response(
-            201,
-            json={
-                "id": session.session_id,
-                "kernel": {"id": session.kernel_id},
-            },
-            request=request,
-        )
+        assert body["kernel"].get("name")
+        assert body.get("name")
+        assert body.get("path")
+        assert body.get("type") in ("console", "notebook")
+        session = MockJupyterLabSession()
+        self._sessions[user] = session
+        response = {
+            "id": session.session_id,
+            "kernel": {"id": session.kernel_id},
+        }
+        return Response(201, json=response, request=request)
 
     @_check(url_format="/user/{user}/api/sessions")
     async def delete_session(self, request: Request, user: str) -> Response:
-        session_id = self.sessions[user].session_id
+        session_id = self._sessions[user].session_id
         assert str(request.url).endswith(f"/{session_id}")
         assert request.headers.get("x-xsrftoken") == self._lab_xsrf
         if MockJupyterAction.DELETE_SESSION in self._fail[user]:
             return Response(500, request=request)
-        state = self.state.get(user, MockJupyterState.LOGGED_OUT)
+        state = self._state.get(user, MockJupyterState.LOGGED_OUT)
         assert state == MockJupyterState.LAB_RUNNING
-        del self.sessions[user]
+        del self._sessions[user]
         return Response(204, request=request)
 
     @_check()
@@ -473,25 +596,22 @@ class MockJupyter:
         register those results, and then the correct output would be
         delivered by the cache.
         """
-        inp = request.content.decode("utf-8")
         try:
-            obj = json.loads(inp)
-            nb_str = json.dumps(obj["notebook"])
-            resources = obj["resources"]
+            body = json.loads(request.content.decode())
+            notebook = json.dumps(body["notebook"])
+            resources = body["resources"]
         except Exception:
-            nb_str = inp
-            resources = None
-        normalized_nb_code = normalize_source(nb_str)
-        if normalized_nb_code in self._extension_results:
-            res = self._extension_results[normalized_nb_code]
-            obj = res.model_dump()
+            notebook = request.content.decode()
+            resources = {}
+        if result := self._notebook_results.get(normalize_source(notebook)):
+            result_json = result.model_dump()
         else:
-            obj = {
-                "notebook": nb_str,
-                "resources": resources or {},
+            result_json = {
+                "notebook": notebook,
+                "resources": resources,
                 "error": None,
             }
-        return Response(200, json=obj)
+        return Response(200, json=result_json)
 
     def _get_user_from_headers(self, request: Request) -> str | None:
         """Get the user from the request headers.
@@ -514,8 +634,6 @@ class MockJupyter:
             Authenticated username, or `None` if no authenticated user could
             be found.
         """
-        if username := request.headers.get("X-Auth-Request-User", None):
-            return username
         authorization = request.headers.get("Authorization", None)
         if not authorization:
             return None
@@ -582,32 +700,41 @@ class MockJupyterWebSocket:
 
     Note
     ----
-    The methods are named the reverse of what you would expect:  ``send``
-    receives a message, and ``recv`` sends a message back to the caller. This
-    is because this is a mock of a client library but is simulating a server,
-    so is operating in the reverse direction.
+    The methods are named the reverse of what you would expect: ``send``
+    receives and processes a message. This is because this is a mock of a
+    client library but is simulating a server, so is operating in the reverse
+    direction.
     """
 
     def __init__(
-        self, user: str, session_id: str, parent: MockJupyter
+        self, username: str, session_id: str, parent: MockJupyter
     ) -> None:
-        self.user = user
-        self.session_id = session_id
-        self._header: dict[str, str] | None = None
-        self._code: str | None = None
+        self._username = username
+        self._session_id = session_id
         self._parent = parent
+
+        # Header of the message sent to JupyterLab, which should therefore be
+        # present in all responses.
+        self._header: dict[str, str] | None = None
+
+        # Code block currently being executed.
+        self._code: str | None = None
+
+        # Holds local and global variables across cell executions so that
+        # notebook state between cells can be simulated.
         self._state: dict[str, Any] = {}
 
     async def close(self) -> None:
-        pass
+        """Simulate close of the WebSocket."""
 
     async def send(self, message_str: str) -> None:
+        """Simulate sending a message to the JupyterLab WebSocket."""
         message = json.loads(message_str)
         assert message == {
             "header": {
-                "username": self.user,
+                "username": self._username,
                 "version": "5.4",
-                "session": self.session_id,
+                "session": self._session_id,
                 "date": ANY,
                 "msg_id": ANY,
                 "msg_type": "execute_request",
@@ -628,57 +755,43 @@ class MockJupyterWebSocket:
         self._code = message["content"]["code"]
 
     async def __aiter__(self) -> AsyncIterator[str]:
+        """Simulate receiving messages from the JupyterLab WebSocket."""
         while True:
             assert self._header
             response = self._build_response()
             yield json.dumps(response)
 
     def _build_response(self) -> dict[str, Any]:
-        if results := self._parent.get_python_result(self._code):
-            self._code = None
-            return {
-                "msg_type": "stream",
-                "parent_header": self._header,
-                "content": {"text": results},
-            }
-        elif self._code == "long_error_for_test()":
-            error = ""
-            line = "this is a single line of output to test trimming errors"
-            for i in range(int(3000 / len(line))):
-                error += f"{line} #{i}\n"
-            self._code = None
-            return {
-                "msg_type": "error",
-                "parent_header": self._header,
-                "content": {"traceback": error},
-            }
-        elif self._code:
+        """Construct a response to a code execution request."""
+        parent = self._parent
+        if self._code:
             try:
-                output = StringIO()
-                with redirect_stdout(output):
-                    exec(self._code, self._state)  # noqa: S102
+                result = parent.build_code_result(self._code, self._state)
                 self._code = None
-                return {
-                    "msg_type": "stream",
-                    "parent_header": self._header,
-                    "content": {"text": output.getvalue()},
-                }
-            except Exception:
-                result = {
+                if isinstance(result, BaseException):
+                    raise result
+            except BaseException:
+                response = {
                     "msg_type": "error",
                     "parent_header": self._header,
                     "content": {"traceback": format_exc()},
                 }
                 self._header = None
-                return result
+                return response
+            else:
+                return {
+                    "msg_type": "stream",
+                    "parent_header": self._header,
+                    "content": {"text": result},
+                }
         else:
-            result = {
+            response = {
                 "msg_type": "execute_reply",
                 "parent_header": self._header,
                 "content": {"status": "ok"},
             }
             self._header = None
-            return result
+            return response
 
 
 def _url_regex(base_regex: str, route: str) -> Pattern[str]:
@@ -748,7 +861,7 @@ def _install_lab_routes(
 
 
 def _mock_jupyter_websocket(
-    url: str, headers: dict[str, str], jupyter: MockJupyter
+    url: str, headers: dict[str, str], mock_jupyter: MockJupyter
 ) -> MockJupyterWebSocket:
     """Create a new mock ClientWebSocketResponse that simulates a lab.
 
@@ -758,8 +871,8 @@ def _mock_jupyter_websocket(
         URL of the request to open a WebSocket.
     headers
         Extra headers sent with that request.
-    jupyter
-        Mock JupyterHub.
+    mock_jupyter
+        Mock JupyterHub and JupyterLab object.
 
     Returns
     -------
@@ -768,10 +881,11 @@ def _mock_jupyter_websocket(
     """
     match = re.search("/user/([^/]+)/api/kernels/([^/]+)/channels", url)
     assert match
-    user = match.group(1)
-    session = jupyter.sessions[user]
+    username = match.group(1)
+    session = mock_jupyter.get_session(username)
+    assert session
     assert match.group(2) == session.kernel_id
-    return MockJupyterWebSocket(user, session.session_id, parent=jupyter)
+    return MockJupyterWebSocket(username, session.session_id, mock_jupyter)
 
 
 @asynccontextmanager

@@ -5,7 +5,14 @@ Testing users of the Nublado client
 ###################################
 
 The `MockJupyter` class can be used to write unit tests of users of the Nublado Python client without needing a running Phalanx environment.
-It simulates the subset of the JupyterHub and JupyterLab API used by the Nublado client and simulates Python code execution inside the notebook with `eval`.
+It simulates the subset of the JupyterHub and JupyterLab API used by the Nublado client and simulates Python code execution inside the notebook with `exec`.
+
+.. warning::
+
+   Code for which no result has been registered via
+   `MockJupyter.register_python_result` will be executed via `exec`. This
+   mock therefore supports arbitrary code execution via its handlers and
+   must never be exposed to untrusted messages.
 
 Creating the mock in a test fixture
 ===================================
@@ -73,9 +80,9 @@ By default, `MockJupyter` runs the code provided to `JupyterLabSession.run_pytho
 To change this behavior, you can call `MockJupyter.register_python_result`, passing it a code string and a result.
 Any subsequent attempt to execute that code string will return the registered result rather than executing the code.
 
-The `MockJupyter.register_extension_result` method provides similar functionality for `NubladoClient.run_notebook`.
+The `MockJupyter.register_notebook_result` method provides similar functionality for `NubladoClient.run_notebook`.
 It takes the notebook contents (as a JSON string) and a corresponding `NotebookExecutionResult`.
 Any subsequent execution of a notebook matching that string will return the registered notebook execution result.
 
-If `MockJupyter.register_extension_result` has not been called with a matching notebook string value, the `MockJupyter` replacement for full notebook execution will return the input notebook.
+If `MockJupyter.register_notebook_result` has not been called with a matching notebook string value, the `MockJupyter` replacement for full notebook execution will return the input notebook.
 The mock will never attempt to run :command:`nbconvert` in the way that the Nublado JupyterLab extension would do.

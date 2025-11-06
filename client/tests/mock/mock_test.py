@@ -69,7 +69,7 @@ async def test_register_extension(
 ) -> None:
     """Register 'python' code with the mock and check its output."""
     # Register our code with the mock.
-    mock_jupyter.register_extension_result(
+    mock_jupyter.register_notebook_result(
         INPUT_NB.read_text(),
         NotebookExecutionResult(notebook=OUTPUT_NB.read_text(), resources={}),
     )
