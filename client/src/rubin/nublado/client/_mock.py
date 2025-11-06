@@ -8,7 +8,13 @@ import os
 import re
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections import defaultdict
-from collections.abc import AsyncGenerator, AsyncIterator, Callable, Coroutine
+from collections.abc import (
+    AsyncGenerator,
+    AsyncIterator,
+    Callable,
+    Coroutine,
+    Iterable,
+)
 from contextlib import asynccontextmanager, redirect_stdout
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -75,15 +81,18 @@ class MockJupyterState(Enum):
     LAB_RUNNING = "lab running"
 
 
-type _MockSideEffect = Callable[
-    [MockJupyter, Request], Coroutine[None, None, Response]
-]
-"""Type of a respx mock side effect function."""
-
 type _MockHandler = Callable[
     [MockJupyter, Request, str], Coroutine[None, None, Response]
 ]
 """Type of a handler for a mocked Jupyter call."""
+
+type _MockRequiredState = MockJupyterState | Iterable[MockJupyterState]
+"""Type of a specification for required state."""
+
+type _MockSideEffect = Callable[
+    [MockJupyter, Request], Coroutine[None, None, Response]
+]
+"""Type of a respx mock side effect function."""
 
 
 class MockJupyter:
@@ -333,7 +342,9 @@ class MockJupyter:
 
     @staticmethod
     def _check(
-        *, url_format: str | None = None
+        *,
+        required_state: _MockRequiredState | None = None,
+        url_format: str | None = None,
     ) -> Callable[[_MockHandler], _MockSideEffect]:
         """Wrap `MockJupyter` methods to perform common checks.
 
@@ -345,6 +356,9 @@ class MockJupyter:
 
         Paramaters
         ----------
+        required_state
+            If given, the state or iterable of states that Jupyter must be in
+            for this call to be valid.
         url_format
             A Python format string that, when expanded, must occur in the path
             of the URL. The ``{user}`` variable is expanded into the
@@ -371,7 +385,21 @@ class MockJupyter:
 
                 # If told to check the URL, verify it has the right path.
                 if url_format:
-                    assert url_format.format(user=user) in str(request.url)
+                    path = url_format.format(user=user)
+                    assert path in str(request.url), (
+                        f"Path {path} not found in URL {request.url!s}"
+                    )
+
+                # If told to check state, verify it.
+                if required_state:
+                    state = mock._state.get(user, MockJupyterState.LOGGED_OUT)
+                    if isinstance(required_state, MockJupyterState):
+                        expected = {required_state}
+                    else:
+                        expected = set(required_state)
+                    assert state in expected, (
+                        f"Jupyter state {state!s} not in {expected!s}"
+                    )
 
                 # Handle any redirects needed by the multi-domain case.
                 if redirect := mock._maybe_redirect(request, user):
@@ -404,7 +432,7 @@ class MockJupyter:
     async def user(self, request: Request, user: str) -> Response:
         if MockJupyterAction.USER in self._fail[user]:
             return Response(500, request=request)
-        assert request.headers.get("x-xsrftoken") == self._hub_xsrf
+        self._check_xsrf(request)
         state = self._state.get(user, MockJupyterState.LOGGED_OUT)
         if state == MockJupyterState.SPAWN_PENDING:
             server = {"name": "", "pending": "spawn", "ready": False}
@@ -422,16 +450,18 @@ class MockJupyter:
             body = {"name": user, "servers": {}}
         return Response(200, json=body, request=request)
 
-    @_check(url_format="/hub/api/users/{user}/server/progress")
+    @_check(
+        required_state=(
+            MockJupyterState.SPAWN_PENDING,
+            MockJupyterState.LAB_RUNNING,
+        ),
+        url_format="/hub/api/users/{user}/server/progress",
+    )
     async def progress(self, request: Request, user: str) -> Response:
         if self._redirect_loop:
             headers = {"Location": str(request.url)}
             return Response(303, headers=headers, request=request)
         state = self._state.get(user, MockJupyterState.LOGGED_OUT)
-        assert state in (
-            MockJupyterState.SPAWN_PENDING,
-            MockJupyterState.LAB_RUNNING,
-        )
         if MockJupyterAction.PROGRESS in self._fail[user]:
             body = (
                 'data: {"progress": 0, "message": "Server requested"}\n\n'
@@ -459,13 +489,11 @@ class MockJupyter:
         headers = {"Content-Type": "text/event-stream"}
         return Response(200, text=body, headers=headers, request=request)
 
-    @_check()
+    @_check(required_state=MockJupyterState.LOGGED_IN)
     async def spawn(self, request: Request, user: str) -> Response:
         if MockJupyterAction.SPAWN in self._fail[user]:
             return Response(500, request=request)
-        state = self._state.get(user, MockJupyterState.LOGGED_OUT)
-        assert state == MockJupyterState.LOGGED_IN
-        assert request.headers.get("x-xsrftoken") == self._hub_xsrf
+        self._check_xsrf(request)
         self._state[user] = MockJupyterState.SPAWN_PENDING
         self._lab_form[user] = {
             k: v[0] for k, v in parse_qs(request.content.decode()).items()
@@ -473,13 +501,14 @@ class MockJupyter:
         url = self._url(f"hub/spawn-pending/{user}")
         return Response(302, headers={"Location": url}, request=request)
 
-    @_check(url_format="/hub/spawn-pending/{user}")
+    @_check(
+        required_state=MockJupyterState.SPAWN_PENDING,
+        url_format="/hub/spawn-pending/{user}",
+    )
     async def spawn_pending(self, request: Request, user: str) -> Response:
         if MockJupyterAction.SPAWN_PENDING in self._fail[user]:
             return Response(500, request=request)
-        state = self._state.get(user, MockJupyterState.LOGGED_OUT)
-        assert state == MockJupyterState.SPAWN_PENDING
-        assert request.headers.get("x-xsrftoken") == self._hub_xsrf
+        self._check_xsrf(request)
         return Response(200, request=request)
 
     @_check(url_format="/hub/user/{user}/lab")
@@ -509,37 +538,31 @@ class MockJupyter:
 
     @_check(url_format="/user/{user}/oauth_callback")
     async def lab_callback(self, request: Request, user: str) -> Response:
-        """Simulate not setting the ``_xsrf`` cookie on first request.
-
-        This happens at the end of a chain from ``/user/username/lab`` to
-        ``/hub/api/oauth2/authorize``, which then issues a redirect to
-        ``/user/username/oauth_callback``. It is in the final redirect that
-        the ``_xsrf`` cookie is actually set, and then this callback returns a
-        200 response without setting a cookie.
-        """
+        """Simulate returning to JupyterLab after authentication."""
         return Response(200, request=request)
 
     @_check(url_format="/hub/api/users/{user}/server")
     async def delete_lab(self, request: Request, user: str) -> Response:
-        assert request.headers.get("x-xsrftoken") == self._hub_xsrf
+        self._check_xsrf(request)
         if MockJupyterAction.DELETE_LAB in self._fail[user]:
             return Response(500, request=request)
         state = self._state.get(user, MockJupyterState.LOGGED_OUT)
-        assert state != MockJupyterState.LOGGED_OUT
+        assert state != MockJupyterState.LOGGED_OUT, "User not authenticated"
         if not self._delete_delay:
             self._state[user] = MockJupyterState.LOGGED_IN
         else:
             self._delete_at[user] = datetime.now(tz=UTC) + self._delete_delay
         return Response(202, request=request)
 
-    @_check(url_format="/user/{user}/api/sessions")
+    @_check(
+        required_state=MockJupyterState.LAB_RUNNING,
+        url_format="/user/{user}/api/sessions",
+    )
     async def create_session(self, request: Request, user: str) -> Response:
-        assert request.headers.get("x-xsrftoken") == self._lab_xsrf
-        assert user not in self._sessions
+        self._check_xsrf(request, is_lab_route=True)
+        assert user not in self._sessions, "User has an existing session"
         if MockJupyterAction.CREATE_SESSION in self._fail[user]:
             return Response(500, request=request)
-        state = self._state.get(user, MockJupyterState.LOGGED_OUT)
-        assert state == MockJupyterState.LAB_RUNNING
         body = json.loads(request.content.decode())
         assert body["kernel"].get("name")
         assert body.get("name")
@@ -553,19 +576,22 @@ class MockJupyter:
         }
         return Response(201, json=response, request=request)
 
-    @_check(url_format="/user/{user}/api/sessions")
+    @_check(
+        required_state=MockJupyterState.LAB_RUNNING,
+        url_format="/user/{user}/api/sessions",
+    )
     async def delete_session(self, request: Request, user: str) -> Response:
         session_id = self._sessions[user].session_id
-        assert str(request.url).endswith(f"/{session_id}")
-        assert request.headers.get("x-xsrftoken") == self._lab_xsrf
+        assert str(request.url).endswith(f"/{session_id}"), (
+            f"Invalid session URL {request.url!s}"
+        )
+        self._check_xsrf(request, is_lab_route=True)
         if MockJupyterAction.DELETE_SESSION in self._fail[user]:
             return Response(500, request=request)
-        state = self._state.get(user, MockJupyterState.LOGGED_OUT)
-        assert state == MockJupyterState.LAB_RUNNING
         del self._sessions[user]
         return Response(204, request=request)
 
-    @_check()
+    @_check(required_state=MockJupyterState.LAB_RUNNING)
     async def run_notebook(self, request: Request, user: str) -> Response:
         """Simulate the /rubin/execution endpoint.
 
@@ -612,6 +638,25 @@ class MockJupyter:
                 "error": None,
             }
         return Response(200, json=result_json)
+
+    def _check_xsrf(
+        self, request: Request, *, is_lab_route: bool = False
+    ) -> None:
+        """Check whether the client sent the right XSRF header.
+
+        Raises an assertion if the XSRF header is missing or incorrect.
+
+        Parameters
+        ----------
+        request
+            Incoming request.
+        is_lab_route
+            `True` if this is a JupyterLab route and should use the JupyterLab
+            XSRF token, `False` if it should use the JupyterHub XSRF token.
+        """
+        xsrf = request.headers.get("x-xsrftoken")
+        expected = self._lab_xsrf if is_lab_route else self._hub_xsrf
+        assert xsrf == expected, f"XSRF mismatch: {xsrf} != {expected}"
 
     def _get_user_from_headers(self, request: Request) -> str | None:
         """Get the user from the request headers.
@@ -730,7 +775,7 @@ class MockJupyterWebSocket:
     async def send(self, message_str: str) -> None:
         """Simulate sending a message to the JupyterLab WebSocket."""
         message = json.loads(message_str)
-        assert message == {
+        expected = {
             "header": {
                 "username": self._username,
                 "version": "5.4",
@@ -751,13 +796,16 @@ class MockJupyterWebSocket:
             "metadata": {},
             "buffers": {},
         }
+        assert message == expected, (
+            f"Unexpected WebSocket message: {message} != {expected}"
+        )
         self._header = message["header"]
         self._code = message["content"]["code"]
 
     async def __aiter__(self) -> AsyncIterator[str]:
         """Simulate receiving messages from the JupyterLab WebSocket."""
         while True:
-            assert self._header
+            assert self._header, "Read from WebSocket before sending message"
             response = self._build_response()
             yield json.dumps(response)
 
@@ -880,11 +928,14 @@ def _mock_jupyter_websocket(
         Mock WebSocket connection.
     """
     match = re.search("/user/([^/]+)/api/kernels/([^/]+)/channels", url)
-    assert match
+    assert match, f"Invalid WebSocket route {url}"
     username = match.group(1)
     session = mock_jupyter.get_session(username)
-    assert session
-    assert match.group(2) == session.kernel_id
+    assert session, "User has no open lab session"
+    kernel_id = match.group(2)
+    assert kernel_id == session.kernel_id, (
+        f"Kernel doesn't match session: {kernel_id} != {session.kernel_id}"
+    )
     return MockJupyterWebSocket(username, session.session_id, mock_jupyter)
 
 
@@ -905,14 +956,14 @@ async def register_mock_jupyter(
     """
     discovery_client = DiscoveryClient()
     base_url = await discovery_client.url_for_ui("nublado")
-    assert base_url
+    assert base_url, "Service nublado not found in Repertoire"
     mock = MockJupyter(base_url, use_subdomains=use_subdomains)
     _install_hub_routes(respx_mock, mock, base_url)
     _install_lab_routes(respx_mock, mock, re.escape(base_url))
     if use_subdomains:
         parsed_base_url = urlparse(base_url)
         host = parsed_base_url.hostname
-        assert host
+        assert host, "Base URL for nublado service has no host component"
         path = parsed_base_url.path.rstrip("/")
         base_regex = r"https://[^.]+\." + re.escape(host) + re.escape(path)
         _install_lab_routes(respx_mock, mock, base_regex)
