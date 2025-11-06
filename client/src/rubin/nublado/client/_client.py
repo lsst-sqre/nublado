@@ -707,7 +707,9 @@ class NubladoClient:
 
         # POST the options form to the spawn page. This should redirect to
         # the spawn-pending page, which will return a 200.
-        self._logger.info("Spawning lab", user=self.username)
+        self._logger.info(
+            "Spawning lab", user=self.username, **config.to_logging_context()
+        )
         await self._client.post("hub/spawn", data=data)
 
     async def stop_lab(self) -> None:
