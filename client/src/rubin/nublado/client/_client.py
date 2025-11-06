@@ -107,11 +107,6 @@ class NubladoClient:
         Timeout to use when talking to JupyterHub and Jupyter lab. This is
         used as a connection, read, and write timeout for all regular HTTP
         calls.
-
-    Attributes
-    ----------
-    username
-        User whose lab is managed by this object.
     """
 
     def __init__(
@@ -123,7 +118,7 @@ class NubladoClient:
         logger: BoundLogger | None = None,
         timeout: timedelta = timedelta(seconds=30),
     ) -> None:
-        self.username = username
+        self._username = username
         self._discovery = discovery_client or DiscoveryClient()
         self._logger = logger or structlog.get_logger()
         self._timeout = timeout
@@ -181,7 +176,7 @@ class NubladoClient:
         rubin.repertoire.RepertoireError
             Raised if there was an error talking to service discovery.
         """
-        route = f"user/{self.username}/lab"
+        route = f"user/{self._username}/lab"
         await self._client.get(route, fetch_mode="navigate")
 
     async def is_lab_stopped(self, *, log_running: bool = False) -> bool:
@@ -204,7 +199,7 @@ class NubladoClient:
         rubin.repertoire.RepertoireError
             Raised if there was an error talking to service discovery.
         """
-        route = f"hub/api/users/{self.username}"
+        route = f"hub/api/users/{self._username}"
         r = await self._client.get(route, add_referer=True)
 
         # We currently only support a single lab per user, so the lab is
@@ -250,7 +245,7 @@ class NubladoClient:
             Context manager to open the WebSocket session.
         """
         return JupyterLabSessionManager(
-            username=self.username,
+            username=self._username,
             jupyter_client=self._client,
             kernel_name=kernel_name,
             notebook_name=notebook_name,
@@ -309,7 +304,7 @@ class NubladoClient:
                 self._timeout.total_seconds(),
                 read=read_timeout.total_seconds(),
             )
-        route = f"user/{self.username}/rubin/execution"
+        route = f"user/{self._username}/rubin/execution"
         r = await self._client.post(route, content=content, timeout=timeout)
         result = r.json()
         self._logger.debug("Got notebook execution result", result=result)
@@ -348,7 +343,7 @@ class NubladoClient:
         # POST the options form to the spawn page. This should redirect to
         # the spawn-pending page, which will return a 200.
         self._logger.info(
-            "Spawning lab", user=self.username, **config.to_logging_context()
+            "Spawning lab", user=self._username, **config.to_logging_context()
         )
         await self._client.post("hub/spawn", data=data)
 
@@ -369,8 +364,8 @@ class NubladoClient:
         if await self.is_lab_stopped():
             self._logger.info("Lab is already stopped")
             return
-        route = f"hub/api/users/{self.username}/server"
-        self._logger.info("Stopping lab", user=self.username)
+        route = f"hub/api/users/{self._username}/server"
+        self._logger.info("Stopping lab", user=self._username)
         await self._client.delete(route, add_referer=True)
 
     async def watch_spawn_progress(
@@ -398,7 +393,7 @@ class NubladoClient:
             Raised if there was an error talking to service discovery.
         """
         start = datetime.now(tz=UTC)
-        route = f"hub/api/users/{self.username}/server/progress"
+        route = f"hub/api/users/{self._username}/server/progress"
         stream_manager = await self._client.open_sse_stream(route)
         try:
             async with stream_manager as stream:
@@ -407,7 +402,7 @@ class NubladoClient:
                     async for message in progress:
                         yield message
         except HTTPError as e:
-            exc = NubladoWebError.from_exception(e, self.username)
+            exc = NubladoWebError.from_exception(e, self._username)
             exc.started_at = start
             raise exc from e
 
@@ -418,5 +413,5 @@ class NubladoClient:
             logger=self._logger,
             timeout=self._timeout,
             token=self._token,
-            username=self.username,
+            username=self._username,
         )
