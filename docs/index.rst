@@ -41,6 +41,8 @@ For the official Rubin images, see sciplat-lab_.
 
       Learn how to use the Nublado client.
 
+.. grid:: 2
+
    .. grid-item-card:: Administrators
       :link: admin/index
       :link-type: doc
