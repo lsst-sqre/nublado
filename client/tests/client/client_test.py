@@ -1,12 +1,14 @@
-"""Tests for the NubladoClient object."""
+"""Tests for the Nublado client."""
 
-import asyncio
+from __future__ import annotations
+
 from contextlib import aclosing
-from pathlib import Path
+from uuid import UUID
 
 import pytest
 
 from rubin.nublado.client import (
+    MockJupyter,
     NubladoClient,
     NubladoImageByClass,
     NubladoImageClass,
@@ -15,7 +17,9 @@ from rubin.nublado.client import (
 
 
 @pytest.mark.asyncio
-async def test_hub_flow(client: NubladoClient) -> None:
+async def test_hub_flow(
+    client: NubladoClient, username: str, mock_jupyter: MockJupyter
+) -> None:
     """Check that the Hub operations work as expected."""
     # Must authenticate first.
     with pytest.raises(AssertionError):
@@ -24,39 +28,57 @@ async def test_hub_flow(client: NubladoClient) -> None:
     await client.auth_to_hub()
     assert await client.is_lab_stopped()
 
-    # Simulate spawn
+    # Simulate spawn.
     await client.spawn_lab(
         NubladoImageByClass(
             image_class=NubladoImageClass.RECOMMENDED,
             size=NubladoImageSize.Medium,
         )
     )
-    # Watch the progress meter
-    progress = client.watch_spawn_progress()
-    progress_pct = -1
-    async with aclosing(progress):
-        async with asyncio.timeout(30):
-            async for message in progress:
-                if message.ready:
-                    break
-                assert message.progress > progress_pct
-                progress_pct = message.progress
+    assert mock_jupyter.get_last_spawn_form(username) == {
+        "image_class": "recommended",
+        "size": "Medium",
+    }
 
-    # Is the lab running?  Should be.
+    # Watch the progress meter.
+    progress = -1
+    async with aclosing(client.watch_spawn_progress()) as spawn_progress:
+        async for message in spawn_progress:
+            if message.ready:
+                break
+            assert message.progress > progress
+            progress = message.progress
+
+    # Lab should now be running. Execute some code.
     assert not await client.is_lab_stopped()
+    assert mock_jupyter.get_session(username) is None
+    async with client.lab_session() as session:
+        result = await session.run_python("print(2+2)")
+        assert result.strip() == "4"
 
-    # Do things with the lab.
-    async with client.lab_session() as lab_session:
-        code = "print(2+2)"
-        four = (await lab_session.run_python(code)).strip()
-        assert four == "4"
+        # Check the parameters of the session.
+        session_data = mock_jupyter.get_session(username)
+        assert session_data
+        assert session_data.kernel_name == "LSST"
+        assert session_data.name == "(no notebook)"
+        assert UUID(session_data.path)
+        assert session_data.type == "console"
 
-    # Run a complete notebook.
-    notebook_path = Path(__file__).parent.parent / "support" / "hello.ipynb"
-    ner = await client.run_notebook(notebook_path.read_text())
-    assert ner.error is None
+    # Create a session with a notebook name.
+    async with client.lab_session(
+        "notebook.ipynb", kernel_name="custom"
+    ) as session:
+        result = await session.run_python("print(3+2)")
+        assert result.strip() == "5"
+
+        # Check the parameters of the session.
+        session_data = mock_jupyter.get_session(username)
+        assert session_data
+        assert session_data.kernel_name == "custom"
+        assert session_data.name == "notebook.ipynb"
+        assert session_data.path == "notebook.ipynb"
+        assert session_data.type == "notebook"
 
     # Stop the lab
     await client.stop_lab()
-    # Is the lab running?  Should not be.
     assert await client.is_lab_stopped()

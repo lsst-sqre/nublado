@@ -65,6 +65,18 @@ class MockJupyterAction(Enum):
 class MockJupyterLabSession:
     """Metadata for an open Jupyter lab session."""
 
+    kernel_name: str
+    """Name of the kernel requested by the client."""
+
+    name: str
+    """Name of the session from the client."""
+
+    path: str
+    """Path of the session from the client."""
+
+    type: str
+    """Type of the session from the client."""
+
     session_id: str = field(default_factory=lambda: uuid4().hex)
     """Session ID."""
 
@@ -568,7 +580,12 @@ class MockJupyter:
         assert body.get("name")
         assert body.get("path")
         assert body.get("type") in ("console", "notebook")
-        session = MockJupyterLabSession()
+        session = MockJupyterLabSession(
+            kernel_name=body["kernel"]["name"],
+            name=body["name"],
+            path=body["path"],
+            type=body["type"],
+        )
         self._sessions[user] = session
         response = {
             "id": session.session_id,

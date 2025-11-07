@@ -40,7 +40,7 @@ def logger() -> BoundLogger:
     return structlog.get_logger("nublado")
 
 
-@pytest.fixture(autouse=True, params=["single", "subdomain"])
+@pytest.fixture(params=["single", "subdomain"])
 def mock_discovery(
     respx_mock: respx.Router,
     monkeypatch: pytest.MonkeyPatch,
@@ -54,7 +54,7 @@ def mock_discovery(
 
 @pytest_asyncio.fixture
 async def mock_jupyter(
-    respx_mock: respx.Router,
+    respx_mock: respx.Router, mock_discovery: Discovery
 ) -> AsyncGenerator[MockJupyter]:
     """Mock out JupyterHub and Jupyter labs.
 
