@@ -86,3 +86,23 @@ Any subsequent execution of a notebook matching that string will return the regi
 
 If `MockJupyter.register_notebook_result` has not been called with a matching notebook string value, the `MockJupyter` replacement for full notebook execution will return the input notebook.
 The mock will never attempt to run :command:`nbconvert` in the way that the Nublado JupyterLab extension would do.
+
+Testing Jupyter errors
+----------------------
+
+Any Jupyter operation performed by the client can be configured to fail for a given user by calling `MockJupyter.fail` and passing in the user and the operation.
+The operation should be chosen from `MockJupyterAction`.
+
+Inspecting client behavior
+--------------------------
+
+`MockJupyter` provides a few methods that can be used to inspect the internal state of the mock.
+This is useful for testing the Nublado client itself, and may be useful when testing software that uses the Nublado client internally to see if it left Jupyter in the expected state.
+
+`~MockJupyter.get_last_spawn_form`
+    Returns the contents, as a dictionary, of the last spawn form submitted to the mock.
+    Intended primarily to test the client `~NubladoClient.spawn_lab` method.
+
+`~MockJupyter.get_session`
+    Returns the current JupyterLab session for a given user, or `None` if there is no current session.
+    The session is returned as a `MockJupyterLabSession` object, which contains information about the parameters sent by the client to create the session.

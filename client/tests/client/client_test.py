@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import aclosing
+from dataclasses import dataclass
 from uuid import UUID
 
 import pytest
@@ -10,7 +11,10 @@ import pytest
 from rubin.nublado.client import (
     MockJupyter,
     NubladoClient,
+    NubladoImage,
     NubladoImageByClass,
+    NubladoImageByReference,
+    NubladoImageByTag,
     NubladoImageClass,
     NubladoImageSize,
 )
@@ -82,3 +86,58 @@ async def test_hub_flow(
     # Stop the lab
     await client.stop_lab()
     assert await client.is_lab_stopped()
+
+
+@dataclass
+class FormTestCase:
+    image: NubladoImage
+    form: dict[str, str]
+
+
+@pytest.mark.asyncio
+async def test_lab_form(
+    client: NubladoClient, username: str, mock_jupyter: MockJupyter
+) -> None:
+    await client.auth_to_hub()
+
+    # List of NubladoImage objects to pass in to spawn and the expected
+    # submitted lab form.
+    test_cases = [
+        FormTestCase(
+            image=NubladoImageByReference(
+                reference="example/lab:some-tag", debug=True
+            ),
+            form={
+                "image_list": "example/lab:some-tag",
+                "size": "Large",
+                "enable_debug": "true",
+            },
+        ),
+        FormTestCase(
+            image=NubladoImageByTag(tag="some-tag"),
+            form={"image_tag": "some-tag", "size": "Large"},
+        ),
+        FormTestCase(
+            image=NubladoImageByClass(),
+            form={"image_class": "recommended", "size": "Large"},
+        ),
+        FormTestCase(
+            image=NubladoImageByClass(
+                image_class=NubladoImageClass.LATEST_RELEASE,
+                size=NubladoImageSize.Small,
+                debug=True,
+            ),
+            form={
+                "image_class": "latest-release",
+                "size": "Small",
+                "enable_debug": "true",
+            },
+        ),
+    ]
+
+    # For each of the test cases, spawn a lab and check the lab form.
+    for test_case in test_cases:
+        await client.spawn_lab(test_case.image)
+        assert mock_jupyter.get_last_spawn_form(username) == test_case.form
+        await client.wait_for_spawn()
+        await client.stop_lab()

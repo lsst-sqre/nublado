@@ -368,6 +368,29 @@ class NubladoClient:
         self._logger.info("Stopping lab", user=self._username)
         await self._client.delete(route, add_referer=True)
 
+    async def wait_for_spawn(self) -> None:
+        """Wait for lab spawn to complete without monitoring it.
+
+        This method can be used instead of `watch_spawn_progress` if the
+        caller is not interested in the spawn progress messages. It will
+        return when the spawn is complete.
+
+        Raises
+        ------
+        NubladoDiscoveryError
+            Raised if Nublado is missing from service discovery.
+        NubladoRedirectError
+            Raised if the URL is outside of Nublado's URL space.
+        NubladoWebError
+            Raised if an HTTP error occurred talking to JupyterHub.
+        rubin.repertoire.RepertoireError
+            Raised if there was an error talking to service discovery.
+        """
+        async with aclosing(self.watch_spawn_progress()) as progress:
+            async for message in progress:
+                if message.ready:
+                    break
+
     async def watch_spawn_progress(
         self,
     ) -> AsyncGenerator[SpawnProgressMessage]:

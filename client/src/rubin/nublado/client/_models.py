@@ -117,18 +117,13 @@ class NubladoImage(BaseModel, metaclass=ABCMeta):
     # Ideally this would just be class, but it is a keyword and adding all the
     # plumbing to correctly serialize Pydantic models by alias instead of
     # field name is tedious and annoying. Live with the somewhat verbose name.
-    image_class: NubladoImageClass = Field(
-        ...,
-        title="Class of image to spawn",
-    )
+    image_class: NubladoImageClass = Field(..., title="Image class")
 
     size: NubladoImageSize = Field(
         NubladoImageSize.Large,
-        title="Size of image to spawn",
-        description="Must be one of the sizes understood by Nublado.",
+        title="Image size",
+        description="Keyword selecting one of the Nublado image sizes",
     )
-
-    description: str = Field("", title="Human-readable image description")
 
     debug: bool = Field(False, title="Whether to enable lab debugging")
 
@@ -161,10 +156,10 @@ class NubladoImageByReference(NubladoImage):
     """Spawn an image by full Docker reference."""
 
     image_class: Literal[NubladoImageClass.BY_REFERENCE] = Field(
-        NubladoImageClass.BY_REFERENCE, title="Class of image to spawn"
+        NubladoImageClass.BY_REFERENCE, title="Image class"
     )
 
-    reference: str = Field(..., title="Docker reference of lab image to spawn")
+    reference: str = Field(..., title="Docker reference of image")
 
     @override
     def to_logging_context(self) -> dict[str, str | bool]:
@@ -187,10 +182,10 @@ class NubladoImageByTag(NubladoImage):
     """Spawn an image by image tag."""
 
     image_class: Literal[NubladoImageClass.BY_TAG] = Field(
-        NubladoImageClass.BY_TAG, title="Class of image to spawn"
+        NubladoImageClass.BY_TAG, title="Image class"
     )
 
-    tag: str = Field(..., title="Tag of image to spawn")
+    tag: str = Field(..., title="Image tag")
 
     @override
     def to_logging_context(self) -> dict[str, str | bool]:
@@ -214,10 +209,7 @@ class NubladoImageByClass(NubladoImage):
         NubladoImageClass.LATEST_RELEASE,
         NubladoImageClass.LATEST_WEEKLY,
         NubladoImageClass.LATEST_DAILY,
-    ] = Field(
-        NubladoImageClass.RECOMMENDED,
-        title="Class of image to spawn",
-    )
+    ] = Field(NubladoImageClass.RECOMMENDED, title="Image class")
 
     @override
     def to_spawn_form(self) -> dict[str, str]:
