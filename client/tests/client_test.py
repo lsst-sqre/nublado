@@ -10,6 +10,7 @@ import pytest
 
 from rubin.nublado.client import (
     MockJupyter,
+    MockJupyterAction,
     NubladoClient,
     NubladoImage,
     NubladoImageByClass,
@@ -17,6 +18,7 @@ from rubin.nublado.client import (
     NubladoImageByTag,
     NubladoImageClass,
     NubladoImageSize,
+    NubladoSpawnError,
 )
 
 
@@ -33,15 +35,10 @@ async def test_hub_flow(
     assert await client.is_lab_stopped()
 
     # Simulate spawn.
-    await client.spawn_lab(
-        NubladoImageByClass(
-            image_class=NubladoImageClass.RECOMMENDED,
-            size=NubladoImageSize.Medium,
-        )
-    )
+    await client.spawn_lab(NubladoImageByClass())
     assert mock_jupyter.get_last_spawn_form(username) == {
         "image_class": "recommended",
-        "size": "Medium",
+        "size": "Large",
     }
 
     # Watch the progress meter.
@@ -141,3 +138,25 @@ async def test_lab_form(
         assert mock_jupyter.get_last_spawn_form(username) == test_case.form
         await client.wait_for_spawn()
         await client.stop_lab()
+
+
+@pytest.mark.asyncio
+async def test_spawn_failure(
+    client: NubladoClient, username: str, mock_jupyter: MockJupyter
+) -> None:
+    mock_jupyter.fail(username, MockJupyterAction.PROGRESS)
+
+    await client.auth_to_hub()
+    await client.spawn_lab(NubladoImageByClass())
+    async with aclosing(client.watch_spawn_progress()) as spawn_progress:
+        async for message in spawn_progress:
+            if message.ready:
+                break
+    assert not message.ready
+
+    await client.stop_lab()
+    await client.spawn_lab(NubladoImageByClass())
+    with pytest.raises(NubladoSpawnError) as exc_info:
+        await client.wait_for_spawn()
+    assert "Spawn failed!" in exc_info.value.message
+    assert "Spawn failed!" in "\n".join(exc_info.value.log)
