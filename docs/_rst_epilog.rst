@@ -5,6 +5,7 @@
 .. _HTTPX: https://www.python-httpx.org/
 .. _kubernetes-asyncio: https://github.com/tomplus/kubernetes_asyncio
 .. _JupyterHub: https://jupyter.org/hub
+.. _JupyterLab wire protocol: https://jupyter-client.readthedocs.io/en/latest/messaging.html
 .. _Mend Renovate: https://www.mend.io/renovate/
 .. _mobu: https://mobu.lsst.io/
 .. _mypy: https://mypy.readthedocs.io/en/stable/

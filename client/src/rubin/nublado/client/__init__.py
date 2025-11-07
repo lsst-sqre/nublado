@@ -21,7 +21,6 @@ from ._mock import (
 )
 from ._models import (
     CodeContext,
-    JupyterOutput,
     NotebookExecutionErrorModel,
     NotebookExecutionResult,
     NubladoImage,
@@ -39,7 +38,6 @@ __all__ = [
     "JupyterAsyncClient",
     "JupyterLabSession",
     "JupyterLabSessionManager",
-    "JupyterOutput",
     "MockJupyter",
     "MockJupyterAction",
     "MockJupyterLabSession",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from types import TracebackType
 from typing import Literal
@@ -21,12 +22,24 @@ from ._exceptions import (
     NubladoWebSocketError,
 )
 from ._http import JupyterAsyncClient
-from ._models import (
-    CodeContext,
-    JupyterOutput,
-)
+from ._models import CodeContext
 
 __all__ = ["JupyterLabSession", "JupyterLabSessionManager"]
+
+
+@dataclass(frozen=True, slots=True)
+class _JupyterOutput:
+    """Output from a Jupyter lab kernel.
+
+    Parsing WebSocket messages will result in a stream of these objects with
+    partial output, ending in a final one with the ``done`` flag set.
+    """
+
+    content: str
+    """Partial output from code execution (may be empty)."""
+
+    done: bool = False
+    """Whether this indicates the end of execution."""
 
 
 class JupyterLabSession:
@@ -109,6 +122,22 @@ class JupyterLabSession:
         RuntimeError
             Raised if called before entering the context and thus before
             creating the WebSocket session.
+
+        Notes
+        -----
+        The output returned is only what the cell prints (its standard
+        output). When run inside Jupyter, the cell will display the result of
+        the last Python code line run. This parser ignores that information
+        (the ``execute_result`` message).
+
+        ``display_data`` is also ignored. This is the message type sent for
+        other types of output, such as when you ask Bokeh to show a figure.
+        It's a bunch of Javascript that will be interpreted by your browser.
+
+        See the `JupyterLab wire protocol`_ for the full protocol. What we use
+        is half a layer above that. We care what some messages on the various
+        channels are, but not about the low-level implementation details of
+        how those channels are established over ZMQ, for instance.
         """
         start = datetime.now(tz=UTC)
         message_id = uuid4().hex
@@ -174,7 +203,7 @@ class JupyterLabSession:
 
     def _parse_message(
         self, message: str | bytes, message_id: str
-    ) -> JupyterOutput | None:
+    ) -> _JupyterOutput | None:
         """Parse a WebSocket message from a Jupyter lab kernel.
 
         Parameters
@@ -187,7 +216,7 @@ class JupyterLabSession:
 
         Returns
         -------
-        JupyterOutput or None
+        _JupyterOutput or None
             Parsed message, or `None` if the message wasn't of interest.
 
         Raises
@@ -212,11 +241,11 @@ class JupyterLabSession:
         if msg_type in self._IGNORED_MESSAGE_TYPES:
             return None
         elif msg_type == "stream":
-            return JupyterOutput(content=data["content"]["text"])
+            return _JupyterOutput(content=data["content"]["text"])
         elif msg_type == "execute_reply":
             status = data["content"]["status"]
             if status == "ok":
-                return JupyterOutput(content="", done=True)
+                return _JupyterOutput(content="", done=True)
             else:
                 raise NubladoExecutionError(self._username, status=status)
         elif msg_type == "error":
