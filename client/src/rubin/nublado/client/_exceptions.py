@@ -42,6 +42,7 @@ __all__ = [
     "NubladoExecutionError",
     "NubladoProtocolError",
     "NubladoRedirectError",
+    "NubladoSpawnError",
     "NubladoTimeoutError",
     "NubladoWebError",
     "NubladoWebSocketError",
@@ -355,6 +356,73 @@ class NubladoProtocolError(NubladoError):
 
 class NubladoRedirectError(NubladoError):
     """Unexpected redirect outside of the Nublado URL space."""
+
+
+class NubladoSpawnError(NubladoError):
+    """Nublado failed to spawn the requested JupyterLab instance.
+
+    Parameters
+    ----------
+    message
+        Exception message.
+    log
+        Log messages from the Nublado spawn.
+    user
+        User Nublado client was acting on behalf of.
+    context
+        The code context for this operation, if any.
+    failed_at
+        When the operation failed. Omit to use the current time.
+    started_at
+        When the operation that failed began.
+
+    Attributes
+    ----------
+    context
+        The code context for this operation, if any.
+    failed_at
+        When the operation failed.
+    log
+        Log messages from the Nublado spawn.
+    started_at
+        When the operation that ended in an exception started.
+    user
+        User Nublado client was acting on behalf of.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        log: list[str],
+        user: str | None = None,
+        *,
+        context: CodeContext | None = None,
+        failed_at: datetime.datetime | None = None,
+        started_at: datetime.datetime | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            user,
+            context=context,
+            failed_at=failed_at,
+            started_at=started_at,
+        )
+        self.log = log
+
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        info = super().to_sentry()
+        log = "\n".join(_remove_ansi_escapes(m) for m in self.log)
+        info.attachments["spawn_log"] = log
+        return info
+
+    @override
+    def to_slack(self) -> SlackMessage:
+        message = super().to_slack()
+        log = "\n".join(_remove_ansi_escapes(m) for m in self.log)
+        attachment = SlackCodeBlock(heading="Spawn log", code=log)
+        message.attachments.append(attachment)
+        return message
 
 
 class NubladoTimeoutError(NubladoError):

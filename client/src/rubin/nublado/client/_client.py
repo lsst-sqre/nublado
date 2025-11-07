@@ -18,6 +18,7 @@ from structlog.stdlib import BoundLogger
 
 from ._exceptions import (
     NubladoProtocolError,
+    NubladoSpawnError,
     NubladoWebError,
 )
 from ._http import JupyterAsyncClient
@@ -381,15 +382,28 @@ class NubladoClient:
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
             Raised if the URL is outside of Nublado's URL space.
+        NubladoSpawnError
+            Raised if the spawn failed.
         NubladoWebError
             Raised if an HTTP error occurred talking to JupyterHub.
         rubin.repertoire.RepertoireError
             Raised if there was an error talking to service discovery.
         """
+        start = datetime.now(tz=UTC)
+        message = None
+        log = []
         async with aclosing(self.watch_spawn_progress()) as progress:
             async for message in progress:
+                log.append(message.message)
                 if message.ready:
-                    break
+                    self._logger.info("Lab spawn complete")
+                    return
+
+        # If this fell through, that means the progress iterator closed
+        # without sending a ready message, which means the spawn failed. Use
+        # the last message as the error message.
+        error = message.message if message else "No output from spawn attempt"
+        raise NubladoSpawnError(error, log, self._username, started_at=start)
 
     async def watch_spawn_progress(
         self,
@@ -397,7 +411,9 @@ class NubladoClient:
         """Monitor lab spawn progress.
 
         This is an EventStream API, which provides a stream of events until
-        the lab is spawned or the spawn fails.
+        the lab is spawned or the spawn fails. The caller can distinguish
+        between the two by checking if the ``ready`` field of the last yielded
+        message is `True`, indicating the spawn succeeded.
 
         Yields
         ------
