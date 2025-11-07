@@ -147,7 +147,8 @@ class NubladoClient:
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
+            Raised if the URL is outside of Nublado's URL space or there is a
+            redirect loop.
         NubladoWebError
             Raised if an HTTP error occurred talking to JupyterHub.
         rubin.repertoire.RepertoireError
@@ -170,7 +171,8 @@ class NubladoClient:
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
+            Raised if the URL is outside of Nublado's URL space or there is a
+            redirect loop.
         NubladoWebError
             Raised if an HTTP error occurred talking to JupyterHub or
             JupyterLab.
@@ -194,7 +196,8 @@ class NubladoClient:
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
+            Raised if the URL is outside of Nublado's URL space or there is a
+            redirect loop.
         NubladoWebError
             Raised if an HTTP error occurred talking to JupyterHub.
         rubin.repertoire.RepertoireError
@@ -292,7 +295,8 @@ class NubladoClient:
             Raised if the return value from the notebook execution extension
             could not be parsed.
         NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
+            Raised if the URL is outside of Nublado's URL space or there is a
+            redirect loop.
         NubladoWebError
             Raised if an HTTP error occurred talking to JupyterHub or
             JupyterLab.
@@ -328,7 +332,8 @@ class NubladoClient:
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
+            Raised if the URL is outside of Nublado's URL space or there is a
+            redirect loop.
         NubladoWebError
             Raised if an HTTP error occurred talking to JupyterHub.
         rubin.repertoire.RepertoireError
@@ -356,7 +361,8 @@ class NubladoClient:
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
+            Raised if the URL is outside of Nublado's URL space or there is a
+            redirect loop.
         NubladoWebError
             Raised if an HTTP error occurred talking to JupyterHub.
         rubin.repertoire.RepertoireError
@@ -381,7 +387,8 @@ class NubladoClient:
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
+            Raised if the URL is outside of Nublado's URL space or there is a
+            redirect loop.
         NubladoSpawnError
             Raised if the spawn failed.
         NubladoWebError
@@ -425,7 +432,8 @@ class NubladoClient:
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
+            Raised if the URL is outside of Nublado's URL space or there is a
+            redirect loop.
         NubladoWebError
             Raised if an HTTP error occurred talking to JupyterHub.
         rubin.repertoire.RepertoireError

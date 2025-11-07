@@ -194,7 +194,8 @@ class JupyterAsyncClient:
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
-            Raised if the redirect leaves the Nublado URL space.
+            Raised if the URL is outside of Nublado's URL space or there is a
+            redirect loop.
         NubladoWebError
             Raised if there were HTTP errors talking to Nublado.
         rubin.repertoire.RepertoireError
@@ -263,7 +264,8 @@ class JupyterAsyncClient:
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
+            Raised if the URL is outside of Nublado's URL space or there is a
+            redirect loop.
         rubin.repertoire.RepertoireError
             Raised if there was an error talking to service discovery.
         """
@@ -323,7 +325,8 @@ class JupyterAsyncClient:
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
+            Raised if the URL is outside of Nublado's URL space or there is a
+            redirect loop.
         NubladoWebError
             Raised if there were HTTP errors talking to Nublado.
         rubin.repertoire.RepertoireError
@@ -430,7 +433,8 @@ class JupyterAsyncClient:
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
+            Raised if the URL is outside of Nublado's URL space or there is a
+            redirect loop.
         NubladoWebError
             Raised if there were HTTP errors trying to find the base URL fo
             the user's lab.
@@ -445,6 +449,7 @@ class JupyterAsyncClient:
         # Now, follow each redirect looking for changed hostnames and XSRF
         # cookies.
         host_prefix = f"{self._username}."
+        seen = set(next_url)
         r = await self._client.get(next_url, headers=headers)
         while r.is_redirect:
             location = r.headers["Location"]
@@ -470,6 +475,9 @@ class JupyterAsyncClient:
             # subdomain hostname.
             next_url = urljoin(next_url, location)
             await self._check_redirect(next_url, lab_base_url=base_url)
+            if next_url in seen:
+                raise NubladoRedirectError(f"Redirect loop at {next_url}")
+            seen.add(next_url)
 
             # Check for and update the XSRF token if needed and then follow
             # the redirect.
@@ -502,17 +510,22 @@ class JupyterAsyncClient:
         NubladoDiscoveryError
             Raised if Nublado is missing from service discovery.
         NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
+            Raised if the URL is outside of Nublado's URL space or there is a
+            redirect loop.
         NubladoWebError
             Raised if there were HTTP errors talking to Nublado.
         rubin.repertoire.RepertoireError
             Raised if there was an error talking to service discovery.
         """
         r = await self._client.get(url, headers=headers)
+        seen = set(url)
         while r.is_redirect:
             self._extract_xsrf(r)
             url = urljoin(url, r.headers["Location"])
             await self._check_redirect(url)
+            if url in seen:
+                raise NubladoRedirectError(f"Redirect loop at {url}")
+            seen.add(url)
             r = await self._client.get(url, headers=headers)
         r.raise_for_status()
         self._extract_xsrf(r)
