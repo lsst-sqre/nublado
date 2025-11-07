@@ -9,12 +9,15 @@ from uuid import UUID
 
 import pytest
 from safir.datetime import format_datetime_for_logging
+from safir.slack.blockkit import SlackCodeBlock, SlackTextBlock, SlackTextField
 
 from rubin.nublado.client import (
+    CodeContext,
     MockJupyter,
     MockJupyterAction,
     NotebookExecutionResult,
     NubladoClient,
+    NubladoExecutionError,
     NubladoImage,
     NubladoImageByClass,
     NubladoImageByReference,
@@ -349,3 +352,110 @@ async def test_redirect_loop(
         assert f"/user/{username}/lab" in str(exc_info.value)
     else:
         assert f"/user/{username}/oauth_callback" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_execution_failure(client: NubladoClient, username: str) -> None:
+    start = datetime.now(tz=UTC)
+
+    await client.auth_to_hub()
+    await client.spawn_lab(NubladoImageByClass())
+    await client.wait_for_spawn()
+    with pytest.raises(NubladoExecutionError) as exc_info:
+        async with client.lab_session() as session:
+            await session.run_python("1 / 0")
+
+    # Check the properties of the resulting exception.
+    exc = exc_info.value
+    assert exc.user == username
+    assert exc.code == "1 / 0"
+    assert f"{username}: running code '1 / 0' failed" in str(exc)
+    assert "Error:" in str(exc)
+    assert "ZeroDivisionError" in str(exc)
+    assert exc.context == CodeContext()
+    assert exc.started_at
+    assert exc.started_at >= start
+    assert exc.failed_at
+    assert exc.failed_at >= exc.started_at
+    assert exc.status is None
+
+    info = exc.to_sentry()
+    assert info.tags == {}
+    assert "ZeroDivisionError" in info.attachments["nublado_error"]
+    assert info.attachments["nublado_code"] == "1 / 0"
+    started_at = format_datetime_for_logging(exc.started_at)
+    assert info.contexts["info"]["started_at"] == started_at
+
+    message = exc.to_slack()
+    assert message.message == "Error while running code"
+    error = message.attachments[-2]
+    assert isinstance(error, SlackCodeBlock)
+    assert error.heading == "Error"
+    assert "ZeroDivisionError" in error.code
+    code = message.attachments[-1]
+    assert isinstance(code, SlackCodeBlock)
+    assert code.heading == "Code executed"
+    assert code.code == "1 / 0"
+
+    # Now try again with a context.
+    context = CodeContext(
+        node="some-node",
+        image="some/image:tag",
+        notebook="notebook.ipynb",
+        cell="some-uuid",
+        cell_number="14",
+    )
+    with pytest.raises(NubladoExecutionError) as exc_info:
+        async with client.lab_session() as session:
+            await session.run_python("1 / 0", context=context)
+
+    # Check the properties of the resulting exception.
+    exc = exc_info.value
+    expected = f"{username}: cell some-uuid of notebook notebook.ipynb failed"
+    assert expected in str(exc)
+    assert "Code: 1 / 0" in str(exc)
+    assert "Error:" in str(exc)
+    assert "ZeroDivisionError" in str(exc)
+    assert exc.context == context
+
+    info = exc.to_sentry()
+    assert info.tags == {
+        "image": "some/image:tag",
+        "node": "some-node",
+        "notebook": "notebook.ipynb",
+        "cell": "some-uuid",
+        "cell_number": "14",
+    }
+    assert "ZeroDivisionError" in info.attachments["nublado_error"]
+    assert info.attachments["nublado_code"] == "1 / 0"
+
+    message = exc.to_slack()
+    assert message.message == (
+        "Error while running `notebook.ipynb` cell `some-uuid`"
+    )
+    node = message.blocks[0]
+    assert isinstance(node, SlackTextBlock)
+    assert node.heading == "Node"
+    assert node.text == "some-node"
+    cell = message.blocks[1]
+    assert isinstance(cell, SlackTextBlock)
+    assert cell.heading == "Cell"
+    assert cell.text == "`notebook.ipynb` cell `some-uuid` (14)"
+    started = message.fields[0]
+    assert isinstance(started, SlackTextField)
+    assert started.heading == "Started at"
+    failed = message.fields[1]
+    assert isinstance(failed, SlackTextField)
+    assert failed.heading == "Failed at"
+    exc_type = message.fields[2]
+    assert isinstance(exc_type, SlackTextField)
+    assert exc_type.heading == "Exception type"
+    assert exc_type.text == "NubladoExecutionError"
+    user = message.fields[3]
+    assert isinstance(user, SlackTextField)
+    assert user.heading == "User"
+    assert user.text == username
+    image = message.fields[4]
+    assert isinstance(image, SlackTextField)
+    assert image.heading == "Image"
+    assert image.text == "some/image:tag"
