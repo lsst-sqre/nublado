@@ -43,6 +43,7 @@ uv pip install --upgrade \
    jupyter_firefly_extensions \
    jupyter-resource-usage \
    jupyter-server \
+   jupyter-server-documents \
    jupyter-server-proxy \
    jupyter_bokeh \
    jupyterhub \
