@@ -329,8 +329,9 @@ class MockJupyter:
     def set_redirect_loop(self, *, enabled: bool) -> None:
         """Set whether to return an infinite redirect loop.
 
-        If enabled, the endpoint for watching spawn progress will instead
-        return an infinite redirect loop to the same URL.
+        If enabled, the endpoints for getting the JupyterHub and JupyterLab
+        top-level pages and for watching spawn progress will instead return an
+        infinite redirect loop to the same URL.
 
         Parameters
         ----------
@@ -434,6 +435,9 @@ class MockJupyter:
     async def login(self, request: Request, user: str) -> Response:
         if MockJupyterAction.LOGIN in self._fail[user]:
             return Response(500, request=request)
+        if self._redirect_loop:
+            headers = {"Location": str(request.url)}
+            return Response(303, headers=headers, request=request)
         state = self._state.get(user, MockJupyterState.LOGGED_OUT)
         if state == MockJupyterState.LOGGED_OUT:
             self._state[user] = MockJupyterState.LOGGED_IN
@@ -510,7 +514,7 @@ class MockJupyter:
         self._lab_form[user] = {
             k: v[0] for k, v in parse_qs(request.content.decode()).items()
         }
-        url = self._url(f"hub/spawn-pending/{user}")
+        url = self._url(f"hub/spawn-pending/{user}", host=None)
         return Response(302, headers={"Location": url}, request=request)
 
     @_check(
@@ -536,10 +540,12 @@ class MockJupyter:
         # In the running state, there should be another redirect to
         # /hub/api/oauth2/authorize, which doesn't set a cookie and then
         # redirects to /user/username/oauth_callback. We're skipping that one
-        # because it doesn't change the client state at all.
+        # because it doesn't change the client state at all. Test relative
+        # URLs in the redirect here.
         if state == MockJupyterState.LAB_RUNNING:
+            new_url = self._url(f"user/{user}/oauth_callback", host=None)
             headers = {
-                "Location": self._url(f"user/{user}/oauth_callback"),
+                "Location": new_url,
                 "Set-Cookie": f"_xsrf={self._lab_xsrf}",
             }
             return Response(302, headers=headers, request=request)
@@ -551,6 +557,9 @@ class MockJupyter:
     @_check(url_format="/user/{user}/oauth_callback")
     async def lab_callback(self, request: Request, user: str) -> Response:
         """Simulate returning to JupyterLab after authentication."""
+        if self._redirect_loop:
+            headers = {"Location": self._url(f"user/{user}/lab")}
+            return Response(303, headers=headers, request=request)
         return Response(200, request=request)
 
     @_check(url_format="/hub/api/users/{user}/server")

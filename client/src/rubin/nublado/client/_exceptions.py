@@ -355,7 +355,7 @@ class NubladoProtocolError(NubladoError):
 
 
 class NubladoRedirectError(NubladoError):
-    """Unexpected redirect outside of the Nublado URL space."""
+    """Loop or unexpected redirect outside of the Nublado URL space."""
 
 
 class NubladoSpawnError(NubladoError):

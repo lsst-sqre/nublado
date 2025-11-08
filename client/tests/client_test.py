@@ -18,7 +18,9 @@ from rubin.nublado.client import (
     NubladoImageByTag,
     NubladoImageClass,
     NubladoImageSize,
+    NubladoRedirectError,
     NubladoSpawnError,
+    NubladoWebError,
 )
 
 
@@ -160,3 +162,38 @@ async def test_spawn_failure(
         await client.wait_for_spawn()
     assert "Spawn failed!" in exc_info.value.message
     assert "Spawn failed!" in "\n".join(exc_info.value.log)
+
+
+@pytest.mark.asyncio
+async def test_redirect_loop(
+    client: NubladoClient, username: str, mock_jupyter: MockJupyter
+) -> None:
+    mock_jupyter.set_redirect_loop(enabled=True)
+    with pytest.raises(NubladoRedirectError) as exc_info:
+        await client.auth_to_hub()
+    assert "/hub/home" in exc_info.value.message
+
+    # The errors from httpx-sse are unfortunately not great and will complain
+    # about the Content-Type instead of showing the actual error. This may
+    # require upstream fixes to get better error reports.
+    mock_jupyter.set_redirect_loop(enabled=False)
+    await client.auth_to_hub()
+    await client.spawn_lab(NubladoImageByClass())
+    mock_jupyter.set_redirect_loop(enabled=True)
+    with pytest.raises(NubladoWebError):
+        await client.wait_for_spawn()
+
+    # Authenticating to the lab uses a different part of the client code that
+    # also requires redirect loop protection.
+    mock_jupyter.set_redirect_loop(enabled=False)
+    await client.wait_for_spawn()
+    mock_jupyter.set_redirect_loop(enabled=True)
+    with pytest.raises(NubladoRedirectError) as exc_info:
+        await client.auth_to_lab()
+
+    # The precise point at which we detect the redirect loop depends on
+    # whether per-user subdomains are enabled.
+    if f"{username}." in str(exc_info.value):
+        assert f"/user/{username}/lab" in str(exc_info.value)
+    else:
+        assert f"/user/{username}/oauth_callback" in str(exc_info.value)
