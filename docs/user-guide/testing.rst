@@ -87,6 +87,17 @@ Any subsequent execution of a notebook matching that string will return the regi
 If `MockJupyter.register_notebook_result` has not been called with a matching notebook string value, the `MockJupyter` replacement for full notebook execution will return the input notebook.
 The mock will never attempt to run :command:`nbconvert` in the way that the Nublado JupyterLab extension would do.
 
+Injecting delays
+----------------
+
+There are two ways to inject delays into the mock to simulate how long it takes Nublado operations to take on a real cluster:
+
+`MockJupyter.set_delete_delay`
+    Wait this long before deleting the lab.
+    The lab will be fully delated if at least this long has passed and the client makes a call to the API endpoint listing running labs (called by `NubladoClient.is_lab_stopped`).
+`MockJupyter.set_spawn_delay`
+    Pause for this long before returning success from the spawn progress route.
+
 Testing Jupyter errors
 ----------------------
 

@@ -112,17 +112,8 @@ class MockJupyter:
     of spawning a lab, creating a session, and running code within that
     session.
 
-    It also has two result registration methods, ``register_python_result``
-    and ``register_extension_result``. These allow you to mock responses for
-    specific Python inputs that would be executed in the running Lab, so that
-    you do not need to replicate the target environment in your test suite.
-
-    If the username is provided in ``X-Auth-Request-User`` in the request
-    headers, that name will be used. This will be the case when the mock is
-    behind something emulating a GafaelfawrIngress, and is how the actual Hub
-    would be called. If it is not, an ``Authorization`` header of the form
-    ``Bearer <token>`` will be expected, and the username will be taken to be
-    the portion after ``gt-`` and before the first period.
+    All calls must contain an ``Authorization`` header of the form ``Bearer
+    <token>``, where the token was created by `create_mock_token`.
 
     Parameters
     ----------
@@ -149,7 +140,7 @@ class MockJupyter:
         self._notebook_results: dict[str, NotebookExecutionResult] = {}
         self._redirect_loop = False
         self._sessions: dict[str, MockJupyterLabSession] = {}
-        self._spawn_timeout = False
+        self._spawn_delay: timedelta | None = None
         self._state: dict[str, MockJupyterState] = {}
 
     @staticmethod
@@ -344,18 +335,18 @@ class MockJupyter:
         """
         self._redirect_loop = enabled
 
-    def set_spawn_timeout(self, *, enabled: bool) -> None:
+    def set_spawn_delay(self, delay: timedelta | None) -> None:
         """Set whether to time out during lab spawn.
 
-        If enabled, the endpoint for watching spawn progress will hang for
-        60s and then return nothing.
+        If enabled, the endpoint for watching spawn progress will wait for
+        this long before returning success.
 
         Parameters
         ----------
-        enabled
-            Whether to enable a spawn timeout.
+        delay
+            How long to delay spawn.
         """
-        self._spawn_timeout = enabled
+        self._spawn_delay = delay
 
     @staticmethod
     def _check(
@@ -493,12 +484,9 @@ class MockJupyter:
                 'data: {"progress": 100, "ready": true, "message": "Ready"}\n'
                 "\n"
             )
-        elif self._spawn_timeout:
-            # Cause the spawn to time out by pausing for longer than the test
-            # should run for and then returning nothing.
-            await asyncio.sleep(60)
-            body = ""
         else:
+            if self._spawn_delay:
+                await asyncio.sleep(self._spawn_delay.total_seconds())
             self._state[user] = MockJupyterState.LAB_RUNNING
             body = (
                 'data: {"progress": 0, "message": "Server requested"}\n\n'
