@@ -90,6 +90,12 @@ async def test_hub_flow(
         assert session_data.path == "notebook.ipynb"
         assert session_data.type == "notebook"
 
+    # It's possible to get the spawn progress again while the lab is running.
+    async with aclosing(client.watch_spawn_progress()) as spawn_progress:
+        async for message in spawn_progress:
+            if message.ready:
+                break
+
     # Stop the lab
     await client.stop_lab()
     assert await client.is_lab_stopped()
