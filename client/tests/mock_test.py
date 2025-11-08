@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -98,3 +99,23 @@ async def test_set_spawn_delay(
     start = datetime.now(tz=UTC)
     await client.wait_for_spawn()
     assert datetime.now(tz=UTC) - start >= timedelta(seconds=0.5)
+
+
+@pytest.mark.asyncio
+async def test_set_delete_delay(
+    client: NubladoClient, mock_jupyter: MockJupyter
+) -> None:
+    mock_jupyter.set_delete_delay(timedelta(seconds=0.5))
+
+    await client.auth_to_hub()
+    await client.spawn_lab(NubladoImageByClass())
+    await client.wait_for_spawn()
+    assert not await client.is_lab_stopped()
+    await client.stop_lab()
+    assert not await client.is_lab_stopped()
+    with pytest.raises(AssertionError):
+        await client.spawn_lab(NubladoImageByClass())
+    await asyncio.sleep(0.5)
+    assert await client.is_lab_stopped()
+    await client.spawn_lab(NubladoImageByClass())
+    await client.wait_for_spawn()

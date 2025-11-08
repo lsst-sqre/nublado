@@ -454,6 +454,8 @@ class MockJupyter:
                 if datetime.now(tz=UTC) > delete_at:
                     del self._delete_at[user]
                     self._state[user] = MockJupyterState.LOGGED_IN
+                    body = {"name": user, "servers": {}}
+                    return Response(200, json=body, request=request)
                 else:
                     server = {"name": "", "pending": "delete", "ready": False}
             body = {"name": user, "servers": {"": server}}
