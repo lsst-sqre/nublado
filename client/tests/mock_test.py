@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from rubin.nublado.client import (
@@ -83,3 +85,16 @@ async def test_register_python_result(
             await session.run_python("blah")
         assert "ValueError: some error" in str(exc_info.value)
         assert await session.run_python(code) == "42"
+
+
+@pytest.mark.asyncio
+async def test_set_spawn_delay(
+    client: NubladoClient, mock_jupyter: MockJupyter
+) -> None:
+    mock_jupyter.set_spawn_delay(timedelta(seconds=0.5))
+
+    await client.auth_to_hub()
+    await client.spawn_lab(NubladoImageByClass())
+    start = datetime.now(tz=UTC)
+    await client.wait_for_spawn()
+    assert datetime.now(tz=UTC) - start >= timedelta(seconds=0.5)
