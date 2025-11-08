@@ -171,6 +171,8 @@ class JupyterLabSession:
                 async for message in messages:
                     try:
                         output = self._parse_message(message, message_id)
+                    except NubladoExecutionError:
+                        raise
                     except Exception as e:
                         error = f"{type(e).__name__}: {e!s}"
                         msg = "Ignoring unparsable web socket message"
