@@ -9,7 +9,61 @@ from rubin.nublado.client import (
     NubladoClient,
     NubladoExecutionError,
     NubladoImageByClass,
+    NubladoWebError,
 )
+
+
+@pytest.mark.asyncio
+async def test_order(client: NubladoClient) -> None:
+    """Test that the Jupyter mock enforces order of operations."""
+    with pytest.raises(AssertionError):
+        await client.spawn_lab(NubladoImageByClass())
+    with pytest.raises(AssertionError):
+        await client.wait_for_spawn()
+    with pytest.raises((AssertionError, NubladoWebError)):
+        await client.auth_to_lab()
+    with pytest.raises((AssertionError, NubladoWebError)):
+        await client.run_notebook("")
+    with pytest.raises((AssertionError, NubladoWebError)):
+        async with client.lab_session():
+            pass
+
+    await client.auth_to_hub()
+    with pytest.raises(AssertionError):
+        await client.wait_for_spawn()
+    with pytest.raises((AssertionError, NubladoWebError)):
+        await client.auth_to_lab()
+    with pytest.raises((AssertionError, NubladoWebError)):
+        await client.run_notebook("")
+    with pytest.raises((AssertionError, NubladoWebError)):
+        async with client.lab_session():
+            pass
+
+    await client.spawn_lab(NubladoImageByClass())
+    with pytest.raises((AssertionError, NubladoWebError)):
+        await client.auth_to_lab()
+    with pytest.raises((AssertionError, NubladoWebError)):
+        await client.run_notebook("")
+    with pytest.raises((AssertionError, NubladoWebError)):
+        async with client.lab_session():
+            pass
+
+    await client.wait_for_spawn()
+    with pytest.raises(AssertionError):
+        await client.spawn_lab(NubladoImageByClass())
+    async with client.lab_session():
+        pass
+
+    await client.stop_lab()
+    with pytest.raises(AssertionError):
+        await client.wait_for_spawn()
+    with pytest.raises((AssertionError, NubladoWebError)):
+        await client.auth_to_lab()
+    with pytest.raises((AssertionError, NubladoWebError)):
+        await client.run_notebook("")
+    with pytest.raises((AssertionError, NubladoWebError)):
+        async with client.lab_session():
+            pass
 
 
 @pytest.mark.asyncio
