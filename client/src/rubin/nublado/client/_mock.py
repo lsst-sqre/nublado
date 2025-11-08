@@ -34,7 +34,6 @@ from httpx import URL, Request, Response
 from rubin.repertoire import DiscoveryClient
 
 from ._models import NotebookExecutionResult
-from ._util import normalize_source
 
 __all__ = [
     "MockJupyter",
@@ -291,8 +290,7 @@ class MockJupyter:
         result
             Results to return when that notebook is executed via the mock.
         """
-        cache_key = normalize_source(notebook)
-        self._notebook_results[cache_key] = result
+        self._notebook_results[notebook] = result
 
     def register_python_result(
         self, code: str, result: str | BaseException
@@ -661,7 +659,7 @@ class MockJupyter:
         except Exception:
             notebook = request.content.decode()
             resources = {}
-        if result := self._notebook_results.get(normalize_source(notebook)):
+        if result := self._notebook_results.get(notebook):
             result_json = result.model_dump()
         else:
             result_json = {
