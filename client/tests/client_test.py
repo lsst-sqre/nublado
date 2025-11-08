@@ -13,6 +13,7 @@ from safir.datetime import format_datetime_for_logging
 from rubin.nublado.client import (
     MockJupyter,
     MockJupyterAction,
+    NotebookExecutionResult,
     NubladoClient,
     NubladoImage,
     NubladoImageByClass,
@@ -24,6 +25,8 @@ from rubin.nublado.client import (
     NubladoSpawnError,
     NubladoWebError,
 )
+
+from .support.data import read_test_data
 
 
 @pytest.mark.asyncio
@@ -87,6 +90,23 @@ async def test_hub_flow(
     # Stop the lab
     await client.stop_lab()
     assert await client.is_lab_stopped()
+
+
+@pytest.mark.asyncio
+async def test_run_notebook(
+    client: NubladoClient, mock_jupyter: MockJupyter
+) -> None:
+    notebook = read_test_data("faux-input-nb")
+    output = read_test_data("faux-output-nb")
+    expected = NotebookExecutionResult(notebook=output)
+    mock_jupyter.register_notebook_result(notebook, expected)
+
+    await client.auth_to_hub()
+    await client.spawn_lab(NubladoImageByClass())
+    await client.wait_for_spawn()
+
+    result = await client.run_notebook(notebook)
+    assert result == expected
 
 
 @dataclass

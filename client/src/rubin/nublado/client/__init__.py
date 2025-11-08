@@ -22,7 +22,7 @@ from ._mock import (
 )
 from ._models import (
     CodeContext,
-    NotebookExecutionErrorModel,
+    NotebookExecutionError,
     NotebookExecutionResult,
     NubladoImage,
     NubladoImageByClass,
@@ -43,7 +43,7 @@ __all__ = [
     "MockJupyterAction",
     "MockJupyterLabSession",
     "MockJupyterState",
-    "NotebookExecutionErrorModel",
+    "NotebookExecutionError",
     "NotebookExecutionResult",
     "NubladoClient",
     "NubladoDiscoveryError",

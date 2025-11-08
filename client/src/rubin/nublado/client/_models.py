@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 __all__ = [
     "CodeContext",
-    "NotebookExecutionErrorModel",
+    "NotebookExecutionError",
     "NotebookExecutionResult",
     "NubladoImage",
     "NubladoImageByClass",
@@ -48,38 +48,45 @@ class CodeContext:
     """Number of the notebook cell."""
 
 
-class NotebookExecutionErrorModel(BaseModel):
-    """The error from the ``/user/:username/rubin/execution`` endpoint."""
+class NotebookExecutionError(BaseModel):
+    """An error from the notebook execution extension endpoint."""
 
-    traceback: Annotated[str, Field(description="The exeception traceback.")]
+    name: Annotated[str, Field(title="Error name", alias="ename")]
 
-    ename: Annotated[str, Field(description="The exception name.")]
+    value: Annotated[str, Field(title="Error value", alias="evalue")]
 
-    evalue: Annotated[str, Field(description="The exception value.")]
+    message: Annotated[str, Field(title="Error message", alias="err_msg")]
 
-    err_msg: Annotated[str, Field(description="The exception message.")]
+    traceback: Annotated[str, Field(title="Exeception traceback")]
 
 
 class NotebookExecutionResult(BaseModel):
-    """The result of the /user/:username/rubin/execution endpoint."""
+    """Result from the notebook execution extension endpoint."""
 
     notebook: Annotated[
         str,
-        Field(description="The notebook that was executed, as a JSON string."),
+        Field(
+            title="Notebook executed",
+            description="Notebook that was executed, as a JSON string",
+        ),
     ]
 
     resources: Annotated[
         dict[str, Any],
         Field(
+            title="Resource output",
             description=(
-                "The resources used to execute the notebook, as a JSON string."
-            )
+                "Additional resources output by the notebook, as a JSON string"
+            ),
         ),
-    ]
+    ] = {}
 
     error: Annotated[
-        NotebookExecutionErrorModel | None,
-        Field(description="The error that occurred during execution."),
+        NotebookExecutionError | None,
+        Field(
+            title="Execution error",
+            description="Will be None if no error occurred",
+        ),
     ] = None
 
 
