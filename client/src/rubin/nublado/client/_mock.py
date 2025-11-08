@@ -48,17 +48,15 @@ __all__ = [
 class MockJupyterAction(Enum):
     """Possible actions on the Jupyter lab state machine."""
 
-    LOGIN = "login"
-    HOME = "home"
-    HUB = "hub"
-    USER = "user"
-    PROGRESS = "progress"
-    SPAWN = "spawn"
-    SPAWN_PENDING = "spawn_pending"
-    LAB = "lab"
-    DELETE_LAB = "delete_lab"
     CREATE_SESSION = "create_session"
+    DELETE_LAB = "delete_lab"
     DELETE_SESSION = "delete_session"
+    LAB = "lab"
+    LOGIN = "login"
+    PROGRESS = "progress"
+    SPAWN_PENDING = "spawn_pending"
+    SPAWN = "spawn"
+    USER = "user"
 
 
 @dataclass
@@ -223,7 +221,11 @@ class MockJupyter:
             exec(code, variables)  # noqa: S102
         return output.getvalue()
 
-    def fail(self, username: str, action: MockJupyterAction) -> None:
+    def fail_on(
+        self,
+        username: str,
+        actions: MockJupyterAction | Iterable[MockJupyterAction],
+    ) -> None:
         """Configure the given action to fail for the given user.
 
         This can be used by test suites to test handling of Nublado failures
@@ -233,10 +235,14 @@ class MockJupyter:
         ----------
         username
             Username for whom is action should fail.
-        action
-            An action on the mock Nublado that should fail.
+        actions
+            An action or iterable of actions on the mock Nublado that should
+            fail.
         """
-        self._fail[username].add(action)
+        if isinstance(actions, MockJupyterAction):
+            self._fail[username] = {actions}
+        else:
+            self._fail[username] = set(actions)
 
     def get_last_spawn_form(self, username: str) -> dict[str, str] | None:
         """Get the contents of the last spawn form submitted for a user.

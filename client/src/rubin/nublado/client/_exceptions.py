@@ -506,6 +506,22 @@ class NubladoWebError(SlackWebException, NubladoError):
         self.context = context if context else CodeContext()
 
     @override
+    def to_sentry(self) -> SentryEventInfo:
+        """Format the error as a Slack Block Kit message.
+
+        Returns
+        -------
+        `~safir.slack.blockkit.SlackMessage`
+            Formatted Slack message.
+        """
+        info = super(NubladoError, self).to_sentry()
+        web_info = super(SlackWebException, self).to_sentry()
+        info.tags.update(web_info.tags)
+        info.contexts.update(web_info.contexts)
+        info.attachments.update(web_info.attachments)
+        return info
+
+    @override
     def to_slack(self) -> SlackMessage:
         """Return an object with tags and contexts to add to Sentry events.
 
@@ -517,38 +533,12 @@ class NubladoWebError(SlackWebException, NubladoError):
         message = NubladoError.to_slack(self)
         message.message = _sanitize_url(message.message)
         if self.url:
-            url = _sanitize_url(self.url)
-            text = f"{self.method} {url}" if self.method else url
+            text = f"{self.method} {self.url}" if self.method else self.url
             message.blocks.append(SlackTextBlock(heading="URL", text=text))
         if self.body:
-            body = _sanitize_body(self.body)
-            block = SlackCodeBlock(heading="Response", code=body)
+            block = SlackCodeBlock(heading="Response", code=self.body)
             message.attachments.append(block)
         return message
-
-    @override
-    def to_sentry(self) -> SentryEventInfo:
-        """Format the error as a Slack Block Kit message.
-
-        Returns
-        -------
-        `~safir.slack.blockkit.SlackMessage`
-            Formatted Slack message.
-        """
-        info = super(NubladoError, self).to_sentry()
-        web_info = super(SlackWebException, self).to_sentry()
-
-        info.tags.update(web_info.tags)
-        info.contexts.update(web_info.contexts)
-        info.attachments.update(web_info.attachments)
-
-        # Replace the body and URL with sanitized versions.
-        if self.body:
-            info.attachments["httpx_response_body"] = _sanitize_body(self.body)
-        if self.url:
-            info.tags["httpx_request_url"] = _sanitize_url(self.url)
-
-        return info
 
 
 class NubladoWebSocketError(NubladoError):
@@ -638,7 +628,7 @@ class NubladoWebSocketError(NubladoError):
             context=context,
         )
         self.code = code
-        self.body = body
+        self.body = _sanitize_body(body)
 
     @override
     def to_sentry(self) -> SentryEventInfo:
@@ -646,7 +636,7 @@ class NubladoWebSocketError(NubladoError):
         if self.code:
             info.tags["code"] = str(self.code)
         if self.body:
-            info.attachments["body"] = _sanitize_body(self.body)
+            info.attachments["body"] = self.body
         return info
 
     @override
@@ -656,7 +646,6 @@ class NubladoWebSocketError(NubladoError):
             field = SlackTextField(heading="Code", text=str(self.code))
             message.fields.append(field)
         if self.body:
-            body = _sanitize_body(self.body)
-            block = SlackTextBlock(heading="Body", text=body)
+            block = SlackTextBlock(heading="Body", text=self.body)
             message.attachments.append(block)
         return message

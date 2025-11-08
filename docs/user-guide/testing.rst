@@ -90,18 +90,13 @@ The mock will never attempt to run :command:`nbconvert` in the way that the Nubl
 Testing Jupyter errors
 ----------------------
 
-Any Jupyter operation performed by the client can be configured to fail for a given user by calling `MockJupyter.fail` and passing in the user and the operation.
+Any Jupyter operation performed by the client can be configured to fail for a given user by calling `MockJupyter.fail_on` and passing in the user and the operation or list of operations that should fail.
 The operation should be chosen from `MockJupyterAction`.
 
-There are several other errors that can be enabled in the mock to test client error handling.
-These behaviors can be enabled with the following methods.
-Pass ``enabled=True`` to turn the error on, and ``enabled=False`` to turn it off again.
+There is one other error behavior that can be enabled in the mock:
 
 `~MockJupyter.set_redirect_loop`
-    Tells the mock to return redirect loops from the endpoints for getting the JupyterHub top-level page, the JupyterLab top-level page, and the spawn progress server-sent events API.
-
-`~MockJupyter.set_spawn_timeout`
-    Rather than immediately returning success from the spawn progress API, wait for one minute and then close the connection without returning any progress messages.
+    If the parameter ``enabled`` is `True`, tells the mock to return redirect loops from the endpoints for getting the JupyterHub top-level page, the JupyterLab top-level page, and the spawn progress server-sent events API.
 
 Inspecting client behavior
 --------------------------

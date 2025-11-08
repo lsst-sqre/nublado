@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from contextlib import aclosing
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from uuid import UUID
 
 import pytest
+from safir.datetime import format_datetime_for_logging
 
 from rubin.nublado.client import (
     MockJupyter,
@@ -142,11 +144,141 @@ async def test_lab_form(
         await client.stop_lab()
 
 
+def check_web_exception(
+    exc: NubladoWebError,
+    *,
+    start: datetime,
+    username: str,
+    method: str,
+    route: str,
+) -> None:
+    """Check that a web exception has the correct components."""
+    assert route in exc.message
+    assert route in str(exc)
+    assert exc.method == method
+    assert exc.started_at
+    assert exc.started_at >= start
+    assert exc.failed_at >= exc.started_at
+    assert exc.url
+    assert route in exc.url
+    assert exc.status == 500
+
+    slack = exc.to_slack()
+    assert route in slack.message
+
+    sentry = exc.to_sentry()
+    expected = format_datetime_for_logging(exc.started_at)
+    assert sentry.contexts["info"]["started_at"] == expected
+
+
+@pytest.mark.asyncio
+async def test_failures(
+    client: NubladoClient, username: str, mock_jupyter: MockJupyter
+) -> None:
+    start = datetime.now(tz=UTC)
+
+    mock_jupyter.fail_on(username, MockJupyterAction.LOGIN)
+    with pytest.raises(NubladoWebError) as exc_info:
+        await client.auth_to_hub()
+    check_web_exception(
+        exc_info.value,
+        start=start,
+        username=username,
+        method="GET",
+        route="hub/home",
+    )
+
+    mock_jupyter.fail_on(username, MockJupyterAction.SPAWN)
+    await client.auth_to_hub()
+    with pytest.raises(NubladoWebError) as exc_info:
+        await client.spawn_lab(NubladoImageByClass())
+    check_web_exception(
+        exc_info.value,
+        start=start,
+        username=username,
+        method="POST",
+        route="hub/spawn",
+    )
+
+    mock_jupyter.fail_on(username, MockJupyterAction.SPAWN_PENDING)
+    with pytest.raises(NubladoWebError) as exc_info:
+        await client.spawn_lab(NubladoImageByClass())
+    check_web_exception(
+        exc_info.value,
+        start=start,
+        username=username,
+        method="GET",
+        route=f"hub/spawn-pending/{username}",
+    )
+
+    await client.stop_lab()
+    mock_jupyter.fail_on(username, MockJupyterAction.USER)
+    await client.spawn_lab(NubladoImageByClass())
+    await client.wait_for_spawn()
+    with pytest.raises(NubladoWebError) as exc_info:
+        await client.is_lab_stopped()
+    check_web_exception(
+        exc_info.value,
+        start=start,
+        username=username,
+        method="GET",
+        route=f"hub/api/users/{username}",
+    )
+
+    mock_jupyter.fail_on(username, MockJupyterAction.LAB)
+    assert not await client.is_lab_stopped()
+    with pytest.raises(NubladoWebError) as exc_info:
+        await client.auth_to_lab()
+    check_web_exception(
+        exc_info.value,
+        start=start,
+        username=username,
+        method="GET",
+        route=f"user/{username}/lab",
+    )
+
+    mock_jupyter.fail_on(username, MockJupyterAction.CREATE_SESSION)
+    await client.auth_to_lab()
+    with pytest.raises(NubladoWebError) as exc_info:
+        async with client.lab_session():
+            pass
+    check_web_exception(
+        exc_info.value,
+        start=start,
+        username=username,
+        method="POST",
+        route=f"user/{username}/api/sessions",
+    )
+
+    mock_jupyter.fail_on(username, MockJupyterAction.DELETE_SESSION)
+    with pytest.raises(NubladoWebError) as exc_info:
+        async with client.lab_session():
+            pass
+    check_web_exception(
+        exc_info.value,
+        start=start,
+        username=username,
+        method="DELETE",
+        route=f"user/{username}/api/sessions",
+    )
+
+    mock_jupyter.fail_on(username, MockJupyterAction.DELETE_LAB)
+    with pytest.raises(NubladoWebError) as exc_info:
+        await client.stop_lab()
+    check_web_exception(
+        exc_info.value,
+        start=start,
+        username=username,
+        method="DELETE",
+        route=f"hub/api/users/{username}/server",
+    )
+
+
 @pytest.mark.asyncio
 async def test_spawn_failure(
     client: NubladoClient, username: str, mock_jupyter: MockJupyter
 ) -> None:
-    mock_jupyter.fail(username, MockJupyterAction.PROGRESS)
+    mock_jupyter.fail_on(username, MockJupyterAction.PROGRESS)
 
     await client.auth_to_hub()
     await client.spawn_lab(NubladoImageByClass())

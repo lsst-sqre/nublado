@@ -1,7 +1,9 @@
 """Test that the Slack message from a web error is correctly redacted."""
 
-import httpx
+from __future__ import annotations
+
 import pytest
+from httpx import HTTPError, Request, Response
 from safir.slack.blockkit import SlackCodeBlock, SlackTextBlock
 
 from rubin.nublado.client import NubladoWebError
@@ -9,28 +11,25 @@ from rubin.nublado.client import NubladoWebError
 
 @pytest.mark.asyncio
 async def test_url_redaction() -> None:
-    req = httpx.Request(
+    request = Request(
         method="GET",
         url="https://raven.poe/lenore/response_type%3Dcode%26state%3Dlost",
     )
-    reason_phrase = b"Night's Plutonian shore"
-
-    rv = """Then, methaught the air grew denser, perfumed from an unseen censer
-    Swung by Seraphim whose foot-falls tinkled on the tufted floor.
-
-    xsrf_token: "Nevermore"
-    """
-
-    resp = httpx.Response(
+    body = (
+        "Then, methaught the air grew denser, perfumed from an unseen censer,"
+        "\nSwung by Seraphim whose foot-falls tinkled on the tufted floor."
+        '\n\nxsrf_token: "Nevermore"'
+    )
+    response = Response(
         status_code=404,
-        content=rv.encode("utf-8"),
-        text=rv,
-        extensions={"reason_phrase": reason_phrase},
-        request=req,
+        content=body.encode("utf-8"),
+        text=body,
+        extensions={"reason_phrase": b"Night's Plutonian shore"},
+        request=request,
     )
     try:
-        resp.raise_for_status()
-    except httpx.HTTPError as e:
+        response.raise_for_status()
+    except HTTPError as e:
         exc = NubladoWebError.from_exception(e, user="edgar")
 
     slack_msg = exc.to_slack()
