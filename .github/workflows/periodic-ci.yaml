@@ -62,17 +62,25 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # The top-level Python version must be used for make update-deps,
+      # followed by a switch to the matrix version. Otherwise, the test may
+      # fail because the version of Python is too old to update some
+      # directories.
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
-          python-version: ${{ matrix.python }}
           version: ${{ env.UV_VERSION }}
 
       - name: Update dependencies
         run: make update-deps
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
       - name: Run nox
-        run: uv run --only-group=nox nox -P $UV_PYTHON -s typing test
+        run: uv run --only-group=nox nox -P ${{ matrix.python }} -s typing test
         working-directory: client
 
       - name: Report status
@@ -98,17 +106,25 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # The top-level Python version must be used for make update-deps,
+      # followed by a switch to the matrix version. Otherwise, the test may
+      # fail because the version of Python is too old to update some
+      # directories.
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
-          python-version: ${{ matrix.python }}
           version: ${{ env.UV_VERSION }}
 
       - name: Update dependencies
         run: make update-deps
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
       - name: Run nox
-        run: uv run --only-group=nox nox -P $UV_PYTHON -s typing test
+        run: uv run --only-group=nox nox -P ${{ matrix.python }} -s typing test
         working-directory: hub
 
       - name: Report status
