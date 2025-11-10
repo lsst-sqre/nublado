@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import Enum, StrEnum
 from typing import Annotated, Any, Literal, override
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = [
     "CodeContext",
@@ -120,10 +120,11 @@ class NubladoImageSize(Enum):
 class NubladoImage(BaseModel, metaclass=ABCMeta):
     """Base class for different ways of specifying the lab image to spawn."""
 
-    # Ideally this would just be class, but it is a keyword and adding all the
-    # plumbing to correctly serialize Pydantic models by alias instead of
-    # field name is tedious and annoying. Live with the somewhat verbose name.
-    image_class: NubladoImageClass = Field(..., title="Image class")
+    model_config = ConfigDict(extra="forbid", validate_by_name=True)
+
+    image_class: NubladoImageClass = Field(
+        ..., title="Image class", alias="class"
+    )
 
     size: NubladoImageSize = Field(
         NubladoImageSize.Large,
@@ -162,7 +163,7 @@ class NubladoImageByReference(NubladoImage):
     """Spawn an image by full Docker reference."""
 
     image_class: Literal[NubladoImageClass.BY_REFERENCE] = Field(
-        NubladoImageClass.BY_REFERENCE, title="Image class"
+        NubladoImageClass.BY_REFERENCE, title="Image class", alias="class"
     )
 
     reference: str = Field(..., title="Docker reference of image")
@@ -188,7 +189,7 @@ class NubladoImageByTag(NubladoImage):
     """Spawn an image by image tag."""
 
     image_class: Literal[NubladoImageClass.BY_TAG] = Field(
-        NubladoImageClass.BY_TAG, title="Image class"
+        NubladoImageClass.BY_TAG, title="Image class", alias="class"
     )
 
     tag: str = Field(..., title="Image tag")
@@ -215,7 +216,9 @@ class NubladoImageByClass(NubladoImage):
         NubladoImageClass.LATEST_RELEASE,
         NubladoImageClass.LATEST_WEEKLY,
         NubladoImageClass.LATEST_DAILY,
-    ] = Field(NubladoImageClass.RECOMMENDED, title="Image class")
+    ] = Field(
+        NubladoImageClass.RECOMMENDED, title="Image class", alias="class"
+    )
 
     @override
     def to_spawn_form(self) -> dict[str, str]:
