@@ -29,7 +29,7 @@ def config(root: Path, relative_policy_file: str) -> Config:
     # Write a new config file that points at the new policy document
     config_file = Path(__file__).parent / "support" / "config.yaml"
     config = yaml.safe_load(config_file.read_text())
-    config["policy_file"] = str(new_policy_file)
+    config["policyFile"] = str(new_policy_file)
     new_config_file = root / "config.yaml"
     new_config_file.write_text(yaml.dump(config))
 

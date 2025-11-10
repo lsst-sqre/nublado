@@ -4,8 +4,7 @@ from pathlib import Path
 from typing import Annotated, Self
 
 import yaml
-from pydantic import Field, SecretStr
-from pydantic.alias_generators import to_camel
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -31,10 +30,7 @@ class EnvFirstSettings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        alias_generator=to_camel,
-        env_prefix=ENV_PREFIX,
-        extra="forbid",
-        populate_by_name=True,
+        env_prefix=ENV_PREFIX, extra="forbid", validate_by_name=True
     )
 
     @classmethod
@@ -68,6 +64,9 @@ class Config(EnvFirstSettings):
         Path,
         Field(
             title="Policy file location",
+            validation_alias=AliasChoices(
+                ENV_PREFIX + "POLICY_FILE", "policyFile"
+            ),
         ),
     ] = POLICY_FILE
 
@@ -86,6 +85,7 @@ class Config(EnvFirstSettings):
         bool,
         Field(
             title="Report rather than execute plan",
+            validation_alias=AliasChoices(ENV_PREFIX + "DRY_RUN", "dryRun"),
         ),
     ] = False
 
@@ -93,6 +93,9 @@ class Config(EnvFirstSettings):
         HumanTimedelta | None,
         Field(
             title="Duration into the future to use for planning purposes",
+            validation_alias=AliasChoices(
+                ENV_PREFIX + "FUTURE_DURATION", "futureDuration"
+            ),
         ),
     ] = None
 
@@ -100,15 +103,29 @@ class Config(EnvFirstSettings):
         Profile,
         Field(
             title="Logging profile",
+            validation_alias=AliasChoices(
+                ENV_PREFIX + "LOG_PROFILE", "logProfile"
+            ),
         ),
     ] = Profile.production
 
-    log_level: Annotated[LogLevel, Field(title="Log level")] = LogLevel.INFO
+    log_level: Annotated[
+        LogLevel,
+        Field(
+            title="Log level",
+            validation_alias=AliasChoices(
+                ENV_PREFIX + "LOG_LEVEL", "logLevel"
+            ),
+        ),
+    ] = LogLevel.INFO
 
     add_timestamp: Annotated[
         bool,
         Field(
             title="Add timestamp to log lines",
+            validation_alias=AliasChoices(
+                ENV_PREFIX + "ADD_TIMESTAMP", "addTimestamp"
+            ),
         ),
     ] = False
 
@@ -119,6 +136,9 @@ class Config(EnvFirstSettings):
             description=(
                 "An https URL, which should be considered secret."
                 " If not set or set to `None`, this feature will be disabled."
+            ),
+            validation_alias=AliasChoices(
+                ENV_PREFIX + "ALERT_HOOK", "alertHook"
             ),
         ),
     ] = None
