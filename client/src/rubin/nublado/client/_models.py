@@ -51,6 +51,8 @@ class CodeContext:
 class NotebookExecutionError(BaseModel):
     """An error from the notebook execution extension endpoint."""
 
+    model_config = ConfigDict(validate_by_name=True)
+
     name: Annotated[str, Field(title="Error name", alias="ename")]
 
     value: Annotated[str, Field(title="Error value", alias="evalue")]
