@@ -103,7 +103,7 @@ async def test_hub_flow(
 
 @pytest.mark.asyncio
 async def test_run_notebook(
-    client: NubladoClient, mock_jupyter: MockJupyter
+    client: NubladoClient, username: str, mock_jupyter: MockJupyter
 ) -> None:
     notebook = read_test_data("faux-input-nb")
     output = read_test_data("faux-output-nb")
@@ -116,6 +116,11 @@ async def test_run_notebook(
 
     result = await client.run_notebook(notebook)
     assert result == expected
+    assert mock_jupyter.get_last_notebook_kernel(username) is None
+
+    result = await client.run_notebook(notebook, kernel_name="Custom")
+    assert result == expected
+    assert mock_jupyter.get_last_notebook_kernel(username) == "Custom"
 
 
 @dataclass
