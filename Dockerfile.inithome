@@ -21,7 +21,7 @@
 #   - Sets up the entrypoint and port.
 
 # This is just an alias to avoid repeating the base image.
-FROM python:3.13.9-slim-trixie AS base-image
+FROM python:3.14.0-slim-trixie AS base-image
 
 # Update system packages.
 COPY scripts/update-os-packages.sh .
