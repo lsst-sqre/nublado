@@ -205,6 +205,7 @@ async def test_failures(
     client: NubladoClient, username: str, mock_jupyter: MockJupyter
 ) -> None:
     start = datetime.now(tz=UTC)
+    notebook = read_test_data("faux-input-nb")
 
     mock_jupyter.fail_on(username, MockJupyterAction.LOGIN)
     with pytest.raises(NubladoWebError) as exc_info:
@@ -266,8 +267,19 @@ async def test_failures(
         route=f"user/{username}/lab",
     )
 
-    mock_jupyter.fail_on(username, MockJupyterAction.CREATE_SESSION)
+    mock_jupyter.fail_on(username, MockJupyterAction.RUN_NOTEBOOK)
     await client.auth_to_lab()
+    with pytest.raises(NubladoWebError) as exc_info:
+        await client.run_notebook(notebook)
+    check_web_exception(
+        exc_info.value,
+        start=start,
+        username=username,
+        method="POST",
+        route=f"user/{username}/rubin/execution",
+    )
+
+    mock_jupyter.fail_on(username, MockJupyterAction.CREATE_SESSION)
     with pytest.raises(NubladoWebError) as exc_info:
         async with client.lab_session():
             pass

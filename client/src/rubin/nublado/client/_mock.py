@@ -53,6 +53,7 @@ class MockJupyterAction(Enum):
     LAB = "lab"
     LOGIN = "login"
     PROGRESS = "progress"
+    RUN_NOTEBOOK = "run_notebook"
     SPAWN_PENDING = "spawn_pending"
     SPAWN = "spawn"
     USER = "user"
@@ -351,6 +352,7 @@ class MockJupyter:
     @staticmethod
     def _check(
         *,
+        fail_on: MockJupyterAction | None = None,
         required_state: _MockRequiredState | None = None,
         url_format: str | None = None,
     ) -> Callable[[_MockHandler], _MockSideEffect]:
@@ -364,6 +366,9 @@ class MockJupyter:
 
         Paramaters
         ----------
+        fail_on
+            If this user is configured to fail on this action, return a
+            failure rather than calling the underlying handler.
         required_state
             If given, the state or iterable of states that Jupyter must be in
             for this call to be valid.
@@ -414,6 +419,10 @@ class MockJupyter:
                     headers = {"Location": redirect}
                     return Response(302, request=request, headers=headers)
 
+                # If configured to fail, do that.
+                if fail_on and fail_on in mock._fail[user]:
+                    return Response(500, request=request)
+
                 # All checks passed. Call the actual handler.
                 return await f(mock, request, user)
 
@@ -426,10 +435,8 @@ class MockJupyter:
     # They are registered with respx and invoked automatically when a request
     # is sent by the code under test to the mocked JupyterHub or JupyterLab.
 
-    @_check()
+    @_check(fail_on=MockJupyterAction.LOGIN)
     async def login(self, request: Request, user: str) -> Response:
-        if MockJupyterAction.LOGIN in self._fail[user]:
-            return Response(500, request=request)
         if self._redirect_loop:
             headers = {"Location": str(request.url)}
             return Response(303, headers=headers, request=request)
@@ -439,10 +446,8 @@ class MockJupyter:
         xsrf = f"_xsrf={self._hub_xsrf}"
         return Response(200, request=request, headers={"Set-Cookie": xsrf})
 
-    @_check(url_format="/hub/api/users/{user}")
+    @_check(fail_on=MockJupyterAction.USER, url_format="/hub/api/users/{user}")
     async def user(self, request: Request, user: str) -> Response:
-        if MockJupyterAction.USER in self._fail[user]:
-            return Response(500, request=request)
         self._check_xsrf(request)
         state = self._state.get(user, MockJupyterState.LOGGED_OUT)
         if state == MockJupyterState.SPAWN_PENDING:
@@ -499,10 +504,11 @@ class MockJupyter:
         headers = {"Content-Type": "text/event-stream"}
         return Response(200, text=body, headers=headers, request=request)
 
-    @_check(required_state=MockJupyterState.LOGGED_IN)
+    @_check(
+        fail_on=MockJupyterAction.SPAWN,
+        required_state=MockJupyterState.LOGGED_IN,
+    )
     async def spawn(self, request: Request, user: str) -> Response:
-        if MockJupyterAction.SPAWN in self._fail[user]:
-            return Response(500, request=request)
         self._check_xsrf(request)
         self._state[user] = MockJupyterState.SPAWN_PENDING
         self._lab_form[user] = {
@@ -512,12 +518,11 @@ class MockJupyter:
         return Response(302, headers={"Location": url}, request=request)
 
     @_check(
+        fail_on=MockJupyterAction.SPAWN_PENDING,
         required_state=MockJupyterState.SPAWN_PENDING,
         url_format="/hub/spawn-pending/{user}",
     )
     async def spawn_pending(self, request: Request, user: str) -> Response:
-        if MockJupyterAction.SPAWN_PENDING in self._fail[user]:
-            return Response(500, request=request)
         self._check_xsrf(request)
         return Response(200, request=request)
 
@@ -525,10 +530,8 @@ class MockJupyter:
     async def missing_lab(self, request: Request, user: str) -> Response:
         return Response(503, request=request)
 
-    @_check(url_format="/user/{user}/lab")
+    @_check(fail_on=MockJupyterAction.LAB, url_format="/user/{user}/lab")
     async def lab(self, request: Request, user: str) -> Response:
-        if MockJupyterAction.LAB in self._fail[user]:
-            return Response(500, request=request)
         state = self._state.get(user, MockJupyterState.LOGGED_OUT)
 
         # In the running state, there should be another redirect to
@@ -556,11 +559,12 @@ class MockJupyter:
             return Response(303, headers=headers, request=request)
         return Response(200, request=request)
 
-    @_check(url_format="/hub/api/users/{user}/server")
+    @_check(
+        fail_on=MockJupyterAction.DELETE_LAB,
+        url_format="/hub/api/users/{user}/server",
+    )
     async def delete_lab(self, request: Request, user: str) -> Response:
         self._check_xsrf(request)
-        if MockJupyterAction.DELETE_LAB in self._fail[user]:
-            return Response(500, request=request)
         state = self._state.get(user, MockJupyterState.LOGGED_OUT)
         assert state != MockJupyterState.LOGGED_OUT, "User not authenticated"
         if not self._delete_delay:
@@ -570,14 +574,13 @@ class MockJupyter:
         return Response(202, request=request)
 
     @_check(
+        fail_on=MockJupyterAction.CREATE_SESSION,
         required_state=MockJupyterState.LAB_RUNNING,
         url_format="/user/{user}/api/sessions",
     )
     async def create_session(self, request: Request, user: str) -> Response:
         self._check_xsrf(request, is_lab_route=True)
         assert user not in self._sessions, "User has an existing session"
-        if MockJupyterAction.CREATE_SESSION in self._fail[user]:
-            return Response(500, request=request)
         body = json.loads(request.content.decode())
         assert body["kernel"].get("name")
         assert body.get("name")
@@ -597,6 +600,7 @@ class MockJupyter:
         return Response(201, json=response, request=request)
 
     @_check(
+        fail_on=MockJupyterAction.DELETE_SESSION,
         required_state=MockJupyterState.LAB_RUNNING,
         url_format="/user/{user}/api/sessions",
     )
@@ -606,41 +610,21 @@ class MockJupyter:
             f"Invalid session URL {request.url!s}"
         )
         self._check_xsrf(request, is_lab_route=True)
-        if MockJupyterAction.DELETE_SESSION in self._fail[user]:
-            return Response(500, request=request)
         del self._sessions[user]
         return Response(204, request=request)
 
-    @_check(required_state=MockJupyterState.LAB_RUNNING)
+    @_check(
+        fail_on=MockJupyterAction.RUN_NOTEBOOK,
+        required_state=MockJupyterState.LAB_RUNNING,
+    )
     async def run_notebook(self, request: Request, user: str) -> Response:
         """Simulate the /rubin/execution endpoint.
 
-        Notes
-        -----
-        This does not use the nbconvert/nbformat method of the actual
-        endpoint, because installing kernels into what are already-running
-        pythons in virtual evironments in the testing environment is nasty.
-
-        First, we will try using the input notebook text as a key into a cache
-        of registered responses (this is analogous to doing the same with
-        registered responses to python snippets in the Session mock): if
-        the key is present, then we will return the response that corresponds
-        to that key.
-
-        If not, we're just going to return the input notebook as if it ran
-        without errors, but without updating any of its outputs or resources,
-        or throwing an error.  This is not a a very good simulation.
-        But since the whole point of this is to run a notebook in a particular
-        kernel context, and for us that usually means the "LSST" kernel
-        with the DM Pipelines Stack in it, that would be incredibly awful
-        to use in a unit test context.  If you want to know if your
-        notebook will really work, you're going to have to run it in the
-        correct kernel, and the client unit tests are not the place for that.
-
-        Much more likely is that you have a test notebook that should
-        produce certain results in the wild.  In that case, you would
-        register those results, and then the correct output would be
-        delivered by the cache.
+        This does not use the tool that would be used by the Jupyter extension
+        since it's too hard to guarantee consistent output for tests. Instead,
+        first see if a result has been registered for this input with
+        `register_notebook_result`. If so, return it. If not, return the
+        input notebook as-is, without any updates to its output or resources.
         """
         try:
             body = json.loads(request.content.decode())
