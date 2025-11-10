@@ -119,6 +119,10 @@ This is useful for testing the Nublado client itself, and may be useful when tes
     Returns the contents, as a dictionary, of the last spawn form submitted to the mock.
     Intended primarily to test the client `~NubladoClient.spawn_lab` method.
 
+`~MockJupyter.get_last_notebook_kernel`
+    Returns the kernel requested for the last call to `~NubladoClient.run_notebook`, or `None` if the default kernel was used.
+    Intended primarily to test the client `~NubladoClient.run_notebook` method.
+
 `~MockJupyter.get_session`
     Returns the current JupyterLab session for a given user, or `None` if there is no current session.
     The session is returned as a `MockJupyterLabSession` object, which contains information about the parameters sent by the client to create the session.

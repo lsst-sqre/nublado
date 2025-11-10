@@ -138,6 +138,7 @@ class MockJupyter:
         self._delete_delay: timedelta | None = None
         self._fail: defaultdict[str, set[MockJupyterAction]] = defaultdict(set)
         self._lab_form: dict[str, dict[str, str]] = {}
+        self._notebook_kernel: dict[str, str] = {}
         self._notebook_results: dict[str, NotebookExecutionResult] = {}
         self._redirect_loop = False
         self._sessions: dict[str, MockJupyterLabSession] = {}
@@ -234,6 +235,22 @@ class MockJupyter:
             self._fail[username] = {actions}
         else:
             self._fail[username] = set(actions)
+
+    def get_last_notebook_kernel(self, username: str) -> str | None:
+        """Get the kernel requested by the last execution call.
+
+        Parameters
+        ----------
+        username
+            Username of the user.
+
+        Returns
+        -------
+        str or None
+            Kernel requested for the last execution request, if any, or `None`
+            if the default kernel was used.
+        """
+        return self._notebook_kernel.get(username)
 
     def get_last_spawn_form(self, username: str) -> dict[str, str] | None:
         """Get the contents of the last spawn form submitted for a user.
@@ -763,6 +780,8 @@ class MockJupyter:
         `registery_notebook_result`. If so, return it. If not, return the
         input notebook as-is, without any updates to its output or resources.
         """
+        if "X-Kernel-Name" in request.headers:
+            self._notebook_kernel[user] = request.headers["X-Kernel-Name"]
         try:
             body = json.loads(request.content.decode())
             notebook = json.dumps(body["notebook"])

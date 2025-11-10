@@ -290,6 +290,7 @@ class JupyterAsyncClient:
         json: dict[str, Any] | None = None,
         timeout: Timeout | None = None,
         add_referer: bool = False,
+        extra_headers: dict[str, str] | None = None,
     ) -> Response:
         """Perform a POST request to JupyterHub or JupyterLab.
 
@@ -314,6 +315,11 @@ class JupyterAsyncClient:
         add_referer
             Whether to add a ``Referer`` header pointing to the JupyterHub
             home page. This is required by JupyterHub in some cases.
+        extra_headers
+            Additional headers to add to the request. These headers should not
+            conflict with the standard headers; if they do, the values in
+            ``extra_headers`` will override the standard headers, which will
+            probably break.
 
         Returns
         -------
@@ -334,6 +340,8 @@ class JupyterAsyncClient:
         """
         url = await self._url_for(route)
         headers = await self._headers_for(route, fetch_mode="same-origin")
+        if extra_headers:
+            headers.update(extra_headers)
         r = await self._client.post(
             url,
             headers=headers,

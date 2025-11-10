@@ -259,7 +259,11 @@ class NubladoClient:
         )
 
     async def run_notebook(
-        self, content: str, *, read_timeout: timedelta | None = None
+        self,
+        content: str,
+        *,
+        kernel_name: str | None = None,
+        read_timeout: timedelta | None = None,
     ) -> NotebookExecutionResult:
         """Run a notebook via the Nublado notebook execution extension.
 
@@ -271,6 +275,8 @@ class NubladoClient:
         ----------
         content
             Content of the notebook to execute.
+        kernel_name
+            If provided, override the default kernel name.
         read_timeout
             If provided, overrides the default read timeout for Nublado API
             calls. The default timeout is 30 seconds and the notebook
@@ -309,8 +315,13 @@ class NubladoClient:
                 self._timeout.total_seconds(),
                 read=read_timeout.total_seconds(),
             )
+        headers = None
+        if kernel_name:
+            headers = {"X-Kernel-Name": kernel_name}
         route = f"user/{self._username}/rubin/execution"
-        r = await self._client.post(route, content=content, timeout=timeout)
+        r = await self._client.post(
+            route, content=content, timeout=timeout, extra_headers=headers
+        )
         result = r.json()
         self._logger.debug("Got notebook execution result", result=result)
         try:
