@@ -23,17 +23,19 @@ from functools import wraps
 from io import StringIO
 from re import Pattern
 from traceback import format_exc
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY, patch
 from urllib.parse import parse_qs, urljoin, urlparse
 from uuid import uuid4
 
-import respx
 import websockets
 from httpx import URL, Request, Response
 from rubin.repertoire import DiscoveryClient
 
 from ._models import NotebookExecutionResult
+
+if TYPE_CHECKING:
+    import respx
 
 __all__ = [
     "MockJupyter",
