@@ -26,12 +26,12 @@ Then, add a fixture (usually to :file:`tests/conftest.py`) that calls `register_
 
     from collections.abc import AsyncGenerator
 
-    import pytest
+    import pytest_asyncio
     import respx
     from nublado.rubin.client import MockJupyter, register_mock_jupyter
 
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def mock_jupyter(
         respx_mock: respx.Router,
     ) -> AsyncGenerator[MockJupyter]:
