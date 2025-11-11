@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable, Coroutine
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime, timedelta
@@ -455,9 +456,11 @@ class JupyterAsyncClient:
         headers = await self._headers_for(route, fetch_mode="navigate")
 
         # Now, follow each redirect looking for changed hostnames and XSRF
-        # cookies.
+        # cookies. The seen URL tracking, to prevent redirect loops, has to
+        # allow visiting a given URL twice since there may be an OAuth
+        # authentication that returns the user to the previous URL.
         host_prefix = f"{self._username}."
-        seen = set(next_url)
+        seen = Counter(next_url)
         r = await self._client.get(next_url, headers=headers)
         while r.is_redirect:
             location = r.headers["Location"]
@@ -483,9 +486,9 @@ class JupyterAsyncClient:
             # subdomain hostname.
             next_url = urljoin(next_url, location)
             await self._check_redirect(next_url, lab_base_url=base_url)
-            if next_url in seen:
+            if seen[next_url] > 1:
                 raise NubladoRedirectError(f"Redirect loop at {next_url}")
-            seen.add(next_url)
+            seen[next_url] += 1
 
             # Check for and update the XSRF token if needed and then follow
             # the redirect.
@@ -526,14 +529,14 @@ class JupyterAsyncClient:
             Raised if there was an error talking to service discovery.
         """
         r = await self._client.get(url, headers=headers)
-        seen = set(url)
+        seen = Counter(url)
         while r.is_redirect:
             self._extract_xsrf(r)
             url = urljoin(url, r.headers["Location"])
             await self._check_redirect(url)
-            if url in seen:
+            if seen[url] > 1:
                 raise NubladoRedirectError(f"Redirect loop at {url}")
-            seen.add(url)
+            seen[url] += 1
             r = await self._client.get(url, headers=headers)
         r.raise_for_status()
         self._extract_xsrf(r)
