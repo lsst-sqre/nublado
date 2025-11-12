@@ -23,7 +23,7 @@ Running code in JupyterLab
 They are:
 
 - `JupyterLabSession.run_python`: Runs a string representing arbitrary Python code and returns standard output from each cell.
-  This code will run in the kernel specified by the session (``LSST`` by default).
+  This code will run in the kernel specified by the session (``lsst`` by default).
   This must be done inside a lab session context manager.
 
 - `NubladoClient.run_notebook`: Executes a notebook via the ``/rubin/execution`` endpoint of the  `RSP Jupyter Extensions <https://github.com/lsst-sqre/rsp-jupyter-extensions>`__.

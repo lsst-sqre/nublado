@@ -292,7 +292,7 @@ class JupyterLabSessionManager:
         *,
         username: str,
         jupyter_client: JupyterAsyncClient,
-        kernel_name: str = "LSST",
+        kernel_name: str = "lsst",
         notebook_name: str | None = None,
         max_websocket_size: int | None,
         websocket_open_timeout: timedelta = timedelta(seconds=60),
