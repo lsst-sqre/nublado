@@ -219,7 +219,7 @@ class NubladoClient:
         self,
         notebook_name: str | None = None,
         *,
-        kernel_name: str = "LSST",
+        kernel_name: str = "lsst",
         max_websocket_size: int | None = None,
         websocket_open_timeout: timedelta = timedelta(seconds=60),
     ) -> JupyterLabSessionManager:

@@ -70,7 +70,7 @@ async def test_hub_flow(
         # Check the parameters of the session.
         session_data = mock_jupyter.get_session(username)
         assert session_data
-        assert session_data.kernel_name == "LSST"
+        assert session_data.kernel_name == "lsst"
         assert session_data.name == "(no notebook)"
         assert UUID(session_data.path)
         assert session_data.type == "console"
