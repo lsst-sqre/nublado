@@ -348,6 +348,8 @@ async def test_spawn_failure(
         await client.wait_for_spawn()
     assert "Spawn failed!" in exc_info.value.message
     assert "Spawn failed!" in "\n".join(exc_info.value.log)
+    info = exc_info.value.to_sentry()
+    assert "Spawn failed!" in info.attachments["spawn_log.txt"]
 
 
 @pytest.mark.asyncio
@@ -421,8 +423,8 @@ async def test_execution_failure(client: NubladoClient, username: str) -> None:
 
     info = exc.to_sentry()
     assert info.tags == {}
-    assert "ZeroDivisionError" in info.attachments["nublado_error"]
-    assert info.attachments["nublado_code"] == "1 / 0"
+    assert "ZeroDivisionError" in info.attachments["nublado_error.txt"]
+    assert info.attachments["nublado_code.txt"] == "1 / 0"
     started_at = format_datetime_for_logging(exc.started_at)
     assert info.contexts["info"]["started_at"] == started_at
 
@@ -466,8 +468,8 @@ async def test_execution_failure(client: NubladoClient, username: str) -> None:
         "cell": "some-uuid",
         "cell_number": "14",
     }
-    assert "ZeroDivisionError" in info.attachments["nublado_error"]
-    assert info.attachments["nublado_code"] == "1 / 0"
+    assert "ZeroDivisionError" in info.attachments["nublado_error.txt"]
+    assert info.attachments["nublado_code.txt"] == "1 / 0"
 
     message = exc.to_slack()
     assert message.message == (

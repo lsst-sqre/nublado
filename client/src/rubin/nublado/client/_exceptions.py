@@ -321,9 +321,9 @@ class NubladoExecutionError(NubladoError):
             info.tags["status"] = self.status
         if self.error:
             error = _remove_ansi_escapes(self.error)
-            info.attachments["nublado_error"] = error
+            info.attachments["nublado_error.txt"] = error
         if self.code:
-            info.attachments["nublado_code"] = self.code
+            info.attachments["nublado_code.txt"] = self.code
         return info
 
     @override
@@ -475,7 +475,7 @@ class NubladoSpawnError(NubladoError):
     def to_sentry(self) -> SentryEventInfo:
         info = super().to_sentry()
         log = "\n".join(_remove_ansi_escapes(m) for m in self.log)
-        info.attachments["spawn_log"] = log
+        info.attachments["spawn_log.txt"] = log
         return info
 
     @override
@@ -698,7 +698,7 @@ class NubladoWebSocketError(NubladoError):
         if self.code:
             info.tags["code"] = str(self.code)
         if self.body:
-            info.attachments["body"] = self.body
+            info.attachments["body.txt"] = self.body
         return info
 
     @override
