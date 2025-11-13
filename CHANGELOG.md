@@ -6,16 +6,53 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-9.0.0'></a>
+## 9.0.0 (2025-11-13)
+
+### Backwards-incompatible changes
+
+#### Nublado client API changed significantly
+
+The API of the Nublado client provided as the `rubin.nublado.client` PyPI module has changed significantly. Users of that API will need updates for this version.
+
+- Export all Nublado client symbols from `rubin.nublado.client` and make the internal module structure private. Any imports from `rubin.nublado.client.exceptions` or `rubin.nublado.client.models` must be changed to instead import from the top-level module.
+- Use [Repertoire](https://repertoire.lsst.io/) for service discovery in the Nublado client. `NubladoClient` no longer supports configuration with a base URL; instead, to use a custom service discovery configuration, create a Repertoire `DiscoveryClient` and pass it as an optional parameter to `NubladoClient`.
+- Remove the `GafaelfawrUser` class from the Nublado client. Callers should instead pass separate `username` and `token` arguments into the constructor.
+- Delete `JupyterLabSession.run_notebook_via_rsp_extension` and replace it with `NubladoClient.run_notebook`, which uses the same extension but does not require creating a session first. The notebook content to execute must be passed in; providing a path relative to the user's Nublado home directory is not supported.
+- Change the field names of the error portion of a notebook execution result to be more general and not exactly echo the nbclient exception attributes.
+- Delete `JupyterLabSession.run_notebook` and `JupyterLabSession.run_notebook_cell`. Use `JupyterLabSession.run_python` to run each cell instead.
+- Stop exposing username from `NubladoClient` as a public attribute.
+- Rename `NubladoClient.open_lab_session` to `NubladoClient.lab_session` to make it more obvious that it returns a context manager, not an open session.
+- All the exceptions raised by the Nublado client have changed names. All exceptions inherit from `NubladoError`, which has a `context` attribute that can be used to add execution context information in the form of the `CodeContext` model.
+- Reject unknown attributes and adopt an alias of `class` for `image_class` in the `NubladoImage` class provided by the client, allowing it to be used as a child model of services with YAML-based configuration.
+- Use service discovery in the Nublado client mock to determine what URLs to mock. There is no longer a way to independently configure the base URL; instead, ensure service discovery is mocked via Repertoire's mock support before mocking Jupyter.
+- Simplify setup of the Nublado client mock. Fixtures should now use `register_mock_jupyter` as an async context manager and yield its result (a `MockJupyter` object), and no longer need to directly handle WebSocket patching.
+- Rewrite the API of the JupyterHub and JupyterLab mock provided as part of the client. Users of the mock should review the new API. Methods have changed names, and all information previously available or changeable via attributes is now done with methods.
+
+#### Other backwards-incompatible changes
+
+- Enforce camel-case settings in the purger configuration.
+
+### New features
+
+- Add new `NubladoClient.wait_for_spawn` method that can be used if the caller doesn't care about the spawn progress messages.
+- Provide `MockJupyter.create_mock_token` to create a mock Gafaelfawr token usable for authentication to the Jupyter mock provided by the Nublado client.
+- Add support for specifying a specific kernel in `NubladoClient.run_notebook`.
+
+### Bug fixes
+
+- Update JupyterHub to 5.4.2.
+
 <a id='changelog-8.18.0'></a>
 ## 8.18.0 (2025-10-30)
 
 ### New features
 
-- Provide pretty-printed tooltips for user SQL query history
+- Provide pretty-printed tooltips for user SQL query history in the base JupyterLab environment.
 
 ### Bug fixes
 
-- Correctly display tags when architecture-specific versions of a given tag showed up on different pages of a paginated tag list.
+- Fix display of architecture-specific lab image tags when architectures are split across pages of a paginated tag list.
 
 <a id='changelog-8.17.1'></a>
 ## 8.17.1 (2025-10-17)
