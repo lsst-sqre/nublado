@@ -355,7 +355,69 @@ class NubladoProtocolError(NubladoError):
 
 
 class NubladoRedirectError(NubladoError):
-    """Loop or unexpected redirect outside of the Nublado URL space."""
+    """Loop or unexpected redirect outside of the Nublado URL space.
+
+    Parameters
+    ----------
+    message
+        Exception message.
+    user
+        User Nublado client was acting on behalf of.
+    context
+        The code context for this operation, if any.
+    failed_at
+        When the operation failed. Omit to use the current time.
+    started_at
+        When the operation that failed began.
+    url
+        URL at which the redirect loop was detected.
+
+    Attributes
+    ----------
+    context
+        The code context for this operation, if any.
+    failed_at
+        When the operation failed.
+    started_at
+        When the operation that ended in an exception started.
+    url
+        URL at which the redirect loop was detected.
+    user
+        User Nublado client was acting on behalf of.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        url: str,
+        user: str | None = None,
+        *,
+        context: CodeContext | None = None,
+        failed_at: datetime.datetime | None = None,
+        started_at: datetime.datetime | None = None,
+    ) -> None:
+        super().__init__(
+            f"{message}: {_sanitize_url(url)}",
+            user,
+            context=context,
+            failed_at=failed_at,
+            started_at=started_at,
+        )
+        self.url = _sanitize_url(url)
+
+    @override
+    def to_sentry(self) -> SentryEventInfo:
+        info = super().to_sentry()
+        info.tags["httpx_request_method"] = "GET"
+        info.tags["httpx_request_url"] = self.url
+        return info
+
+    @override
+    def to_slack(self) -> SlackMessage:
+        message = super().to_slack()
+        text = f"GET {self.url}"
+        message.blocks.append(SlackTextBlock(heading="URL", text=text))
+        return message
 
 
 class NubladoSpawnError(NubladoError):
@@ -514,8 +576,8 @@ class NubladoWebError(SlackWebException, NubladoError):
         `~safir.slack.blockkit.SlackMessage`
             Formatted Slack message.
         """
-        info = super(NubladoError, self).to_sentry()
-        web_info = super(SlackWebException, self).to_sentry()
+        info = NubladoError.to_sentry(self)
+        web_info = super().to_sentry()
         info.tags.update(web_info.tags)
         info.contexts.update(web_info.contexts)
         info.attachments.update(web_info.attachments)
