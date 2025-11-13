@@ -15,6 +15,7 @@ from rubin.nublado.client import (
     CodeContext,
     MockJupyter,
     MockJupyterAction,
+    MockJupyterState,
     NotebookExecutionResult,
     NubladoClient,
     NubladoExecutionError,
@@ -37,11 +38,14 @@ async def test_hub_flow(
     client: NubladoClient, username: str, mock_jupyter: MockJupyter
 ) -> None:
     """Check that the Hub operations work as expected."""
+    assert mock_jupyter.get_state(username) == MockJupyterState.LOGGED_OUT
+
     # Must authenticate first.
     with pytest.raises(AssertionError):
         assert await client.is_lab_stopped()
 
     await client.auth_to_hub()
+    assert mock_jupyter.get_state(username) == MockJupyterState.LOGGED_IN
     assert await client.is_lab_stopped()
 
     # Simulate spawn.
@@ -50,6 +54,7 @@ async def test_hub_flow(
         "image_class": "recommended",
         "size": "Large",
     }
+    assert mock_jupyter.get_state(username) == MockJupyterState.SPAWN_PENDING
 
     # Watch the progress meter.
     progress = -1
@@ -61,6 +66,7 @@ async def test_hub_flow(
             progress = message.progress
 
     # Lab should now be running. Execute some code.
+    assert mock_jupyter.get_state(username) == MockJupyterState.LAB_RUNNING
     assert not await client.is_lab_stopped()
     assert mock_jupyter.get_session(username) is None
     async with client.lab_session() as session:
@@ -99,6 +105,7 @@ async def test_hub_flow(
     # Stop the lab
     await client.stop_lab()
     assert await client.is_lab_stopped()
+    assert mock_jupyter.get_state(username) == MockJupyterState.LOGGED_IN
 
 
 @pytest.mark.asyncio

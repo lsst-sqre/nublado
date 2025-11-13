@@ -126,3 +126,6 @@ This is useful for testing the Nublado client itself, and may be useful when tes
 `~MockJupyter.get_session`
     Returns the current JupyterLab session for a given user, or `None` if there is no current session.
     The session is returned as a `MockJupyterLabSession` object, which contains information about the parameters sent by the client to create the session.
+
+`~MockJupyter.get_state`
+    Returns the current JupyterHub and JupyterLab state for the given user as an instance of `MockJupyterState`.

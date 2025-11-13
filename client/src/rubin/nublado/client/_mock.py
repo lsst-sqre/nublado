@@ -289,6 +289,21 @@ class MockJupyter:
         """
         return self._sessions.get(username)
 
+    def get_state(self, username: str) -> MockJupyterState:
+        """Return the current Jupyter state for the given user.
+
+        Parameters
+        ----------
+        username
+            Username of the user.
+
+        Returns
+        -------
+        MockJupyterState
+            Current state of that user.
+        """
+        return self._state.get(username, MockJupyterState.LOGGED_OUT)
+
     def install_hub_routes(
         self, respx_mock: respx.Router, base_url: str
     ) -> None:
