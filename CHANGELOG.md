@@ -38,21 +38,12 @@ The API of the Nublado client provided as the `rubin.nublado.client` PyPI module
 - Add new `NubladoClient.wait_for_spawn` method that can be used if the caller doesn't care about the spawn progress messages.
 - Provide `MockJupyter.create_mock_token` to create a mock Gafaelfawr token usable for authentication to the Jupyter mock provided by the Nublado client.
 - Add support for specifying a specific kernel in `NubladoClient.run_notebook`.
-
-### Bug fixes
-
-- Update JupyterHub to 5.4.2.
-
-<a id='changelog-8.18.0'></a>
-## 8.18.0 (2025-10-30)
-
-### New features
-
 - Provide pretty-printed tooltips for user SQL query history in the base JupyterLab environment.
 
 ### Bug fixes
 
 - Fix display of architecture-specific lab image tags when architectures are split across pages of a paginated tag list.
+- Update JupyterHub to 5.4.2.
 
 <a id='changelog-8.17.1'></a>
 ## 8.17.1 (2025-10-17)
