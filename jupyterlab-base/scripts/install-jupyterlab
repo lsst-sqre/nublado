@@ -48,6 +48,7 @@ uv pip install --upgrade \
    jupyter_bokeh \
    jupyterhub \
    jupyterlab \
+   jupyterlab-spellchecker \
    jupyterlab_execute_time \
    jupyterlab_iframe \
    jupyterlab_widgets \
@@ -79,6 +80,4 @@ pip uninstall -y uv llvmlite
 
 # Increase this to force a rebuild because a dependency package has changed.
 # Reset when you actually change a package or its pins.
-# Serial: 0
-
-
+# Serial: 1
