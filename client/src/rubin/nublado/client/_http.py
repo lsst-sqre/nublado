@@ -381,7 +381,7 @@ class JupyterAsyncClient:
         lab_base_url = lab_base_url or self._lab_base_url
         if lab_base_url and url.startswith(lab_base_url):
             return
-        raise NubladoRedirectError(f"Unexpected redirect to {url}")
+        raise NubladoRedirectError("Unexpected redirect", url)
 
     def _extract_xsrf(
         self, response: Response, lab_base_url: str | None = None
@@ -487,7 +487,7 @@ class JupyterAsyncClient:
             next_url = urljoin(next_url, location)
             await self._check_redirect(next_url, lab_base_url=base_url)
             if seen[next_url] > 1:
-                raise NubladoRedirectError(f"Redirect loop at {next_url}")
+                raise NubladoRedirectError("Redirect loop", next_url)
             seen[next_url] += 1
 
             # Check for and update the XSRF token if needed and then follow
@@ -535,7 +535,7 @@ class JupyterAsyncClient:
             url = urljoin(url, r.headers["Location"])
             await self._check_redirect(url)
             if seen[url] > 1:
-                raise NubladoRedirectError(f"Redirect loop at {url}")
+                raise NubladoRedirectError("Redirect loop", url)
             seen[url] += 1
             r = await self._client.get(url, headers=headers)
         r.raise_for_status()
