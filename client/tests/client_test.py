@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import aclosing
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from unittest.mock import ANY
 from uuid import UUID
 
 import pytest
@@ -376,12 +377,21 @@ async def test_redirect_loop(
     with pytest.raises(NubladoRedirectError) as exc_info:
         await client.auth_to_lab()
 
+    # Check that the exception contains useful tags for Sentry.
+    info = exc_info.value.to_sentry()
+    assert info.tags == {
+        "httpx_request_method": "GET",
+        "httpx_request_url": ANY,
+    }
+
     # The precise point at which we detect the redirect loop depends on
     # whether per-user subdomains are enabled.
     if f"{username}." in str(exc_info.value):
-        assert f"/user/{username}/lab" in str(exc_info.value)
+        route = f"/user/{username}/lab"
     else:
-        assert f"/user/{username}/oauth_callback" in str(exc_info.value)
+        route = f"/user/{username}/oauth_callback"
+    assert route in str(exc_info.value)
+    assert route in info.tags["httpx_request_url"]
 
 
 @pytest.mark.asyncio
