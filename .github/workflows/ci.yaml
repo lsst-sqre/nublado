@@ -260,7 +260,7 @@ jobs:
        && (startsWith(github.head_ref, 'tickets/')
            || startsWith(github.head_ref, 't/')))
       || (github.event_name == 'workflow_dispatch')
-      || (github.event_name == 'release' && github.event_name == 'published')
+      || (github.event_name == 'release' && github.event.action == 'published')
 
     with:
       additional-tags: ${{ github.event_name == 'release' && 'latest' || '' }}
