@@ -202,7 +202,7 @@ jobs:
 
   build:
     needs: [test, test-hub]
-    uses: lsst-sqre/multiplatform-build-and-push/.github/workflows/build.yaml@v2
+    uses: lsst-sqre/multiplatform-build-and-push/.github/workflows/build.yaml@v3
     secrets: inherit
 
     # Only do Docker builds of tagged releases and pull requests from ticket
@@ -246,7 +246,7 @@ jobs:
 
   build-jupyterlab:
     needs: changes
-    uses: lsst-sqre/multiplatform-build-and-push/.github/workflows/build.yaml@v2
+    uses: lsst-sqre/multiplatform-build-and-push/.github/workflows/build.yaml@v3
     secrets: inherit
 
     # Only do Docker builds of tagged releases and pull requests from ticket
