@@ -1,4 +1,4 @@
-FROM python:3.13.9-slim-trixie AS base-image
+FROM python:3.13.10-slim-trixie AS base-image
 
 USER root
 SHELL ["/bin/bash", "-lc"]
@@ -6,10 +6,10 @@ SHELL ["/bin/bash", "-lc"]
 RUN mkdir -p /tmp/build
 WORKDIR /tmp/build
 
-COPY jupyterlab-base/scripts/install-base-packages /tmp/build
+COPY container/scripts/update-os-packages.sh /tmp/build
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    ./install-base-packages
+    ./update-os-packages.sh
 
 # Now we have a patched python container.  Add system dependencies.
 
