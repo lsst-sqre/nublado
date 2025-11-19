@@ -43,6 +43,7 @@ uv pip install --upgrade \
    jupyter_firefly_extensions \
    jupyter-resource-usage \
    jupyter-server \
+   jupyter-server-documents \
    jupyter-server-proxy \
    jupyter_bokeh \
    jupyterhub \
@@ -51,14 +52,14 @@ uv pip install --upgrade \
    jupyterlab_iframe \
    jupyterlab_widgets \
    lckr-jupyterlab-variableinspector \
-   lsst-rsp \
+   'git+https://github.com/lsst-sqre/lsst-rsp@tickets/DM-53305' \
    nbconvert \
    nbdime \
    nbval \
    panel \
    plotly \
    pythreejs \
-   rsp-jupyter-extensions \
+   rsp-jupyter-extensions>=0.19.1 \
    sidecar
 
 # File sharing doesn't work in the RSP environment; remove the extension.
