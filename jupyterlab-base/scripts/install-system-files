@@ -15,3 +15,26 @@ install -m 0755 pyteco/teco.py /usr/local/bin/teco
 # The default terminal colors look bad in light mode.
 git clone https://github.com/seebi/dircolors-solarized.git
 cp dircolors-solarized/dircolors* /etc
+
+# Install typst.  It's not packaged for Debian, but there are binary releases
+# available on its GitHub page.
+
+# Get the tags; throw away the calver attempt and any rc tags;
+# extract the version
+typst_ver=$(
+    git ls-remote --tags --refs --sort="-version:refname" \
+    https://github.com/typst/typst | \
+    grep -v "v23\-03\-" | \
+    grep -v "\-rc" | \
+    head -1 | \
+    awk '{print $2}' | \
+    sed -e 's|refs/tags/||'
+	 )
+
+# Download the appropriate archive
+fname="typst-$(arch)-unknown-linux-musl.tar.xz"
+url="https://github.com/typst/typst/releases/download/${typst_ver}/${fname}"
+curl -L "${url}" > typst.tar.xz
+
+tar x --strip-components=1 -vf typst.tar.xz
+install -m 0755 typst /usr/local/bin/typst
