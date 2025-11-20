@@ -59,7 +59,7 @@ uv pip install --upgrade \
    panel \
    plotly \
    pythreejs \
-   rsp-jupyter-extensions>=0.19.1 \
+   rsp-jupyter-extensions \
    sidecar
 
 # File sharing doesn't work in the RSP environment; remove the extension.
