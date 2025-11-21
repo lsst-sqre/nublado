@@ -37,6 +37,6 @@ apt-get -y install --no-install-recommends \
     git git-lfs pandoc \
     texlive-latex-recommended texlive-plain-generic \
     texlive-fonts-recommended texlive-pstricks texlive-luatex texlive-xetex \
-    jq gh hub unzip ack screen tmux tree file less \
+    jq gh hub unzip ack screen tmux tree file bzip2 less \
     man curl \
     nano vim ed
