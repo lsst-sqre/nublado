@@ -28,7 +28,7 @@ apt-get update
 # git-lfs: required for new user setup in lsst-rsp
 # pandoc: get the dependencies the venv nbconvert will need
 # texlive*: export to PDF
-# jq ... less: useful utilities
+# jq ... bzip2: useful utilities
 # man: it is an interactive system, after all
 # curl: CLI http client is useful
 # nano ... ed: enough editors to cover most people's habits
@@ -37,6 +37,6 @@ apt-get -y install --no-install-recommends \
     git git-lfs pandoc \
     texlive-latex-recommended texlive-plain-generic \
     texlive-fonts-recommended texlive-pstricks texlive-luatex texlive-xetex \
-    jq gh hub unzip ack screen tmux tree file bzip2 less \
+    jq gh hub unzip ack screen tmux tree file less xz-utils bzip2 \
     man curl \
     nano vim ed

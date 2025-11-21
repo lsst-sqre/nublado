@@ -34,7 +34,7 @@ typst_ver=$(
 # Download the appropriate archive
 fname="typst-$(arch)-unknown-linux-musl.tar.xz"
 url="https://github.com/typst/typst/releases/download/${typst_ver}/${fname}"
-curl "${url}" > typst.tar.xz
+curl -L "${url}" > typst.tar.xz
 
-tar x --strip-components=1 -vjf typst.tar.xz
+tar x --strip-components=1 -vf typst.tar.xz
 install -m 0755 typst /usr/local/bin/typst
