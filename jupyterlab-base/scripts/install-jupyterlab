@@ -43,6 +43,7 @@ uv pip install --upgrade \
    jupyter_firefly_extensions \
    jupyter-resource-usage \
    jupyter-server \
+   jupyter-server-documents \
    jupyter-server-proxy \
    jupyter_bokeh \
    jupyterhub \
@@ -51,7 +52,7 @@ uv pip install --upgrade \
    jupyterlab_iframe \
    jupyterlab_widgets \
    lckr-jupyterlab-variableinspector \
-   lsst-rsp \
+   'git+https://github.com/lsst-sqre/lsst-rsp@tickets/DM-53305' \
    nbconvert \
    nbdime \
    nbval \
