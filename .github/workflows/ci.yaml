@@ -54,7 +54,7 @@ jobs:
       matrix:
         python:
           - "3.12"
-          - "3.14"
+          - "3.13"
 
     steps:
       - uses: actions/checkout@v6
@@ -77,7 +77,7 @@ jobs:
       matrix:
         python:
           - "3.12"
-          - "3.14"
+          - "3.13"
 
     steps:
       - uses: actions/checkout@v6
@@ -222,6 +222,8 @@ jobs:
         container:
           - name: "jupyterhub"
             gar: false
+          - name: "utils"
+            gar: true
 
     # For each image name, construct an image named lsst-sqre/nublado-<name>
     # and push it to GitHub Container Registry. If gar is true, also push the
