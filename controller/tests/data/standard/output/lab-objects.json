@@ -25,6 +25,7 @@
       "MEM_LIMIT": "3221225472",
       "NO_ACTIVITY_TIMEOUT": "432000",
       "NUBLADO_RUNTIME_MOUNTS_DIR": "/opt/lsst/software/jupyterlab",
+      "REPERTOIRE_BASE_URL": "https://example.com/repertoire",
       "TAP_ROUTE": "/api/tap"
     },
     "immutable": true,

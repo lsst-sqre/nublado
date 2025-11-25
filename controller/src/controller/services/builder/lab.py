@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 from pathlib import Path
@@ -365,6 +366,11 @@ class LabBuilder:
                 "NUBLADO_RUNTIME_MOUNTS_DIR": self._config.runtime_mounts_dir,
             }
         )
+
+        # Inject REPERTOIRE_BASE_URL if we know it.
+        rep_base = os.environ.get("REPERTOIRE_BASE_URL")
+        if rep_base:
+            env["REPERTOIRE_BASE_URL"] = rep_base
 
         # Finally, add any environment variable settings from our
         # configuration. Anything set here overrides anything the user sends
