@@ -232,6 +232,8 @@ jobs:
             gar: true
           - name: "repo-cloner"
             gar: true
+          - name: "rsp-initcontainer"
+            gar: true
 
     # For each image name, construct an image named lsst-sqre/nublado-<name>
     # and push it to GitHub Container Registry. If gar is true, also push the
@@ -239,10 +241,15 @@ jobs:
     # In that repository, the images are named with only <name>, without the
     # leading "nublado-". This is the private Google Artifact Registry used by
     # the US Rubin Science Platform.
+    #
+    # For rsp-initcontainer, build a 'latest' on each release; this is to
+    # parallel jupyterlab-base, so that sciplat-lab stays current with all
+    # its components.
     with:
       cache: false
       dockerfile: Dockerfile.${{ matrix.container.name }}
       images: ghcr.io/lsst-sqre/nublado-${{ matrix.container.name }}${{ matrix.container.gar && ',us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/' || '' }}${{ matrix.container.gar && matrix.container.name || '' }}
+      additional-tags: ${{ ( github.event_name == 'release' && matrix.container.name == 'rsp-initcontainer' ) && 'latest' || '' }}
 
   build-jupyterlab:
     needs: changes
