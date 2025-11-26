@@ -1,8 +1,7 @@
 # Docker build instructions for the lsst-rsp-based init container.
 #
-# It contains both the init container necessary for RSP startup and the
-# landing page provisioner, which ensures that the correct symbolic links
-# exist in order to show the CST landing page on Lab start.
+# It contains the landing page provisioner, but will also eventually
+# handle most of the file manipulation for RSP startup.
 #
 # This Dockerfile has three stages:
 #
@@ -35,14 +34,6 @@ RUN ./install-dependency-packages.sh && rm ./install-dependency-packages.sh
 COPY rsp-initcontainer/scripts/install-lsst-rsp.sh .
 RUN  ./install-lsst-rsp.sh && rm ./install-lsst-rsp.sh
 
-# Remove /etc/passwd and /etc/group, because we will need to overmount
-# them with the nss-files configmap at runtime.
-
-RUN rm /etc/passwd /etc/group
-
 # Run the application.
-#
-# Landing page is "provision-landing-page"
-#
 USER 65534:65534  # nobody:nobody, but overridden by nublado-controller anyway
-CMD ["launch-init-container"]
+CMD ["provision-landing-page"]

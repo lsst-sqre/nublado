@@ -59,7 +59,6 @@ __all__ = [
     "HostPathVolumeSource",
     "LabConfig",
     "LabInitContainer",
-    "LabInitContainerVolumeMountConfig",
     "LabNSSFiles",
     "LabSecret",
     "LabSizeDefinition",
@@ -315,27 +314,6 @@ class VolumeMountConfig(BaseModel):
     volume_name: Annotated[
         str,
         Field(title="Volume name", description="Name of the volume to mount"),
-    ]
-
-
-class LabInitContainerVolumeMountConfig(VolumeMountConfig):
-    """The mount of a volume inside an init container.
-
-    This is exactly the same as VolumeMountConfig but we do not prohibit
-    overmounting, since we may want to mount the NSS files into /etc.
-    """
-
-    container_path: Annotated[
-        str,
-        Field(
-            title="Path inside container",
-            description=(
-                "Absolute path at which to mount the volume in the lab"
-                " container"
-            ),
-            examples=["/home"],
-            pattern="^/.*",
-        ),
     ]
 
 
@@ -766,7 +744,7 @@ class LabInitContainer(BaseModel):
     ] = False
 
     volume_mounts: Annotated[
-        list[LabInitContainerVolumeMountConfig],
+        list[VolumeMountConfig],
         Field(
             title="Volume mounts",
             description="Volumes mounted inside this init container",
