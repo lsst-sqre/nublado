@@ -52,7 +52,7 @@ uv pip install --upgrade \
    jupyterlab_iframe \
    jupyterlab_widgets \
    lckr-jupyterlab-variableinspector \
-   'git+https://github.com/lsst-sqre/lsst-rsp@tickets/DM-53305' \
+   'git+https://github.com/lsst-sqre/lsst-rsp' \
    nbconvert \
    nbdime \
    nbval \
