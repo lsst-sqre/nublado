@@ -165,11 +165,11 @@ required-environments = [
 ]
 
 [tool.uv.sources]
-controller = { path = "controller" }
+controller = { path = "controller", editable = true }
 rubin-nublado-authenticator = { path = "hub/plugins/authenticator", editable = true }
 rubin-nublado-client = { path = "client", editable = true }
-rubin-nublado-inithome = { workspace = true }
-rubin-nublado-purger = { workspace = true }
+rubin-nublado-inithome = { workspace = true, editable = true }
+rubin-nublado-purger = { workspace = true, editable = true }
 rubin-nublado-spawner = { path = "hub/plugins/spawner", editable = true }
 
 [tool.uv.workspace]
