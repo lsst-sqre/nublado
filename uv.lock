@@ -488,7 +488,7 @@ wheels = [
 
 [[package]]
 name = "controller"
-source = { directory = "controller" }
+source = { editable = "controller" }
 dependencies = [
     { name = "aiojobs" },
     { name = "bitmath" },
@@ -2029,7 +2029,7 @@ dev = [
     { name = "pytest-sugar" },
 ]
 docs = [
-    { name = "controller", directory = "controller" },
+    { name = "controller", editable = "controller" },
     { name = "documenteer", extras = ["guide"], specifier = ">=2.3" },
     { name = "respx" },
     { name = "rubin-nublado-authenticator", editable = "hub/plugins/authenticator" },

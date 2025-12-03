@@ -7,6 +7,7 @@ types that only need those operations are provided here; more complex storage
 classes with other operations are defined in their own modules.
 """
 
+import builtins
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import Any
@@ -233,7 +234,7 @@ class KubernetesObjectDeleter[T: KubernetesModel](KubernetesObjectCreator[T]):
         timeout: Timeout,
         *,
         label_selector: str | None = None,
-    ) -> list[T]:
+    ) -> builtins.list[T]:
         """List all objects of the appropriate kind in the namespace.
 
         Parameters
