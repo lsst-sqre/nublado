@@ -6,6 +6,17 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-9.0.2'></a>
+## 9.0.2 (2025-12-03)
+
+### Bug fixes
+
+- Resynchronize `GROUPNAME_REGEX` with Gafaelfawr.
+
+### Other changes
+
+- Inject `REPERTOIRE_BASE_URL` into pod if known.
+
 <a id='changelog-9.0.0'></a>
 ## 9.0.0 (2025-11-13)
 
