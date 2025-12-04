@@ -82,9 +82,6 @@ EXPOSE 8080
 WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Innocuous.
-CMD ["tail", "-f", "/dev/null"]
-
 # For controller:
 # CMD ["nublado", "controller"]
 # For inithome:
@@ -94,3 +91,7 @@ CMD ["tail", "-f", "/dev/null"]
 # For purger:
 # CMD ["nublado", "purger", "execute"]
 
+# Effectively a no-op: container is up and available to `kubectl exec` but
+# isn't doing work, roughly equivalent to `tail -f /dev/null`.
+
+CMD ["nublado", "fsadmin"]
