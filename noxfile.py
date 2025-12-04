@@ -194,7 +194,7 @@ def typing(session: nox.Session) -> None:
         "mypy",
         *session.posargs,
         "noxfile.py",
-        "src",
+        "src/nublado",
         "tests",
+        "client/src/rubin",
     )
-    _recurse(session, "typing")
