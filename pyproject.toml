@@ -37,6 +37,9 @@ dependencies = [
 ]
 dynamic = ["version"]
 
+[project.scripts]
+nublado = "nublado.cli:main"
+
 [project.urls]
 Homepage = "https://nublado.lsst.io"
 Source = "https://github.com/lsst-sqre/nublado"
@@ -71,9 +74,10 @@ docs = [
     "sphinx-diagrams",
     # Required to generate API documentation.
     "respx",
-    "rubin-nublado-authenticator",
+    "nublado",
     "rubin-nublado-client",
     "rubin-nublado-spawner",
+    "rubin-nublado-authenticator"
 ]
 lint = [
     "pre-commit",
@@ -87,6 +91,8 @@ nox = [
 typing = [
     "mypy>=1.15",
     "types-pyyaml",
+    "types-deprecated",
+    "types-requests"
 ]
 
 [tool.black]
@@ -115,7 +121,7 @@ warn_untyped_fields = true
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "strict"
-norecursedirs = ["client/*", "hub/*"]
+norecursedirs = ["client/*", "src/nublado/*", "hub/*"]
 # The python_files setting is not for test detection (pytest will pick up any
 # test files named *_test.py without this setting) but to enable special
 # assert processing in any non-test supporting files under tests.  We
@@ -141,14 +147,21 @@ extend = "ruff-shared.toml"
 "client/tests/support/hello.ipynb" = [
     "T201",    # test support notebooks are allowed to print
 ]
+"src/nublado/cli.py" = [
+    "S104",    # we do in fact want to listen on all interfaces
+]
 "src/nublado/controller/constants.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
 ]
-"src/nublado/controller/services/builder/lab.py" = [
+"src/nublado/controller/services/**" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
 ]
-"src/nublado/controller/services/builder/prepuller.py" = [
-    "S108",    # constructing /tmp paths for Kubernetes Pods
+"src/nublado/startup/models/noninteractive.py" = [
+    "S606",    # we mean to have a process without a shell
+]
+"src/nublado/startup/services/labrunner/labrunner.py" = [
+    "S108",    # we really mean literal /tmp here
+    "S606",    # we mean to have a process without a shell
 ]
 "tests/controller/models/domain/rsptag_test.py" = [
     "PLR0124", # testing comparison dunder methods requires strange assertions
@@ -160,7 +173,7 @@ extend = "ruff-shared.toml"
 
 [tool.ruff.lint.isort]
 known-first-party = [
-    "nublado",
+    "src/nublado",
     "rubin.nublado",
     "tests",
 ]
