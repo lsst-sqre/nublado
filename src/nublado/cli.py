@@ -5,14 +5,16 @@ from __future__ import annotations
 import asyncio
 import functools
 import os
+import time
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from pathlib import Path
 
 import click
+import uvicorn
 from safir.asyncio import run_with_asyncio
 from safir.click import display_help
-from safir.datetime import parse_timedelta
+from safir.datetime import current_datetime, isodatetime, parse_timedelta
 from safir.sentry import initialize_sentry
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import get_logger
@@ -23,6 +25,7 @@ from .constants import (
     ROOT_LOGGER,
 )
 from .inithome.provisioner import Provisioner
+from .purger import Purger
 from .purger.config import Config as PurgerConfig
 from .purger.constants import (
     CONFIG_FILE as PURGER_CONFIG_FILE,
@@ -30,16 +33,20 @@ from .purger.constants import (
 from .purger.constants import (
     CONFIG_FILE_ENV_VAR as PURGER_CONFIG_FILE_ENV_VAR,
 )
-from .purger.purger import Purger
+from .startup.services.labrunner import LabRunner
+from .startup.services.landing_page.provisioner import (
+    Provisioner as LandingPageProvisioner,
+)
 
 __all__ = [
+    "controller",
+    "fsadmin",
     "inithome",
+    "landingpage",
     "main",
     "purger",
+    "startup",
 ]
-
-# Do this at the very beginning so that Sentry gets all exceptions.
-initialize_sentry(release=__version__)
 
 
 def _purger_common[**P, R](
@@ -87,7 +94,7 @@ def _purger_common[**P, R](
         if alert_hook := os.environ.get(ALERT_HOOK_ENV_VAR):
             slack_client = SlackWebhookClient(
                 alert_hook,
-                "Nublado File Purger",
+                "Nublado",
                 logger=logger,
             )
         else:
@@ -99,6 +106,9 @@ def _purger_common[**P, R](
             if slack_client:
                 await slack_client.post_exception(exc)
             raise
+
+    # Also report to Sentry.
+    initialize_sentry(release=__version__)
 
     return wrapper
 
@@ -237,10 +247,19 @@ async def warn(
 
 
 @main.command()
+def controller() -> None:
+    """Start Nublado controller."""
+    uvicorn.run(
+        "nublado.controller.main:create_app", host="0.0.0.0", port=8080
+    )
+
+
+@main.command()
 def inithome() -> None:
     """Provision user home directory.
 
-    All of ``NUBLADO_UID``, ``NUBLADO_GID``, and ``NUBLADO_HOME`` must be set.
+
+    ``NUBLADO_GID`` must be set.
     """
     logger = get_logger(ROOT_LOGGER)
     try:
@@ -265,3 +284,55 @@ def inithome() -> None:
         raise
     provisioner = Provisioner(home, uid, gid)
     asyncio.run(provisioner.provision())
+
+
+@main.command()
+def startup() -> None:
+    """Prepare user environment for RSP startup."""
+    # All of the settings are in the environment.  The LabRunner only has
+    # one public method.
+    LabRunner().go()
+
+
+@main.command()
+def landingpage() -> None:
+    """Redirect Lab user to specified landing page.
+
+    Environment variable ``NUBLADO_HOME`` must be set.
+    """
+    # This is set by the controller and will be set for Nublado init
+    # containers.
+    #
+    # We never want to raise an exception here: if this action fails, we still
+    # want to start the user lab.  If nothing else went wrong, they
+    # just won't get redirected to the landing page (but odds are, if something
+    # goes wrong here, something is more generally wrong with the Lab
+    # environment).
+
+    logger = get_logger(ROOT_LOGGER)
+    if not os.getenv("NUBLADO_HOME"):
+        logger.critical("Environment variable NUBLADO_HOME is not set!")
+        return
+    try:
+        provisioner = LandingPageProvisioner.from_env()
+        provisioner.go()
+    except Exception:
+        logger.exception("Landing page provisioner failed")
+
+
+@main.command()
+def fsadmin() -> None:
+    """Do nothing but log an occasional heartbeat message.
+
+    An administrative user can `kubectl exec` into the container to
+    perform filesystem operations.
+    """
+    logger = get_logger(ROOT_LOGGER)
+    count = 0
+    while True:
+        count += 1
+        logger.info(
+            f"Nublado fsadmin heartbeat #{count}:"
+            f" {isodatetime(current_datetime())}"
+        )
+        time.sleep(60)
