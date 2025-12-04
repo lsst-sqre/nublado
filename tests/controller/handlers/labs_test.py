@@ -993,3 +993,29 @@ async def test_wait_for_sa(
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
     assert r.json()["status"] == "running"
+
+
+@pytest.mark.asyncio
+async def test_init_container_command(
+    client: AsyncClient,
+    user: GafaelfawrUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    """Check that the init container has a custom command."""
+    config = await configure("init-command")
+    lab = read_input_lab_specification_json("base", "lab-specification")
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_headers(),
+    )
+    assert r.status_code == 201
+    await asyncio.sleep(0)
+
+    pod = await mock_kubernetes.read_namespaced_pod(
+        f"{user.username}-nb",
+        f"{config.lab.namespace_prefix}-{user.username}",
+    )
+    ic = pod.spec.init_containers[0]
+    assert ic.command == ["nublado", "startup"]
