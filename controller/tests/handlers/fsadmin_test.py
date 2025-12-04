@@ -143,6 +143,12 @@ async def test_locking(
     # that never starts.
     mock_kubernetes.initial_pod_phase = "Pending"
 
+    # The mock sets start time to pod creation time, and doesn't update it
+    # when we patch it to "Running", so we need to capture the time *now*
+    # rather than when the pod "starts" so the delta is positive.
+
+    now = current_datetime()
+
     # Try to start pod (it won't, because it will go into Pending)
     post_task = asyncio.create_task(
         client.post(
@@ -166,7 +172,7 @@ async def test_locking(
     assert delete_task.done() is False
 
     # "start" the pod
-    now = current_datetime()
+
     await mock_kubernetes.patch_namespaced_pod_status(
         pod.metadata.name,
         namespace,
