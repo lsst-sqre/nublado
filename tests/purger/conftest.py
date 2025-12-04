@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 import pytest
 import yaml
 
-from rubin.nublado.purger.config import Config
+from nublado.purger.config import Config
 
 
 def config(root: Path, relative_policy_file: str) -> Config:

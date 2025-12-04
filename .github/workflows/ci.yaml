@@ -54,6 +54,7 @@ jobs:
       matrix:
         python:
           - "3.12"
+          - "3.13"
           - "3.14"
 
     steps:
@@ -77,6 +78,7 @@ jobs:
       matrix:
         python:
           - "3.12"
+          - "3.13"
           - "3.14"
 
     steps:
@@ -220,17 +222,9 @@ jobs:
     strategy:
       matrix:
         container:
-          - name: "controller"
-            gar: false
-          - name: "fsadmin"
-            gar: false
-          - name: "inithome"
-            gar: true
           - name: "jupyterhub"
             gar: false
-          - name: "purger"
-            gar: true
-          - name: "repo-cloner"
+          - name: "utils"
             gar: true
 
     # For each image name, construct an image named lsst-sqre/nublado-<name>

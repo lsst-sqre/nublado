@@ -19,7 +19,7 @@ nox.options.default_venv_backend = "uv"
 nox.options.reuse_existing_virtualenvs = True
 
 # Recurse into these subdirectories, which have their own separate noxfile.py.
-_SUBDIRECTORIES = ["client", "controller", "hub"]
+_SUBDIRECTORIES = ["client", "hub"]
 
 
 def _recurse(session: nox.Session, target: str) -> None:
@@ -169,8 +169,7 @@ def test(session: nox.Session) -> None:
     if args.parent_tests or args.run_all_tests:
         session.run(
             "pytest",
-            "--cov=rubin.nublado.purger",
-            "--cov=rubin.nublado.inithome",
+            "--cov=nublado",
             "--cov-branch",
             "--cov-report=",
             *args.generic,
@@ -197,9 +196,7 @@ def typing(session: nox.Session) -> None:
         "--namespace-packages",
         "--explicit-package-bases",
         "noxfile.py",
-        "inithome/src",
-        "purger/src",
+        "src/nublado",
         "tests",
-        env={"MYPYPATH": "inithome/src:purger/src"},
+        "client/src/rubin",
     )
-    _recurse(session, "typing")
