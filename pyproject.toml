@@ -48,7 +48,7 @@ requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project.scripts]
-rsp_purger = "nublado.purger.cli:main_with_sentry"
+nublado = "nublado.cli:main"
 
 [dependency-groups]
 dev = [
@@ -139,6 +139,9 @@ extend = "ruff-shared.toml"
 ]
 "client/tests/support/hello.ipynb" = [
     "T201",    # test support notebooks are allowed to print
+]
+"src/nublado/cli.py" = [
+    "S104",    # We do in fact want to listen on all interfaces
 ]
 "src/nublado/controller/constants.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
