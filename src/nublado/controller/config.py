@@ -742,6 +742,18 @@ class LabInitContainer(BaseModel):
 
     image: Annotated[ContainerImage, Field(title="Image to run")]
 
+    command: Annotated[
+        list[str] | None,
+        Field(
+            title="Command and arguments for container",
+            description=(
+                "Override container command and arguments. If left unset,"
+                " use container defaults."
+            ),
+            examples=[["nublado", "purge", "warn"]],
+        ),
+    ] = None
+
     privileged: Annotated[
         bool,
         Field(
