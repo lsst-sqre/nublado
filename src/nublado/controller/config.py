@@ -511,6 +511,18 @@ class FSAdminConfig(BaseModel):
         ),
     ] = None
 
+    command: Annotated[
+        list[str] | None,
+        Field(
+            title="Command and arguments for fsadmin container",
+            description=(
+                "Override container command and arguments. If left unset,"
+                " use container defaults."
+            ),
+            examples=[["nublado", "fsadmin"]],
+        ),
+    ] = None
+
     extra_annotations: Annotated[
         dict[str, str],
         Field(
