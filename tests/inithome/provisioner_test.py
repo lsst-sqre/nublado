@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pyfakefs.fake_filesystem import FakeFilesystem
 
-from rubin.nublado.inithome.provisioner import InvalidHomeError, Provisioner
+from nublado.inithome.provisioner import InvalidHomeError, Provisioner
 
 
 @pytest.mark.asyncio
