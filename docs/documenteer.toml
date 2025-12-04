@@ -7,10 +7,10 @@ openapi_path = "_static/openapi.json"
 doc_path = "client/rest-api"
 
 [project.openapi.generator]
-function = "controller.main:create_openapi"
+function = "nublado.controller.main:create_openapi"
 
 [project.python]
-package = "controller"
+package = "nublado"
 
 [sphinx]
 disable_primary_sidebars = [

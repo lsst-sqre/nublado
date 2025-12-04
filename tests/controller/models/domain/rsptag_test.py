@@ -20,16 +20,12 @@ def test_tag_ordering() -> None:
     """Test comparisons of RSPImageTag objects."""
     one = RSPImageTag.from_str("r21_0_1")
     two = RSPImageTag.from_str("r21_0_2")
-    assert one == one
-    assert one <= one
-    assert one >= one
     assert one != two
     assert one < two
     assert one <= two
     assert two >= one
 
     three = RSPImageTag.from_str("d_2023_02_09")
-    assert three == three
     assert one != three
     with pytest.raises(TypeError):
         assert one < three
@@ -58,7 +54,6 @@ def test_tag_ordering() -> None:
 
     exp_one = RSPImageTag.from_str("exp_20230209")
     exp_two = RSPImageTag.from_str("exp_random")
-    assert exp_one == exp_one
     assert exp_one != exp_two
     assert exp_one < exp_two
 

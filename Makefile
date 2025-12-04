@@ -17,7 +17,6 @@ update: update-deps init
 update-deps:
 	uv lock --upgrade
 	uv lock --upgrade --directory client
-	uv lock --upgrade --directory controller
 	uv lock --upgrade --directory hub
 	uv run --only-group=lint pre-commit autoupdate
 	./scripts/update-uv-version.sh
