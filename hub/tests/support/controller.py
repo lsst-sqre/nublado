@@ -8,7 +8,6 @@ from datetime import UTC, datetime, timedelta
 
 import respx
 from httpx import AsyncByteStream, Request, Response
-
 from rubin.nublado.spawner._models import LabStatus
 
 __all__ = [

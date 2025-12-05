@@ -220,18 +220,8 @@ jobs:
     strategy:
       matrix:
         container:
-          - name: "controller"
-            gar: false
-          - name: "fsadmin"
-            gar: false
-          - name: "inithome"
-            gar: true
           - name: "jupyterhub"
             gar: false
-          - name: "purger"
-            gar: true
-          - name: "repo-cloner"
-            gar: true
 
     # For each image name, construct an image named lsst-sqre/nublado-<name>
     # and push it to GitHub Container Registry. If gar is true, also push the

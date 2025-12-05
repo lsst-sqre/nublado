@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from rubin.nublado.purger.config import Config
-from rubin.nublado.purger.models.plan import FileReason
-from rubin.nublado.purger.purger import Purger
+from nublado.purger.config import Config
+from nublado.purger.models.plan import FileReason
+from nublado.purger.purger import Purger
 
 from .util import set_age
 

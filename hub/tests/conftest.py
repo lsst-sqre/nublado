@@ -7,9 +7,8 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 import respx
-from rubin.repertoire import DiscoveryClient, register_mock_discovery
-
 from rubin.nublado.spawner import NubladoSpawner
+from rubin.repertoire import DiscoveryClient, register_mock_discovery
 
 from .support.controller import MockLabController, register_mock_lab_controller
 from .support.jupyterhub import MockHub, MockUser
