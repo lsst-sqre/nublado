@@ -18,7 +18,7 @@ from safir.middleware.x_forwarded import XForwardedMiddleware
 from safir.sentry import initialize_sentry
 from safir.slack.webhook import SlackRouteErrorHandler
 
-from . import __version__
+from .. import __version__
 from .dependencies.config import config_dependency
 from .dependencies.context import context_dependency
 from .handlers import (

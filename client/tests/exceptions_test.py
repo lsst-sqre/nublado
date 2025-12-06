@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from httpx import HTTPError, Request, Response
-from rubin.nublado.client import NubladoWebError
 from safir.slack.blockkit import SlackCodeBlock, SlackTextBlock
+
+from rubin.nublado.client import NubladoWebError
 
 
 def test_filtering_body() -> None:

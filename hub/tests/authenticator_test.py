@@ -12,14 +12,15 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from tornado import web
+from tornado.httputil import HTTPHeaders
+
 from rubin.nublado.authenticator import GafaelfawrAuthenticator
 from rubin.nublado.authenticator._internals import (
     _build_auth_info,
     _GafaelfawrLoginHandler,
     _GafaelfawrLogoutHandler,
 )
-from tornado import web
-from tornado.httputil import HTTPHeaders
 
 
 @pytest.mark.asyncio

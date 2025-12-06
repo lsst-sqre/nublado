@@ -9,6 +9,9 @@ from unittest.mock import ANY
 from uuid import UUID
 
 import pytest
+from safir.datetime import format_datetime_for_logging
+from safir.slack.blockkit import SlackCodeBlock, SlackTextBlock, SlackTextField
+
 from rubin.nublado.client import (
     CodeContext,
     MockJupyter,
@@ -27,8 +30,6 @@ from rubin.nublado.client import (
     NubladoSpawnError,
     NubladoWebError,
 )
-from safir.datetime import format_datetime_for_logging
-from safir.slack.blockkit import SlackCodeBlock, SlackTextBlock, SlackTextField
 
 from .support.data import read_test_data
 

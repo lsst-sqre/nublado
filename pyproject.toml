@@ -70,7 +70,6 @@ docs = [
     "sphinx-diagrams",
     # Required to generate API documentation.
     "respx",
-    "nublado",
     "rubin-nublado-authenticator",
     "rubin-nublado-client",
     "rubin-nublado-spawner",
@@ -115,7 +114,7 @@ warn_untyped_fields = true
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "strict"
-norecursedirs = ["client/*", "hub/*", "src/nublado/*"]
+norecursedirs = ["client/*", "hub/*"]
 # The python_files setting is not for test detection (pytest will pick up any
 # test files named *_test.py without this setting) but to enable special
 # assert processing in any non-test supporting files under tests.  We
@@ -150,7 +149,7 @@ extend = "ruff-shared.toml"
 "src/nublado/controller/services/builder/prepuller.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
 ]
-"controller/tests/models/domain/rsptag_test.py" = [
+"tests/controller/models/domain/rsptag_test.py" = [
     "PLR0124", # testing comparison dunder methods requires strange assertions
 ]
 "jupyterlab-base/jupyter_server/jupyter_server_config.py" = [
@@ -160,10 +159,8 @@ extend = "ruff-shared.toml"
 
 [tool.ruff.lint.isort]
 known-first-party = [
-    "src/nublado",
-    "rubin-nublado-authenticator",
-    "rubin-nublado-client",
-    "rubin-nublado-spawner",
+    "nublado",
+    "rubin.nublado",
     "tests",
 ]
 
@@ -179,8 +176,6 @@ format = "md"
 md_header_level = "2"
 new_fragment_template = "file:changelog.d/_template.md.jinja"
 skip_fragments = "_template.md.jinja"
-
-[tool.setuptools]
 
 [tool.setuptools_scm]
 

@@ -193,9 +193,8 @@ def typing(session: nox.Session) -> None:
     session.run(
         "mypy",
         *session.posargs,
-        "--namespace-packages",
-        "--explicit-package-bases",
         "noxfile.py",
+        "src",
         "tests",
     )
     _recurse(session, "typing")

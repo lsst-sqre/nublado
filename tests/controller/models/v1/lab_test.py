@@ -198,19 +198,20 @@ def test_cpu_resource_validation() -> None:
         # ResourceQuantity.memory field must eventually get parsed into an int,
         # its validator can accept anything.
         LabResources(
-            requests=ResourceQuantity(cpu=1.1, memory="1Gi"),
-            limits=ResourceQuantity(cpu=1, memory="1Gi"),
+            requests=ResourceQuantity(cpu=1.1, memory="1Gi"),  # type: ignore[arg-type]
+            limits=ResourceQuantity(cpu=1, memory="1Gi"),  # type: ignore[arg-type]
         )
 
 
 def test_memory_resource_validation() -> None:
     with pytest.raises(
-        ValueError, match=r"requests\.memory must be less than"
+        ValueError,
+        match=r"requests\.memory must be less than",
     ):
         # Ignore type checking here because even though the
         # ResourceQuantity.memory field must eventually get parsed into an int,
         # its validator can accept anything.
         LabResources(
-            requests=ResourceQuantity(cpu=1, memory="1.1Gi"),
-            limits=ResourceQuantity(cpu=1, memory="1Gi"),
+            requests=ResourceQuantity(cpu=1, memory="1.1Gi"),  # type: ignore[arg-type]
+            limits=ResourceQuantity(cpu=1, memory="1Gi"),  # type: ignore[arg-type]
         )

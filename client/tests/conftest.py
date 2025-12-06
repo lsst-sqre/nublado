@@ -7,11 +7,6 @@ import pytest
 import pytest_asyncio
 import respx
 import structlog
-from rubin.nublado.client import (
-    MockJupyter,
-    NubladoClient,
-    register_mock_jupyter,
-)
 from rubin.repertoire import (
     Discovery,
     DiscoveryClient,
@@ -19,6 +14,12 @@ from rubin.repertoire import (
 )
 from safir.logging import LogLevel, Profile, configure_logging
 from structlog.stdlib import BoundLogger
+
+from rubin.nublado.client import (
+    MockJupyter,
+    NubladoClient,
+    register_mock_jupyter,
+)
 
 
 @pytest.fixture

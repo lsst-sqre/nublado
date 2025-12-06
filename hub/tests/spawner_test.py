@@ -6,6 +6,7 @@ import asyncio
 from datetime import timedelta
 
 import pytest
+
 from rubin.nublado.spawner import NubladoSpawner
 from rubin.nublado.spawner._exceptions import SpawnFailedError
 from rubin.nublado.spawner._models import LabStatus
