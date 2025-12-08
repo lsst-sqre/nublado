@@ -140,9 +140,6 @@ extend = "ruff-shared.toml"
 "client/tests/support/hello.ipynb" = [
     "T201",    # test support notebooks are allowed to print
 ]
-"src/nublado/cli.py" = [
-    "S104",    # We do in fact want to listen on all interfaces
-]
 "src/nublado/controller/constants.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
 ]

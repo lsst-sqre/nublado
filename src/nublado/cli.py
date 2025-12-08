@@ -5,17 +5,14 @@ from __future__ import annotations
 import asyncio
 import functools
 import os
-import subprocess
-import time
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from pathlib import Path
 
 import click
-import uvicorn
 from safir.asyncio import run_with_asyncio
 from safir.click import display_help
-from safir.datetime import current_datetime, isodatetime, parse_timedelta
+from safir.datetime import parse_timedelta
 from safir.sentry import initialize_sentry
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import get_logger
@@ -23,7 +20,6 @@ from structlog.stdlib import get_logger
 from . import __version__
 from .constants import (
     ALERT_HOOK_ENV_VAR,
-    CLONER_SCRIPT,
     ROOT_LOGGER,
 )
 from .inithome.provisioner import Provisioner
@@ -37,13 +33,13 @@ from .purger.constants import (
 from .purger.purger import Purger
 
 __all__ = [
-    "cloner",
-    "controller",
-    "fsadmin",
     "inithome",
     "main",
     "purger",
 ]
+
+# Do this at the very beginning so that Sentry gets all exceptions.
+initialize_sentry(release=__version__)
 
 
 def _purger_common[**P, R](
@@ -91,7 +87,7 @@ def _purger_common[**P, R](
         if alert_hook := os.environ.get(ALERT_HOOK_ENV_VAR):
             slack_client = SlackWebhookClient(
                 alert_hook,
-                "Nublado",
+                "Nublado File Purger",
                 logger=logger,
             )
         else:
@@ -103,9 +99,6 @@ def _purger_common[**P, R](
             if slack_client:
                 await slack_client.post_exception(exc)
             raise
-
-    # Also report to Sentry.
-    initialize_sentry(release=__version__)
 
     return wrapper
 
@@ -244,19 +237,10 @@ async def warn(
 
 
 @main.command()
-def controller() -> None:
-    """Start Nublado controller."""
-    uvicorn.run(
-        "nublado.controller.main:create_app", host="0.0.0.0", port=8080
-    )
-
-
-@main.command()
 def inithome() -> None:
     """Provision user home directory.
 
-
-    ``NUBLADO_GID`` must be set.
+    All of ``NUBLADO_UID``, ``NUBLADO_GID``, and ``NUBLADO_HOME`` must be set.
     """
     logger = get_logger(ROOT_LOGGER)
     try:
@@ -281,27 +265,3 @@ def inithome() -> None:
         raise
     provisioner = Provisioner(home, uid, gid)
     asyncio.run(provisioner.provision())
-
-
-@main.command()
-def cloner() -> None:
-    """Check out repository $GIT_SRC@$GIT_BRANCH to $GIT_TARGET."""
-    subprocess.run([CLONER_SCRIPT], check=True)
-
-
-@main.command()
-def fsadmin() -> None:
-    """Do nothing but log an occasional heartbeat message.
-
-    An administrative user can `kubectl exec` into the container to
-    perform filesystem operations.
-    """
-    logger = get_logger(ROOT_LOGGER)
-    count = 0
-    while True:
-        count += 1
-        logger.info(
-            f"Nublado fsadmin heartbeat #{count}:"
-            f" {isodatetime(current_datetime())}"
-        )
-        time.sleep(60)
