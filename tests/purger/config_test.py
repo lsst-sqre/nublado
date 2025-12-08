@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from rubin.nublado.purger.config import Config
+from nublado.purger.config import Config
 
 
 def test_env_override(monkeypatch: pytest.MonkeyPatch) -> None:

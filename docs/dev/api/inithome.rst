@@ -2,10 +2,7 @@
 Internal inithome API
 #####################
 
-The module ``rubin.nublado.inithome`` provides the entry point used by the ``nublado-inithome`` container (see :doc:`/admin/home-directories`).
+The module ``nublado.inithome`` provides a mechanism for provisioning user home directories in a context where administrative access to user filesystems is permitted.
 
-.. automodapi:: rubin.nublado.inithome.main
-   :include-all-objects:
-
-.. automodapi:: rubin.nublado.inithome.provisioner
+.. automodapi:: nublado.inithome.provisioner
    :include-all-objects:

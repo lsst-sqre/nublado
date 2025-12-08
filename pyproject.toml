@@ -19,8 +19,21 @@ classifiers = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "rubin-nublado-inithome",
-    "rubin-nublado-purger",
+    "aiojobs>=1",
+    "bitmath>=1",
+    "google-cloud-artifact-registry>=1",
+    "httpx>=0.28",
+    "fastapi>=0.100",
+    "jinja2>=3",
+    "kubernetes-asyncio>=33",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "pyyaml>=6",
+    "rubin-repertoire>=0.6.0",
+    "safir[kafka,kubernetes]>=14",
+    "semver>=3",
+    "sse-starlette>=3",
+    "uvicorn[standard]>=0.37",
 ]
 dynamic = ["version"]
 
@@ -34,20 +47,28 @@ Source = "https://github.com/lsst-sqre/nublado"
 requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
+[project.scripts]
+rsp_purger = "nublado.purger.cli:main_with_sentry"
+
 [dependency-groups]
 dev = [
+    "anys",
+    "asgi-lifespan",
+    "coverage[toml]",
+    "httpx-sse",
     "pyfakefs",
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
     "pytest-sugar",
+    "pytest-timeout",
+    "respx",
 ]
 docs = [
     "documenteer[guide]>=2.3",
     "scriv[toml]>=1.5",
     "sphinx-diagrams",
     # Required to generate API documentation.
-    "controller",
     "respx",
     "rubin-nublado-authenticator",
     "rubin-nublado-client",
@@ -93,7 +114,7 @@ warn_untyped_fields = true
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "strict"
-norecursedirs = ["client/*", "controller/*", "hub/*"]
+norecursedirs = ["client/*", "hub/*"]
 # The python_files setting is not for test detection (pytest will pick up any
 # test files named *_test.py without this setting) but to enable special
 # assert processing in any non-test supporting files under tests.  We
@@ -102,7 +123,7 @@ norecursedirs = ["client/*", "controller/*", "hub/*"]
 # enables magical assert processing (showing a full diff on assert failures
 # with complex data structures rather than only the assert message) in files
 # listed in python_files.
-python_files = ["tests/*.py", "tests/*/*.py"]
+python_files = ["tests/*.py", "tests/*/*.py", "tests/*/*/*.py"]
 
 # Use the generic Ruff configuration in ruff.toml and extend it with only
 # project-specific settings.
@@ -119,13 +140,16 @@ extend = "ruff-shared.toml"
 "client/tests/support/hello.ipynb" = [
     "T201",    # test support notebooks are allowed to print
 ]
-"controller/src/controller/constants.py" = [
+"src/nublado/controller/constants.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
 ]
-"controller/src/controller/services/**" = [
+"src/nublado/controller/services/builder/lab.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
 ]
-"controller/tests/models/domain/rsptag_test.py" = [
+"src/nublado/controller/services/builder/prepuller.py" = [
+    "S108",    # constructing /tmp paths for Kubernetes Pods
+]
+"tests/controller/models/domain/rsptag_test.py" = [
     "PLR0124", # testing comparison dunder methods requires strange assertions
 ]
 "jupyterlab-base/jupyter_server/jupyter_server_config.py" = [
@@ -135,7 +159,7 @@ extend = "ruff-shared.toml"
 
 [tool.ruff.lint.isort]
 known-first-party = [
-    "controller",
+    "nublado",
     "rubin.nublado",
     "tests",
 ]
@@ -153,9 +177,6 @@ md_header_level = "2"
 new_fragment_template = "file:changelog.d/_template.md.jinja"
 skip_fragments = "_template.md.jinja"
 
-[tool.setuptools]
-py-modules = []
-
 [tool.setuptools_scm]
 
 [tool.uv]
@@ -165,12 +186,6 @@ required-environments = [
 ]
 
 [tool.uv.sources]
-controller = { path = "controller", editable = true }
 rubin-nublado-authenticator = { path = "hub/plugins/authenticator", editable = true }
 rubin-nublado-client = { path = "client", editable = true }
-rubin-nublado-inithome = { workspace = true, editable = true }
-rubin-nublado-purger = { workspace = true, editable = true }
 rubin-nublado-spawner = { path = "hub/plugins/spawner", editable = true }
-
-[tool.uv.workspace]
-members = ["inithome", "purger"]

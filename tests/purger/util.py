@@ -6,7 +6,7 @@ from pathlib import Path
 
 from safir.pydantic._types import _validate_human_timedelta
 
-from rubin.nublado.purger.models.plan import FileReason
+from nublado.purger.models.plan import FileReason
 
 
 def set_age(path: Path, whichtime: FileReason, h_age: str) -> None:

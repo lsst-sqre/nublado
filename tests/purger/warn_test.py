@@ -3,8 +3,8 @@
 import pytest
 from safir.datetime import parse_timedelta
 
-from rubin.nublado.purger.config import Config
-from rubin.nublado.purger.purger import Purger
+from nublado.purger.config import Config
+from nublado.purger.purger import Purger
 
 
 @pytest.mark.asyncio

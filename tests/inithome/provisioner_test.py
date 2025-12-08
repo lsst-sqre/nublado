@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pyfakefs.fake_filesystem import FakeFilesystem
 
-from rubin.nublado.inithome.provisioner import InvalidHomeError, Provisioner
+from nublado.inithome.provisioner import InvalidHomeError, Provisioner
 
 
 @pytest.mark.asyncio
@@ -84,6 +84,9 @@ async def test_existing_dir(
     # Running provisioning should do nothing, silently.
     provisioner = Provisioner(home, uid, gid)
     await provisioner.provision()
+    # This sometimes fails with aio session not closed.  We do not
+    # use aiohttp directly, so it's coming from somewhere else,
+    # maybe kubernetes-asyncio.
     stat = home.stat()
     assert stat.st_uid == uid
     assert stat.st_gid == gid

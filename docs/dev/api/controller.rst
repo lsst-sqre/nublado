@@ -5,174 +5,174 @@ Internal Nublado controller API
 The Nublado controller is built as a Docker image intended for deployment in a Kubernetes cluster using Phalanx_ and is not supported as an installed Python module.
 This documentation therefore exists only to assist developers and code analysis and does not define a supported API.
 
-.. automodapi:: controller
+.. automodapi:: nublado.controller
    :include-all-objects:
 
-.. automodapi:: controller.background
+.. automodapi:: nublado.controller.background
    :include-all-objects:
 
-.. automodapi:: controller.config
+.. automodapi:: nublado.controller.config
    :include-all-objects:
 
-.. automodapi:: controller.constants
+.. automodapi:: nublado.controller.constants
    :include-all-objects:
 
-.. automodapi:: controller.dependencies.config
+.. automodapi:: nublado.controller.dependencies.config
 
-.. automodapi:: controller.dependencies.context
+.. automodapi:: nublado.controller.dependencies.context
 
-.. automodapi:: controller.dependencies.user
+.. automodapi:: nublado.controller.dependencies.user
    :include-all-objects:
 
-.. automodapi:: controller.events
+.. automodapi:: nublado.controller.events
    :include-all-objects:
 
-.. automodapi:: controller.exceptions
+.. automodapi:: nublado.controller.exceptions
    :include-all-objects:
 
-.. automodapi:: controller.factory
+.. automodapi:: nublado.controller.factory
    :include-all-objects:
 
-.. automodapi:: controller.main
+.. automodapi:: nublado.controller.main
    :include-all-objects:
 
-.. automodapi:: controller.models.domain.docker
+.. automodapi:: nublado.controller.models.domain.docker
    :include-all-objects:
 
-.. automodapi:: controller.models.domain.fileserver
+.. automodapi:: nublado.controller.models.domain.fileserver
    :include-all-objects:
 
-.. automodapi:: controller.models.domain.fsadmin
+.. automodapi:: nublado.controller.models.domain.fsadmin
    :include-all-objects:
 
-.. automodapi:: controller.models.domain.gafaelfawr
+.. automodapi:: nublado.controller.models.domain.gafaelfawr
    :include-all-objects:
 
-.. automodapi:: controller.models.domain.image
+.. automodapi:: nublado.controller.models.domain.image
    :include-all-objects:
 
-.. automodapi:: controller.models.domain.imagefilterpolicy
+.. automodapi:: nublado.controller.models.domain.imagefilterpolicy
    :include-all-objects:
 
-.. automodapi:: controller.models.domain.kubernetes
+.. automodapi:: nublado.controller.models.domain.kubernetes
    :include-all-objects:
 
-.. automodapi:: controller.models.domain.lab
+.. automodapi:: nublado.controller.models.domain.lab
    :include-all-objects:
 
-.. automodapi:: controller.models.domain.rspimage
+.. automodapi:: nublado.controller.models.domain.rspimage
    :include-all-objects:
 
-.. automodapi:: controller.models.domain.rsptag
+.. automodapi:: nublado.controller.models.domain.rsptag
    :include-all-objects:
 
-.. automodapi:: controller.models.domain.volumes
+.. automodapi:: nublado.controller.models.domain.volumes
    :include-all-objects:
 
-.. automodapi:: controller.models.index
+.. automodapi:: nublado.controller.models.index
    :include-all-objects:
 
-.. automodapi:: controller.models.v1.fileserver
+.. automodapi:: nublado.controller.models.v1.fileserver
    :include-all-objects:
 
-.. automodapi:: controller.models.v1.fsadmin
+.. automodapi:: nublado.controller.models.v1.fsadmin
    :include-all-objects:
 
-.. automodapi:: controller.models.v1.lab
+.. automodapi:: nublado.controller.models.v1.lab
    :include-all-objects:
 
-.. automodapi:: controller.models.v1.prepuller
+.. automodapi:: nublado.controller.models.v1.prepuller
    :include-all-objects:
 
-.. automodapi:: controller.services.builder.fileserver
+.. automodapi:: nublado.controller.services.builder.fileserver
    :include-all-objects:
 
-.. automodapi:: controller.services.builder.fsadmin
+.. automodapi:: nublado.controller.services.builder.fsadmin
    :include-all-objects:
 
-.. automodapi:: controller.services.builder.lab
+.. automodapi:: nublado.controller.services.builder.lab
    :include-all-objects:
 
-.. automodapi:: controller.services.builder.prepuller
+.. automodapi:: nublado.controller.services.builder.prepuller
    :include-all-objects:
 
-.. automodapi:: controller.services.builder.volumes
+.. automodapi:: nublado.controller.services.builder.volumes
    :include-all-objects:
 
-.. automodapi:: controller.services.fileserver
+.. automodapi:: nublado.controller.services.fileserver
    :include-all-objects:
 
-.. automodapi:: controller.services.fsadmin
+.. automodapi:: nublado.controller.services.fsadmin
    :include-all-objects:
 
-.. automodapi:: controller.services.image
+.. automodapi:: nublado.controller.services.image
    :include-all-objects:
 
-.. automodapi:: controller.services.lab
+.. automodapi:: nublado.controller.services.lab
    :include-all-objects:
 
-.. automodapi:: controller.services.prepuller
+.. automodapi:: nublado.controller.services.prepuller
    :include-all-objects:
 
-.. automodapi:: controller.services.source.base
+.. automodapi:: nublado.controller.services.source.base
    :include-all-objects:
 
-.. automodapi:: controller.services.source.docker
+.. automodapi:: nublado.controller.services.source.docker
    :include-all-objects:
 
-.. automodapi:: controller.services.source.gar
+.. automodapi:: nublado.controller.services.source.gar
    :include-all-objects:
 
-.. automodapi:: controller.storage.docker
+.. automodapi:: nublado.controller.storage.docker
    :include-all-objects:
 
-.. automodapi:: controller.storage.gafaelfawr
+.. automodapi:: nublado.controller.storage.gafaelfawr
    :include-all-objects:
 
-.. automodapi:: controller.storage.gar
+.. automodapi:: nublado.controller.storage.gar
    :include-all-objects:
 
-.. automodapi:: controller.storage.kubernetes.creator
+.. automodapi:: nublado.controller.storage.kubernetes.creator
    :include-all-objects:
 
-.. automodapi:: controller.storage.kubernetes.custom
+.. automodapi:: nublado.controller.storage.kubernetes.custom
    :include-all-objects:
 
-.. automodapi:: controller.storage.kubernetes.deleter
+.. automodapi:: nublado.controller.storage.kubernetes.deleter
    :include-all-objects:
 
-.. automodapi:: controller.storage.kubernetes.fileserver
+.. automodapi:: nublado.controller.storage.kubernetes.fileserver
    :include-all-objects:
 
-.. automodapi:: controller.storage.kubernetes.fsadmin
+.. automodapi:: nublado.controller.storage.kubernetes.fsadmin
    :include-all-objects:
 
-.. automodapi:: controller.storage.kubernetes.ingress
+.. automodapi:: nublado.controller.storage.kubernetes.ingress
    :include-all-objects:
 
-.. automodapi:: controller.storage.kubernetes.lab
+.. automodapi:: nublado.controller.storage.kubernetes.lab
    :include-all-objects:
 
-.. automodapi:: controller.storage.kubernetes.namespace
+.. automodapi:: nublado.controller.storage.kubernetes.namespace
    :include-all-objects:
 
-.. automodapi:: controller.storage.kubernetes.node
+.. automodapi:: nublado.controller.storage.kubernetes.node
    :include-all-objects:
 
-.. automodapi:: controller.storage.kubernetes.pod
+.. automodapi:: nublado.controller.storage.kubernetes.pod
    :include-all-objects:
 
-.. automodapi:: controller.storage.kubernetes.watcher
+.. automodapi:: nublado.controller.storage.kubernetes.watcher
    :include-all-objects:
 
-.. automodapi:: controller.storage.metadata
+.. automodapi:: nublado.controller.storage.metadata
    :include-all-objects:
 
-.. automodapi:: controller.templates
+.. automodapi:: nublado.controller.templates
    :include-all-objects:
 
-.. automodapi:: controller.timeout
+.. automodapi:: nublado.controller.timeout
    :include-all-objects:
 
-.. automodapi:: controller.units
+.. automodapi:: nublado.controller.units
    :include-all-objects:
