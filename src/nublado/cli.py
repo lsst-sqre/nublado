@@ -1,5 +1,8 @@
-"""CLI for the filesystem purger."""
+"""Nublado Command-Line Interface."""
 
+from __future__ import annotations
+
+import asyncio
 import functools
 import os
 from collections.abc import Awaitable, Callable
@@ -14,28 +17,41 @@ from safir.sentry import initialize_sentry
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import get_logger
 
-from .. import __version__
-from .config import Config
+from . import __version__
 from .constants import (
     ALERT_HOOK_ENV_VAR,
-    CONFIG_FILE,
-    CONFIG_FILE_ENV_VAR,
     ROOT_LOGGER,
 )
-from .purger import Purger
+from .inithome.provisioner import Provisioner
+from .purger.config import Config as PurgerConfig
+from .purger.constants import (
+    CONFIG_FILE as PURGER_CONFIG_FILE,
+)
+from .purger.constants import (
+    CONFIG_FILE_ENV_VAR as PURGER_CONFIG_FILE_ENV_VAR,
+)
+from .purger.purger import Purger
+
+__all__ = [
+    "inithome",
+    "main",
+    "purger",
+]
+
+# Do this at the very beginning so that Sentry gets all exceptions.
+initialize_sentry(release=__version__)
 
 
-def _common[**P, R](
-    func: Callable[P, Awaitable[R]],
+def _purger_common[**P, R](
+    async_func: Callable[P, Awaitable[R]],
 ) -> Callable[P, R]:
-    """Add common Click options and error reporting common a command."""
+    """Add common purger options and error reporting to a command.
 
-    @click.option(
-        "--debug",
-        "-d",
-        is_flag=True,
-        help="Enable debug logging",
-    )
+    We should probably eventually use a wrapper like this to handle
+    Sentry and Slack reporting everywhere, but initially each of the
+    subcomponents that do either of those manage it internally.
+    """
+
     @click.option(
         "--dry-run",
         "-x",
@@ -54,14 +70,21 @@ def _common[**P, R](
         "-c",
         help="Application configuration file",
         type=Path,
-        default=CONFIG_FILE,
+        default=PURGER_CONFIG_FILE,
+    )
+    @click.option(
+        "--debug",
+        "-d",
+        is_flag=True,
+        envvar="DEBUG",
+        help="Enable debug logging",
     )
     @run_with_asyncio
-    @functools.wraps(func)
+    @functools.wraps(async_func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         # Configure slack alerting and report any exceptions
         logger = get_logger(ROOT_LOGGER)
-        if alert_hook := os.environ.get(ALERT_HOOK_ENV_VAR, None):
+        if alert_hook := os.environ.get(ALERT_HOOK_ENV_VAR):
             slack_client = SlackWebhookClient(
                 alert_hook,
                 "Nublado File Purger",
@@ -71,7 +94,7 @@ def _common[**P, R](
             slack_client = None
 
         try:
-            return await func(*args, **kwargs)
+            return await async_func(*args, **kwargs)
         except Exception as exc:
             if slack_client:
                 await slack_client.post_exception(exc)
@@ -83,7 +106,7 @@ def _common[**P, R](
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(message="%(version)s")
 def main() -> None:
-    """Nublado file purger command-line interface."""
+    """Command-line interface for nublado."""
 
 
 @main.command()
@@ -105,10 +128,10 @@ def _make_purger(
 ) -> Purger:
     """Construct a Purger, overriding config from CLI options."""
     # Prefer config file from env var
-    if env_config_path := os.getenv(CONFIG_FILE_ENV_VAR):
+    if env_config_path := os.getenv(PURGER_CONFIG_FILE_ENV_VAR):
         config_file = Path(env_config_path)
 
-    config = Config.from_file(config_file)
+    config = PurgerConfig.from_file(config_file)
 
     if policy_file:
         config.policy_file = policy_file
@@ -129,8 +152,20 @@ def _make_purger(
     return Purger(config=config)
 
 
-@main.command
-@_common
+@main.group()
+@_purger_common
+async def purger(
+    *,
+    config_file: Path,
+    policy_file: Path | None,
+    dry_run: bool,
+    debug: bool,
+) -> None:
+    """Purge files, or plan future purge."""
+
+
+@purger.command()
+@_purger_common
 async def report(
     *,
     config_file: Path,
@@ -149,8 +184,8 @@ async def report(
     await purger.report()
 
 
-@main.command
-@_common
+@purger.command()
+@_purger_common
 async def execute(
     *,
     config_file: Path,
@@ -168,7 +203,7 @@ async def execute(
     await purger.execute()
 
 
-@main.command
+@purger.command()
 @click.option(
     "--future-duration",
     "-t",
@@ -176,8 +211,10 @@ async def execute(
     help="Duration from now to future time to build a plan for",
     default=None,
 )
-@_common
+@_purger_common
 async def warn(
+    ctx: click.Context,
+    /,
     *,
     config_file: Path,
     policy_file: Path | None,
@@ -199,7 +236,32 @@ async def warn(
     await purger.report()
 
 
-def main_with_sentry() -> None:
-    """Call the main command group after initializing Sentry."""
-    initialize_sentry(release=__version__)
-    main()
+@main.command()
+def inithome() -> None:
+    """Provision user home directory.
+
+    All of ``NUBLADO_UID``, ``NUBLADO_GID``, and ``NUBLADO_HOME`` must be set.
+    """
+    logger = get_logger(ROOT_LOGGER)
+    try:
+        uid = int(os.environ["NUBLADO_UID"])
+        gid = int(os.environ["NUBLADO_GID"])
+        home = Path(os.environ["NUBLADO_HOME"])
+    except (TypeError, KeyError):
+        # Something wasn't set.
+        errstr = (
+            "Environment variables 'NUBLADO_HOME', 'NUBLADO_UID', and"
+            " 'NUBLADO_GID' must all be set."
+        )
+        logger.critical(errstr)
+        raise
+    except ValueError:
+        # One of the ID numbers did not convert.
+        errstr = (
+            "Environment variables 'NUBLADO_UID' and 'NUBLADO_GID' must"
+            " each be set to an integer."
+        )
+        logger.critical(errstr)
+        raise
+    provisioner = Provisioner(home, uid, gid)
+    asyncio.run(provisioner.provision())
