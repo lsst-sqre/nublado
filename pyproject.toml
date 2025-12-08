@@ -67,6 +67,7 @@ dev = [
 docs = [
     "documenteer[guide]>=2.3",
     "scriv[toml]>=1.5",
+    "sphinx-click",
     "sphinx-diagrams",
     # Required to generate API documentation.
     "respx",

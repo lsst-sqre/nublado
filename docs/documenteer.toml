@@ -18,6 +18,7 @@ disable_primary_sidebars = [
     "changelog",
 ]
 extensions = [
+    "sphinx_click",
     "sphinx_diagrams",
     "sphinxcontrib.autodoc_pydantic",
 ]
