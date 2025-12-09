@@ -21,10 +21,14 @@ export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
 
+# Install security updates:
+
+apt-get -y upgrade
+
 # Emacs-nox and vim should cover most people's editing habits.
 # Everything uses git to determine versions and to, in the case of the
 #  cloner, do its real job.
-# Psmisc gives us a bunch of useful tools, most notably "killall".
+# Psmisc gives us a bunch of useful tools, most notably "killall" and "fuser".
 # Quota is helpful when debugging user filesystem issues.  The most common
 #  problem is that the user has exceeded their quota.
 # Rsync is invaluable for restarting huge copies, which is something we
@@ -32,8 +36,6 @@ apt-get update
 # Screen and tmux so that you can easily have multiple shells open at
 #  once.  My muscle memory is stuck on screen but tmux is much less obscure to
 #  configure.
-# Sudo gives us the option of starting as a non-privileged user and becoming
-#  one.
 
 apt-get -y install \
     emacs-nox \
@@ -42,7 +44,6 @@ apt-get -y install \
     quota \
     rsync \
     screen \
-    sudo \
     tmux \
     vim
 

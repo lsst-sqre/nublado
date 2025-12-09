@@ -16,29 +16,30 @@
 
 FROM python:3.13.10-slim-trixie AS base-image
 
-# Update system packages.
-COPY scripts/update-os-packages.sh .
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    ./update-os-packages.sh && rm update-os-packages.sh
-
 # Install uv.
 COPY --from=ghcr.io/astral-sh/uv:0.9.15 /uv /bin/uv
 
-# Install additional packages required (mostly by fsadmin)
+# Update already-installed packages and Install additional packages required
+# (mostly by fsadmin)
 COPY scripts/install-base-packages.sh .
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     ./install-base-packages.sh && rm install-base-packages.sh
 
+FROM base-image AS install-image
+
+# Install some additional packages required for building dependencies.
+COPY scripts/install-dependency-packages.sh .
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    ./install-dependency-packages.sh
+
 # Disable hard links during uv package installation since we're using a
 # cache on a separate file system.
 ENV UV_LINK_MODE=copy
 
-FROM base-image AS install-image
-
 # Install the dependencies.
-WORKDIR /app/nublado
+WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
