@@ -221,20 +221,12 @@ jobs:
       matrix:
         container:
           - name: "jupyterhub"
-            gar: false
-          - name: "utils"
-            gar: true
+          - name: "base"
 
-    # For each image name, construct an image named lsst-sqre/nublado-<name>
-    # and push it to GitHub Container Registry. If gar is true, also push the
-    # image to us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat.
-    # In that repository, the images are named with only <name>, without the
-    # leading "nublado-". This is the private Google Artifact Registry used by
-    # the US Rubin Science Platform.
     with:
       cache: false
       dockerfile: Dockerfile.${{ matrix.container.name }}
-      images: ghcr.io/lsst-sqre/nublado-${{ matrix.container.name }}${{ matrix.container.gar && ',us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/' || '' }}${{ matrix.container.gar && matrix.container.name || '' }}
+      images: ${{ matrix.container.name == 'base' && 'ghcr.io/lsst-sqre/nublado,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/nublado' || 'ghcr.io/lsst-sqre/nublado-jupyterhub,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/jupyterhub'}}
 
   build-jupyterlab:
     needs: changes
