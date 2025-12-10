@@ -27,28 +27,12 @@ The three most common ways to obtain those are:
 
 The application should request ``exec:notebook`` scope, along with any other scopes it may need for any Python code it wants to execute in a notebook.
 
-Overriding service discovery
-============================
+Service discovery
+=================
 
 `NubladoClient` uses service discovery via Repertoire_ to find the base URL for Nublado.
 When it is used inside a context where service discovery is already configured, such as within a Phalanx_ application, no special attention is required.
 Service discovery will be used transparently inside `NubladoClient`.
-
-In service test suites, you will need to mock service discovery results.
-See the `Repertoire documentation <https://repertoire.lsst.io/user-guide/testing.html>`__ for more details on how to do so.
-Nublado asks for the URL of the UI service ``nublado``, so the following mock service discovery information will generally be sufficient:
-
-.. code-block:: json
-
-   {
-     "services": {
-       "ui": {
-         "nublado": {
-           "url": "https://nb.data.example.org/nb"
-         }
-       }
-     }
-   }
 
 If you already have a service discovery client, you can pass this in as the ``discovery_client`` argument to `NubladoClient` to reuse the existing client.
 This may be useful if you needed to override the base URL of Repertoire, such as when using the client outside of Phalanx.
