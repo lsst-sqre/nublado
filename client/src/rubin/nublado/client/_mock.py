@@ -6,7 +6,6 @@ import asyncio
 import json
 import os
 import re
-from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections import defaultdict
 from collections.abc import (
     AsyncGenerator,
@@ -30,6 +29,7 @@ from uuid import uuid4
 
 import websockets
 from httpx import URL, Request, Response
+from rubin.gafaelfawr import GafaelfawrClient
 from rubin.repertoire import DiscoveryClient
 
 from ._models import NotebookExecutionResult
@@ -116,7 +116,10 @@ class MockJupyter:
     session.
 
     All calls must contain an ``Authorization`` header of the form ``Bearer
-    <token>``, where the token was created by `create_mock_token`.
+    <token>``. Normally, the Gafaelfawr ingress in front of Nublado would
+    translate this to a username. Since the mock isn't behind such an ingress,
+    it makes a request to Gafaelfawr to get the username for the token.
+    Gafaelfawr must therefore also be mocked when using this mock.
 
     Parameters
     ----------
@@ -132,6 +135,7 @@ class MockJupyter:
         self._base_url = URL(base_url)
         self._use_subdomains = use_subdomains
 
+        self._gafaelfawr = GafaelfawrClient()
         self._hub_xsrf = os.urandom(8).hex()
         self._lab_xsrf = os.urandom(8).hex()
 
@@ -146,24 +150,6 @@ class MockJupyter:
         self._sessions: dict[str, MockJupyterLabSession] = {}
         self._spawn_delay: timedelta | None = None
         self._state: dict[str, MockJupyterState] = {}
-
-    @staticmethod
-    def create_mock_token(username: str) -> str:
-        """Create a mock Gafaelfawr token for the given user.
-
-        Parameters
-        ----------
-        username
-            Username for which to create a token.
-
-        Returns
-        -------
-        str
-            Mock token usable only with `MockJupyter` that will be considered
-            a valid token for the given username.
-        """
-        encoded_username = urlsafe_b64encode(username.encode()).decode()
-        return f"gt-{encoded_username}.{os.urandom(4).hex()}"
 
     def build_code_result(
         self, code: str, variables: dict[str, Any]
@@ -470,15 +456,12 @@ class MockJupyter:
         expected = self._lab_xsrf if is_lab_route else self._hub_xsrf
         assert xsrf == expected, f"XSRF mismatch: {xsrf} != {expected}"
 
-    def _get_user_from_headers(self, request: Request) -> str | None:
+    async def _get_user_from_headers(self, request: Request) -> str | None:
         """Get the user from the request headers.
 
-        If the username is provided in ``X-Auth-Request-User`` in the request
-        headers, that name will be used. This will be the case when the mock
-        is behind something emulating a GafaelfawrIngress, and is how the
-        actual Hub would be called. If it is not, an ``Authorization`` header
-        of the form ``bearer <token>`` will be expected, and the username will
-        be taken to be the portion after ``gt-`` and before the first period.
+        Grab the token from the ``Authorization`` header and then make a call
+        to Gafaelfawr to obtain the corresponding username. This will
+        generally be the Gafaelfawr mock.
 
         Parameters
         ----------
@@ -500,9 +483,10 @@ class MockJupyter:
         if not token.startswith("gt-"):
             return None
         try:
-            return urlsafe_b64decode(token[3:].split(".", 1)[0]).decode()
+            userinfo = await self._gafaelfawr.get_user_info(token)
         except Exception:
             return None
+        return userinfo.username
 
     def _maybe_redirect(self, request: Request, user: str) -> str | None:
         """Maybe redirect for user subdomains.
@@ -594,7 +578,7 @@ class MockJupyter:
         def decorator(f: _MockHandler) -> _MockSideEffect:
             @wraps(f)
             async def wrapper(mock: MockJupyter, request: Request) -> Response:
-                user = mock._get_user_from_headers(request)
+                user = await mock._get_user_from_headers(request)
                 if user is None:
                     return Response(403, request=request)
 

@@ -41,11 +41,12 @@ jobs:
       - name: Run nox
         run: uv run --only-group=nox nox -s lint typing test
 
-  # The test job tests everything with the latest Python version. The Nublado
-  # client and the JupyterHub support code may additionally support older
-  # Python versions and thus must be independently tested for those versions
-  # using a matrix. Do not include the latest Python version in this matrix;
-  # that will be tested above.
+  # The test job tests everything with the Python version used by the main
+  # Nublado code. The Nublado client and the JupyterHub support code may
+  # additionally support older or newer Python versions and thus must be
+  # independently tested for those versions using a matrix. Do not include the
+  # Python version from .python-version in this matrix; that will be tested
+  # above.
   test-client:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -53,7 +54,6 @@ jobs:
     strategy:
       matrix:
         python:
-          - "3.12"
           - "3.13"
 
     steps:

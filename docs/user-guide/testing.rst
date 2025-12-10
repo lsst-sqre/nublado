@@ -28,12 +28,13 @@ Then, add a fixture (usually to :file:`tests/conftest.py`) that calls `register_
 
     import pytest_asyncio
     import respx
-    from nublado.rubin.client import MockJupyter, register_mock_jupyter
+    from rubin.gafaelfawr import MockGafaelfawr
+    from rubin.nublado.client import MockJupyter, register_mock_jupyter
 
 
     @pytest_asyncio.fixture
     async def mock_jupyter(
-        respx_mock: respx.Router,
+        respx_mock: respx.Router, mock_gafaelfawr: MockGafaelfawr
     ) -> AsyncGenerator[MockJupyter]:
         async with register_mock_jupyter(respx_mock) as mock:
             yield mock
@@ -43,13 +44,103 @@ Then, add a fixture (usually to :file:`tests/conftest.py`) that calls `register_
    `register_mock_jupyter` will globally patch the ``websockets.connect`` function to mock the JuypterLab web socket.
    If your application uses ``websockets.connect`` outside of the Nublado client, you cannot use this Jupyter mock and will have to find some other way to test.
 
-`register_mock_jupyter` uses service discovery to determine what Nublado URLs to mock.
-You therefore must set up the service discovery mock before setting up the Jupyter mock (such as by declaring it auto-use).
-See the `Repertoire documentation <https://repertoire.lsst.io/user-guide/testing.html>`__ for more information.
+The ``mock_gafaelfawr`` parameter is there to force a dependency on the fixture that sets up the Gafaelfawr mock.
+See :ref:`test-mock-gafaelfawr` for more information.
 
 By default, `register_mock_jupyter` sets up a mock of a Nublado instance configured with per-user subdomains.
 If you want to emulate hosting JupyterHub and JupyterLab on the same hostname instead, pass ``use_subdomains=False`` as an argument to `register_mock_jupyter`.
 This should be invisible to your application; the Nublado client should transparently handle both configurations.
+
+Overriding service discovery
+----------------------------
+
+`register_mock_jupyter` uses service discovery to determine what Nublado URLs to mock.
+You therefore must set up the service discovery mock before setting up the Jupyter mock (such as by declaring it auto-use).
+See the `Repertoire documentation <https://repertoire.lsst.io/user-guide/testing.html>`__ for more details on how to do so.
+
+A simple Repertoire mock configuration that will work for most Nublado client testing is:
+
+.. code-block:: python
+
+   @pytest.fixture
+   def mock_discovery(
+       respx_mock: respx.Router,
+       monkeypatch: pytest.MonkeyPatch,
+   ) -> Discovery:
+       monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
+       path = Path(__file__).parent / "data" / "discovery.json"
+       return register_mock_discovery(respx_mock, path)
+
+You will need to provide :file:`tests/data/discovery.json`.
+Nublado asks for the URL of the UI service ``nublado`` and uses the Gafaelfawr client, which asks for the URL of version ``v1`` of the the internal service ``gafaelfawr``.
+The following mock service discovery information will therefore generally be sufficient for Nublado.
+
+.. code-block:: json
+
+   {
+     "services": {
+       "internal": {
+         "gafaelfawr": {
+           "url": "https://data.example.com/auth/api",
+           "versions": {
+             "v1": {
+               "url": "https://data.example.com/auth/api/v1"
+             }
+           }
+         }
+       },
+       "ui": {
+         "nublado": {
+           "url": "https://nb.data.example.org/nb"
+         }
+       }
+     }
+   }
+
+You may need to add more entries if your application uses service discovery for other purposes.
+
+.. _test-mock-gafaelfawr:
+
+Mocking Gafaelfawr
+------------------
+
+`MockJupyter` uses `~rubin.gafaelfawr.GafaelfawrClient` to determine the username associated with tokens.
+Gafaelfawr must therefore also be mocked out whenever using `MockJupyter`.
+See the `Gafaelafwr documentation <https://gafaelfawr.lsst.io/user-guide/>`__ for all of the details.
+
+A simple mock configuration that will work for most Nublado client testing use cases is:
+
+.. code-block:: python
+
+   import pytest
+   import respx
+   from rubin.gafaelfawr import MockGafaelfawr, register_mock_gafaelfawr
+   from rubin.repertoire import Discovery
+
+
+   @pytest_asyncio.fixture
+   async def mock_gafaelfawr(
+       mock_discovery: Discovery, respx_mock: respx.Router
+   ) -> MockGafaelfawr:
+       return await register_mock_gafaelfawr(respx_mock)
+
+The tokens used to authenticate to the mock inside the test suite must be created with `~rubin.gafaelfawr.MockGafaelfawr.create_token`, and user information for that user must be registered with `~rubin.gafaelfawr.MockGafaelfawr.set_user_info`.
+A common set of fixtures to handle that would be something like:
+
+.. code-block:: python
+
+   @pytest.fixture
+   def username() -> str:
+       return "some-user"
+
+
+   @pytest.fixture
+   def token(username: str, mock_gafaelfawr: MockGafaelfawr) -> str:
+       userinfo = GafaelfawrUserInfo(username=username)
+       mock_gafaelfawr.set_user_info(username, userinfo)
+       return mock_gafaelfawr.create_token(username)
+
+Then, ensure that your ``mock_jupyter`` fixture depends on the ``mock_gafaelfawr`` fixture to ensure that it is set up properly.
 
 Writing tests
 =============
@@ -57,8 +148,6 @@ Writing tests
 Any test you write that uses the Nublado client should depend on the ``mock_jupyter`` fixture defined above, directly or indirectly, so that the mock will be in place.
 Alternately, you can mark the fixture as `auto-use <https://docs.pytest.org/en/stable/how-to/fixtures.html#autouse-fixtures-fixtures-you-don-t-have-to-request>`__.
 
-When using this mock, you must use a token created with `MockJupyter.create_mock_token` to authenticate.
-The result of this static method should be passed in as the ``token`` constructor parameter to `NubladoClient`.
 For example:
 
 .. code-block:: python
@@ -66,8 +155,7 @@ For example:
    from rubin.nublado.client import MockJupyter, NubladoClient
 
 
-   def test_something(mock_jupyter: MockJupyter) -> None:
-       token = mock_jupyter.create_mock_token("some-user")
+   def test_something(mock_jupyter: MockJupyter, token: str) -> None:
        client = NubladoClient("some-user", token)
 
        # More tests go here
