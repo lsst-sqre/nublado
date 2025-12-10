@@ -29,6 +29,7 @@ dependencies = [
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
     "pyyaml>=6",
+    "rubin-gafaelfawr",
     "rubin-repertoire>=0.6.0",
     "safir[kafka,kubernetes]>=14",
     "semver>=3",
@@ -115,6 +116,10 @@ warn_untyped_fields = true
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "strict"
+filterwarnings = [
+    # dataclases-avroschema hasn't been fully updated for Python 3.14
+    "ignore:.*Core Pydantic V1 functionality.*:UserWarning",
+]
 norecursedirs = ["client/*", "hub/*"]
 # The python_files setting is not for test detection (pytest will pick up any
 # test files named *_test.py without this setting) but to enable special

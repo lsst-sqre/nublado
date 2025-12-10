@@ -126,9 +126,6 @@ This documentation therefore exists only to assist developers and code analysis 
 .. automodapi:: nublado.controller.storage.docker
    :include-all-objects:
 
-.. automodapi:: nublado.controller.storage.gafaelfawr
-   :include-all-objects:
-
 .. automodapi:: nublado.controller.storage.gar
    :include-all-objects:
 

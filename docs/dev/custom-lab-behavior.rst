@@ -42,7 +42,7 @@ If you are a SQuaRE developer, ``rsp-jupyter-extensions`` will look much less fa
 There is `a guide to help you develop the new functionality <https://github.com/lsst-sqre/rsp-jupyter-extensions/blob/main/README.md>`_.
 
 Testing
-=======
+========
 
 Obviously you should do what you can with unit tests in the codebase.
 However, particularly for user-interacting UI work, you will definitely want to build experimental containers with your codebase.

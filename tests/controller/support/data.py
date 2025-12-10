@@ -17,8 +17,8 @@ from kubernetes_asyncio.client import (
     V1Secret,
     V1Taint,
 )
+from rubin.gafaelfawr import GafaelfawrUserInfo
 
-from nublado.controller.models.domain.gafaelfawr import GafaelfawrUserInfo
 from nublado.controller.models.v1.lab import LabSpecification
 
 __all__ = [
@@ -201,7 +201,7 @@ def read_input_users_json(
     Returns
     -------
     dict of GafaelfawrUserInfo
-        Dictionary mapping tokens to `GafaelfawrUserInfo` objects.
+        Dictionary mapping usernames to `GafaelfawrUserInfo` objects.
     """
     data = read_input_json(config, filename)
     return {t: GafaelfawrUserInfo.model_validate(u) for t, u in data.items()}

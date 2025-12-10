@@ -1,5 +1,5 @@
 {
-  "token-of-affection": {
+  "rachel": {
     "username": "rachel",
     "name": "Rachel (?)",
     "uid": 1101,
@@ -33,7 +33,7 @@
       }
     }
   },
-  "token-of-authority": {
+  "wrench": {
     "username": "wrench",
     "name": "Wrench",
     "uid": 1102,
@@ -53,7 +53,7 @@
       }
     ]
   },
-  "token-of-mystery": {
+  "violet": {
     "username": "violet",
     "name": "Violet",
     "uid": 1103,
@@ -73,7 +73,7 @@
       }
     ]
   },
-  "token-of-stories": {
+  "ribbon": {
     "username": "ribbon",
     "name": "Ribbon",
     "uid": 1104,

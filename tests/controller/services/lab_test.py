@@ -25,6 +25,7 @@ from nublado.controller.models.v1.lab import (
     LabState,
     LabStatus,
     ResourceQuantity,
+    UserGroup,
     UserInfo,
 )
 from nublado.controller.timeout import Timeout
@@ -67,6 +68,8 @@ async def create_lab(
     """
     assert user.quota
     assert user.quota.notebook
+    assert user.uid
+    assert user.gid
     lab = read_input_lab_specification_json("base", "lab-specification")
     size = config.lab.get_size_definition(lab.options.size)
     resources = size.resources
@@ -94,7 +97,13 @@ async def create_lab(
 
     phase = PodPhase(mock_kubernetes.initial_pod_phase)
     return LabState(
-        user=UserInfo.from_gafaelfawr(user),
+        user=UserInfo(
+            username=user.username,
+            name=user.name,
+            uid=user.uid,
+            gid=user.gid,
+            groups=[UserGroup(name=g.name, id=g.id) for g in user.groups],
+        ),
         internal_url=(
             f"http://lab.userlabs-{user.username}:8888/nb/user/rachel/"
         ),

@@ -7,6 +7,7 @@ import contextlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+from rubin.gafaelfawr import GafaelfawrUserInfo
 from safir.sentry import report_exception
 from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
@@ -19,7 +20,6 @@ from ..constants import (
 from ..exceptions import (
     UnknownUserError,
 )
-from ..models.domain.gafaelfawr import GafaelfawrUserInfo
 from ..models.domain.kubernetes import PodPhase
 from ..models.v1.fileserver import FileserverStatus
 from ..storage.kubernetes.fileserver import FileserverStorage

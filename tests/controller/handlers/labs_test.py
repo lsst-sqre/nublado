@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from base64 import b64encode
 from typing import Any
 from unittest.mock import ANY
 
@@ -17,6 +18,7 @@ from kubernetes_asyncio.client import (
     V1ObjectReference,
     V1ServiceAccount,
 )
+from rubin.gafaelfawr import MockGafaelfawr
 from safir.metrics import MockEventPublisher
 from safir.testing.kubernetes import MockKubernetesApi
 from safir.testing.slack import MockSlackWebhook
@@ -25,7 +27,6 @@ from nublado.controller.config import Config
 from nublado.controller.constants import DROPDOWN_SENTINEL_VALUE
 from nublado.controller.dependencies.context import context_dependency
 from nublado.controller.factory import Factory
-from nublado.controller.models.domain.gafaelfawr import GafaelfawrUser
 from nublado.controller.models.domain.kubernetes import PodPhase
 from nublado.controller.models.v1.lab import LabState
 
@@ -37,7 +38,7 @@ from ..support.data import (
     read_output_data,
     read_output_json,
 )
-from ..support.gafaelfawr import get_no_spawn_user
+from ..support.gafaelfawr import GafaelfawrTestUser, get_no_spawn_user
 from ..support.kubernetes import objects_to_dicts
 
 
@@ -72,7 +73,7 @@ async def test_lab_start_stop(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     assert user.quota
@@ -99,12 +100,13 @@ async def test_lab_start_stop(
     assert r.json() == unknown_user_error
     r = await client.get(
         f"/nublado/spawner/v1/labs/{user.username}/events",
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 404
     assert r.json() == unknown_user_error
     r = await client.delete(
-        f"/nublado/spawner/v1/labs/{user.username}", headers=user.to_headers()
+        f"/nublado/spawner/v1/labs/{user.username}",
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 404
     assert r.json() == unknown_user_error
@@ -120,7 +122,7 @@ async def test_lab_start_stop(
             },
             "env": lab.env,
         },
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     assert r.headers["Location"] == (
@@ -133,7 +135,7 @@ async def test_lab_start_stop(
     # of the events isn't tested here in detail; we'll do that separately.
     r = await client.get(
         f"/nublado/spawner/v1/labs/{user.username}/events",
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 200
     assert "Lab Kubernetes pod started" in r.text
@@ -171,7 +173,7 @@ async def test_lab_start_stop(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 409
     assert r.json() == {
@@ -199,7 +201,7 @@ async def test_lab_start_stop(
 async def test_spawn_after_failure(
     client: AsyncClient,
     factory: Factory,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification")
@@ -208,7 +210,7 @@ async def test_spawn_after_failure(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     assert r.headers["Location"] == (
@@ -237,7 +239,7 @@ async def test_spawn_after_failure(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     assert r.headers["Location"] == (
@@ -256,7 +258,7 @@ async def test_spawn_after_failure(
 async def test_multiple_delete(
     client: AsyncClient,
     factory: Factory,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_slack: MockSlackWebhook,
 ) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification")
@@ -265,7 +267,7 @@ async def test_multiple_delete(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     await asyncio.sleep(0.1)
@@ -299,7 +301,7 @@ async def test_multiple_delete(
 async def test_delayed_spawn(
     client: AsyncClient,
     factory: Factory,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification")
@@ -308,7 +310,7 @@ async def test_delayed_spawn(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     await asyncio.sleep(0.1)
@@ -320,7 +322,7 @@ async def test_delayed_spawn(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 409
 
@@ -415,7 +417,7 @@ async def test_delayed_spawn(
 async def test_abort_spawn(
     client: AsyncClient,
     factory: Factory,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification")
@@ -424,7 +426,7 @@ async def test_abort_spawn(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     await asyncio.sleep(0)
@@ -447,7 +449,7 @@ async def test_abort_spawn(
 async def test_spawn_after_terminate(
     client: AsyncClient,
     factory: Factory,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification")
@@ -456,7 +458,7 @@ async def test_spawn_after_terminate(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     await asyncio.sleep(0.1)
@@ -467,7 +469,7 @@ async def test_spawn_after_terminate(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     await asyncio.sleep(0.1)
@@ -480,7 +482,7 @@ async def test_spawn_after_terminate(
 async def test_lab_objects(
     client: AsyncClient,
     config: Config,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification")
@@ -488,36 +490,44 @@ async def test_lab_objects(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     await asyncio.sleep(0)
 
-    # When checking all of the objects, strip out resource versions, since
-    # those are added by Kubernetes (and the Kubernetes mock) and are not
-    # meaningful to compare.
+    # Compare the objects. We have to do a bit of surgery to fix the user's
+    # token, since it varies on every test run.
     namespace = f"{config.lab.namespace_prefix}-{user.username}"
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
     seen = objects_to_dicts(objects)
+    expected_token = b64encode(b"token-of-affection").decode()
+    for obj in seen:
+        if obj["kind"] != "Secret":
+            continue
+        if not obj["metadata"]["name"].endswith("-nb"):
+            continue
+        assert obj["data"]["token"] == b64encode(user.token.encode()).decode()
+        obj["data"]["token"] = expected_token
     assert_json_output_matches(seen, "standard", "lab-objects")
 
 
 @pytest.mark.asyncio
-async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
+async def test_errors(client: AsyncClient, user: GafaelfawrTestUser) -> None:
     lab = read_input_lab_specification_json("base", "lab-specification")
 
     # Wrong user.
     r = await client.post(
         "/nublado/spawner/v1/labs/otheruser/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 403
     assert r.json() == {
         "detail": [{"msg": "Permission denied", "type": "permission_denied"}]
     }
     r = await client.get(
-        "/nublado/spawner/v1/labs/otheruser/events", headers=user.to_headers()
+        "/nublado/spawner/v1/labs/otheruser/events",
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 403
     assert r.json() == {
@@ -544,7 +554,7 @@ async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": options, "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 422
     msg = 'Docker reference "lighthouse.ceres/library/sketchbook" has no tag'
@@ -565,7 +575,7 @@ async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": options, "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 422
     msg = 'Docker reference "lighthouse.ceres/library/sketchbook" has no tag'
@@ -586,7 +596,7 @@ async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
             "options": {"image_tag": "unknown", "size": "small"},
             "env": lab.env,
         },
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 400
     assert r.json() == {
@@ -606,7 +616,7 @@ async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
             "options": {"image_tag": "recommended", "size": "gargantuan"},
             "env": lab.env,
         },
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 422
     assert r.json() == {
@@ -626,7 +636,7 @@ async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
             "options": {"image_tag": "recommended", "size": "huge"},
             "env": lab.env,
         },
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 403
     assert r.json() == {
@@ -644,7 +654,7 @@ async def test_errors(client: AsyncClient, user: GafaelfawrUser) -> None:
 async def test_spawn_errors(
     client: AsyncClient,
     config: Config,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
     mock_slack: MockSlackWebhook,
 ) -> None:
@@ -715,7 +725,7 @@ async def test_spawn_errors(
         r = await client.post(
             f"/nublado/spawner/v1/labs/{user.username}/create",
             json={"options": lab.options.model_dump(), "env": lab.env},
-            headers=user.to_headers(),
+            headers=user.to_test_headers(),
         )
         assert r.status_code == 201
         events = await get_lab_events(client, user.username)
@@ -814,7 +824,7 @@ async def test_spawn_errors(
 @pytest.mark.asyncio
 async def test_homedir_schema(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that the home directory is constructed correctly.
@@ -829,7 +839,7 @@ async def test_homedir_schema(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     await asyncio.sleep(0)
@@ -853,7 +863,7 @@ async def test_homedir_schema(
 @pytest.mark.asyncio
 async def test_tmp_on_disk(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that /tmp is constructed correctly if set to use disk rather
@@ -865,7 +875,7 @@ async def test_tmp_on_disk(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     await asyncio.sleep(0)
@@ -884,7 +894,7 @@ async def test_tmp_on_disk(
 @pytest.mark.asyncio
 async def test_alternate_paths(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check changes to command, config, and runtime mount paths."""
@@ -894,7 +904,7 @@ async def test_alternate_paths(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     await asyncio.sleep(0)
@@ -919,7 +929,7 @@ async def test_alternate_paths(
 @pytest.mark.asyncio
 async def test_extra_annotations(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that the pod picks up extra annotations set in the config."""
@@ -929,7 +939,7 @@ async def test_extra_annotations(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     await asyncio.sleep(0)
@@ -942,15 +952,17 @@ async def test_extra_annotations(
 
 
 @pytest.mark.asyncio
-async def test_quota_no_spawn(client: AsyncClient) -> None:
+async def test_quota_no_spawn(
+    client: AsyncClient, mock_gafaelfawr: MockGafaelfawr
+) -> None:
     """Check that spawning is denied for a user blocked by quota."""
     lab = read_input_lab_specification_json("base", "lab-specification")
-    _, user = get_no_spawn_user()
+    user = get_no_spawn_user(mock_gafaelfawr)
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 403
 
@@ -959,7 +971,7 @@ async def test_quota_no_spawn(client: AsyncClient) -> None:
 async def test_wait_for_sa(
     client: AsyncClient,
     factory: Factory,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Test waiting for the default service account during lab creation."""
@@ -973,7 +985,7 @@ async def test_wait_for_sa(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     await asyncio.sleep(0.1)
@@ -998,7 +1010,7 @@ async def test_wait_for_sa(
 @pytest.mark.asyncio
 async def test_init_container_command(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that the init container has a custom command."""
@@ -1008,7 +1020,7 @@ async def test_init_container_command(
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     await asyncio.sleep(0)

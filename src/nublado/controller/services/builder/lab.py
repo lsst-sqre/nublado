@@ -49,6 +49,7 @@ from kubernetes_asyncio.client import (
     V1Volume,
     V1VolumeMount,
 )
+from rubin.gafaelfawr import GafaelfawrGroup, GafaelfawrUserInfo
 from rubin.repertoire import DiscoveryClient
 from structlog.stdlib import BoundLogger
 
@@ -59,7 +60,6 @@ from ...config import (
     UserHomeDirectorySchema,
 )
 from ...constants import ARGO_CD_ANNOTATIONS, MEMORY_TO_TMP_SIZE_RATIO
-from ...models.domain.gafaelfawr import GafaelfawrUserInfo, UserGroup
 from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
 from ...models.domain.rspimage import RSPImage
 from ...models.domain.volumes import MountedVolume
@@ -71,6 +71,7 @@ from ...models.v1.lab import (
     LabState,
     LabStatus,
     ResourceQuantity,
+    UserGroup,
     UserInfo,
 )
 from .volumes import VolumeBuilder
@@ -266,7 +267,10 @@ class LabBuilder:
                 name=pod.metadata.annotations.get("nublado.lsst.io/user-name"),
                 uid=lab_container.security_context.run_as_user,
                 gid=lab_container.security_context.run_as_group,
-                groups=self._recreate_groups(pod),
+                groups=[
+                    UserGroup(name=g.name, id=g.id)
+                    for g in self._recreate_groups(pod)
+                ],
             )
             return LabState(
                 user=user,
@@ -276,8 +280,8 @@ class LabBuilder:
                 resources=resources,
                 quota=self._recreate_quota(objects.quota),
             )
-        except Exception:
-            logger.exception("Invalid lab environment", error=error)
+        except Exception as e:
+            logger.exception("Invalid lab environment", error=str(e))
             return None
 
     def _build_home_directory(self, username: str) -> str:
@@ -597,7 +601,8 @@ class LabBuilder:
         self, user: GafaelfawrUserInfo
     ) -> dict[str, str]:
         """Construct the annotations for the user's pod."""
-        annotations = {"nublado.lsst.io/user-groups": user.groups_json()}
+        groups = json.dumps([g.model_dump(mode="json") for g in user.groups])
+        annotations = {"nublado.lsst.io/user-groups": groups}
         if user.name is not None:
             annotations["nublado.lsst.io/user-name"] = user.name
         if self._config.extra_annotations:
@@ -920,7 +925,7 @@ class LabBuilder:
         )
         return [container]
 
-    def _recreate_groups(self, pod: V1Pod) -> list[UserGroup]:
+    def _recreate_groups(self, pod: V1Pod) -> list[GafaelfawrGroup]:
         """Recreate user group information from a Kubernetes ``Pod``.
 
         The GIDs are stored as supplemental groups, but the names of the
@@ -941,7 +946,7 @@ class LabBuilder:
         """
         annotation = "nublado.lsst.io/user-groups"
         groups = json.loads(pod.metadata.annotations.get(annotation, "[]"))
-        return [UserGroup.model_validate(g) for g in groups]
+        return [GafaelfawrGroup.model_validate(g) for g in groups]
 
     def _recreate_quota(
         self, resource_quota: V1ResourceQuota | None
