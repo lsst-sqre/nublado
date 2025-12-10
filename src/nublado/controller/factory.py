@@ -10,6 +10,7 @@ from typing import Self
 import structlog
 from httpx import AsyncClient, Limits
 from kubernetes_asyncio.client.api_client import ApiClient, Configuration
+from rubin.gafaelfawr import GafaelfawrClient
 from rubin.repertoire import DiscoveryClient
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
@@ -32,7 +33,6 @@ from .services.source.base import ImageSource
 from .services.source.docker import DockerImageSource
 from .services.source.gar import GARImageSource
 from .storage.docker import DockerStorageClient
-from .storage.gafaelfawr import GafaelfawrStorageClient
 from .storage.gar import GARStorageClient
 from .storage.kubernetes.fileserver import FileserverStorage
 from .storage.kubernetes.fsadmin import FSAdminStorage
@@ -67,6 +67,9 @@ class ProcessContext:
 
     discovery_client: DiscoveryClient
     """Shared service discovery client."""
+
+    gafaelfawr_client: GafaelfawrClient
+    """Shared Gafaelfawr client."""
 
     kubernetes_client: ApiClient
     """Shared Kubernetes client."""
@@ -106,6 +109,9 @@ class ProcessContext:
         limits = Limits(max_connections=None)
         http_client = AsyncClient(timeout=20, limits=limits)
         discovery_client = DiscoveryClient(http_client)
+        gafaelfawr_client = GafaelfawrClient(
+            http_client, discovery_client=discovery_client
+        )
 
         # Disable the connection pool limits in kubernetes-asyncio.
         kubernetes_configuration = Configuration.get_default_copy()
@@ -224,6 +230,7 @@ class ProcessContext:
             config=config,
             http_client=http_client,
             discovery_client=discovery_client,
+            gafaelfawr_client=gafaelfawr_client,
             image_service=image_service,
             kubernetes_client=kubernetes_client,
             prepuller=prepuller,
@@ -251,6 +258,8 @@ class ProcessContext:
     async def aclose(self) -> None:
         """Free allocated resources."""
         await self.kubernetes_client.close()
+        await self.gafaelfawr_client.aclose()
+        await self.discovery_client.aclose()
 
     async def start(self) -> None:
         """Start the background threads running."""
@@ -363,20 +372,6 @@ class Factory:
         credentials_path = self._context.config.images.source.credentials_path
         return DockerStorageClient(
             credentials_path=credentials_path,
-            http_client=self._context.http_client,
-            logger=self._logger,
-        )
-
-    def create_gafaelfawr_client(self) -> GafaelfawrStorageClient:
-        """Create client to look up users in Gafaelfawr.
-
-        Returns
-        -------
-        GafaelfawrStorageClient
-            Newly-created Gafaelfawr client.
-        """
-        return GafaelfawrStorageClient(
-            config=self._context.config,
             http_client=self._context.http_client,
             logger=self._logger,
         )

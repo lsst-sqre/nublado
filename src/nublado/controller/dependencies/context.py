@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from fastapi import Depends, Request
+from rubin.gafaelfawr import GafaelfawrClient
 from safir.dependencies.logger import logger_dependency
 from structlog.stdlib import BoundLogger
 
@@ -46,6 +47,9 @@ class RequestContext:
 
     factory: Factory
     """Component factory."""
+
+    gafaelfawr_client: GafaelfawrClient
+    """Shared Gafaelfawr client."""
 
     image_service: ImageService
     """Global image service."""
@@ -105,6 +109,7 @@ class ContextDependency:
             request=request,
             logger=logger,
             factory=factory,
+            gafaelfawr_client=self._process_context.gafaelfawr_client,
             image_service=self._process_context.image_service,
             lab_manager=self._process_context.lab_manager,
             fsadmin_manager=self._process_context.fsadmin_manager,
