@@ -515,11 +515,8 @@ class FSAdminConfig(BaseModel):
         list[str] | None,
         Field(
             title="Command and arguments for fsadmin container",
-            description=(
-                "Override container command and arguments. If left unset,"
-                " use container defaults."
-            ),
-            examples=[["nublado", "fsadmin"]],
+            description="Set container command and arguments.",
+            examples=[["tail", "-f", "/dev/null"]],
         ),
     ] = None
 
@@ -746,11 +743,8 @@ class LabInitContainer(BaseModel):
         list[str] | None,
         Field(
             title="Command and arguments for container",
-            description=(
-                "Override container command and arguments. If left unset,"
-                " use container defaults."
-            ),
-            examples=[["nublado", "purge", "warn"]],
+            description=("Set container command and arguments."),
+            examples=[["nublado", "purger", "warn"]],
         ),
     ] = None
 

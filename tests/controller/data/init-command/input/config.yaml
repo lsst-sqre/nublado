@@ -3,10 +3,10 @@ logProfile: development
 lab:
   initContainers:
     - name: user-setup
-      command: [ "nublado", "startup" ]
+      command: [ "nublado", "inithome" ]
       image:
-        repository: example/setup
-        tag: 0.0.1
+        repository: ghcr.io/lsst-sqre/nublado
+        tag: 10.0.0
       volumeMounts:
         - containerPath: /home
           volumeName: home
@@ -37,5 +37,5 @@ images:
     repository: library/sketchbook
 fsadmin:
   image:
-    repository: ghcr.io/lsst-sqre/nublado-fsadmin
-    tag: 9.0.0
+    repository: ghcr.io/lsst-sqre/nublado
+    tag: 10.0.0

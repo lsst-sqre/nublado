@@ -1018,4 +1018,4 @@ async def test_init_container_command(
         f"{config.lab.namespace_prefix}-{user.username}",
     )
     ic = pod.spec.init_containers[0]
-    assert ic.command == ["nublado", "startup"]
+    assert ic.command == ["nublado", "inithome"]
