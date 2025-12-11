@@ -85,9 +85,10 @@ lab:
       cacher_dir = /data/idds
   initContainers:
     - name: inithome
+      command: [ "nublado", "inithome" ]
       image:
-        repository: ghcr.io/lsst-sqre/nublado-inithome
-        tag: 4.0.0
+        repository: ghcr.io/lsst-sqre/nublado
+        tag: 10.0.0
       privileged: true
       volumeMounts:
         - containerPath: /home
@@ -258,5 +259,5 @@ images:
 fsadmin:
   command: [ "nublado", "fsadmin" ]
   image:
-    repository: ghcr.io/lsst-sqre/nublado-utils
+    repository: ghcr.io/lsst-sqre/nublado
     tag: 10.0.0

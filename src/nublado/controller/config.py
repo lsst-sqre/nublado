@@ -744,7 +744,7 @@ class LabInitContainer(BaseModel):
         Field(
             title="Command and arguments for container",
             description=("Set container command and arguments."),
-            examples=[["nublado", "purger", "warn"]],
+            examples=[["nublado", "inithome"]],
         ),
     ] = None
 

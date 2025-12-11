@@ -122,8 +122,11 @@ async def test_created_pod(
         if p.metadata.name == config.fsadmin.pod_name
     )
 
+    # Verify that the pod has the requested registry/repo/tag
+    main_ctr = pod.spec.containers[0]
+    assert main_ctr.image == "ghcr.io/lsst-sqre/nublado:10.0.0"
     # Verify that the pod's mountpoints look correct.
-    mounts = pod.spec.containers[0].volume_mounts
+    mounts = main_ctr.volume_mounts
     assert len(mounts) == 5
     prefixed = [x.mount_path.startswith("/user-filesystems/") for x in mounts]
     assert all(prefixed)
