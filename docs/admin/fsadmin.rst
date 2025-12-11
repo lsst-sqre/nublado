@@ -13,7 +13,7 @@ That route also allows checking the status of the fsadmin environment, and delet
 The fsadmin pod behaves a lot like a user fileserver.
 However, fsadmin is much more dangerous, since the user is root within the pod and with respect to all the mounted filesystems.
 
-There is no Web-accessible interface to the container: the user must use ``kubectl exec -n nublado fsadmin -- /bin/bash -l`` (assuming the default configuration settings) in order to get a shell.
+There is no Web-accessible interface to the container: the user must use ``kubectl exec -it -n nublado fsadmin -- /bin/bash -l`` (assuming the default configuration settings) in order to get a shell.
 This is by design.
 We restrict the ingress routes to create, delete, or query the container to users with an admin token.
 Requiring ``kubectl`` privileges in addition is another way to help secure this extremely potent interface.
@@ -36,3 +36,28 @@ The interface is extremely simple:
 #. ``DELETE`` to ``/nublado/fsadmin/v1/service`` will remove the administrative pod and any associated PVCs from the controller namespace if it they exist.
    If the resources do not exist, ``DELETE`` silently succeeds.
    ``DELETE`` returns an HTTP 204 code if it succeeds, or 5xx if some error occurs.
+
+Phalanx configuration
+=====================
+
+The ``fsadmin`` service has several configuration options that adminstrators may wish to modify:
+
+``controller.config.fsadmin.command``
+   The command to run in the fsadmin container.
+   Typically this should be something that keeps the container alive and otherwise does nothing.
+   Any actions takein in the pod context will come from the administrative user's shell (as granted by ``kubectl exec``).
+   Conventionally, the container command is ``["tail", "-f", "/dev/null"]``.
+
+``container.config.fsadmin.extraVolumes``
+   Additional volumes to make available for mounting inside the fsadmin pod.
+   This enables the ability for those volumes to be mounted.
+   They also need entries in ``extravolumeMounts`` to actually be automatically mounted.
+
+``container.config.fsadmin.extravolumeMounts``
+   Additional volumes to mount at startup inside the fsadmin pod.
+   The administrator can also mount additional volumes manually with the standard ``mount`` command.
+
+``container.config.fsadmin.image``
+   Docker image to run as fsadmin.
+   Typically, this is ``ghcr.io/lsst-sqre/nublado`` at some recent tag.
+   The standard image contains a handful of useful tools for filesystem administration (e.g. ``quota`` and ``fuser``) as well as the Nublado machinery.
