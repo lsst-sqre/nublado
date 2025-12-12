@@ -512,13 +512,13 @@ class FSAdminConfig(BaseModel):
     ] = None
 
     command: Annotated[
-        list[str] | None,
+        list[str],
         Field(
             title="Command and arguments for fsadmin container",
             description="Set container command and arguments.",
             examples=[["tail", "-f", "/dev/null"]],
         ),
-    ] = None
+    ] = ["tail", "-f", "/dev/null"]
 
     extra_annotations: Annotated[
         dict[str, str],
