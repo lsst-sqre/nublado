@@ -447,6 +447,10 @@
       ],
       "initContainers": [
         {
+          "command": [
+            "nublado",
+            "inithome"
+          ],
           "env": [
             {
               "name": "NUBLADO_HOME",
@@ -468,7 +472,7 @@
               }
             }
           ],
-          "image": "ghcr.io/lsst-sqre/nublado-inithome:4.0.0",
+          "image": "ghcr.io/lsst-sqre/nublado:10.0.0",
           "imagePullPolicy": "IfNotPresent",
           "name": "inithome",
           "resources": {

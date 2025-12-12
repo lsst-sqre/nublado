@@ -104,12 +104,15 @@ class FSAdminBuilder:
         # Specification for the fsadmin container.
         container = V1Container(
             name=self._config.pod_name,
+            command=self._config.command,
             image=f"{self._config.image.repository}:{self._config.image.tag}",
             image_pull_policy=self._config.image.pull_policy.value,
             resources=resources.to_kubernetes() if resources else None,
             security_context=V1SecurityContext(
                 privileged=True,
                 run_as_non_root=False,
+                run_as_user=0,
+                run_as_group=0,
             ),
             volume_mounts=mounts,
         )

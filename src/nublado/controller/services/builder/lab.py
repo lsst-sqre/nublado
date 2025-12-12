@@ -836,6 +836,7 @@ class LabBuilder:
             mounts = self._volume_builder.build_mounts(spec.volume_mounts)
             container = V1Container(
                 name=spec.name,
+                command=spec.command,
                 env=env,
                 env_from=[V1EnvFromSource(config_map_ref=env_source)],
                 image=f"{spec.image.repository}:{spec.image.tag}",
