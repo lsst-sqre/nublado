@@ -447,7 +447,10 @@
       ],
       "initContainers": [
         {
-	  "command": ["nublado", "inithome"],
+          "command": [
+            "nublado",
+            "inithome"
+          ],
           "env": [
             {
               "name": "NUBLADO_HOME",
