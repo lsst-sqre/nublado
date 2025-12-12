@@ -46,7 +46,7 @@ The ``fsadmin`` service has several configuration options that adminstrators may
    The command to run in the fsadmin container.
    Typically this should be something that keeps the container alive and otherwise does nothing.
    Any actions takein in the pod context will come from the administrative user's shell (as granted by ``kubectl exec``).
-   Conventionally, the container command is ``["tail", "-f", "/dev/null"]``.
+   The default is ``["tail", "-f", "/dev/null"]``.
 
 ``container.config.fsadmin.extraVolumes``
    Additional volumes to make available for mounting inside the fsadmin pod.
