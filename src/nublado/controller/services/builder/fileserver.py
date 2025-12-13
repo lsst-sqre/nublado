@@ -24,6 +24,7 @@ from kubernetes_asyncio.client import (
     V1ServicePort,
     V1ServiceSpec,
 )
+from rubin.gafaelfawr import GafaelfawrUserInfo
 from structlog.stdlib import BoundLogger
 
 from ...config import (
@@ -36,7 +37,6 @@ from ...models.domain.fileserver import (
     FileserverObjects,
     FileserverStateObjects,
 )
-from ...models.domain.gafaelfawr import GafaelfawrUserInfo
 from ...storage.kubernetes.ingress import ingress_has_ip_address
 from .volumes import VolumeBuilder
 

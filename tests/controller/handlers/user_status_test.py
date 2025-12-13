@@ -11,11 +11,11 @@ from safir.testing.kubernetes import MockKubernetesApi
 from nublado.controller.config import Config
 from nublado.controller.dependencies.context import context_dependency
 from nublado.controller.factory import Factory
-from nublado.controller.models.domain.gafaelfawr import GafaelfawrUser
 from nublado.controller.models.domain.kubernetes import PodPhase
 
 from ..support.constants import TEST_BASE_URL
 from ..support.data import read_input_lab_specification_json, read_output_json
+from ..support.gafaelfawr import GafaelfawrTestUser
 
 
 @pytest.mark.asyncio
@@ -23,7 +23,7 @@ async def test_user_status(
     client: AsyncClient,
     config: Config,
     factory: Factory,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     assert user.quota
@@ -32,7 +32,7 @@ async def test_user_status(
 
     # At the start, we shouldn't have any lab.
     r = await client.get(
-        "/nublado/spawner/v1/user-status", headers=user.to_headers()
+        "/nublado/spawner/v1/user-status", headers=user.to_test_headers()
     )
     assert r.status_code == 404
     assert r.json() == {
@@ -51,7 +51,7 @@ async def test_user_status(
             },
             "env": lab.env,
         },
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
     )
     assert r.status_code == 201
     assert r.headers["Location"] == (
@@ -61,7 +61,7 @@ async def test_user_status(
     # Now the lab should exist and we should be able to get some user status.
     await asyncio.sleep(0.1)
     r = await client.get(
-        "/nublado/spawner/v1/user-status", headers=user.to_headers()
+        "/nublado/spawner/v1/user-status", headers=user.to_test_headers()
     )
     assert r.status_code == 200
     expected = read_output_json("standard", "lab-status")
@@ -70,7 +70,7 @@ async def test_user_status(
     # Change the pod status. This should not result in any change because
     # reconcile hasn't run yet.
     r = await client.get(
-        "/nublado/spawner/v1/user-status", headers=user.to_headers()
+        "/nublado/spawner/v1/user-status", headers=user.to_test_headers()
     )
     assert r.status_code == 200
     assert r.json() == expected
@@ -84,6 +84,6 @@ async def test_user_status(
     assert context_dependency._process_context
     await context_dependency._process_context.lab_manager.reconcile()
     r = await client.get(
-        "/nublado/spawner/v1/user-status", headers=user.to_headers()
+        "/nublado/spawner/v1/user-status", headers=user.to_test_headers()
     )
     assert r.status_code == 404

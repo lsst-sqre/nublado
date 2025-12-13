@@ -3,8 +3,9 @@
 from typing import Annotated
 
 from fastapi import Depends, Header, Path
+from rubin.gafaelfawr import GafaelfawrWebError
 
-from ..exceptions import PermissionDeniedError
+from ..exceptions import InvalidTokenError, PermissionDeniedError
 from ..models.domain.gafaelfawr import GafaelfawrUser
 from .context import RequestContext, context_dependency
 
@@ -32,21 +33,26 @@ async def user_dependency(
 
     Raises
     ------
-    controller.exceptions.GafaelfawrParseError
-        Raised if the Gafaelfawr response could not be parsed.
-    controller.exceptions.GafaelfawrWebError
-        Raised if the token could not be validated with Gafaelfawr.
-    controller.exceptions.InvalidTokenError
-        Raised if the token was rejected by Gafaelfawr.
+    InvalidTokenError
+        Raised if the user's token is invalid.
     PermissionDeniedError
         Raised if the user's token does not match the username in the header.
+    rubin.gafaelfawr.GafaelfawrError
+        Raised if user information could not be retrieved from Gafaelfawr.
+    rubin.repertoire.RepertoireError
+        Raised if Gafaelfawr could not be found in service discovery.
     """
-    gafaelfawr_client = context.factory.create_gafaelfawr_client()
-    user = await gafaelfawr_client.get_user_info(x_auth_request_token)
-    if user.username != x_auth_request_user:
+    token = x_auth_request_token
+    try:
+        userinfo = await context.gafaelfawr_client.get_user_info(token)
+    except GafaelfawrWebError as e:
+        if e.status in (401, 403):
+            raise InvalidTokenError("User token is invalid") from e
+        raise
+    if userinfo.username != x_auth_request_user:
         raise PermissionDeniedError("Permission denied")
-    context.rebind_logger(user=user.username)
-    return GafaelfawrUser(token=x_auth_request_token, **user.model_dump())
+    context.rebind_logger(user=userinfo.username)
+    return GafaelfawrUser(token=token, **userinfo.model_dump())
 
 
 async def username_path_dependency(

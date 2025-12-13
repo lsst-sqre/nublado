@@ -2,100 +2,41 @@
 
 from __future__ import annotations
 
-import respx
-from httpx import Request, Response
+from rubin.gafaelfawr import MockGafaelfawr
 
-from nublado.controller.models.domain.gafaelfawr import (
-    GafaelfawrUser,
-    GafaelfawrUserInfo,
-)
+from nublado.controller.models.domain.gafaelfawr import GafaelfawrUser
 
 from .data import read_input_users_json
 
-__all__ = ["MockGafaelfawr", "register_mock_gafaelfawr"]
+__all__ = [
+    "GafaelfawrTestUser",
+    "get_no_spawn_user",
+]
 
 
-class MockGafaelfawr:
-    """Mock Gafaelfawr that returns preconfigured test information.
+class GafaelfawrTestUser(GafaelfawrUser):
+    """Gafaelfawr user with token and methods useful for tests."""
 
-    Parameters
-    ----------
-    tokens
-        Dictionary of tokens to mock user information. The first token and
-        user in the dictionary is returned by `get_test_token_and_user` as the
-        default token and user to use in tests.
-    """
-
-    def __init__(self, tokens: dict[str, GafaelfawrUserInfo]) -> None:
-        self._tokens = tokens
-
-    def get_info(self, request: Request) -> Response:
-        """Mock user information response.
-
-        Parameters
-        ----------
-        request
-            Incoming request.
-
-        Returns
-        -------
-        httpx.Response
-            Returns 200 with the details if the token was found, otherwise
-            403 if the token is invalid.
-        """
-        authorization = request.headers["Authorization"]
-        auth_type, token = authorization.split(None, 1)
-        assert auth_type.lower() == "bearer"
-        if token in self._tokens:
-            return Response(200, json=self._tokens[token].model_dump())
-        else:
-            return Response(403)
-
-    def get_test_user(self) -> GafaelfawrUser:
-        """Get a token for tests."""
-        token, user = next(iter(self._tokens.items()))
-        return GafaelfawrUser(token=token, **user.model_dump())
+    def to_test_headers(self) -> dict[str, str]:
+        """Return the representation of this user as HTTP request headers."""
+        return {
+            "X-Auth-Request-Token": self.token,
+            "X-Auth-Request-User": self.username,
+        }
 
 
-def register_mock_gafaelfawr(
-    respx_mock: respx.Router,
-    base_url: str,
-    tokens: dict[str, GafaelfawrUserInfo],
-) -> MockGafaelfawr:
-    """Mock out Gafaelfawr.
-
-    Parameters
-    ----------
-    respx_mock
-        Mock router.
-    base_url
-        Base URL on which the mock API should appear to listen.
-    tokens
-        Mock user information.
-
-    Returns
-    -------
-    MockGafaelfawr
-        Mock Gafaelfawr API object.
-    """
-    mock = MockGafaelfawr(tokens)
-    api_url = f"{base_url}/auth/api/v1/user-info"
-    respx_mock.get(api_url).mock(side_effect=mock.get_info)
-    return mock
-
-
-def get_no_spawn_user() -> tuple[str, GafaelfawrUser]:
+def get_no_spawn_user(mock_gafaelfawr: MockGafaelfawr) -> GafaelfawrTestUser:
     """Find a user whose quota says they can't spawn labs.
 
     Returns
     -------
-    str, GafaelfawrUser
-        Token and corresponding user data structure for a user with a quota
-        set that forbids spawning labs.
+    GafaelfawrUser
+        User data for a user with a quota set that forbids spawning labs.
     """
     users = read_input_users_json("base", "users")
-    for token, user in users.items():
-        if user.quota and user.quota.notebook:
-            if not user.quota.notebook.spawn:
-                return token, GafaelfawrUser(token=token, **user.model_dump())
+    for userinfo in users.values():
+        if userinfo.quota and userinfo.quota.notebook:
+            if not userinfo.quota.notebook.spawn:
+                token = mock_gafaelfawr.create_token(userinfo.username)
+                return GafaelfawrTestUser(token=token, **userinfo.model_dump())
     raise ValueError("No users found with a quota forbidding spawning")

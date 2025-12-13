@@ -29,6 +29,7 @@ dependencies = [
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
     "pyyaml>=6",
+    "rubin-gafaelfawr",
     "rubin-repertoire>=0.6.0",
     "safir[kafka,kubernetes]>=14",
     "semver>=3",
@@ -187,6 +188,7 @@ required-environments = [
 ]
 
 [tool.uv.sources]
+rubin-gafaelfawr = { git = "https://github.com/lsst-sqre/gafaelfawr", subdirectory = "client" }
 rubin-nublado-authenticator = { path = "hub/plugins/authenticator", editable = true }
 rubin-nublado-client = { path = "client", editable = true }
 rubin-nublado-spawner = { path = "hub/plugins/spawner", editable = true }
