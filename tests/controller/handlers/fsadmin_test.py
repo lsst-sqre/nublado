@@ -116,9 +116,15 @@ async def test_created_pod(
 
     # Verify that the pod is correct.
     objects = mock_kubernetes.get_namespace_objects_for_test("nublado")
-    seen = objects_to_dicts(objects)
-
-    assert_json_output_matches(seen, "fsadmin", "lab-objects")
+    all_seen = objects_to_dicts(objects)
+    fs_pod = next(
+        x
+        for x in all_seen
+        if x["kind"] == "Pod" and x["metadata"]["name"] == "fsadmin"
+    )
+    fs_pvc = next(x for x in all_seen if x["kind"] == "PersistentVolumeClaim")
+    fsadmin_objs = [fs_pvc, fs_pod]
+    assert_json_output_matches(fsadmin_objs, "fsadmin", "fsadmin-objects")
 
 
 @pytest.mark.asyncio
