@@ -1,0 +1,137 @@
+[
+  {
+    "apiVersion": "v1",
+    "kind": "PersistentVolumeClaim",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "fsadmin"
+      },
+      "name": "fsadmin-pvc-scratch",
+      "namespace": "nublado"
+    },
+    "spec": {
+      "accessModes": [
+        "ReadWriteMany"
+      ],
+      "resources": {
+        "requests": {
+          "storage": "1Gi"
+        }
+      },
+      "storageClassName": "sdf-home"
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "fsadmin"
+      },
+      "name": "fsadmin",
+      "namespace": "nublado"
+    },
+    "spec": {
+      "containers": [
+        {
+          "command": [
+            "tail",
+            "-f",
+            "/dev/null"
+          ],
+          "image": "ghcr.io/lsst-sqre/nublado:10.0.0",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "fsadmin",
+          "securityContext": {
+            "privileged": true,
+            "runAsGroup": 0,
+            "runAsNonRoot": false,
+            "runAsUser": 0
+          },
+          "volumeMounts": [
+            {
+              "mountPath": "/user-filesystems/home",
+              "name": "home",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/user-filesystems/project",
+              "name": "project",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/user-filesystems/extra",
+              "name": "extra",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/user-filesystems/random",
+              "name": "scratch",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/user-filesystems/firefly",
+              "name": "firefly",
+              "readOnly": false
+            }
+          ]
+        }
+      ],
+      "restartPolicy": "Never",
+      "securityContext": {
+        "runAsNonRoot": false
+      },
+      "tolerations": [],
+      "volumes": [
+        {
+          "name": "home",
+          "nfs": {
+            "path": "/share1/home",
+            "readOnly": false,
+            "server": "10.13.105.122"
+          }
+        },
+        {
+          "hostPath": {
+            "path": "/share1/project"
+          },
+          "name": "project"
+        },
+        {
+          "name": "extra",
+          "nfs": {
+            "path": "/share1/extra",
+            "readOnly": false,
+            "server": "10.13.105.122"
+          }
+        },
+        {
+          "name": "scratch",
+          "persistentVolumeClaim": {
+            "claimName": "fsadmin-pvc-scratch",
+            "readOnly": false
+          }
+        },
+        {
+          "name": "firefly",
+          "nfs": {
+            "path": "/share1/firefly",
+            "readOnly": false,
+            "server": "10.13.105.122"
+          }
+        }
+      ]
+    },
+    "status": {
+      "phase": "Running"
+    }
+  }
+]

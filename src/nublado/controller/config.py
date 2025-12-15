@@ -511,6 +511,15 @@ class FSAdminConfig(BaseModel):
         ),
     ] = None
 
+    command: Annotated[
+        list[str],
+        Field(
+            title="Command and arguments for fsadmin container",
+            description="Set container command and arguments.",
+            examples=[["tail", "-f", "/dev/null"]],
+        ),
+    ] = ["tail", "-f", "/dev/null"]
+
     extra_annotations: Annotated[
         dict[str, str],
         Field(
@@ -729,6 +738,15 @@ class LabInitContainer(BaseModel):
     ]
 
     image: Annotated[ContainerImage, Field(title="Image to run")]
+
+    command: Annotated[
+        list[str] | None,
+        Field(
+            title="Command and arguments for container",
+            description=("Set container command and arguments."),
+            examples=[["nublado", "inithome"]],
+        ),
+    ] = None
 
     privileged: Annotated[
         bool,

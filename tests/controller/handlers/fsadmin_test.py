@@ -13,6 +13,8 @@ from safir.testing.kubernetes import MockKubernetesApi
 from nublado.controller.models.domain.gafaelfawr import GafaelfawrUser
 
 from ..support.config import configure
+from ..support.data import assert_json_output_matches
+from ..support.kubernetes import objects_to_dicts
 
 
 @pytest.mark.asyncio
@@ -103,7 +105,7 @@ async def test_created_pod(
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    config = await configure("fsadmin", mock_kubernetes)
+    await configure("fsadmin", mock_kubernetes)
     # Start pod
     r = await client.post(
         "/nublado/fsadmin/v1/service",
@@ -112,21 +114,17 @@ async def test_created_pod(
     )
     assert r.status_code == 200
 
-    # Check that pod was created correctly
-    namespace = "nublado"
-
-    # Check that it has a pod.
-    pod = next(
-        p
-        for p in (await mock_kubernetes.list_namespaced_pod(namespace)).items
-        if p.metadata.name == config.fsadmin.pod_name
+    # Verify that the pod is correct.
+    objects = mock_kubernetes.get_namespace_objects_for_test("nublado")
+    all_seen = objects_to_dicts(objects)
+    fs_pod = next(
+        x
+        for x in all_seen
+        if x["kind"] == "Pod" and x["metadata"]["name"] == "fsadmin"
     )
-
-    # Verify that the pod's mountpoints look correct.
-    mounts = pod.spec.containers[0].volume_mounts
-    assert len(mounts) == 5
-    prefixed = [x.mount_path.startswith("/user-filesystems/") for x in mounts]
-    assert all(prefixed)
+    fs_pvc = next(x for x in all_seen if x["kind"] == "PersistentVolumeClaim")
+    fsadmin_objs = [fs_pvc, fs_pod]
+    assert_json_output_matches(fsadmin_objs, "fsadmin", "fsadmin-objects")
 
 
 @pytest.mark.asyncio

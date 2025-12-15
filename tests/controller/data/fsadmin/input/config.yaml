@@ -52,8 +52,9 @@ images:
     repository: library/sketchbook
 fsadmin:
   image:
-    repository: ghcr.io/lsst-sqre/nublado-fsadmin
-    tag: 9.0.0
+    repository: ghcr.io/lsst-sqre/nublado
+    tag: 10.0.0
+  command: [ "tail", "-f", "/dev/null" ]
   mountPrefix: /user-filesystems
   extraVolumes:
     - name: firefly

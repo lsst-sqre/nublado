@@ -10,8 +10,8 @@ Write an init container
 
 Nublado can run any containers of your choice as init containers.
 
-Only the default entry point will be run.
-There is no way to override the default entry point with a custom command.
+The container command can be specified as a YAML list of strings.
+If not specified, the default container command will be used.
 
 By default, the init container is run with the same UID, primary GID, and supplemental groups as the user, and with privilege escalation disabled.
 However, the init container may be marked as privileged, in which case it is run as root (UID 0) as a trusted container with full capabilities.
