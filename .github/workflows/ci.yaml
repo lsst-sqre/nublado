@@ -225,7 +225,7 @@ jobs:
 
     with:
       cache: false
-      dockerfile: ${{ matrix.container-name == 'base' && 'Dockerfile' || 'Dockerfile.jupyterhub' }}
+      dockerfile: ${{ matrix.container.name == 'base' && 'Dockerfile' || 'Dockerfile.jupyterhub' }}
       images: ${{ matrix.container.name == 'base' && 'ghcr.io/lsst-sqre/nublado,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/nublado' || 'ghcr.io/lsst-sqre/nublado-jupyterhub,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/jupyterhub'}}
 
   build-jupyterlab:
