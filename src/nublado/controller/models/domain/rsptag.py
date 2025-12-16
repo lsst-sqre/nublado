@@ -7,7 +7,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import total_ordering
-from typing import Self, TypeGuard
+from typing import Self, TypeGuard, override
 
 import semver
 
@@ -249,9 +249,11 @@ class RSPImageTag:
             date=None,
         )
 
+    @override
     def __hash__(self) -> int:
         return hash(self.tag)
 
+    @override
     def __eq__(self, other: object) -> bool:
         return self._compare(other) == 0
 

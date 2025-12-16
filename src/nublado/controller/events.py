@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import override
 
 from pydantic import Field
 from safir.dependencies.metrics import EventMaker
@@ -114,6 +115,7 @@ class LabEvents(EventMaker):
         Event publisher for lab spawn successes.
     """
 
+    @override
     async def initialize(self, manager: EventManager) -> None:
         self.active = await manager.create_publisher(
             "active_labs", ActiveLabsEvent

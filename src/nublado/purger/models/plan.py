@@ -3,7 +3,7 @@
 import datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, override
 
 from pydantic import Field
 from safir.pydantic import CamelCaseModel
@@ -56,6 +56,7 @@ class FileRecord(CamelCaseModel):
         Field(..., title="Interval at which file is marked for deletion."),
     ]
 
+    @override
     def __str__(self) -> str:
         # The __str__ methods for this and the enclosing plan are designed
         # to produce reasonably-formatted reports.
@@ -74,6 +75,7 @@ class Plan(CamelCaseModel):
     ]
     files: Annotated[list[FileRecord], Field(..., title="Files to purge")]
 
+    @override
     def __str__(self) -> str:
         if len(self.directories) == 0:
             return "No directories considered."

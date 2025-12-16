@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import re
 from dataclasses import dataclass
-from typing import Self
+from typing import Self, override
 
 __all__ = [
     "DockerCredentials",
@@ -70,6 +70,7 @@ class DockerReference:
             digest=digest,
         )
 
+    @override
     def __str__(self) -> str:
         result = f"{self.registry}/{self.repository}"
         if self.tag is not None:

@@ -6,23 +6,46 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-10.0.0'></a>
+## 10.0.0 (2025-12-16)
+
+### Backwards-incompatible changes
+
+- Merge the `nublado-inithome` container with other support containers and the Nublado controller into a single `nublado` container. Configurations using `nublado-inithome` as an init container should change the container to `nublado` and specify `nublado inithome` as the container command.
+- Use the new Gafaelfawr client in the Nublado client mock to manage and verify tokens. Test suites that use the Jupyter mock from the Nublado client now must also mock Gafaelfawr and use the mock Gafaelfawr to generate a token and register corresponding user information before calling the Jupyter mock.
+- Drop support for Python 3.12 in the Nublado client.
+
+### New features
+
+- Add support for specifying the command to run in lab init containers and the file system admin pod.
+- Use [Repertoire](https://repertoire.lsst.io/) in the Nublado controller to find the Gafaelfawr API instead of assuming the URL structure of the local Phalanx environment.
+- Add the `nublado` command-line tool, which includes home directory provisioning, file system purging, and other supporting functionality, to the default file administration container.
+
+### Bug fixes
+
+- Stop imposing restrictions on usernames and group names in the Nublado controller apart from those already imposed by Gafaelfawr.
+- Update JupyterHub to 5.4.3.
+
 <a id='changelog-9.0.3'></a>
 ## 9.0.3 (2025-12-03)
 
-### Other changes
+### Bug fixes
 
-- Update deps to pick up newer Safir.
+- Use updated Safir so that app metrics won't break the app in rare situations if the underlying Kafka infrastructure is down.
 
 <a id='changelog-9.0.2'></a>
 ## 9.0.2 (2025-12-03)
 
 ### Bug fixes
 
-- Resynchronize `GROUPNAME_REGEX` with Gafaelfawr.
+- Allow user group names starting with a digit.
 
-### Other changes
+<a id='changelog-9.0.1'></a>
+## 9.0.1 (2025-11-19)
 
-- Inject `REPERTOIRE_BASE_URL` into pod if known.
+### New features
+
+- Add support for pretty-printed ADQL queries to jupyterlab-base.
 
 <a id='changelog-9.0.0'></a>
 ## 9.0.0 (2025-11-13)
