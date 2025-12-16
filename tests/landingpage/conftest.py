@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
+
 # Things for startup/landing_page.
 @pytest.fixture(scope="session")
 def monkeysession() -> Iterator[pytest.MonkeyPatch]:

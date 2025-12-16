@@ -1,6 +1,6 @@
 """Exceptions for the CST landing page provisioner."""
 
-__all__ = ["PrecheckError", "DestinationError", "DestinationIsDirectoryError"]
+__all__ = ["DestinationError", "DestinationIsDirectoryError", "PrecheckError"]
 
 
 class PrecheckError(Exception):
