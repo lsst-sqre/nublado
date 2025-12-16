@@ -27,7 +27,7 @@ apt-get -y upgrade
 
 # Emacs-nox and vim should cover most people's editing habits.
 # Everything uses git to determine versions and to, in the case of the
-#  cloner, do its real job.
+#  cloner, do its real job.  The cloner needs git-lfs.
 # Psmisc gives us a bunch of useful tools, most notably "killall" and "fuser".
 # Quota is helpful when debugging user filesystem issues.  The most common
 #  problem is that the user has exceeded their quota.
@@ -40,6 +40,7 @@ apt-get -y upgrade
 apt-get -y install \
     emacs-nox \
     git \
+    git-lfs \
     psmisc \
     quota \
     rsync \
