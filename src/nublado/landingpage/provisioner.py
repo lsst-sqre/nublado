@@ -20,14 +20,15 @@ import json
 import shutil
 from typing import Any, Self
 
+from ._input import _input_from_env, _ProvisionerInput
 from .exceptions import (
     DestinationError,
     DestinationIsDirectoryError,
     PrecheckError,
 )
-from ._input import _ProvisionerInput, _input_from_env
 
 __all__ = ["Provisioner"]
+
 
 class Provisioner:
     """Ensure user environment is ready to open tutorial landing page.
