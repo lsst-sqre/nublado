@@ -38,7 +38,7 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 ### Bug fixes
 
-- Allow user group names starting with a digit.
+- Allow user group names where the only alphabetic character is the first one.
 
 <a id='changelog-9.0.1'></a>
 ## 9.0.1 (2025-11-19)
