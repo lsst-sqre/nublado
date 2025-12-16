@@ -157,6 +157,10 @@ extend = "ruff-shared.toml"
 "client/tests/support/hello.ipynb" = [
     "T201",    # test support notebooks are allowed to print
 ]
+"jupyterlab-base/jupyter_server/jupyter_server_config.py" = [
+    "INP001",  # Jupyter server configuration file, so has no namespace
+    "F821",    # Jupyter configuration uses a magic c variable
+]
 "src/nublado/controller/constants.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
 ]
@@ -166,12 +170,17 @@ extend = "ruff-shared.toml"
 "src/nublado/controller/services/builder/prepuller.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
 ]
+"src/nublado/startup/services/preparer.py" = [
+    "S108",    # constructing /tmp paths for Kubernetes Pods
+]
 "tests/controller/models/domain/rsptag_test.py" = [
     "PLR0124", # testing comparison dunder methods requires strange assertions
 ]
-"jupyterlab-base/jupyter_server/jupyter_server_config.py" = [
-    "INP001",  # Jupyter server configuration file, so has no namespace
-    "F821",    # Jupyter configuration uses a magic c variable
+"tests/startup/startup_test.py" = [
+    "S108",    # constructing /tmp paths for Kubernetes Pods
+]
+"tests/startup/data/files/jupyterlab/etc/20-logging.py" = [
+    "INP001",  # It's configuration, not a module in a namespace
 ]
 
 [tool.ruff.lint.isort]
