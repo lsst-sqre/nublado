@@ -22,7 +22,7 @@ For more information about the benefits, see :doc:`gar`.
 For each GKE cluster that will use that registry, do the following:
 
 #. Ensure workload identity is enabled in the cluster configuration.
-   For details on how to do this, see the `Google workload identity documentation <https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity#enable_on_clusters_and_node_pools>`__.
+   For details on how to do this, see the `Google workload identity documentation <https://docs.cloud.google.com/kubernetes-engine/docs/how-to/workload-identity#enable_on_clusters_and_node_pools>`__.
 
 #. For each node pool in that cluster that is allowed to run Nublado lab pods, find the Google service account used by that node pool.
    This is shown in the details screen for the node pool under :guilabel:`Security`.
@@ -30,7 +30,7 @@ For each GKE cluster that will use that registry, do the following:
 #. Create a Google service account that will be used by the Nublado controller to query the registry.
    Bind that service account to the Kubernetes ``nublado-controller`` service account in the ``nublado`` namespace.
    This is the service account used by the controller.
-   For information on how to do this, see the `Google workload identity documentation <https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity#authenticating_to>`__
+   For information on how to do this, see the `Google workload identity documentation <https://docs.cloud.google.com/kubernetes-engine/docs/how-to/workload-identity#authenticating_to>`__
 
 #. Grant the the Artifact Registry Reader role (or equivalent permissions) for the relevant registry to the node service accounts and the Nublado controller service account.
    You will need to do this in the project where the registry is located, not the project where the GKE cluster is located, if they are different.

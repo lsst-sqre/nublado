@@ -36,4 +36,4 @@ Container image streaming allows the lab to be spawned before the image is fully
 Enabling image streaming for GAR image repositories is therefore highly recommended.
 This is done by enabling the ``containerfilesystem.googleapis.com`` API and then enabling image streaming for the cluster.
 
-For more details, see the `Google documentation for container image streaming <https://cloud.google.com/blog/products/containers-kubernetes/introducing-container-image-streaming-in-gke>`__.
+For more details, see the `Google documentation for container image streaming <https://docs.cloud.google.com/kubernetes-engine/docs/how-to/image-streaming>`__.
