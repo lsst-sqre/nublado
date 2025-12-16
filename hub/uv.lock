@@ -835,7 +835,7 @@ wheels = [
 
 [[package]]
 name = "jupyterhub"
-version = "5.4.2"
+version = "5.4.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alembic" },
@@ -855,9 +855,9 @@ dependencies = [
     { name = "tornado" },
     { name = "traitlets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b6/f8/f39329a70eda5f50bca6f578d7e9c147e91ae4209235a504762ac4e1ff59/jupyterhub-5.4.2.tar.gz", hash = "sha256:acd50f9880c916affe9cddb11be39581fbf5f74971104691f87ef213340d817a", size = 18140910, upload-time = "2025-10-24T21:51:49.713Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/32/dcd6e932e066abf436b07f36a8eadd0c2501082ef3dfa6bd6dca8849610c/jupyterhub-5.4.3.tar.gz", hash = "sha256:2411a3eabe46d53995122ba05a0a0857c5aa228184802b724d99eb43b3faf888", size = 18141315, upload-time = "2025-12-12T18:46:23.054Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/27/ccdfe7117086da2e4a85c1b135bdec5440566401c37633b09ceca417a16b/jupyterhub-5.4.2-py3-none-any.whl", hash = "sha256:d338dcedec610a9f6916d0f7f6cfb41a77d82e6da76a4e4d7ff9e3f7026efef2", size = 14144287, upload-time = "2025-10-24T21:51:46.86Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/26/2c80626cea63760098303ff12dd17b2122649393014eb74f2c6dbf903d36/jupyterhub-5.4.3-py3-none-any.whl", hash = "sha256:0355fc92830f8729b04b403e69160cd777e4c8f6df4644026f42eccdcbbb190b", size = 14144603, upload-time = "2025-12-12T18:46:20.43Z" },
 ]
 
 [[package]]
@@ -1229,7 +1229,7 @@ typing = [
 
 [package.metadata]
 requires-dist = [
-    { name = "jupyterhub", specifier = "==5.4.2" },
+    { name = "jupyterhub", specifier = "==5.4.3" },
     { name = "jupyterhub-idle-culler", specifier = ">=1" },
     { name = "kubernetes-asyncio" },
     { name = "psycopg2", specifier = ">=2" },
