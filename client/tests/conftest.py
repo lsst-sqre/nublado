@@ -7,6 +7,11 @@ import pytest
 import pytest_asyncio
 import respx
 import structlog
+from rubin.gafaelfawr import (
+    GafaelfawrUserInfo,
+    MockGafaelfawr,
+    register_mock_gafaelfawr,
+)
 from rubin.repertoire import (
     Discovery,
     DiscoveryClient,
@@ -53,6 +58,13 @@ def mock_discovery(
 
 
 @pytest_asyncio.fixture
+async def mock_gafaelfawr(
+    mock_discovery: Discovery, respx_mock: respx.Router
+) -> MockGafaelfawr:
+    return await register_mock_gafaelfawr(respx_mock)
+
+
+@pytest_asyncio.fixture
 async def mock_jupyter(
     respx_mock: respx.Router, mock_discovery: Discovery
 ) -> AsyncGenerator[MockJupyter]:
@@ -72,8 +84,10 @@ async def mock_jupyter(
 
 
 @pytest.fixture
-def token(username: str) -> str:
-    return MockJupyter.create_mock_token(username)
+def token(username: str, mock_gafaelfawr: MockGafaelfawr) -> str:
+    userinfo = GafaelfawrUserInfo(username=username)
+    mock_gafaelfawr.set_user_info(username, userinfo)
+    return mock_gafaelfawr.create_token(username)
 
 
 @pytest.fixture

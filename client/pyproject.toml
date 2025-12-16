@@ -19,11 +19,12 @@ classifiers = [
     "Operating System :: POSIX",
     "Typing :: Typed",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "httpx<1",
     "httpx-sse>=0.4.1,<1",
     "pydantic>2.11,<3",
+    "rubin-gafaelfawr",
     "rubin-repertoire<1",
     "safir<15",
     "structlog",
