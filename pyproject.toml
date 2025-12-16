@@ -64,6 +64,8 @@ dev = [
     "pytest-sugar",
     "pytest-timeout",
     "respx",
+    "types-Deprecated",
+    "types-requests",
 ]
 docs = [
     "documenteer[guide]>=2.3",
