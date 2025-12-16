@@ -1,7 +1,7 @@
 """Application configuration for the purger."""
 
 from pathlib import Path
-from typing import Annotated, Self
+from typing import Annotated, Self, override
 
 import yaml
 from pydantic import AliasChoices, Field, SecretStr
@@ -33,6 +33,7 @@ class EnvFirstSettings(BaseSettings):
         env_prefix=ENV_PREFIX, extra="forbid", validate_by_name=True
     )
 
+    @override
     @classmethod
     def settings_customise_sources(
         cls,

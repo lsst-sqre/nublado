@@ -10,7 +10,7 @@ classes with other operations are defined in their own modules.
 import builtins
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
-from typing import Any
+from typing import Any, override
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import (
@@ -97,6 +97,7 @@ class KubernetesObjectDeleter[T: KubernetesModel](KubernetesObjectCreator[T]):
         self._delete = delete_method
         self._list = list_method
 
+    @override
     async def create(
         self,
         namespace: str,

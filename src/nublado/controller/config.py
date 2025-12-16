@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal, Self, override
 
 import yaml
 from kubernetes_asyncio.client import (
@@ -691,6 +691,7 @@ class LabSizeDefinition(BaseModel):
         ),
     ]
 
+    @override
     def __str__(self) -> str:
         return (
             f"{self.size.value.title()} ({self.resources.limits.cpu} CPU,"
