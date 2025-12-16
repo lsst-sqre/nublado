@@ -13,7 +13,6 @@ from safir.models import ErrorModel
 from safir.testing.kubernetes import MockKubernetesApi
 from safir.testing.slack import MockSlackWebhook
 
-from nublado.controller.models.domain.gafaelfawr import GafaelfawrUser
 from nublado.controller.models.domain.kubernetes import PodPhase
 
 from ..support.config import configure
@@ -23,13 +22,15 @@ from ..support.fileserver import (
     create_working_ingress_for_user,
     delete_ingress_for_user,
 )
+from ..support.gafaelfawr import GafaelfawrTestUser
 from ..support.kubernetes import objects_to_dicts
 
 
+@pytest.mark.timeout(5)
 @pytest.mark.asyncio
 async def test_create_delete(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("fileserver", mock_kubernetes)
@@ -42,7 +43,7 @@ async def test_create_delete(
     assert r.status_code == 200
     assert r.json() == []
     r = await client.get(
-        "/nublado/fileserver/v1/user-status", headers=user.to_headers()
+        "/nublado/fileserver/v1/user-status", headers=user.to_test_headers()
     )
     assert r.status_code == 404
     r = await client.get(f"/nublado/fileserver/v1/users/{username}")
@@ -51,7 +52,7 @@ async def test_create_delete(
     # Start a user fileserver. Pre-create an Ingress to match the
     # GafaelfawrIngress so that the creation succeeds.
     await create_working_ingress_for_user(mock_kubernetes, username, namespace)
-    r = await client.get("/files", headers=user.to_headers())
+    r = await client.get("/files", headers=user.to_test_headers())
     assert r.status_code == 200
     expected = read_output_data("fileserver", "fileserver.html").strip()
     assert r.text == expected
@@ -60,7 +61,7 @@ async def test_create_delete(
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == [username]
     r = await client.get(
-        "/nublado/fileserver/v1/user-status", headers=user.to_headers()
+        "/nublado/fileserver/v1/user-status", headers=user.to_test_headers()
     )
     assert r.status_code == 200
     assert r.json() == {"running": True}
@@ -70,11 +71,11 @@ async def test_create_delete(
 
     # Request it again; should detect that there is a user fileserver and
     # return immediately without actually doing anything.
-    r = await client.get("/files", headers=user.to_headers())
+    r = await client.get("/files", headers=user.to_test_headers())
     assert r.status_code == 200
     assert r.text == expected
     r = await client.get(
-        "/nublado/fileserver/v1/user-status", headers=user.to_headers()
+        "/nublado/fileserver/v1/user-status", headers=user.to_test_headers()
     )
     assert r.status_code == 200
     assert r.json() == {"running": True}
@@ -83,7 +84,7 @@ async def test_create_delete(
     # didn't incorrectly remove it (a bug in versions <= 8.8.9).
     await asyncio.sleep(config.fileserver.reconcile_interval.total_seconds())
     r = await client.get(
-        "/nublado/fileserver/v1/user-status", headers=user.to_headers()
+        "/nublado/fileserver/v1/user-status", headers=user.to_test_headers()
     )
     assert r.status_code == 200
     assert r.json() == {"running": True}
@@ -97,7 +98,7 @@ async def test_create_delete(
     assert r.status_code == 200
     assert r.json() == []
     r = await client.get(
-        "/nublado/fileserver/v1/user-status", headers=user.to_headers()
+        "/nublado/fileserver/v1/user-status", headers=user.to_test_headers()
     )
     assert r.status_code == 404
     r = await client.get(f"/nublado/fileserver/v1/users/{username}")
@@ -107,7 +108,7 @@ async def test_create_delete(
 @pytest.mark.asyncio
 async def test_file_server_objects(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("fileserver", mock_kubernetes)
@@ -118,7 +119,7 @@ async def test_file_server_objects(
     # Start a user fileserver. Pre-create an Ingress to match the
     # GafaelfawrIngress so that the creation succeeds.
     await create_working_ingress_for_user(mock_kubernetes, username, namespace)
-    r = await client.get("/files", headers=user.to_headers())
+    r = await client.get("/files", headers=user.to_test_headers())
     assert r.status_code == 200
 
     # When checking all of the objects, strip out resource versions, since
@@ -132,7 +133,7 @@ async def test_file_server_objects(
 @pytest.mark.asyncio
 async def test_cleanup_on_pod_exit(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("fileserver", mock_kubernetes)
@@ -143,7 +144,7 @@ async def test_cleanup_on_pod_exit(
     # Start a user fileserver. Pre-create an Ingress to match the
     # GafaelfawrIngress so that the creation succeeds.
     await create_working_ingress_for_user(mock_kubernetes, username, namespace)
-    r = await client.get("/files", headers=user.to_headers())
+    r = await client.get("/files", headers=user.to_test_headers())
     assert r.status_code == 200
 
     # On a regular cluster, the fileserver takes a timeout as an argument and
@@ -187,7 +188,7 @@ async def test_cleanup_on_pod_exit(
 @pytest.mark.asyncio
 async def test_wait_for_ingress(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("fileserver", mock_kubernetes)
@@ -200,7 +201,9 @@ async def test_wait_for_ingress(
     assert r.json() == []
 
     # Start the fileserver, which will wait for the Ingress.
-    task = asyncio.create_task(client.get("/files", headers=user.to_headers()))
+    task = asyncio.create_task(
+        client.get("/files", headers=user.to_test_headers())
+    )
     assert task.done() is False
     r = await client.get("/nublado/fileserver/v1/users")
     assert r.json() == []
@@ -240,7 +243,7 @@ async def test_wait_for_ingress(
 @pytest.mark.timeout(5)
 async def test_timeout_no_pod_start(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("fileserver", mock_kubernetes)
@@ -260,7 +263,9 @@ async def test_timeout_no_pod_start(
     # Start a user fileserver. Pre-create an Ingress to match the
     # GafaelfawrIngress so that the creation succeeds.
     await create_working_ingress_for_user(mock_kubernetes, username, namespace)
-    task = asyncio.create_task(client.get("/files", headers=user.to_headers()))
+    task = asyncio.create_task(
+        client.get("/files", headers=user.to_test_headers())
+    )
 
     # The start task will create the Job and then time out waiting for the Pod
     # to start, and then will attempt to clean up. We need to manually delete
@@ -283,7 +288,7 @@ async def test_timeout_no_pod_start(
 @pytest.mark.asyncio
 async def test_timeout_no_ingress(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     await configure("fileserver", mock_kubernetes)
@@ -294,7 +299,7 @@ async def test_timeout_no_ingress(
 
     # Start a user fileserver. Expect a timeout, because no Ingress was
     # created.
-    r = await client.get("/files", headers=user.to_headers())
+    r = await client.get("/files", headers=user.to_test_headers())
     assert r.status_code == 500
     error = ErrorModel.model_validate(r.json())
     assert "File server creation timed out" in error.detail[0].msg
@@ -307,7 +312,7 @@ async def test_timeout_no_ingress(
 @pytest.mark.asyncio
 async def test_timeout_no_ingress_ip(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("fileserver", mock_kubernetes)
@@ -319,7 +324,9 @@ async def test_timeout_no_ingress_ip(
     assert r.json() == []
 
     # Start a user fileserver.
-    task = asyncio.create_task(client.get("/files", headers=user.to_headers()))
+    task = asyncio.create_task(
+        client.get("/files", headers=user.to_test_headers())
+    )
 
     # Check there are no fileservers yet.
     assert task.done() is False
@@ -340,7 +347,7 @@ async def test_timeout_no_ingress_ip(
 @pytest.mark.asyncio
 async def test_start_errors(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
     mock_slack: MockSlackWebhook,
 ) -> None:
@@ -388,7 +395,7 @@ async def test_start_errors(
             mock_kubernetes, username, namespace
         )
         task = asyncio.create_task(
-            client.get("/files", headers=user.to_headers())
+            client.get("/files", headers=user.to_test_headers())
         )
         await asyncio.sleep(0.1)
         await delete_ingress_for_user(mock_kubernetes, username, namespace)

@@ -10,17 +10,16 @@ from httpx import AsyncClient
 from safir.datetime import current_datetime
 from safir.testing.kubernetes import MockKubernetesApi
 
-from nublado.controller.models.domain.gafaelfawr import GafaelfawrUser
-
 from ..support.config import configure
 from ..support.data import assert_json_output_matches
+from ..support.gafaelfawr import GafaelfawrTestUser
 from ..support.kubernetes import objects_to_dicts
 
 
 @pytest.mark.asyncio
 async def test_create_delete(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     # Check that there is no fsadmin instance
@@ -67,25 +66,25 @@ async def test_create_delete(
 @pytest.mark.asyncio
 async def test_bad_create(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     # Try to start fsadmin pod with no POST body
     r = await client.post(
-        "/nublado/fsadmin/v1/service", headers=user.to_headers()
+        "/nublado/fsadmin/v1/service", headers=user.to_test_headers()
     )
     assert r.status_code == 422
 
     # Try to start it with empty JSON body
     r = await client.post(
-        "/nublado/fsadmin/v1/service", headers=user.to_headers(), json={}
+        "/nublado/fsadmin/v1/service", headers=user.to_test_headers(), json={}
     )
     assert r.status_code == 422
 
     # Try to start it with bad JSON body
     r = await client.post(
         "/nublado/fsadmin/v1/service",
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
         json={"start": False},
     )
     assert r.status_code == 422
@@ -93,7 +92,7 @@ async def test_bad_create(
     # Try to start it with another bad JSON body
     r = await client.post(
         "/nublado/fsadmin/v1/service",
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
         json={"stop": True},
     )
     assert r.status_code == 422
@@ -102,14 +101,14 @@ async def test_bad_create(
 @pytest.mark.asyncio
 async def test_created_pod(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     await configure("fsadmin", mock_kubernetes)
     # Start pod
     r = await client.post(
         "/nublado/fsadmin/v1/service",
-        headers=user.to_headers(),
+        headers=user.to_test_headers(),
         json={"start": True},
     )
     assert r.status_code == 200
@@ -130,7 +129,7 @@ async def test_created_pod(
 @pytest.mark.asyncio
 async def test_locking(
     client: AsyncClient,
-    user: GafaelfawrUser,
+    user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("fsadmin", mock_kubernetes)
@@ -151,7 +150,7 @@ async def test_locking(
     post_task = asyncio.create_task(
         client.post(
             "/nublado/fsadmin/v1/service",
-            headers=user.to_headers(),
+            headers=user.to_test_headers(),
             json={"start": True},
         )
     )
@@ -165,7 +164,9 @@ async def test_locking(
     assert pod.status.phase == "Pending"
     # This one should block because it cannot get a lock.
     delete_task = asyncio.create_task(
-        client.delete("/nublado/fsadmin/v1/service", headers=user.to_headers())
+        client.delete(
+            "/nublado/fsadmin/v1/service", headers=user.to_test_headers()
+        )
     )
     assert delete_task.done() is False
 

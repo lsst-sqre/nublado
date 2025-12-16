@@ -18,6 +18,7 @@ from kubernetes_asyncio.client import (
     V1ServiceAccount,
 )
 from pydantic import SecretStr
+from rubin.gafaelfawr import MockGafaelfawr, register_mock_gafaelfawr
 from rubin.repertoire import Discovery, register_mock_discovery
 from safir.testing.kubernetes import MockKubernetesApi, patch_kubernetes
 from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
@@ -25,7 +26,6 @@ from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from nublado.controller.config import Config
 from nublado.controller.factory import Factory
 from nublado.controller.main import create_app
-from nublado.controller.models.domain.gafaelfawr import GafaelfawrUser
 from nublado.controller.models.v1.prepuller import DockerSourceOptions
 
 from .support.config import configure
@@ -38,7 +38,7 @@ from .support.data import (
     read_input_users_json,
 )
 from .support.docker import MockDockerRegistry, register_mock_docker
-from .support.gafaelfawr import MockGafaelfawr, register_mock_gafaelfawr
+from .support.gafaelfawr import GafaelfawrTestUser
 from .support.gar import MockArtifactRegistry, patch_artifact_registry
 
 
@@ -127,12 +127,15 @@ def mock_docker(
     )
 
 
-@pytest.fixture
-def mock_gafaelfawr(
+@pytest_asyncio.fixture
+async def mock_gafaelfawr(
     config: Config, respx_mock: respx.Router
 ) -> MockGafaelfawr:
+    mock = await register_mock_gafaelfawr(respx_mock)
     users = read_input_users_json("base", "users")
-    return register_mock_gafaelfawr(respx_mock, config.base_url, users)
+    for username, userinfo in users.items():
+        mock.set_user_info(username, userinfo)
+    return mock
 
 
 @pytest.fixture
@@ -166,6 +169,10 @@ def mock_slack(
 
 
 @pytest.fixture
-def user(mock_gafaelfawr: MockGafaelfawr) -> GafaelfawrUser:
+def user(mock_gafaelfawr: MockGafaelfawr) -> GafaelfawrTestUser:
     """User to use for testing."""
-    return mock_gafaelfawr.get_test_user()
+    users = read_input_users_json("base", "users")
+    for username, userinfo in users.items():
+        token = mock_gafaelfawr.create_token(username)
+        return GafaelfawrTestUser(token=token, **userinfo.model_dump())
+    raise ValueError("No users found")

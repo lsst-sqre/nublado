@@ -44,7 +44,14 @@ from ..models.domain.docker import DockerReference
 from ..models.domain.gafaelfawr import GafaelfawrUser
 from ..models.domain.lab import Event, EventType, LabObjectNames
 from ..models.domain.rspimage import RSPImage
-from ..models.v1.lab import LabSpecification, LabState, LabStatus
+from ..models.v1.lab import (
+    LabRequestOptions,
+    LabSpecification,
+    LabState,
+    LabStatus,
+    UserGroup,
+    UserInfo,
+)
 from ..storage.kubernetes.lab import LabStorage
 from ..storage.metadata import MetadataStorage
 from ..timeout import Timeout
@@ -262,9 +269,14 @@ class LabManager:
             Raised if some other operation (either spawn or delete) is already
             in progress on this user's lab.
         PermissionDeniedError
-            Raised if the user's quota does not allow them to spawn labs.
+            Raised if the user's quota does not allow them to spawn labs, or
+            if the user doesn't have a UID or GID.
         """
         self._check_quota(user)
+        if not user.uid:
+            raise PermissionDeniedError("Must have a UID to spawn labs")
+        if not user.gid:
+            raise PermissionDeniedError("Must have a GID to spawn labs")
 
         # If the user was not previously seen, set up their data structure and
         # monitor class.
@@ -279,22 +291,14 @@ class LabManager:
             self._labs[username] = _State(monitor=monitor)
 
         # Determine the image to use for the lab.
-        selection = spec.options.image_list or spec.options.image_dropdown
-        if selection:
-            reference = DockerReference.from_str(selection)
-            image = await self._image_service.image_for_reference(reference)
-        elif spec.options.image_class:
-            image_class = spec.options.image_class
-            image = self._image_service.image_for_class(image_class)
-        elif spec.options.image_tag:
-            tag = spec.options.image_tag
-            image = await self._image_service.image_for_tag_name(tag)
+        image = await self._select_image(spec.options)
 
         # Determine the resources to assign to the lab.
         try:
             size = self._config.get_size_definition(spec.options.size)
         except KeyError as e:
             raise InvalidLabSizeError(spec.options.size) from e
+        quota = None
         if user.quota and user.quota.notebook:
             quota = user.quota.notebook
             if (
@@ -344,8 +348,19 @@ class LabManager:
         # OperationConflictError. This ordering ensures that only the
         # successful call is able to update the user's lab state.
         lab.events.clear()
+        userinfo = UserInfo(
+            username=user.username,
+            name=user.name,
+            uid=user.uid,
+            gid=user.gid,
+            groups=[UserGroup(name=g.name, id=g.id) for g in user.groups],
+        )
         state = LabState.from_request(
-            user=user, spec=spec, image=image, resources=resources
+            user=userinfo,
+            notebook_quota=quota,
+            spec=spec,
+            image=image,
+            resources=resources,
         )
         timeout = Timeout("Lab spawn", self._config.spawn_timeout, username)
         spawner = self._spawn_lab(
@@ -1033,6 +1048,31 @@ class LabManager:
                 if observed_state.status == LabStatus.PENDING:
                     to_monitor.add(username)
         return to_monitor
+
+    async def _select_image(self, options: LabRequestOptions) -> RSPImage:
+        """Determine the image to spawn.
+
+        Parameters
+        ----------
+        options
+            Options for the requested lab.
+
+        Returns
+        -------
+        RSPImage
+            Image to use for the lab.
+        """
+        selection = options.image_list or options.image_dropdown
+        if selection:
+            reference = DockerReference.from_str(selection)
+            return await self._image_service.image_for_reference(reference)
+        elif options.image_class:
+            return self._image_service.image_for_class(options.image_class)
+        elif options.image_tag:
+            tag = options.image_tag
+            return await self._image_service.image_for_tag_name(tag)
+        else:
+            raise RuntimeError("Unhandled case in image selection")
 
     async def _spawn_lab(
         self,

@@ -13,10 +13,10 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from rubin.gafaelfawr import GafaelfawrNotebookQuota
 
-from ...constants import DROPDOWN_SENTINEL_VALUE, USERNAME_REGEX
+from ...constants import DROPDOWN_SENTINEL_VALUE
 from ...units import cpu_to_cores, memory_to_bytes
-from ..domain.gafaelfawr import GafaelfawrUserInfo, UserGroup
 from ..domain.kubernetes import PodPhase
 from ..domain.rspimage import RSPImage
 
@@ -389,6 +389,28 @@ class LabSpecification(BaseModel):
         return v
 
 
+class UserGroup(BaseModel):
+    """Group membership."""
+
+    name: Annotated[
+        str,
+        Field(
+            examples=["ferrymen"],
+            title="Group to which lab user belongs",
+            description="Should follow Unix naming conventions",
+        ),
+    ]
+
+    id: Annotated[
+        int,
+        Field(
+            examples=[2023],
+            title="Numeric GID of the group (POSIX)",
+            description="32-bit unsigned integer",
+        ),
+    ]
+
+
 class UserInfo(BaseModel):
     """Metadata about the user who owns the lab."""
 
@@ -398,7 +420,6 @@ class UserInfo(BaseModel):
             title="Username",
             description="Username of the owner of this lab",
             examples=["ribbon"],
-            pattern=USERNAME_REGEX,
         ),
     ]
 
@@ -449,32 +470,6 @@ class UserInfo(BaseModel):
             ),
         ),
     ] = []
-
-    @classmethod
-    def from_gafaelfawr(cls, user: GafaelfawrUserInfo) -> Self:
-        """Convert Gafaelfawr's user metadata model to this model.
-
-        Groups without GIDs will be ignored, since they cannot be used by the
-        lab spawner to set supplemental groups and cannot be referenced in the
-        lab :file:`/etc/group` file.
-
-        Parameters
-        ----------
-        user
-            Gafaelfawr user metadata.
-
-        Returns
-        -------
-        UserInfo
-            User information stored as part of the lab state.
-        """
-        return cls(
-            username=user.username,
-            name=user.name,
-            uid=user.uid,
-            gid=user.gid,
-            groups=user.groups,
-        )
 
 
 class ResourceQuantity(BaseModel):
@@ -646,7 +641,8 @@ class LabState(BaseModel):
     def from_request(
         cls,
         *,
-        user: GafaelfawrUserInfo,
+        user: UserInfo,
+        notebook_quota: GafaelfawrNotebookQuota | None,
         spec: LabSpecification,
         image: RSPImage,
         resources: LabResources,
@@ -657,6 +653,8 @@ class LabState(BaseModel):
         ----------
         user
             Owner of the lab.
+        notebook_quota
+            Quota for the ower of the lab.
         spec
             Lab specification from the request.
         image
@@ -670,13 +668,12 @@ class LabState(BaseModel):
             New user lab state representing a lab that's about to be spawned.
         """
         quota = None
-        if user.quota and user.quota.notebook:
+        if notebook_quota:
             quota = ResourceQuantity(
-                cpu=user.quota.notebook.cpu,
-                memory=int(user.quota.notebook.memory * 1024 * 1024 * 1024),
+                cpu=notebook_quota.cpu, memory=notebook_quota.memory_bytes
             )
         return cls(
-            user=UserInfo.from_gafaelfawr(user),
+            user=user,
             options=LabOptions(
                 image=image.reference_with_digest,
                 size=spec.options.size,
