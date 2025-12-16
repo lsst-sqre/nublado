@@ -23,6 +23,7 @@ from .constants import (
     ROOT_LOGGER,
 )
 from .inithome.provisioner import Provisioner
+from .landingpage.provisioner import Provisioner as LandingPageProvisioner
 from .purger.config import Config as PurgerConfig
 from .purger.constants import (
     CONFIG_FILE as PURGER_CONFIG_FILE,
@@ -34,6 +35,7 @@ from .purger.purger import Purger
 
 __all__ = [
     "inithome",
+    "landingpage",
     "main",
     "purger",
 ]
@@ -265,3 +267,23 @@ def inithome() -> None:
         raise
     provisioner = Provisioner(home, uid, gid)
     asyncio.run(provisioner.provision())
+
+
+@main.command()
+def landingpage() -> None:
+    """Redirect user to writeable copy of CST landing page.
+
+    This only occurs at "science"-type RSP instances.
+    It uses the environment variables ``NUBLADO_HOME``,
+    ``CST_LANDING_PAGE_SRC_DIR``, ``CST_LANDING_PAGE_TGT_DIR``, and
+    ``CST_LANDING_PAGE_FILES``.
+    It must never throw an exception: if the init container holding
+    the landing page provisioner fails to perform, we just open a Lab as
+    usual, with whatever layout is in the user cache.
+    """
+    logger = get_logger(ROOT_LOGGER)
+    try:
+        provisioner = LandingPageProvisioner.from_env()
+        provisioner.go()
+    except Exception:
+        logger.exception("Provisioner failed")
