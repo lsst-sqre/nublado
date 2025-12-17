@@ -13,6 +13,7 @@ import yaml
 import nublado.startup
 from nublado.startup.services.preparer import Preparer
 from nublado.startup.utils import (
+    get_digest,
     get_jupyterlab_config_dir,
     get_runtime_mounts_dir,
 )
@@ -115,7 +116,11 @@ def test_cpu_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     assert pr._env["MPI_NUM_THREADS"] == "14"
 
 
-# No test for set_image_digest() because we test that in utils_test
+@pytest.mark.usefixtures("_rsp_env")
+def test_set_image_digest(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("JUPYTER_IMAGE_SPEC", "sciplat-lab@sha256:abcde")
+    digest = get_digest()
+    assert digest == "abcde"
 
 
 @pytest.mark.usefixtures("_rsp_env")
