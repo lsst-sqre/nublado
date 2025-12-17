@@ -49,6 +49,17 @@ def _mock_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("METRICS_MOCK", "true")
 
 
+@pytest.fixture(autouse=True)
+def _mock_introspection(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "NUBLADO_CONTROLLER_REPOSITORY", "ghcr.io/lsst-sqre/nublado"
+    )
+    monkeypatch.setenv("NUBLADO_CONTROLLER_PULL_POLICY", "IfNotPresent")
+    # Don't use setuptools_scm here, because then the JSON will not be
+    # static for the tests.
+    monkeypatch.setenv("NUBLADO_CONTROLLER_TAG", "11.1.1")
+
+
 @pytest_asyncio.fixture
 async def config() -> Config:
     """Construct default configuration for tests."""

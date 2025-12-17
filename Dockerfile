@@ -88,3 +88,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 # CMD ["nublado", "purger", "execute"]
 # For repo-cloner:
 # CMD ["/usr/local/bin/repo-cloner.sh"]
+# For landing page init container:
+# CMD ["nublado", "landingpage"]
+# For startup init container:
+# CMD ["nublado", "startup"]
