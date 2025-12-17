@@ -2,27 +2,15 @@
 set -x
 set -euo pipefail
 
-# Install Jupyterlab and its runtime extensions under the system python
+# Install Jupyterlab and its runtime extensions in its own virtualenv
 # (not the Stack python).  This will let us iterate the UI without having
 # to worry about stack compatibility.
-
-# First, install uv into the system python.  It's a whole lot faster than pip.
-
-python3 -m pip install uv
-
 uv venv /usr/local/share/jupyterlab/venv
 
-# It's claimed you don't need to activate a new uv venv, but experiment
-# says otherwise
-
+# Use that venv.
 source /usr/local/share/jupyterlab/venv/bin/activate
 
-# Install uv in here too
-
-uv pip install uv
-
-# Here we go.  Most of these are Jupyter-related.
-
+# Install the set of packages we need for the RSP JupyterLab UI
 # jupyter_firefly_extensions is slightly incompatible with bokeh
 uv pip install --upgrade \
    astrowidgets \
@@ -63,18 +51,20 @@ uv pip install --upgrade \
 
 # File sharing doesn't work in the RSP environment; remove the extension.
 jupyter labextension disable "@jupyterlab/filebrowser-extension:share-file"
-# And Jupyter News is just obnoxious
+
+# Jupyter News is just obnoxious.
 jupyter labextension disable "@jupyterlab/apputils-extension:announcements"
+
 # Our RSP menu supersedes the Hub menu items
 jupyter labextension disable "@jupyterlab/hub-extension:menu"
 
+# Lock those extensions to prevent reenabling.
 jupyter labextension lock "@jupyterlab/hub-extension:menu" \
 	"@jupyterlab/apputils-extension:announcements" \
 	"@jupyterlab/filebrowser-extension:share-file"
 
 # Clean up cache
 uv cache clean
-pip uninstall -y uv llvmlite
 
 # Increase this to force a rebuild because a dependency package has changed.
 # Reset when you actually change a package or its pins.

@@ -3,16 +3,35 @@ FROM python:3.14.2-slim-trixie AS base-image
 USER root
 SHELL ["/bin/bash", "-lc"]
 
+# Install uv.
+COPY --from=ghcr.io/astral-sh/uv:0.9.17 /uv /bin/uv
+
+# Set up workspace
 RUN mkdir -p /tmp/build
 WORKDIR /tmp/build
 
+# Disable hard links during uv package installation since we're using a
+# cache on a separate file system.
+ENV UV_LINK_MODE=copy
+
+# Install Debian packages needed at runtime
 COPY jupyterlab-base/scripts/install-base-packages /tmp/build
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     ./install-base-packages
 
-# Now we have a patched python container.  Add system dependencies.
+# Install other (non-dpkg) system-level files
+COPY jupyterlab-base/scripts/install-system-files /tmp/build
+RUN ./install-system-files
 
+# Patch up TeX installation; if we migrate fully to typst, we can stop
+# installing TeX and get rid of this.
+ENV TEXMFHOME=/usr/local/share/texlive
+RUN mkdir -p ${TEXMFHOME}
+COPY jupyterlab-base/scripts/fix-texlive /tmp/build
+RUN ./fix-texlive
+
+# Build-time dependencies, discarded after virtualenv installation.
 FROM base-image AS deps-image
 
 COPY jupyterlab-base/scripts/install-dependency-packages /tmp/build
@@ -20,12 +39,22 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     ./install-dependency-packages
 
-# Add other system-level files
+# Install JupyterLab and dependent Python packages.
+COPY jupyterlab-base/scripts/install-jupyterlab /tmp/build
+RUN ./install-jupyterlab
+
+FROM base-image AS jupyterlab-image
+
+# Install a bunch of Jupyterlab support stuff.
+
+RUN mkdir -p /usr/local/share/jupyterlab/etc
+
+# Copy UI virtualenv from dependency image
+COPY --from=deps-image /usr/local/share/jupyterlab/venv \
+    /usr/local/share/jupyterlab/venv
 
 # /etc/profile.d parts
-
 RUN mkdir -p /etc/profile.d
-
 COPY jupyterlab-base/profile.d/local01-nbstripjq.sh \
      jupyterlab-base/profile.d/local02-hub.sh \
      jupyterlab-base/profile.d/local03-pythonrc.sh \
@@ -36,55 +65,28 @@ COPY jupyterlab-base/profile.d/local01-nbstripjq.sh \
 # /etc/skel
 COPY jupyterlab-base/skel/pythonrc /etc/skel/.pythonrc
 
-# Might want to move these?  Or make them owned by jupyter user?
-# But for right now they need to live here as a compatibility layer if
-# nothing else.
-
+# We may want to move these or make them owned by the jupyter user.
+# For now they need to live in /usr/local as a compatibility layer with
+# older sciplat-lab images.
 COPY jupyterlab-base/jupyter_server/jupyter_server_config.json \
      jupyterlab-base/jupyter_server/jupyter_server_config.py \
      /usr/local/etc/jupyter/
 
-COPY jupyterlab-base/scripts/install-system-files /tmp/build
-RUN ./install-system-files
-
-ENV TEXMFHOME=/usr/local/share/texlive
-RUN mkdir -p ${TEXMFHOME}
-COPY jupyterlab-base/scripts/fix-texlive /tmp/build
-RUN ./fix-texlive
-
-FROM deps-image AS jupyterlab-image
-
-ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get -y install build-essential
-
-COPY jupyterlab-base/scripts/install-jupyterlab /tmp/build
-RUN ./install-jupyterlab
-
-FROM deps-image AS base-rsp-image
-
-RUN mkdir -p /usr/local/share/jupyterlab/etc
-
-COPY --from=jupyterlab-image /usr/local/share/jupyterlab/venv \
-    /usr/local/share/jupyterlab/venv
-
+# Configuration specific to the RSP JupyterLab installation.
 RUN mkdir -p /usr/local/share/jupyterlab/venv/etc/jupyter
 COPY jupyterlab-base/jupyter_server/jupyter_server_config.json \
      /usr/local/share/jupyterlab/venv/etc/jupyter/jupyter_server_config.d
 COPY jupyterlab-base/jupyter_server/jupyter_server_config.py \
      /usr/local/share/jupyterlab/venv/etc/jupyter
 
+# The JupyterLab launch script.
 COPY jupyterlab-base/runtime/runlab \
      /usr/local/share/jupyterlab/
 
-FROM base-rsp-image AS manifests-rsp-image
-
 # Get our manifests.  This has always been really useful for debugging
 # "what broke this week?"
-
 COPY jupyterlab-base/scripts/generate-versions /tmp/build
 RUN ./generate-versions
-
-FROM manifests-rsp-image AS rsp-image
 
 # This needs to be numeric, since we will remove /etc/passwd and friends
 # while we're running.
@@ -98,10 +100,10 @@ WORKDIR /
 
 # Clean up.
 COPY jupyterlab-base/scripts/cleanup-files /
-RUN ./cleanup-files
-RUN rm ./cleanup-files
+RUN ./cleanup-files && rm ./cleanup-files
 
 WORKDIR /tmp
+
 # Run as unprivileged user.  There's no /etc/passwd entry for it at
 # this point, but the Nublado machinery will ensure that the right
 # unprivileged user runs the container.  This is just to keep the
@@ -109,9 +111,10 @@ WORKDIR /tmp
 # Conventionally, this is nobody:nogroup.
 USER 65534:65534
 
+# Conventional entrypoint
 CMD ["/usr/local/share/jupyterlab/runlab"]
 
+# Add descriptive env and label.
 ENV  DESCRIPTION="Rubin Science Platform Notebook Aspect Base"
 ENV  SUMMARY="Rubin Science Platform Notebook Aspect Base"
-
 LABEL description="Rubin Science Platform Notebook Aspect Base"
