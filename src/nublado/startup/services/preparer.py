@@ -17,6 +17,7 @@ from urllib.parse import parse_qsl, urlparse
 import structlog
 import yaml
 from rubin.repertoire import DiscoveryClient, RepertoireError
+from safir.logging import LogLevel, configure_logging
 
 from ..constants import (
     APP_NAME,
@@ -29,7 +30,6 @@ from ..constants import (
 )
 from ..exceptions import RSPErrorCode, RSPStartupError
 from ..storage.command import Command
-from ..storage.logging import configure_logging
 from ..utils import (
     get_access_token,
     get_digest,
@@ -64,7 +64,8 @@ class Preparer:
         # during the setup process.
         self._env = os.environ.copy()
         self._debug = bool(self._env.get("DEBUG", ""))
-        configure_logging(debug=self._debug)
+        loglevel = LogLevel.DEBUG if self._debug else LogLevel.INFO
+        configure_logging(name=APP_NAME, log_level=loglevel)
         self._logger = structlog.get_logger(APP_NAME)
         self._broken = False
         for req_env in ("JUPYTERHUB_BASE_URL", "NUBLADO_HOME"):
