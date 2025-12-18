@@ -72,12 +72,26 @@ Either way, the user will not be able to use their lab.
 
 Therefore, unless you are already creating the Nublado home directory through some external user provisioning process, you should configure a Nublado init container to create the user home directory on demand.
 
-Nublado provides a container, ``nublado-inithome`` for this purpose.
+The standard nublado container provides a command, ``nublado inithome``, for this purpose.
 
-Configuring nublado-inithome
-----------------------------
+Automatic configuration
+-----------------------
 
-The following Nublado configuration will tell Nublado to attempt to create the home directory, change its ownership to the user's UID and primary GID, and set its permissions to 0700 before the user's lab container starts:
+In the typical case, where ``inithome`` runs as the root user, and where the fileserver allows administrative access to the volume containing user directories, you only need the following:
+
+.. code-block:: yaml
+
+   controller:
+     config:
+       lab:
+         standardInithome: true
+
+Manual configuration
+--------------------
+
+The preceding configuration will tell Nublado to attempt to create the home directory, change its ownership to the user's UID and primary GID, and set its permissions to 0700 before the user's lab container starts.
+That is expected to be the typical case, and is why there is a simple flag provided to perform that action.
+If you wanted for some reason instead to do that manually, this would be equivalent:
 
 .. code-block:: yaml
 
@@ -85,10 +99,11 @@ The following Nublado configuration will tell Nublado to attempt to create the h
      config:
        lab:
          initContainers:
-           - name: "inithome"
+           - name: "inithome"  # Just not "nublado-std-inithome"
+	     command: [ "nublado", "inithome" ]
              image:
-               repository: "ghcr.io/lsst-sqre/nublado-inithome"
-               tag: "4.0.0"
+               repository: "ghcr.io/lsst-sqre/nublado"
+               tag: "11.0.0"  # Illustrative, not necessarily correct
              privileged: true
 
 The tag should be set to the current released version of Nublado.
@@ -107,13 +122,13 @@ If root-squash (usually the default) is set, the init container, running as root
 
 If you are using NFS and cannot disable root-squash (due, for example, to local security policies), you may need to arrange for the user's home directory to be created via some mechanism outside of Nublado before the first time the user tries to start a lab.
 
-The ``nublado-inithome`` container can only create a single level of directories.
-If you set ``controller.config.lab.homedirSchema`` to ``initialThenUsername``, you will need to precreate the subdirectories for all possible first letters of usernames before ``nublado-inithome`` will be able to create user home directories.
+The ``nublado inithome`` process can only create a single level of directories.
+If you set ``controller.config.lab.homedirSchema`` to ``initialThenUsername``, you will need to precreate the subdirectories for all possible first letters of usernames before ``nublado inithome`` will be able to create user home directories.
 
 More information
 ================
 
 See :ref:`config-lab-init` for more information about init containers configuration and :ref:`config-lab-volumes` for more information about mounting volumes in the lab.
 
-If ``nublado-inithome`` does not do what you need, you can run your own init container.
+If ``nublado inithome`` does not do what you need, you can run your own init container.
 See :doc:`init-containers` for more details.

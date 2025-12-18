@@ -18,6 +18,11 @@ This is by design.
 We restrict the ingress routes to create, delete, or query the container to users with an admin token.
 Requiring ``kubectl`` privileges in addition is another way to help secure this extremely potent interface.
 
+Within the container there are a number of tools designed to assist with common filesystem tasks.
+The ``quota`` and ``fuser`` commands are the most specifically-targeted ones, but common editors (``emacs``, ``nano``, and ``vim``) are provided as well as both ``screen`` and ``tmux`` terminal multiplexers.
+Since you will be using the pod as the root user, you can also add more software; it's a Debian system, so ``apt update`` followed by ``apt install`` will work for Debian-packaged software.
+The ``nublado`` command-line interface is available too, but you have to ``source /app/.venv/bin/activate`` to get it on ``$PATH`` as ``nublado``.
+
 fsadmin lifecycle API
 =====================
 
@@ -40,13 +45,7 @@ The interface is extremely simple:
 Phalanx configuration
 =====================
 
-The ``fsadmin`` service has several configuration options that adminstrators may wish to modify:
-
-``controller.config.fsadmin.command``
-   The command to run in the fsadmin container.
-   Typically this should be something that keeps the container alive and otherwise does nothing.
-   Any actions taken in the pod context will come from the administrative user's shell (as granted by ``kubectl exec``).
-   The default is ``["tail", "-f", "/dev/null"]``.
+The ``fsadmin`` service has several configuration options that adminstrators may wish to modify; the two most likely are:
 
 ``container.config.fsadmin.extraVolumes``
    Additional volumes to make available for mounting inside the fsadmin pod.
@@ -56,8 +55,3 @@ The ``fsadmin`` service has several configuration options that adminstrators may
 ``container.config.fsadmin.extravolumeMounts``
    Additional volumes to mount at startup inside the fsadmin pod.
    The administrator can also mount additional volumes manually with the standard ``mount`` command.
-
-``container.config.fsadmin.image``
-   Docker image to run as fsadmin.
-   Typically, this is ``ghcr.io/lsst-sqre/nublado`` at some recent tag.
-   The standard image contains a handful of useful tools for filesystem administration (e.g. ``quota`` and ``fuser``) as well as the Nublado machinery.
