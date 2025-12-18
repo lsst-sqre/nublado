@@ -457,17 +457,6 @@ class EnabledFileserverConfig(FileserverConfig):
         ),
     ] = timedelta(hours=1)
 
-    image: Annotated[
-        ContainerImage,
-        Field(
-            title="File server Docker image",
-            description=(
-                "Docker image to run as a user file server. This must follow"
-                " the same API as worblehat."
-            ),
-        ),
-    ]
-
     namespace: Annotated[
         str,
         Field(
