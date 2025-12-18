@@ -55,14 +55,12 @@ from rubin.repertoire import DiscoveryClient
 from structlog.stdlib import BoundLogger
 
 from ...config import (
-    ContainerImage,
     EmptyDirSource,
     LabConfig,
     PVCVolumeSource,
     UserHomeDirectorySchema,
 )
 from ...constants import ARGO_CD_ANNOTATIONS, MEMORY_TO_TMP_SIZE_RATIO
-from ...models.domain.kubernetes import PullPolicy
 from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
 from ...models.domain.rspimage import RSPImage
 from ...models.domain.volumes import MountedVolume
@@ -77,6 +75,7 @@ from ...models.v1.lab import (
     UserGroup,
     UserInfo,
 )
+from ._introspect import _introspect_container
 from .volumes import VolumeBuilder
 
 __all__ = ["LabBuilder"]
@@ -110,31 +109,7 @@ class LabBuilder:
         self._discovery = discovery_client
         self._logger = logger
         self._volume_builder = VolumeBuilder()
-        self._introspect_container()
-
-    def _introspect_container(self) -> None:
-        """Determine the registry/repository/tag of the running container.
-        This comes from the Phalanx deployment chart.
-        It would be nice if the DownwardAPI gave us this, but it does not.
-        """
-        repository = os.getenv(
-            "NUBLADO_CONTROLLER_REPOSITORY", "ghcr.io/lsst-sqre/nublado"
-        )
-        # We're guessing that version 11 will be the first place this shows up.
-        tag = os.getenv("NUBLADO_CONTROLLER_TAG", "11.0.0")
-        pull_policy_str = os.getenv(
-            "NUBLADO_CONTROLLER_PULL_POLICY", "IfNotPresent"
-        )
-        if pull_policy_str.lower() == "always":
-            pull_policy = PullPolicy.ALWAYS
-        elif pull_policy_str.lower() == "never":
-            pull_policy = PullPolicy.NEVER
-        else:
-            pull_policy = PullPolicy.IF_NOT_PRESENT
-
-        self._container = ContainerImage(
-            repository=repository, pull_policy=pull_policy, tag=tag
-        )
+        self._container = _introspect_container()
 
     def build_internal_url(self, username: str, env: dict[str, str]) -> str:
         """Determine the URL of a newly-spawned lab.
