@@ -544,15 +544,6 @@ class FSAdminConfig(BaseModel):
         ),
     ] = None
 
-    command: Annotated[
-        list[str],
-        Field(
-            title="Command and arguments for fsadmin container",
-            description="Set container command and arguments.",
-            examples=[["tail", "-f", "/dev/null"]],
-        ),
-    ] = ["tail", "-f", "/dev/null"]
-
     extra_annotations: Annotated[
         dict[str, str],
         Field(
@@ -586,14 +577,6 @@ class FSAdminConfig(BaseModel):
             ),
         ),
     ] = []
-
-    image: Annotated[
-        ContainerImage,
-        Field(
-            title="fsadmin Docker image",
-            description="Docker image to run as fsadmin",
-        ),
-    ]
 
     mount_prefix: Annotated[
         str | None,
