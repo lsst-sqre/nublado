@@ -55,14 +55,12 @@ from rubin.repertoire import DiscoveryClient
 from structlog.stdlib import BoundLogger
 
 from ...config import (
-    ContainerImage,
     EmptyDirSource,
     LabConfig,
     PVCVolumeSource,
     UserHomeDirectorySchema,
 )
 from ...constants import ARGO_CD_ANNOTATIONS, MEMORY_TO_TMP_SIZE_RATIO
-from ...models.domain.kubernetes import PullPolicy
 from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
 from ...models.domain.rspimage import RSPImage
 from ...models.domain.volumes import MountedVolume
@@ -77,6 +75,7 @@ from ...models.v1.lab import (
     UserGroup,
     UserInfo,
 )
+from ._introspect import _introspect_container
 from .volumes import VolumeBuilder
 
 __all__ = ["LabBuilder"]
