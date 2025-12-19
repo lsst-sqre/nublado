@@ -1037,6 +1037,18 @@ class LabConfig(BaseModel):
         ),
     ] = ["/opt/lsst/software/jupyterlab/runlab.sh"]
 
+    namespace_annotations: Annotated[
+        dict[str, str],
+        Field(
+            title="Per-user namespace annotations",
+            description=(
+                "The values of the annotations are templated using Jinja"
+                " with variables uid and gid defined. To include a variable,"
+                " surround it with {{ }}."
+            ),
+        ),
+    ] = {}
+
     namespace_prefix: Annotated[
         str,
         Field(

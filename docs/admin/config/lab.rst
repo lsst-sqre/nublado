@@ -334,6 +334,11 @@ Kubernetes
     This tagging causes all of the user lab resources to show up in Argo CD, which has been convenient for deleting broken labs or viewing pod logs.
     The default is ``nublado-users`` and should not normally be changed, since Phalanx sets up an application by that name for this purpose.
 
+``controller.config.lab.namespaceAnnotations``
+    Additional annotations to add to the per-user ``Namespace`` resource.
+    The value is treated as a Jinja_ template with two variables: ``uid`` is replaced with the user's UID and ``gid`` is replaced with the user's ``gid``.
+    (To substitute a variable in a Jinja template, surround it with ``{{ }}``, such as ``{{uid}}``.)
+
 ``controller.config.lab.namespacePrefix``
     Prefix used in constructing the names of user lab namespaces.
     All lab resources for a user will be put into a Kubernetes namespace whose name is formed by appending ``-`` and the username to the value of this setting.

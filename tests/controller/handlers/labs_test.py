@@ -11,6 +11,7 @@ from unittest.mock import ANY
 import pytest
 from httpx import AsyncClient
 from httpx_sse import aconnect_sse
+from jinja2 import Template
 from kubernetes_asyncio.client import (
     ApiException,
     CoreV1Event,
@@ -945,6 +946,12 @@ async def test_extra_annotations(
     await asyncio.sleep(0)
 
     namespace = f"{config.lab.namespace_prefix}-{user.username}"
+    ns = await mock_kubernetes.read_namespace(namespace)
+    context = {"uid": user.uid, "gid": user.gid}
+    for key, value in config.lab.namespace_annotations.items():
+        rendered_value = Template(value).render(**context)
+        assert ns.metadata.annotations[key] == rendered_value
+
     pod_name = f"{user.username}-nb"
     pod = await mock_kubernetes.read_namespaced_pod(pod_name, namespace)
     for key, value in config.lab.extra_annotations.items():
