@@ -8,6 +8,7 @@ import re
 import shlex
 from pathlib import Path
 
+from jinja2 import Template
 from kubernetes_asyncio.client import (
     V1Capabilities,
     V1ConfigMap,
@@ -185,7 +186,7 @@ class LabBuilder:
             Kubernetes objects that make up the user's lab.
         """
         return LabObjects(
-            namespace=self._build_namespace(user.username),
+            namespace=self._build_namespace(user),
             env_config_map=self._build_env_config_map(user, lab, image),
             config_maps=await self._build_config_maps(user),
             network_policy=self._build_network_policy(user.username),
@@ -311,10 +312,15 @@ class LabBuilder:
         annotations = ARGO_CD_ANNOTATIONS.copy()
         return V1ObjectMeta(name=name, labels=labels, annotations=annotations)
 
-    def _build_namespace(self, username: str) -> V1Namespace:
+    def _build_namespace(self, user: GafaelfawrUserInfo) -> V1Namespace:
         """Construct the namespace object for a user's lab."""
-        name = f"{self._config.namespace_prefix}-{username}"
-        return V1Namespace(metadata=self._build_metadata(name, username))
+        name = f"{self._config.namespace_prefix}-{user.username}"
+        metadata = self._build_metadata(name, user.username)
+        context = {"uid": user.uid, "gid": user.gid}
+        for annotation, template in self._config.namespace_annotations.items():
+            value = Template(template).render(**context)
+            metadata.annotations[annotation] = value
+        return V1Namespace(metadata=metadata)
 
     async def _build_config_maps(
         self, user: GafaelfawrUserInfo
