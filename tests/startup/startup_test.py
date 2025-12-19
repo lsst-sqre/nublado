@@ -486,8 +486,12 @@ def test_startup_files() -> None:
     expected_env = json.loads((outdir / "env.json").read_text())
     expected_args = json.loads((outdir / "args.json").read_text())
     env_haspath = ["HOME", "SCRATCH_DIR", "TMPDIR"]
+    env_skip = ["JUPYTERLAB_CONFIG_DIR"]
     args_haspath = "--notebook-dir"
     for key in env:
+        if key in env_skip:  # We write it as absolute path, so this would
+            # fail GitHub CI, where that is different.
+            continue
         if key not in env_haspath:
             assert expected_env[key] == env[key]
         else:
