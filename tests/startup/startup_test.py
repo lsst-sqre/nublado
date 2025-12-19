@@ -474,7 +474,7 @@ def test_manage_access_token(monkeypatch: pytest.MonkeyPatch) -> None:
     assert ctr_file.exists()
 
 
-@pytest.mark.usefixtures("_rsp_env")
+@pytest.mark.usefixtures("_rsp_env", "mock_discovery")
 def test_startup_files() -> None:
     pr = Preparer()
     pr.prepare()
@@ -504,7 +504,7 @@ def test_startup_files() -> None:
             assert item_val.find("hambone") != -1
 
 
-@pytest.mark.usefixtures("_rsp_env")
+@pytest.mark.usefixtures("_rsp_env", "mock_discovery")
 def test_startup_files_noninteractive(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NONINTERACTIVE", "TRUE")
     config_path = (
