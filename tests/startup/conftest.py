@@ -9,6 +9,8 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 import pytest
+import respx
+from rubin.repertoire import Discovery, register_mock_discovery
 
 from nublado.startup.storage.command import Command
 
@@ -16,6 +18,16 @@ from nublado.startup.storage.command import Command
 @pytest.fixture
 def discovery_v1_path() -> Path:
     return Path(__file__).parent / "data" / "discovery" / "v1.json"
+
+
+@pytest.fixture
+def mock_discovery(
+    respx_mock: respx.Router,
+    monkeypatch: pytest.MonkeyPatch,
+    discovery_v1_path: Path,
+) -> Discovery:
+    monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example/com/repertoire")
+    return register_mock_discovery(respx_mock, discovery_v1_path)
 
 
 # Things for startup
