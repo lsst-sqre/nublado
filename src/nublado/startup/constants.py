@@ -51,58 +51,64 @@ therefore should not be touched.
 """
 
 RUNTIME_ENVIRONMENT_VARIABLES = [
-    "ABNORMAL_STARTUP",  # [0]
-    "ABNORMAL_STARTUP_ERRNO",  # [0]
-    "ABNORMAL_STARTUP_STRERROR",  # [0]
-    "ABNORMAL_STARTUP_MESSAGE",  # [0]
-    "ABNORMAL_STARTUP_ERRORCODE",  # [0]
-    "AWS_SHARED_CREDENTIALS_FILE",  # [0]: ABNORMAL_* for error reporting.
-    "CPU_LIMIT",  # [1]
-    "CPU_COUNT",  # [1]
-    "DEBUG",  # Enable debug logging/behavior.
+    "ABNORMAL_STARTUP",  # [a]
+    "ABNORMAL_STARTUP_ERRNO",  # [a]
+    "ABNORMAL_STARTUP_STRERROR",  # [a]
+    "ABNORMAL_STARTUP_MESSAGE",  # [a]
+    "ABNORMAL_STARTUP_ERRORCODE",  # [a]
+    "AWS_SHARED_CREDENTIALS_FILE",  # [b]
+    "CONTAINER_SIZE",  # [a]
+    "CPU_LIMIT",  # [a]
+    "CPU_COUNT",  # [c]
+    "DEBUG",  # [a]
+    "EXTERNAL_INSTANCE_URL",  # [a]
     "FIREFLY_URL",  # Temporary--can be replaced with JL config variable.
-    "GOTO_NUM_THREADS",  # [1]
-    "JUPYTERHUB_ACTIVITY_INTERVAL",  # [2]
-    "JUPYTERHUB_ACTIVITY_URL",  # [2]
-    "JUPYTERHUB_ADMIN_ACCESS",  # [2]
-    "JUPYTERHUB_API_TOKEN",  # [2]
-    "JUPYTERHUB_API_URL",  # [2]
-    "JUPYTERHUB_BASE_URL",  # [2]
-    "JUPYTERHUB_CLIENT_ID",  # [2]
-    "JUPYTERHUB_COOKIE_HOST_PREFIX_ENABLED",  # [2]
-    "JUPYTERHUB_DEFAULT_URL",  # [2]
-    "JUPYTERHUB_HOST",  # [2]
-    "JUPYTERHUB_OAUTH_ACCESS_SCOPES",  # [2]
-    "JUPYTERHUB_OAUTH_CALLBACK_URL",  # [2]
-    "JUPYTERHUB_OAUTH_CLIENT_ALLOWED_SCOPES",  # [2]
-    "JUPYTERHUB_OAUTH_SCOPES",  # [2]
-    "JUPYTERHUB_PUBLIC_HUB_URL",  # [2]
-    "JUPYTERHUB_PUBLIC_URL",  # [2]
-    "JUPYTERHUB_SERVER_NAME",  # [2]
-    "JUPYTERHUB_SERVICE_PREFIX",  # [2]
-    "JUPYTERHUB_SERVICE_URL",  # [2]
-    "JUPYTERHUB_USER",  # [2]
-    "JUPYTERLAB_CONFIG_DIR",  # [2]
-    "JUPYTERLAB_START_COMMAND",  # [2]
-    "JUPYTER_IMAGE",  # [2]
-    "JUPYTER_IMAGE_SPEC",  # [2]
-    "JUPYTER_PREFER_ENV_PATH",  # [2]
-    "JUPYTER_SERVER_ROOT",  # [2]
-    "JUPYTER_SERVER_URL",  # [2]: Needed by JupyterHub comms
-    "HOME",  # [3]
-    "MKL_DOMAIN_NUM_THREADS",  # [1]
-    "MPI_NUM_THREADS",  # [1]
-    "NUMEXPR_NUM_THREADS",  # [1]
-    "NUMEXPR_MAX_THREADS",  # [1]
-    "OMP_NUM_THREADS",  # [1]
-    "OPENBLAS_NUM_THREADS",  # [1]
-    "PANDA_CONFIG_ROOT",  # [0]
-    "PGPASSFILE",  # [0]: Possibly r/o mounted secret merged at startup.
-    "RAYON_NUM_THREADS",  # [1]: Keep OpenBLAS from getting too excited.
+    "GOTO_NUM_THREADS",  # [c]
+    "IMAGE_DESCRIPTION",  # [a]
+    "IMAGE_DIGEST",  # [a] (maybe obsolete)
+    "JUPYTERHUB_ACTIVITY_INTERVAL",  # [d]
+    "JUPYTERHUB_ACTIVITY_URL",  # [d]
+    "JUPYTERHUB_ADMIN_ACCESS",  # [d]
+    "JUPYTERHUB_API_TOKEN",  # [d]
+    "JUPYTERHUB_API_URL",  # [d]
+    "JUPYTERHUB_BASE_URL",  # [d]
+    "JUPYTERHUB_CLIENT_ID",  # [d]
+    "JUPYTERHUB_COOKIE_HOST_PREFIX_ENABLED",  # [d]
+    "JUPYTERHUB_DEFAULT_URL",  # [d]
+    "JUPYTERHUB_HOST",  # [d]
+    "JUPYTERHUB_OAUTH_ACCESS_SCOPES",  # [d]
+    "JUPYTERHUB_OAUTH_CALLBACK_URL",  # [d]
+    "JUPYTERHUB_OAUTH_CLIENT_ALLOWED_SCOPES",  # [d]
+    "JUPYTERHUB_OAUTH_SCOPES",  # [d]
+    "JUPYTERHUB_PUBLIC_HUB_URL",  # [d]
+    "JUPYTERHUB_PUBLIC_URL",  # [a][d]
+    "JUPYTERHUB_SERVER_NAME",  # [d]
+    "JUPYTERHUB_SERVICE_PREFIX",  # [d]
+    "JUPYTERHUB_SERVICE_URL",  # [d]
+    "JUPYTERHUB_USER",  # [d]
+    "JUPYTERLAB_CONFIG_DIR",  # [d]
+    "JUPYTERLAB_START_COMMAND",  # [d]
+    "JUPYTER_IMAGE",  # [d] (maybe obsolete)
+    "JUPYTER_IMAGE_SPEC",  # [a][d]
+    "JUPYTER_PREFER_ENV_PATH",  # [d]
+    "JUPYTER_SERVER_ROOT",  # [d]
+    "JUPYTER_SERVER_URL",  # [d]: Needed by JupyterHub comms
+    "HOME",  # [e]
+    "MEM_LIMIT",  # [a]
+    "MKL_DOMAIN_NUM_THREADS",  # [c]
+    "MPI_NUM_THREADS",  # [c]
+    "NUMEXPR_NUM_THREADS",  # [c]
+    "NUMEXPR_MAX_THREADS",  # [c]
+    "OMP_NUM_THREADS",  # [c]
+    "OPENBLAS_NUM_THREADS",  # [c]
+    "PANDA_CONFIG_ROOT",  # [b]
+    "PGPASSFILE",  # [b]: Possibly r/o mounted secret merged at startup.
+    "RAYON_NUM_THREADS",  # [c]: Keep OpenBLAS from getting too excited.
+    "RSP_SITE_TYPE",  # Currently used to determine query/tutorial menu.
     "RUNNING_INSIDE_JUPYTERLAB",  # Used by noninteractive, possibly obsolete.
-    "USER",  # [3]
+    "USER",  # [e]
     "SCRATCH_DIR",  # Rubin-specific hint for large ephemeral space.
-    "TMPDIR",  # [3]: Standard Unix variable for shell and tools.
+    "TMPDIR",  # [e]: Standard Unix variable for shell and tools.
 ]
 """Environment variables to be forwarded to the runtime JupyterLab process.
 
