@@ -487,7 +487,7 @@ def test_startup_files() -> None:
     expected_args = json.loads((outdir / "args.json").read_text())
     env_haspath = ["HOME", "SCRATCH_DIR", "TMPDIR"]
     env_skip = ["JUPYTERLAB_CONFIG_DIR"]
-    args_haspath = "--notebook-dir"
+    args_haspath = ["--FileContentsManager.preferred_dir"]
     for key in env:
         if key in env_skip:  # We write it as absolute path, so this would
             # fail GitHub CI, where that is different.
@@ -497,15 +497,16 @@ def test_startup_files() -> None:
         else:
             # User name will be somewhere in the value
             assert env[key].find("hambone") != -1
-    stored_items = [x for x in args if x.startswith(args_haspath)]
     for item in args:
-        if item not in stored_items:
-            # It should match exactly
-            assert item in expected_args
+        if item.find("=") != -1:
+            ikey, ival = item.split("=")
+            if ikey not in args_haspath:
+                assert item in expected_args
+            else:
+                # User name will be somewhere in the value
+                assert ival.find("hambone") != -1
         else:
-            # Check these for user name.
-            item_val = item.split("=")[1]
-            assert item_val.find("hambone") != -1
+            assert item in expected_args
 
 
 @pytest.mark.usefixtures("_rsp_env", "mock_discovery")

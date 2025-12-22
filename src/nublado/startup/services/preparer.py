@@ -1183,11 +1183,10 @@ class Preparer:
 
     def _write_lab_args(self) -> None:
         log_level = "DEBUG" if self._debug else "INFO"
-        notebook_dir = f"{self._home!s}"
         args_file = STARTUP_PATH / "args.json"
         # Make a new list from the static args and our own info.
         cmd_args = list(LAB_STATIC_CMD_ARGS)
-        cmd_args.append(f"--notebook-dir={notebook_dir}")
         cmd_args.append(f"--log-level={log_level}")
+        cmd_args.append(f"--FileContentsManager.preferred_dir={self._home!s}")
         cmd_args.extend(self._set_timeout_variables())
         args_file.write_text(json.dumps(cmd_args))

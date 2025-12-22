@@ -26,11 +26,12 @@ LAB_STATIC_CMD_ARGS = [
     "--ContentsManager.allow_hidden=True",
     "--FileContentsManager.hide_globs=[]",
     "--KernelSpecManager.ensure_native_kernel=False",
+    "--LabApp.check_for_updates_class=jupyterlab.NeverCheckForUpdate",
+    "--MappingKernelManager.default_kernel_name=lsst",
     "--QtExporter.enabled=False",
     "--PDFExporter.enabled=False",
+    "--ServerApp.root_dir=/",
     "--WebPDFExporter.allow_chromium_download=True",
-    "--MappingKernelManager.default_kernel_name=lsst",
-    "--LabApp.check_for_updates_class=jupyterlab.NeverCheckForUpdate",
 ]
 """Constants used in Lab startup invocation."""
 

@@ -33,6 +33,7 @@ uv pip install --upgrade \
    jupyter-server \
    jupyter-server-proxy \
    jupyter_bokeh \
+   jupyter_server_documents \
    jupyterhub \
    jupyterlab \
    jupyterlab_execute_time \
