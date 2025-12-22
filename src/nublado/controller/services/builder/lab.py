@@ -55,9 +55,9 @@ from rubin.repertoire import DiscoveryClient
 from structlog.stdlib import BoundLogger
 
 from ...config import (
+    EmptyDirSource,
     LabConfig,
     PVCVolumeSource,
-    TmpSource,
     UserHomeDirectorySchema,
 )
 from ...constants import ARGO_CD_ANNOTATIONS, MEMORY_TO_TMP_SIZE_RATIO
@@ -75,6 +75,7 @@ from ...models.v1.lab import (
     UserGroup,
     UserInfo,
 )
+from ._introspect import _introspect_container
 from .volumes import VolumeBuilder
 
 __all__ = ["LabBuilder"]
@@ -108,6 +109,7 @@ class LabBuilder:
         self._discovery = discovery_client
         self._logger = logger
         self._volume_builder = VolumeBuilder()
+        self._container = _introspect_container()
 
     def build_internal_url(self, username: str, env: dict[str, str]) -> str:
         """Determine the URL of a newly-spawned lab.
@@ -570,6 +572,7 @@ class LabBuilder:
             self._build_pod_secret_volume(user.username),
             self._build_pod_env_volume(user.username),
             self._build_pod_tmp_volume(mem_size=resources.limits.memory),
+            self._build_pod_startup_volume(mem_size=640 * 1024),
             self._build_pod_downward_api_volume(user.username),
         ]
         volumes = self._build_pod_volumes(user.username, mounted_volumes)
@@ -577,7 +580,9 @@ class LabBuilder:
 
         # Build the pod object itself.
         containers = self._build_pod_containers(user, mounts, resources, image)
-        init_containers = self._build_pod_init_containers(user, resources)
+        init_containers = self._build_pod_init_containers(
+            user, mounts, resources
+        )
         affinity = None
         if self._config.affinity:
             affinity = self._config.affinity.to_kubernetes()
@@ -627,7 +632,7 @@ class LabBuilder:
 
     def _build_pod_volume_mounts(
         self, username: str, mounted_volumes: list[MountedVolume]
-    ) -> V1VolumeMount:
+    ) -> list[V1VolumeMount]:
         """Construct the volume mounts for the user's pod."""
         mounts = self._volume_builder.build_mounts(self._config.volume_mounts)
         mounts.extend(v.volume_mount for v in mounted_volumes)
@@ -755,7 +760,7 @@ class LabBuilder:
         come from the pod memory allocation rather than disk space.
         """
         medium = None
-        if self._config.tmp_source == TmpSource.MEMORY:
+        if self._config.empty_dir_source == EmptyDirSource.MEMORY:
             medium = "Memory"
         return MountedVolume(
             volume=V1Volume(
@@ -767,6 +772,32 @@ class LabBuilder:
             ),
             volume_mount=V1VolumeMount(
                 mount_path="/tmp", name="tmp", read_only=False
+            ),
+        )
+
+    def _build_pod_startup_volume(self, mem_size: int) -> MountedVolume:
+        """Build the volume that provides a shared means of communication
+        between init containers and the running Lab.
+
+        This is used so that the nublado startup classes in the controller can
+        write a file governing Lab start in the Lab container.
+
+        Note that it is the `Memory` medium setting that forces this to
+        be tmpfs rather than ephemeral storage, and therefore usage will
+        come from the pod memory allocation rather than disk space.
+        """
+        medium = None
+        if self._config.empty_dir_source == EmptyDirSource.MEMORY:
+            medium = "Memory"
+        return MountedVolume(
+            volume=V1Volume(
+                empty_dir=V1EmptyDirVolumeSource(
+                    medium=medium, size_limit=mem_size
+                ),
+                name="lab-startup",
+            ),
+            volume_mount=V1VolumeMount(
+                mount_path="/lab_startup", name="lab-startup", read_only=False
             ),
         )
 
@@ -809,7 +840,10 @@ class LabBuilder:
         )
 
     def _build_pod_init_containers(
-        self, user: GafaelfawrUserInfo, resources: LabResources
+        self,
+        user: GafaelfawrUserInfo,
+        mounts: list[V1VolumeMount],
+        resources: LabResources,
     ) -> list[V1Container]:
         """Build init containers for the pod."""
         username = user.username
@@ -828,7 +862,6 @@ class LabBuilder:
             run_as_user=user.uid,
             run_as_group=user.gid,
         )
-
         # Use the same environment ConfigMap as the notebook container since
         # it may contain other things we need for provisioning. Add
         # environment variables communicating the primary UID and GID, and
@@ -842,9 +875,30 @@ class LabBuilder:
             V1EnvVar(name="NUBLADO_GID", value=str(user.gid)),
         ]
 
-        containers = []
+        # Used for inithome
+        home_mounts = [
+            x for x in mounts if x.name == self._config.home_volume_name
+        ]
+
+        containers: list[V1Container] = []
+
+        # If we are using the standard inithome, we want to provision the
+        # user's homedir before proceeding.
+        if self._config.standard_inithome:
+            container = self._build_nublado_initcontainer(
+                function="inithome",
+                env=env,
+                env_source=env_source,
+                security_context=as_root,
+                resources=resources,
+                mounts=home_mounts,
+            )
+            containers.append(container)
+
+        # Now we add the config-requested init containers, in order.
+        # These have their own set of volume mounts.
         for spec in self._config.init_containers:
-            mounts = self._volume_builder.build_mounts(spec.volume_mounts)
+            c_mounts = self._volume_builder.build_mounts(spec.volume_mounts)
             container = V1Container(
                 name=spec.name,
                 command=spec.command,
@@ -854,46 +908,59 @@ class LabBuilder:
                 image_pull_policy=spec.image.pull_policy.value,
                 resources=resources.to_kubernetes(),
                 security_context=as_root if spec.privileged else as_user,
-                volume_mounts=mounts,
+                volume_mounts=c_mounts,
             )
             containers.append(container)
 
+        # If it's a "science" type site, we run the "set up a landing page"
+        # container before startup.
+        #
+        # We want all the mounts because we are copying tutorials material from
+        # a shared, read-only filesystem into the user home directory.
+        if self._config.env.get("RSP_SITE_TYPE", "") == "science":
+            container = self._build_nublado_initcontainer(
+                function="landingpage",
+                env=env,
+                env_source=env_source,
+                security_context=as_user,
+                resources=resources,
+                mounts=mounts,
+            )
+            containers.append(container)
+
+        # And then we finally add our setup container, which always
+        # runs unconditionally just before lab launch.  It gets the
+        # entire set of Lab mounts and secrets, because it uses those to
+        # create the final environment into which the Lab launches.
+        startup_env = list(env)
+        startup_env.extend(self._extract_env_secrets(user=user))
+        container = self._build_nublado_initcontainer(
+            function="startup",
+            env=startup_env,
+            env_source=env_source,
+            security_context=as_user,
+            resources=resources,
+            mounts=mounts,
+        )
+        containers.append(container)
         return containers
 
-    def _build_pod_containers(
-        self,
-        user: GafaelfawrUserInfo,
-        mounts: list[V1VolumeMount],
-        resources: LabResources,
-        image: RSPImage,
-    ) -> V1PodSpec:
-        """Construct the containers for the user's lab pod."""
-        # Additional environment variables to set, layered on top of the env
-        # ConfigMap. The ConfigMap holds public information known before the
-        # lab is spawned; these environment variables hold everything else.
+    def _extract_env_secrets(
+        self, *, user: GafaelfawrUserInfo
+    ) -> list[V1EnvVar]:
+        """ACCESS_TOKEN is always taken from a particular secret.
+
+        Other secrets may be injected as environment variables.
+        This method collects those for use by both the startup initcontainer
+        and the main Lab container.
+        """
         env = [
-            # User's Gafaelfawr token.
             V1EnvVar(
                 name="ACCESS_TOKEN",
                 value_from=V1EnvVarSource(
                     secret_key_ref=V1SecretKeySelector(
                         key="token", name=f"{user.username}-nb", optional=False
                     )
-                ),
-            ),
-            # Node on which the pod is running.
-            V1EnvVar(
-                name="KUBERNETES_NODE_NAME",
-                value_from=V1EnvVarSource(
-                    field_ref=V1ObjectFieldSelector(field_path="spec.nodeName")
-                ),
-            ),
-            # Deprecated version of KUBERNETES_NODE_NAME, used by lsst.rsp
-            # 0.3.4 and earlier.
-            V1EnvVar(
-                name="K8S_NODE_NAME",
-                value_from=V1EnvVarSource(
-                    field_ref=V1ObjectFieldSelector(field_path="spec.nodeName")
                 ),
             ),
         ]
@@ -906,6 +973,64 @@ class LabBuilder:
             source = V1EnvVarSource(secret_key_ref=selector)
             variable = V1EnvVar(name=spec.env, value_from=source)
             env.append(variable)
+        return env
+
+    def _build_nublado_initcontainer(
+        self,
+        *,
+        function: str,
+        env: list[V1EnvVar],
+        env_source: V1ConfigMapEnvSource,
+        security_context: V1SecurityContext,
+        resources: LabResources,
+        mounts: list[V1VolumeMount],
+    ) -> V1Container:
+        return V1Container(
+            name=f"nublado-std-{function}",
+            command=["nublado", function],
+            env=env,
+            env_from=[V1EnvFromSource(config_map_ref=env_source)],
+            image=f"{self._container.repository}:{self._container.tag}",
+            image_pull_policy=self._container.pull_policy.value,
+            resources=resources.to_kubernetes(),
+            security_context=security_context,
+            volume_mounts=mounts,
+        )
+
+    def _build_pod_containers(
+        self,
+        user: GafaelfawrUserInfo,
+        mounts: list[V1VolumeMount],
+        resources: LabResources,
+        image: RSPImage,
+    ) -> V1PodSpec:
+        """Construct the containers for the user's lab pod."""
+        # Additional environment variables to set, layered on top of the env
+        # ConfigMap. The ConfigMap holds public information known before the
+        # lab is spawned; these environment variables hold everything else.
+        env = self._extract_env_secrets(user=user)
+        env.extend(
+            [
+                V1EnvVar(
+                    name="KUBERNETES_NODE_NAME",
+                    value_from=V1EnvVarSource(
+                        field_ref=V1ObjectFieldSelector(
+                            field_path="spec.nodeName"
+                        )
+                    ),
+                ),
+                # Deprecated version of KUBERNETES_NODE_NAME, used by lsst.rsp
+                # 0.3.4 and earlier.
+                V1EnvVar(
+                    name="K8S_NODE_NAME",
+                    value_from=V1EnvVarSource(
+                        field_ref=V1ObjectFieldSelector(
+                            field_path="spec.nodeName"
+                        )
+                    ),
+                ),
+            ]
+        )
 
         # Specification for the user's container.
         env_source = V1ConfigMapEnvSource(name=f"{user.username}-nb-env")

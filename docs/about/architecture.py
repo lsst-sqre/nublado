@@ -70,7 +70,7 @@ with Diagram(
     controller >> image_puller
     controller >> Edge(style="dashed") >> user_lab
     controller >> Edge(style="dashed") >> [fileserver_ingress, user_fileserver]
-    controller >> Edge(stule="dashed") >> admin_fileserver
+    controller >> Edge(style="dashed") >> admin_fileserver
     admin_fileserver >> posix
     user >> fileserver_ingress >> user_fileserver >> posix
     fileserver_ingress >> gafaelfawr

@@ -15,6 +15,7 @@ from kubernetes_asyncio.client import (
 from pydantic import (
     AfterValidator,
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     Field,
     SecretStr,
@@ -46,13 +47,15 @@ from .models.v1.prepuller import (
     GARSourceOptions,
     PrepullerOptions,
 )
-from .units import bytes_to_si
+from .units import bytes_to_si, memory_to_bytes
 
 __all__ = [
     "BaseVolumeSource",
     "Config",
     "ContainerImage",
     "DisabledFileserverConfig",
+    "EmptyDirSource",
+    "EmptyDirVolumeSource",
     "EnabledFileserverConfig",
     "FSAdminConfig",
     "FileserverConfig",
@@ -65,7 +68,6 @@ __all__ = [
     "NFSVolumeSource",
     "PVCVolumeResources",
     "PVCVolumeSource",
-    "TmpSource",
     "UserHomeDirectorySchema",
     "VolumeConfig",
     "VolumeMountConfig",
@@ -143,6 +145,37 @@ class BaseVolumeSource(BaseModel):
 
     type: Annotated[
         str, Field(title="Type of volume to mount", examples=["nfs"])
+    ]
+
+
+class EmptyDirSource(Enum):
+    """Where space for emptyDirs (e.g. :file:`/tmp`) should come from."""
+
+    DISK = "disk"
+    """Use ephemeralStorage and node-local disk for emptyDir"""
+
+    MEMORY = "memory"
+    """Use tmpfs and pod memory for emptyDir"""
+
+
+class EmptyDirVolumeSource(BaseVolumeSource):
+    """Empty directory shared between all Pod containers."""
+
+    type: Literal["emptyDir"]
+
+    medium: EmptyDirSource = EmptyDirSource.MEMORY
+
+    size: Annotated[
+        int,
+        Field(
+            title="Size",
+            description=(
+                "Maximum size of emptyDir in bytes. Also accepts strings with"
+                " SI suffixes, in either binary or decimal form."
+            ),
+            examples=[1073741824, "1Gi", "1073741824", "64ki", "250M"],
+        ),
+        BeforeValidator(memory_to_bytes),
     ]
 
 
@@ -424,17 +457,6 @@ class EnabledFileserverConfig(FileserverConfig):
         ),
     ] = timedelta(hours=1)
 
-    image: Annotated[
-        ContainerImage,
-        Field(
-            title="File server Docker image",
-            description=(
-                "Docker image to run as a user file server. This must follow"
-                " the same API as worblehat."
-            ),
-        ),
-    ]
-
     namespace: Annotated[
         str,
         Field(
@@ -511,15 +533,6 @@ class FSAdminConfig(BaseModel):
         ),
     ] = None
 
-    command: Annotated[
-        list[str],
-        Field(
-            title="Command and arguments for fsadmin container",
-            description="Set container command and arguments.",
-            examples=[["tail", "-f", "/dev/null"]],
-        ),
-    ] = ["tail", "-f", "/dev/null"]
-
     extra_annotations: Annotated[
         dict[str, str],
         Field(
@@ -553,14 +566,6 @@ class FSAdminConfig(BaseModel):
             ),
         ),
     ] = []
-
-    image: Annotated[
-        ContainerImage,
-        Field(
-            title="fsadmin Docker image",
-            description="Docker image to run as fsadmin",
-        ),
-    ]
 
     mount_prefix: Annotated[
         str | None,
@@ -707,16 +712,6 @@ class UserHomeDirectorySchema(Enum):
 
     INITIAL_THEN_USERNAME = "initialThenUsername"
     """Paths like ``/home/r/rachel``."""
-
-
-class TmpSource(Enum):
-    """Where space for :file:`/tmp` should come from."""
-
-    DISK = "disk"
-    """Use ephemeralStorage and node-local disk for :file:`/tmp`"""
-
-    MEMORY = "memory"
-    """Use tmpfs and pod memory for :file:`/tmp`"""
 
 
 class LabInitContainer(BaseModel):
@@ -918,6 +913,22 @@ class LabConfig(BaseModel):
         ),
     ] = timedelta(minutes=1)
 
+    empty_dir_source: Annotated[
+        EmptyDirSource,
+        Field(
+            title=(
+                "Source (memory or disk) for lab emptyDirs (e.g."
+                " :file:`/tmp` and :file:`/lab_startup`)"
+            ),
+            description=(
+                "Select whether the pod's emptyDirs (:file:`/tmp` and"
+                " :file:`/lab_startup`) will come from memory or node-local"
+                " disk. Both are scarce resources, and the appropriate choice"
+                " is environment-dependent."
+            ),
+        ),
+    ] = EmptyDirSource.MEMORY
+
     env: Annotated[
         dict[Annotated[str, AfterValidator(_reject_reserved_env)], str],
         Field(
@@ -1011,6 +1022,19 @@ class LabConfig(BaseModel):
         ),
         AfterValidator(lambda v: v.strip("/")),
     ] = ""
+
+    home_volume_name: Annotated[
+        str,
+        Field(
+            title="Name of volume containing user homedirs",
+            description=(
+                "The standard inithome container, the landingpage"
+                " container, and the Lab startup initcontainer all"
+                " need to know which volume contains user home"
+                " directories."
+            ),
+        ),
+    ] = "home"
 
     init_containers: Annotated[
         list[LabInitContainer],
@@ -1155,17 +1179,18 @@ class LabConfig(BaseModel):
         ),
     ] = timedelta(minutes=10)
 
-    tmp_source: Annotated[
-        TmpSource,
+    standard_inithome: Annotated[
+        bool,
         Field(
-            title="Source (memory or disk) for lab :file:`/tmp`",
+            title="Use standard inithome container",
             description=(
-                "Select whether the pod's :file:`/tmp` will come from memory"
-                " or node-local disk. Both are scarce resources, and the"
-                " appropriate choice is environment-dependent."
+                "Requires that a privileged container can write to the volume"
+                " containing homedirs as root-equivalent. If that volume is"
+                " not named ``home`` its name must be specified in"
+                " ``config.lab.homeVolumeName``."
             ),
         ),
-    ] = TmpSource.MEMORY
+    ] = False
 
     tolerations: Annotated[
         list[Toleration],
