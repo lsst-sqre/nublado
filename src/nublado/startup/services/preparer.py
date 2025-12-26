@@ -1147,13 +1147,16 @@ class Preparer:
             self._env["HOME"] = temphome
             self._home = Path(temphome)
         # Used by shell startup inside the Lab.
-        self._env["RUNNING_INSIDE_JUPTYERLAB"] = "TRUE"
-        # If any of these fails, don't catch the exception.  If we cannot
-        # write the startup files, we can't start the Lab, even to report
-        # an abnormal startup.
-        self._write_noninteractive_command()
-        self._write_lab_environment()
-        self._write_lab_args()
+        self._env["RUNNING_INSIDE_JUPYTERLAB"] = "TRUE"
+        # If any of these fails, lsst.rsp.startup ought to react to the
+        # lack of the appropriate files and start in degraded mode with
+        # an explanation.
+        try:
+            self._write_noninteractive_command()
+            self._write_lab_environment()
+            self._write_lab_args()
+        except Exception:
+            self._logger.exception("Writing Lab startup files failed")
 
     def _write_noninteractive_command(self) -> None:
         # Only write "noninteractive.json" if we are running in

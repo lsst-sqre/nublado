@@ -105,7 +105,7 @@ RUNTIME_ENVIRONMENT_VARIABLES = [
     "PGPASSFILE",  # [b]: Possibly r/o mounted secret merged at startup.
     "RAYON_NUM_THREADS",  # [c]: Keep OpenBLAS from getting too excited.
     "RSP_SITE_TYPE",  # Currently used to determine query/tutorial menu.
-    "RUNNING_INSIDE_JUPYTERLAB",  # Used by noninteractive, possibly obsolete.
+    "RUNNING_INSIDE_JUPYTERLAB",  # Used by noninteractive
     "USER",  # [e]
     "SCRATCH_DIR",  # Rubin-specific hint for large ephemeral space.
     "TMPDIR",  # [e]: Standard Unix variable for shell and tools.
