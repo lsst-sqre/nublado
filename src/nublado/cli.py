@@ -23,6 +23,7 @@ from .constants import (
     ROOT_LOGGER,
 )
 from .inithome.provisioner import Provisioner
+from .landingpage.provisioner import Provisioner as LandingPageProvisioner
 from .purger.config import Config as PurgerConfig
 from .purger.constants import (
     CONFIG_FILE as PURGER_CONFIG_FILE,
@@ -31,11 +32,14 @@ from .purger.constants import (
     CONFIG_FILE_ENV_VAR as PURGER_CONFIG_FILE_ENV_VAR,
 )
 from .purger.purger import Purger
+from .startup.services.preparer import Preparer
 
 __all__ = [
     "inithome",
+    "landingpage",
     "main",
     "purger",
+    "startup",
 ]
 
 # Do this at the very beginning so that Sentry gets all exceptions.
@@ -241,6 +245,9 @@ def inithome() -> None:
     """Provision user home directory.
 
     All of ``NUBLADO_UID``, ``NUBLADO_GID``, and ``NUBLADO_HOME`` must be set.
+
+    This runs as an initContainer before either the landing page initContainer
+    or the startup initContainer runs.
     """
     logger = get_logger(ROOT_LOGGER)
     try:
@@ -265,3 +272,41 @@ def inithome() -> None:
         raise
     provisioner = Provisioner(home, uid, gid)
     asyncio.run(provisioner.provision())
+
+
+@main.command()
+def landingpage() -> None:
+    """Redirect user to writeable copy of CST landing page.
+
+    This only occurs at "science"-type RSP instances.
+    It uses the environment variables ``NUBLADO_HOME``,
+    ``CST_LANDING_PAGE_SRC_DIR``, ``CST_LANDING_PAGE_TGT_DIR``, and
+    ``CST_LANDING_PAGE_FILES``.
+    It must never throw an exception: if the init container holding
+    the landing page provisioner fails to perform, we just open a Lab as
+    usual, with whatever layout is in the user cache.
+
+    This runs as an initContainer before the startup initContainer runs.
+    """
+    logger = get_logger(ROOT_LOGGER)
+    try:
+        provisioner = LandingPageProvisioner.from_env()
+        provisioner.go()
+    except Exception:
+        logger.exception("Provisioner failed")
+
+
+@main.command()
+def startup() -> None:
+    """Prepare environment for launching user Lab pod.
+
+    This makes any needed changes to the filesystem (e.g. merging credentials
+    into the user's homedir), and sets up the runtime environment (e.g.
+    setting the idle-cull timeout); then it dumps those settings somewhere
+    they can be consulted at container start time.
+
+    This runs as an initContainer just before the Lab image launches
+    JupyterLab.
+    """
+    prep = Preparer()
+    prep.prepare()
