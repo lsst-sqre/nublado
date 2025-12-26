@@ -1147,7 +1147,7 @@ class Preparer:
             self._env["HOME"] = temphome
             self._home = Path(temphome)
         # Used by shell startup inside the Lab.
-        self._env["RUNNING_INSIDE_JUPTYERLAB"] = "TRUE"
+        self._env["RUNNING_INSIDE_JUPYTERLAB"] = "TRUE"
         # If any of these fails, lsst.rsp.startup ought to react to the
         # lack of the appropriate files and start in degraded mode with
         # an explanation.
