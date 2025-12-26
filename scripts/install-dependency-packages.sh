@@ -24,10 +24,12 @@ apt-get update
 # Install various dependencies that may be required to install mobu.
 #
 # build-essential: sometimes needed to build Python modules
+# golang: needed to build Worblehat fileserver
 # libffi-dev: sometimes needed to build cffi, a cryptography dependency
 # zlib1g-dev: compression library needed for aiofakfa
 apt-get -y install --no-install-recommends \
     build-essential \
+    golang \
     libffi-dev \
     zlib1g-dev
 

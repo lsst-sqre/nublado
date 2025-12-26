@@ -68,5 +68,4 @@ uv cache clean
 
 # Increase this to force a rebuild because a dependency package has changed.
 # Reset when you actually change a package or its pins.
-# Serial: 0
-
+# Serial: 1

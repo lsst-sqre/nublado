@@ -289,6 +289,16 @@
               }
             },
             {
+              "name": "BUTLER_SECRET",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "butler-secret",
+                  "name": "rachel-nb",
+                  "optional": false
+                }
+              }
+            },
+            {
               "name": "KUBERNETES_NODE_NAME",
               "valueFrom": {
                 "fieldRef": {
@@ -301,16 +311,6 @@
               "valueFrom": {
                 "fieldRef": {
                   "fieldPath": "spec.nodeName"
-                }
-              }
-            },
-            {
-              "name": "BUTLER_SECRET",
-              "valueFrom": {
-                "secretKeyRef": {
-                  "key": "butler-secret",
-                  "name": "rachel-nb",
-                  "optional": false
                 }
               }
             }
@@ -423,6 +423,11 @@
             {
               "mountPath": "/tmp",
               "name": "tmp",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/lab_startup",
+              "name": "lab-startup",
               "readOnly": false
             },
             {
@@ -557,6 +562,167 @@
               "mountPath": "/home",
               "name": "home",
               "readOnly": false
+            }
+          ]
+        },
+        {
+          "command": [
+            "nublado",
+            "startup"
+          ],
+          "env": [
+            {
+              "name": "NUBLADO_HOME",
+              "value": "/home/rachel"
+            },
+            {
+              "name": "NUBLADO_UID",
+              "value": "1101"
+            },
+            {
+              "name": "NUBLADO_GID",
+              "value": "1101"
+            },
+            {
+              "name": "ACCESS_TOKEN",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "token",
+                  "name": "rachel-nb",
+                  "optional": false
+                }
+              }
+            },
+            {
+              "name": "BUTLER_SECRET",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "butler-secret",
+                  "name": "rachel-nb",
+                  "optional": false
+                }
+              }
+            }
+          ],
+          "envFrom": [
+            {
+              "configMapRef": {
+                "name": "rachel-nb-env"
+              }
+            }
+          ],
+          "image": "ghcr.io/lsst-sqre/nublado:11.1.1",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "nublado-std-startup",
+          "resources": {
+            "limits": {
+              "cpu": "1.0",
+              "memory": "3221225472"
+            },
+            "requests": {
+              "cpu": "0.25",
+              "memory": "805306368"
+            }
+          },
+          "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": [
+                "all"
+              ]
+            },
+            "readOnlyRootFilesystem": true,
+            "runAsGroup": 1101,
+            "runAsNonRoot": true,
+            "runAsUser": 1101
+          },
+          "volumeMounts": [
+            {
+              "mountPath": "/home",
+              "name": "home",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/PROJECT",
+              "name": "project",
+              "readOnly": true
+            },
+            {
+              "mountPath": "/ScRaTcH",
+              "name": "scratch",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/scratch",
+              "name": "scratch",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/temporary",
+              "name": "temporary",
+              "readOnly": false,
+              "subPath": "temporary"
+            },
+            {
+              "mountPath": "/etc/passwd",
+              "name": "passwd",
+              "readOnly": true,
+              "subPath": "passwd"
+            },
+            {
+              "mountPath": "/etc/group",
+              "name": "group",
+              "readOnly": true,
+              "subPath": "group"
+            },
+            {
+              "mountPath": "/opt/lsst/software/jupyterlab/lsst_dask.yml",
+              "name": "lsst-dask-yml",
+              "readOnly": true,
+              "subPath": "lsst_dask.yml"
+            },
+            {
+              "mountPath": "/opt/lsst/software/jupyterlab/panda",
+              "name": "panda",
+              "readOnly": true,
+              "subPath": "panda"
+            },
+            {
+              "mountPath": "/etc/nublado/discovery/v1.json",
+              "name": "discovery-v1-json",
+              "readOnly": true,
+              "subPath": "v1.json"
+            },
+            {
+              "mountPath": "/opt/lsst/software/jupyterlab/secrets",
+              "name": "secrets",
+              "readOnly": true
+            },
+            {
+              "mountPath": "/opt/lsst/software/jupyterlab/environment",
+              "name": "env",
+              "readOnly": true
+            },
+            {
+              "mountPath": "/tmp",
+              "name": "tmp",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/lab_startup",
+              "name": "lab-startup",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/opt/lsst/software/jupyterlab/runtime",
+              "name": "runtime",
+              "readOnly": true
+            },
+            {
+              "mountPath": "/opt/lsst/software/jupyterlab/butler-secret",
+              "name": "secrets",
+              "readOnly": true,
+              "subPath": "butler-secret"
             }
           ]
         }
@@ -699,6 +865,13 @@
             "sizeLimit": 805306368
           },
           "name": "tmp"
+        },
+        {
+          "emptyDir": {
+            "medium": "Memory",
+            "sizeLimit": 655360
+          },
+          "name": "lab-startup"
         },
         {
           "downwardAPI": {

@@ -1038,3 +1038,91 @@ async def test_init_container_command(
     )
     ic = pod.spec.init_containers[0]
     assert ic.command == ["nublado", "inithome"]
+
+
+@pytest.mark.asyncio
+async def test_standard_inithome(
+    client: AsyncClient,
+    user: GafaelfawrTestUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    """Check that we build a standard inithome container."""
+    config = await configure("standard-inithome")
+    lab = read_input_lab_specification_json("base", "lab-specification")
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_test_headers(),
+    )
+    assert r.status_code == 201
+    await asyncio.sleep(0)
+
+    pod = await mock_kubernetes.read_namespaced_pod(
+        f"{user.username}-nb",
+        f"{config.lab.namespace_prefix}-{user.username}",
+    )
+    ic = pod.spec.init_containers[0]
+    assert ic.name == "nublado-std-inithome"
+
+
+@pytest.mark.asyncio
+async def test_landingpage(
+    client: AsyncClient,
+    user: GafaelfawrTestUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    """Check that the init containers all have the right name."""
+    config = await configure("landingpage")
+    lab = read_input_lab_specification_json("base", "lab-specification")
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_test_headers(),
+    )
+    assert r.status_code == 201
+    await asyncio.sleep(0)
+
+    pod = await mock_kubernetes.read_namespaced_pod(
+        f"{user.username}-nb",
+        f"{config.lab.namespace_prefix}-{user.username}",
+    )
+    icnames = [x.name for x in pod.spec.init_containers]
+    assert icnames == [
+        "nublado-std-inithome",
+        "nublado-std-landingpage",
+        "nublado-std-startup",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_alternative_home_volume(
+    client: AsyncClient,
+    user: GafaelfawrTestUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    """Check that we can specify what volume holds user home directories."""
+    config = await configure("alternative-home")
+    lab = read_input_lab_specification_json("base", "lab-specification")
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_test_headers(),
+    )
+    assert r.status_code == 201
+    await asyncio.sleep(0)
+
+    pod = await mock_kubernetes.read_namespaced_pod(
+        f"{user.username}-nb",
+        f"{config.lab.namespace_prefix}-{user.username}",
+    )
+    icnames = [x.name for x in pod.spec.init_containers]
+    assert icnames == [
+        "nublado-std-inithome",
+        "nublado-std-landingpage",
+        "nublado-std-startup",
+    ]
+    inithome = pod.spec.init_containers[0]
+    assert inithome.volume_mounts[0].name == "noplacelikehome"
