@@ -39,6 +39,12 @@ These configuration settings only control the home directory path *inside the la
 You will need to arrange for the appropriate volume to be mounted into the container so that these paths are valid.
 For information about how to do that, see :ref:`config-lab-volumes`.
 
+``controller.config.lab.homeVolumeName``
+    The Nublado controller needs to know which of the specified volumes is the one containing user home directories in order to provision the user Lab.
+    The default value is ``home``.
+    There's very little reason to ever change this, since that string has no bearing on mount points, but it's possible that ``home`` might be reserved at your site.
+    You should use ``home`` if you can.
+
 For a comprehensive guide to deciding how to handle home directories in Nublado, see :doc:`/admin/home-directories`.
 
 .. _config-lab-volumes:
@@ -46,7 +52,7 @@ For a comprehensive guide to deciding how to handle home directories in Nublado,
 Mounted volumes
 ===============
 
-By default, labs only have node-local temporary space (a Kubernetes ``emptyDir``) mounted in :file:`/tmp` and some read-only metadata mounted.
+By default, labs only have node-local temporary space (Kubernetes ``emptyDir``) mounted at :file:`/tmp` and :file:`/lab_startup`, as well as some read-only metadata mounted.
 All other mounted file systems must be explicitly specified, including the user's home directory if you want users to have persistent home directories.
 
 As with Kubernetes in general, the volumes and volume mounts are specified separately.
@@ -65,7 +71,7 @@ This allows the list of volumes to be shared with init containers (see :ref:`con
         Source specification for the volume.
         The type of source volume is determined by ``source.type``.
         Each type of source volume requires different settings.
-        See :ref:`config-lab-volume-host`, :ref:`config-lab-volume-nfs`, and :ref:`config-lab-volume-pvc`.
+        See :ref:`config-lab-volume-empty-dir`, :ref:`config-lab-volume-host`, :ref:`config-lab-volume-nfs`, and :ref:`config-lab-volume-pvc`.
 
 ``controller.config.lab.volumeMounts``
     List of volume mounts for the main lab container.
@@ -87,6 +93,37 @@ This allows the list of volumes to be shared with init containers (see :ref:`con
         The default is false.
 
 Nublado currently supports three types of volumes, each specified with the ``source`` key of an entry in ``controller.config.lab.volumes``.
+
+.. _config-lab-volume-empty-dir:
+
+EmptyDir volumes
+----------------
+
+An emptyDir volume mounts a file system that is initially empty; it can be read or written by any container in the pod.
+This is the sort of volume used for the Lab container's :file:`/tmp` and :file:`/lab_startup`.
+
+When the startup container runs, it will write files into :file:`lab_startup` which will then be consumed by the Lab container to set up its runtime environment.
+
+There are two situations in which an emptyDir volume is useful.
+The first is to pass information from initContainers to the Lab container.
+The second is to hold files that will be cleaned up if and when the pod exits cleanly, which is the purpose of putting :file:`/tmp` on an emptyDir.
+
+EmptyDir volumes have the following settings in their ``source`` key:
+
+``type``
+    Must be set to ``emptyDir``.
+
+``medium``
+    Whether the storage space comes from node RAM (tmpfs) or from node-local storage (ephemeralStorage).
+    Set to the empty string for RAM (the default) or ``disk``.
+    The appropriate value is extremely site-dependent and depends on available resources.
+
+``size``
+    The maximum size of the the emptyDir in bytes.
+    This can be an integer, a string, or a string with SI units attached.
+    If you choose the latter, note that the version of the unit ending in ``i`` signifies a binary quantity (that is, ``64k`` means 64000 bytes, while ``64ki`` means 65536 bytes).
+    Also note that the signifier for 10^6 or 2^20 is ``M``.
+    Lower-case ``m`` is ``milli`` and you probably do not want to specify size in millibytes.
 
 .. _config-lab-volume-host:
 
@@ -245,7 +282,27 @@ Init containers
 Nublado supports running additional containers during the startup of the lab pod as Kubernetes init containers (see `the Kubernetes documentation <https://kubernetes.io/docs/concepts/workloads/pods/init-containers/>`__ for more details).
 These containers may be privileged, unlike the lab containers which always run as the user who spawned the lab.
 
-Examples of why one may want to run an init container include creating the user's home directory if it doesn't already exist or doing networking setup for the lab container that requires privileged operations.
+Examples of why one may want to run an init container include ensuring users have their own read-write versions of files whose canonical source is a read-only shared volume or doing networking setup for the lab container that requires privileged operations.
+
+Standard Containers
+-------------------
+
+Every Lab pod will have at least one init container, run immediately before lab launch, named ``nublado-std-startup``.
+There is no user control over this; that container is necessary to set up the environment in which the lab will be run.
+
+There are two other standard containers that can be enabled or disabled.
+
+``controller.config.lab.standardInithome``
+    If the standard ``inithome`` user home directory provisioner will work for you (which means that the Nublado controller must be able to write to the volume containing the user home directories with administrative privilege), then set this to ``true``.
+    For instance, this is acceptable if you're using user home directories on NFS, and the Nublado controller can mount the volume containing them with ``no_root_squash``.
+    The default is ``false``.
+    This container will run before any user-config-specified containers.
+
+If the Lab environment contains a key ``RSP_SITE_TYPE`` and the value of that key is ``science``, then a ``landingpage`` container will run, which ensures that there is a read-write copy of the CST tutorial landing page copied into the user home space, and that the Lab will open Markdown files (such as the landing page) in their rendered form.
+This container (if it runs) will run after user-config-specified containers, but before the ``startup`` container.
+
+User-specified init containers
+------------------------------
 
 Configure init containers with the following setting:
 
