@@ -50,6 +50,10 @@ ADD . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-editable --no-default-groups --compile-bytecode
 
+WORKDIR /go
+ADD golang /go
+RUN make
+
 FROM base-image AS runtime-image
 
 # Create a non-root user.
@@ -57,6 +61,9 @@ RUN useradd --create-home appuser
 
 # Copy the virtualenv.
 COPY --from=install-image /app/.venv /app/.venv
+
+# COPY the fileserver
+COPY --from=install-image /go/worblehat /usr/local/bin
 
 # Copy the repo-cloner for use in a CronJob context.
 COPY assets/repo-cloner.sh /usr/local/bin
@@ -88,3 +95,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 # CMD ["nublado", "purger", "execute"]
 # For repo-cloner:
 # CMD ["/usr/local/bin/repo-cloner.sh"]
+# For landing page init container:
+# CMD ["nublado", "landingpage"]
+# For startup init container:
+# CMD ["nublado", "startup"]

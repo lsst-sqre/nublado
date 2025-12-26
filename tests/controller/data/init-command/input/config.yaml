@@ -11,7 +11,7 @@ lab:
         - containerPath: /home
           volumeName: home
   namespacePrefix: userlabs
-  tmpSource: disk
+  emptyDirSource: disk
   sizes:
     - size: small
       resources:

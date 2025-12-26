@@ -2,7 +2,7 @@ logLevel: DEBUG
 logProfile: development
 lab:
   namespacePrefix: userlabs
-  tmpSource: disk
+  emptyDirSource: disk
   sizes:
     - size: small
       resources:

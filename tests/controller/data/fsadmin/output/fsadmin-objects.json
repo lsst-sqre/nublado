@@ -47,7 +47,7 @@
             "-f",
             "/dev/null"
           ],
-          "image": "ghcr.io/lsst-sqre/nublado:10.0.0",
+          "image": "ghcr.io/lsst-sqre/nublado:11.1.1",
           "imagePullPolicy": "IfNotPresent",
           "name": "fsadmin",
           "securityContext": {

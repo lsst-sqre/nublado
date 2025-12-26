@@ -15,6 +15,7 @@ Guides to common problems and instructions on how to integrate properly with Pha
    node-selection
    home-directories
    init-containers
+   fileserver
    fsadmin
    setup-gar
    stop-all-labs
