@@ -10,6 +10,9 @@ uv venv /usr/local/share/jupyterlab/venv
 # Use that venv.
 source /usr/local/share/jupyterlab/venv/bin/activate
 
+# Because we're rebuilding rje...
+uv pip install hatchling hatch-nodejs-version
+
 # Install the set of packages we need for the RSP JupyterLab UI
 # jupyter_firefly_extensions is slightly incompatible with bokeh
 uv pip install --upgrade \
