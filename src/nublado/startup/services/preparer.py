@@ -70,7 +70,7 @@ class Preparer:
         self._broken = False
         for req_env in ("JUPYTERHUB_BASE_URL", "NUBLADO_HOME"):
             if req_env not in self._env:
-                exc = RSPStartupError("EBADENV", None, req_env)
+                exc = RSPStartupError(RSPErrorCode.EBADENV, None, req_env)
                 self._set_abnormal_startup(exc)
         # We use NUBLADO_HOME here, because we're still running as the
         # provisioner rather than as the end user, who would use HOME
@@ -429,7 +429,7 @@ class Preparer:
             try:
                 url = urlfile.read_text()
             except Exception:
-                self._logger.exception("Could not read {urlfile!s}")
+                self._logger.exception(f"Could not read {urlfile!s}")
                 continue
             qry = urlparse(url).query
             if not qry:
@@ -982,8 +982,7 @@ class Preparer:
         if gitconfig.is_file():
             gc = gitconfig.read_text().splitlines()
             for line in gc:
-                line.strip()
-                if line == '[filter "lfs"]':
+                if line.strip() == '[filter "lfs"]':
                     return True
         return False
 
@@ -1183,7 +1182,7 @@ class Preparer:
 
     def _write_lab_args(self) -> None:
         log_level = "DEBUG" if self._debug else "INFO"
-        notebook_dir = f"{self._home!s}"
+        notebook_dir = f"{self._home}"
         args_file = STARTUP_PATH / "args.json"
         # Make a new list from the static args and our own info.
         cmd_args = list(LAB_STATIC_CMD_ARGS)
