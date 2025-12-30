@@ -24,13 +24,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 COPY jupyterlab-base/scripts/install-system-files /tmp/build
 RUN ./install-system-files
 
-# Patch up TeX installation; if we migrate fully to typst, we can stop
-# installing TeX and get rid of this.
-ENV TEXMFHOME=/usr/local/share/texlive
-RUN mkdir -p ${TEXMFHOME}
-COPY jupyterlab-base/scripts/fix-texlive /tmp/build
-RUN ./fix-texlive
-
 # Build-time dependencies, discarded after virtualenv installation.
 FROM base-image AS deps-image
 
