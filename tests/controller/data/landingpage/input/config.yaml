@@ -1,13 +1,11 @@
 logLevel: DEBUG
 logProfile: development
 lab:
+  standardInithome: true
   namespacePrefix: userlabs
-  nodeSelector:
-    status: online
-    nublado: eligible
-  tolerations:
-    - key: some-taint
-      value: some-value
+  emptyDirSource: disk
+  env:
+      RSP_SITE_TYPE: science
   sizes:
     - size: small
       resources:
@@ -33,5 +31,5 @@ images:
     repository: library/sketchbook
 fsadmin:
   image:
-    repository: ghcr.io/lsst-sqre/nublado-fsadmin
-    tag: 9.0.0
+    repository: ghcr.io/lsst-sqre/nublado
+    tag: 10.0.0

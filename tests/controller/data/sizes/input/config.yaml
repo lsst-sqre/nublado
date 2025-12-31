@@ -19,6 +19,16 @@ lab:
         requests:
           cpu: 2.25
           memory: 6.7Gi
+  volumes:
+    - name: home
+      source:
+        type: nfs
+        server: 10.13.105.122
+        serverPath: /share1/home
+  volumeMounts:
+    - containerPath: /home
+      volumeName: home
+
 images:
   source:
     type: docker
