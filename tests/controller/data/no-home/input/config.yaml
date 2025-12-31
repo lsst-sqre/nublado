@@ -2,12 +2,6 @@ logLevel: DEBUG
 logProfile: development
 lab:
   namespacePrefix: userlabs
-  nodeSelector:
-    status: online
-    nublado: eligible
-  tolerations:
-    - key: some-taint
-      value: some-value
   sizes:
     - size: small
       resources:
@@ -17,20 +11,18 @@ lab:
         requests:
           cpu: 0.25
           memory: 0.75Gi
-  volumes:
-    - name: home
-      source:
-        type: nfs
-        server: 10.13.105.122
-        serverPath: /share1/home
-  volumeMounts:
-    - containerPath: /home
-      volumeName: home
 images:
   source:
     type: docker
     registry: lighthouse.ceres
     repository: library/sketchbook
+  recommendedTag: recommended_c0050
+  numReleases: 0
+  numWeeklies: 3
+  numDailies: 0
+  cycle: 50
+  aliasTags:
+    - latest_c0050
 fsadmin:
   image:
     repository: ghcr.io/lsst-sqre/nublado-fsadmin

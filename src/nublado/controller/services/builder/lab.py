@@ -117,11 +117,21 @@ class LabBuilder:
         This comes from the Phalanx deployment chart.
         It would be nice if the DownwardAPI gave us this, but it does not.
         """
-        repository = os.getenv(
-            "NUBLADO_CONTROLLER_REPOSITORY", "ghcr.io/lsst-sqre/nublado"
-        )
+        repository = os.getenv("NUBLADO_CONTROLLER_REPOSITORY")
+        if not repository:
+            repository = "ghcr.io/lsst-sqre/nublado"
+            self._logger.warning(
+                "Environment variable NUBLADO_CONTROLLER_REPOSITORY not set; "
+                f"defaulting to {repository}"
+            )
         # We're guessing that version 11 will be the first place this shows up.
-        tag = os.getenv("NUBLADO_CONTROLLER_TAG", "11.0.0")
+        tag = os.getenv("NUBLADO_CONTROLLER_TAG")
+        if not tag:
+            tag = "11.0.0"
+            self._logger.warning(
+                "Environment variable NUBLADO_CONTROLLER_TAG not set; "
+                f"defaulting to {tag}"
+            )
         pull_policy_str = os.getenv(
             "NUBLADO_CONTROLLER_PULL_POLICY", "IfNotPresent"
         )
@@ -597,6 +607,7 @@ class LabBuilder:
             self._build_pod_secret_volume(user.username),
             self._build_pod_env_volume(user.username),
             self._build_pod_tmp_volume(mem_size=resources.limits.memory),
+            # "640k ought to be enough for anybody." -- Bill Gates
             self._build_pod_startup_volume(mem_size=640 * 1024),
             self._build_pod_downward_api_volume(user.username),
         ]
@@ -1028,7 +1039,7 @@ class LabBuilder:
         mounts: list[V1VolumeMount],
         resources: LabResources,
         image: RSPImage,
-    ) -> V1PodSpec:
+    ) -> list[V1Container]:
         """Construct the containers for the user's lab pod."""
         # Additional environment variables to set, layered on top of the env
         # ConfigMap. The ConfigMap holds public information known before the

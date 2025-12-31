@@ -1305,6 +1305,9 @@ class LabConfig(BaseModel):
                 if mount.volume_name not in volumes:
                     msg = f"Unknown mounted volume {mount.volume_name}"
                     raise ValueError(msg)
+        if self.home_volume_name not in volumes:
+            msg = "A home volume is required"
+            raise ValueError(msg)
         return self
 
     def get_size_definition(self, size: LabSize) -> LabSizeDefinition:

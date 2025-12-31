@@ -45,7 +45,7 @@ The interface is extremely simple:
 Phalanx configuration
 =====================
 
-The ``fsadmin`` service has several configuration options that adminstrators may wish to modify; the two most likely are:
+The ``fsadmin`` service has several configuration options that administrators may wish to modify; the two most likely are:
 
 ``container.config.fsadmin.extraVolumes``
    Additional volumes to make available for mounting inside the fsadmin pod.
