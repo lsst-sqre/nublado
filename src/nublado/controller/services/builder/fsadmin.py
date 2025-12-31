@@ -56,7 +56,7 @@ class FSAdminBuilder:
         self._volume_mounts = volume_mounts
         self._logger = logger
         self._volume_builder = VolumeBuilder()
-        self._container = _introspect_container()
+        self._container = _introspect_container(logger)
 
     def build(self) -> FSAdminObjects:
         """Construct the objects that make up fsadmin.
