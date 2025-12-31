@@ -70,7 +70,7 @@ class FileserverBuilder:
         self._volumes = volumes
         self._logger = logger
         self._volume_builder = VolumeBuilder()
-        self._container = _introspect_container()
+        self._container = _introspect_container(logger)
 
     def build(self, user: GafaelfawrUserInfo) -> FileserverObjects:
         """Construct the objects that make up a user's fileserver.
