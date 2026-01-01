@@ -23,6 +23,7 @@ from ...constants import ARGO_CD_ANNOTATIONS
 from ...models.domain.fsadmin import (
     FSAdminObjects,
 )
+from ._introspect import _introspect_container
 from .volumes import VolumeBuilder
 
 __all__ = ["FSAdminBuilder"]
@@ -55,6 +56,7 @@ class FSAdminBuilder:
         self._volume_mounts = volume_mounts
         self._logger = logger
         self._volume_builder = VolumeBuilder()
+        self._container = _introspect_container(logger)
 
     def build(self) -> FSAdminObjects:
         """Construct the objects that make up fsadmin.
@@ -104,9 +106,9 @@ class FSAdminBuilder:
         # Specification for the fsadmin container.
         container = V1Container(
             name=self._config.pod_name,
-            command=self._config.command,
-            image=f"{self._config.image.repository}:{self._config.image.tag}",
-            image_pull_policy=self._config.image.pull_policy.value,
+            command=["tail", "-f", "/dev/null"],
+            image=f"{self._container.repository}:{self._container.tag}",
+            image_pull_policy=self._container.pull_policy.value,
             resources=resources.to_kubernetes() if resources else None,
             security_context=V1SecurityContext(
                 privileged=True,
