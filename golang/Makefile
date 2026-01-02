@@ -1,9 +1,14 @@
-.PHONY: build
-build:
+build: main.go
 	test ! -f go.mod && go mod init worblehat || true
 	test ! -f go.sum && go mod tidy || true
 	go fmt
 	go build
+
+.PHONY: update
+update:
+	@rm -f go.mod go.sum
+	go mod init worblehat
+	go mod tidy
 
 .PHONY: run
 run: build
@@ -11,4 +16,4 @@ run: build
 
 .PHONY: clean
 clean:
-	@rm -f go.mod go.sum worblehat
+	@rm -f worblehat
