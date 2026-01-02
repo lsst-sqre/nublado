@@ -6,6 +6,37 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-11.0.0'></a>
+## 11.0.0 (2026-01-02)
+
+### Backwards-incompatible changes
+
+- `config.lab.tmpSource` renamed to `config.lab.emptyDirSource`. This setting now controls the source for both `/tmp` and the new `/lab/startup`.
+
+- Image and command for fsadmin can no longer be specified.
+
+- Removed `image` from fileserver config.
+
+### New features
+
+- A standard homedir provisioner can be run by setting `config.lab.standardInithome` to `true`. It requires that the controller be able to write as an administrative user to the volume containing user home directories.
+
+- `config.lab.homeVolumeName` may be set to tell the controller which volume contains user home directories.
+
+- Moved fileserver into base container.
+
+- Add new `controller.config.lab.namespaceAnnotations` setting to add annotations to the per-user namespaces. The value may be a template in which `{{uid}}` will be replaced by the user's UID and `{{gid}}` will be replaced by the user's GID.
+
+- Functionality from lsst.rsp.startup is now in nublado.startup.
+
+### Other changes
+
+- A standard `startup` initContainer will always be launched in a Lab Pod.
+
+- A `/lab_startup` emptyDir volume will always be created for communication between the initContainer fleet and the Lab container.
+
+- At sites where `RSP_SITE_TYPE` is set to `science`, a landing page initContainer will be run to ensure the tutorial landing page is copied into place for the user.
+
 <a id='changelog-10.0.0'></a>
 ## 10.0.0 (2025-12-16)
 
