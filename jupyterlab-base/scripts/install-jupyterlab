@@ -10,7 +10,7 @@ uv venv /usr/local/share/jupyterlab/venv
 # Use that venv.
 source /usr/local/share/jupyterlab/venv/bin/activate
 
-# Because we're rebuilding rje...
+# Because we may rebuild rsp-jupyter-extensions...
 uv pip install hatchling hatch-nodejs-version
 
 # Install the set of packages we need for the RSP JupyterLab UI
