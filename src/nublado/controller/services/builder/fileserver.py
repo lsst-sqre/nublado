@@ -38,6 +38,7 @@ from ...models.domain.fileserver import (
     FileserverStateObjects,
 )
 from ...storage.kubernetes.ingress import ingress_has_ip_address
+from ._introspect import _introspect_container
 from .volumes import VolumeBuilder
 
 __all__ = ["FileserverBuilder"]
@@ -69,6 +70,7 @@ class FileserverBuilder:
         self._volumes = volumes
         self._logger = logger
         self._volume_builder = VolumeBuilder()
+        self._container = _introspect_container(logger)
 
     def build(self, user: GafaelfawrUserInfo) -> FileserverObjects:
         """Construct the objects that make up a user's fileserver.
@@ -237,13 +239,14 @@ class FileserverBuilder:
         # Specification for the user's container.
         container = V1Container(
             name="fileserver",
+            command=["/usr/local/bin/worblehat"],
             env=[
                 V1EnvVar(name="WORBLEHAT_BASE_HREF", value=url),
                 V1EnvVar(name="WORBLEHAT_TIMEOUT", value=timeout),
                 V1EnvVar(name="WORBLEHAT_DIR", value="/mnt"),
             ],
-            image=f"{self._config.image.repository}:{self._config.image.tag}",
-            image_pull_policy=self._config.image.pull_policy.value,
+            image=f"{self._container.repository}:{self._container.tag}",
+            image_pull_policy=self._container.pull_policy.value,
             ports=[V1ContainerPort(container_port=8000, name="http")],
             resources=resources.to_kubernetes() if resources else None,
             security_context=V1SecurityContext(
