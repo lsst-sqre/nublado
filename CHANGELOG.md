@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-11.1.0'></a>
+## 11.1.0 (2026-01-06)
+
+### Other changes
+
+- Notebook PDF export is now done via typst; TeX* removed from jupyterlab-base.
+
 <a id='changelog-11.0.0'></a>
 ## 11.0.0 (2026-01-02)
 
