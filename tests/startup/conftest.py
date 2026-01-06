@@ -38,7 +38,7 @@ def _rsp_paths(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     # For each of these, we want to cover both the "from ..constants import"
     # and the "import nublado.startup.constants" case.
     with patch(
-        "nublado.startup.services.preparer.ETC_PATH",
+        "nublado.startup.services.homedir.ETC_PATH",
         (Path(__file__).parent / "data" / "files" / "etc"),
     ):
         with patch(
