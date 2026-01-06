@@ -10,6 +10,9 @@ uv venv /usr/local/share/jupyterlab/venv
 # Use that venv.
 source /usr/local/share/jupyterlab/venv/bin/activate
 
+# Because we may rebuild rsp-jupyter-extensions...
+uv pip install hatchling hatch-nodejs-version
+
 # Install the set of packages we need for the RSP JupyterLab UI
 # jupyter_firefly_extensions is slightly incompatible with bokeh
 uv pip install --upgrade \
@@ -46,7 +49,7 @@ uv pip install --upgrade \
    panel \
    plotly \
    pythreejs \
-   rsp-jupyter-extensions \
+   'rsp-jupyter-extensions>=0.10.2' \
    sidecar
 
 # File sharing doesn't work in the RSP environment; remove the extension.

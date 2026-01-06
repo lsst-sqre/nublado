@@ -20,8 +20,7 @@ apt-get update
 
 # git: required by setuptools_scm
 # git-lfs: required for new user setup in lsst-rsp
-# pandoc: get the dependencies the venv nbconvert will need
-# texlive*: export to PDF
+# pandoc: get the dependencies the venv nbconvert/PDF export will need
 # jq ... less: useful utilities
 # man: it is an interactive system, after all
 # curl: CLI http client is useful
@@ -29,8 +28,6 @@ apt-get update
 #  (I gave up on emacs in the base container, alas)
 apt-get -y install --no-install-recommends \
     git git-lfs pandoc \
-    texlive-latex-recommended texlive-plain-generic \
-    texlive-fonts-recommended texlive-pstricks texlive-luatex texlive-xetex \
     jq gh hub unzip xz-utils ack screen tmux tree file less \
     man curl \
     nano vim ed

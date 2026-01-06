@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-# This has to be a "user install" (even though the user is root), and
-# wrapfig and capt-of aren't debian-packaged.  So we go through CTAN instead.
-
-tlmgr init-usertree
-tlmgr install wrapfig capt-of
