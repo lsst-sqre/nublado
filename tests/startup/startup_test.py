@@ -11,6 +11,10 @@ import pytest
 import yaml
 
 import nublado.startup
+from nublado.startup.services.credentials import CredentialManager
+from nublado.startup.services.dask import DaskConfigurator
+from nublado.startup.services.environment import EnvironmentConfigurator
+from nublado.startup.services.homedir import HomedirManager
 from nublado.startup.services.preparer import Preparer
 from nublado.startup.utils import (
     get_digest,
@@ -41,28 +45,32 @@ def test_debug_object(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_set_tmpdir(monkeypatch: pytest.MonkeyPatch) -> None:
     # Happy path.
     pr = Preparer()
-    pr._set_tmpdir_if_scratch_available()
-    assert pr._env["TMPDIR"].endswith("/scratch/hambone/tmp")
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_tmpdir_if_scratch_available()
+    assert em._env["TMPDIR"].endswith("/scratch/hambone/tmp")
     # Exists, but it's not a directory
-    scratch_path = Path(pr._env["TMPDIR"])
+    scratch_path = Path(em._env["TMPDIR"])
     scratch_path.rmdir()
     scratch_path.touch()
-    pr = Preparer()
-    pr._set_tmpdir_if_scratch_available()
-    assert "TMPDIR" not in pr._env
+    pr = Preparer()  # Environment is only read at __init__()
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_tmpdir_if_scratch_available()
+    assert "TMPDIR" not in em._env
     # Put it back the way it was
     scratch_path.unlink()
     # Pre-set TMPDIR.
     monkeypatch.setenv("TMPDIR", "/preset")
     pr = Preparer()
-    pr._set_tmpdir_if_scratch_available()
-    assert pr._env["TMPDIR"] == "/preset"
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_tmpdir_if_scratch_available()
+    assert em._env["TMPDIR"] == "/preset"
     monkeypatch.delenv("TMPDIR")
     # Can't write to scratch dir
     monkeypatch.setenv("SCRATCH_PATH", "/nonexistent/scratch")
     pr = Preparer()
-    pr._set_tmpdir_if_scratch_available()
-    assert "TMPDIR" not in pr._env
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_tmpdir_if_scratch_available()
+    assert "TMPDIR" not in em._env
     monkeypatch.delenv("SCRATCH_PATH")
     scratch_path.parent.rmdir()
 
@@ -72,20 +80,23 @@ def test_set_butler_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     env_v = "DAF_BUTLER_CACHE_DIRECTORY"
     # Happy path.
     pr = Preparer()
-    pr._set_butler_cache()
-    assert pr._env[env_v].endswith("/scratch/hambone/butler_cache")
-    dbc = Path(pr._env[env_v])
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_butler_cache()
+    assert em._env[env_v].endswith("/scratch/hambone/butler_cache")
+    dbc = Path(em._env[env_v])
     dbc.rmdir()
     dbc.touch()
     pr = Preparer()
-    pr._set_butler_cache()
-    assert pr._env[env_v] == "/tmp/butler_cache"
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_butler_cache()
+    assert em._env[env_v] == "/tmp/butler_cache"
     # Put it back the way it was
     dbc.unlink()
     # Pre-set DAF_BUTLER_CACHE_DIR.
     monkeypatch.setenv(env_v, "/preset")
     pr = Preparer()
-    pr._set_butler_cache()
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_butler_cache()
     assert pr._env[env_v] == "/preset"
     monkeypatch.delenv(env_v)
     dbc.parent.rmdir()
@@ -94,26 +105,31 @@ def test_set_butler_cache(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.usefixtures("_rsp_env")
 def test_cpu_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     pr = Preparer()
-    pr._set_cpu_variables()
-    assert pr._env["CPU_LIMIT"] == "1"
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_cpu_variables()
+    assert em._env["CPU_LIMIT"] == "1"
     # We need a new Preparer each time, because it reads its environment
     # only at __init()__
     monkeypatch.setenv("CPU_LIMIT", "NaN")
     pr = Preparer()
-    pr._set_cpu_variables()
-    assert pr._env["CPU_COUNT"] == "1"
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_cpu_variables()
+    assert em._env["CPU_COUNT"] == "1"
     monkeypatch.setenv("CPU_LIMIT", "0.1")
     pr = Preparer()
-    pr._set_cpu_variables()
-    assert pr._env["GOTO_NUM_THREADS"] == "1"
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_cpu_variables()
+    assert em._env["GOTO_NUM_THREADS"] == "1"
     monkeypatch.setenv("CPU_LIMIT", "3.1")
     pr = Preparer()
-    pr._set_cpu_variables()
-    assert pr._env["MKL_DOMAIN_NUM_THREADS"] == "3"
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_cpu_variables()
+    assert em._env["MKL_DOMAIN_NUM_THREADS"] == "3"
     monkeypatch.setenv("CPU_LIMIT", "14")
     pr = Preparer()
-    pr._set_cpu_variables()
-    assert pr._env["MPI_NUM_THREADS"] == "14"
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_cpu_variables()
+    assert em._env["MPI_NUM_THREADS"] == "14"
 
 
 @pytest.mark.usefixtures("_rsp_env")
@@ -127,28 +143,34 @@ def test_set_image_digest(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_expand_panda_tilde(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PANDA_CONFIG_ROOT", "~")
     pr = Preparer()
-    pr._expand_panda_tilde()
-    assert pr._env["PANDA_CONFIG_ROOT"] == os.environ["NUBLADO_HOME"]
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._expand_panda_tilde()
+    assert em._env["PANDA_CONFIG_ROOT"] == os.environ["NUBLADO_HOME"]
     monkeypatch.setenv("PANDA_CONFIG_ROOT", "~hambone")
     pr = Preparer()
-    pr._expand_panda_tilde()
-    assert pr._env["PANDA_CONFIG_ROOT"] == os.environ["NUBLADO_HOME"]
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._expand_panda_tilde()
+    assert em._env["PANDA_CONFIG_ROOT"] == os.environ["NUBLADO_HOME"]
     monkeypatch.setenv("PANDA_CONFIG_ROOT", "~hambone/")
     pr = Preparer()
-    pr._expand_panda_tilde()
-    assert pr._env["PANDA_CONFIG_ROOT"] == os.environ["NUBLADO_HOME"]
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._expand_panda_tilde()
+    assert em._env["PANDA_CONFIG_ROOT"] == os.environ["NUBLADO_HOME"]
     monkeypatch.setenv("PANDA_CONFIG_ROOT", "~whoopsi")
     pr = Preparer()
-    pr._expand_panda_tilde()
-    assert pr._env["PANDA_CONFIG_ROOT"] == "~whoopsi"
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._expand_panda_tilde()
+    assert em._env["PANDA_CONFIG_ROOT"] == "~whoopsi"
     monkeypatch.setenv("PANDA_CONFIG_ROOT", "/etc/panda")
     pr = Preparer()
-    pr._expand_panda_tilde()
-    assert pr._env["PANDA_CONFIG_ROOT"] == "/etc/panda"
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._expand_panda_tilde()
+    assert em._env["PANDA_CONFIG_ROOT"] == "/etc/panda"
     monkeypatch.setenv("PANDA_CONFIG_ROOT", "~/bar")
     pr = Preparer()
-    pr._expand_panda_tilde()
-    assert pr._env["PANDA_CONFIG_ROOT"] == str(
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._expand_panda_tilde()
+    assert em._env["PANDA_CONFIG_ROOT"] == str(
         Path(os.environ["NUBLADO_HOME"]) / "bar"
     )
 
@@ -169,8 +191,9 @@ def test_set_timeout_vars(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.usefixtures("_rsp_env")
 def test_force_jupyter_prefer_env_path_false() -> None:
     pr = Preparer()
-    pr._force_jupyter_prefer_env_path_false()
-    assert pr._env["JUPYTER_PREFER_ENV_PATH"] == "no"
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._force_jupyter_prefer_env_path_false()
+    assert em._env["JUPYTER_PREFER_ENV_PATH"] == "no"
 
 
 @pytest.mark.usefixtures("_rsp_env")
@@ -178,8 +201,9 @@ def test_set_butler_credential_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AWS_SHARED_CREDENTIALS_FILE", "/etc/secret/aws.creds")
     monkeypatch.setenv("PGPASSFILE", "/etc/secret/pgpass")
     pr = Preparer()
-    pr._set_butler_credential_variables()
-    assert pr._env["AWS_SHARED_CREDENTIALS_FILE"] == str(
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_butler_credential_variables()
+    assert em._env["AWS_SHARED_CREDENTIALS_FILE"] == str(
         pr._home / ".lsst" / "aws.creds"
     )
     assert (
@@ -191,13 +215,12 @@ def test_set_butler_credential_vars(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.usefixtures("_rsp_env")
 def test_busted_homedir(monkeypatch: pytest.MonkeyPatch) -> None:
-    def out_of_space(lrobj: Preparer, cachefile: Path) -> None:
+    def out_of_space(lrobj: HomedirManager, cachefile: Path) -> None:
         raise OSError(errno.EDQUOT, None, str(cachefile))
 
-    monkeypatch.setattr(Preparer, "_write_a_megabyte", out_of_space)
+    monkeypatch.setattr(HomedirManager, "_write_a_megabyte", out_of_space)
     pr = Preparer()
-
-    pr._test_for_space()
+    pr.prepare()
 
     assert pr._broken
     assert pr._env["ABNORMAL_STARTUP"] == "TRUE"
@@ -226,9 +249,12 @@ def test_create_credential_dir(monkeypatch: pytest.MonkeyPatch) -> None:
     shutil.rmtree(cred_dir)
     assert not cred_dir.exists()
     pr = Preparer()
-    pr._set_butler_credential_variables()
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_butler_credential_variables()
+    cm = CredentialManager(env=em._env, logger=pr._logger)
     assert not cred_dir.exists()
-    pr._copy_butler_credentials()
+
+    cm.copy_butler_credentials()
     assert cred_dir.exists()
 
 
@@ -255,8 +281,10 @@ def test_copy_butler_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     assert set(cp.sections()) == {"default", "tertiary"}
     assert cp["default"]["aws_secret_access_key"] == "gets_overwritten"
     assert cp["tertiary"]["aws_secret_access_key"] == "key03"
-    pr._set_butler_credential_variables()
-    pr._copy_butler_credentials()
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em._set_butler_credential_variables()
+    cm = CredentialManager(env=em._env, logger=pr._logger)
+    cm.copy_butler_credentials()
     lines = pg.read_text().splitlines()
     aws = pr._home / ".lsst" / "aws-credentials.ini"
     for line in lines:
@@ -278,9 +306,10 @@ def test_dask_config() -> None:
 
     # First, just see if we create the default proxy settings.
     pr = Preparer()
-    dask_dir = pr._home / ".config" / "dask"
+    dm = DaskConfigurator(home=pr._home, logger=pr._logger)
+    dask_dir = dm._home / ".config" / "dask"
     assert not dask_dir.exists()
-    pr._setup_dask()
+    dm.setup_dask()
     assert dask_dir.exists()
     def_file = dask_dir / "dashboard.yaml"
     assert def_file.exists()
@@ -301,7 +330,7 @@ def test_dask_config() -> None:
     assert not def_file.exists()
     assert old_file.exists()
 
-    pr._setup_dask()  # Should replace the text.
+    dm.setup_dask()  # Should replace the text.
     obj = yaml.safe_load(old_file.read_text())
     assert obj["distributed"]["dashboard"]["link"] == newlink
 
@@ -310,7 +339,7 @@ def test_dask_config() -> None:
 
     # Test that we remove empty dict keys
     nullobj = {"key1": {"key2": {"key3": None}}}
-    assert pr._flense_dict(nullobj) is None
+    assert dm._flense_dict(nullobj) is None
 
     fl_file = dask_dir / "flense.yaml"
     assert not fl_file.exists()
@@ -327,7 +356,7 @@ def test_dask_config() -> None:
 
     # This should create the defaults, and should remove the flensed
     # config and the only-comments file.
-    pr._setup_dask()
+    dm.setup_dask()
     assert not fl_file.exists()
     assert not cm_file.exists()
     assert def_file.exists()
@@ -347,7 +376,8 @@ def test_copy_logging_profile(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     assert not pfile.exists()
     pfile.parent.mkdir(parents=True)
-    pr._copy_logging_profile()
+    hm = HomedirManager(env=pr._env, home=pr._home, logger=pr._logger)
+    hm._copy_logging_profile()
     assert pfile.exists()
     h_contents = pfile.read_text()
     sfile = get_jupyterlab_config_dir() / "etc" / "20-logging.py"
@@ -356,7 +386,7 @@ def test_copy_logging_profile(monkeypatch: pytest.MonkeyPatch) -> None:
     assert s_contents == h_contents
     h_contents += "\n# Locally modified\n"
     pfile.write_text(h_contents)
-    pr._copy_logging_profile()
+    hm._copy_logging_profile()
     new_contents = pfile.read_text()
     assert new_contents == h_contents
     assert new_contents != s_contents
@@ -366,7 +396,8 @@ def test_copy_logging_profile(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_copy_dircolors(monkeypatch: pytest.MonkeyPatch) -> None:
     pr = Preparer()
     assert not (pr._home / ".dir_colors").exists()
-    pr._copy_dircolors()
+    hm = HomedirManager(env=pr._env, home=pr._home, logger=pr._logger)
+    hm._copy_dircolors()
     assert (pr._home / ".dir_colors").exists()
 
 
@@ -379,7 +410,8 @@ def test_copy_etc_skel(monkeypatch: pytest.MonkeyPatch) -> None:
     prc = (etc / "skel" / ".pythonrc").read_text()
     prc += "\n# Local mods\n"
     (pr._home / ".pythonrc").write_text(prc)
-    pr._copy_etc_skel()
+    hm = HomedirManager(env=pr._env, home=pr._home, logger=pr._logger)
+    hm._copy_etc_skel()
     assert (pr._home / ".gitconfig").exists()
     sgc = (etc / "skel" / ".gitconfig").read_text()
     lgc = (pr._home / ".gitconfig").read_text()
@@ -411,9 +443,10 @@ def test_relocate_user_files(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.usefixtures("_rsp_env")
 def test_setup_gitlfs(monkeypatch: pytest.MonkeyPatch) -> None:
     pr = Preparer()
-    assert pr._check_for_git_lfs() is False
-    pr._setup_gitlfs()
-    assert pr._check_for_git_lfs() is True
+    hm = HomedirManager(env=pr._env, home=pr._home, logger=pr._logger)
+    assert hm._check_for_git_lfs() is False
+    hm._setup_gitlfs()
+    assert hm._check_for_git_lfs() is True
 
 
 #
@@ -434,7 +467,8 @@ def test_increase_log_limit(monkeypatch: pytest.MonkeyPatch) -> None:
         / "tracker.jupyterlab.settings"
     )
     assert not settings.exists()
-    pr._increase_log_limit()
+    hm = HomedirManager(env=pr._env, home=pr._home, logger=pr._logger)
+    hm._increase_log_limit()
     assert settings.exists()
     with settings.open() as f:
         obj = json.load(f)
@@ -456,15 +490,15 @@ def test_manage_access_token(monkeypatch: pytest.MonkeyPatch) -> None:
     pr = Preparer()
     tfile = pr._home / ".access_token"
     assert not tfile.exists()
-    pr._manage_access_token()
+    hm = HomedirManager(env=pr._env, home=pr._home, logger=pr._logger)
+    hm._manage_access_token()
     assert tfile.exists()
     assert tfile.read_text() == token
     tfile.unlink()
     ctr_file.write_text(token)
     assert ctr_file.exists()
     assert not tfile.exists()
-    pr = Preparer()
-    pr._manage_access_token()
+    hm._manage_access_token()
     assert tfile.exists()
     assert tfile.read_text() == token
     # Remove the rewritten saved file and replace with saved token.

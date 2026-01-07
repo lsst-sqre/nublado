@@ -170,6 +170,9 @@ extend = "ruff-shared.toml"
 "src/nublado/controller/services/builder/prepuller.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
 ]
+"src/nublado/startup/services/environment.py" = [
+    "S108",    # constructing /tmp paths for Kubernetes Pods
+]
 "src/nublado/startup/services/preparer.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
 ]
