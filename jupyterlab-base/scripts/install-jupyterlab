@@ -40,6 +40,7 @@ uv pip install --upgrade \
    jupyterlab \
    jupyterlab_execute_time \
    jupyterlab_iframe \
+   jupyter_server_documents \
    jupyterlab_widgets \
    lckr-jupyterlab-variableinspector \
    lsst-rsp \
