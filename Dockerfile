@@ -17,7 +17,7 @@
 FROM python:3.14.2-slim-trixie AS base-image
 
 # Install uv.
-COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.9.24 /uv /bin/uv
 
 # Update already-installed packages and Install additional packages required
 # (mostly by fsadmin)
