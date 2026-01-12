@@ -49,7 +49,7 @@ uv pip install --upgrade \
    panel \
    plotly \
    pythreejs \
-   'rsp-jupyter-extensions>=0.10.2' \
+   'rsp-jupyter-extensions>=0.19.3' \
    sidecar
 
 # File sharing doesn't work in the RSP environment; remove the extension.
@@ -72,4 +72,5 @@ uv cache clean
 # Increase this to force a rebuild because a dependency package has changed.
 # Reset when you actually change a package or its pins.
 # Serial: 0
+
 
