@@ -139,6 +139,7 @@ class MockJupyter:
         self._hub_xsrf = os.urandom(8).hex()
         self._lab_xsrf = os.urandom(8).hex()
 
+        self._clear_local_site_packages: dict[str, bool] = {}
         self._code_results: dict[str, str | BaseException] = {}
         self._delete_at: dict[str, datetime | None] = {}
         self._delete_delay: timedelta | None = None
@@ -239,6 +240,23 @@ class MockJupyter:
             if the default kernel was used.
         """
         return self._notebook_kernel.get(username)
+
+    def get_last_clear_local_site_packages(self, username: str) -> bool:
+        """Get the ``clear_local_site_packages`` setting requested by the last
+        execution call.
+
+        Parameters
+        ----------
+        username
+            Username of the user.
+
+        Returns
+        -------
+        bool
+            True if ``clear_local_site_packages`` was requested, False
+            otherwise.
+        """
+        return self._clear_local_site_packages.get(username, False)
 
     def get_last_spawn_form(self, username: str) -> dict[str, str] | None:
         """Get the contents of the last spawn form submitted for a user.
@@ -778,11 +796,27 @@ class MockJupyter:
         This does not use the tool that would be used by the Jupyter extension
         since it's too hard to guarantee consistent output for tests. Instead,
         first see if a result has been registered for this input with
-        `registery_notebook_result`. If so, return it. If not, return the
+        `register_notebook_result`. If so, return it. If not, return the
         input notebook as-is, without any updates to its output or resources.
         """
-        if "X-Kernel-Name" in request.headers:
-            self._notebook_kernel[user] = request.headers["X-Kernel-Name"]
+        query = request.url.query.decode()
+        # We're not going to do full decoding, because all we support are
+        # ``kernel_name`` and ``clear_local_site_packages``, and underscores
+        # don't get encoded.
+        if query:
+            param_items = query.split("&")
+            for item in param_items:
+                key, val = item.split("=")
+                if key == "kernel_name":
+                    self._notebook_kernel[user] = val
+                    continue
+                if key == "clear_local_site_packages":
+                    if val.lower() == "true":
+                        self._clear_local_site_packages[user] = True
+                    else:
+                        self._clear_local_site_packages[user] = False
+        if user not in self._clear_local_site_packages:
+            self._clear_local_site_packages[user] = False
         try:
             body = json.loads(request.content.decode())
             notebook = json.dumps(body["notebook"])

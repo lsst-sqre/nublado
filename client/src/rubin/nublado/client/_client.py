@@ -263,6 +263,7 @@ class NubladoClient:
         content: str,
         *,
         kernel_name: str | None = None,
+        clear_local_site_packages: bool = False,
         read_timeout: timedelta | None = None,
     ) -> NotebookExecutionResult:
         """Run a notebook via the Nublado notebook execution extension.
@@ -277,6 +278,9 @@ class NubladoClient:
             Content of the notebook to execute.
         kernel_name
             If provided, override the default kernel name.
+        clear_local_site_packages
+            If provided, remove user-installed site-packages before executing
+            the notebook.
         read_timeout
             If provided, overrides the default read timeout for Nublado API
             calls. The default timeout is 30 seconds and the notebook
@@ -315,12 +319,19 @@ class NubladoClient:
                 self._timeout.total_seconds(),
                 read=read_timeout.total_seconds(),
             )
-        headers = None
+        params: dict[str, str] | None = None
         if kernel_name:
-            headers = {"X-Kernel-Name": kernel_name}
+            if params is None:
+                params = {}
+            params["kernel_name"] = kernel_name
+        if clear_local_site_packages:
+            if params is None:
+                params = {}
+            params["clear_local_site_packages"] = "true"
+
         route = f"user/{self._username}/rubin/execution"
         r = await self._client.post(
-            route, content=content, timeout=timeout, extra_headers=headers
+            route, content=content, timeout=timeout, params=params
         )
         result = r.json()
         self._logger.debug("Got notebook execution result", result=result)
