@@ -319,19 +319,15 @@ class NubladoClient:
                 self._timeout.total_seconds(),
                 read=read_timeout.total_seconds(),
             )
-        headers: dict[str, str] | None = None
-        params: dict[str, str] | None = None
+        headers = None
+        params = {}
         if kernel_name:
-            if params is None:
-                params = {}
             params["kernel_name"] = kernel_name
             # This is to accomodate older images that expect this information
             # in a header rather than a query param.  Once those have aged
             # out of Noteburst, we can drop this.
             headers = {"X-Kernel-Name": kernel_name}
         if clear_local_site_packages:
-            if params is None:
-                params = {}
             params["clear_local_site_packages"] = "true"
 
         route = f"user/{self._username}/rubin/execution"

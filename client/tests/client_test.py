@@ -134,14 +134,18 @@ async def test_run_notebook(
         notebook, clear_local_site_packages=True
     )
     assert result == expected
-    assert mock_jupyter.get_last_clear_local_site_packages(username)
+    params = mock_jupyter.get_last_execution_parameters(username)
+    assert params is not None
+    assert params.clear_local_site_packages
 
     result = await client.run_notebook(
         notebook, kernel_name="Custom", clear_local_site_packages=True
     )
     assert result == expected
-    assert mock_jupyter.get_last_notebook_kernel(username) == "Custom"
-    assert mock_jupyter.get_last_clear_local_site_packages(username)
+    params = mock_jupyter.get_last_execution_parameters(username)
+    assert params is not None
+    assert params.kernel_name == "Custom"
+    assert params.clear_local_site_packages
 
 
 @dataclass
