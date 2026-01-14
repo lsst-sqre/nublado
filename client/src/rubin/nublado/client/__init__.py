@@ -16,6 +16,7 @@ from ._http import JupyterAsyncClient
 from ._mock import (
     MockJupyter,
     MockJupyterAction,
+    MockJupyterExecutionParameters,
     MockJupyterLabSession,
     MockJupyterState,
     register_mock_jupyter,
@@ -41,6 +42,7 @@ __all__ = [
     "JupyterLabSessionManager",
     "MockJupyter",
     "MockJupyterAction",
+    "MockJupyterExecutionParameters",
     "MockJupyterLabSession",
     "MockJupyterState",
     "NotebookExecutionError",

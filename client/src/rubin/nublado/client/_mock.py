@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 __all__ = [
     "MockJupyter",
     "MockJupyterAction",
+    "MockJupyterExecutionParameters",
     "MockJupyterLabSession",
     "MockJupyterState",
     "register_mock_jupyter",
@@ -59,6 +60,18 @@ class MockJupyterAction(Enum):
     SPAWN_PENDING = "spawn_pending"
     SPAWN = "spawn"
     USER = "user"
+
+
+@dataclass
+class MockJupyterExecutionParameters:
+    """Parameters for Jupyter code execution.
+
+    Currently this includes ``kernel_name`` and
+    ``clear_local_site_packages``
+    """
+
+    kernel_name: str | None = None
+    clear_local_site_packages: bool = False
 
 
 @dataclass
@@ -139,11 +152,15 @@ class MockJupyter:
         self._hub_xsrf = os.urandom(8).hex()
         self._lab_xsrf = os.urandom(8).hex()
 
+        self._clear_local_site_packages: dict[str, bool] = {}
         self._code_results: dict[str, str | BaseException] = {}
         self._delete_at: dict[str, datetime | None] = {}
         self._delete_delay: timedelta | None = None
         self._fail: defaultdict[str, set[MockJupyterAction]] = defaultdict(set)
         self._lab_form: dict[str, dict[str, str]] = {}
+        self._execution_parameters: dict[
+            str, MockJupyterExecutionParameters
+        ] = {}
         self._notebook_kernel: dict[str, str] = {}
         self._notebook_results: dict[str, NotebookExecutionResult] = {}
         self._redirect_loop = False
@@ -224,6 +241,24 @@ class MockJupyter:
         else:
             self._fail[username] = set(actions)
 
+    def get_last_execution_parameters(
+        self, username: str
+    ) -> MockJupyterExecutionParameters | None:
+        """Get the execution parameters requested by the last execution call.
+
+        Parameters
+        ----------
+        username
+            Username of the user
+
+        Returns
+        -------
+        MockJupyterExecutionParameters
+            A structure representing the kernel name and whether to clear
+        local site packages for the last execution call.
+        """
+        return self._execution_parameters.get(username)
+
     def get_last_notebook_kernel(self, username: str) -> str | None:
         """Get the kernel requested by the last execution call.
 
@@ -238,7 +273,10 @@ class MockJupyter:
             Kernel requested for the last execution request, if any, or `None`
             if the default kernel was used.
         """
-        return self._notebook_kernel.get(username)
+        params = self.get_last_execution_parameters(username)
+        if params is None:
+            return None
+        return params.kernel_name
 
     def get_last_spawn_form(self, username: str) -> dict[str, str] | None:
         """Get the contents of the last spawn form submitted for a user.
@@ -778,11 +816,19 @@ class MockJupyter:
         This does not use the tool that would be used by the Jupyter extension
         since it's too hard to guarantee consistent output for tests. Instead,
         first see if a result has been registered for this input with
-        `registery_notebook_result`. If so, return it. If not, return the
+        `register_notebook_result`. If so, return it. If not, return the
         input notebook as-is, without any updates to its output or resources.
         """
-        if "X-Kernel-Name" in request.headers:
-            self._notebook_kernel[user] = request.headers["X-Kernel-Name"]
+        query = request.url.query.decode()
+        parameters = MockJupyterExecutionParameters()
+        if query:
+            params = {k: v[0] for k, v in parse_qs(query).items()}
+            parameters.kernel_name = params.get("kernel_name")
+            clear_local = params.get("clear_local_site_packages", "false")
+            parameters.clear_local_site_packages = clear_local == "true"
+        if parameters.kernel_name is None:
+            parameters.kernel_name = request.headers.get("X-Kernel-Name")
+        self._execution_parameters[user] = parameters
         try:
             body = json.loads(request.content.decode())
             notebook = json.dumps(body["notebook"])

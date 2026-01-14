@@ -263,6 +263,7 @@ class NubladoClient:
         content: str,
         *,
         kernel_name: str | None = None,
+        clear_local_site_packages: bool = False,
         read_timeout: timedelta | None = None,
     ) -> NotebookExecutionResult:
         """Run a notebook via the Nublado notebook execution extension.
@@ -277,6 +278,9 @@ class NubladoClient:
             Content of the notebook to execute.
         kernel_name
             If provided, override the default kernel name.
+        clear_local_site_packages
+            If provided, remove user-installed site-packages before executing
+            the notebook.
         read_timeout
             If provided, overrides the default read timeout for Nublado API
             calls. The default timeout is 30 seconds and the notebook
@@ -316,11 +320,23 @@ class NubladoClient:
                 read=read_timeout.total_seconds(),
             )
         headers = None
+        params = {}
         if kernel_name:
+            params["kernel_name"] = kernel_name
+            # This is to accomodate older images that expect this information
+            # in a header rather than a query param.  Once those have aged
+            # out of Noteburst, we can drop this.
             headers = {"X-Kernel-Name": kernel_name}
+        if clear_local_site_packages:
+            params["clear_local_site_packages"] = "true"
+
         route = f"user/{self._username}/rubin/execution"
         r = await self._client.post(
-            route, content=content, timeout=timeout, extra_headers=headers
+            route,
+            content=content,
+            timeout=timeout,
+            params=params,
+            extra_headers=headers,
         )
         result = r.json()
         self._logger.debug("Got notebook execution result", result=result)

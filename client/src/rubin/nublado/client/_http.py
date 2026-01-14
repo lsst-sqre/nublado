@@ -289,6 +289,7 @@ class JupyterAsyncClient:
         content: str | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        params: dict[str, str] | None = None,
         timeout: Timeout | None = None,
         add_referer: bool = False,
         extra_headers: dict[str, str] | None = None,
@@ -349,6 +350,7 @@ class JupyterAsyncClient:
             content=content,
             data=data,
             json=json,
+            params=params,
             timeout=timeout,
         )
         if r.is_redirect:
