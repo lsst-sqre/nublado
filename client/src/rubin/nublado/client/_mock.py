@@ -822,14 +822,10 @@ class MockJupyter:
         query = request.url.query.decode()
         parameters = MockJupyterExecutionParameters()
         if query:
-            params = parse_qs(query)
-            for key, val in params.items():
-                if key == "kernel_name":
-                    parameters.kernel_name = val[0]
-                    continue
-                if key == "clear_local_site_packages":
-                    if val[0].lower() == "true":
-                        parameters.clear_local_site_packages = True
+            params = {k: v[0] for k, v in parse_qs(query).items()}
+            parameters.kernel_name = params.get("kernel_name")
+            clear_local = params.get("clear_local_site_packages", "false")
+            parameters.clear_local_site_packages = clear_local == "true"
         if parameters.kernel_name is None:
             parameters.kernel_name = request.headers.get("X-Kernel-Name")
         self._execution_parameters[user] = parameters
