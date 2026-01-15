@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-11.2.0'></a>
+## 11.2.0 (2026-01-14)
+
+### New features
+
+- Add `clear_local_site_packages` parameter to notebook execution.
+
 <a id='changelog-11.1.0'></a>
 ## 11.1.0 (2026-01-06)
 
