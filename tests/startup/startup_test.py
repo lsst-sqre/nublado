@@ -521,7 +521,7 @@ def test_startup_files() -> None:
     expected_args = json.loads((outdir / "args.json").read_text())
     env_haspath = ["HOME", "SCRATCH_DIR", "TMPDIR"]
     env_skip = ["JUPYTERLAB_CONFIG_DIR"]
-    args_haspath = "--notebook-dir"
+    args_haspath = "--ServerApp.preferred_dir"
     for key in env:
         if key in env_skip:  # We write it as absolute path, so this would
             # fail GitHub CI, where that is different.

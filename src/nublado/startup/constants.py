@@ -28,6 +28,7 @@ LAB_STATIC_CMD_ARGS = [
     "--KernelSpecManager.ensure_native_kernel=False",
     "--QtExporter.enabled=False",
     "--PDFExporter.enabled=False",
+    "--ServerApp.root_dir=/",
     "--WebPDFExporter.enabled=False",
     "--MappingKernelManager.default_kernel_name=lsst",
     "--LabApp.check_for_updates_class=jupyterlab.NeverCheckForUpdate",
