@@ -1,6 +1,5 @@
 """Pytest configuration and fixtures."""
 
-import contextlib
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -57,14 +56,10 @@ def _rsp_env(
     monkeypatch.setenv(
         "NUBLADO_RUNTIME_MOUNTS_DIR", str(file_dir / "etc" / "nublado")
     )
-    monkeypatch.setenv(
-        "JUPYTERLAB_CONFIG_DIR",
-        str(file_dir / "jupyterlab"),
-    )
+    monkeypatch.setenv("JUPYTERLAB_CONFIG_DIR", str(file_dir / "jupyterlab"))
     monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
-    with contextlib.suppress(KeyError):
-        monkeypatch.delenv("TMPDIR")
-        monkeypatch.delenv("DAF_BUTLER_CACHE_DIRECTORY")
+    monkeypatch.delenv("TMPDIR", raising=False)
+    monkeypatch.delenv("DAF_BUTLER_CACHE_DIRECTORY", raising=False)
     with TemporaryDirectory() as fake_root:
         t_home = Path(fake_root) / "home" / "hambone"
         t_home.mkdir(parents=True)

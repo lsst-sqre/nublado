@@ -520,14 +520,22 @@ def test_startup_files() -> None:
     expected_env = json.loads((outdir / "env.json").read_text())
     expected_args = json.loads((outdir / "args.json").read_text())
     env_haspath = ["HOME", "SCRATCH_DIR", "TMPDIR"]
-    env_skip = ["JUPYTERLAB_CONFIG_DIR"]
+    env_skip = ["DAF_BUTLER_CACHE_DIRECTORY", "JUPYTERLAB_CONFIG_DIR"]
     args_haspath = "--notebook-dir"
+
+    # Make sure we do not attempt to propagate PATH from the init container,
+    # since it will be all wrong for the lab container.
+    assert "PATH" not in env
+
     for key in env:
         if key in env_skip:  # We write it as absolute path, so this would
             # fail GitHub CI, where that is different.
             continue
         if key not in env_haspath:
-            assert expected_env[key] == env[key]
+            if key not in expected_env:
+                assert os.environ[key] == env[key]
+            else:
+                assert expected_env[key] == env[key]
         else:
             # User name will be somewhere in the value
             assert env[key].find("hambone") != -1
