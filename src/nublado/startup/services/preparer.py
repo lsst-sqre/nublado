@@ -13,7 +13,6 @@ from safir.logging import LogLevel, configure_logging
 from ..constants import (
     APP_NAME,
     LAB_STATIC_CMD_ARGS,
-    RUNTIME_ENVIRONMENT_VARIABLES,
     STARTUP_PATH,
 )
 from ..exceptions import RSPErrorCode, RSPStartupError
@@ -374,9 +373,7 @@ class Preparer:
 
     def _write_lab_environment(self) -> None:
         persistent_env = {
-            x: self._env[x]
-            for x in self._env
-            if x in RUNTIME_ENVIRONMENT_VARIABLES and self._env[x]
+            k: v for k, v in self._env.items() if k != "PATH" and v is not None
         }
         env_file = STARTUP_PATH / "env.json"
         env_file.write_text(json.dumps(persistent_env))
