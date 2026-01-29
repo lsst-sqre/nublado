@@ -55,6 +55,9 @@
     "ui": {
       "nublado": {
         "url": "https://nb.data.example.com/nb"
+      },
+      "portal": {
+        "url": "https://data.example.com/portal/app/"
       }
     }
   }

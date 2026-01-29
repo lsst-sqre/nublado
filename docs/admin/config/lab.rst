@@ -52,7 +52,7 @@ For a comprehensive guide to deciding how to handle home directories in Nublado,
 Mounted volumes
 ===============
 
-By default, labs only have node-local temporary space (Kubernetes ``emptyDir``) mounted at :file:`/tmp` and :file:`/lab_startup`, as well as some read-only metadata mounted.
+By default, labs only have node-local temporary space (Kubernetes ``emptyDir``) mounted at :file:`/tmp` and :file:`/etc/nublado/startup`, as well as some read-only metadata mounted.
 All other mounted file systems must be explicitly specified, including the user's home directory if you want users to have persistent home directories.
 
 As with Kubernetes in general, the volumes and volume mounts are specified separately.
@@ -100,9 +100,9 @@ EmptyDir volumes
 ----------------
 
 An emptyDir volume mounts a file system that is initially empty; it can be read or written by any container in the pod.
-This is the sort of volume used for the Lab container's :file:`/tmp` and :file:`/lab_startup`.
+This is the sort of volume used for the Lab container's :file:`/tmp` and :file:`/etc/nublado/startup`.
 
-When the startup container runs, it will write files into :file:`lab_startup` which will then be consumed by the Lab container to set up its runtime environment.
+When the startup container runs, it will write files into :file:`/etc/nublado/startup` which will then be consumed by the Lab container to set up its runtime environment.
 
 There are two situations in which an emptyDir volume is useful.
 The first is to pass information from initContainers to the Lab container.

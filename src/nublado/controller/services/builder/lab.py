@@ -798,7 +798,9 @@ class LabBuilder:
                 name="lab-startup",
             ),
             volume_mount=V1VolumeMount(
-                mount_path="/lab_startup", name="lab-startup", read_only=False
+                mount_path="/etc/nublado/startup",
+                name="lab-startup",
+                read_only=False,
             ),
         )
 

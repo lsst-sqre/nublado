@@ -52,6 +52,10 @@ uv pip install --upgrade \
    'rsp-jupyter-extensions>=0.10.2' \
    sidecar
 
+# Install the rubin.nublado.startup module.
+uv sync --frozen --active --inexact --no-default-groups --compile-bytecode \
+    --no-editable
+
 # File sharing doesn't work in the RSP environment; remove the extension.
 jupyter labextension disable "@jupyterlab/filebrowser-extension:share-file"
 

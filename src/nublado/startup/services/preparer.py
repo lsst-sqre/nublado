@@ -16,7 +16,6 @@ from ..constants import (
     STARTUP_PATH,
 )
 from ..exceptions import RSPErrorCode, RSPStartupError
-from ..utils import get_runtime_mounts_dir
 from .environment import EnvironmentConfigurator
 from .homedir import HomedirManager
 
@@ -41,37 +40,29 @@ class Preparer:
     """
 
     def __init__(self) -> None:
-        # We start with a copy of our own environment.
-        # Only a subset of this will be forwarded into the launch
-        # environment; most of it will be used for internal housekeeping
-        # during the setup process.
-        self._env = os.environ.copy()
-        self._debug = bool(self._env.get("DEBUG", ""))
+        self._broken = False
+        self._debug = bool(os.getenv("DEBUG"))
+        self._env = {}
+
         loglevel = LogLevel.DEBUG if self._debug else LogLevel.INFO
         configure_logging(name=APP_NAME, log_level=loglevel)
         self._logger = structlog.get_logger(APP_NAME)
-        self._broken = False
-        for req_env in ("JUPYTERHUB_BASE_URL", "NUBLADO_HOME"):
-            if req_env not in self._env:
-                exc = RSPStartupError(RSPErrorCode.EBADENV, None, req_env)
-                self._set_abnormal_startup(exc)
+
         # We use NUBLADO_HOME here, because we're still running as the
-        # provisioner rather than as the end user, who would use HOME
-        #
-        # However, we also force HOME to be our new value, because the
-        # git LFS setup we run uses HOME.  Of course, that won't persist
-        # beyond this process.
-        #
-        # If no home, use /tmp?  It won't work but at least if we create
-        # stuff there it will be harmless, and the user will get a message
-        # indicating what's wrong.
-        self._home = Path(self._env.get("NUBLADO_HOME", "/tmp"))
-        self._env["HOME"] = f"{self._home!s}"
-        os.environ["HOME"] = self._env["HOME"]
-        if self._env["HOME"] == "/tmp":
-            self._env["USER"] = "@@@user_unknown@@@"
+        # provisioner rather than as the end user, who would use HOME. If no
+        # home, use /tmp, which should be a shared emptyDir file system with
+        # the main container. Abnormal startup will put necessary files there.
+        if "NUBLADO_HOME" not in os.environ:
+            exc = RSPStartupError(RSPErrorCode.EBADENV, None, "NUBLADO_HOME")
+            self._set_abnormal_startup(exc)
+            self._home = Path("/tmp")
         else:
-            self._env["USER"] = self._home.name  # Last component of homedir
+            self._home = Path(os.environ["NUBLADO_HOME"])
+        self._env["HOME"] = str(self._home)
+
+        # Force HOME in our own environment to be the discovered value since
+        # git-lfs setup uses HOME.
+        os.environ["HOME"] = self._env["HOME"]
 
     def prepare(self) -> None:
         """Make necessary modifications to start the user lab."""
@@ -104,16 +95,9 @@ class Preparer:
 
         # If everything seems OK so far, copy files into the user's home
         # space and set up git-lfs.
-
         if not self._broken:
             try:
                 home_mgr.copy_files_to_user_homedir()
-            except OSError as exc:
-                self._set_abnormal_startup(exc)
-
-        if not bool(self._env.get("NONINTERACTIVE", "")):
-            try:
-                home_mgr.modify_interactive_settings()
             except OSError as exc:
                 self._set_abnormal_startup(exc)
 
@@ -157,7 +141,7 @@ class Preparer:
         self._logger.info("Cleared abnormal startup condition")
 
     def _relocate_user_environment_if_requested(self) -> None:
-        if not self._env.get("RESET_USER_ENV", ""):
+        if not os.getenv("RESET_USER_ENV"):
             return
         self._logger.debug("User environment relocation requested")
         now = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%S")
@@ -183,8 +167,6 @@ class Preparer:
             tgt.parent.mkdir()
             self._logger.debug(f"Moving {u_setups.name} to {tgt}")
             shutil.move(u_setups, tgt)
-        # Now that we've done that, clear the environment reset flag.
-        del self._env["RESET_USER_ENV"]
 
     def _make_abnormal_startup_environment(self) -> None:
         # What we're doing is writing (we hope) someplace safe, be that
@@ -204,7 +186,7 @@ class Preparer:
         s_txt = json.dumps(s_obj)
 
         try:
-            temphome = self._env.get("SCRATCH_DIR", "/tmp")
+            temphome = os.getenv("SCRATCH_DIR", "/tmp")
             welcome = Path(temphome) / "notebooks" / "tutorials" / "welcome.md"
             welcome.parent.mkdir(exist_ok=True, parents=True)
             welcome.write_text(txt)
@@ -225,15 +207,6 @@ class Preparer:
             )
 
     def _make_abnormal_landing_markdown(self) -> str:
-        user = self._env["USER"]
-        home = self._env.get(
-            "NUBLADO_HOME",
-            self._env.get(
-                "HOME",
-                f"/home/{user}",  # Guess, albeit a good one.
-            ),
-        )
-
         errmsg = self._env.get("ABNORMAL_STARTUP_MESSAGE", "<no message>")
         errcode = self._env.get("ABNORMAL_STARTUP_ERRORCODE", "EUNKNOWN")
 
@@ -267,7 +240,7 @@ class Preparer:
                 txt += dedent(
                     f"""
                     You have exceeded your quota.  Try using the terminal to
-                    remove unneeded files in `{home}`.  You can use the
+                    remove unneeded files in `{self._home!s}`.  You can use the
                     `quota` command to check your usage.
 
                     After that, shut down and restart the lab.  If that does
@@ -278,9 +251,9 @@ class Preparer:
                 txt += dedent(
                     f"""
                     You have run out of filesystem space.  Try using the
-                    terminal to remove unneeded files in `{home}`.  Since the
-                    filesystem is full, this may not be something you can
-                    correct.
+                    terminal to remove unneeded files in `{self._home!s}`.
+                    Since the filesystem is full, this may not be something
+                    you can correct.
 
                     After you have trimmed whatever possible, shut down and
                     restart the lab.
@@ -323,8 +296,7 @@ class Preparer:
         }
         result: list[str] = []
         for envvar, setting in timeout_map.items():
-            val = self._env.get(envvar, "")
-            if val:
+            if val := os.getenv(envvar):
                 result.append(f"--{setting}={val}")
         return result
 
@@ -334,57 +306,38 @@ class Preparer:
                 f"Abnormal startup: {self._env['ABNORMAL_STARTUP_MESSAGE']}"
             )
             self._make_abnormal_startup_environment()
-            #
+
             # We will check to see if we got SCRATCH_DIR set before we broke,
             # and if so, use that, which would be a user-specific path on a
             # scratch filesystem.  If we didn't, we just use "/tmp" and hope
             # for the best.  Any reasonably-configured RSP running under K8s
             # will not have a shared "/tmp".
-            #
             temphome = self._env.get("SCRATCH_DIR", "/tmp")
             self._logger.warning(f"Launching with homedir='{temphome}'")
             self._env["HOME"] = temphome
             self._home = Path(temphome)
-        # Used by shell startup inside the Lab.
+
+        # Used by shell startup inside sciplat-lab (Rubin-specific).
         self._env["RUNNING_INSIDE_JUPYTERLAB"] = "TRUE"
+
         # If any of these fails, lsst.rsp.startup ought to react to the
         # lack of the appropriate files and start in degraded mode with
         # an explanation.
         try:
-            self._write_noninteractive_command()
             self._write_lab_environment()
             self._write_lab_args()
         except Exception:
             self._logger.exception("Writing Lab startup files failed")
 
-    def _write_noninteractive_command(self) -> None:
-        # Only write "noninteractive.json" if we are running in
-        # non-interactive mode.
-        if not bool(self._env.get("NONINTERACTIVE", "")):
-            return
-        config_path = (
-            get_runtime_mounts_dir()
-            / "noninteractive"
-            / "command"
-            / "command.json"
-        )
-        noninteractive_cmd_file = STARTUP_PATH / "noninteractive.json"
-        noninteractive_cmd_file.write_text(config_path.read_text())
-
     def _write_lab_environment(self) -> None:
-        persistent_env = {
-            k: v for k, v in self._env.items() if k != "PATH" and v is not None
-        }
         env_file = STARTUP_PATH / "env.json"
-        env_file.write_text(json.dumps(persistent_env))
+        env_file.write_text(json.dumps(self._env))
 
     def _write_lab_args(self) -> None:
         log_level = "DEBUG" if self._debug else "INFO"
-        notebook_dir = f"{self._home}"
-        args_file = STARTUP_PATH / "args.json"
-        # Make a new list from the static args and our own info.
         cmd_args = list(LAB_STATIC_CMD_ARGS)
-        cmd_args.append(f"--notebook-dir={notebook_dir}")
+        cmd_args.append(f"--notebook-dir={self._home!s}")
         cmd_args.append(f"--log-level={log_level}")
         cmd_args.extend(self._set_timeout_variables())
+        args_file = STARTUP_PATH / "args.json"
         args_file.write_text(json.dumps(cmd_args))

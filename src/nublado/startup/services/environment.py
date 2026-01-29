@@ -59,27 +59,25 @@ class EnvironmentConfigurator:
         # they want to share, but for TMPDIR and DAF_BUTLER_CACHE_DIRECTORY
         # they probably should not.  The mode will not be reset if the
         # directory already exists and is writeable
-
-        scratch_path = Path(os.getenv("SCRATCH_PATH") or "/scratch")
-
+        scratch_path = Path(os.getenv("SCRATCH_PATH", "/scratch"))
         if not scratch_path.is_dir():
             self._logger.debug(
                 # Debug only: not having /scratch is reasonable.
                 f"{scratch_path} is not a directory."
             )
             return None
-        # The username will be the last component of NUBLADO_HOME
-        user = self._env.get("USER", "")
-        if not user:
-            self._logger.warning("Could not determine user from environment")
-            return None
-        schema = self._env.get("HOMEDIR_SCHEMA", "username")
-        user_scratch_dir = scratch_path / user
+
         # This is pretty ad-hoc, but USDF uses the first letter in the
         # username for both home and scratch
+        user = self._env["USER"]
+        schema = os.getenv("HOMEDIR_SCHEMA", "username")
         if schema == "initialThenUsername":
             user_scratch_dir = scratch_path / user[0] / user
+        else:
+            user_scratch_dir = scratch_path / user
         user_scratch_path = user_scratch_dir / path
+
+        # Create the scratch directory.
         try:
             user_scratch_path.mkdir(parents=True, exist_ok=True, mode=0o700)
         except OSError as exc:
@@ -91,8 +89,9 @@ class EnvironmentConfigurator:
             self._logger.warning(f"Unable to write to {user_scratch_path!s}")
             return None
         self._logger.debug(f"Using user scratch path {user_scratch_path!s}")
-        # Set user-specific top dir as SCRATCH_DIR
-        self._env["SCRATCH_DIR"] = f"{user_scratch_dir!s}"
+
+        # Set user-specific top dir as SCRATCH_DIR.
+        self._env["SCRATCH_DIR"] = str(user_scratch_dir)
         return user_scratch_path
 
     def _set_tmpdir_if_scratch_available(self) -> None:
@@ -105,8 +104,7 @@ class EnvironmentConfigurator:
         # In our tests at the IDF, on a 2CPU/8GiB "Medium", TMPDIR on
         # /scratch (NFS) is about 15% slower than on local ephemeral storage.
         self._logger.debug("Resetting TMPDIR if scratch storage available")
-        tmpdir = self._env.get("TMPDIR", "")
-        if tmpdir:
+        if tmpdir := os.getenv("TMPDIR"):
             self._logger.debug(f"Not setting TMPDIR: already set to {tmpdir}")
             return
         temp_path = self._check_user_scratch_subdir(Path("tmp"))
@@ -119,8 +117,7 @@ class EnvironmentConfigurator:
     def _set_butler_cache(self) -> None:
         # This is basically the same story as TMPDIR.
         env_v = "DAF_BUTLER_CACHE_DIRECTORY"
-        dbcd = self._env.get(env_v, "")
-        if dbcd:
+        if dbcd := os.getenv(env_v):
             self._logger.debug(f"Not setting {env_v}: already set to {dbcd}")
             return
         temp_path = self._check_user_scratch_subdir(Path("butler_cache"))
@@ -128,16 +125,17 @@ class EnvironmentConfigurator:
             self._env[env_v] = str(temp_path)
             self._logger.debug(f"Set {env_v} to {temp_path!s}")
             return
-        # In any sane RSP environment, /tmp will not be shared (it will
-        # be either tmpfs or on ephemeral storage, and in any case not
-        # visible beyond its own pod), so we are not actually using a risky
-        # shared directory.
+
+        # In any sane RSP environment, /tmp will not be shared (it will be
+        # either tmpfs or on ephemeral storage, and in any case not visible
+        # beyond its own pod), so we are not actually using a risky shared
+        # directory.
         self._env[env_v] = "/tmp/butler_cache"
 
     def _set_cpu_variables(self) -> None:
         self._logger.debug("Setting CPU threading variables")
         try:
-            cpu_limit = int(float(self._env.get("CPU_LIMIT", "1")))
+            cpu_limit = int(float(os.getenv("CPU_LIMIT", "1")))
         except ValueError:
             cpu_limit = 1
         cpu_limit = max(cpu_limit, 1)
@@ -169,10 +167,10 @@ class EnvironmentConfigurator:
 
     def _expand_panda_tilde(self) -> None:
         self._logger.debug("Expanding tilde in PANDA_CONFIG_ROOT, if needed")
-        if "PANDA_CONFIG_ROOT" in self._env:
+        if panda_root := os.getenv("PANDA_CONFIG_ROOT"):
             # We've already been through set_user(), so USER must be set.
             username = self._env["USER"]
-            path = Path(self._env["PANDA_CONFIG_ROOT"])
+            path = Path(panda_root)
             path_parts = path.parts
             if path_parts[0] in ("~", f"~{username}"):
                 new_path = Path(self._home, *path_parts[1:])
@@ -187,10 +185,8 @@ class EnvironmentConfigurator:
     async def _set_firefly_variables(self) -> None:
         self._logger.debug("Setting firefly variables")
         # Set up discovery client.  Only used right here for now.
-        ext_url = self._env.get(
-            "EXTERNAL_INSTANCE_URL", "https://localhost:8888"
-        )
-        rep_url = self._env.get("REPERTOIRE_BASE_URL", ext_url + "/repertoire")
+        ext_url = os.getenv("EXTERNAL_INSTANCE_URL", "https://localhost:8888")
+        rep_url = os.getenv("REPERTOIRE_BASE_URL", ext_url + "/repertoire")
         discovery = DiscoveryClient(base_url=rep_url)
         emsg = "Discovery of portal service failed; not setting variables"
         try:
@@ -220,19 +216,17 @@ class EnvironmentConfigurator:
         # file substitution.  This is the environment part.
         self._logger.debug("Setting Butler credential variables")
         cred_dir = self._home / ".lsst"
-        if "AWS_SHARED_CREDENTIALS_FILE" in self._env:
-            awsname = Path(self._env["AWS_SHARED_CREDENTIALS_FILE"]).name
-            self._env["ORIG_AWS_SHARED_CREDENTIALS_FILE"] = self._env[
-                "AWS_SHARED_CREDENTIALS_FILE"
-            ]
+        if aws_file := os.getenv("AWS_SHARED_CREDENTIALS_FILE"):
+            awsname = Path(aws_file).name
+            self._env["ORIG_AWS_SHARED_CREDENTIALS_FILE"] = aws_file
             newaws = str(cred_dir / awsname)
-            self._env["AWS_SHARED_CREDENTIALS_FILE"] = newaws
+            self._env["AWS_SHARED_CREDENTIALS_FILE"] = str(newaws)
             self._logger.debug(
                 f"Set 'AWS_SHARED_CREDENTIALS_FILE' -> '{newaws}'"
             )
-        if "PGPASSFILE" in self._env:
-            pgpname = Path(self._env["PGPASSFILE"]).name
+        if pgp_file := os.getenv("PGPASSFILE"):
+            pgpname = Path(pgp_file).name
             newpg = str(cred_dir / pgpname)
-            self._env["ORIG_PGPASSFILE"] = self._env["PGPASSFILE"]
-            self._env["PGPASSFILE"] = newpg
+            self._env["ORIG_PGPASSFILE"] = pgp_file
+            self._env["PGPASSFILE"] = str(newpg)
             self._logger.debug(f"Set 'PGPASSFILE' -> '{newpg}'")

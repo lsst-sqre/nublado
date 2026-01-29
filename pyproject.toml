@@ -57,13 +57,14 @@ dev = [
     "asgi-lifespan",
     "coverage[toml]",
     "httpx-sse",
-    "pyfakefs",
+    "pyfakefs>=6",
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
     "pytest-sugar",
     "pytest-timeout",
     "respx",
+    "rubin-nublado-startup",
     "types-Deprecated",
     "types-requests",
 ]
@@ -164,6 +165,9 @@ extend = "ruff-shared.toml"
     "INP001",  # Jupyter server configuration file, so has no namespace
     "F821",    # Jupyter configuration uses a magic c variable
 ]
+"jupyterlab-base/src/rubin/nublado/startup/_launch.py" = [
+    "S606",    # intentionally calling os.execvpe
+]
 "src/nublado/controller/constants.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
 ]
@@ -182,11 +186,11 @@ extend = "ruff-shared.toml"
 "tests/controller/models/domain/rsptag_test.py" = [
     "PLR0124", # testing comparison dunder methods requires strange assertions
 ]
+"tests/data/**" = [
+    "INP001",  # configuration, not a module in a namespace
+]
 "tests/startup/startup_test.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
-]
-"tests/startup/data/files/jupyterlab/etc/20-logging.py" = [
-    "INP001",  # It's configuration, not a module in a namespace
 ]
 
 [tool.ruff.lint.isort]
@@ -221,3 +225,8 @@ required-environments = [
 rubin-nublado-authenticator = { path = "hub/plugins/authenticator", editable = true }
 rubin-nublado-client = { path = "client", editable = true }
 rubin-nublado-spawner = { path = "hub/plugins/spawner", editable = true }
+rubin-nublado-startup = { workspace = true }
+safir = { git = "https://github.com/lsst-sqre/safir", branch = "t/DM-53975" }
+
+[tool.uv.workspace]
+members = ["jupyterlab-base"]

@@ -1,0 +1,35 @@
+[project]
+# https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
+name = "rubin-nublado-startup"
+description = "JupyterLab startup code for Nublado."
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+keywords = ["rubin", "lsst"]
+# https://pypi.org/classifiers/
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Natural Language :: English",
+    "Operating System :: POSIX",
+    "Private :: Do Not Upload",
+    "Typing :: Typed",
+]
+requires-python = ">=3.14"
+dependencies = []
+dynamic = ["version"]
+
+[project.scripts]
+nublado-start-lab = "rubin.nublado.startup:launch_lab"
+
+[project.urls]
+Homepage = "https://nublado.lsst.io"
+Source = "https://github.com/lsst-sqre/nublado"
+"Change log" = "https://nublado.lsst.io/changelog.html"
+"Issue tracker" = "https://github.com/lsst-sqre/nublado/issues"
+
+[build-system]
+requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
+build-backend = 'setuptools.build_meta'

@@ -1,6 +1,0 @@
-{
-  "url": "https://data.example.com/influxdb/",
-  "database": "efd",
-  "username": "efdreader",
-  "schema_registry": "http://sasquatch-schema-registry.sasquatch:8081/"
-}

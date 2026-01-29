@@ -4,7 +4,7 @@ USER root
 SHELL ["/bin/bash", "-lc"]
 
 # Install uv.
-COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.9.28 /uv /bin/uv
 
 # Set up workspace
 RUN mkdir -p /tmp/build
@@ -33,8 +33,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     ./install-dependency-packages
 
 # Install JupyterLab and dependent Python packages.
-COPY jupyterlab-base/scripts/install-jupyterlab /tmp/build
-RUN ./install-jupyterlab
+ADD . /tmp/build
+WORKDIR /tmp/build/jupyterlab-base
+RUN scripts/install-jupyterlab
 
 FROM base-image AS jupyterlab-image
 

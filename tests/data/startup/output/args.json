@@ -1,0 +1,16 @@
+[
+  "jupyterhub-singleuser",
+  "--ip=0.0.0.0",
+  "--port=8888",
+  "--no-browser",
+  "--ContentsManager.allow_hidden=True",
+  "--FileContentsManager.hide_globs=[]",
+  "--KernelSpecManager.ensure_native_kernel=False",
+  "--QtExporter.enabled=False",
+  "--PDFExporter.enabled=False",
+  "--WebPDFExporter.enabled=False",
+  "--MappingKernelManager.default_kernel_name=lsst",
+  "--LabApp.check_for_updates_class=jupyterlab.NeverCheckForUpdate",
+  "--notebook-dir=/home/hambone",
+  "--log-level=INFO"
+]
