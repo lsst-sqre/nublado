@@ -72,6 +72,16 @@ COPY assets/repo-cloner.sh /usr/local/bin
 # Copy screenrc for fsadmin; idiosyncratic but not a terrible default.
 COPY assets/screenrc /etc/screenrc
 
+# Set up source files for nublado startup.  These mirror file location in
+# the runtime JupyterLab container; they are copied in `nublado.startup`.
+COPY jupyterlab-base/skel/pythonrc /etc/skel/.pythonrc
+RUN cd /tmp && \
+    git clone https://github.com/seebi/dircolors-solarized.git && \
+    cp dircolors-solarized/dircolors* /etc && \
+    rm -rf dircolors-solarized && \
+    mkdir -p /usr/local/share/jupyterlab/etc
+COPY assets/20-logging.py /usr/local/share/jupyterlab/etc/20-logging.py
+
 # Make root use bash by default.  It's no longer 1983, why suffer?
 RUN chsh -s /bin/bash root
 
