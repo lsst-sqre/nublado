@@ -4,6 +4,7 @@ executing its plans.
 """
 
 import datetime
+import errno
 from pathlib import Path
 
 import yaml
@@ -236,6 +237,12 @@ class Purger:
                     victim.rmdir()
                 except (FileNotFoundError, PermissionError) as exc:
                     failed_files[victim] = exc
+                except OSError as exc:
+                    # Only catch "Directory not empty"
+                    if exc.errno and errno.errorcode[exc.errno] == "ENOTEMPTY":
+                        failed_files[victim] = exc
+                    else:
+                        raise
 
         if failed_files:
             failed_files_str = {
