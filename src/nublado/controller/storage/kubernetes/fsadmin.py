@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from kubernetes_asyncio.client import ApiClient
 from structlog.stdlib import BoundLogger
 
@@ -29,6 +31,10 @@ class FSAdminStorage:
         Holds namespace information.
     api_client
         Kubernetes API client.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
 
@@ -46,13 +52,16 @@ class FSAdminStorage:
         config: FSAdminConfig,
         metadata_storage: MetadataStorage,
         api_client: ApiClient,
+        reconnect_timeout: timedelta,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._logger = logger
         self._metadata = metadata_storage
-        self._pod = PodStorage(api_client, logger)
-        self._pvc = PersistentVolumeClaimStorage(api_client, logger)
+        self._pod = PodStorage(api_client, reconnect_timeout, logger)
+        self._pvc = PersistentVolumeClaimStorage(
+            api_client, reconnect_timeout, logger
+        )
 
     async def create(
         self, objects: FSAdminObjects, timeout: Timeout

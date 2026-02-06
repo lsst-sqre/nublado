@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
+from datetime import timedelta
 
 from kubernetes_asyncio.client import ApiClient, V1Pod
 from structlog.stdlib import BoundLogger
@@ -30,6 +31,10 @@ class FileserverStorage:
     ----------
     api_client
         Kubernetes API client.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
 
@@ -42,14 +47,23 @@ class FileserverStorage:
     easier to follow.
     """
 
-    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+    def __init__(
+        self,
+        api_client: ApiClient,
+        reconnect_timeout: timedelta,
+        logger: BoundLogger,
+    ) -> None:
         self._logger = logger
-        self._gafaelfawr = GafaelfawrIngressStorage(api_client, logger)
-        self._ingress = IngressStorage(api_client, logger)
-        self._job = JobStorage(api_client, logger)
-        self._pod = PodStorage(api_client, logger)
-        self._pvc = PersistentVolumeClaimStorage(api_client, logger)
-        self._service = ServiceStorage(api_client, logger)
+        self._gafaelfawr = GafaelfawrIngressStorage(
+            api_client, reconnect_timeout, logger
+        )
+        self._ingress = IngressStorage(api_client, reconnect_timeout, logger)
+        self._job = JobStorage(api_client, reconnect_timeout, logger)
+        self._pod = PodStorage(api_client, reconnect_timeout, logger)
+        self._pvc = PersistentVolumeClaimStorage(
+            api_client, reconnect_timeout, logger
+        )
+        self._service = ServiceStorage(api_client, reconnect_timeout, logger)
 
     async def create(
         self, namespace: str, objects: FileserverObjects, timeout: Timeout
@@ -245,6 +259,14 @@ class FileserverStorage:
         ----------
         namespace
             Namespace to watch for changes.
+        reconnect_timeout
+            The amount of time before this watch is explicitly restarted. These
+            connections can be dropped and throw a 400 error, or even be
+            silently dropped in different Kubernetes enviroments. Setting this
+            value can help prevent those things from happening. See:
+
+            * https://github.com/tomplus/kubernetes_asyncio/issues/352
+            * https://github.com/tomplus/kubernetes_asyncio/issues/360
 
         Yields
         ------

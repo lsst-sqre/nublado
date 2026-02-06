@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import ApiClient, V1Ingress
 from structlog.stdlib import BoundLogger
@@ -46,11 +48,20 @@ class IngressStorage(KubernetesObjectDeleter[V1Ingress]):
     ----------
     api_client
         Kubernetes API client.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
     """
 
-    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+    def __init__(
+        self,
+        api_client: ApiClient,
+        reconnect_timeout: timedelta,
+        logger: BoundLogger,
+    ) -> None:
         api = client.NetworkingV1Api(api_client)
         super().__init__(
             create_method=api.create_namespaced_ingress,
@@ -59,6 +70,7 @@ class IngressStorage(KubernetesObjectDeleter[V1Ingress]):
             read_method=api.read_namespaced_ingress,
             object_type=V1Ingress,
             kind="Ingress",
+            reconnect_timeout=reconnect_timeout,
             logger=logger,
         )
 
@@ -102,6 +114,7 @@ class IngressStorage(KubernetesObjectDeleter[V1Ingress]):
             namespace=namespace,
             resource_version=resource_version,
             timeout=timeout,
+            reconnect_timeout=self._reconnect_timeout,
             logger=self._logger,
         )
         try:
