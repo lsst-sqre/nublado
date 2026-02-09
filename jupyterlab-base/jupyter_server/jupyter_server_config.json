@@ -5,6 +5,9 @@
     },
     "jpserver_extensions": {
       "panel.io.jupyter_server_extension": true
+    },
+    "tornado_settings": {
+      "websocket_max_message_size": 100000000
     }
   }
 }
