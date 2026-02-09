@@ -14,7 +14,7 @@
 #   - Runs a non-root user.
 #   - Sets up the entrypoint and port.
 
-FROM python:3.14.2-slim-trixie AS base-image
+FROM python:3.14.3-slim-trixie AS base-image
 
 # Install uv.
 COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /bin/uv
