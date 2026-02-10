@@ -49,7 +49,7 @@ needed, or whether the user has made local modifications that
 therefore should not be touched.
 """
 
-STARTUP_PATH = Path("/lab_startup")
+STARTUP_PATH = Path("/etc/nublado/startup")
 """Directory for lab startup files, overrideable for tests.
 
 This will be mounted as an emptyDir by the setup container, and it will have

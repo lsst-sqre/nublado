@@ -916,13 +916,10 @@ class LabConfig(BaseModel):
     empty_dir_source: Annotated[
         EmptyDirSource,
         Field(
-            title=(
-                "Source (memory or disk) for lab emptyDirs (e.g."
-                " :file:`/tmp` and :file:`/lab_startup`)"
-            ),
+            title="Source for emptyDirs",
             description=(
-                "Select whether the pod's emptyDirs (:file:`/tmp` and"
-                " :file:`/lab_startup`) will come from memory or node-local"
+                "Select whether the pod's emptyDirs (/tmp and"
+                " /etc/nublado/startup) will come from memory or node-local"
                 " disk. Both are scarce resources, and the appropriate choice"
                 " is environment-dependent."
             ),

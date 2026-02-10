@@ -165,13 +165,21 @@ def test(session: nox.Session) -> None:
     args = TestArguments.from_session(session)
 
     # Run in the parent dir if a parent dir test was specified, or if no tests
-    # were specified.
+    # were specified. Only collect coverage if running all tests; otherwise,
+    # there may be spurious warnings about unimported modules.
     if args.parent_tests or args.run_all_tests:
+        cov_args = []
+        if args.run_all_tests:
+            cov_args = [
+                "--cov",
+                "--cov=nublado",
+                "--cov=rubin.nublado",
+                "--cov-branch",
+                "--cov-report=",
+            ]
         session.run(
             "pytest",
-            "--cov=nublado",
-            "--cov-branch",
-            "--cov-report=",
+            *cov_args,
             *args.generic,
             *args.parent_tests,
         )
@@ -196,5 +204,13 @@ def typing(session: nox.Session) -> None:
         "noxfile.py",
         "src",
         "tests",
+    )
+    session.run(
+        "mypy",
+        *session.posargs,
+        "--namespace-packages",
+        "--explicit-package-bases",
+        "jupyterlab-base/src",
+        env={"MYPYPATH": "jupyterlab-base/src"},
     )
     _recurse(session, "typing")

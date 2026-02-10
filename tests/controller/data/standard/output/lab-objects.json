@@ -426,7 +426,7 @@
               "readOnly": false
             },
             {
-              "mountPath": "/lab_startup",
+              "mountPath": "/etc/nublado/startup",
               "name": "lab-startup",
               "readOnly": false
             },
@@ -709,7 +709,7 @@
               "readOnly": false
             },
             {
-              "mountPath": "/lab_startup",
+              "mountPath": "/etc/nublado/startup",
               "name": "lab-startup",
               "readOnly": false
             },
