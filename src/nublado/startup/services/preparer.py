@@ -331,7 +331,7 @@ class Preparer:
 
     def _write_lab_environment(self) -> None:
         env_file = STARTUP_PATH / "env.json"
-        env_file.write_text(json.dumps(self._env))
+        env_file.write_text(json.dumps(self._env, indent=2, sort_keys=True))
 
     def _write_lab_args(self) -> None:
         log_level = "DEBUG" if self._debug else "INFO"
@@ -340,4 +340,4 @@ class Preparer:
         cmd_args.append(f"--log-level={log_level}")
         cmd_args.extend(self._set_timeout_variables())
         args_file = STARTUP_PATH / "args.json"
-        args_file.write_text(json.dumps(cmd_args))
+        args_file.write_text(json.dumps(cmd_args, indent=2))
