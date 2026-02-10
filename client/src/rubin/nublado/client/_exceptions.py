@@ -135,7 +135,7 @@ class NubladoError(SlackException):
     ) -> None:
         super().__init__(message, user, failed_at=failed_at)
         self.started_at = started_at
-        self.context = context if context else CodeContext()
+        self.context = context or CodeContext()
 
     @override
     def to_sentry(self) -> SentryEventInfo:
@@ -565,7 +565,7 @@ class NubladoWebError(SlackWebException, NubladoError):
             body=_sanitize_body(body) if body else None,
         )
         self.started_at = started_at
-        self.context = context if context else CodeContext()
+        self.context = context or CodeContext()
 
     @override
     def to_sentry(self) -> SentryEventInfo:

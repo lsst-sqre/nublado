@@ -322,7 +322,7 @@ class JupyterLabSessionManager:
             json={
                 "kernel": {"name": self._kernel_name},
                 "name": self._notebook or "(no notebook)",
-                "path": self._notebook if self._notebook else uuid4().hex,
+                "path": self._notebook or uuid4().hex,
                 "type": "notebook" if self._notebook else "console",
             },
         )

@@ -221,8 +221,8 @@ class NodeSelectorTerm(BaseModel):
         expressions = [e.to_kubernetes() for e in self.match_expressions]
         fields = [e.to_kubernetes() for e in self.match_fields]
         return V1NodeSelectorTerm(
-            match_expressions=expressions if expressions else None,
-            match_fields=fields if fields else None,
+            match_expressions=expressions or None,
+            match_fields=fields or None,
         )
 
 
@@ -397,8 +397,8 @@ class LabelSelector(BaseModel):
         """Convert to the corresponding Kubernetes model."""
         match_expressions = [e.to_kubernetes() for e in self.match_expressions]
         return V1LabelSelector(
-            match_expressions=match_expressions if match_expressions else None,
-            match_labels=self.match_labels if self.match_labels else None,
+            match_expressions=match_expressions or None,
+            match_labels=self.match_labels or None,
         )
 
 
@@ -461,7 +461,7 @@ class PodAffinityTerm(BaseModel):
         return V1PodAffinityTerm(
             label_selector=label_selector,
             namespace_selector=namespace_selector,
-            namespaces=self.namespaces if self.namespaces else None,
+            namespaces=self.namespaces or None,
             topology_key=self.topology_key,
         )
 

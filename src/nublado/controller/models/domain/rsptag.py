@@ -341,7 +341,7 @@ class RSPImageTag:
             major=int(minitag.major),
             minor=int(minitag.minor),
             patch=int(minitag.patch),
-            prerelease=minitag.pre if minitag.pre else None,
+            prerelease=minitag.pre or None,
             build=build,
         )
 
@@ -399,7 +399,7 @@ class RSPImageTag:
             else:
                 return f"c{cycle}.{cbuild}"
         else:
-            return rest if rest else None
+            return rest or None
 
     @classmethod
     def _get_minitag(

@@ -6,6 +6,19 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.0.0'></a>
+## 12.0.0 (2026-02-10)
+
+### Backwards-incompatible changes
+
+- Move the startup files created by the startup init container from `/lab_startup` to `/etc/nublado/startup`.
+- Simplify the lab initialization code to merge environment variables with the environment set by the Nublado controller and remove some error handling that should only trigger if the Nublado init containers do not run correctly. This means labs built with the new jupyterlab-base will fail with pre-11.0.0 versions of Nublado by failing to start, not starting in degraded mode.
+- In the Nublado startup init container, only put environment variable overrides in `/etc/nublado/startup/env.json`, not the full environment of the init container, to avoid leaking init-specific environment variables into the lab container.
+
+### Bug fixes
+
+- Fix installation of files into the user's home directory by the startup init container.
+
 <a id='changelog-11.2.1'></a>
 ## 11.2.1 (2026-01-21)
 
