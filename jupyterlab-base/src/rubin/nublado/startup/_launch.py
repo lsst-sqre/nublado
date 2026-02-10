@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+from pathlib import Path
 from typing import NoReturn
 
 from ._constants import ARGS_PATH, ENV_PATH
@@ -29,10 +30,18 @@ def launch_lab() -> NoReturn:
     #. Starts JupyterLab with those environment variables and command-line
        arguments.
     """
-    with ENV_PATH.open("r") as fh:
-        extra_env = json.load(fh)
-    with ARGS_PATH.open("r") as fh:
-        command = json.load(fh)
+    try:
+        with ENV_PATH.open("r") as fh:
+            extra_env = json.load(fh)
+        with ARGS_PATH.open("r") as fh:
+            command = json.load(fh)
+    except FileNotFoundError:
+        # This fallback can be removed once all Nublado instances have been
+        # updated to a version that always uses /etc/nublado/startup.
+        with Path("/lab_startup/env.json").open("r") as fh:
+            extra_env = json.load(fh)
+        with Path("/lab_startup/args.json").open("r") as fh:
+            command = json.load(fh)
     environ = os.environ.copy()
     environ.update(extra_env)
     sys.stdout.flush()
