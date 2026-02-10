@@ -14,7 +14,7 @@ pip list | tee "system-python"
 # Now JupyterLab python
 
 source /usr/local/share/jupyterlab/venv/bin/activate
-pip list | tee "jupyterlab-python"
+uv pip list | tee "jupyterlab-python"
 # This started failing 16 May 2025.  Under investigation.
 ((jupyter labextension list 2>&1) | tee "lab-extensions" ) || /bin/true
 deactivate
