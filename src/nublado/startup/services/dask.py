@@ -90,7 +90,7 @@ class DaskConfigurator:
             if flensed is None:
                 continue
             retval[key] = flensed
-        return retval if retval else None
+        return retval or None
 
     def _tidy_extant_config(self, cfgdir: Path) -> bool:
         #

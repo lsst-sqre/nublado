@@ -254,7 +254,7 @@ def inithome() -> None:
         uid = int(os.environ["NUBLADO_UID"])
         gid = int(os.environ["NUBLADO_GID"])
         home = Path(os.environ["NUBLADO_HOME"])
-    except (TypeError, KeyError):
+    except TypeError, KeyError:
         # Something wasn't set.
         errstr = (
             "Environment variables 'NUBLADO_HOME', 'NUBLADO_UID', and"

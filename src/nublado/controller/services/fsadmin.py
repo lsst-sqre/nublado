@@ -82,7 +82,7 @@ class FSAdminManager:
         async with self._lock:
             try:
                 return await self._storage.get_status(timeout)
-            except (PodNotFoundError, InvalidPodPhaseError):
+            except PodNotFoundError, InvalidPodPhaseError:
                 # It's not both there and healthy, so (re)create it.
                 fsadmin = self._builder.build()
                 return await self._storage.create(fsadmin, timeout)
