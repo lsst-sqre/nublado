@@ -886,10 +886,8 @@ async def test_tmp_on_disk(
         f"{config.lab.namespace_prefix}-{user.username}",
     )
     for vol in pod.spec.volumes:
-        if vol.empty_dir is None:
-            continue
-        assert vol.empty_dir.medium is None
-        return
+        if vol.empty_dir:
+            assert vol.empty_dir.medium is None
 
 
 @pytest.mark.asyncio

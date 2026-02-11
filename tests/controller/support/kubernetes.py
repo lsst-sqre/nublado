@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 from safir.testing.kubernetes import strip_none
@@ -14,7 +15,7 @@ __all__ = [
 
 
 def objects_to_dicts(
-    objects: list[dict | KubernetesModel],
+    objects: Iterable[dict | KubernetesModel],
 ) -> list[dict[str, Any]]:
     """Serialize a list of Kubernetes objects for comparison.
 

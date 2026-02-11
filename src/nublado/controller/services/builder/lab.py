@@ -767,7 +767,7 @@ class LabBuilder:
             volume=V1Volume(
                 empty_dir=V1EmptyDirVolumeSource(
                     medium=medium,
-                    size_limit=int(mem_size / MEMORY_TO_TMP_SIZE_RATIO),
+                    size_limit=str(int(mem_size / MEMORY_TO_TMP_SIZE_RATIO)),
                 ),
                 name="tmp",
             ),
@@ -793,7 +793,7 @@ class LabBuilder:
         return MountedVolume(
             volume=V1Volume(
                 empty_dir=V1EmptyDirVolumeSource(
-                    medium=medium, size_limit=mem_size
+                    medium=medium, size_limit=str(mem_size)
                 ),
                 name="lab-startup",
             ),

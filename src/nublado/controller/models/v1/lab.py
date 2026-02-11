@@ -77,7 +77,7 @@ class LabStatus(Enum):
     FAILED = "failed"
 
     @classmethod
-    def from_phase(cls, phase: PodPhase) -> LabStatus:
+    def from_phase(cls, phase: PodPhase | str) -> LabStatus:
         """Convert a Kubernetes pod phase to a lab status.
 
         Be aware that it is not possible to detect Kubernetes pods that are in
@@ -94,6 +94,8 @@ class LabStatus(Enum):
         LabStatus
             Corresponding lab status.
         """
+        if isinstance(phase, str):
+            phase = PodPhase(phase)
         match phase:
             case PodPhase.PENDING:
                 return cls.PENDING

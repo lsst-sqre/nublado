@@ -398,7 +398,7 @@ class KubernetesError(SlackException):
             namespace=namespace,
             name=name,
             status=exc.status,
-            body=exc.body or exc.reason,
+            body=exc.body.decode() if exc.body else exc.reason,
         )
 
     def __init__(

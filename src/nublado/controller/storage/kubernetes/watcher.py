@@ -170,7 +170,7 @@ class KubernetesWatcher[T]:
         # its docstring and expects native Sphinx markup. This means that if
         # the Safir MockKubernetesApi mock API is in use, the automatic type
         # discovery breaks, because we use the numpy convention.
-        self._watch = Watch(return_type=object_type)
+        self._watch = Watch(return_type=object_type.__name__)
         self._logger = self._logger.bind(
             group=group,
             kind=kind,

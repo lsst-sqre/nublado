@@ -149,11 +149,10 @@ def mock_kubernetes() -> Iterator[MockKubernetesApi]:
         # Add a hook to create the default service account on namespace
         # creation.
         async def create_default_sa(namespace: V1Namespace) -> None:
-            namespace = namespace.metadata.name
-            sa = V1ServiceAccount(
-                metadata=V1ObjectMeta(name="default", namespace=namespace)
+            await mock.create_namespaced_service_account(
+                namespace.metadata.name,
+                V1ServiceAccount(metadata=V1ObjectMeta(name="default")),
             )
-            await mock.create_namespaced_service_account(namespace, sa)
 
         mock.register_create_hook_for_test("Namespace", create_default_sa)
         yield mock
