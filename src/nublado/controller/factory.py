@@ -162,9 +162,10 @@ class ProcessContext:
                     logger=logger,
                 ),
                 fileserver_storage=FileserverStorage(
-                    kubernetes_client, logger
+                    kubernetes_client, config.watch_reconnect_timeout, logger
                 ),
                 slack_client=slack_client,
+                reconnect_timeout=config.watch_reconnect_timeout,
                 logger=logger,
             )
         metadata_storage = MetadataStorage(config.metadata_path)
@@ -180,6 +181,7 @@ class ProcessContext:
                 config=config.fsadmin,
                 metadata_storage=metadata_storage,
                 api_client=kubernetes_client,
+                reconnect_timeout=config.watch_reconnect_timeout,
                 logger=logger,
             ),
             slack_client=slack_client,
@@ -203,7 +205,9 @@ class ProcessContext:
                 pull_secret=config.lab.pull_secret,
             ),
             metadata_storage=metadata_storage,
-            pod_storage=PodStorage(kubernetes_client, logger),
+            pod_storage=PodStorage(
+                kubernetes_client, config.watch_reconnect_timeout, logger
+            ),
             slack_client=slack_client,
             logger=logger,
         )
@@ -221,7 +225,9 @@ class ProcessContext:
                 logger=logger,
             ),
             metadata_storage=metadata_storage,
-            lab_storage=LabStorage(kubernetes_client, logger),
+            lab_storage=LabStorage(
+                kubernetes_client, config.watch_reconnect_timeout, logger
+            ),
             events=lab_events,
             slack_client=slack_client,
             logger=logger,
@@ -403,7 +409,11 @@ class Factory:
         LabStorage
             Newly-created lab storage.
         """
-        return LabStorage(self._context.kubernetes_client, self._logger)
+        return LabStorage(
+            self._context.kubernetes_client,
+            self._context.config.watch_reconnect_timeout,
+            self._logger,
+        )
 
     def set_logger(self, logger: BoundLogger) -> None:
         """Replace the internal logger.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from datetime import timedelta
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import ApiClient, CoreV1Event, V1Pod
@@ -24,11 +25,20 @@ class PodStorage(KubernetesObjectDeleter[V1Pod]):
     ----------
     api_client
         Kubernetes API client.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
     """
 
-    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+    def __init__(
+        self,
+        api_client: ApiClient,
+        reconnect_timeout: timedelta,
+        logger: BoundLogger,
+    ) -> None:
         self._api = client.CoreV1Api(api_client)
         super().__init__(
             create_method=self._api.create_namespaced_pod,
@@ -37,6 +47,7 @@ class PodStorage(KubernetesObjectDeleter[V1Pod]):
             read_method=self._api.read_namespaced_pod,
             object_type=V1Pod,
             kind="Pod",
+            reconnect_timeout=reconnect_timeout,
             logger=logger,
         )
 
@@ -122,6 +133,7 @@ class PodStorage(KubernetesObjectDeleter[V1Pod]):
             involved_object=name,
             namespace=namespace,
             timeout=timeout,
+            reconnect_timeout=self._reconnect_timeout,
             logger=logger,
         )
         try:
@@ -202,6 +214,7 @@ class PodStorage(KubernetesObjectDeleter[V1Pod]):
             namespace=pod.metadata.namespace,
             resource_version=pod.metadata.resource_version,
             timeout=timeout,
+            reconnect_timeout=self._reconnect_timeout,
             logger=logger,
         )
         try:
@@ -250,21 +263,20 @@ class PodStorage(KubernetesObjectDeleter[V1Pod]):
             kind="Pod",
             namespace=namespace,
             timeout=None,
+            reconnect_timeout=self._reconnect_timeout,
             logger=logger,
         )
         try:
-            async for event in watcher.watch():
-                if event.action != WatchEventType.MODIFIED:
-                    continue
-                phase = PodPhase(event.object.status.phase)
-                logger.debug(
-                    "Saw modified pod",
-                    name=event.object.metadata.name,
-                    phase=phase.value,
-                )
-                yield PodChange(pod=event.object, phase=phase)
+            while True:
+                async for event in watcher.watch():
+                    if event.action != WatchEventType.MODIFIED:
+                        continue
+                    phase = PodPhase(event.object.status.phase)
+                    logger.debug(
+                        "Saw modified pod",
+                        name=event.object.metadata.name,
+                        phase=phase.value,
+                    )
+                    yield PodChange(pod=event.object, phase=phase)
         finally:
             await watcher.close()
-
-        # This should be impossible; someone called stop on the watcher.
-        raise RuntimeError("Wait for pod changes unexpectedly stopped")

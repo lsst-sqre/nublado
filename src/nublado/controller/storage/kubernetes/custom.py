@@ -39,6 +39,10 @@ class CustomStorage:
         API plural under which those custom objects are managed.
     kind
         Name of the custom object kind, used for error reporting.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
     """
@@ -51,6 +55,7 @@ class CustomStorage:
         version: str,
         plural: str,
         kind: str,
+        reconnect_timeout: timedelta,
         logger: BoundLogger,
     ) -> None:
         self._api = client.CustomObjectsApi(api_client)
@@ -58,6 +63,7 @@ class CustomStorage:
         self._version = version
         self._plural = plural
         self._kind = kind
+        self._reconnect_timeout = reconnect_timeout
         self._logger = logger
 
     async def create(
@@ -299,6 +305,7 @@ class CustomStorage:
             plural=self._plural,
             resource_version=obj["metadata"].get("resource_version"),
             timeout=watch_timeout,
+            reconnect_timeout=self._reconnect_timeout,
             logger=self._logger,
         )
         try:
@@ -375,12 +382,18 @@ class GafaelfawrIngressStorage(CustomStorage):
         Logger to use.
     """
 
-    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+    def __init__(
+        self,
+        api_client: ApiClient,
+        reconnect_timeout: timedelta,
+        logger: BoundLogger,
+    ) -> None:
         super().__init__(
             api_client=api_client,
             group="gafaelfawr.lsst.io",
             version="v1alpha1",
             plural="gafaelfawringresses",
             kind="GafaelfawrIngress",
+            reconnect_timeout=reconnect_timeout,
             logger=logger,
         )

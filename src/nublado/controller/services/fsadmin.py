@@ -94,7 +94,7 @@ class FSAdminManager:
         Raises
         ------
         controller.exceptions.ControllerTimeoutError
-            Raised if the fsadmin environment could not be created within its
+            Raised if the fsadmin environment could not be deleted within its
             creation timeout.
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.

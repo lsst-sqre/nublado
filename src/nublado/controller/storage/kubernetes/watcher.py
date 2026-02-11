@@ -3,6 +3,7 @@
 import math
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any, Self
 
 from kubernetes_asyncio.client import ApiException
@@ -105,6 +106,10 @@ class KubernetesWatcher[T]:
     timeout
         Timeout for the watch. This may be `None`, in which case the watch
         continues until cancelled or until the iterator is no longer called.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
 
@@ -128,6 +133,7 @@ class KubernetesWatcher[T]:
         involved_object: str | None = None,
         resource_version: str | None = None,
         timeout: Timeout | None,
+        reconnect_timeout: timedelta,
         logger: BoundLogger,
     ) -> None:
         self._method = method
@@ -137,6 +143,7 @@ class KubernetesWatcher[T]:
         self._name = name
         self._logger = logger
         self._timeout = timeout
+        self._reconnect_timeout = reconnect_timeout
         self._stopped = False
 
         # Build the arguments to the method being watched.
@@ -164,6 +171,12 @@ class KubernetesWatcher[T]:
         # the Safir MockKubernetesApi mock API is in use, the automatic type
         # discovery breaks, because we use the numpy convention.
         self._watch = Watch(return_type=object_type)
+        self._logger = self._logger.bind(
+            group=group,
+            kind=kind,
+            name=name,
+            reconnnect_timeout=reconnect_timeout.total_seconds(),
+        )
 
     async def close(self) -> None:
         """Close the internal API client used by the watch API."""
@@ -198,13 +211,24 @@ class KubernetesWatcher[T]:
         TimeoutError
             Raised if the timeout was reached.
         """
+        logger = self._logger
         args = self._args.copy()
+        reconnect_seconds = self._reconnect_timeout.total_seconds()
+        args["_request_timeout"] = reconnect_seconds
+        args["timeout_seconds"] = math.ceil(reconnect_seconds)
+
         while True:
             if self._timeout:
+                # We never want to wait longer than our reconnect_timeout
                 left = self._timeout.left()
-                args["_request_timeout"] = left
-                args["timeout_seconds"] = math.ceil(left)
+                logger = logger.bind(timeout_left=left)
+                if left <= reconnect_seconds:
+                    args["_request_timeout"] = left
+                    args["timeout_seconds"] = math.ceil(left)
             try:
+                logger = logger.bind(
+                    _request_timeout=args["_request_timeout"],
+                )
                 async with self._watch.stream(self._method, **args) as s:
                     async for event in s:
                         yield WatchEvent.from_event(event, self._type)
@@ -220,21 +244,24 @@ class KubernetesWatcher[T]:
                 # a reduced timeout if it happens.
                 if self._stopped:
                     break
-                if not self._timeout:
-                    raise TimeoutError("Event watch timed out by server")
+                msg = "Kubernetes event watch timed out by server, restarting"
+                logger.debug(msg)
+            except TimeoutError:
+                msg = "Kubernetes event watch timed out by client, restarting"
+                logger.debug(msg)
             except ApiException as e:
                 if e.status == 410:
                     if "resource_version" in args:
                         rv = args["resource_version"]
                         msg = f"Resource version {rv} expired, retrying watch"
-                        self._logger.info(msg)
+                        logger.info(msg)
                         del args["resource_version"]
                     else:
                         # We can get a 410 error even when no resource version
                         # is specified if there are long delays between
                         # reportable events. Retry those as well.
                         msg = "Watch expired (no resource version), retrying"
-                        self._logger.info(msg)
+                        logger.info(msg)
                     continue
 
                 raise KubernetesError.from_exception(

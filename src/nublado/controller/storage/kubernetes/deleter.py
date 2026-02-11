@@ -72,6 +72,10 @@ class KubernetesObjectDeleter[T: KubernetesModel](KubernetesObjectCreator[T]):
         Type of object being acted on.
     kind
         Kubernetes kind of object being acted on.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
     """
@@ -85,6 +89,7 @@ class KubernetesObjectDeleter[T: KubernetesModel](KubernetesObjectCreator[T]):
         read_method: Callable[..., Awaitable[Any]],
         object_type: type[T],
         kind: str,
+        reconnect_timeout: timedelta,
         logger: BoundLogger,
     ) -> None:
         super().__init__(
@@ -96,6 +101,7 @@ class KubernetesObjectDeleter[T: KubernetesModel](KubernetesObjectCreator[T]):
         )
         self._delete = delete_method
         self._list = list_method
+        self._reconnect_timeout = reconnect_timeout
 
     @override
     async def create(
@@ -312,6 +318,7 @@ class KubernetesObjectDeleter[T: KubernetesModel](KubernetesObjectCreator[T]):
             name=name,
             namespace=namespace,
             timeout=watch_timeout,
+            reconnect_timeout=self._reconnect_timeout,
             logger=logger,
         )
         try:
@@ -371,6 +378,7 @@ class KubernetesObjectDeleter[T: KubernetesModel](KubernetesObjectCreator[T]):
             namespace=namespace,
             resource_version=obj.metadata.resource_version,
             timeout=watch_timeout,
+            reconnect_timeout=self._reconnect_timeout,
             logger=logger,
         )
         try:
@@ -402,11 +410,20 @@ class JobStorage(KubernetesObjectDeleter[V1Job]):
     ----------
     api_client
         Kubernetes API client.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
     """
 
-    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+    def __init__(
+        self,
+        api_client: ApiClient,
+        reconnect_timeout: timedelta,
+        logger: BoundLogger,
+    ) -> None:
         api = client.BatchV1Api(api_client)
         super().__init__(
             create_method=api.create_namespaced_job,
@@ -415,6 +432,7 @@ class JobStorage(KubernetesObjectDeleter[V1Job]):
             read_method=api.read_namespaced_job,
             object_type=V1Job,
             kind="Job",
+            reconnect_timeout=reconnect_timeout,
             logger=logger,
         )
 
@@ -428,11 +446,20 @@ class PersistentVolumeClaimStorage(
     ----------
     api_client
         Kubernetes API client.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
     """
 
-    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+    def __init__(
+        self,
+        api_client: ApiClient,
+        reconnect_timeout: timedelta,
+        logger: BoundLogger,
+    ) -> None:
         api = client.CoreV1Api(api_client)
         super().__init__(
             create_method=api.create_namespaced_persistent_volume_claim,
@@ -441,6 +468,7 @@ class PersistentVolumeClaimStorage(
             read_method=api.read_namespaced_persistent_volume_claim,
             object_type=V1PersistentVolumeClaim,
             kind="PersistentVolumeClaim",
+            reconnect_timeout=reconnect_timeout,
             logger=logger,
         )
 
@@ -452,11 +480,20 @@ class ServiceStorage(KubernetesObjectDeleter[V1Service]):
     ----------
     api_client
         Kubernetes API client.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
     """
 
-    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+    def __init__(
+        self,
+        api_client: ApiClient,
+        reconnect_timeout: timedelta,
+        logger: BoundLogger,
+    ) -> None:
         api = client.CoreV1Api(api_client)
         super().__init__(
             create_method=api.create_namespaced_service,
@@ -465,6 +502,7 @@ class ServiceStorage(KubernetesObjectDeleter[V1Service]):
             read_method=api.read_namespaced_service,
             object_type=V1Service,
             kind="Service",
+            reconnect_timeout=reconnect_timeout,
             logger=logger,
         )
 
@@ -476,11 +514,20 @@ class ServiceAccountStorage(KubernetesObjectDeleter[V1ServiceAccount]):
     ----------
     api_client
         Kubernetes API client.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
     """
 
-    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+    def __init__(
+        self,
+        api_client: ApiClient,
+        reconnect_timeout: timedelta,
+        logger: BoundLogger,
+    ) -> None:
         api = client.CoreV1Api(api_client)
         super().__init__(
             create_method=api.create_namespaced_service_account,
@@ -489,5 +536,6 @@ class ServiceAccountStorage(KubernetesObjectDeleter[V1ServiceAccount]):
             read_method=api.read_namespaced_service_account,
             object_type=V1ServiceAccount,
             kind="ServiceAccount",
+            reconnect_timeout=reconnect_timeout,
             logger=logger,
         )

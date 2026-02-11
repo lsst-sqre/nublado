@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from rubin.gafaelfawr import GafaelfawrUserInfo
 from safir.sentry import report_exception
@@ -101,6 +101,10 @@ class FileserverManager:
         Kubernetes storage layer for file servers.
     slack_client
         Optional Slack webhook client for alerts.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
     """
@@ -112,12 +116,14 @@ class FileserverManager:
         fileserver_builder: FileserverBuilder,
         fileserver_storage: FileserverStorage,
         slack_client: SlackWebhookClient | None,
+        reconnect_timeout: timedelta,
         logger: BoundLogger,
     ) -> None:
         self._config = config
         self._builder = fileserver_builder
         self._storage = fileserver_storage
         self._slack = slack_client
+        self._reconnect_timeout = reconnect_timeout
         self._logger = logger
 
         # Mapping of usernames to internal state.

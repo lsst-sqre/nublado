@@ -1432,6 +1432,19 @@ class Config(BaseSettings):
 
     lab: Annotated[LabConfig, Field(title="User lab configuration")]
 
+    watch_reconnect_timeout: Annotated[
+        HumanTimedelta,
+        Field(
+            title="Reconnect timeout",
+            description=(
+                "How long to wait before explictly restarting Kubernetes"
+                " watches. This can prevent the connection from getting"
+                " unexpectedly getting closed, resulting in 400 errors, or"
+                " worse, events silently stopping."
+            ),
+        ),
+    ] = timedelta(minutes=3)
+
     @model_validator(mode="after")
     def _validate_fileserver_volume_mounts(self) -> Self:
         if not isinstance(self.fileserver, EnabledFileserverConfig):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from datetime import timedelta
 
 from kubernetes_asyncio.client import ApiClient, V1Secret
 from structlog.stdlib import BoundLogger
@@ -36,6 +37,10 @@ class LabStorage:
     ----------
     api_client
         Kubernetes API client.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
 
@@ -47,17 +52,28 @@ class LabStorage:
     wrangle the storage objects makes the lab service easier to follow.
     """
 
-    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+    def __init__(
+        self,
+        api_client: ApiClient,
+        reconnect_timeout: timedelta,
+        logger: BoundLogger,
+    ) -> None:
         self._logger = logger
         self._config_map = ConfigMapStorage(api_client, logger)
-        self._namespace = NamespaceStorage(api_client, logger)
+        self._namespace = NamespaceStorage(
+            api_client, reconnect_timeout, logger
+        )
         self._network_policy = NetworkPolicyStorage(api_client, logger)
-        self._pod = PodStorage(api_client, logger)
-        self._pvc = PersistentVolumeClaimStorage(api_client, logger)
+        self._pod = PodStorage(api_client, reconnect_timeout, logger)
+        self._pvc = PersistentVolumeClaimStorage(
+            api_client, reconnect_timeout, logger
+        )
         self._quota = ResourceQuotaStorage(api_client, logger)
         self._secret = SecretStorage(api_client, logger)
-        self._service = ServiceStorage(api_client, logger)
-        self._service_account = ServiceAccountStorage(api_client, logger)
+        self._service = ServiceStorage(api_client, reconnect_timeout, logger)
+        self._service_account = ServiceAccountStorage(
+            api_client, reconnect_timeout, logger
+        )
 
     async def create(self, objects: LabObjects, timeout: Timeout) -> None:
         """Create all of the Kubernetes objects for a user's lab.

@@ -23,13 +23,23 @@ class NamespaceStorage:
     ----------
     api_client
         Kubernetes API client.
+    reconnect_timeout
+        How long to wait before explictly restarting Kubernetes watches. This
+        can prevent the connection from getting unexpectedly getting closed,
+        resulting in 400 errors, or worse, events silently stopping.
     logger
         Logger to use.
     """
 
-    def __init__(self, api_client: ApiClient, logger: BoundLogger) -> None:
+    def __init__(
+        self,
+        api_client: ApiClient,
+        reconnect_timeout: timedelta,
+        logger: BoundLogger,
+    ) -> None:
         self._api = client.CoreV1Api(api_client)
         self._logger = logger
+        self._reconnect_timeout = reconnect_timeout
 
     async def create(
         self, body: V1Namespace, timeout: Timeout, *, replace: bool = False
@@ -200,6 +210,7 @@ class NamespaceStorage:
             name=name,
             resource_version=namespace.metadata.resource_version,
             timeout=watch_timeout,
+            reconnect_timeout=self._reconnect_timeout,
             logger=self._logger,
         )
         try:
