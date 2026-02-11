@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum, StrEnum
-from typing import Annotated, Any, Protocol, Self, override
+from typing import Annotated, Any, Protocol, Self
 
 from kubernetes_asyncio.client import (
     V1Affinity,
@@ -43,7 +43,9 @@ __all__ = [
     "NodeSelectorTerm",
     "NodeToleration",
     "PodAffinity",
+    "PodAffinityAttrs",
     "PodAffinityTerm",
+    "PodAntiAffinity",
     "PodChange",
     "PodPhase",
     "PreferredSchedulingTerm",
@@ -59,12 +61,7 @@ __all__ = [
 
 
 class KubernetesModel(Protocol):
-    """Protocol for Kubernetes object models.
-
-    kubernetes-asyncio_ doesn't currently expose type information, so this
-    tells mypy that all the object models we deal with will have a metadata
-    attribute.
-    """
+    """Protocol for Kubernetes object models."""
 
     metadata: V1ObjectMeta
 
@@ -496,8 +493,8 @@ class WeightedPodAffinityTerm(BaseModel):
         )
 
 
-class PodAffinity(BaseModel):
-    """Pod affinity rules."""
+class PodAffinityAttrs(BaseModel):
+    """Base class for pod affinity rules."""
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -521,6 +518,10 @@ class PodAffinity(BaseModel):
         ),
     ] = []
 
+
+class PodAffinity(PodAffinityAttrs):
+    """Pod affinity rules."""
+
     def to_kubernetes(self) -> V1PodAffinity:
         """Convert to the corresponding Kubernetes model."""
         preferred = None
@@ -529,13 +530,13 @@ class PodAffinity(BaseModel):
         required = None
         if self.required:
             required = [t.to_kubernetes() for t in self.required]
-        return V1PodAntiAffinity(
+        return V1PodAffinity(
             preferred_during_scheduling_ignored_during_execution=preferred,
             required_during_scheduling_ignored_during_execution=required,
         )
 
 
-class PodAntiAffinity(PodAffinity):
+class PodAntiAffinity(PodAffinityAttrs):
     """Pod anti-affinity rules.
 
     Notes
@@ -544,7 +545,6 @@ class PodAntiAffinity(PodAffinity):
     convert to a different Kubernetes model.
     """
 
-    @override
     def to_kubernetes(self) -> V1PodAntiAffinity:
         """Convert to the corresponding Kubernetes model."""
         preferred = None

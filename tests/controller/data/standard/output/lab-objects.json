@@ -862,14 +862,14 @@
         {
           "emptyDir": {
             "medium": "Memory",
-            "sizeLimit": 805306368
+            "sizeLimit": "805306368"
           },
           "name": "tmp"
         },
         {
           "emptyDir": {
             "medium": "Memory",
-            "sizeLimit": 655360
+            "sizeLimit": "655360"
           },
           "name": "lab-startup"
         },

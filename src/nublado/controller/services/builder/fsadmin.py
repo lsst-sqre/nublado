@@ -93,7 +93,7 @@ class FSAdminBuilder:
         for vol in volume_mounts:
             vol.read_only = False
         wanted_volumes = {m.volume_name for m in volume_mounts}
-        volumes = self._volume_builder.build_volumes(
+        volume_list = self._volume_builder.build_volumes(
             (v for v in volumes if v.name in wanted_volumes),
             pvc_prefix=self._config.pod_name,
         )
@@ -141,7 +141,7 @@ class FSAdminBuilder:
                     run_as_non_root=False,
                 ),
                 tolerations=tolerations,
-                volumes=volumes,
+                volumes=volume_list,
             ),
         )
 

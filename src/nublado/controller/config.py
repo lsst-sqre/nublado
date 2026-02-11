@@ -10,7 +10,7 @@ from typing import Annotated, Literal, Self, override
 import yaml
 from kubernetes_asyncio.client import (
     V1PersistentVolumeClaimSpec,
-    V1ResourceRequirements,
+    V1VolumeResourceRequirements,
 )
 from pydantic import (
     AfterValidator,
@@ -276,7 +276,9 @@ class PVCVolumeSource(BaseVolumeSource):
         return V1PersistentVolumeClaimSpec(
             storage_class_name=self.storage_class_name,
             access_modes=[m.value for m in self.access_modes],
-            resources=V1ResourceRequirements(requests=self.resources.requests),
+            resources=V1VolumeResourceRequirements(
+                requests=self.resources.requests
+            ),
         )
 
 
