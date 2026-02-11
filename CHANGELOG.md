@@ -19,6 +19,9 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 - Add `controller.watch_reconnect_timeout` config setting. Sometimes, Kubernetes watch connections can frequently drop with errors, or worse, they can silently stop receiveing events. This new setting specifies the amount of time to keep the connection open before explicitly reconnecting.
 
+<a id='changelog-11.2.2'></a>
+## 11.2.2 (2026-02-03)
+
 ### Bug fixes
 
 - Fix installation of files into the user's home directory by the startup init container.
