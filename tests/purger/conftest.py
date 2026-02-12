@@ -16,7 +16,9 @@ def config(root: Path, relative_policy_file: str) -> Config:
     scratch_foo_bar = scratch_dir / "foo" / "bar"
 
     # Load template policy file
-    policy_file = Path(__file__).parent / "support" / relative_policy_file
+    policy_file = (
+        Path(__file__).parent.parent / "data" / "purger" / relative_policy_file
+    )
     policy = yaml.safe_load(policy_file.read_text())
 
     # Change policy to point at fake root
@@ -27,7 +29,9 @@ def config(root: Path, relative_policy_file: str) -> Config:
     new_policy_file.write_text(yaml.dump(policy))
 
     # Write a new config file that points at the new policy document
-    config_file = Path(__file__).parent / "support" / "config.yaml"
+    config_file = (
+        Path(__file__).parent.parent / "data" / "purger" / "config.yaml"
+    )
     config = yaml.safe_load(config_file.read_text())
     config["policyFile"] = str(new_policy_file)
     new_config_file = root / "config.yaml"
