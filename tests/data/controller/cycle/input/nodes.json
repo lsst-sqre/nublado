@@ -1,22 +1,24 @@
 {
-  "node1": [
-    {
-      "names": [
-        "lighthouse.ceres/library/sketchbook@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b"
-      ],
-      "sizeBytes": 123456
-    },
-    {
-      "names": [
-        "lighthouse.ceres/library/sketchbook@sha256:b14b81ae38caa6c6d919fc02c202b5d2a99dcce0d4c16ee6ad08b3831e814403"
-      ],
-      "sizeBytes": 23524
-    },
-    {
-      "names": [
-        "lighthouse.ceres/library/sketchbook@sha256:9401f5d181180167d2a2b1d111456a4b9b506245bc43da8c4c869a87d512ecda"
-      ],
-      "sizeBytes": 124513
-    }
-  ]
+  "node1": {
+    "images": [
+      {
+        "names": [
+          "lighthouse.ceres/library/sketchbook@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b"
+        ],
+        "size_bytes": 123456
+      },
+      {
+        "names": [
+          "lighthouse.ceres/library/sketchbook@sha256:b14b81ae38caa6c6d919fc02c202b5d2a99dcce0d4c16ee6ad08b3831e814403"
+        ],
+        "size_bytes": 23524
+      },
+      {
+        "names": [
+          "lighthouse.ceres/library/sketchbook@sha256:9401f5d181180167d2a2b1d111456a4b9b506245bc43da8c4c869a87d512ecda"
+        ],
+        "size_bytes": 124513
+      }
+    ]
+  }
 }

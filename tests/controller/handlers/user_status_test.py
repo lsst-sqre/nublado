@@ -12,23 +12,28 @@ from nublado.controller.config import Config
 from nublado.controller.dependencies.context import context_dependency
 from nublado.controller.factory import Factory
 from nublado.controller.models.domain.kubernetes import PodPhase
+from nublado.controller.models.v1.lab import LabSpecification
 
 from ...support.constants import TEST_BASE_URL
-from ...support.data import read_input_lab_specification_json, read_output_json
+from ...support.data import NubladoData
 from ...support.gafaelfawr import GafaelfawrTestUser
 
 
 @pytest.mark.asyncio
 async def test_user_status(
+    *,
     client: AsyncClient,
     config: Config,
+    data: NubladoData,
     factory: Factory,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     assert user.quota
     assert user.quota.notebook
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     # At the start, we shouldn't have any lab.
     r = await client.get(
@@ -64,8 +69,7 @@ async def test_user_status(
         "/nublado/spawner/v1/user-status", headers=user.to_test_headers()
     )
     assert r.status_code == 200
-    expected = read_output_json("standard", "lab-status")
-    assert r.json() == expected
+    data.assert_json_matches(r.json(), "controller/standard/output/lab-status")
 
     # Change the pod status. This should not result in any change because
     # reconcile hasn't run yet.
@@ -73,7 +77,7 @@ async def test_user_status(
         "/nublado/spawner/v1/user-status", headers=user.to_test_headers()
     )
     assert r.status_code == 200
-    assert r.json() == expected
+    data.assert_json_matches(r.json(), "controller/standard/output/lab-status")
 
     # Force reconciliation. This should delete the lab and result in a 404
     # error.

@@ -16,7 +16,7 @@ from safir.testing.slack import MockSlackWebhook
 from nublado.controller.models.domain.kubernetes import PodPhase
 
 from ...support.config import configure
-from ...support.data import read_output_data, read_output_json
+from ...support.data import NubladoData
 from ...support.fileserver import (
     create_ingress_for_user,
     create_working_ingress_for_user,
@@ -29,7 +29,9 @@ from ...support.kubernetes import objects_to_dicts
 @pytest.mark.timeout(5)
 @pytest.mark.asyncio
 async def test_create_delete(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
@@ -54,8 +56,9 @@ async def test_create_delete(
     await create_working_ingress_for_user(mock_kubernetes, username, namespace)
     r = await client.get("/files", headers=user.to_test_headers())
     assert r.status_code == 200
-    expected = read_output_data("fileserver", "fileserver.html").strip()
-    assert r.text == expected
+    data.assert_text_matches(
+        r.text, "controller/fileserver/output/fileserver.html"
+    )
 
     # Check that it has showed up, via the user status and admin routes.
     r = await client.get("/nublado/fileserver/v1/users")
@@ -73,7 +76,9 @@ async def test_create_delete(
     # return immediately without actually doing anything.
     r = await client.get("/files", headers=user.to_test_headers())
     assert r.status_code == 200
-    assert r.text == expected
+    data.assert_text_matches(
+        r.text, "controller/fileserver/output/fileserver.html"
+    )
     r = await client.get(
         "/nublado/fileserver/v1/user-status", headers=user.to_test_headers()
     )
@@ -107,7 +112,9 @@ async def test_create_delete(
 
 @pytest.mark.asyncio
 async def test_file_server_objects(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
@@ -126,8 +133,10 @@ async def test_file_server_objects(
     # those are added by Kubernetes (and the Kubernetes mock) and are not
     # meaningful to compare.
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
-    seen = objects_to_dicts(objects)
-    assert seen == read_output_json("fileserver", "fileserver-objects")
+    data.assert_json_matches(
+        objects_to_dicts(objects),
+        "controller/fileserver/output/fileserver-objects",
+    )
 
 
 @pytest.mark.asyncio

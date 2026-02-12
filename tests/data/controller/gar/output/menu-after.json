@@ -1,38 +1,38 @@
 {
-  "menu": [
-    {
-      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:recommended@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b",
-      "name": "Recommended (Weekly 2077_43)"
-    },
-    {
-      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:w_2077_42@sha256:5151f29e8456c053cd4c5f80d99b0dbaad60a7223cc5983d0c13d250844db5b9",
-      "name": "Weekly 2077_42"
-    }
-  ],
   "dropdown": [
     {
-      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:recommended@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b",
-      "name": "Recommended (Weekly 2077_43)"
+      "name": "Recommended (Weekly 2077_43)",
+      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:recommended@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b"
     },
     {
-      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:latest_weekly@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b",
-      "name": "Latest Weekly (Weekly 2077_43)"
+      "name": "Latest Weekly (Weekly 2077_43)",
+      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:latest_weekly@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b"
     },
     {
-      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:w_2077_43@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b",
-      "name": "Weekly 2077_43"
+      "name": "Weekly 2077_43",
+      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:w_2077_43@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b"
     },
     {
-      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:w_2077_42@sha256:5151f29e8456c053cd4c5f80d99b0dbaad60a7223cc5983d0c13d250844db5b9",
-      "name": "Weekly 2077_42"
+      "name": "Weekly 2077_42",
+      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:w_2077_42@sha256:5151f29e8456c053cd4c5f80d99b0dbaad60a7223cc5983d0c13d250844db5b9"
     },
     {
-      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:w_2077_41@sha256:a02d078d8bfaff6917b94bf4370642d4f5dccaf1d24a35874227e8ebfa6227f8",
-      "name": "Weekly 2077_41"
+      "name": "Weekly 2077_41",
+      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:w_2077_41@sha256:a02d078d8bfaff6917b94bf4370642d4f5dccaf1d24a35874227e8ebfa6227f8"
     },
     {
-      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:exp_w_2077_41_testing@sha256:9c57a60107e99e7a6cfcf395c26ff3bdabd3a92e88dabe3b5f1974326c7e991a",
-      "name": "Experimental Weekly 2077_41 [testing]"
+      "name": "Experimental Weekly 2077_41 [testing]",
+      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:exp_w_2077_41_testing@sha256:9c57a60107e99e7a6cfcf395c26ff3bdabd3a92e88dabe3b5f1974326c7e991a"
+    }
+  ],
+  "menu": [
+    {
+      "name": "Recommended (Weekly 2077_43)",
+      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:recommended@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b"
+    },
+    {
+      "name": "Weekly 2077_42",
+      "reference": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab:w_2077_42@sha256:5151f29e8456c053cd4c5f80d99b0dbaad60a7223cc5983d0c13d250844db5b9"
     }
   ]
 }

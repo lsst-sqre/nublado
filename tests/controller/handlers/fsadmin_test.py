@@ -11,7 +11,7 @@ from safir.datetime import current_datetime
 from safir.testing.kubernetes import MockKubernetesApi
 
 from ...support.config import configure
-from ...support.data import assert_json_output_matches
+from ...support.data import NubladoData
 from ...support.gafaelfawr import GafaelfawrTestUser
 from ...support.kubernetes import objects_to_dicts
 
@@ -100,7 +100,9 @@ async def test_bad_create(
 
 @pytest.mark.asyncio
 async def test_created_pod(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
@@ -122,8 +124,9 @@ async def test_created_pod(
         if x["kind"] == "Pod" and x["metadata"]["name"] == "fsadmin"
     )
     fs_pvc = next(x for x in all_seen if x["kind"] == "PersistentVolumeClaim")
-    fsadmin_objs = [fs_pvc, fs_pod]
-    assert_json_output_matches(fsadmin_objs, "fsadmin", "fsadmin-objects")
+    data.assert_json_matches(
+        [fs_pvc, fs_pod], "controller/fsadmin/output/fsadmin-objects"
+    )
 
 
 @pytest.mark.asyncio

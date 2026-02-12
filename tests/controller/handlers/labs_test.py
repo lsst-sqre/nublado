@@ -29,16 +29,11 @@ from nublado.controller.constants import DROPDOWN_SENTINEL_VALUE
 from nublado.controller.dependencies.context import context_dependency
 from nublado.controller.factory import Factory
 from nublado.controller.models.domain.kubernetes import PodPhase
-from nublado.controller.models.v1.lab import LabState
+from nublado.controller.models.v1.lab import LabSpecification, LabState
 
 from ...support.config import configure
 from ...support.constants import TEST_BASE_URL
-from ...support.data import (
-    assert_json_output_matches,
-    read_input_lab_specification_json,
-    read_output_data,
-    read_output_json,
-)
+from ...support.data import NubladoData
 from ...support.gafaelfawr import GafaelfawrTestUser, get_no_spawn_user
 from ...support.kubernetes import objects_to_dicts
 
@@ -71,8 +66,10 @@ async def get_lab_events(
 
 @pytest.mark.asyncio
 async def test_lab_start_stop(
+    *,
     client: AsyncClient,
     config: Config,
+    data: NubladoData,
     factory: Factory,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
@@ -81,7 +78,9 @@ async def test_lab_start_stop(
     assert user.quota.notebook
     assert context_dependency._process_context
     lab_events = context_dependency._process_context.lab_manager._events
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
     unknown_user_error = {
         "detail": [
             {
@@ -147,8 +146,7 @@ async def test_lab_start_stop(
     assert r.json() == [user.username]
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
-    expected = read_output_json("standard", "lab-status")
-    assert r.json() == expected
+    data.assert_json_matches(r.json(), "controller/standard/output/lab-status")
     lab_state = LabState.model_validate_json(r.text)
 
     # We should have logged a lab spawn event.
@@ -200,12 +198,16 @@ async def test_lab_start_stop(
 
 @pytest.mark.asyncio
 async def test_spawn_after_failure(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     factory: Factory,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     # Create a lab.
     r = await client.post(
@@ -251,18 +253,24 @@ async def test_spawn_after_failure(
     assert pod.status.phase == PodPhase.RUNNING.value
 
     # Get the events and look for the lab recreation events.
-    expected_events = read_output_json("standard", "lab-recreate-events")
-    assert await get_lab_events(client, user.username) == expected_events
+    events = await get_lab_events(client, user.username)
+    data.assert_json_matches(
+        events, "controller/standard/output/lab-recreate-events"
+    )
 
 
 @pytest.mark.asyncio
 async def test_multiple_delete(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     factory: Factory,
     user: GafaelfawrTestUser,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     # Create a lab.
     r = await client.post(
@@ -300,12 +308,16 @@ async def test_multiple_delete(
 
 @pytest.mark.asyncio
 async def test_delayed_spawn(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     factory: Factory,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
 
     r = await client.post(
@@ -375,7 +387,9 @@ async def test_delayed_spawn(
     # The listeners should now complete successfully and we should see
     # appropriate events.
     event_lists = await asyncio.gather(*listeners)
-    expected_events = read_output_json("standard", "lab-spawn-events")
+    expected_events = data.read_json(
+        "controller/standard/output/lab-spawn-events"
+    )
     expected_events = [
         *expected_events[:-1],
         *[
@@ -416,12 +430,16 @@ async def test_delayed_spawn(
 
 @pytest.mark.asyncio
 async def test_abort_spawn(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     factory: Factory,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
 
     r = await client.post(
@@ -448,12 +466,16 @@ async def test_abort_spawn(
 
 @pytest.mark.asyncio
 async def test_spawn_after_terminate(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     factory: Factory,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
     mock_kubernetes.initial_pod_phase = PodPhase.SUCCEEDED.value
 
     r = await client.post(
@@ -481,12 +503,16 @@ async def test_spawn_after_terminate(
 
 @pytest.mark.asyncio
 async def test_lab_objects(
+    *,
     client: AsyncClient,
     config: Config,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -509,12 +535,16 @@ async def test_lab_objects(
             continue
         assert obj["data"]["token"] == b64encode(user.token.encode()).decode()
         obj["data"]["token"] = expected_token
-    assert_json_output_matches(seen, "standard", "lab-objects")
+    data.assert_json_matches(seen, "controller/standard/output/lab-objects")
 
 
 @pytest.mark.asyncio
-async def test_errors(client: AsyncClient, user: GafaelfawrTestUser) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification")
+async def test_errors(
+    client: AsyncClient, data: NubladoData, user: GafaelfawrTestUser
+) -> None:
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     # Wrong user.
     r = await client.post(
@@ -653,13 +683,17 @@ async def test_errors(client: AsyncClient, user: GafaelfawrTestUser) -> None:
 
 @pytest.mark.asyncio
 async def test_spawn_errors(
+    *,
     client: AsyncClient,
     config: Config,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
     apis_to_fail = set()
 
     def callback(method: str, *args: Any) -> None:
@@ -824,7 +858,9 @@ async def test_spawn_errors(
 
 @pytest.mark.asyncio
 async def test_homedir_schema(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
@@ -835,7 +871,9 @@ async def test_homedir_schema(
     was set.
     """
     config = await configure("homedir-schema")
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -849,8 +887,9 @@ async def test_homedir_schema(
         f"{user.username}-nb-nss",
         f"{config.lab.namespace_prefix}-{user.username}",
     )
-    expected_passwd = read_output_data("homedir-schema", "passwd")
-    assert config_map.data["passwd"] == expected_passwd
+    data.assert_text_matches(
+        config_map.data["passwd"], "controller/homedir-schema/output/passwd"
+    )
 
     pod = await mock_kubernetes.read_namespaced_pod(
         f"{user.username}-nb",
@@ -863,7 +902,9 @@ async def test_homedir_schema(
 
 @pytest.mark.asyncio
 async def test_tmp_on_disk(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
@@ -871,7 +912,9 @@ async def test_tmp_on_disk(
     than memory.
     """
     config = await configure("tmp-disk")
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -892,13 +935,17 @@ async def test_tmp_on_disk(
 
 @pytest.mark.asyncio
 async def test_alternate_paths(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check changes to command, config, and runtime mount paths."""
     config = await configure("changed-path")
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -927,13 +974,17 @@ async def test_alternate_paths(
 
 @pytest.mark.asyncio
 async def test_extra_annotations(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that the pod picks up extra annotations set in the config."""
     config = await configure("extra-annotations")
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -958,11 +1009,13 @@ async def test_extra_annotations(
 
 @pytest.mark.asyncio
 async def test_quota_no_spawn(
-    client: AsyncClient, mock_gafaelfawr: MockGafaelfawr
+    client: AsyncClient, data: NubladoData, mock_gafaelfawr: MockGafaelfawr
 ) -> None:
     """Check that spawning is denied for a user blocked by quota."""
-    lab = read_input_lab_specification_json("base", "lab-specification")
-    user = get_no_spawn_user(mock_gafaelfawr)
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
+    user = get_no_spawn_user(data, mock_gafaelfawr)
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -974,13 +1027,17 @@ async def test_quota_no_spawn(
 
 @pytest.mark.asyncio
 async def test_wait_for_sa(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     factory: Factory,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Test waiting for the default service account during lab creation."""
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     # Clear the callback added by the fixture so that we do not automatically
     # create the default service account.
@@ -1014,13 +1071,17 @@ async def test_wait_for_sa(
 
 @pytest.mark.asyncio
 async def test_init_container_command(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that the init container has a custom command."""
     config = await configure("init-command")
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -1040,13 +1101,17 @@ async def test_init_container_command(
 
 @pytest.mark.asyncio
 async def test_standard_inithome(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that we build a standard inithome container."""
     config = await configure("standard-inithome")
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -1066,13 +1131,17 @@ async def test_standard_inithome(
 
 @pytest.mark.asyncio
 async def test_landingpage(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that the init containers all have the right name."""
     config = await configure("landingpage")
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
@@ -1096,13 +1165,17 @@ async def test_landingpage(
 
 @pytest.mark.asyncio
 async def test_alternative_home_volume(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that we can specify what volume holds user home directories."""
     config = await configure("alternative-home")
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
 
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",

@@ -7,12 +7,14 @@ from httpx import AsyncClient
 from rubin.gafaelfawr import MockGafaelfawr
 
 from ...support.config import configure
-from ...support.data import read_output_data
+from ...support.data import NubladoData
 from ...support.gafaelfawr import GafaelfawrTestUser, get_no_spawn_user
 
 
 @pytest.mark.asyncio
-async def test_lab_form(client: AsyncClient, user: GafaelfawrTestUser) -> None:
+async def test_lab_form(
+    client: AsyncClient, data: NubladoData, user: GafaelfawrTestUser
+) -> None:
     r = await client.get(
         f"/nublado/spawner/v1/lab-form/{user.username}",
         headers=user.to_test_headers(),
@@ -20,13 +22,14 @@ async def test_lab_form(client: AsyncClient, user: GafaelfawrTestUser) -> None:
     assert r.status_code == 200
     assert r.headers["Content-Type"] == "text/html; charset=utf-8"
 
-    expected = read_output_data("standard", "lab-form.html").strip()
-    assert r.text == expected
+    data.assert_text_matches(
+        r.text, "controller/standard/output/lab-form.html"
+    )
 
 
 @pytest.mark.asyncio
 async def test_default_size(
-    client: AsyncClient, user: GafaelfawrTestUser
+    client: AsyncClient, data: NubladoData, user: GafaelfawrTestUser
 ) -> None:
     await configure("sizes")
     r = await client.get(
@@ -34,8 +37,7 @@ async def test_default_size(
         headers=user.to_test_headers(),
     )
     assert r.status_code == 200
-    expected = read_output_data("sizes", "lab-form.html").strip()
-    assert r.text == expected
+    data.assert_text_matches(r.text, "controller/sizes/output/lab-form.html")
 
 
 @pytest.mark.asyncio
@@ -52,13 +54,14 @@ async def test_errors(client: AsyncClient, user: GafaelfawrTestUser) -> None:
 
 @pytest.mark.asyncio
 async def test_quota_spawn(
-    client: AsyncClient, mock_gafaelfawr: MockGafaelfawr
+    client: AsyncClient, data: NubladoData, mock_gafaelfawr: MockGafaelfawr
 ) -> None:
-    user = get_no_spawn_user(mock_gafaelfawr)
+    user = get_no_spawn_user(data, mock_gafaelfawr)
     r = await client.get(
         f"/nublado/spawner/v1/lab-form/{user.username}",
         headers=user.to_test_headers(),
     )
     assert r.status_code == 200
-    expected = read_output_data("standard", "lab-unavailable.html").strip()
-    assert r.text == expected
+    data.assert_text_matches(
+        r.text, "controller/standard/output/lab-unavailable.html"
+    )

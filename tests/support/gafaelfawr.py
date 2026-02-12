@@ -6,7 +6,7 @@ from rubin.gafaelfawr import MockGafaelfawr
 
 from nublado.controller.models.domain.gafaelfawr import GafaelfawrUser
 
-from .data import read_input_users_json
+from .data import NubladoData
 
 __all__ = [
     "GafaelfawrTestUser",
@@ -25,7 +25,9 @@ class GafaelfawrTestUser(GafaelfawrUser):
         }
 
 
-def get_no_spawn_user(mock_gafaelfawr: MockGafaelfawr) -> GafaelfawrTestUser:
+def get_no_spawn_user(
+    data: NubladoData, mock_gafaelfawr: MockGafaelfawr
+) -> GafaelfawrTestUser:
     """Find a user whose quota says they can't spawn labs.
 
     Returns
@@ -33,8 +35,7 @@ def get_no_spawn_user(mock_gafaelfawr: MockGafaelfawr) -> GafaelfawrTestUser:
     GafaelfawrUser
         User data for a user with a quota set that forbids spawning labs.
     """
-    users = read_input_users_json("base", "users")
-    for userinfo in users.values():
+    for userinfo in data.read_users("controller/base/input/users").values():
         if userinfo.quota and userinfo.quota.notebook:
             if not userinfo.quota.notebook.spawn:
                 token = mock_gafaelfawr.create_token(userinfo.username)

@@ -6,6 +6,8 @@ import pytest
 import respx
 from rubin.repertoire import Discovery, register_mock_discovery
 
+from .support.data import NubladoData
+
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
@@ -14,6 +16,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help="Overwrite expected test output with current results",
     )
+
+
+@pytest.fixture
+def data(request: pytest.FixtureRequest) -> NubladoData:
+    update = request.config.getoption("--update-test-data")
+    return NubladoData(Path(__file__).parent / "data", update_test_data=update)
 
 
 @pytest.fixture(autouse=True)
