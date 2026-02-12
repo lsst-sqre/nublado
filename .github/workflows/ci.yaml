@@ -69,6 +69,8 @@ jobs:
         run: uv run --only-group=nox nox -s typing test
         working-directory: client
 
+  # Likewise, this test matrix should not include the Python version from
+  # .python-version, which will be tested by the test job.
   test-hub:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -120,6 +122,9 @@ jobs:
             docs-specific:
               - "CHANGELOG.md"
               - "docs/**"
+            jupyterhub:
+              - "Dockerfile.jupyterhub"
+              - "hub/**"
             jupyterlab-base:
               - "Dockerfile.jupyterlab-base"
               - "jupyterlab-base/**"
@@ -201,7 +206,7 @@ jobs:
         run: uv run --only-group=nox nox -s docs-linkcheck
 
   build:
-    needs: [test, test-hub]
+    needs: test
     uses: lsst-sqre/multiplatform-build-and-push/.github/workflows/build.yaml@v3
     secrets: inherit
 
@@ -217,16 +222,30 @@ jobs:
           && (startsWith(github.head_ref, 'tickets/')
               || startsWith(github.head_ref, 't/')))
 
-    strategy:
-      matrix:
-        container:
-          - name: "jupyterhub"
-          - name: "base"
+    with:
+      images: "ghcr.io/lsst-sqre/nublado,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/nublado"
+
+  build-jupyterhub:
+    needs: [changes, test, test-hub]
+    uses: lsst-sqre/multiplatform-build-and-push/.github/workflows/build.yaml@v3
+    secrets: inherit
+
+    # Only do Docker builds of tagged releases and pull requests from ticket
+    # branches, and only when JupyterHub code has changed. This will still
+    # trigger on pull requests from untrusted repositories whose branch names
+    # match our tickets/* branch convention, but in this case the build will
+    # fail with an error since the secret won't be set.
+    if: >
+      (needs.changes.outputs.jupyterhub == 'true'
+       && github.event_name != 'merge_group'
+       && (startsWith(github.head_ref, 'tickets/')
+           || startsWith(github.head_ref, 't/')))
+      || (github.event_name == 'workflow_dispatch')
+      || (github.event_name == 'release' && github.event.action == 'published')
 
     with:
-      cache: false
-      dockerfile: ${{ matrix.container.name == 'base' && 'Dockerfile' || 'Dockerfile.jupyterhub' }}
-      images: ${{ matrix.container.name == 'base' && 'ghcr.io/lsst-sqre/nublado,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/nublado' || 'ghcr.io/lsst-sqre/nublado-jupyterhub,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/jupyterhub'}}
+      dockerfile: Dockerfile.jupyterhub
+      images: "ghcr.io/lsst-sqre/nublado-jupyterhub,us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/jupyterhub"
 
   build-jupyterlab:
     needs: changes
@@ -248,7 +267,6 @@ jobs:
 
     with:
       additional-tags: ${{ github.event_name == 'release' && 'latest' || '' }}
-      cache: false
       dockerfile: Dockerfile.jupyterlab-base
       images: "ghcr.io/lsst-sqre/nublado-jupyterlab-base"
 
