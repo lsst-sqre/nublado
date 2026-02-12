@@ -23,7 +23,7 @@ from nublado.controller.storage.docker import (
     DockerStorageClient,
 )
 
-from ..support.docker import register_mock_docker
+from ...support.docker import register_mock_docker
 
 
 @pytest.mark.asyncio

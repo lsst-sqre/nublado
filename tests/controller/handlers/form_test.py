@@ -6,9 +6,9 @@ import pytest
 from httpx import AsyncClient
 from rubin.gafaelfawr import MockGafaelfawr
 
-from ..support.config import configure
-from ..support.data import read_output_data
-from ..support.gafaelfawr import GafaelfawrTestUser, get_no_spawn_user
+from ...support.config import configure
+from ...support.data import read_output_data
+from ...support.gafaelfawr import GafaelfawrTestUser, get_no_spawn_user
 
 
 @pytest.mark.asyncio

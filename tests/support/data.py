@@ -74,7 +74,7 @@ def read_input_data(config: str, filename: str) -> str:
     str
         Contents of the file.
     """
-    base_path = Path(__file__).parent.parent / "data" / config
+    base_path = Path(__file__).parent.parent / "data" / "controller" / config
     return (base_path / "input" / filename).read_text()
 
 
@@ -94,7 +94,7 @@ def read_input_json(config: str, filename: str) -> Any:
     typing.Any
         Parsed contents of file.
     """
-    base_path = Path(__file__).parent.parent / "data" / config
+    base_path = Path(__file__).parent.parent / "data" / "controller" / config
     with (base_path / "input" / (filename + ".json")).open("r") as f:
         return json.load(f)
 
@@ -223,7 +223,7 @@ def read_output_data(config: str, filename: str) -> str:
     str
         Contents of the file.
     """
-    base_path = Path(__file__).parent.parent / "data" / config
+    base_path = Path(__file__).parent.parent / "data" / "controller" / config
     return (base_path / "output" / filename).read_text()
 
 
@@ -243,7 +243,7 @@ def read_output_json(config: str, filename: str) -> Any:
     typing.Any
         Parsed contents of file.
     """
-    base_path = Path(__file__).parent.parent / "data" / config
+    base_path = Path(__file__).parent.parent / "data" / "controller" / config
     with (base_path / "output" / (filename + ".json")).open("r") as f:
         return json.load(f)
 
@@ -265,6 +265,6 @@ def write_output_json(config: str, filename: str, data: Any) -> None:
     data
         Data to write.
     """
-    base_path = Path(__file__).parent.parent / "data" / config
+    base_path = Path(__file__).parent.parent / "data" / "controller" / config
     with (base_path / "output" / (filename + ".json")).open("w") as f:
         json.dump(data, f, indent=2, sort_keys=True)

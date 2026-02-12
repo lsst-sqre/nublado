@@ -39,8 +39,16 @@ async def configure(
     slack_webhook = None
     if config_dependency.is_initialized:
         slack_webhook = config_dependency.config.slack_webhook
-    config_path = Path(__file__).parent.parent / "data" / directory / "input"
-    base_path = Path(__file__).parent.parent / "data" / "base" / "input"
+    config_path = (
+        Path(__file__).parent.parent
+        / "data"
+        / "controller"
+        / directory
+        / "input"
+    )
+    base_path = (
+        Path(__file__).parent.parent / "data" / "controller" / "base" / "input"
+    )
     config_dependency.set_path(config_path / "config.yaml")
     config = config_dependency.config
     config.slack_webhook = slack_webhook

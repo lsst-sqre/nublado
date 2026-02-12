@@ -8,8 +8,8 @@ import pytest
 from httpx import AsyncClient
 from safir.testing.kubernetes import MockKubernetesApi
 
-from ..support.config import configure
-from ..support.data import (
+from ...support.config import configure
+from ...support.data import (
     read_input_node_json,
     read_output_json,
 )

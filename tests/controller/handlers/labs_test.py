@@ -31,16 +31,16 @@ from nublado.controller.factory import Factory
 from nublado.controller.models.domain.kubernetes import PodPhase
 from nublado.controller.models.v1.lab import LabState
 
-from ..support.config import configure
-from ..support.constants import TEST_BASE_URL
-from ..support.data import (
+from ...support.config import configure
+from ...support.constants import TEST_BASE_URL
+from ...support.data import (
     assert_json_output_matches,
     read_input_lab_specification_json,
     read_output_data,
     read_output_json,
 )
-from ..support.gafaelfawr import GafaelfawrTestUser, get_no_spawn_user
-from ..support.kubernetes import objects_to_dicts
+from ...support.gafaelfawr import GafaelfawrTestUser, get_no_spawn_user
+from ...support.kubernetes import objects_to_dicts
 
 
 async def get_lab_events(

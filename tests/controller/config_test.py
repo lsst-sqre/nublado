@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from nublado.controller.config import LabConfig
 
-from .support.config import configure
+from ..support.config import configure
 
 
 def test_reserved_env() -> None:

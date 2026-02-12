@@ -10,10 +10,10 @@ from httpx import AsyncClient
 from safir.datetime import current_datetime
 from safir.testing.kubernetes import MockKubernetesApi
 
-from ..support.config import configure
-from ..support.data import assert_json_output_matches
-from ..support.gafaelfawr import GafaelfawrTestUser
-from ..support.kubernetes import objects_to_dicts
+from ...support.config import configure
+from ...support.data import assert_json_output_matches
+from ...support.gafaelfawr import GafaelfawrTestUser
+from ...support.kubernetes import objects_to_dicts
 
 
 @pytest.mark.asyncio

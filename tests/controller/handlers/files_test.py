@@ -15,15 +15,15 @@ from safir.testing.slack import MockSlackWebhook
 
 from nublado.controller.models.domain.kubernetes import PodPhase
 
-from ..support.config import configure
-from ..support.data import read_output_data, read_output_json
-from ..support.fileserver import (
+from ...support.config import configure
+from ...support.data import read_output_data, read_output_json
+from ...support.fileserver import (
     create_ingress_for_user,
     create_working_ingress_for_user,
     delete_ingress_for_user,
 )
-from ..support.gafaelfawr import GafaelfawrTestUser
-from ..support.kubernetes import objects_to_dicts
+from ...support.gafaelfawr import GafaelfawrTestUser
+from ...support.kubernetes import objects_to_dicts
 
 
 @pytest.mark.timeout(5)

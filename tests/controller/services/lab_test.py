@@ -30,7 +30,7 @@ from nublado.controller.models.v1.lab import (
 )
 from nublado.controller.timeout import Timeout
 
-from ..support.data import (
+from ...support.data import (
     read_input_data,
     read_input_lab_specification_json,
     read_input_secrets_json,
