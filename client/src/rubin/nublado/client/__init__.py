@@ -1,5 +1,12 @@
 """Client for Nublado, not including JupyterHub plugins."""
 
+try:
+    import pytest
+
+    pytest.register_assert_rewrite("rubin.nublado.client._mock")
+except ImportError:
+    pass
+
 from ._client import NubladoClient
 from ._exceptions import (
     NubladoDiscoveryError,
