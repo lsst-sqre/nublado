@@ -26,18 +26,18 @@ from nublado.controller.factory import Factory
 from nublado.controller.main import create_app
 from nublado.controller.models.v1.prepuller import DockerSourceOptions
 
-from .support.config import configure
-from .support.constants import TEST_BASE_URL
-from .support.data import (
+from ..support.config import configure
+from ..support.constants import TEST_BASE_URL
+from ..support.data import (
     read_input_data,
     read_input_json,
     read_input_node_json,
     read_input_secrets_json,
     read_input_users_json,
 )
-from .support.docker import MockDockerRegistry, register_mock_docker
-from .support.gafaelfawr import GafaelfawrTestUser
-from .support.gar import MockArtifactRegistry, patch_artifact_registry
+from ..support.docker import MockDockerRegistry, register_mock_docker
+from ..support.gafaelfawr import GafaelfawrTestUser
+from ..support.gar import MockArtifactRegistry, patch_artifact_registry
 
 
 @pytest.fixture(autouse=True)
@@ -56,12 +56,6 @@ def _mock_introspection(monkeypatch: pytest.MonkeyPatch) -> None:
     # Don't use setuptools_scm here, because then the JSON will not be
     # static for the tests.
     monkeypatch.setenv("NUBLADO_CONTROLLER_TAG", "11.1.1")
-
-
-@pytest_asyncio.fixture
-async def config() -> Config:
-    """Construct default configuration for tests."""
-    return await configure("standard")
 
 
 @pytest_asyncio.fixture
@@ -94,6 +88,12 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
         transport=ASGITransport(app=app), base_url=TEST_BASE_URL
     ) as client:
         yield client
+
+
+@pytest_asyncio.fixture
+async def config() -> Config:
+    """Construct default configuration for tests."""
+    return await configure("standard")
 
 
 @pytest_asyncio.fixture

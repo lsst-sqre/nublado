@@ -13,9 +13,9 @@ from nublado.controller.dependencies.context import context_dependency
 from nublado.controller.factory import Factory
 from nublado.controller.models.domain.kubernetes import PodPhase
 
-from ..support.constants import TEST_BASE_URL
-from ..support.data import read_input_lab_specification_json, read_output_json
-from ..support.gafaelfawr import GafaelfawrTestUser
+from ...support.constants import TEST_BASE_URL
+from ...support.data import read_input_lab_specification_json, read_output_json
+from ...support.gafaelfawr import GafaelfawrTestUser
 
 
 @pytest.mark.asyncio
