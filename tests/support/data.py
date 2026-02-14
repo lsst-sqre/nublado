@@ -42,7 +42,9 @@ class NubladoData(Data):
         ----------
         objects
             List of objects to serialize, which may include custom objects
-            that are represented by raw dicts.
+            that are represented by raw dicts. This list must already be
+            sorted (which is done by the Kubernetes ``get_*_for_test``
+            methods).
         path
             Path relative to :file:`tests/data`. A ``.json`` extension will be
             added automatically.

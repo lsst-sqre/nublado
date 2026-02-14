@@ -67,12 +67,10 @@ async def app(
     Wraps the application in a lifespan manager so that startup and shutdown
     events are sent during test execution.
     """
-    nodes = data.read_nodes("controller/base/input/nodes")
+    nodes = data.read_nodes("controller/base/nodes")
     mock_kubernetes.set_nodes_for_test(nodes)
-    namespace = data.read_text(
-        "controller/base/input/metadata/namespace"
-    ).strip()
-    for secret in data.read_secrets("controller/base/input/secrets"):
+    namespace = data.read_text("controller/base/metadata/namespace").strip()
+    for secret in data.read_secrets("controller/base/secrets"):
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
     app = create_app()
     async with LifespanManager(app):
@@ -103,7 +101,7 @@ async def factory(
     mock_slack: MockSlackWebhook,
 ) -> AsyncIterator[Factory]:
     """Create a component factory for tests."""
-    nodes = data.read_nodes("controller/base/input/nodes")
+    nodes = data.read_nodes("controller/base/nodes")
     mock_kubernetes.set_nodes_for_test(nodes)
     async with Factory.standalone(config) as factory:
         yield factory
@@ -120,7 +118,7 @@ def mock_docker(
         host=config.images.source.registry,
         repository=config.images.source.repository,
         credentials_path=config.images.source.credentials_path,
-        tags=data.read_json("controller/base/input/docker-tags"),
+        tags=data.read_json("controller/base/docker-tags"),
         require_bearer=True,
     )
 
@@ -130,7 +128,7 @@ async def mock_gafaelfawr(
     config: Config, data: NubladoData, respx_mock: respx.Router
 ) -> MockGafaelfawr:
     mock = await register_mock_gafaelfawr(respx_mock)
-    users = data.read_users("controller/base/input/users")
+    users = data.read_users("controller/base/users")
     for username, userinfo in users.items():
         mock.set_user_info(username, userinfo)
     return mock
@@ -170,7 +168,7 @@ def user(
     data: NubladoData, mock_gafaelfawr: MockGafaelfawr
 ) -> GafaelfawrTestUser:
     """User to use for testing."""
-    users = data.read_users("controller/base/input/users")
+    users = data.read_users("controller/base/users")
     for username, userinfo in users.items():
         token = mock_gafaelfawr.create_token(username)
         return GafaelfawrTestUser(token=token, **userinfo.model_dump())

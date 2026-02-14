@@ -70,7 +70,7 @@ async def create_lab(
     assert user.uid
     assert user.gid
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
     size = config.lab.get_size_definition(lab.options.size)
     resources = size.resources
@@ -221,10 +221,8 @@ async def test_reconcile_succeeded(
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    namespace = data.read_text(
-        "controller/base/input/metadata/namespace"
-    ).strip()
-    for secret in data.read_secrets("controller/base/input/secrets"):
+    namespace = data.read_text("controller/base/metadata/namespace").strip()
+    for secret in data.read_secrets("controller/base/secrets"):
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
     mock_kubernetes.initial_pod_phase = PodPhase.SUCCEEDED.value
     await factory.start_background_services()
@@ -232,7 +230,7 @@ async def test_reconcile_succeeded(
     # Create a lab through the controller. It should show up as active since
     # we don't detect immediately that it terminated.
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
     await factory.lab_manager.create_lab(user, lab)
     await asyncio.sleep(0.1)
@@ -260,15 +258,13 @@ async def test_spawn_timeout(
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    namespace = data.read_text(
-        "controller/base/input/metadata/namespace"
-    ).strip()
-    for secret in data.read_secrets("controller/base/input/secrets"):
+    namespace = data.read_text("controller/base/metadata/namespace").strip()
+    for secret in data.read_secrets("controller/base/secrets"):
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
     config.lab.spawn_timeout = timedelta(seconds=1)
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
     await factory.start_background_services()
 

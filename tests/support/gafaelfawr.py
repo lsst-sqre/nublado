@@ -35,7 +35,7 @@ def get_no_spawn_user(
     GafaelfawrUser
         User data for a user with a quota set that forbids spawning labs.
     """
-    for userinfo in data.read_users("controller/base/input/users").values():
+    for userinfo in data.read_users("controller/base/users").values():
         if userinfo.quota and userinfo.quota.notebook:
             if not userinfo.quota.notebook.spawn:
                 token = mock_gafaelfawr.create_token(userinfo.username)

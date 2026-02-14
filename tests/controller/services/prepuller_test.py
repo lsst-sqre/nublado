@@ -365,7 +365,7 @@ async def test_node_change(
 
     # Remove the last node from the list of nodes and refresh the image
     # service, simulating a node removal in the middle of a run.
-    nodes = data.read_nodes("controller/base/input/nodes")
+    nodes = data.read_nodes("controller/base/nodes")
     mock_kubernetes.set_nodes_for_test(nodes[:-1])
     await factory.image_service.refresh()
 
