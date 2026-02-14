@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import pytest
 from httpx import AsyncClient
-from rubin.gafaelfawr import MockGafaelfawr
 
 from ...support.config import configure
 from ...support.data import NubladoData
-from ...support.gafaelfawr import GafaelfawrTestUser, get_no_spawn_user
+from ...support.gafaelfawr import GafaelfawrTestUser
 
 
 @pytest.mark.asyncio
@@ -54,12 +53,11 @@ async def test_errors(client: AsyncClient, user: GafaelfawrTestUser) -> None:
 
 @pytest.mark.asyncio
 async def test_quota_spawn(
-    client: AsyncClient, data: NubladoData, mock_gafaelfawr: MockGafaelfawr
+    client: AsyncClient, data: NubladoData, user_no_spawn: GafaelfawrTestUser
 ) -> None:
-    user = get_no_spawn_user(data, mock_gafaelfawr)
     r = await client.get(
-        f"/nublado/spawner/v1/lab-form/{user.username}",
-        headers=user.to_test_headers(),
+        f"/nublado/spawner/v1/lab-form/{user_no_spawn.username}",
+        headers=user_no_spawn.to_test_headers(),
     )
     assert r.status_code == 200
     data.assert_text_matches(

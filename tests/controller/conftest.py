@@ -30,7 +30,7 @@ from ..support.config import configure
 from ..support.constants import TEST_BASE_URL
 from ..support.data import NubladoData
 from ..support.docker import MockDockerRegistry, register_mock_docker
-from ..support.gafaelfawr import GafaelfawrTestUser
+from ..support.gafaelfawr import GafaelfawrTestUser, create_gafaelfawr_user
 from ..support.gar import MockArtifactRegistry, patch_artifact_registry
 
 
@@ -120,14 +120,8 @@ def mock_docker(
 
 
 @pytest_asyncio.fixture
-async def mock_gafaelfawr(
-    config: Config, data: NubladoData, respx_mock: respx.Router
-) -> MockGafaelfawr:
-    mock = await register_mock_gafaelfawr(respx_mock)
-    users = data.read_users("controller/base/users")
-    for username, userinfo in users.items():
-        mock.set_user_info(username, userinfo)
-    return mock
+async def mock_gafaelfawr(respx_mock: respx.Router) -> MockGafaelfawr:
+    return await register_mock_gafaelfawr(respx_mock)
 
 
 @pytest.fixture
@@ -164,9 +158,13 @@ def mock_slack(
 def user(
     data: NubladoData, mock_gafaelfawr: MockGafaelfawr
 ) -> GafaelfawrTestUser:
-    """User to use for testing."""
-    users = data.read_users("controller/base/users")
-    for username, userinfo in users.items():
-        token = mock_gafaelfawr.create_token(username)
-        return GafaelfawrTestUser(token=token, **userinfo.model_dump())
-    raise ValueError("No users found")
+    """User to use for regular testing."""
+    return create_gafaelfawr_user(data, "rachel", mock_gafaelfawr)
+
+
+@pytest.fixture
+def user_no_spawn(
+    data: NubladoData, mock_gafaelfawr: MockGafaelfawr
+) -> GafaelfawrTestUser:
+    """User whose quota blocks them from spawning a lab."""
+    return create_gafaelfawr_user(data, "ribbon", mock_gafaelfawr)

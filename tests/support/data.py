@@ -14,7 +14,6 @@ from kubernetes_asyncio.client import (
     V1Secret,
     V1Taint,
 )
-from rubin.gafaelfawr import GafaelfawrUserInfo
 from safir.testing.data import Data
 from safir.testing.kubernetes import strip_none
 
@@ -125,22 +124,3 @@ class NubladoData(Data):
                 secret.type = "kubernetes.io/dockerconfigjson"
             secrets.append(secret)
         return secrets
-
-    def read_users(self, path: str) -> dict[str, GafaelfawrUserInfo]:
-        """Read input Gafaelfawr user data.
-
-        Parameters
-        ----------
-        path
-            Path relative to :file:`tests/data`. A ``.json`` extension will be
-            added automatically.
-
-        Returns
-        -------
-        dict of GafaelfawrUserInfo
-            Dictionary mapping usernames to `GafaelfawrUserInfo` objects.
-        """
-        data = self.read_json(path)
-        return {
-            t: GafaelfawrUserInfo.model_validate(u) for t, u in data.items()
-        }
