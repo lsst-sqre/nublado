@@ -13,7 +13,6 @@ from safir.testing.kubernetes import MockKubernetesApi
 from ...support.config import configure
 from ...support.data import NubladoData
 from ...support.gafaelfawr import GafaelfawrTestUser
-from ...support.kubernetes import objects_to_dicts
 
 
 @pytest.mark.asyncio
@@ -115,17 +114,15 @@ async def test_created_pod(
     )
     assert r.status_code == 200
 
-    # Verify that the pod is correct.
+    # Verify that the pod and its persistent volume claims are correct. Filter
+    # out prepuller pods, which are started when the application is started.
     objects = mock_kubernetes.get_namespace_objects_for_test("nublado")
-    all_seen = objects_to_dicts(objects)
-    fs_pod = next(
-        x
-        for x in all_seen
-        if x["kind"] == "Pod" and x["metadata"]["name"] == "fsadmin"
+    pod = next(
+        o for o in objects if o.kind == "Pod" and o.metadata.name == "fsadmin"
     )
-    fs_pvc = next(x for x in all_seen if x["kind"] == "PersistentVolumeClaim")
-    data.assert_json_matches(
-        [fs_pvc, fs_pod], "controller/fsadmin/output/fsadmin-objects"
+    pvcs = [o for o in objects if o.kind == "PersistentVolumeClaim"]
+    data.assert_kubernetes_matches(
+        [*pvcs, pod], "controller/fsadmin/output/fsadmin-objects"
     )
 
 

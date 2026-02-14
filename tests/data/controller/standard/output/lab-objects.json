@@ -964,7 +964,7 @@
     "data": {
       "butler-secret": "c29tZSBidXRsZXIgc2VjcmV0",
       "db-password": "c29tZSBkYXRhYmFzZSBwYXNzd29yZA==",
-      "token": "dG9rZW4tb2YtYWZmZWN0aW9u"
+      "token": "<ANY>"
     },
     "immutable": true,
     "kind": "Secret",

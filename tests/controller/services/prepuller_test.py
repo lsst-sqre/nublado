@@ -28,7 +28,6 @@ from ...support.config import configure
 from ...support.data import NubladoData
 from ...support.docker import MockDockerRegistry
 from ...support.gar import MockArtifactRegistry
-from ...support.kubernetes import objects_to_dicts
 
 
 async def mark_pod_complete(
@@ -83,8 +82,8 @@ async def test_docker(
     # The default data configures Kubernetes with missing images on some
     # nodes. Check that we created the correct prepuller pods.
     pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-    data.assert_json_matches(
-        objects_to_dicts(pod_list.items),
+    data.assert_kubernetes_matches(
+        pod_list.items,
         "controller/standard/output/prepull-objects",
     )
 
@@ -334,8 +333,8 @@ async def test_conflict(
     await factory.start_background_services()
     await asyncio.sleep(0.2)
     pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-    data.assert_json_matches(
-        objects_to_dicts(pod_list.items),
+    data.assert_kubernetes_matches(
+        pod_list.items,
         "controller/standard/output/prepull-conflict-objects",
     )
 
@@ -359,8 +358,8 @@ async def test_node_change(
     # The default data configures Kubernetes with missing images on some
     # nodes. Check that we created the correct prepuller pods.
     pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-    data.assert_json_matches(
-        objects_to_dicts(pod_list.items),
+    data.assert_kubernetes_matches(
+        pod_list.items,
         "controller/standard/output/prepull-objects",
     )
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from base64 import b64encode
+from collections.abc import Iterable
 
 from kubernetes_asyncio.client import (
     V1ContainerImage,
@@ -15,12 +16,55 @@ from kubernetes_asyncio.client import (
 )
 from rubin.gafaelfawr import GafaelfawrUserInfo
 from safir.testing.data import Data
+from safir.testing.kubernetes import strip_none
+
+from nublado.controller.models.domain.kubernetes import KubernetesModel
 
 __all__ = ["NubladoData"]
 
 
 class NubladoData(Data):
     """Test data management wrapper class."""
+
+    def assert_kubernetes_matches(
+        self,
+        objects_raw: Iterable[dict | KubernetesModel],
+        path: str,
+    ) -> None:
+        """Serialize a list of Kubernetes objects and compare them.
+
+        We often want to compare the contents of the mock Kubernetes with an
+        expected set of objects. This method serializes the Kubernetes
+        objects, strips data that changes always changes in every run, and
+        compares to stored data in JSON format.
+
+        Parameters
+        ----------
+        objects
+            List of objects to serialize, which may include custom objects
+            that are represented by raw dicts.
+        path
+            Path relative to :file:`tests/data`. A ``.json`` extension will be
+            added automatically.
+        """
+        objects = []
+        for obj in objects_raw:
+            if isinstance(obj, dict):
+                serialized = obj
+            else:
+                serialized = obj.to_dict(serialize=True)
+
+            # These attributes intentionally may change on every test run and
+            # thus should not be compared. Change them to None so that they'll
+            # be stripped by strip_none.
+            serialized["metadata"]["resourceVersion"] = None
+            if "status" in serialized and serialized["status"] is not None:
+                serialized["status"]["startTime"] = None
+
+            objects.append(strip_none(serialized))
+
+        # Delegate the actual comparison to the standard JSON matcher.
+        self.assert_json_matches(objects, path)
 
     def read_nodes(self, path: str) -> list[V1Node]:
         """Read input node data.

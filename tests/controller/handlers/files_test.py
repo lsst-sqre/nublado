@@ -23,7 +23,6 @@ from ...support.fileserver import (
     delete_ingress_for_user,
 )
 from ...support.gafaelfawr import GafaelfawrTestUser
-from ...support.kubernetes import objects_to_dicts
 
 
 @pytest.mark.timeout(5)
@@ -129,13 +128,11 @@ async def test_file_server_objects(
     r = await client.get("/files", headers=user.to_test_headers())
     assert r.status_code == 200
 
-    # When checking all of the objects, strip out resource versions, since
-    # those are added by Kubernetes (and the Kubernetes mock) and are not
-    # meaningful to compare.
+    # Compare all of the objects in the file server namespace to the expected
+    # results.
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
-    data.assert_json_matches(
-        objects_to_dicts(objects),
-        "controller/fileserver/output/fileserver-objects",
+    data.assert_kubernetes_matches(
+        objects, "controller/fileserver/output/fileserver-objects"
     )
 
 
