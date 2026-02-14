@@ -67,8 +67,6 @@ async def app(
     Wraps the application in a lifespan manager so that startup and shutdown
     events are sent during test execution.
     """
-    nodes = data.read_nodes("controller/base/nodes")
-    mock_kubernetes.set_nodes_for_test(nodes)
     namespace = data.read_text("controller/base/metadata/namespace").strip()
     for secret in data.read_secrets("controller/base/secrets"):
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
@@ -101,8 +99,6 @@ async def factory(
     mock_slack: MockSlackWebhook,
 ) -> AsyncIterator[Factory]:
     """Create a component factory for tests."""
-    nodes = data.read_nodes("controller/base/nodes")
-    mock_kubernetes.set_nodes_for_test(nodes)
     async with Factory.standalone(config) as factory:
         yield factory
         await factory.stop_background_services()
@@ -140,17 +136,18 @@ def mock_gar() -> Iterator[MockArtifactRegistry]:
 
 
 @pytest.fixture
-def mock_kubernetes() -> Iterator[MockKubernetesApi]:
-    with contextmanager(patch_kubernetes)() as mock:
-        # Add a hook to create the default service account on namespace
-        # creation.
-        async def create_default_sa(namespace: V1Namespace) -> None:
-            await mock.create_namespaced_service_account(
-                namespace.metadata.name,
-                V1ServiceAccount(metadata=V1ObjectMeta(name="default")),
-            )
+def mock_kubernetes(data: NubladoData) -> Iterator[MockKubernetesApi]:
+    nodes = data.read_nodes("controller/nodes/standard")
 
-        mock.register_create_hook_for_test("Namespace", create_default_sa)
+    # Hook to create the default service account on namespace creation.
+    async def create_default(namespace: V1Namespace) -> None:
+        name = namespace.metadata.name
+        account = V1ServiceAccount(metadata=V1ObjectMeta(name="default"))
+        await mock.create_namespaced_service_account(name, account)
+
+    with contextmanager(patch_kubernetes)() as mock:
+        mock.set_nodes_for_test(nodes)
+        mock.register_create_hook_for_test("Namespace", create_default)
         yield mock
 
 
