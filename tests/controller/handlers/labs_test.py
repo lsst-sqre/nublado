@@ -35,7 +35,6 @@ from ...support.config import configure
 from ...support.constants import TEST_BASE_URL
 from ...support.data import NubladoData
 from ...support.gafaelfawr import GafaelfawrTestUser, get_no_spawn_user
-from ...support.kubernetes import objects_to_dicts
 
 
 async def get_lab_events(
@@ -522,20 +521,19 @@ async def test_lab_objects(
     assert r.status_code == 201
     await asyncio.sleep(0)
 
-    # Compare the objects. We have to do a bit of surgery to fix the user's
-    # token, since it varies on every test run.
+    # Compare the objects, and then separately check that the token matches
+    # the expected value, since that varies with every run.
     namespace = f"{config.lab.namespace_prefix}-{user.username}"
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
-    seen = objects_to_dicts(objects)
-    expected_token = b64encode(b"token-of-affection").decode()
-    for obj in seen:
-        if obj["kind"] != "Secret":
-            continue
-        if not obj["metadata"]["name"].endswith("-nb"):
-            continue
-        assert obj["data"]["token"] == b64encode(user.token.encode()).decode()
-        obj["data"]["token"] = expected_token
-    data.assert_json_matches(seen, "controller/standard/output/lab-objects")
+    data.assert_kubernetes_matches(
+        objects, "controller/standard/output/lab-objects"
+    )
+    secret = next(
+        o
+        for o in objects
+        if o.kind == "Secret" and o.metadata.name.endswith("-nb")
+    )
+    assert secret.data["token"] == b64encode(user.token.encode()).decode()
 
 
 @pytest.mark.asyncio
