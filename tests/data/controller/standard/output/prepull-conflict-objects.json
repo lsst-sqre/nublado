@@ -4,7 +4,7 @@
     "kind": "Pod",
     "metadata": {
       "labels": {
-	"nublado.lsst.io/category": "prepuller"
+        "nublado.lsst.io/category": "prepuller"
       },
       "name": "prepull-d-2077-10-23-node2",
       "namespace": "nublado",
@@ -27,7 +27,7 @@
           "image": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
           "name": "prepull",
           "resources": {
-	    "limits": {
+            "limits": {
               "cpu": "1m",
               "memory": "16Mi"
             },
@@ -40,7 +40,7 @@
         }
       ],
       "imagePullSecrets": [
-	{
+        {
           "name": "pull-secret"
         }
       ],

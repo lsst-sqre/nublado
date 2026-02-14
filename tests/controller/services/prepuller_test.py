@@ -11,7 +11,6 @@ import pytest
 from google.cloud.artifactregistry_v1 import DockerImage
 from kubernetes_asyncio.client import (
     ApiException,
-    V1ContainerImage,
     V1Node,
     V1NodeStatus,
     V1ObjectMeta,
@@ -26,11 +25,7 @@ from nublado.controller.models.domain.kubernetes import PodPhase
 from nublado.controller.models.v1.prepuller import GARSourceOptions
 
 from ...support.config import configure
-from ...support.data import (
-    read_input_json,
-    read_input_node_json,
-    read_output_json,
-)
+from ...support.data import NubladoData
 from ...support.docker import MockDockerRegistry
 from ...support.gar import MockArtifactRegistry
 from ...support.kubernetes import objects_to_dicts
@@ -63,7 +58,10 @@ async def mark_pod_complete(
 
 @pytest.mark.asyncio
 async def test_docker(
-    factory: Factory, config: Config, mock_kubernetes: MockKubernetesApi
+    factory: Factory,
+    config: Config,
+    data: NubladoData,
+    mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Test the prepuller service configured to talk to Docker."""
     await factory.image_service.refresh()
@@ -85,8 +83,10 @@ async def test_docker(
     # The default data configures Kubernetes with missing images on some
     # nodes. Check that we created the correct prepuller pods.
     pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-    expected = read_output_json("standard", "prepull-objects")
-    assert objects_to_dicts(pod_list.items) == expected
+    data.assert_json_matches(
+        objects_to_dicts(pod_list.items),
+        "controller/standard/output/prepull-objects",
+    )
 
     # Update all of the pods to have a status of completed and send an event.
     for pod in pod_list.items:
@@ -107,12 +107,14 @@ async def test_docker(
 
 @pytest.mark.asyncio
 async def test_gar(
-    mock_gar: MockArtifactRegistry, mock_kubernetes: MockKubernetesApi
+    data: NubladoData,
+    mock_gar: MockArtifactRegistry,
+    mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Test the prepuller service configured to talk to GAR."""
     config = await configure("gar")
     assert isinstance(config.images.source, GARSourceOptions)
-    known_images = read_input_json("gar", "known-images")
+    known_images = data.read_json("controller/gar/input/known-images")
     for known_image in known_images:
         image = DockerImage(**known_image)
         parent, _, _ = image.name.split("@", 1)[0].rsplit("/", 2)
@@ -135,16 +137,16 @@ async def test_gar(
         await asyncio.sleep(0.2)
 
         images = factory.image_service.images()
-        expected = read_output_json("gar", "images-before")
-        assert images.model_dump(exclude_none=True) == expected
+        data.assert_pydantic_matches(
+            images, "controller/gar/output/images-before"
+        )
 
         menu_images = factory.image_service.menu_images()
         seen = {
             "menu": [asdict(e) for e in menu_images.menu],
             "dropdown": [asdict(e) for e in menu_images.dropdown],
         }
-        expected = read_output_json("gar", "menu-before")
-        assert seen == expected
+        data.assert_json_matches(seen, "controller/gar/output/menu-before")
 
         # There should be two running pods, one for each node.
         pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
@@ -173,36 +175,27 @@ async def test_gar(
         assert pod_list.items == []
 
         images = factory.image_service.images()
-        expected = read_output_json("gar", "images-after")
-        assert images.model_dump(exclude_none=True) == expected
+        data.assert_pydantic_matches(
+            images, "controller/gar/output/images-after"
+        )
 
         menu_images = factory.image_service.menu_images()
         seen = {
             "menu": [asdict(e) for e in menu_images.menu],
             "dropdown": [asdict(e) for e in menu_images.dropdown],
         }
-        expected = read_output_json("gar", "menu-after")
-        assert seen == expected
+        data.assert_json_matches(seen, "controller/gar/output/menu-after")
 
 
 @pytest.mark.asyncio
 async def test_cycle(
-    mock_docker: MockDockerRegistry, mock_kubernetes: MockKubernetesApi
+    data: NubladoData,
+    mock_docker: MockDockerRegistry,
+    mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("cycle")
-    mock_docker.tags = read_input_json("cycle", "docker-tags")
-    node_data = read_input_json("cycle", "nodes")
-    nodes = []
-    for name, data in node_data.items():
-        node_images = [
-            V1ContainerImage(names=d["names"], size_bytes=d["sizeBytes"])
-            for d in data
-        ]
-        node = V1Node(
-            metadata=V1ObjectMeta(name=name),
-            status=V1NodeStatus(images=node_images),
-        )
-        nodes.append(node)
+    mock_docker.tags = data.read_json("controller/cycle/input/docker-tags")
+    nodes = data.read_nodes("controller/cycle/input/nodes")
     mock_kubernetes.set_nodes_for_test(nodes)
 
     async with Factory.standalone(config) as factory:
@@ -210,29 +203,29 @@ async def test_cycle(
         await asyncio.sleep(0.2)
 
         images = factory.image_service.images()
-        expected = read_output_json("cycle", "images")
-        assert images.model_dump(exclude_none=True) == expected
+        data.assert_pydantic_matches(images, "controller/cycle/output/images")
 
         menu_images = factory.image_service.menu_images()
         seen = {
             "menu": [asdict(e) for e in menu_images.menu],
             "dropdown": [asdict(e) for e in menu_images.dropdown],
         }
-        expected = read_output_json("cycle", "menu")
-        assert seen == expected
+        data.assert_json_matches(seen, "controller/cycle/output/menu")
 
 
 @pytest.mark.asyncio
 async def test_gar_cycle(
-    mock_gar: MockArtifactRegistry, mock_kubernetes: MockKubernetesApi
+    data: NubladoData,
+    mock_gar: MockArtifactRegistry,
+    mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure("gar-cycle")
-    known_images = read_input_json("gar-cycle", "known-images")
+    known_images = data.read_json("controller/gar-cycle/input/known-images")
     for known_image in known_images:
         image = DockerImage(**known_image)
         parent, _, _ = image.name.split("@", 1)[0].rsplit("/", 2)
         mock_gar.add_image_for_test(parent, image)
-    nodes = read_input_node_json("gar-cycle", "nodes")
+    nodes = data.read_nodes("controller/gar-cycle/input/nodes")
     mock_kubernetes.set_nodes_for_test(nodes)
 
     async with Factory.standalone(config) as factory:
@@ -240,16 +233,16 @@ async def test_gar_cycle(
         await asyncio.sleep(0.2)
 
         images = factory.image_service.images()
-        expected = read_output_json("gar-cycle", "images")
-        assert images.model_dump(exclude_none=True) == expected
+        data.assert_pydantic_matches(
+            images, "controller/gar-cycle/output/images"
+        )
 
         menu_images = factory.image_service.menu_images()
         seen = {
             "menu": [asdict(e) for e in menu_images.menu],
             "dropdown": [asdict(e) for e in menu_images.dropdown],
         }
-        expected = read_output_json("gar-cycle", "menu")
-        assert seen == expected
+        data.assert_json_matches(seen, "controller/gar-cycle/output/menu")
 
 
 @pytest.mark.asyncio
@@ -319,12 +312,16 @@ async def test_kubernetes_error(
 
 @pytest.mark.asyncio
 async def test_conflict(
+    *,
     factory: Factory,
     config: Config,
+    data: NubladoData,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Test handling of conflicts with a pre-existing prepuller pod."""
-    expected = read_output_json("standard", "prepull-conflict-objects")
+    expected = data.read_json(
+        "controller/standard/output/prepull-conflict-objects"
+    )
 
     # Create a pod with the same name as the prepull pod that the prepuller
     # will want to create. Don't bother to try to make this a valid pod, just
@@ -337,13 +334,18 @@ async def test_conflict(
     await factory.start_background_services()
     await asyncio.sleep(0.2)
     pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-    assert objects_to_dicts(pod_list.items) == expected
+    data.assert_json_matches(
+        objects_to_dicts(pod_list.items),
+        "controller/standard/output/prepull-conflict-objects",
+    )
 
 
 @pytest.mark.asyncio
 async def test_node_change(
+    *,
     factory: Factory,
     config: Config,
+    data: NubladoData,
     mock_kubernetes: MockKubernetesApi,
     mock_slack: MockSlackWebhook,
 ) -> None:
@@ -357,12 +359,14 @@ async def test_node_change(
     # The default data configures Kubernetes with missing images on some
     # nodes. Check that we created the correct prepuller pods.
     pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-    expected = read_output_json("standard", "prepull-objects")
-    assert objects_to_dicts(pod_list.items) == expected
+    data.assert_json_matches(
+        objects_to_dicts(pod_list.items),
+        "controller/standard/output/prepull-objects",
+    )
 
     # Remove the last node from the list of nodes and refresh the image
     # service, simulating a node removal in the middle of a run.
-    nodes = read_input_node_json("base", "nodes")
+    nodes = data.read_nodes("controller/base/input/nodes")
     mock_kubernetes.set_nodes_for_test(nodes[:-1])
     await factory.image_service.refresh()
 

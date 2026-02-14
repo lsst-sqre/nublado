@@ -22,6 +22,7 @@ from nublado.controller.models.domain.gafaelfawr import GafaelfawrUser
 from nublado.controller.models.domain.kubernetes import PodPhase
 from nublado.controller.models.v1.lab import (
     LabOptions,
+    LabSpecification,
     LabState,
     LabStatus,
     ResourceQuantity,
@@ -30,15 +31,13 @@ from nublado.controller.models.v1.lab import (
 )
 from nublado.controller.timeout import Timeout
 
-from ...support.data import (
-    read_input_data,
-    read_input_lab_specification_json,
-    read_input_secrets_json,
-)
+from ...support.data import NubladoData
 
 
 async def create_lab(
+    *,
     config: Config,
+    data: NubladoData,
     factory: Factory,
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
@@ -70,7 +69,9 @@ async def create_lab(
     assert user.quota.notebook
     assert user.uid
     assert user.gid
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
     size = config.lab.get_size_definition(lab.options.size)
     resources = size.resources
     await factory.image_service.refresh()
@@ -121,12 +122,20 @@ async def create_lab(
 
 @pytest.mark.asyncio
 async def test_reconcile(
+    *,
     config: Config,
+    data: NubladoData,
     factory: Factory,
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    expected = await create_lab(config, factory, user, mock_kubernetes)
+    expected = await create_lab(
+        config=config,
+        data=data,
+        factory=factory,
+        user=user,
+        mock_kubernetes=mock_kubernetes,
+    )
 
     # The lab state manager should think there are no labs.
     assert await factory.lab_manager.list_lab_users() == []
@@ -151,13 +160,21 @@ async def test_reconcile(
 
 @pytest.mark.asyncio
 async def test_reconcile_pending(
+    *,
     config: Config,
+    data: NubladoData,
     factory: Factory,
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
-    expected = await create_lab(config, factory, user, mock_kubernetes)
+    expected = await create_lab(
+        config=config,
+        data=data,
+        factory=factory,
+        user=user,
+        mock_kubernetes=mock_kubernetes,
+    )
 
     # The lab state manager shouldn't know about the pod to start with.
     assert await factory.lab_manager.list_lab_users() == []
@@ -197,20 +214,26 @@ async def test_reconcile_pending(
 
 @pytest.mark.asyncio
 async def test_reconcile_succeeded(
+    *,
     config: Config,
+    data: NubladoData,
     factory: Factory,
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    namespace = read_input_data("base", "metadata/namespace").strip()
-    for secret in read_input_secrets_json("base", "secrets"):
+    namespace = data.read_text(
+        "controller/base/input/metadata/namespace"
+    ).strip()
+    for secret in data.read_secrets("controller/base/input/secrets"):
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
     mock_kubernetes.initial_pod_phase = PodPhase.SUCCEEDED.value
     await factory.start_background_services()
 
     # Create a lab through the controller. It should show up as active since
     # we don't detect immediately that it terminated.
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
     await factory.lab_manager.create_lab(user, lab)
     await asyncio.sleep(0.1)
     state = await factory.lab_manager.get_lab_state(user.username)
@@ -230,17 +253,23 @@ async def test_reconcile_succeeded(
 
 @pytest.mark.asyncio
 async def test_spawn_timeout(
+    *,
     config: Config,
+    data: NubladoData,
     factory: Factory,
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    namespace = read_input_data("base", "metadata/namespace").strip()
-    for secret in read_input_secrets_json("base", "secrets"):
+    namespace = data.read_text(
+        "controller/base/input/metadata/namespace"
+    ).strip()
+    for secret in data.read_secrets("controller/base/input/secrets"):
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
     config.lab.spawn_timeout = timedelta(seconds=1)
-    lab = read_input_lab_specification_json("base", "lab-specification")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/input/lab-specification"
+    )
     await factory.start_background_services()
 
     # Start the lab creation.

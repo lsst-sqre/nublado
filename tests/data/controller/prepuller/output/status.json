@@ -1,85 +1,85 @@
 {
   "config": {
-    "source": {
-      "type": "docker",
-      "registry": "lighthouse.ceres",
-      "repository": "library/sketchbook"
-    },
-    "refresh_interval": 300.0,
-    "recommended_tag": "recommended",
+    "alias_tags": [],
+    "cycle": null,
+    "num_dailies": 3,
     "num_releases": 1,
     "num_weeklies": 2,
-    "num_dailies": 3,
-    "cycle": null,
     "pin": [],
-    "alias_tags": []
+    "recommended_tag": "recommended",
+    "refresh_interval": 300.0,
+    "source": {
+      "registry": "lighthouse.ceres",
+      "repository": "library/sketchbook",
+      "type": "docker"
+    }
   },
   "images": {
-    "prepulled": [],
     "pending": [
       {
-        "reference": "lighthouse.ceres/library/sketchbook:w_2077_43",
-        "tag": "w_2077_43",
-        "name": "Weekly 2077_43",
         "digest": "sha256:5678",
-        "size": 65537,
+        "missing": [
+          "node3"
+        ],
+        "name": "Weekly 2077_43",
         "nodes": [
           "node1",
           "node5",
           "node6"
         ],
-        "missing": [
-          "node3"
-        ]
+        "reference": "lighthouse.ceres/library/sketchbook:w_2077_43",
+        "size": 65537,
+        "tag": "w_2077_43"
       },
       {
-        "reference": "lighthouse.ceres/library/sketchbook:d_2077_10_23",
-        "tag": "d_2077_10_23",
-        "name": "Daily 2077_10_23",
         "digest": "sha256:1234",
-        "size": 69105,
+        "missing": [
+          "node3"
+        ],
+        "name": "Daily 2077_10_23",
         "nodes": [
           "node1",
           "node5"
         ],
-        "missing": [
-          "node3"
-        ]
+        "reference": "lighthouse.ceres/library/sketchbook:d_2077_10_23",
+        "size": 69105,
+        "tag": "d_2077_10_23"
       }
-    ]
+    ],
+    "prepulled": []
   },
   "nodes": [
     {
-      "name": "node1",
-      "eligible": true,
-      "comment": null,
       "cached": [
         "lighthouse.ceres/library/sketchbook:w_2077_43",
         "lighthouse.ceres/library/sketchbook:d_2077_10_23"
-      ]
+      ],
+      "comment": null,
+      "eligible": true,
+      "name": "node1"
     },
     {
-      "name": "node3",
-      "eligible": true,
+      "cached": [],
       "comment": null,
-      "cached": []
+      "eligible": true,
+      "name": "node3"
     },
     {
-      "name": "node5",
-      "eligible": true,
-      "comment": null,
       "cached": [
         "lighthouse.ceres/library/sketchbook:w_2077_43",
         "lighthouse.ceres/library/sketchbook:d_2077_10_23"
-      ]
+      ],
+      "comment": null,
+      "eligible": true,
+      "name": "node5"
     },
     {
-      "name": "node6",
-      "eligible": false,
-      "comment": "Node is tainted (NoSchedule, some-taint = other-value)",
       "cached": [
         "lighthouse.ceres/library/sketchbook:w_2077_43"
-      ]
+      ],
+      "comment": "Node is tainted (NoSchedule, some-taint = other-value)",
+      "eligible": false,
+      "name": "node6"
     }
   ]
 }

@@ -26,9 +26,9 @@
         "some-annotation": "some-value"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "fileservers",
         "nublado.lsst.io/category": "fileserver",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "fileservers"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-fs",
       "namespace": "fileservers"
@@ -86,7 +86,9 @@
           },
           "containers": [
             {
-	      "command": [ "/usr/local/bin/worblehat" ],
+              "command": [
+                "/usr/local/bin/worblehat"
+              ],
               "env": [
                 {
                   "name": "WORBLEHAT_BASE_HREF",
@@ -113,7 +115,9 @@
               "securityContext": {
                 "allowPrivilegeEscalation": false,
                 "capabilities": {
-                  "drop": ["all"]
+                  "drop": [
+                    "all"
+                  ]
                 },
                 "readOnlyRootFilesystem": true
               },
@@ -204,9 +208,9 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "fileservers",
         "nublado.lsst.io/category": "fileserver",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "fileservers"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-fs-pvc-scratch",
       "namespace": "fileservers"
@@ -231,9 +235,9 @@
         "some-annotation": "some-value"
       },
       "labels": {
+        "job-name": "rachel-fs",
         "nublado.lsst.io/category": "fileserver",
-        "nublado.lsst.io/user": "rachel",
-        "job-name": "rachel-fs"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-fs",
       "namespace": "fileservers"
@@ -279,7 +283,9 @@
       },
       "containers": [
         {
-	  "command": [ "/usr/local/bin/worblehat" ],
+          "command": [
+            "/usr/local/bin/worblehat"
+          ],
           "env": [
             {
               "name": "WORBLEHAT_BASE_HREF",
@@ -306,7 +312,9 @@
           "securityContext": {
             "allowPrivilegeEscalation": false,
             "capabilities": {
-              "drop": ["all"]
+              "drop": [
+                "all"
+              ]
             },
             "readOnlyRootFilesystem": true
           },
@@ -388,9 +396,9 @@
         "argocd.argoproj.io/sync-options": "Prune=false"
       },
       "labels": {
+        "argocd.argoproj.io/instance": "fileservers",
         "nublado.lsst.io/category": "fileserver",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "fileservers"
+        "nublado.lsst.io/user": "rachel"
       },
       "name": "rachel-fs",
       "namespace": "fileservers"
@@ -418,20 +426,6 @@
   },
   {
     "apiVersion": "gafaelfawr.lsst.io/v1alpha1",
-    "kind": "GafaelfawrIngress",
-    "metadata": {
-      "annotations": {
-        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
-        "argocd.argoproj.io/sync-options": "Prune=false"
-      },
-      "labels": {
-        "nublado.lsst.io/category": "fileserver",
-        "nublado.lsst.io/user": "rachel",
-        "argocd.argoproj.io/instance": "fileservers"
-      },
-      "name": "rachel-fs",
-      "namespace": "fileservers"
-    },
     "config": {
       "allowOptions": true,
       "authType": "basic",
@@ -444,13 +438,27 @@
       "service": "nublado-files",
       "username": "rachel"
     },
+    "kind": "GafaelfawrIngress",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "argocd.argoproj.io/instance": "fileservers",
+        "nublado.lsst.io/category": "fileserver",
+        "nublado.lsst.io/user": "rachel"
+      },
+      "name": "rachel-fs",
+      "namespace": "fileservers"
+    },
     "template": {
       "metadata": {
-        "name": "rachel-fs",
         "labels": {
           "nublado.lsst.io/category": "fileserver",
           "nublado.lsst.io/user": "rachel"
-        }
+        },
+        "name": "rachel-fs"
       },
       "spec": {
         "rules": [
@@ -459,8 +467,6 @@
             "http": {
               "paths": [
                 {
-                  "path": "/files/rachel",
-                  "pathType": "Prefix",
                   "backend": {
                     "service": {
                       "name": "rachel-fs",
@@ -468,7 +474,9 @@
                         "number": 8000
                       }
                     }
-                  }
+                  },
+                  "path": "/files/rachel",
+                  "pathType": "Prefix"
                 }
               ]
             }

@@ -1,46 +1,46 @@
 {
-  "menu": [
-    {
-      "reference": "lighthouse.ceres/library/sketchbook:recommended_c0050@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b",
-      "name": "Recommended (Weekly 2077_43, SAL Cycle 0050, Build 002)"
-    },
-    {
-      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43_c0050.004@sha256:b14b81ae38caa6c6d919fc02c202b5d2a99dcce0d4c16ee6ad08b3831e814403",
-      "name": "Weekly 2077_43 (SAL Cycle 0050, Build 004)"
-    },
-    {
-      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43_c0050.003@sha256:9401f5d181180167d2a2b1d111456a4b9b506245bc43da8c4c869a87d512ecda",
-      "name": "Weekly 2077_43 (SAL Cycle 0050, Build 003)"
-    }
-  ],
   "dropdown": [
     {
-      "reference": "lighthouse.ceres/library/sketchbook:recommended_c0050@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b",
-      "name": "Recommended (Weekly 2077_43, SAL Cycle 0050, Build 002)"
+      "name": "Recommended (Weekly 2077_43, SAL Cycle 0050, Build 002)",
+      "reference": "lighthouse.ceres/library/sketchbook:recommended_c0050@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b"
     },
     {
-      "reference": "lighthouse.ceres/library/sketchbook:latest_c0050",
-      "name": "Latest (SAL Cycle 0050)"
+      "name": "Latest (SAL Cycle 0050)",
+      "reference": "lighthouse.ceres/library/sketchbook:latest_c0050"
     },
     {
-      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43_c0050.004@sha256:b14b81ae38caa6c6d919fc02c202b5d2a99dcce0d4c16ee6ad08b3831e814403",
-      "name": "Weekly 2077_43 (SAL Cycle 0050, Build 004)"
+      "name": "Weekly 2077_43 (SAL Cycle 0050, Build 004)",
+      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43_c0050.004@sha256:b14b81ae38caa6c6d919fc02c202b5d2a99dcce0d4c16ee6ad08b3831e814403"
     },
     {
-      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43_c0050.003@sha256:9401f5d181180167d2a2b1d111456a4b9b506245bc43da8c4c869a87d512ecda",
-      "name": "Weekly 2077_43 (SAL Cycle 0050, Build 003)"
+      "name": "Weekly 2077_43 (SAL Cycle 0050, Build 003)",
+      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43_c0050.003@sha256:9401f5d181180167d2a2b1d111456a4b9b506245bc43da8c4c869a87d512ecda"
     },
     {
-      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43_c0050.002@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b",
-      "name": "Weekly 2077_43 (SAL Cycle 0050, Build 002)"
+      "name": "Weekly 2077_43 (SAL Cycle 0050, Build 002)",
+      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43_c0050.002@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b"
     },
     {
-      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43_c0050.001",
-      "name": "Weekly 2077_43 (SAL Cycle 0050, Build 001)"
+      "name": "Weekly 2077_43 (SAL Cycle 0050, Build 001)",
+      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43_c0050.001"
     },
     {
-      "reference": "lighthouse.ceres/library/sketchbook:exp_w_2077_41_c0050.002_testing",
-      "name": "Experimental Weekly 2077_41 (SAL Cycle 0050, Build 002) [testing]"
+      "name": "Experimental Weekly 2077_41 (SAL Cycle 0050, Build 002) [testing]",
+      "reference": "lighthouse.ceres/library/sketchbook:exp_w_2077_41_c0050.002_testing"
+    }
+  ],
+  "menu": [
+    {
+      "name": "Recommended (Weekly 2077_43, SAL Cycle 0050, Build 002)",
+      "reference": "lighthouse.ceres/library/sketchbook:recommended_c0050@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b"
+    },
+    {
+      "name": "Weekly 2077_43 (SAL Cycle 0050, Build 004)",
+      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43_c0050.004@sha256:b14b81ae38caa6c6d919fc02c202b5d2a99dcce0d4c16ee6ad08b3831e814403"
+    },
+    {
+      "name": "Weekly 2077_43 (SAL Cycle 0050, Build 003)",
+      "reference": "lighthouse.ceres/library/sketchbook:w_2077_43_c0050.003@sha256:9401f5d181180167d2a2b1d111456a4b9b506245bc43da8c4c869a87d512ecda"
     }
   ]
 }
