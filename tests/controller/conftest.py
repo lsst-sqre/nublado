@@ -89,9 +89,9 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
 
 
 @pytest_asyncio.fixture
-async def config() -> Config:
+async def config(data: NubladoData) -> Config:
     """Construct default configuration for tests."""
-    return await configure("standard")
+    return await configure(data, "standard")
 
 
 @pytest_asyncio.fixture

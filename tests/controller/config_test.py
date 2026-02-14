@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from nublado.controller.config import LabConfig
 
 from ..support.config import configure
+from ..support.data import NubladoData
 
 
 def test_reserved_env() -> None:
@@ -25,6 +26,6 @@ def test_reserved_paths() -> None:
 
 
 @pytest.mark.asyncio
-async def test_no_home() -> None:
+async def test_no_home(data: NubladoData) -> None:
     with pytest.raises(ValidationError):
-        await configure("no-home")
+        await configure(data, "no-home")

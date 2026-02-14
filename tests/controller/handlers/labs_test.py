@@ -870,7 +870,7 @@ async def test_homedir_schema(
     was always :file:`/home/{username}` even if another home directory rule
     was set.
     """
-    config = await configure("homedir-schema")
+    config = await configure(data, "homedir-schema")
     lab = data.read_pydantic(
         LabSpecification, "controller/base/input/lab-specification"
     )
@@ -911,7 +911,7 @@ async def test_tmp_on_disk(
     """Check that /tmp is constructed correctly if set to use disk rather
     than memory.
     """
-    config = await configure("tmp-disk")
+    config = await configure(data, "tmp-disk")
     lab = data.read_pydantic(
         LabSpecification, "controller/base/input/lab-specification"
     )
@@ -942,7 +942,7 @@ async def test_alternate_paths(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check changes to command, config, and runtime mount paths."""
-    config = await configure("changed-path")
+    config = await configure(data, "changed-path")
     lab = data.read_pydantic(
         LabSpecification, "controller/base/input/lab-specification"
     )
@@ -981,7 +981,7 @@ async def test_extra_annotations(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that the pod picks up extra annotations set in the config."""
-    config = await configure("extra-annotations")
+    config = await configure(data, "extra-annotations")
     lab = data.read_pydantic(
         LabSpecification, "controller/base/input/lab-specification"
     )
@@ -1078,7 +1078,7 @@ async def test_init_container_command(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that the init container has a custom command."""
-    config = await configure("init-command")
+    config = await configure(data, "init-command")
     lab = data.read_pydantic(
         LabSpecification, "controller/base/input/lab-specification"
     )
@@ -1108,7 +1108,7 @@ async def test_standard_inithome(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that we build a standard inithome container."""
-    config = await configure("standard-inithome")
+    config = await configure(data, "standard-inithome")
     lab = data.read_pydantic(
         LabSpecification, "controller/base/input/lab-specification"
     )
@@ -1138,7 +1138,7 @@ async def test_landingpage(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that the init containers all have the right name."""
-    config = await configure("landingpage")
+    config = await configure(data, "landingpage")
     lab = data.read_pydantic(
         LabSpecification, "controller/base/input/lab-specification"
     )
@@ -1172,7 +1172,7 @@ async def test_alternative_home_volume(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Check that we can specify what volume holds user home directories."""
-    config = await configure("alternative-home")
+    config = await configure(data, "alternative-home")
     lab = data.read_pydantic(
         LabSpecification, "controller/base/input/lab-specification"
     )

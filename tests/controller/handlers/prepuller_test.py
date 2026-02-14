@@ -33,7 +33,7 @@ async def test_node_selector(
     nodes = data.read_nodes("controller/prepuller/input/nodes")
     mock_kubernetes.set_nodes_for_test(nodes)
     async with asyncio.timeout(1):
-        await configure("prepuller", mock_kubernetes)
+        await configure(data, "prepuller", mock_kubernetes)
 
     # Wait for the the prepuller and then get its status. We should only see
     # the nodes that match the node selector of our configuration.

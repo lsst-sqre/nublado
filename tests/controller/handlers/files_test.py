@@ -35,7 +35,7 @@ async def test_create_delete(
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    config = await configure("fileserver", mock_kubernetes)
+    config = await configure(data, "fileserver", mock_kubernetes)
     assert config.fileserver.enabled
     username = user.username
     namespace = config.fileserver.namespace
@@ -118,7 +118,7 @@ async def test_file_server_objects(
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    config = await configure("fileserver", mock_kubernetes)
+    config = await configure(data, "fileserver", mock_kubernetes)
     assert config.fileserver.enabled
     username = user.username
     namespace = config.fileserver.namespace
@@ -141,11 +141,13 @@ async def test_file_server_objects(
 
 @pytest.mark.asyncio
 async def test_cleanup_on_pod_exit(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    config = await configure("fileserver", mock_kubernetes)
+    config = await configure(data, "fileserver", mock_kubernetes)
     assert config.fileserver.enabled
     username = user.username
     namespace = config.fileserver.namespace
@@ -196,11 +198,13 @@ async def test_cleanup_on_pod_exit(
 
 @pytest.mark.asyncio
 async def test_wait_for_ingress(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    config = await configure("fileserver", mock_kubernetes)
+    config = await configure(data, "fileserver", mock_kubernetes)
     assert config.fileserver.enabled
     username = user.username
     namespace = config.fileserver.namespace
@@ -251,11 +255,13 @@ async def test_wait_for_ingress(
 @pytest.mark.asyncio
 @pytest.mark.timeout(5)
 async def test_timeout_no_pod_start(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    config = await configure("fileserver", mock_kubernetes)
+    config = await configure(data, "fileserver", mock_kubernetes)
     assert config.fileserver.enabled
     username = user.username
     namespace = config.fileserver.namespace
@@ -296,11 +302,13 @@ async def test_timeout_no_pod_start(
 
 @pytest.mark.asyncio
 async def test_timeout_no_ingress(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    await configure("fileserver", mock_kubernetes)
+    await configure(data, "fileserver", mock_kubernetes)
 
     # Confirm there are no fileservers running at the start of the test.
     r = await client.get("/nublado/fileserver/v1/users")
@@ -320,11 +328,13 @@ async def test_timeout_no_ingress(
 
 @pytest.mark.asyncio
 async def test_timeout_no_ingress_ip(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    config = await configure("fileserver", mock_kubernetes)
+    config = await configure(data, "fileserver", mock_kubernetes)
     assert config.fileserver.enabled
     namespace = config.fileserver.namespace
 
@@ -355,12 +365,14 @@ async def test_timeout_no_ingress_ip(
 
 @pytest.mark.asyncio
 async def test_start_errors(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    config = await configure("fileserver", mock_kubernetes)
+    config = await configure(data, "fileserver", mock_kubernetes)
     apis_to_fail = set()
     assert config.fileserver.enabled
     username = user.username
