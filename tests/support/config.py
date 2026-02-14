@@ -17,7 +17,7 @@ __all__ = ["configure"]
 
 async def configure(
     data: NubladoData,
-    directory: str,
+    name: str,
     mock_kubernetes: MockKubernetesApi | None = None,
 ) -> Config:
     """Configure or reconfigure with a test configuration.
@@ -29,7 +29,7 @@ async def configure(
     ----------
     data
         Test data management object.
-    directory
+    name
         Name of the configuration to use.
     mock_kubernetes
         Mock Kubernetes, required to create the namespace for fileservers if
@@ -43,13 +43,11 @@ async def configure(
     slack_webhook = None
     if config_dependency.is_initialized:
         slack_webhook = config_dependency.config.slack_webhook
-    config_path = data.path(f"controller/{directory}/input")
-    config_dependency.set_path(config_path / "config.yaml")
+    config_dependency.set_path(data.path(f"controller/config/{name}.yaml"))
     config = config_dependency.config
     config.slack_webhook = slack_webhook
 
-    # Adjust the configuration to point to external objects if they're present
-    # in the configuration directory.
+    # Set some configuration paths to the standard files.
     config.metadata_path = data.path("controller/base/metadata")
     if isinstance(config.images.source, DockerSourceOptions):
         credentials_path = data.path("controller/base/docker-creds.json")
