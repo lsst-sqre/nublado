@@ -44,22 +44,15 @@ async def configure(
     if config_dependency.is_initialized:
         slack_webhook = config_dependency.config.slack_webhook
     config_path = data.path(f"controller/{directory}/input")
-    base_path = data.path("controller/base/input")
     config_dependency.set_path(config_path / "config.yaml")
     config = config_dependency.config
     config.slack_webhook = slack_webhook
 
     # Adjust the configuration to point to external objects if they're present
     # in the configuration directory.
-    if (config_path / "metadata").exists():
-        config.metadata_path = config_path / "metadata"
-    else:
-        config.metadata_path = base_path / "metadata"
+    config.metadata_path = data.path("controller/base/metadata")
     if isinstance(config.images.source, DockerSourceOptions):
-        if (config_path / "docker-creds.json").exists():
-            credentials_path = config_path / "docker-creds.json"
-        else:
-            credentials_path = base_path / "docker-creds.json"
+        credentials_path = data.path("controller/base/docker-creds.json")
         config.images.source.credentials_path = credentials_path
 
     # If the new configuration enables fileservers, create the namespace for

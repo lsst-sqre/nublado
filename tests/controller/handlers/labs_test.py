@@ -78,7 +78,7 @@ async def test_lab_start_stop(
     assert context_dependency._process_context
     lab_events = context_dependency._process_context.lab_manager._events
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
     unknown_user_error = {
         "detail": [
@@ -205,7 +205,7 @@ async def test_spawn_after_failure(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     # Create a lab.
@@ -268,7 +268,7 @@ async def test_multiple_delete(
     mock_slack: MockSlackWebhook,
 ) -> None:
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     # Create a lab.
@@ -315,7 +315,7 @@ async def test_delayed_spawn(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
 
@@ -437,7 +437,7 @@ async def test_abort_spawn(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value
 
@@ -473,7 +473,7 @@ async def test_spawn_after_terminate(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
     mock_kubernetes.initial_pod_phase = PodPhase.SUCCEEDED.value
 
@@ -510,7 +510,7 @@ async def test_lab_objects(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     r = await client.post(
@@ -541,7 +541,7 @@ async def test_errors(
     client: AsyncClient, data: NubladoData, user: GafaelfawrTestUser
 ) -> None:
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     # Wrong user.
@@ -690,7 +690,7 @@ async def test_spawn_errors(
     mock_slack: MockSlackWebhook,
 ) -> None:
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
     apis_to_fail = set()
 
@@ -870,7 +870,7 @@ async def test_homedir_schema(
     """
     config = await configure(data, "homedir-schema")
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     r = await client.post(
@@ -911,7 +911,7 @@ async def test_tmp_on_disk(
     """
     config = await configure(data, "tmp-disk")
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     r = await client.post(
@@ -942,7 +942,7 @@ async def test_alternate_paths(
     """Check changes to command, config, and runtime mount paths."""
     config = await configure(data, "changed-path")
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     r = await client.post(
@@ -981,7 +981,7 @@ async def test_extra_annotations(
     """Check that the pod picks up extra annotations set in the config."""
     config = await configure(data, "extra-annotations")
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     r = await client.post(
@@ -1011,7 +1011,7 @@ async def test_quota_no_spawn(
 ) -> None:
     """Check that spawning is denied for a user blocked by quota."""
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
     user = get_no_spawn_user(data, mock_gafaelfawr)
 
@@ -1034,7 +1034,7 @@ async def test_wait_for_sa(
 ) -> None:
     """Test waiting for the default service account during lab creation."""
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     # Clear the callback added by the fixture so that we do not automatically
@@ -1078,7 +1078,7 @@ async def test_init_container_command(
     """Check that the init container has a custom command."""
     config = await configure(data, "init-command")
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     r = await client.post(
@@ -1108,7 +1108,7 @@ async def test_standard_inithome(
     """Check that we build a standard inithome container."""
     config = await configure(data, "standard-inithome")
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     r = await client.post(
@@ -1138,7 +1138,7 @@ async def test_landingpage(
     """Check that the init containers all have the right name."""
     config = await configure(data, "landingpage")
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     r = await client.post(
@@ -1172,7 +1172,7 @@ async def test_alternative_home_volume(
     """Check that we can specify what volume holds user home directories."""
     config = await configure(data, "alternative-home")
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     r = await client.post(

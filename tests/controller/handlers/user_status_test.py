@@ -32,7 +32,7 @@ async def test_user_status(
     assert user.quota
     assert user.quota.notebook
     lab = data.read_pydantic(
-        LabSpecification, "controller/base/input/lab-specification"
+        LabSpecification, "controller/base/lab-specification"
     )
 
     # At the start, we shouldn't have any lab.
