@@ -131,9 +131,7 @@ async def test_file_server_objects(
     # Compare all of the objects in the file server namespace to the expected
     # results.
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
-    data.assert_kubernetes_matches(
-        objects, "controller/fileserver/output/fileserver-objects"
-    )
+    data.assert_kubernetes_matches(objects, "controller/objects/fileserver")
 
 
 @pytest.mark.asyncio

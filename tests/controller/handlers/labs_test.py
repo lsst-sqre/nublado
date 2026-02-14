@@ -525,9 +525,7 @@ async def test_lab_objects(
     # the expected value, since that varies with every run.
     namespace = f"{config.lab.namespace_prefix}-{user.username}"
     objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
-    data.assert_kubernetes_matches(
-        objects, "controller/standard/output/lab-objects"
-    )
+    data.assert_kubernetes_matches(objects, "controller/objects/lab")
     secret = next(
         o
         for o in objects

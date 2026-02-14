@@ -30,6 +30,24 @@ from ...support.docker import MockDockerRegistry
 from ...support.gar import MockArtifactRegistry
 
 
+async def assert_objects_match(
+    data: NubladoData, key: str, mock_kubernetes: MockKubernetesApi
+) -> None:
+    """Assert the created prepull objects match the expected set.
+
+    Parameters
+    ----------
+    data
+        Test data.
+    key
+        Name of the data file defining the expected output.
+    mock_kubernetes
+        Kubernetes mock used to retrieve the created objects.
+    """
+    pods = await mock_kubernetes.list_namespaced_pod("nublado")
+    data.assert_kubernetes_matches(pods.items, f"controller/objects/{key}")
+
+
 async def mark_pod_complete(
     mock_kubernetes: MockKubernetesApi, pod: V1Pod
 ) -> None:
@@ -81,13 +99,10 @@ async def test_docker(
 
     # The default data configures Kubernetes with missing images on some
     # nodes. Check that we created the correct prepuller pods.
-    pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-    data.assert_kubernetes_matches(
-        pod_list.items,
-        "controller/standard/output/prepull-objects",
-    )
+    await assert_objects_match(data, "prepull", mock_kubernetes)
 
     # Update all of the pods to have a status of completed and send an event.
+    pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
     for pod in pod_list.items:
         await mark_pod_complete(mock_kubernetes, pod)
 
@@ -318,9 +333,7 @@ async def test_conflict(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     """Test handling of conflicts with a pre-existing prepuller pod."""
-    expected = data.read_json(
-        "controller/standard/output/prepull-conflict-objects"
-    )
+    expected = data.read_json("controller/objects/prepull-conflict")
 
     # Create a pod with the same name as the prepull pod that the prepuller
     # will want to create. Don't bother to try to make this a valid pod, just
@@ -332,11 +345,7 @@ async def test_conflict(
     # should replace our dummy pod with the proper pod without complaining.
     await factory.start_background_services()
     await asyncio.sleep(0.2)
-    pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-    data.assert_kubernetes_matches(
-        pod_list.items,
-        "controller/standard/output/prepull-conflict-objects",
-    )
+    await assert_objects_match(data, "prepull-conflict", mock_kubernetes)
 
 
 @pytest.mark.asyncio
@@ -348,6 +357,11 @@ async def test_node_change(
     mock_kubernetes: MockKubernetesApi,
     mock_slack: MockSlackWebhook,
 ) -> None:
+    """Test what happens when a node is removed in the middle of prepulling.
+
+    Previous versions of the Nublado controller threw uncaught exceptions due
+    to consistency issues in internal data structures.
+    """
     await factory.image_service.refresh()
 
     # Start the prepuller and give it a moment to run.
@@ -356,11 +370,7 @@ async def test_node_change(
 
     # The default data configures Kubernetes with missing images on some
     # nodes. Check that we created the correct prepuller pods.
-    pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-    data.assert_kubernetes_matches(
-        pod_list.items,
-        "controller/standard/output/prepull-objects",
-    )
+    await assert_objects_match(data, "prepull", mock_kubernetes)
 
     # Remove the last node from the list of nodes and refresh the image
     # service, simulating a node removal in the middle of a run.
@@ -369,6 +379,7 @@ async def test_node_change(
     await factory.image_service.refresh()
 
     # Update all of the pods to have a status of completed and send an event.
+    pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
     for pod in pod_list.items:
         await mark_pod_complete(mock_kubernetes, pod)
 

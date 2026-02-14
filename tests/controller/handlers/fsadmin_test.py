@@ -121,9 +121,7 @@ async def test_created_pod(
         o for o in objects if o.kind == "Pod" and o.metadata.name == "fsadmin"
     )
     pvcs = [o for o in objects if o.kind == "PersistentVolumeClaim"]
-    data.assert_kubernetes_matches(
-        [*pvcs, pod], "controller/fsadmin/output/fsadmin-objects"
-    )
+    data.assert_kubernetes_matches([*pvcs, pod], "controller/objects/fsadmin")
 
 
 @pytest.mark.asyncio
