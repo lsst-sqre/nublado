@@ -1,0 +1,34 @@
+{
+  "username": "rachel",
+  "name": "Rachel (?)",
+  "uid": 1101,
+  "gid": 1101,
+  "groups": [
+    {
+      "name": "rachel",
+      "id": 1101
+    },
+    {
+      "name": "lunatics",
+      "id": 2028
+    },
+    {
+      "name": "mechanics",
+      "id": 2001
+    },
+    {
+      "name": "storytellers",
+      "id": 2021
+    },
+    {
+      "name": "99numbers",
+      "id": 2029
+    }
+  ],
+  "quota": {
+    "notebook": {
+      "cpu": 9.0,
+      "memory": 27
+    }
+  }
+}

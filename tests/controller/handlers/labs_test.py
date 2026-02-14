@@ -19,7 +19,6 @@ from kubernetes_asyncio.client import (
     V1ObjectReference,
     V1ServiceAccount,
 )
-from rubin.gafaelfawr import MockGafaelfawr
 from safir.metrics import MockEventPublisher
 from safir.testing.kubernetes import MockKubernetesApi
 from safir.testing.slack import MockSlackWebhook
@@ -34,7 +33,7 @@ from nublado.controller.models.v1.lab import LabSpecification, LabState
 from ...support.config import configure
 from ...support.constants import TEST_BASE_URL
 from ...support.data import NubladoData
-from ...support.gafaelfawr import GafaelfawrTestUser, get_no_spawn_user
+from ...support.gafaelfawr import GafaelfawrTestUser
 
 
 async def get_lab_events(
@@ -1005,18 +1004,16 @@ async def test_extra_annotations(
 
 @pytest.mark.asyncio
 async def test_quota_no_spawn(
-    client: AsyncClient, data: NubladoData, mock_gafaelfawr: MockGafaelfawr
+    client: AsyncClient, data: NubladoData, user_no_spawn: GafaelfawrTestUser
 ) -> None:
     """Check that spawning is denied for a user blocked by quota."""
     lab = data.read_pydantic(
         LabSpecification, "controller/base/lab-specification"
     )
-    user = get_no_spawn_user(data, mock_gafaelfawr)
-
     r = await client.post(
-        f"/nublado/spawner/v1/labs/{user.username}/create",
+        f"/nublado/spawner/v1/labs/{user_no_spawn.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
-        headers=user.to_test_headers(),
+        headers=user_no_spawn.to_test_headers(),
     )
     assert r.status_code == 403
 

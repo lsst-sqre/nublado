@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from rubin.gafaelfawr import MockGafaelfawr
+from rubin.gafaelfawr import GafaelfawrUserInfo, MockGafaelfawr
 
 from nublado.controller.models.domain.gafaelfawr import GafaelfawrUser
 
@@ -10,7 +10,7 @@ from .data import NubladoData
 
 __all__ = [
     "GafaelfawrTestUser",
-    "get_no_spawn_user",
+    "create_gafaelfawr_user",
 ]
 
 
@@ -25,19 +25,25 @@ class GafaelfawrTestUser(GafaelfawrUser):
         }
 
 
-def get_no_spawn_user(
-    data: NubladoData, mock_gafaelfawr: MockGafaelfawr
+def create_gafaelfawr_user(
+    data: NubladoData, name: str, mock_gafaelfawr: MockGafaelfawr
 ) -> GafaelfawrTestUser:
-    """Find a user whose quota says they can't spawn labs.
+    """Create a Gafaelfawr user for testing.
+
+    Parameters
+    ----------
+    name
+        Name of the user, which must correspond to a file in
+        :file:`tests/data/controller/users` ending with ``.json``.
+    mock_gafaelfawr
+        Gafaelfawr mock with which to register the user.
 
     Returns
     -------
-    GafaelfawrUser
-        User data for a user with a quota set that forbids spawning labs.
+    GafaelfawrTestUser
+        Registered test user with associated token.
     """
-    for userinfo in data.read_users("controller/base/users").values():
-        if userinfo.quota and userinfo.quota.notebook:
-            if not userinfo.quota.notebook.spawn:
-                token = mock_gafaelfawr.create_token(userinfo.username)
-                return GafaelfawrTestUser(token=token, **userinfo.model_dump())
-    raise ValueError("No users found with a quota forbidding spawning")
+    user = data.read_pydantic(GafaelfawrUserInfo, f"controller/users/{name}")
+    mock_gafaelfawr.set_user_info(user.username, user)
+    token = mock_gafaelfawr.create_token(user.username)
+    return GafaelfawrTestUser(token=token, **user.model_dump())

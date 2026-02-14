@@ -1,0 +1,27 @@
+{
+  "username": "ribbon",
+  "name": "Ribbon",
+  "uid": 1104,
+  "gid": 1104,
+  "groups": [
+    {
+      "name": "ribbon",
+      "id": 1104
+    },
+    {
+      "name": "ferrymen",
+      "id": 2023
+    },
+    {
+      "name": "ninjas",
+      "id": 2003
+    }
+  ],
+  "quota": {
+    "notebook": {
+      "cpu": 4.0,
+      "memory": 16.0,
+      "spawn": false
+    }
+  }
+}
