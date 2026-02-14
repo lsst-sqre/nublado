@@ -194,7 +194,7 @@ async def test_cycle(
 ) -> None:
     config = await configure(data, "cycle")
     mock_docker.tags = data.read_json("controller/cycle/input/docker-tags")
-    nodes = data.read_nodes("controller/cycle/input/nodes")
+    nodes = data.read_nodes("controller/nodes/cycle")
     mock_kubernetes.set_nodes_for_test(nodes)
 
     async with Factory.standalone(config) as factory:
@@ -224,7 +224,7 @@ async def test_gar_cycle(
         image = DockerImage(**known_image)
         parent, _, _ = image.name.split("@", 1)[0].rsplit("/", 2)
         mock_gar.add_image_for_test(parent, image)
-    nodes = data.read_nodes("controller/gar-cycle/input/nodes")
+    nodes = data.read_nodes("controller/nodes/gar-cycle")
     mock_kubernetes.set_nodes_for_test(nodes)
 
     async with Factory.standalone(config) as factory:
@@ -348,7 +348,6 @@ async def test_node_change(
     mock_kubernetes: MockKubernetesApi,
     mock_slack: MockSlackWebhook,
 ) -> None:
-    """Test the prepuller service configured to talk to Docker."""
     await factory.image_service.refresh()
 
     # Start the prepuller and give it a moment to run.
@@ -365,8 +364,8 @@ async def test_node_change(
 
     # Remove the last node from the list of nodes and refresh the image
     # service, simulating a node removal in the middle of a run.
-    nodes = data.read_nodes("controller/base/nodes")
-    mock_kubernetes.set_nodes_for_test(nodes[:-1])
+    nodes = await mock_kubernetes.list_node()
+    mock_kubernetes.set_nodes_for_test(nodes.items[:-1])
     await factory.image_service.refresh()
 
     # Update all of the pods to have a status of completed and send an event.
