@@ -31,7 +31,7 @@ async def test_lab_form(
 async def test_default_size(
     client: AsyncClient, data: NubladoData, user: GafaelfawrTestUser
 ) -> None:
-    await configure("sizes")
+    await configure(data, "sizes")
     r = await client.get(
         f"/nublado/spawner/v1/lab-form/{user.username}",
         headers=user.to_test_headers(),

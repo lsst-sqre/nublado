@@ -106,7 +106,7 @@ async def test_created_pod(
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    await configure("fsadmin", mock_kubernetes)
+    await configure(data, "fsadmin", mock_kubernetes)
     # Start pod
     r = await client.post(
         "/nublado/fsadmin/v1/service",
@@ -131,11 +131,13 @@ async def test_created_pod(
 
 @pytest.mark.asyncio
 async def test_locking(
+    *,
     client: AsyncClient,
+    data: NubladoData,
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    config = await configure("fsadmin", mock_kubernetes)
+    config = await configure(data, "fsadmin", mock_kubernetes)
     namespace = "nublado"
 
     # Tell the Kubernetes mock to leave newly-created pods in pending status

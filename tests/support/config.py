@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from kubernetes_asyncio.client import V1Namespace, V1ObjectMeta
 from safir.testing.kubernetes import MockKubernetesApi
 
@@ -12,11 +10,15 @@ from nublado.controller.dependencies.config import config_dependency
 from nublado.controller.dependencies.context import context_dependency
 from nublado.controller.models.v1.prepuller import DockerSourceOptions
 
+from .data import NubladoData
+
 __all__ = ["configure"]
 
 
 async def configure(
-    directory: str, mock_kubernetes: MockKubernetesApi | None = None
+    data: NubladoData,
+    directory: str,
+    mock_kubernetes: MockKubernetesApi | None = None,
 ) -> Config:
     """Configure or reconfigure with a test configuration.
 
@@ -25,8 +27,10 @@ async def configure(
 
     Parameters
     ----------
+    data
+        Test data management object.
     directory
-        Configuration directory to use.
+        Name of the configuration to use.
     mock_kubernetes
         Mock Kubernetes, required to create the namespace for fileservers if
         fileservers are enabled in the configuration.
@@ -39,16 +43,8 @@ async def configure(
     slack_webhook = None
     if config_dependency.is_initialized:
         slack_webhook = config_dependency.config.slack_webhook
-    config_path = (
-        Path(__file__).parent.parent
-        / "data"
-        / "controller"
-        / directory
-        / "input"
-    )
-    base_path = (
-        Path(__file__).parent.parent / "data" / "controller" / "base" / "input"
-    )
+    config_path = data.path(f"controller/{directory}/input")
+    base_path = data.path("controller/base/input")
     config_dependency.set_path(config_path / "config.yaml")
     config = config_dependency.config
     config.slack_webhook = slack_webhook
