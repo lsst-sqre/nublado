@@ -16,7 +16,7 @@ from ...support.data import NubladoData
 async def test_images(client: AsyncClient, data: NubladoData) -> None:
     r = await client.get("/nublado/spawner/v1/images")
     assert r.status_code == 200
-    data.assert_json_matches(r.json(), "controller/standard/output/images")
+    data.assert_json_matches(r.json(), "controller/images/standard")
 
 
 @pytest.mark.asyncio
