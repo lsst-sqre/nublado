@@ -21,9 +21,7 @@ async def test_lab_form(
     assert r.status_code == 200
     assert r.headers["Content-Type"] == "text/html; charset=utf-8"
 
-    data.assert_text_matches(
-        r.text, "controller/standard/output/lab-form.html"
-    )
+    data.assert_text_matches(r.text, "controller/html/lab-form.html")
 
 
 @pytest.mark.asyncio
@@ -36,7 +34,7 @@ async def test_default_size(
         headers=user.to_test_headers(),
     )
     assert r.status_code == 200
-    data.assert_text_matches(r.text, "controller/sizes/output/lab-form.html")
+    data.assert_text_matches(r.text, "controller/html/lab-form-sizes.html")
 
 
 @pytest.mark.asyncio
@@ -60,6 +58,4 @@ async def test_quota_spawn(
         headers=user_no_spawn.to_test_headers(),
     )
     assert r.status_code == 200
-    data.assert_text_matches(
-        r.text, "controller/standard/output/lab-unavailable.html"
-    )
+    data.assert_text_matches(r.text, "controller/html/lab-unavailable.html")
