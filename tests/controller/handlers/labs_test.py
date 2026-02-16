@@ -870,6 +870,7 @@ async def test_homedir_schema(
         LabSpecification, "controller/base/lab-specification"
     )
 
+    # Create the lab.
     r = await client.post(
         f"/nublado/spawner/v1/labs/{user.username}/create",
         json={"options": lab.options.model_dump(), "env": lab.env},
@@ -878,21 +879,10 @@ async def test_homedir_schema(
     assert r.status_code == 201
     await asyncio.sleep(0)
 
-    config_map = await mock_kubernetes.read_namespaced_config_map(
-        f"{user.username}-nb-nss",
-        f"{config.lab.namespace_prefix}-{user.username}",
-    )
-    data.assert_text_matches(
-        config_map.data["passwd"], "controller/homedir-schema/output/passwd"
-    )
-
-    pod = await mock_kubernetes.read_namespaced_pod(
-        f"{user.username}-nb",
-        f"{config.lab.namespace_prefix}-{user.username}",
-    )
-    expected_homedir = f"/u/home/{user.username[0]}/{user.username}/jhome"
-    for container in pod.spec.containers:
-        assert container.working_dir == expected_homedir
+    # Compare the objects.
+    namespace = f"{config.lab.namespace_prefix}-{user.username}"
+    objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
+    data.assert_kubernetes_matches(objects, "controller/objects/lab-homedir")
 
 
 @pytest.mark.asyncio
