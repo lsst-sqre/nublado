@@ -55,9 +55,7 @@ async def test_create_delete(
     await create_working_ingress_for_user(mock_kubernetes, username, namespace)
     r = await client.get("/files", headers=user.to_test_headers())
     assert r.status_code == 200
-    data.assert_text_matches(
-        r.text, "controller/fileserver/output/fileserver.html"
-    )
+    data.assert_text_matches(r.text, "controller/html/fileserver.html")
 
     # Check that it has showed up, via the user status and admin routes.
     r = await client.get("/nublado/fileserver/v1/users")
@@ -75,9 +73,7 @@ async def test_create_delete(
     # return immediately without actually doing anything.
     r = await client.get("/files", headers=user.to_test_headers())
     assert r.status_code == 200
-    data.assert_text_matches(
-        r.text, "controller/fileserver/output/fileserver.html"
-    )
+    data.assert_text_matches(r.text, "controller/html/fileserver.html")
     r = await client.get(
         "/nublado/fileserver/v1/user-status", headers=user.to_test_headers()
     )

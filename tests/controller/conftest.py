@@ -114,7 +114,7 @@ def mock_docker(
         host=config.images.source.registry,
         repository=config.images.source.repository,
         credentials_path=config.images.source.credentials_path,
-        tags=data.read_json("controller/base/docker-tags"),
+        tags=data.read_json("controller/tags/docker"),
         require_bearer=True,
     )
 
