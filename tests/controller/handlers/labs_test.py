@@ -144,7 +144,7 @@ async def test_lab_start_stop(
     assert r.json() == [user.username]
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
     assert r.status_code == 200
-    data.assert_json_matches(r.json(), "controller/standard/output/lab-status")
+    data.assert_json_matches(r.json(), "controller/spawn/lab-status")
     lab_state = LabState.model_validate_json(r.text)
 
     # We should have logged a lab spawn event.
@@ -252,9 +252,7 @@ async def test_spawn_after_failure(
 
     # Get the events and look for the lab recreation events.
     events = await get_lab_events(client, user.username)
-    data.assert_json_matches(
-        events, "controller/standard/output/lab-recreate-events"
-    )
+    data.assert_json_matches(events, "controller/spawn/events-recreate")
 
 
 @pytest.mark.asyncio
@@ -385,9 +383,7 @@ async def test_delayed_spawn(
     # The listeners should now complete successfully and we should see
     # appropriate events.
     event_lists = await asyncio.gather(*listeners)
-    expected_events = data.read_json(
-        "controller/standard/output/lab-spawn-events"
-    )
+    expected_events = data.read_json("controller/spawn/events")
     expected_events = [
         *expected_events[:-1],
         *[

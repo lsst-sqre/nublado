@@ -69,7 +69,7 @@ async def test_user_status(
         "/nublado/spawner/v1/user-status", headers=user.to_test_headers()
     )
     assert r.status_code == 200
-    data.assert_json_matches(r.json(), "controller/standard/output/lab-status")
+    data.assert_json_matches(r.json(), "controller/spawn/lab-status")
 
     # Change the pod status. This should not result in any change because
     # reconcile hasn't run yet.
@@ -77,7 +77,7 @@ async def test_user_status(
         "/nublado/spawner/v1/user-status", headers=user.to_test_headers()
     )
     assert r.status_code == 200
-    data.assert_json_matches(r.json(), "controller/standard/output/lab-status")
+    data.assert_json_matches(r.json(), "controller/spawn/lab-status")
 
     # Force reconciliation. This should delete the lab and result in a 404
     # error.
