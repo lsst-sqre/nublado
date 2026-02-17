@@ -1,0 +1,15 @@
+{
+  "cycle": null,
+  "date": null,
+  "display_name": "Release Candidate r22.0.0-rc1",
+  "image_type": "Release Candidate",
+  "rsp_build_version": null,
+  "tag": "r22_0_0_rc1",
+  "version": {
+    "build": null,
+    "major": 22,
+    "minor": 0,
+    "patch": 0,
+    "prerelease": "rc1"
+  }
+}

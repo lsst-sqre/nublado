@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from datetime import UTC, datetime
 from random import SystemRandom
 
 import pytest
-from semver.version import VersionInfo
 
 from nublado.controller.models.domain.rsptag import (
     RSPImageTag,
     RSPImageTagCollection,
     RSPImageType,
 )
+
+from ....support.data import NubladoData
 
 
 def test_tag_ordering() -> None:
@@ -172,444 +172,94 @@ def test_collection() -> None:
     assert [t.tag for t in subset.all_tags()] == ["d_2077_10_21"]
 
 
-def test_from_str() -> None:
-    """Parse tags into RSPImageTag objects."""
-    test_cases = {
-        "r21_0_1": {
-            "tag": "r21_0_1",
-            "image_type": RSPImageType.RELEASE,
-            "display_name": "Release r21.0.1",
-            "version": VersionInfo(21, 0, 1),
-            "rsp_build_version": None,
-            "cycle": None,
-            "date": None,
-        },
-        "r21_0_1_rsp19": {
-            "tag": "r21_0_1_rsp19",
-            "image_type": RSPImageType.RELEASE,
-            "display_name": "Release r21.0.1 (RSP Build 19)",
-            "version": VersionInfo(21, 0, 1),
-            "rsp_build_version": 19,
-            "cycle": None,
-            "date": None,
-        },
-        "r22_0_0_rc1": {
-            "tag": "r22_0_0_rc1",
-            "image_type": RSPImageType.CANDIDATE,
-            "display_name": "Release Candidate r22.0.0-rc1",
-            "version": VersionInfo(22, 0, 0, "rc1"),
-            "rsp_build_version": None,
-            "cycle": None,
-            "date": None,
-        },
-        "r22_0_0_rc1_rsp19": {
-            "tag": "r22_0_0_rc1_rsp19",
-            "image_type": RSPImageType.CANDIDATE,
-            "display_name": "Release Candidate r22.0.0-rc1 (RSP Build 19)",
-            "version": VersionInfo(22, 0, 0, "rc1"),
-            "rsp_build_version": 19,
-            "cycle": None,
-            "date": None,
-        },
-        "w_2021_22": {
-            "tag": "w_2021_22",
-            "image_type": RSPImageType.WEEKLY,
-            "display_name": "Weekly 2021_22",
-            "version": VersionInfo(2021, 22, 0),
-            "rsp_build_version": None,
-            "cycle": None,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "w_2021_22_rsp19": {
-            "tag": "w_2021_22_rsp19",
-            "image_type": RSPImageType.WEEKLY,
-            "display_name": "Weekly 2021_22 (RSP Build 19)",
-            "version": VersionInfo(2021, 22, 0),
-            "rsp_build_version": 19,
-            "cycle": None,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "d_2021_05_27": {
-            "tag": "d_2021_05_27",
-            "image_type": RSPImageType.DAILY,
-            "display_name": "Daily 2021_05_27",
-            "version": VersionInfo(2021, 5, 27),
-            "rsp_build_version": None,
-            "cycle": None,
-            "date": datetime(2021, 5, 27, tzinfo=UTC),
-        },
-        "d_2021_05_27_rsp19": {
-            "tag": "d_2021_05_27_rsp19",
-            "image_type": RSPImageType.DAILY,
-            "display_name": "Daily 2021_05_27 (RSP Build 19)",
-            "version": VersionInfo(2021, 5, 27),
-            "rsp_build_version": 19,
-            "cycle": None,
-            "date": datetime(2021, 5, 27, tzinfo=UTC),
-        },
-        "r21_0_1_c0020.001": {
-            "tag": "r21_0_1_c0020.001",
-            "image_type": RSPImageType.RELEASE,
-            "display_name": "Release r21.0.1 (SAL Cycle 0020, Build 001)",
-            "version": VersionInfo(21, 0, 1, None, "c0020.001"),
-            "rsp_build_version": None,
-            "cycle": 20,
-            "date": None,
-        },
-        "r21_0_1_rsp19_c0020.001": {
-            "tag": "r21_0_1_rsp19_c0020.001",
-            "image_type": RSPImageType.RELEASE,
-            "display_name": (
-                "Release r21.0.1 (RSP Build 19) (SAL Cycle 0020, Build 001)"
-            ),
-            "version": VersionInfo(21, 0, 1, None, "c0020.001"),
-            "rsp_build_version": 19,
-            "cycle": 20,
-            "date": None,
-        },
-        "r22_0_0_rc1_c0020.001": {
-            "tag": "r22_0_0_rc1_c0020.001",
-            "image_type": RSPImageType.CANDIDATE,
-            "display_name": (
-                "Release Candidate r22.0.0-rc1 (SAL Cycle 0020, Build 001)"
-            ),
-            "version": VersionInfo(22, 0, 0, "rc1", "c0020.001"),
-            "rsp_build_version": None,
-            "cycle": 20,
-            "date": None,
-        },
-        "r22_0_0_rc1_rsp19_c0020.001": {
-            "tag": "r22_0_0_rc1_rsp19_c0020.001",
-            "image_type": RSPImageType.CANDIDATE,
-            "display_name": (
-                "Release Candidate r22.0.0-rc1 (RSP Build 19)"
-                " (SAL Cycle 0020, Build 001)"
-            ),
-            "version": VersionInfo(22, 0, 0, "rc1", "c0020.001"),
-            "rsp_build_version": 19,
-            "cycle": 20,
-            "date": None,
-        },
-        "w_2021_22_c0020.001": {
-            "tag": "w_2021_22_c0020.001",
-            "image_type": RSPImageType.WEEKLY,
-            "display_name": "Weekly 2021_22 (SAL Cycle 0020, Build 001)",
-            "version": VersionInfo(2021, 22, 0, None, "c0020.001"),
-            "rsp_build_version": None,
-            "cycle": 20,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "w_2021_22_rsp19_c0020.001": {
-            "tag": "w_2021_22_rsp19_c0020.001",
-            "image_type": RSPImageType.WEEKLY,
-            "display_name": (
-                "Weekly 2021_22 (RSP Build 19) (SAL Cycle 0020, Build 001)"
-            ),
-            "version": VersionInfo(2021, 22, 0, None, "c0020.001"),
-            "rsp_build_version": 19,
-            "cycle": 20,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "d_2021_05_27_c0020.001": {
-            "tag": "d_2021_05_27_c0020.001",
-            "image_type": RSPImageType.DAILY,
-            "display_name": "Daily 2021_05_27 (SAL Cycle 0020, Build 001)",
-            "version": VersionInfo(2021, 5, 27, None, "c0020.001"),
-            "rsp_build_version": None,
-            "cycle": 20,
-            "date": datetime(2021, 5, 27, tzinfo=UTC),
-        },
-        "d_2021_05_27_rsp19_c0020.001": {
-            "tag": "d_2021_05_27_rsp19_c0020.001",
-            "image_type": RSPImageType.DAILY,
-            "display_name": (
-                "Daily 2021_05_27 (RSP Build 19) (SAL Cycle 0020, Build 001)"
-            ),
-            "version": VersionInfo(2021, 5, 27, None, "c0020.001"),
-            "rsp_build_version": 19,
-            "cycle": 20,
-            "date": datetime(2021, 5, 27, tzinfo=UTC),
-        },
-        "r21_0_1_20210527": {
-            "tag": "r21_0_1_20210527",
-            "image_type": RSPImageType.RELEASE,
-            "display_name": "Release r21.0.1 [20210527]",
-            "version": VersionInfo(21, 0, 1, None, "20210527"),
-            "rsp_build_version": None,
-            "cycle": None,
-            "date": None,
-        },
-        "r21_0_1_rsp19_20210527": {
-            "tag": "r21_0_1_rsp19_20210527",
-            "image_type": RSPImageType.RELEASE,
-            "display_name": "Release r21.0.1 (RSP Build 19) [20210527]",
-            "version": VersionInfo(21, 0, 1, None, "20210527"),
-            "rsp_build_version": 19,
-            "cycle": None,
-            "date": None,
-        },
-        "r22_0_0_rc1_rsp19_20210527": {
-            "tag": "r22_0_0_rc1_rsp19_20210527",
-            "image_type": RSPImageType.CANDIDATE,
-            "display_name": (
-                "Release Candidate r22.0.0-rc1 (RSP Build 19) [20210527]"
-            ),
-            "version": VersionInfo(22, 0, 0, "rc1", "20210527"),
-            "rsp_build_version": 19,
-            "cycle": None,
-            "date": None,
-        },
-        "w_2021_22_20210527": {
-            "tag": "w_2021_22_20210527",
-            "image_type": RSPImageType.WEEKLY,
-            "display_name": "Weekly 2021_22 [20210527]",
-            "version": VersionInfo(2021, 22, 0, None, "20210527"),
-            "rsp_build_version": None,
-            "cycle": None,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "w_2021_22_rsp19_20210527": {
-            "tag": "w_2021_22_rsp19_20210527",
-            "image_type": RSPImageType.WEEKLY,
-            "display_name": "Weekly 2021_22 (RSP Build 19) [20210527]",
-            "version": VersionInfo(2021, 22, 0, None, "20210527"),
-            "rsp_build_version": 19,
-            "cycle": None,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "d_2021_05_27_20210527": {
-            "tag": "d_2021_05_27_20210527",
-            "image_type": RSPImageType.DAILY,
-            "display_name": "Daily 2021_05_27 [20210527]",
-            "version": VersionInfo(2021, 5, 27, None, "20210527"),
-            "rsp_build_version": None,
-            "cycle": None,
-            "date": datetime(2021, 5, 27, tzinfo=UTC),
-        },
-        "d_2021_05_27_rsp19_20210527": {
-            "tag": "d_2021_05_27_rsp19_20210527",
-            "image_type": RSPImageType.DAILY,
-            "display_name": "Daily 2021_05_27 (RSP Build 19) [20210527]",
-            "version": VersionInfo(2021, 5, 27, None, "20210527"),
-            "rsp_build_version": 19,
-            "cycle": None,
-            "date": datetime(2021, 5, 27, tzinfo=UTC),
-        },
-        "r21_0_1_c0020.001_20210527": {
-            "tag": "r21_0_1_c0020.001_20210527",
-            "image_type": RSPImageType.RELEASE,
-            "display_name": (
-                "Release r21.0.1 (SAL Cycle 0020, Build 001) [20210527]"
-            ),
-            "version": VersionInfo(21, 0, 1, None, "c0020.001.20210527"),
-            "rsp_build_version": None,
-            "cycle": 20,
-            "date": None,
-        },
-        "r21_0_1_rsp19_c0020.001_20210527": {
-            "tag": "r21_0_1_rsp19_c0020.001_20210527",
-            "image_type": RSPImageType.RELEASE,
-            "display_name": (
-                "Release r21.0.1 (RSP Build 19)"
-                " (SAL Cycle 0020, Build 001) [20210527]"
-            ),
-            "version": VersionInfo(21, 0, 1, None, "c0020.001.20210527"),
-            "rsp_build_version": 19,
-            "cycle": 20,
-            "date": None,
-        },
-        "r22_0_0_rc1_c0020.001_20210527": {
-            "tag": "r22_0_0_rc1_c0020.001_20210527",
-            "image_type": RSPImageType.CANDIDATE,
-            "display_name": (
-                "Release Candidate r22.0.0-rc1 (SAL Cycle 0020, Build 001)"
-                " [20210527]"
-            ),
-            "version": VersionInfo(22, 0, 0, "rc1", "c0020.001.20210527"),
-            "rsp_build_version": None,
-            "cycle": 20,
-            "date": None,
-        },
-        "r22_0_0_rc1_rsp19_c0020.001_20210527": {
-            "tag": "r22_0_0_rc1_rsp19_c0020.001_20210527",
-            "image_type": RSPImageType.CANDIDATE,
-            "display_name": (
-                "Release Candidate r22.0.0-rc1 (RSP Build 19)"
-                " (SAL Cycle 0020, Build 001) [20210527]"
-            ),
-            "version": VersionInfo(22, 0, 0, "rc1", "c0020.001.20210527"),
-            "rsp_build_version": 19,
-            "cycle": 20,
-            "date": None,
-        },
-        "w_2021_22_c0020.001_20210527": {
-            "tag": "w_2021_22_c0020.001_20210527",
-            "image_type": RSPImageType.WEEKLY,
-            "display_name": (
-                "Weekly 2021_22 (SAL Cycle 0020, Build 001) [20210527]"
-            ),
-            "version": VersionInfo(2021, 22, 0, None, "c0020.001.20210527"),
-            "rsp_build_version": None,
-            "cycle": 20,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "w_2021_22_rsp19_c0020.001_20210527": {
-            "tag": "w_2021_22_rsp19_c0020.001_20210527",
-            "image_type": RSPImageType.WEEKLY,
-            "display_name": (
-                "Weekly 2021_22 (RSP Build 19) (SAL Cycle 0020, Build 001)"
-                " [20210527]"
-            ),
-            "version": VersionInfo(2021, 22, 0, None, "c0020.001.20210527"),
-            "rsp_build_version": 19,
-            "cycle": 20,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "d_2021_05_27_c0020.001_20210527": {
-            "tag": "d_2021_05_27_c0020.001_20210527",
-            "image_type": RSPImageType.DAILY,
-            "display_name": (
-                "Daily 2021_05_27 (SAL Cycle 0020, Build 001) [20210527]"
-            ),
-            "version": VersionInfo(2021, 5, 27, None, "c0020.001.20210527"),
-            "rsp_build_version": None,
-            "cycle": 20,
-            "date": datetime(2021, 5, 27, tzinfo=UTC),
-        },
-        "d_2021_05_27_rsp19_c0020.001_20210527": {
-            "tag": "d_2021_05_27_rsp19_c0020.001_20210527",
-            "image_type": RSPImageType.DAILY,
-            "display_name": (
-                "Daily 2021_05_27 (RSP Build 19)"
-                " (SAL Cycle 0020, Build 001) [20210527]"
-            ),
-            "version": VersionInfo(2021, 5, 27, None, "c0020.001.20210527"),
-            "rsp_build_version": 19,
-            "cycle": 20,
-            "date": datetime(2021, 5, 27, tzinfo=UTC),
-        },
-        "recommended": {
-            "tag": "recommended",
-            "image_type": RSPImageType.UNKNOWN,
-            "display_name": "recommended",
-            "version": None,
-            "rsp_build_version": None,
-            "cycle": None,
-            "date": None,
-        },
-        "exp_random": {
-            "tag": "exp_random",
-            "image_type": RSPImageType.EXPERIMENTAL,
-            "display_name": "Experimental random",
-            "version": None,
-            "rsp_build_version": None,
-            "cycle": None,
-            "date": None,
-        },
-        "exp_w_2021_22": {
-            "tag": "exp_w_2021_22",
-            "image_type": RSPImageType.EXPERIMENTAL,
-            "display_name": "Experimental Weekly 2021_22",
-            "version": VersionInfo(2021, 22, 0, None),
-            "rsp_build_version": None,
-            "cycle": None,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "exp_w_2021_22_rsp19": {
-            "tag": "exp_w_2021_22_rsp19",
-            "image_type": RSPImageType.EXPERIMENTAL,
-            "display_name": "Experimental Weekly 2021_22 (RSP Build 19)",
-            "version": VersionInfo(2021, 22, 0),
-            "rsp_build_version": 19,
-            "cycle": None,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "exp_w_2021_22_c0020.001": {
-            "tag": "exp_w_2021_22_c0020.001",
-            "image_type": RSPImageType.EXPERIMENTAL,
-            "display_name": (
-                "Experimental Weekly 2021_22 (SAL Cycle 0020, Build 001)"
-            ),
-            "version": VersionInfo(2021, 22, 0, None, "c0020_001"),
-            "rsp_build_version": None,
-            "cycle": 20,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "exp_w_2021_22_rsp19_c0020.001": {
-            "tag": "exp_w_2021_22_rsp19_c0020.001",
-            "image_type": RSPImageType.EXPERIMENTAL,
-            "display_name": (
-                "Experimental Weekly 2021_22 (RSP Build 19)"
-                " (SAL Cycle 0020, Build 001)"
-            ),
-            "version": VersionInfo(2021, 22, 0, None, "c0020_001"),
-            "rsp_build_version": 19,
-            "cycle": 20,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "exp_w_2021_22_c0020.001_foo": {
-            "tag": "exp_w_2021_22_c0020.001_foo",
-            "image_type": RSPImageType.EXPERIMENTAL,
-            "display_name": (
-                "Experimental Weekly 2021_22 (SAL Cycle 0020, Build 001) [foo]"
-            ),
-            "version": VersionInfo(2021, 22, 0, None, "c0020_001_foo"),
-            "rsp_build_version": None,
-            "cycle": 20,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "exp_w_2021_22_rsp19_c0020.001_foo": {
-            "tag": "exp_w_2021_22_rsp19_c0020.001_foo",
-            "image_type": RSPImageType.EXPERIMENTAL,
-            "display_name": (
-                "Experimental Weekly 2021_22 (RSP Build 19)"
-                " (SAL Cycle 0020, Build 001) [foo]"
-            ),
-            "version": VersionInfo(2021, 22, 0, None, "c0020_001_foo"),
-            "rsp_build_version": 19,
-            "cycle": 20,
-            "date": datetime(2021, 6, 3, tzinfo=UTC),
-        },
-        "recommended_c0027": {
-            "tag": "recommended_c0027",
-            "image_type": RSPImageType.UNKNOWN,
-            "display_name": "recommended (SAL Cycle 0027)",
-            "version": None,
-            "rsp_build_version": None,
-            "cycle": 27,
-            "date": None,
-        },
-        "not_a_normal_format": {
-            "tag": "not_a_normal_format",
-            "image_type": RSPImageType.UNKNOWN,
-            "display_name": "not_a_normal_format",
-            "version": None,
-            "rsp_build_version": None,
-            "cycle": None,
-            "date": None,
-        },
-        "MiXeD_CaSe_TaG": {
-            "tag": "MiXeD_CaSe_TaG",
-            "image_type": RSPImageType.UNKNOWN,
-            "display_name": "MiXeD_CaSe_TaG",
-            "version": None,
-            "rsp_build_version": None,
-            "cycle": None,
-            "date": None,
-        },
-        "": {
-            "tag": "latest",
-            "image_type": RSPImageType.UNKNOWN,
-            "display_name": "latest",
-            "version": None,
-            "rsp_build_version": None,
-            "cycle": None,
-            "date": None,
-        },
+def test_from_str(data: NubladoData) -> None:
+    """Parse tags into RSPImageTag objects.
+
+    To add more tests, add a new file in tests/data/controller/rsptag whose
+    name is the string form of the tag plus .json and whose contents is the
+    JSON representation of the dictionary format of the parsed tag.
+    Alternately, start with a file containing ``{}`` and then run the test
+    with ``--update-test-data``.
+
+    Variations for optional data are tested in ``test_from_str_variant``.
+    """
+    for output in data.path("controller/rspimagetag").iterdir():
+        if output.suffix != ".json":
+            continue
+        tag = output.stem
+        result = RSPImageTag.from_str(tag).to_dict()
+        data.assert_json_matches(result, f"controller/rspimagetag/{tag}")
+
+    # Test a couple more edge cases where the input tag string may pose
+    # problems for the file system and therefore cannot be used as a file
+    # name.
+    assert RSPImageTag.from_str("MiXeD_CaSe_TaG").to_dict() == {
+        "tag": "MiXeD_CaSe_TaG",
+        "image_type": "Unknown",
+        "display_name": "MiXeD_CaSe_TaG",
+        "version": None,
+        "rsp_build_version": None,
+        "cycle": None,
+        "date": None,
+    }
+    assert RSPImageTag.from_str("").to_dict() == {
+        "tag": "latest",
+        "image_type": "Unknown",
+        "display_name": "latest",
+        "version": None,
+        "rsp_build_version": None,
+        "cycle": None,
+        "date": None,
     }
 
-    # RSPImageTag equality is based only on the type and version or tag, so in
-    # order to ensure we got all of the fields correct, we have to compare
-    # them in dictionary form.
-    for tag, expected in test_cases.items():
-        assert asdict(RSPImageTag.from_str(tag)) == expected
+
+@pytest.mark.parametrize(
+    "tag", ["d_2021_05_27", "w_2021_22", "r22_0_0_rc1", "r21_0_1"]
+)
+@pytest.mark.parametrize("experimental", [True, False])
+@pytest.mark.parametrize("rsp_build", [None, 19])
+@pytest.mark.parametrize("cycle", [None, ("0020", "001")])
+@pytest.mark.parametrize("extra", [None, "20210527", "random"])
+def test_from_str_varient(
+    data: NubladoData,
+    *,
+    tag: str,
+    experimental: bool,
+    rsp_build: int | None,
+    cycle: tuple[str, str] | None,
+    extra: str | None,
+) -> None:
+    """Test all the variations of each tag.
+
+    Starting from each of the four types of base tags, check all the
+    variations of optional data that can be added to any tag format.
+    """
+    expected = data.read_json(f"controller/rspimagetag/{tag}")
+
+    # Modify the tag and expected output based on the parameterized arguments.
+    if experimental:
+        tag = "exp_" + tag
+        expected["image_type"] = "Experimental"
+        expected["display_name"] = "Experimental " + expected["display_name"]
+    if rsp_build:
+        tag += f"_rsp{rsp_build}"
+        expected["display_name"] += f" (RSP Build {rsp_build})"
+        expected["rsp_build_version"] = rsp_build
+    if cycle:
+        cycle_str = f"c{cycle[0]}.{cycle[1]}"
+        tag += f"_{cycle_str}"
+        expected["cycle"] = int(cycle[0])
+        extra_display = f" (SAL Cycle {cycle[0]}, Build {cycle[1]})"
+        expected["display_name"] += extra_display
+        expected["version"]["build"] = cycle_str
+    if extra:
+        tag += f"_{extra}"
+        expected["display_name"] += f" [{extra}]"
+        if expected["version"]["build"]:
+            expected["version"]["build"] += f".{extra}"
+        else:
+            expected["version"]["build"] = extra
+    expected["tag"] = tag
+
+    # Now parse the modified tag and check against the expected output.
+    assert RSPImageTag.from_str(tag).to_dict() == expected
