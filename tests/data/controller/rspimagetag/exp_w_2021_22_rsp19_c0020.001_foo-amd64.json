@@ -1,11 +1,12 @@
 {
+  "architecture": "amd64",
   "cycle": 20,
   "cycle_build": 1,
   "date": "2021-06-03 00:00:00",
-  "display_name": "Experimental Weekly 2021_22 (RSP Build 19) (SAL Cycle 0020, Build 001) [foo]",
+  "display_name": "Experimental Weekly 2021_22 (RSP Build 19) (SAL Cycle 0020, Build 001) [foo] [amd64]",
   "image_type": "Experimental",
   "rsp_build": 19,
-  "tag": "exp_w_2021_22_rsp19_c0020.001_foo",
+  "tag": "exp_w_2021_22_rsp19_c0020.001_foo-amd64",
   "version": {
     "build": null,
     "major": 2021,

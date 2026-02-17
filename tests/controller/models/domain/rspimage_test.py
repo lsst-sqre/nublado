@@ -44,6 +44,7 @@ def test_image() -> None:
         "cycle": None,
         "cycle_build": None,
         "rsp_build": None,
+        "architecture": None,
         "date": datetime(2077, 10, 23, tzinfo=UTC),
         "registry": "lighthouse.ceres",
         "repository": "library/sketchbook",
