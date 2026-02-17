@@ -11,6 +11,7 @@
   "--WebPDFExporter.enabled=False",
   "--MappingKernelManager.default_kernel_name=lsst",
   "--LabApp.check_for_updates_class=jupyterlab.NeverCheckForUpdate",
-  "--notebook-dir=/home/hambone",
+  "--notebook-dir=/",
+  "--ContentsManager.preferred_dir=home/hambone",
   "--log-level=INFO"
 ]

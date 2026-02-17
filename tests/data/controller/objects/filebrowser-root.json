@@ -291,7 +291,7 @@
               "readOnly": true
             }
           ],
-          "workingDir": "/home/rachel"
+          "workingDir": "/"
         }
       ],
       "initContainers": [
