@@ -188,7 +188,7 @@ class LabBuilder:
         return LabObjects(
             namespace=self._build_namespace(user),
             env_config_map=self._build_env_config_map(user, lab, image),
-            config_maps=await self._build_config_maps(user),
+            config_maps=await self._build_config_maps(user, lab, image),
             network_policy=self._build_network_policy(user.username),
             pvcs=self._build_pvcs(user.username),
             quota=self._build_quota(user),
@@ -322,13 +322,55 @@ class LabBuilder:
             metadata.annotations[annotation] = value
         return V1Namespace(metadata=metadata)
 
+    def _build_config_dict(
+        self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
+    ) -> dict[str, str | int | float | bool]:
+        """Build a map holding runtime configuration items."""
+        # This will largely replace _build_env_config_map; the extensions will
+        # request the configuration from the backend, which will serve it
+        # from a mounted ConfigMap rather than from the environment.
+
+        # Note that some settings need to remain environment variables because
+        # that's what the Lab-Hub communication expects.  However, at least
+        # for the RSP extensions, we have total control of what we send and
+        # how we consume it, so there we can remove environment variables
+        # from the equation.
+
+        size = self._config.get_size_definition(lab.options.size)
+        resources = size.resources
+        cfg_dict: dict[str, str | int | float | bool] = {
+            "jupyter_image_spec": image.reference_with_digest,
+            "image_description": image.display_name,
+            "image_digest": image.digest,
+            "container_size": str(size),
+            "cpu_guarantee": resources.requests.cpu,
+            "cpu_limit": resources.limits.cpu,
+            "mem_guarantee": resources.requests.memory,
+            "mem_limit": resources.limits.memory,
+            "external_instance_url": self._base_url,
+            "jupyterlab_config_dir": self._config.jupyterlab_config_dir,
+            "jupyterlab_start_command": shlex.join(
+                self._config.lab_start_command
+            ),
+            "nublado_runtime_mounts_dir": self._config.runtime_mounts_dir,
+            "homedir_prefix": self._config.homedir_prefix,
+            "homedir_suffix": self._config.homedir_suffix,
+            "homedir_schema": self._config.homedir_schema.value,
+            "file_browser_root": self._config.file_browser_root.value,
+        }
+        if lab.options.enable_debug:
+            cfg_dict["debug"] = True
+        if lab.options.reset_user_env:
+            cfg_dict["reset_user_env"] = True
+        return cfg_dict
+
     async def _build_config_maps(
-        self, user: GafaelfawrUserInfo
+        self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
     ) -> list[V1ConfigMap]:
         """Build the config maps used by the user's lab pod."""
         return [
             self._build_nss_config_map(user),
-            await self._build_file_config_map(user.username),
+            await self._build_file_config_map(user, lab, image),
         ]
 
     def _build_env_config_map(
@@ -395,11 +437,19 @@ class LabBuilder:
             data=env,
         )
 
-    async def _build_file_config_map(self, username: str) -> V1ConfigMap:
+    async def _build_file_config_map(
+        self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
+    ) -> V1ConfigMap:
         """Build the config map holding supplemental mounted files."""
+        username = user.username
         discovery_dict = await self._discovery.build_nublado_dict()
         discovery_json = json.dumps(discovery_dict, sort_keys=True, indent=2)
-        data = {"discovery-v1-json": discovery_json}
+        config_dict = self._build_config_dict(user, lab, image)
+        config_json = json.dumps(config_dict, sort_keys=True, indent=2)
+        data = {
+            "discovery-v1-json": discovery_json,
+            "lab-config-json": config_json,
+        }
         if self._config.files:
             extra_files = {
                 re.sub(r"[_.]", "-", Path(k).name): v
@@ -699,6 +749,12 @@ class LabBuilder:
             "discovery-v1-json",
         )
         volumes.append(discovery_volume)
+        config_volume = self._build_pod_config_map_volume(
+            f"{username}-nb-files",
+            "/etc/nublado/config/lab_config.json",
+            "lab-config-json",
+        )
+        volumes.append(config_volume)
         return volumes
 
     def _build_pod_nss_volumes(self, username: str) -> list[MountedVolume]:
