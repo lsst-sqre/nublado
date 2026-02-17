@@ -23,7 +23,7 @@ async def test_images(client: AsyncClient, data: NubladoData) -> None:
 async def test_prepulls(client: AsyncClient, data: NubladoData) -> None:
     r = await client.get("/nublado/spawner/v1/prepulls")
     assert r.status_code == 200
-    data.assert_json_matches(r.json(), "controller/standard/output/prepulls")
+    data.assert_json_matches(r.json(), "controller/prepuller/prepulls")
 
 
 @pytest.mark.asyncio
@@ -42,4 +42,4 @@ async def test_node_selector(
     # node selector of our configuration.
     r = await client.get("/nublado/spawner/v1/prepulls")
     assert r.status_code == 200
-    data.assert_json_matches(r.json(), "controller/prepuller/output/status")
+    data.assert_json_matches(r.json(), "controller/prepuller/status")
