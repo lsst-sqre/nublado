@@ -7,9 +7,10 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import total_ordering
-from typing import Self, TypeGuard, override
+from typing import Any, Self, TypeGuard, override
 
 import semver
+from safir.datetime import format_datetime_for_logging
 
 from .imagefilterpolicy import RSPImageFilterPolicy
 from .rspimagetype import RSPImageType
@@ -488,6 +489,22 @@ class RSPImageTag:
         if bld is None:
             return None
         return int(bld)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to a dictionary representation.
+
+        This method is used primarily for easy testing to allow comparisons
+        with expected JSON output files.
+        """
+        return {
+            "tag": self.tag,
+            "image_type": self.image_type.value,
+            "version": self.version.to_dict() if self.version else None,
+            "rsp_build_version": self.rsp_build_version,
+            "cycle": self.cycle,
+            "display_name": self.display_name,
+            "date": format_datetime_for_logging(self.date),
+        }
 
     def _compare(self, other: object) -> int:
         """Compare to image tags for sorting purposes.

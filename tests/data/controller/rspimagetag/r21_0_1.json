@@ -1,0 +1,15 @@
+{
+  "cycle": null,
+  "date": null,
+  "display_name": "Release r21.0.1",
+  "image_type": "Release",
+  "rsp_build_version": null,
+  "tag": "r21_0_1",
+  "version": {
+    "build": null,
+    "major": 21,
+    "minor": 0,
+    "patch": 1,
+    "prerelease": null
+  }
+}
