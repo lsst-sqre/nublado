@@ -66,6 +66,14 @@ def test_tag_ordering() -> None:
 
     assert ten == RSPImageTag.from_str("r21_0_1_rsp103_foo")
 
+    eleven = RSPImageTag.from_str("r21_0_1_rsp103_foo-amd64")
+    assert ten != eleven
+    assert ten < eleven
+
+    twelve = RSPImageTag.from_str("r21_0_1_rsp103_foo-arm64")
+    assert eleven != twelve
+    assert eleven < twelve
+
     exp_one = RSPImageTag.from_str("exp_20230209")
     exp_two = RSPImageTag.from_str("exp_random")
     assert exp_one == exp_one
@@ -79,11 +87,12 @@ def test_alias() -> None:
     assert asdict(tag) == {
         "tag": "recommended",
         "image_type": RSPImageType.ALIAS,
+        "display_name": "Recommended",
         "version": None,
         "cycle": None,
         "cycle_build": None,
         "rsp_build": None,
-        "display_name": "Recommended",
+        "architecture": None,
         "date": None,
     }
 
@@ -92,11 +101,12 @@ def test_alias() -> None:
     assert asdict(tag) == {
         "tag": "latest_weekly_c0046",
         "image_type": RSPImageType.ALIAS,
+        "display_name": "Latest Weekly (SAL Cycle 0046)",
         "version": None,
         "cycle": 46,
         "cycle_build": None,
         "rsp_build": None,
-        "display_name": "Latest Weekly (SAL Cycle 0046)",
+        "architecture": None,
         "date": None,
     }
 
@@ -208,21 +218,23 @@ def test_from_str(data: NubladoData) -> None:
     assert RSPImageTag.from_str("MiXeD_CaSe_TaG").to_dict() == {
         "tag": "MiXeD_CaSe_TaG",
         "image_type": "Unknown",
+        "display_name": "MiXeD_CaSe_TaG",
         "version": None,
         "cycle": None,
         "cycle_build": None,
         "rsp_build": None,
-        "display_name": "MiXeD_CaSe_TaG",
+        "architecture": None,
         "date": None,
     }
     assert RSPImageTag.from_str("").to_dict() == {
         "tag": "latest",
         "image_type": "Unknown",
+        "display_name": "latest",
         "version": None,
         "cycle": None,
         "cycle_build": None,
         "rsp_build": None,
-        "display_name": "latest",
+        "architecture": None,
         "date": None,
     }
 
@@ -234,6 +246,7 @@ def test_from_str(data: NubladoData) -> None:
 @pytest.mark.parametrize("rsp_build", [None, 19])
 @pytest.mark.parametrize("cycle", [None, ("0020", "001")])
 @pytest.mark.parametrize("extra", [None, "20210527", "random"])
+@pytest.mark.parametrize("architecture", [None, "amd64"])
 def test_from_str_varient(
     data: NubladoData,
     *,
@@ -242,6 +255,7 @@ def test_from_str_varient(
     rsp_build: int | None,
     cycle: tuple[str, str] | None,
     extra: str | None,
+    architecture: str | None,
 ) -> None:
     """Test all the variations of each tag.
 
@@ -269,6 +283,10 @@ def test_from_str_varient(
     if extra:
         tag += f"_{extra}"
         expected["display_name"] += f" [{extra}]"
+    if architecture:
+        tag += f"-{architecture}"
+        expected["display_name"] += f" [{architecture}]"
+        expected["architecture"] = architecture
     expected["tag"] = tag
 
     # Now parse the modified tag and check against the expected output.

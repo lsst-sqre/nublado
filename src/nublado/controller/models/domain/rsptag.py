@@ -35,7 +35,7 @@ _CANDIDATE = r"r(?P<major>\d+)_(?P<minor>\d+)_(?P<patch>\d+)_(?P<pre>rc\d+)"
 _WEEKLY = r"w_(?P<year>\d+)_(?P<week>\d+)"
 # d_2021_05_13
 _DAILY = r"d_(?P<year>\d+)_(?P<month>\d+)_(?P<day>\d+)"
-# exp
+# exp_
 _EXPERIMENTAL = r"exp_(?P<rest>.*)"
 # recommended_c0020 (used for alias tags)
 _UNKNOWN_WITH_CYCLE = r"(?P<tag>.*)_c(?P<cycle>\d+)"
@@ -43,8 +43,10 @@ _UNKNOWN_WITH_CYCLE = r"(?P<tag>.*)_c(?P<cycle>\d+)"
 _CYCLE = r"(?:_c(?P<cycle>\d+)\.(?P<cbuild>\d+))?"
 # rsp19
 _RSP = r"(?:_rsp(?P<rspbuild>\d+))?"
-# _whatever_your_little_heart_desires
-_REST = r"(?:_(?P<rest>.*))?"
+# _whatever_your_heart_desires (non-greedy since architecture may follow)
+_REST = r"(?:_(?P<rest>.*?))?"
+# -amd64 or -arm64
+_ARCH = r"(?:-(?P<arch>[a-z0-9]+))?"
 
 # An ordered list of tuples, each of which contains a tag type followed by a
 # regular expression defining something that matches that type, with named
@@ -58,16 +60,25 @@ _TAG_REGEXES = [
     # r23_0_0_rc1_rsp19_c0020.001_20210513
     (
         RSPImageType.CANDIDATE,
-        re.compile(_CANDIDATE + _RSP + _CYCLE + _REST + "$"),
+        re.compile(_CANDIDATE + _RSP + _CYCLE + _REST + _ARCH + "$"),
     ),
     # r22_0_1_rsp19_c0019.001_20210513
-    (RSPImageType.RELEASE, re.compile(_RELEASE + _RSP + _CYCLE + _REST + "$")),
+    (
+        RSPImageType.RELEASE,
+        re.compile(_RELEASE + _RSP + _CYCLE + _REST + _ARCH + "$"),
+    ),
     # r170 (obsolete) (no new ones, no additional parts)
     (RSPImageType.RELEASE, re.compile(r"r(?P<major>\d\d)(?P<minor>\d)$")),
     # w_2021_13_rsp19_c0020.001_20210513
-    (RSPImageType.WEEKLY, re.compile(_WEEKLY + _RSP + _CYCLE + _REST + "$")),
+    (
+        RSPImageType.WEEKLY,
+        re.compile(_WEEKLY + _RSP + _CYCLE + _REST + _ARCH + "$"),
+    ),
     # d_2021_05_13_rsp19_c0019.001_20210513
-    (RSPImageType.DAILY, re.compile(_DAILY + _RSP + _CYCLE + _REST + "$")),
+    (
+        RSPImageType.DAILY,
+        re.compile(_DAILY + _RSP + _CYCLE + _REST + _ARCH + "$"),
+    ),
     # exp_w_2021_05_13_nosudo
     (RSPImageType.EXPERIMENTAL, re.compile(_EXPERIMENTAL + "$")),
     # recommended_c0029
@@ -76,7 +87,7 @@ _TAG_REGEXES = [
 
 
 @total_ordering
-@dataclass
+@dataclass(kw_only=True)
 class RSPImageTag:
     """A sortable image tag for a Rubin Science Platform image.
 
@@ -90,30 +101,31 @@ class RSPImageTag:
     image_type: RSPImageType
     """Type (release series) of image identified by this tag."""
 
-    version: Version | None
-    """Version information as a semantic version."""
-
-    cycle: int | None
-    """XML schema version implemented by this image (only for T&S builds)."""
-
-    cycle_build: int | None
-    """XML schema build number (only for T&S builds)."""
-
-    rsp_build: int | None
-    """Version information about the RSP build as a counter."""
-
     display_name: str
     """Human-readable display name."""
 
-    date: datetime | None
+    version: Version | None = None
+    """Version information as a semantic version."""
+
+    cycle: int | None = None
+    """XML schema version implemented by this image (only for T&S builds)."""
+
+    cycle_build: int | None = None
+    """XML schema build number (only for T&S builds)."""
+
+    rsp_build: int | None = None
+    """Version number of the RSP build machinery."""
+
+    architecture: str | None = None
+    """Architecture of image, if specified."""
+
+    date: datetime | None = None
     """When the image was created, or as close as we can get to that.
 
-    We try to derive this from the tag string: For RSP daily or weekly
-    tags (or experimentals in one of those formats), we can calculate
-    this to within a day or a week, which is good enough for display
-    purposes.  Otherwise, we may be able to extract this info from
-    the registry, but even if we can, it may be image upload time
-    rather than creation time.
+    For daily or weekly tags, this can be calculated within a day or week,
+    which is good enough for filtering purposes. Other images are not handled
+    for now, since the upload time is not necessarily when the image was
+    created.
     """
 
     @classmethod
@@ -131,21 +143,17 @@ class RSPImageTag:
             The corresponding `RSPImageTag`.
         """
         if match := re.match(_UNKNOWN_WITH_CYCLE + "$", tag):
-            cycle = int(match.group("cycle"))
+            cycle = match.group("cycle")
             display_name = match.group("tag").replace("_", " ").title()
-            display_name += f" (SAL Cycle {match.group('cycle')})"
+            display_name += f" (SAL Cycle {cycle})"
         else:
             cycle = None
             display_name = tag.replace("_", " ").title()
         return cls(
             tag=tag,
             image_type=RSPImageType.ALIAS,
-            version=None,
-            cycle=cycle,
-            cycle_build=None,
-            rsp_build=None,
             display_name=display_name,
-            date=None,
+            cycle=int(cycle) if cycle else None,
         )
 
     @classmethod
@@ -175,16 +183,7 @@ class RSPImageTag:
                     return cls._from_match(image_type, match, tag)
 
         # No matches, so return the unknown tag type.
-        return cls(
-            tag=tag,
-            image_type=RSPImageType.UNKNOWN,
-            version=None,
-            cycle=None,
-            cycle_build=None,
-            rsp_build=None,
-            display_name=tag,
-            date=None,
-        )
+        return cls(tag=tag, image_type=RSPImageType.UNKNOWN, display_name=tag)
 
     @override
     def __hash__(self) -> int:
@@ -209,11 +208,12 @@ class RSPImageTag:
         return {
             "tag": self.tag,
             "image_type": self.image_type.value,
+            "display_name": self.display_name,
             "version": self.version.to_dict() if self.version else None,
             "cycle": self.cycle,
             "cycle_build": self.cycle_build,
             "rsp_build": self.rsp_build,
-            "display_name": self.display_name,
+            "architecture": self.architecture,
             "date": format_datetime_for_logging(self.date),
         }
 
@@ -242,6 +242,7 @@ class RSPImageTag:
         cycle_build = data.get("cbuild")
         rsp_build = data.get("rspbuild")
         rest = data.get("rest")
+        architecture = data.get("arch")
 
         # We can't do very much with unknown tags with a cycle, but we do want
         # to capture the cycle so that they survive cycle filtering. We can
@@ -253,12 +254,8 @@ class RSPImageTag:
             return cls(
                 tag=tag,
                 image_type=image_type,
-                version=None,
-                cycle=int(cycle) if cycle else None,
-                cycle_build=None,
-                rsp_build=None,
                 display_name=display_name,
-                date=None,
+                cycle=int(cycle) if cycle else None,
             )
 
         # Experimental tags are often exp_<legal-tag>, meaning that they are
@@ -279,11 +276,12 @@ class RSPImageTag:
             return cls(
                 tag=tag,
                 image_type=image_type,
+                display_name=display_name,
                 version=subtag.version,
                 cycle=subtag.cycle,
                 cycle_build=subtag.cycle_build,
                 rsp_build=subtag.rsp_build,
-                display_name=display_name,
+                architecture=subtag.architecture,
                 date=subtag.date,
             )
 
@@ -298,16 +296,19 @@ class RSPImageTag:
             display_name += f" (SAL Cycle {cycle}, Build {cycle_build})"
         if rest:
             display_name += f" [{rest}]"
+        if architecture:
+            display_name += f" [{architecture}]"
 
         # Return the results.
         return cls(
             tag=tag,
             image_type=image_type,
+            display_name=display_name,
             version=version,
             cycle=int(cycle) if cycle else None,
             cycle_build=int(cycle_build) if cycle_build else None,
             rsp_build=int(rsp_build) if rsp_build else None,
-            display_name=display_name,
+            architecture=architecture,
             date=cls._calculate_date(data),
         )
 
@@ -433,7 +434,9 @@ class RSPImageTag:
             return rank
 
         # Finally, fall back on comparing the display strings, since that will
-        # include the rest information, if any.
+        # include the rest information and architecture, if any. This is not
+        # ideal; we should instead track rest separately so that we can sort
+        # by rest before architecture.
         return self._compare_str(self.display_name, other.display_name)
 
     def _is_comparable_type(self, other: object) -> TypeGuard[Self]:
