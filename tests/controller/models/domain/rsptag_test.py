@@ -56,6 +56,16 @@ def test_tag_ordering() -> None:
     assert seven != eight
     assert seven < eight
 
+    nine = RSPImageTag.from_str("r21_0_1_rsp103_extra")
+    assert eight != nine
+    assert eight < nine
+
+    ten = RSPImageTag.from_str("r21_0_1_rsp103_foo")
+    assert nine != ten
+    assert nine < ten
+
+    assert ten == RSPImageTag.from_str("r21_0_1_rsp103_foo")
+
     exp_one = RSPImageTag.from_str("exp_20230209")
     exp_two = RSPImageTag.from_str("exp_random")
     assert exp_one == exp_one
@@ -70,8 +80,9 @@ def test_alias() -> None:
         "tag": "recommended",
         "image_type": RSPImageType.ALIAS,
         "version": None,
-        "rsp_build_version": None,
         "cycle": None,
+        "cycle_build": None,
+        "rsp_build": None,
         "display_name": "Recommended",
         "date": None,
     }
@@ -82,8 +93,9 @@ def test_alias() -> None:
         "tag": "latest_weekly_c0046",
         "image_type": RSPImageType.ALIAS,
         "version": None,
-        "rsp_build_version": None,
         "cycle": 46,
+        "cycle_build": None,
+        "rsp_build": None,
         "display_name": "Latest Weekly (SAL Cycle 0046)",
         "date": None,
     }
@@ -196,19 +208,21 @@ def test_from_str(data: NubladoData) -> None:
     assert RSPImageTag.from_str("MiXeD_CaSe_TaG").to_dict() == {
         "tag": "MiXeD_CaSe_TaG",
         "image_type": "Unknown",
-        "display_name": "MiXeD_CaSe_TaG",
         "version": None,
-        "rsp_build_version": None,
         "cycle": None,
+        "cycle_build": None,
+        "rsp_build": None,
+        "display_name": "MiXeD_CaSe_TaG",
         "date": None,
     }
     assert RSPImageTag.from_str("").to_dict() == {
         "tag": "latest",
         "image_type": "Unknown",
-        "display_name": "latest",
         "version": None,
-        "rsp_build_version": None,
         "cycle": None,
+        "cycle_build": None,
+        "rsp_build": None,
+        "display_name": "latest",
         "date": None,
     }
 
@@ -244,21 +258,17 @@ def test_from_str_varient(
     if rsp_build:
         tag += f"_rsp{rsp_build}"
         expected["display_name"] += f" (RSP Build {rsp_build})"
-        expected["rsp_build_version"] = rsp_build
+        expected["rsp_build"] = rsp_build
     if cycle:
         cycle_str = f"c{cycle[0]}.{cycle[1]}"
         tag += f"_{cycle_str}"
         expected["cycle"] = int(cycle[0])
+        expected["cycle_build"] = int(cycle[1])
         extra_display = f" (SAL Cycle {cycle[0]}, Build {cycle[1]})"
         expected["display_name"] += extra_display
-        expected["version"]["build"] = cycle_str
     if extra:
         tag += f"_{extra}"
         expected["display_name"] += f" [{extra}]"
-        if expected["version"]["build"]:
-            expected["version"]["build"] += f".{extra}"
-        else:
-            expected["version"]["build"] = extra
     expected["tag"] = tag
 
     # Now parse the modified tag and check against the expected output.

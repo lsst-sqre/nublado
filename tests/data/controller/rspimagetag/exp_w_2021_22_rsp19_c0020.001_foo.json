@@ -1,12 +1,13 @@
 {
   "cycle": 20,
+  "cycle_build": 1,
   "date": "2021-06-03 00:00:00",
   "display_name": "Experimental Weekly 2021_22 (RSP Build 19) (SAL Cycle 0020, Build 001) [foo]",
   "image_type": "Experimental",
-  "rsp_build_version": 19,
+  "rsp_build": 19,
   "tag": "exp_w_2021_22_rsp19_c0020.001_foo",
   "version": {
-    "build": "c0020.001.foo",
+    "build": null,
     "major": 2021,
     "minor": 22,
     "patch": 0,

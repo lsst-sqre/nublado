@@ -1,9 +1,10 @@
 {
   "cycle": null,
+  "cycle_build": null,
   "date": null,
   "display_name": "recommended",
   "image_type": "Unknown",
-  "rsp_build_version": null,
+  "rsp_build": null,
   "tag": "recommended",
   "version": null
 }
