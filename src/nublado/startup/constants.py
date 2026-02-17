@@ -14,6 +14,13 @@ __all__ = [
 APP_NAME = "nublado"
 """Application name, used for logging."""
 
+
+CONFIG_FILE = Path("/etc/nublado/config/lab_config.json")
+"""Lab config file, overrideable for tests.
+
+Usually /etc/nublado/config/lab_config.json.
+"""
+
 ETC_PATH = Path("/etc")
 """Configuration directory, usually /etc, but overrideable for tests."""
 
