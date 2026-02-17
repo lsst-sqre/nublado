@@ -1,9 +1,10 @@
 {
   "cycle": null,
+  "cycle_build": null,
   "date": "2021-05-27 00:00:00",
   "display_name": "Daily 2021_05_27",
   "image_type": "Daily",
-  "rsp_build_version": null,
+  "rsp_build": null,
   "tag": "d_2021_05_27",
   "version": {
     "build": null,
