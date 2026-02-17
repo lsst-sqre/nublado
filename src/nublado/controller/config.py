@@ -828,6 +828,16 @@ class LabSecret(BaseModel):
     ] = None
 
 
+class LabFileBrowserRoot(Enum):
+    """Where the top of the UI file browser is."""
+
+    ROOT = "root"
+    """The file browser can traverse up to the container root directory."""
+
+    HOME = "home"
+    """The user's home directory is as high as the file browser can go."""
+
+
 class LabNSSFiles(BaseModel):
     """Rules for :file:`/etc/passwd` and :file:`/etc/group` inside the lab."""
 
@@ -951,6 +961,18 @@ class LabConfig(BaseModel):
             ),
         ),
     ] = {}
+
+    file_browser_root: Annotated[
+        LabFileBrowserRoot,
+        Field(
+            title="JupyterLab file browser root",
+            description=(
+                "Whether to allow traversal in the UI file browser all"
+                " the way up to the container root, or only as high as"
+                " the user home directory."
+            ),
+        ),
+    ] = LabFileBrowserRoot.HOME
 
     files: Annotated[
         dict[Annotated[str, AfterValidator(_reject_reserved_paths)], str],
