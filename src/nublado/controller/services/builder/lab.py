@@ -55,6 +55,7 @@ from structlog.stdlib import BoundLogger
 from ...config import (
     EmptyDirSource,
     LabConfig,
+    LabFileBrowserRoot,
     PVCVolumeSource,
     UserHomeDirectorySchema,
 )
@@ -1091,6 +1092,12 @@ class LabBuilder:
 
         # Specification for the user's container.
         env_source = V1ConfigMapEnvSource(name=f"{user.username}-nb-env")
+        working_dir = "/"
+        # Necessary because using ContentsManager.root_dir (as of 18 Feb 2026)
+        # means that os.getcwd() always reports where the Lab started, rather
+        # than the parent of the active notebook.
+        if self._config.file_browser_root != LabFileBrowserRoot.ROOT:
+            working_dir = self._build_home_directory(user.username)
         container = V1Container(
             name="notebook",
             args=self._config.lab_start_command,
@@ -1109,7 +1116,7 @@ class LabBuilder:
                 run_as_group=user.gid,
             ),
             volume_mounts=mounts,
-            working_dir=self._build_home_directory(user.username),
+            working_dir=working_dir,
         )
         return [container]
 
