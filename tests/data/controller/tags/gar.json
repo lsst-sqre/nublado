@@ -1,5 +1,15 @@
 [
   {
+    "name": "projects/rubin-shared-services-71ec/locations/us-central1/repositories/sciplat/dockerImages/sciplat-lab@sha256:5151f29e8456c053cd4c5f80d99b0dbaad60a7223cc5983d0c13d250844db5ba",
+    "uri": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab@sha256:5151f29e8456c053cd4c5f80d99b0dbaad60a7223cc5983d0c13d250844db5ba",
+    "tags": ["w_2077_44-amd64"],
+    "image_size_bytes": 123456,
+    "upload_time": "2023-03-27T13:02:39Z",
+    "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+    "build_time": "2023-03-27T13:02:39Z",
+    "update_time": "2023-03-27T13:02:39Z"
+  },
+  {
     "name": "projects/rubin-shared-services-71ec/locations/us-central1/repositories/sciplat/dockerImages/sciplat-lab@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b",
     "uri": "us-central1-docker.pkg.dev/rubin-shared-services-71ec/sciplat/sciplat-lab@sha256:49d63632237c3c0ca10c2c8de1e4310acadea2cdf2f9eaed0e2d2c0c27736c0b",
     "tags": ["w_2077_43", "recommended", "latest_weekly"],

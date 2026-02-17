@@ -11,7 +11,6 @@ from httpx import AsyncClient, HTTPError, Response
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import DockerRegistryError, DuplicateUrlError
-from ..models.domain.arch_filter import filter_arch_tags
 from ..models.domain.docker import DockerCredentials
 from ..models.v1.prepuller import DockerSourceOptions
 
@@ -181,89 +180,6 @@ class DockerStorageClient:
         # obtained via API calls.
         self._authorization: dict[str, str] = {}
 
-    async def list_tags(self, config: DockerSourceOptions) -> list[str]:
-        """List tags for a given registry and repository.
-
-        This is not comprehensive, because we filter out platform-specific
-        tags that have matching base tags.
-
-        Parameters
-        ----------
-        config
-            Configuration for the registry and repository to use.
-
-        Returns
-        -------
-        list of str
-            All the non-platform-specific tags found for that repository.
-        """
-        # We're assuming HTTPS.  If you have an HTTP-only registry without
-        # TLS in 2025, well, I feel bad for you, son.  You got 99 problems
-        # and your URL's just one.
-        url = f"https://{config.registry}/v2/{config.repository}/tags/list"
-        headers = self._build_headers(config.registry)
-        unfiltered_tags: set[str] = set()
-        seen_urls: set[str] = set()
-        while True:
-            if url in seen_urls:
-                raise DuplicateUrlError(f"Repeated tag page URL: {url}")
-            seen_urls.add(url)
-            try:
-                r = await self._client.get(url, headers=headers)
-                if r.status_code == 401:
-                    headers = await self._authenticate(config.registry, r)
-                    r = await self._client.get(url, headers=headers)
-                r.raise_for_status()
-                tags = r.json()["tags"]
-            except HTTPError as e:
-                raise DockerRegistryError.from_exception(e) from e
-            except Exception as e:
-                error = f"{type(e).__name__}: {e!s}"
-                msg = f"Cannot parse response from Docker registry: {error}"
-                raise DockerRegistryError(msg, method="GET", url=url) from e
-            else:
-                count = len(tags)
-                self._logger.debug(
-                    f"Listed {count} image tags",
-                    registry=config.registry,
-                    repository=config.repository,
-                    count=count,
-                )
-                current_tags = set(tags)
-                unfiltered_tags.update(current_tags)
-            link = r.headers.get("Link")
-            if not link:
-                # Normal loop exit: we have no links to follow.
-                break
-            link_url = self._parse_next_link_header(link)
-            if not link_url:
-                # Normal loop exit: we have no "next" link to follow.
-                break
-            url = self._canonicalize_url(link_url, config)
-        self._logger.debug(
-            f"Architecture-filtering {len(unfiltered_tags)} tags"
-        )
-        filtered_tags = filter_arch_tags(list(unfiltered_tags))
-        self._logger.debug(f"After filtering, {len(filtered_tags)} remain")
-        return filtered_tags
-
-    @staticmethod
-    def _canonicalize_url(link_url: str, config: DockerSourceOptions) -> str:
-        parsed = urlparse(link_url)
-        if parsed.netloc:
-            # It specified a netloc, so use it as is.
-            return link_url
-        # Relative to the current netloc (this is how GHCR does it).
-        if link_url[0] != "/":
-            link_url = f"/{link_url}"
-        return f"https://{config.registry}{link_url}"
-
-    @staticmethod
-    def _parse_next_link_header(link: str) -> str | None:
-        # If there's a rel="next" link, return the URL it points to, otherwise
-        # `None`
-        return _PaginationLinkData.from_header(link).next_url
-
     async def get_image_digest(
         self, config: DockerSourceOptions, tag: str
     ) -> str:
@@ -312,6 +228,84 @@ class DockerStorageClient:
                 digest=digest,
             )
             return digest
+
+    async def list_tags(self, config: DockerSourceOptions) -> set[str]:
+        """List tags for a given registry and repository.
+
+        Parameters
+        ----------
+        config
+            Configuration for the registry and repository to use.
+
+        Returns
+        -------
+        set of str
+            All the non-platform-specific tags found for that repository.
+        """
+        headers = self._build_headers(config.registry)
+        all_tags = set()
+        seen_urls = set()
+        logger = self._logger.bind(
+            registry=config.registry, repository=config.repository
+        )
+
+        # We're assuming HTTPS.  If you have an HTTP-only registry without
+        # TLS in 2025, well, I feel bad for you, son.  You got 99 problems
+        # and your URL's just one.
+        url = f"https://{config.registry}/v2/{config.repository}/tags/list"
+
+        # The results may be paginated, so keep retrieving pages for as long
+        # as each page has a Link header with a next element.
+        while True:
+            seen_urls.add(url)
+            try:
+                r = await self._client.get(url, headers=headers)
+                if r.status_code == 401:
+                    headers = await self._authenticate(config.registry, r)
+                    r = await self._client.get(url, headers=headers)
+                r.raise_for_status()
+                tags = r.json()["tags"]
+            except HTTPError as e:
+                raise DockerRegistryError.from_exception(e) from e
+            except Exception as e:
+                error = f"{type(e).__name__}: {e!s}"
+                msg = f"Cannot parse response from Docker registry: {error}"
+                raise DockerRegistryError(msg, method="GET", url=url) from e
+
+            # Add the seen tags to the set.
+            logger.debug(f"Retrieved {len(tags)} image tags")
+            all_tags.update(tags)
+
+            # Check for a continuation.
+            if link_url := self._parse_next_link_header(r):
+                url = self._canonicalize_url(link_url, config)
+                if url in seen_urls:
+                    raise DuplicateUrlError(f"Repeated tag page URL: {url}")
+                logger.debug("Following Link header", url=link_url)
+            else:
+                break
+
+        # All done, return the results.
+        logger.debug("Listed all tags", count=len(all_tags))
+        return all_tags
+
+    @staticmethod
+    def _canonicalize_url(link_url: str, config: DockerSourceOptions) -> str:
+        parsed = urlparse(link_url)
+        if parsed.netloc:
+            # It specified a netloc, so use it as is.
+            return link_url
+        # Relative to the current netloc (this is how GHCR does it).
+        if link_url[0] != "/":
+            link_url = f"/{link_url}"
+        return f"https://{config.registry}{link_url}"
+
+    def _parse_next_link_header(self, response: Response) -> str | None:
+        """Parse the response for a ``Link`` header with a next URL."""
+        link = response.headers.get("Link")
+        if not link:
+            return None
+        return _PaginationLinkData.from_header(link).next_url
 
     async def _authenticate(
         self, host: str, response: Response

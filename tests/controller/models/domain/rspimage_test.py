@@ -131,7 +131,15 @@ def test_resolve_alias() -> None:
 
 def test_collection() -> None:
     """Test RSPImageCollection."""
-    tags = ["w_2077_46", "w_2077_45", "w_2077_44", "w_2077_43", "d_2077_10_21"]
+    tags = [
+        "w_2077_46",
+        "w_2077_45-amd64",
+        "w_2077_45",
+        "w_2077_44",
+        "w_2077_43",
+        "d_2077_10_21",
+    ]
+    tags_no_arch = [t for t in tags if "-" not in t]
     images = [make_test_image(t) for t in tags]
 
     # Add an alias image with the same digest as the first image.
@@ -175,7 +183,7 @@ def test_collection() -> None:
     assert collection.image_for_tag_name(images[0].tag) == images[0]
     assert collection.image_for_tag_name("recommended") == recommended
     assert collection.latest(RSPImageType.WEEKLY) == images[0]
-    assert collection.latest(RSPImageType.DAILY) == images[4]
+    assert collection.latest(RSPImageType.DAILY) == images[5]
     assert collection.latest(RSPImageType.RELEASE) is None
 
     # recommended and w_2077_46 have the same digest, but we should always
@@ -183,10 +191,20 @@ def test_collection() -> None:
     assert collection.image_for_digest(images[0].digest) == images[0]
 
     # Test all_images, its sorting, and its filtering options.
-    all_images = [i.tag for i in collection.all_images()]
-    assert all_images == ["recommended", "latest_weekly", *tags]
+    all_images = collection.all_images(hide_arch_specific=False)
+    assert [i.tag for i in all_images] == [
+        "recommended",
+        "latest_weekly",
+        *tags,
+    ]
+    without_arch = collection.all_images()
+    assert [i.tag for i in without_arch] == [
+        "recommended",
+        "latest_weekly",
+        *tags_no_arch,
+    ]
     without_aliases = collection.all_images(hide_resolved_aliases=True)
-    assert [i.tag for i in without_aliases] == tags
+    assert [i.tag for i in without_aliases] == tags_no_arch
     assert [i.tag for i in collection.all_images(hide_aliased=True)] == [
         "recommended",
         "latest_weekly",
@@ -197,11 +215,13 @@ def test_collection() -> None:
     ]
 
     # Test subsetting.
-    subset = collection.subset(releases=1, weeklies=3, dailies=1)
-    assert [t.tag for t in subset.all_images()] == [
+    subset = collection.subset(
+        releases=1, weeklies=3, dailies=1, remove_arch_specific=False
+    )
+    assert [t.tag for t in subset.all_images(hide_arch_specific=False)] == [
         "w_2077_46",
+        "w_2077_45-amd64",
         "w_2077_45",
-        "w_2077_44",
         "d_2077_10_21",
     ]
     subset = collection.subset(
@@ -219,7 +239,7 @@ def test_collection() -> None:
 
     # Test subtraction. Note that this only returns one image per digest and
     # prefers the non-alias images.
-    other = RSPImageCollection(images[0:2])
+    other = RSPImageCollection((images[0], images[2]))
     remainder = collection.subtract(other)
     assert [i.tag for i in remainder.all_images()] == [
         "w_2077_44",

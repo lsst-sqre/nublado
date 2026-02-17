@@ -30,7 +30,15 @@ from ...support.docker import register_mock_docker
 async def test_api(
     config: Config, factory: Factory, respx_mock: respx.Router
 ) -> None:
-    tag_names = {"w_2021_21", "w_2021_22", "d_2021_06_14", "d_2021_06_15"}
+    tag_names = {
+        "w_2021_21",
+        "w_2021_21-arm64",
+        "w_2021_21-amd64",
+        "w_2021_22",
+        "w_2021_22-amd64",
+        "d_2021_06_14-amd64",
+        "d_2021_06_15",
+    }
     tags = {t: "sha256:" + os.urandom(32).hex() for t in tag_names}
     assert isinstance(config.images.source, DockerSourceOptions)
     register_mock_docker(
@@ -42,85 +50,7 @@ async def test_api(
         paginate=True,
     )
     docker = factory.create_docker_storage()
-    assert set(await docker.list_tags(config.images.source)) == tag_names
-    digest = await docker.get_image_digest(config.images.source, "w_2021_21")
-    assert digest == tags["w_2021_21"]
-    digest = await docker.get_image_digest(config.images.source, "w_2021_22")
-    assert digest == tags["w_2021_22"]
-
-
-@pytest.mark.asyncio
-async def test_api_with_arch_filter(
-    config: Config, factory: Factory, respx_mock: respx.Router
-) -> None:
-    all_tag_names = {
-        "w_2021_21",
-        "w_2021_21-arm64",
-        "w_2021_21-amd64",
-        "w_2021_22-arm64",
-        "w_2021_22-amd64",
-        "d_2021_06_14-amd64",
-        "d_2021_06_15",
-    }
-    expected_tag_names = {
-        "w_2021_21",
-        "w_2021_22-amd64",
-        "w_2021_22-arm64",
-        "d_2021_06_14-amd64",
-        "d_2021_06_15",
-    }
-    tags = {t: "sha256:" + os.urandom(32).hex() for t in all_tag_names}
-    assert isinstance(config.images.source, DockerSourceOptions)
-    register_mock_docker(
-        respx_mock,
-        host=config.images.source.registry,
-        repository=config.images.source.repository,
-        credentials_path=config.images.source.credentials_path,
-        tags=tags,
-        paginate=True,
-    )
-    docker = factory.create_docker_storage()
-    assert (
-        set(await docker.list_tags(config.images.source)) == expected_tag_names
-    )
-    digest = await docker.get_image_digest(config.images.source, "w_2021_21")
-    assert digest == tags["w_2021_21"]
-
-
-@pytest.mark.asyncio
-async def test_api_with_arch_filter_split_pages(
-    config: Config, factory: Factory, respx_mock: respx.Router
-) -> None:
-    all_tag_names = {
-        "w_2021_21",
-        "w_2021_21-arm64",
-        "w_2021_22",
-        "w_2021_22-arm64",
-        "w_2021_22-amd64",
-        "d_2021_06_14-amd64",
-        "d_2021_06_15",
-        "w_2021_21-amd64",
-    }
-    expected_tag_names = {
-        "w_2021_21",
-        "w_2021_22",
-        "d_2021_06_14-amd64",
-        "d_2021_06_15",
-    }
-    tags = {t: "sha256:" + os.urandom(32).hex() for t in all_tag_names}
-    assert isinstance(config.images.source, DockerSourceOptions)
-    register_mock_docker(
-        respx_mock,
-        host=config.images.source.registry,
-        repository=config.images.source.repository,
-        credentials_path=config.images.source.credentials_path,
-        tags=tags,
-        paginate=True,
-    )
-    docker = factory.create_docker_storage()
-    assert (
-        set(await docker.list_tags(config.images.source)) == expected_tag_names
-    )
+    assert await docker.list_tags(config.images.source) == tag_names
     digest = await docker.get_image_digest(config.images.source, "w_2021_21")
     assert digest == tags["w_2021_21"]
     digest = await docker.get_image_digest(config.images.source, "w_2021_22")
@@ -143,7 +73,7 @@ async def test_api_nonpaginated(
         paginate=False,
     )
     docker = factory.create_docker_storage()
-    assert set(await docker.list_tags(config.images.source)) == tag_names
+    assert await docker.list_tags(config.images.source) == tag_names
     digest = await docker.get_image_digest(config.images.source, "w_2021_21")
     assert digest == tags["w_2021_21"]
     digest = await docker.get_image_digest(config.images.source, "w_2021_22")
@@ -180,7 +110,7 @@ async def test_bad_accept(
     )
     docker = factory.create_docker_storage()
 
-    assert set(await docker.list_tags(config.images.source)) == tag_names
+    assert await docker.list_tags(config.images.source) == tag_names
     with pytest.raises(DockerRegistryError):
         await docker.get_image_digest(config.images.source, "w_2021_21")
 
@@ -200,7 +130,7 @@ async def test_bearer_auth(
         require_bearer=True,
     )
     docker = factory.create_docker_storage()
-    assert await docker.list_tags(config.images.source) == ["r23_0_4"]
+    assert await docker.list_tags(config.images.source) == {"r23_0_4"}
     digest = await docker.get_image_digest(config.images.source, "r23_0_4")
     assert digest == tags["r23_0_4"]
 

@@ -117,15 +117,18 @@ def test_collection() -> None:
     tags = [
         "r21_0_1",
         "r20_0_1_c0027.001",
+        "w_2077_46-amd64",
         "w_2077_46",
         "w_2077_45",
         "w_2077_44",
         "w_2077_43",
         "w_2077_42",
         "w_2077_40_c0027.001",
+        "w_2077_40_c0026.001-amd64",
         "w_2077_40_c0026.001",
         "d_2077_10_21",
         "d_2077_10_20",
+        "r22_0_1_rc1-arm64",
         "r22_0_0_rc1",
         "exp_w_2021_22",
         "recommended_c0027",
@@ -135,7 +138,11 @@ def test_collection() -> None:
     SystemRandom().shuffle(shuffled_tags)
 
     collection = RSPImageTagCollection.from_tag_names(shuffled_tags, set())
-    assert [t.tag for t in collection.all_tags()] == tags
+    all_tags = [t.tag for t in collection.all_tags(hide_arch_specific=False)]
+    assert all_tags == tags
+    assert [t.tag for t in collection.all_tags()] == [
+        t for t in tags if "-" not in t
+    ]
     tag = collection.tag_for_tag_name("w_2077_46")
     assert tag
     assert tag.tag == "w_2077_46"
@@ -171,12 +178,14 @@ def test_collection() -> None:
     assert next(collection.all_tags()).tag == "recommended_c0027"
 
     # Subsetting.
-    subset = collection.subset(releases=1, weeklies=3, dailies=1)
-    assert [t.tag for t in subset.all_tags()] == [
+    subset = collection.subset(
+        releases=1, weeklies=3, dailies=1, remove_arch_specific=False
+    )
+    assert [t.tag for t in subset.all_tags(hide_arch_specific=False)] == [
         "r21_0_1",
+        "w_2077_46-amd64",
         "w_2077_46",
         "w_2077_45",
-        "w_2077_44",
         "d_2077_10_21",
     ]
     subset = collection.subset(
