@@ -21,10 +21,12 @@ def test_imagefilter() -> None:
     tags = [
         "recommended",
         "r28_0_1",
+        "r28_0_1-amd64",
         "r28_0_0",
         "r27_0_0",
         "r26_0_0",
         "w_2025_07",
+        "w_2025_07-arm64",
         "w_2025_06",
         "w_2025_05",
         "w_2025_04",
@@ -32,6 +34,7 @@ def test_imagefilter() -> None:
         "d_2025_02_18",
         "d_2025_02_17",
         "d_2025_02_16",
+        "r28_0_0_rc2-amd64",
         "r28_0_0_rc1",
         "r27_0_0_rc1",
         "exp_w_2025_07",
@@ -50,10 +53,7 @@ def test_imagefilter() -> None:
         shuffled_tags, recommended
     )
 
-    assert len(list(collection.all_tags())) == len(tags)
-
     # Create image policy
-
     policy = RSPImageFilterPolicy(
         release=ImageFilterPolicy(
             # We should get three
@@ -84,7 +84,6 @@ def test_imagefilter() -> None:
     # respectively.
 
     filtered_tags = [x.tag for x in collection.filter(policy, age_basis)]
-
     assert filtered_tags == [
         "recommended",
         "r28_0_1",
@@ -95,6 +94,31 @@ def test_imagefilter() -> None:
         "d_2025_02_19",
         "d_2025_02_18",
         "r28_0_0_rc1",
+        "exp_w_2025_07",
+        "unknown",
+    ]
+
+    # Redo the filtering without excluding arch-specific images (the
+    # non-default mode). Version- and date-based filtering should just include
+    # the new images. Count-based filtering will push a different image off.
+    filtered_tags = [
+        x.tag
+        for x in collection.filter(
+            policy, age_basis, remove_arch_specific=False
+        )
+    ]
+    assert filtered_tags == [
+        "recommended",
+        "r28_0_1-amd64",
+        "r28_0_1",
+        "r28_0_0",
+        "r27_0_0",
+        "w_2025_07-arm64",
+        "w_2025_07",
+        "w_2025_06",
+        "d_2025_02_19",
+        "d_2025_02_18",
+        "r28_0_0_rc2-amd64",
         "exp_w_2025_07",
         "unknown",
     ]

@@ -162,7 +162,7 @@ async def test_gar(
 
         # There should be two running pods, one for each node.
         pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-        tag = known_images[0]["tags"][0].replace("_", "-")
+        tag = known_images[1]["tags"][0].replace("_", "-")
         assert [o.metadata.name for o in pod_list.items] == [
             f"prepull-{tag}-node1",
             f"prepull-{tag}-node2",
@@ -173,7 +173,7 @@ async def test_gar(
             await mark_pod_complete(mock_kubernetes, pod)
         await asyncio.sleep(0.2)
         pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
-        tag = known_images[1]["tags"][0].replace("_", "-")
+        tag = known_images[2]["tags"][0].replace("_", "-")
         assert sorted(o.metadata.name for o in pod_list.items) == [
             f"prepull-{tag}-node1",
             f"prepull-{tag}-node2",

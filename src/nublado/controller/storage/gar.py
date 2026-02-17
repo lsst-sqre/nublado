@@ -6,7 +6,6 @@ from google.cloud import artifactregistry_v1
 from google.cloud.artifactregistry_v1 import ListDockerImagesRequest
 from structlog.stdlib import BoundLogger
 
-from ..models.domain.arch_filter import filter_arch_images
 from ..models.domain.rspimage import RSPImage, RSPImageCollection
 from ..models.domain.rsptag import RSPImageTag
 from ..models.v1.prepuller import GARSourceOptions
@@ -52,6 +51,7 @@ class GARStorageClient:
         request = ListDockerImagesRequest(parent=config.parent)
         image_list = await self._client.list_docker_images(request=request)
 
+        # Parse the results and extract the image tags and digests.
         images = []
         async for gar_image in image_list:
             uri = gar_image.uri
@@ -73,20 +73,14 @@ class GARStorageClient:
                 )
                 image.size = gar_image.image_size_bytes
                 images.append(image)
-        # Now we have all the images.  Having done that, we need to filter
-        # out the ones with arch-specific tags corresponding to an extant
-        # base tag.
-        self._logger.debug(f"Architecture-filtering {len(images)} images")
-        filtered_images = filter_arch_images(images)
-        self._logger.debug(f"After filtering, {len(filtered_images)} remain")
 
+        # Assemble the resulting collection of images and return it.
         self._logger.debug(
             "Listed all images",
             location=config.location,
             project_id=config.project_id,
             repository=config.repository,
             image=config.image,
-            count=len(filtered_images),
+            count=len(images),
         )
-
-        return RSPImageCollection(filtered_images, cycle=cycle)
+        return RSPImageCollection(images, cycle=cycle)

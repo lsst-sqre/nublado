@@ -211,10 +211,6 @@ class DockerImageSource(ImageSource):
         registry = self._config.registry
         repository = self._config.repository
         menu_images = []
-
-        self._logger.debug(
-            f"Constructing menu from {len(list(self._tags.all_tags()))} tags"
-        )
         for tag in self._tags.filter(self._image_filter, datetime.now(tz=UTC)):
             image = self._images.image_for_tag_name(tag.tag)
             if image:
@@ -224,7 +220,6 @@ class DockerImageSource(ImageSource):
                 reference = f"{registry}/{repository}:{tag.tag}"
                 menu_image = MenuImage(reference, tag.display_name)
             menu_images.append(menu_image)
-        self._logger.debug(f"Filtered menu contains {len(menu_images)} images")
         return menu_images
 
     @override

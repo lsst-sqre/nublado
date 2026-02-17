@@ -22,7 +22,7 @@ _ALIAS_TYPES = (RSPImageType.ALIAS, RSPImageType.UNKNOWN)
 """Image types that may be aliases and can be resolved."""
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RSPImage(RSPImageTag):
     """A tagged Rubin Science Platform image.
 
@@ -225,6 +225,7 @@ class RSPImageCollection:
         self,
         *,
         hide_aliased: bool = False,
+        hide_arch_specific: bool = True,
         hide_resolved_aliases: bool = False,
     ) -> Iterator[RSPImage]:
         """All images in sorted order.
@@ -240,6 +241,9 @@ class RSPImageCollection:
             not its primary target, on the somewhat tenuous grounds that the
             description of the alias will not mention that image and it may
             seem strange for it to go missing.
+        hide_arch_specific
+            If `True`, hide images for a specific architecture and only
+            include images for all supported architectures.
         hide_resolved_aliases
             If `True`, hide images that are an alias for another image in the
             collection (but keep alias images when we don't have the target).
@@ -253,12 +257,50 @@ class RSPImageCollection:
         """
         for image_type in RSPImageType:
             for image in self._by_type[image_type]:
+                if hide_arch_specific and image.architecture:
+                    continue
                 if hide_aliased and self._is_image_aliased(image):
                     continue
                 if hide_resolved_aliases and image.alias_target:
                     if image.alias_target in self._by_tag_name:
                         continue
                 yield image
+
+    def filter(
+        self,
+        policy: RSPImageFilterPolicy,
+        age_basis: datetime,
+        *,
+        remove_arch_specific: bool = True,
+    ) -> list[RSPImage]:
+        """Apply a filter policy and return the remaining images.
+
+        Parameters
+        ----------
+        policy
+            Policy governing tag filtering.
+        age_basis
+            Timestamp to use as basis for image age calculation.
+        remove_arch_specific
+            If `True`, remove images for a specific architecture and only
+            include images for all supported architectures.
+
+        Returns
+        -------
+        list[RSPImage]
+            Tags remaining after policy application.
+        """
+        images: list[RSPImage] = []
+        for category in RSPImageType:
+            images.extend(
+                self._apply_category_policy(
+                    policy,
+                    category,
+                    age_basis,
+                    remove_arch_specific=remove_arch_specific,
+                )
+            )
+        return images
 
     def image_for_digest(self, digest: str) -> RSPImage | None:
         """Find an image by digest.
@@ -338,6 +380,7 @@ class RSPImageCollection:
         weeklies: int = 0,
         dailies: int = 0,
         include: set[str] | None = None,
+        remove_arch_specific: bool = True,
     ) -> RSPImageCollection:
         """Return a subset of the image collection.
 
@@ -351,34 +394,35 @@ class RSPImageCollection:
             Number of dailies to include.
         include
             Include this list of tags even if they don't meet other criteria.
+        remove_arch_specific
+            If `True`, remove images for a specific architecture and only
+            include images for all supported architectures.
 
         Returns
         -------
         RSPImageCollection
             The desired subset.
         """
-        images = []
+        images: list[RSPImage] = []
 
         # Extract the desired image types.
-        if releases and RSPImageType.RELEASE in self._by_type:
-            images.extend(self._by_type[RSPImageType.RELEASE][0:releases])
-        if weeklies and RSPImageType.WEEKLY in self._by_type:
-            images.extend(self._by_type[RSPImageType.WEEKLY][0:weeklies])
-        if dailies and RSPImageType.DAILY in self._by_type:
-            images.extend(self._by_type[RSPImageType.DAILY][0:dailies])
+        args = {"remove_arch_specific": remove_arch_specific}
+        partial = self._first_images(RSPImageType.RELEASE, releases, **args)
+        images.extend(partial)
+        partial = self._first_images(RSPImageType.WEEKLY, weeklies, **args)
+        images.extend(partial)
+        partial = self._first_images(RSPImageType.DAILY, dailies, **args)
+        images.extend(partial)
 
         # Include additional images if they're present in the collection.
         if include:
-            images.extend(
-                [
-                    self._by_tag_name[t]
-                    for t in include
-                    if t in self._by_tag_name
-                ]
+            partial = (
+                self._by_tag_name[t] for t in include if t in self._by_tag_name
             )
+            images.extend(partial)
 
         # Return the results.
-        return RSPImageCollection(images)
+        return type(self)(images)
 
     def subtract(self, other: RSPImageCollection) -> RSPImageCollection:
         """Find the list of images in this collection missing from another.
@@ -405,6 +449,42 @@ class RSPImageCollection:
             if image.digest in candidates:
                 del candidates[image.digest]
         return RSPImageCollection(candidates.values())
+
+    def _first_images(
+        self,
+        image_type: RSPImageType,
+        total: int,
+        *,
+        remove_arch_specific: bool = True,
+    ) -> Iterator[RSPImage]:
+        """Get the first ``total`` images by type.
+
+        Parameters
+        ----------
+        image_type
+            Type of images to retrieve.
+        total
+            Total number of images to retrieve. The result may be shorter if
+            fewer than that may images are available.
+        remove_arch_specific
+            If `True`, filter out all images for a specific architecture and
+            only include images for all supported architectures.
+
+        Yields
+        ------
+        RSPImage
+            Images satisfying the given criteria.
+        """
+        if total == 0 or image_type not in self._by_type:
+            return
+        count = 0
+        for image in self._by_type[image_type]:
+            if remove_arch_specific and image.architecture:
+                continue
+            yield image
+            count += 1
+            if count >= total:
+                return
 
     def _is_image_aliased(self, image: RSPImage) -> bool:
         """Return whether this image is aliased.
@@ -554,37 +634,20 @@ class RSPImageCollection:
             old.aliases.add(new.tag)
             self._by_digest[new.digest] = new
 
-    def filter(
-        self, policy: RSPImageFilterPolicy, age_basis: datetime
-    ) -> list[RSPImage]:
-        """Apply a filter policy and return the remaining images.
-
-        Parameters
-        ----------
-        policy
-            Policy governing tag filtering.
-        age_basis
-            Timestamp to use as basis for image age calculation.
-
-        Returns
-        -------
-        list[RSPImage]
-            Tags remaining after policy application.
-        """
-        images: list[RSPImage] = []
-        for category in RSPImageType:
-            images.extend(
-                self._apply_category_policy(policy, category, age_basis)
-            )
-        return images
-
-    def _apply_category_policy(
+    def _apply_category_policy(  # noqa: C901
         self,
         policy: RSPImageFilterPolicy,
         category: RSPImageType,
         age_basis: datetime,
+        *,
+        remove_arch_specific: bool = True,
     ) -> list[RSPImage]:
-        candidates = list(self._by_type[category])
+        candidates = []
+        for image in self._by_type[category]:
+            if remove_arch_specific and image.architecture:
+                continue
+            candidates.append(image)
+
         remainder: list[RSPImage] = []
         cat_policy = policy.policy_for_category(category)
         if cat_policy is None:

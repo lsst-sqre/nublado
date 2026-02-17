@@ -481,7 +481,7 @@ class RSPImageTagCollection:
     @classmethod
     def from_tag_names(
         cls,
-        tag_names: list[str],
+        tag_names: Iterable[str],
         aliases: set[str],
         cycle: int | None = None,
     ) -> Self:
@@ -520,8 +520,16 @@ class RSPImageTagCollection:
         for tag_list in self._by_type.values():
             tag_list.sort(reverse=True)
 
-    def all_tags(self) -> Iterator[RSPImageTag]:
+    def all_tags(
+        self, *, hide_arch_specific: bool = True
+    ) -> Iterator[RSPImageTag]:
         """Iterate over all tags.
+
+        Parameters
+        ----------
+        hide_arch_specific
+            If `True`, hide tags for a specific architecture and only include
+            tags for all supported architectures.
 
         Yields
         ------
@@ -529,7 +537,10 @@ class RSPImageTagCollection:
             Each tag in sorted order.
         """
         for image_type in RSPImageType:
-            yield from self._by_type[image_type]
+            for tag in self._by_type[image_type]:
+                if hide_arch_specific and tag.architecture:
+                    continue
+                yield tag
 
     def tag_for_tag_name(self, tag_name: str) -> RSPImageTag | None:
         """Look up a tag by tag name.
@@ -553,6 +564,7 @@ class RSPImageTagCollection:
         weeklies: int = 0,
         dailies: int = 0,
         include: set[str] | None = None,
+        remove_arch_specific: bool = True,
     ) -> Self:
         """Return a subset of the tag collection.
 
@@ -566,33 +578,37 @@ class RSPImageTagCollection:
             Number of dailies to include.
         include
             Include this list of tags even if they don't meet other criteria.
+        remove_arch_specific
+            If `True`, remove tags for a specific architecture and only
+            include tags for all supported architectures.
 
         Returns
         -------
         RSPImageTagCollection
             The desired subset.
         """
-        tags = []
+        tags: list[RSPImageTag] = []
 
         # Extract the desired tag types.
-        if releases and RSPImageType.RELEASE in self._by_type:
-            tags.extend(self._by_type[RSPImageType.RELEASE][0:releases])
-        if weeklies and RSPImageType.WEEKLY in self._by_type:
-            tags.extend(self._by_type[RSPImageType.WEEKLY][0:weeklies])
-        if dailies and RSPImageType.DAILY in self._by_type:
-            tags.extend(self._by_type[RSPImageType.DAILY][0:dailies])
+        args = {"remove_arch_specific": remove_arch_specific}
+        tags.extend(self._first_tags(RSPImageType.RELEASE, releases, **args))
+        tags.extend(self._first_tags(RSPImageType.WEEKLY, weeklies, **args))
+        tags.extend(self._first_tags(RSPImageType.DAILY, dailies, **args))
 
         # Include additional tags if they're present in the collection.
         if include:
-            tags.extend(
-                [self._by_tag[t] for t in include if t in self._by_tag]
-            )
+            partial = (self._by_tag[t] for t in include if t in self._by_tag)
+            tags.extend(partial)
 
         # Return the results.
         return type(self)(tags)
 
     def filter(
-        self, policy: RSPImageFilterPolicy, age_basis: datetime
+        self,
+        policy: RSPImageFilterPolicy,
+        age_basis: datetime,
+        *,
+        remove_arch_specific: bool = True,
     ) -> list[RSPImageTag]:
         """Apply a filter policy and return the remaining tags.
 
@@ -602,6 +618,9 @@ class RSPImageTagCollection:
             Policy governing tag filtering.
         age_basis
             Timestamp to use as basis for image age calculation.
+        remove_arch_specific
+            If `True`, remove tags for a specific architecture and only
+            include tags for all supported architectures.
 
         Returns
         -------
@@ -610,18 +629,29 @@ class RSPImageTagCollection:
         """
         tags: list[RSPImageTag] = []
         for category in RSPImageType:
-            tags.extend(
-                self._apply_category_policy(policy, category, age_basis)
+            partial = self._apply_category_policy(
+                policy,
+                category,
+                age_basis,
+                remove_arch_specific=remove_arch_specific,
             )
+            tags.extend(partial)
         return tags
 
-    def _apply_category_policy(
+    def _apply_category_policy(  # noqa: C901
         self,
         policy: RSPImageFilterPolicy,
         category: RSPImageType,
         age_basis: datetime,
+        *,
+        remove_arch_specific: bool = True,
     ) -> list[RSPImageTag]:
-        candidates = list(self._by_type[category])
+        candidates = []
+        for tag in self._by_type[category]:
+            if remove_arch_specific and tag.architecture:
+                continue
+            candidates.append(tag)
+
         remainder: list[RSPImageTag] = []
         cat_policy = policy.policy_for_category(category)
         if cat_policy is None:
@@ -645,3 +675,39 @@ class RSPImageTagCollection:
                     continue
             remainder.append(tag)
         return remainder
+
+    def _first_tags(
+        self,
+        image_type: RSPImageType,
+        total: int,
+        *,
+        remove_arch_specific: bool = True,
+    ) -> Iterator[RSPImageTag]:
+        """Get the first ``total`` tags by type.
+
+        Parameters
+        ----------
+        image_type
+            Type of tags to retrieve.
+        total
+            Total number of tags to retrieve. The result may be shorter if
+            fewer than that may tags are available.
+        remove_arch_specific
+            If `True`, filter out all tags for a specific architecture and
+            only include tags for all supported architectures.
+
+        Yields
+        ------
+        RSPImageTag
+            Tags satisfying the given criteria.
+        """
+        if total == 0 or image_type not in self._by_type:
+            return
+        count = 0
+        for tag in self._by_type[image_type]:
+            if remove_arch_specific and tag.architecture:
+                continue
+            yield tag
+            count += 1
+            if count >= total:
+                return
