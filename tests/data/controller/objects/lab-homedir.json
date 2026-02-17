@@ -1,0 +1,609 @@
+[
+  {
+    "apiVersion": "v1",
+    "data": {
+      "CONTAINER_SIZE": "Small (1.0 CPU, 3Gi RAM)",
+      "CPU_GUARANTEE": "0.25",
+      "CPU_LIMIT": "1.0",
+      "EXTERNAL_INSTANCE_URL": "http://127.0.0.1:8080",
+      "IMAGE_DESCRIPTION": "Daily 2077_10_23",
+      "IMAGE_DIGEST": "sha256:1234",
+      "JUPYTERHUB_ACTIVITY_INTERVAL": "3600",
+      "JUPYTERHUB_SERVICE_PREFIX": "/nb/user/rachel/",
+      "JUPYTERLAB_CONFIG_DIR": "/opt/lsst/software/jupyterlab",
+      "JUPYTERLAB_START_COMMAND": "/opt/lsst/software/jupyterlab/runlab.sh",
+      "JUPYTER_IMAGE": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
+      "JUPYTER_IMAGE_SPEC": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
+      "MEM_GUARANTEE": "805306368",
+      "MEM_LIMIT": "3221225472",
+      "NUBLADO_RUNTIME_MOUNTS_DIR": "/opt/lsst/software/jupyterlab",
+      "REPERTOIRE_BASE_URL": "https://example.com/repertoire"
+    },
+    "immutable": true,
+    "kind": "ConfigMap",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "lab",
+        "nublado.lsst.io/user": "rachel"
+      },
+      "name": "rachel-nb-env",
+      "namespace": "userlabs-rachel"
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "data": {
+      "discovery-v1-json": "{\n  \"datasets\": {\n    \"dp1\": {\n      \"butler_config\": \"https://data.example.com/api/butler/repo/dp1/butler.yaml\",\n      \"services\": {\n        \"cutout\": {\n          \"url\": \"https://data.example.com/api/cutout\",\n          \"versions\": {\n            \"soda-async-1.0\": {\n              \"url\": \"https://data.example.com/api/cutout/dp1/jobs\"\n            },\n            \"soda-sync-1.0\": {\n              \"url\": \"https://data.example.com/api/cutout/dp1/sync\"\n            }\n          }\n        },\n        \"hips\": {\n          \"url\": \"https://example.com/api/hips/v2/dp1/list\",\n          \"versions\": {\n            \"hips-list-1.0\": {\n              \"url\": \"https://example.com/api/hips/v2/dp1/list\"\n            }\n          }\n        }\n      }\n    }\n  },\n  \"influxdb_databases\": {\n    \"idfdev_efd\": {\n      \"credentials_url\": \"https://example.com/repertoire/discovery/influxdb/idfdev_efd\",\n      \"database\": \"efd\",\n      \"schema_registry\": \"http://sasquatch-schema-registry.sasquatch:8081/\",\n      \"url\": \"https://data.example.com/influxdb/\"\n    }\n  }\n}"
+    },
+    "immutable": true,
+    "kind": "ConfigMap",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "lab",
+        "nublado.lsst.io/user": "rachel"
+      },
+      "name": "rachel-nb-files",
+      "namespace": "userlabs-rachel"
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "data": {
+      "group": "root:x:0\nrachel:x:1101:\nlunatics:x:2028:rachel\nmechanics:x:2001:rachel\nstorytellers:x:2021:rachel\n99numbers:x:2029:rachel\n",
+      "passwd": "root:x:0:0:root:/root:/bin/bash\nrachel:x:1101:1101:Rachel (?):/u/home/r/rachel/jhome:/bin/bash\n"
+    },
+    "immutable": true,
+    "kind": "ConfigMap",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "lab",
+        "nublado.lsst.io/user": "rachel"
+      },
+      "name": "rachel-nb-nss",
+      "namespace": "userlabs-rachel"
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "Namespace",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "lab",
+        "nublado.lsst.io/user": "rachel"
+      },
+      "name": "userlabs-rachel"
+    }
+  },
+  {
+    "apiVersion": "networking.k8s.io/v1",
+    "kind": "NetworkPolicy",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "lab",
+        "nublado.lsst.io/user": "rachel"
+      },
+      "name": "rachel-nb",
+      "namespace": "userlabs-rachel"
+    },
+    "spec": {
+      "ingress": [
+        {
+          "from": [
+            {
+              "namespaceSelector": {
+                "matchLabels": {
+                  "nublado.lsst.io/category": "lab",
+                  "nublado.lsst.io/user": "rachel"
+                }
+              }
+            },
+            {
+              "namespaceSelector": {},
+              "podSelector": {
+                "matchLabels": {
+                  "app": "jupyterhub"
+                }
+              }
+            }
+          ],
+          "ports": [
+            {
+              "port": 8888
+            }
+          ]
+        }
+      ],
+      "podSelector": {
+        "matchLabels": {
+          "nublado.lsst.io/category": "lab",
+          "nublado.lsst.io/user": "rachel"
+        }
+      },
+      "policyTypes": [
+        "Ingress"
+      ]
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false",
+        "nublado.lsst.io/user-groups": "[{\"name\": \"rachel\", \"id\": 1101}, {\"name\": \"lunatics\", \"id\": 2028}, {\"name\": \"mechanics\", \"id\": 2001}, {\"name\": \"storytellers\", \"id\": 2021}, {\"name\": \"99numbers\", \"id\": 2029}]",
+        "nublado.lsst.io/user-name": "Rachel (?)"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "lab",
+        "nublado.lsst.io/user": "rachel"
+      },
+      "name": "rachel-nb",
+      "namespace": "userlabs-rachel"
+    },
+    "spec": {
+      "automountServiceAccountToken": false,
+      "containers": [
+        {
+          "args": [
+            "/opt/lsst/software/jupyterlab/runlab.sh"
+          ],
+          "env": [
+            {
+              "name": "ACCESS_TOKEN",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "token",
+                  "name": "rachel-nb",
+                  "optional": false
+                }
+              }
+            },
+            {
+              "name": "KUBERNETES_NODE_NAME",
+              "valueFrom": {
+                "fieldRef": {
+                  "fieldPath": "spec.nodeName"
+                }
+              }
+            },
+            {
+              "name": "K8S_NODE_NAME",
+              "valueFrom": {
+                "fieldRef": {
+                  "fieldPath": "spec.nodeName"
+                }
+              }
+            }
+          ],
+          "envFrom": [
+            {
+              "configMapRef": {
+                "name": "rachel-nb-env"
+              }
+            }
+          ],
+          "image": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "notebook",
+          "ports": [
+            {
+              "containerPort": 8888,
+              "name": "jupyterlab"
+            }
+          ],
+          "resources": {
+            "limits": {
+              "cpu": "1.0",
+              "memory": "3221225472"
+            },
+            "requests": {
+              "cpu": "0.25",
+              "memory": "805306368"
+            }
+          },
+          "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": [
+                "all"
+              ]
+            },
+            "readOnlyRootFilesystem": true,
+            "runAsGroup": 1101,
+            "runAsNonRoot": true,
+            "runAsUser": 1101
+          },
+          "volumeMounts": [
+            {
+              "mountPath": "/u/home",
+              "name": "home",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/etc/passwd",
+              "name": "passwd",
+              "readOnly": true,
+              "subPath": "passwd"
+            },
+            {
+              "mountPath": "/etc/group",
+              "name": "group",
+              "readOnly": true,
+              "subPath": "group"
+            },
+            {
+              "mountPath": "/etc/nublado/discovery/v1.json",
+              "name": "discovery-v1-json",
+              "readOnly": true,
+              "subPath": "v1.json"
+            },
+            {
+              "mountPath": "/opt/lsst/software/jupyterlab/secrets",
+              "name": "secrets",
+              "readOnly": true
+            },
+            {
+              "mountPath": "/opt/lsst/software/jupyterlab/environment",
+              "name": "env",
+              "readOnly": true
+            },
+            {
+              "mountPath": "/tmp",
+              "name": "tmp",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/etc/nublado/startup",
+              "name": "lab-startup",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/opt/lsst/software/jupyterlab/runtime",
+              "name": "runtime",
+              "readOnly": true
+            }
+          ],
+          "workingDir": "/u/home/r/rachel/jhome"
+        }
+      ],
+      "initContainers": [
+        {
+          "command": [
+            "nublado",
+            "startup"
+          ],
+          "env": [
+            {
+              "name": "NUBLADO_HOME",
+              "value": "/u/home/r/rachel/jhome"
+            },
+            {
+              "name": "NUBLADO_UID",
+              "value": "1101"
+            },
+            {
+              "name": "NUBLADO_GID",
+              "value": "1101"
+            },
+            {
+              "name": "ACCESS_TOKEN",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "token",
+                  "name": "rachel-nb",
+                  "optional": false
+                }
+              }
+            }
+          ],
+          "envFrom": [
+            {
+              "configMapRef": {
+                "name": "rachel-nb-env"
+              }
+            }
+          ],
+          "image": "ghcr.io/lsst-sqre/nublado:11.1.1",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "nublado-std-startup",
+          "resources": {
+            "limits": {
+              "cpu": "1.0",
+              "memory": "3221225472"
+            },
+            "requests": {
+              "cpu": "0.25",
+              "memory": "805306368"
+            }
+          },
+          "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": [
+                "all"
+              ]
+            },
+            "readOnlyRootFilesystem": true,
+            "runAsGroup": 1101,
+            "runAsNonRoot": true,
+            "runAsUser": 1101
+          },
+          "volumeMounts": [
+            {
+              "mountPath": "/u/home",
+              "name": "home",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/etc/passwd",
+              "name": "passwd",
+              "readOnly": true,
+              "subPath": "passwd"
+            },
+            {
+              "mountPath": "/etc/group",
+              "name": "group",
+              "readOnly": true,
+              "subPath": "group"
+            },
+            {
+              "mountPath": "/etc/nublado/discovery/v1.json",
+              "name": "discovery-v1-json",
+              "readOnly": true,
+              "subPath": "v1.json"
+            },
+            {
+              "mountPath": "/opt/lsst/software/jupyterlab/secrets",
+              "name": "secrets",
+              "readOnly": true
+            },
+            {
+              "mountPath": "/opt/lsst/software/jupyterlab/environment",
+              "name": "env",
+              "readOnly": true
+            },
+            {
+              "mountPath": "/tmp",
+              "name": "tmp",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/etc/nublado/startup",
+              "name": "lab-startup",
+              "readOnly": false
+            },
+            {
+              "mountPath": "/opt/lsst/software/jupyterlab/runtime",
+              "name": "runtime",
+              "readOnly": true
+            }
+          ]
+        }
+      ],
+      "restartPolicy": "OnFailure",
+      "securityContext": {
+        "supplementalGroups": [
+          1101,
+          2028,
+          2001,
+          2021,
+          2029
+        ]
+      },
+      "tolerations": [],
+      "volumes": [
+        {
+          "name": "home",
+          "nfs": {
+            "path": "/share1/home",
+            "readOnly": false,
+            "server": "10.13.105.122"
+          }
+        },
+        {
+          "configMap": {
+            "items": [
+              {
+                "key": "passwd",
+                "mode": 420,
+                "path": "passwd"
+              }
+            ],
+            "name": "rachel-nb-nss"
+          },
+          "name": "passwd"
+        },
+        {
+          "configMap": {
+            "items": [
+              {
+                "key": "group",
+                "mode": 420,
+                "path": "group"
+              }
+            ],
+            "name": "rachel-nb-nss"
+          },
+          "name": "group"
+        },
+        {
+          "configMap": {
+            "items": [
+              {
+                "key": "discovery-v1-json",
+                "mode": 420,
+                "path": "v1.json"
+              }
+            ],
+            "name": "rachel-nb-files"
+          },
+          "name": "discovery-v1-json"
+        },
+        {
+          "name": "secrets",
+          "secret": {
+            "secretName": "rachel-nb"
+          }
+        },
+        {
+          "configMap": {
+            "name": "rachel-nb-env"
+          },
+          "name": "env"
+        },
+        {
+          "emptyDir": {
+            "medium": "Memory",
+            "sizeLimit": "805306368"
+          },
+          "name": "tmp"
+        },
+        {
+          "emptyDir": {
+            "medium": "Memory",
+            "sizeLimit": "655360"
+          },
+          "name": "lab-startup"
+        },
+        {
+          "downwardAPI": {
+            "items": [
+              {
+                "path": "limits_cpu",
+                "resourceFieldRef": {
+                  "containerName": "notebook",
+                  "resource": "limits.cpu"
+                }
+              },
+              {
+                "path": "requests_cpu",
+                "resourceFieldRef": {
+                  "containerName": "notebook",
+                  "resource": "requests.cpu"
+                }
+              },
+              {
+                "path": "limits_memory",
+                "resourceFieldRef": {
+                  "containerName": "notebook",
+                  "resource": "limits.memory"
+                }
+              },
+              {
+                "path": "requests_memory",
+                "resourceFieldRef": {
+                  "containerName": "notebook",
+                  "resource": "requests.memory"
+                }
+              }
+            ]
+          },
+          "name": "runtime"
+        }
+      ]
+    },
+    "status": {
+      "phase": "Running"
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "ResourceQuota",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "lab",
+        "nublado.lsst.io/user": "rachel"
+      },
+      "name": "rachel-nb",
+      "namespace": "userlabs-rachel"
+    },
+    "spec": {
+      "hard": {
+        "limits.cpu": "9.0",
+        "limits.memory": "28991029248"
+      }
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "data": {
+      "token": "<ANY>"
+    },
+    "immutable": true,
+    "kind": "Secret",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "lab",
+        "nublado.lsst.io/user": "rachel"
+      },
+      "name": "rachel-nb",
+      "namespace": "userlabs-rachel"
+    },
+    "type": "Opaque"
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "argocd.argoproj.io/compare-options": "IgnoreExtraneous",
+        "argocd.argoproj.io/sync-options": "Prune=false"
+      },
+      "labels": {
+        "nublado.lsst.io/category": "lab",
+        "nublado.lsst.io/user": "rachel"
+      },
+      "name": "lab",
+      "namespace": "userlabs-rachel"
+    },
+    "spec": {
+      "ports": [
+        {
+          "port": 8888,
+          "targetPort": 8888
+        }
+      ],
+      "selector": {
+        "nublado.lsst.io/category": "lab",
+        "nublado.lsst.io/user": "rachel"
+      }
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "ServiceAccount",
+    "metadata": {
+      "name": "default",
+      "namespace": "userlabs-rachel"
+    }
+  }
+]
