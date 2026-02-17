@@ -10,7 +10,12 @@ from textwrap import dedent
 import structlog
 from safir.logging import LogLevel, configure_logging
 
-from ..constants import APP_NAME, LAB_STATIC_CMD_ARGS, STARTUP_PATH
+from ..constants import (
+    APP_NAME,
+    CONFIG_FILE,
+    LAB_STATIC_CMD_ARGS,
+    STARTUP_PATH,
+)
 from ..exceptions import RSPErrorCode, RSPStartupError
 from .environment import EnvironmentConfigurator
 from .homedir import HomedirManager
@@ -59,6 +64,17 @@ class Preparer:
         # Force HOME in our own environment to be the discovered value since
         # git-lfs setup uses HOME.
         os.environ["HOME"] = self._env["HOME"]
+
+        try:
+            self._config = json.loads(Path(CONFIG_FILE).read_text())
+        except (
+            FileNotFoundError,
+            UnicodeDecodeError,
+            json.decoder.JSONDecodeError,
+        ):
+            # Fallback in case we were started by a previous Nublado that
+            # did not supply a config file.
+            self._config = {"file_browser_root": "home"}
 
     def prepare(self) -> None:
         """Make necessary modifications to start the user lab."""
@@ -332,7 +348,12 @@ class Preparer:
     def _write_lab_args(self) -> None:
         log_level = "DEBUG" if self._debug else "INFO"
         cmd_args = list(LAB_STATIC_CMD_ARGS)
-        cmd_args.append(f"--notebook-dir={self._home!s}")
+        if self._config["file_browser_root"] == "home":
+            cmd_args.append(f"--notebook-dir={self._home!s}")
+        else:
+            rel_h = (self._home).relative_to(Path("/"))
+            cmd_args.append("--notebook-dir=/")
+            cmd_args.append(f"--ContentsManager.preferred_dir={rel_h!s}")
         cmd_args.append(f"--log-level={log_level}")
         cmd_args.extend(self._set_timeout_variables())
         args_file = STARTUP_PATH / "args.json"
