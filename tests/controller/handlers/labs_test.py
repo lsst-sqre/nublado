@@ -880,6 +880,42 @@ async def test_homedir_schema(
 
 
 @pytest.mark.asyncio
+async def test_filebrowser_root(
+    *,
+    client: AsyncClient,
+    data: NubladoData,
+    user: GafaelfawrTestUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    """Check that the home directory is constructed correctly.
+
+    Earlier versions had a bug where the working directory for the spawned pod
+    was always :file:`/home/{username}` even if another home directory rule
+    was set.
+    """
+    config = await configure(data, "filebrowser-root")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/lab-specification"
+    )
+
+    # Create the lab.
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_test_headers(),
+    )
+    assert r.status_code == 201
+    await asyncio.sleep(0)
+
+    # Compare the objects.
+    namespace = f"{config.lab.namespace_prefix}-{user.username}"
+    objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
+    data.assert_kubernetes_matches(
+        objects, "controller/objects/filebrowser-root"
+    )
+
+
+@pytest.mark.asyncio
 async def test_tmp_on_disk(
     *,
     client: AsyncClient,
