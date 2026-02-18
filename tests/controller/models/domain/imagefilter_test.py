@@ -57,7 +57,7 @@ def test_imagefilter() -> None:
     policy = RSPImageFilterPolicy(
         release=ImageFilterPolicy(
             # We should get three
-            cutoff_version=str(Version(major=27, minor=0, patch=0))
+            cutoff_version=Version(major=27, minor=0, patch=0)
         ),
         weekly=ImageFilterPolicy(
             # We should get two
@@ -71,13 +71,13 @@ def test_imagefilter() -> None:
         ),
         release_candidate=ImageFilterPolicy(
             # We should only get one, not two: number will be the filter
-            cutoff_version=str(Version(major=25, minor=3, patch=1)),
+            cutoff_version=Version(major=25, minor=3, patch=1),
             number=1,
         ),
         experimental=ImageFilterPolicy(
             # We should get one.  We'll use calver, which because the
             # experimental is built from a weekly, should work fine.
-            cutoff_version=str(Version(major=2025, minor=7, patch=0))
+            cutoff_version=Version(major=2025, minor=7, patch=0)
         ),
     )
     # We should also get the alias tag and the unknown tag, first and last

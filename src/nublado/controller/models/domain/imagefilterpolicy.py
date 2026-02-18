@@ -2,14 +2,29 @@
 
 from typing import Annotated
 
-import semver
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    PlainSerializer,
+)
 from pydantic.alias_generators import to_camel
 from safir.pydantic import HumanTimedelta
+from semver import Version
 
 from .rspimagetype import RSPImageType
 
 __all__ = ["ImageFilterPolicy", "RSPImageFilterPolicy"]
+
+
+def _validate_version(v: Version | str | None) -> Version | None:
+    """Validate input to a version field."""
+    if v is None:
+        return None
+    if isinstance(v, Version):
+        return v
+    return Version.parse(v)
 
 
 class ImageFilterPolicy(BaseModel):
@@ -48,22 +63,19 @@ class ImageFilterPolicy(BaseModel):
         ),
     ] = None
 
-    # This is a little strange, and the reason is, Version is not JSON-
-    # serializable.  So we store it as a string, but we make sure that the
-    # string will parse into a Version, and we store the string as the
-    # canonical string representation of that version.
     cutoff_version: Annotated[
-        str | None,
-        BeforeValidator(
-            lambda v: None if v is None else str(semver.Version.parse(v))
-        ),
+        Version | None,
         Field(
-            title="Cutoff Version",
+            title="Cutoff version",
             description=(
                 "Minimum version of image to display."
                 " This does not apply to unparseable tags or to"
                 " experimental tags not derived from a parseable tag."
             ),
+        ),
+        BeforeValidator(_validate_version, json_schema_input_type=str | None),
+        PlainSerializer(
+            lambda v: None if v is None else str(v), return_type=str | None
         ),
     ] = None
 

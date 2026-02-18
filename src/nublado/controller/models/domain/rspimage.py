@@ -657,7 +657,7 @@ class RSPImageCollection:
             cutoff_date = age_basis - cat_policy.age
         cutoff_version: semver.Version | None = None
         if cat_policy.cutoff_version is not None:
-            cutoff_version = semver.Version.parse(cat_policy.cutoff_version)
+            cutoff_version = cat_policy.cutoff_version
         for image in candidates:
             if cat_policy.number is not None and cat_policy.number <= len(
                 remainder
