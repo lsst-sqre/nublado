@@ -265,7 +265,7 @@ class RSPImageCollection:
         age_basis: datetime,
         *,
         remove_arch_specific: bool = True,
-    ) -> list[RSPImage]:
+    ) -> Iterator[RSPImage]:
         """Apply a filter policy and return the remaining images.
 
         Parameters
@@ -278,12 +278,12 @@ class RSPImageCollection:
             If `True`, remove images for a specific architecture and only
             include images for all supported architectures.
 
-        Returns
-        -------
-        list of RSPImage
-            Tags remaining after policy application.
+        Yields
+        ------
+        RSPImage
+            Next image matching the criteria.
         """
-        return self._collection.filter(
+        yield from self._collection.filter(
             policy, age_basis, remove_arch_specific=remove_arch_specific
         )
 
