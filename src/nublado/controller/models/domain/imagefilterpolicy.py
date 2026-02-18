@@ -136,10 +136,10 @@ class RSPImageFilterPolicy(BaseModel):
         ),
     ]
 
-    def policy_for_category(
-        self, category: RSPImageType
+    def policy_for_image_type(
+        self, image_type: RSPImageType
     ) -> ImageFilterPolicy | None:
-        match category:
+        match image_type:
             case RSPImageType.ALIAS:
                 return None  # Always show all alias tags
             case RSPImageType.RELEASE:
@@ -154,7 +154,3 @@ class RSPImageFilterPolicy(BaseModel):
                 return self.experimental
             case RSPImageType.UNKNOWN:
                 return None  # Show all unknowns (subject to change)
-            case _:
-                raise ValueError(
-                    f"{category!s} does not resolve to known image type"
-                )

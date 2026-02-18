@@ -12,7 +12,7 @@ from typing import Any, Self, TypeGuard, override
 from safir.datetime import format_datetime_for_logging
 from semver import Version
 
-from .imagefilterpolicy import RSPImageFilterPolicy
+from .imagefilterpolicy import ImageFilterPolicy, RSPImageFilterPolicy
 from .rspimagetype import RSPImageType
 
 DOCKER_DEFAULT_TAG = "latest"
@@ -558,7 +558,7 @@ class RSPImageTagCollection[T: RSPImageTag]:
         age_basis: datetime,
         *,
         remove_arch_specific: bool = True,
-    ) -> list[T]:
+    ) -> Iterator[T]:
         """Apply a filter policy and return the remaining tags.
 
         Parameters
@@ -571,21 +571,18 @@ class RSPImageTagCollection[T: RSPImageTag]:
             If `True`, remove tags for a specific architecture and only
             include tags for all supported architectures.
 
-        Returns
-        -------
-        list[RSPImageTag]
-            Tags remaining after policy application.
+        Yields
+        ------
+        RSPImageTag
+            Next tag allowed under the policy.
         """
-        tags: list[T] = []
-        for category in RSPImageType:
-            partial = self._apply_category_policy(
-                policy,
-                category,
+        for image_type in RSPImageType:
+            yield from self._filter_image_list(
+                self._by_type[image_type],
+                policy.policy_for_image_type(image_type),
                 age_basis,
                 remove_arch_specific=remove_arch_specific,
             )
-            tags.extend(partial)
-        return tags
 
     def latest(self, image_type: RSPImageType) -> T | None:
         """Get the latest tag of a given type.
@@ -664,43 +661,45 @@ class RSPImageTagCollection[T: RSPImageTag]:
         """
         return self._by_tag.get(tag_name)
 
-    def _apply_category_policy(  # noqa: C901
+    def _filter_image_list(
         self,
-        policy: RSPImageFilterPolicy,
-        category: RSPImageType,
+        tags: list[T],
+        policy: ImageFilterPolicy | None,
         age_basis: datetime,
         *,
         remove_arch_specific: bool = True,
-    ) -> list[T]:
-        candidates = []
-        for tag in self._by_type[category]:
+    ) -> Iterator[T]:
+        """Filter a list of tags against a filter policy.
+
+        Parameters
+        ----------
+        tags
+            List of tags to filter.
+        policy
+            Image filter policy to apply, or `None` to do no filtering.
+        age_basis
+            Current time to use as a basis for age filters.
+        remove_arch_specific
+            If `True`, remove tags for a specific architecture and only
+            include tags for all supported architectures.
+        """
+        if not policy:
+            yield from iter(tags)
+            return
+        date = (age_basis - policy.age) if policy.age else None
+        version = policy.cutoff_version
+        count = 0
+        for tag in tags:
             if remove_arch_specific and tag.architecture:
                 continue
-            candidates.append(tag)
-
-        remainder: list[T] = []
-        cat_policy = policy.policy_for_category(category)
-        if cat_policy is None:
-            return candidates
-        cutoff_date: datetime | None = None
-        if cat_policy.age is not None:
-            cutoff_date = age_basis - cat_policy.age
-        cutoff_version: Version | None = None
-        if cat_policy.cutoff_version is not None:
-            cutoff_version = cat_policy.cutoff_version
-        for tag in candidates:
-            if cat_policy.number is not None and cat_policy.number <= len(
-                remainder
-            ):
+            if tag.date and date and tag.date < date:
+                continue
+            if tag.version and version and tag.version < version:
+                continue
+            yield tag
+            count += 1
+            if policy.number and count >= policy.number:
                 break
-            if tag.date is not None and cutoff_date is not None:
-                if tag.date < cutoff_date:
-                    continue
-            if tag.version is not None and cutoff_version is not None:
-                if tag.version < cutoff_version:
-                    continue
-            remainder.append(tag)
-        return remainder
 
     def _first_tags(
         self,
