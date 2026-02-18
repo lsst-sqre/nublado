@@ -68,7 +68,7 @@ def test_tag_ordering() -> None:
 
     eleven = RSPImageTag.from_str("r21_0_1_rsp103_foo-amd64")
     assert ten != eleven
-    assert ten < eleven
+    assert ten > eleven
 
     twelve = RSPImageTag.from_str("r21_0_1_rsp103_foo-arm64")
     assert eleven != twelve
@@ -93,6 +93,7 @@ def test_alias() -> None:
         "cycle_build": None,
         "rsp_build": None,
         "architecture": None,
+        "extra": None,
         "date": None,
     }
 
@@ -107,6 +108,7 @@ def test_alias() -> None:
         "cycle_build": None,
         "rsp_build": None,
         "architecture": None,
+        "extra": None,
         "date": None,
     }
 
@@ -117,15 +119,15 @@ def test_collection() -> None:
     tags = [
         "r21_0_1",
         "r20_0_1_c0027.001",
-        "w_2077_46-amd64",
         "w_2077_46",
+        "w_2077_46-amd64",
         "w_2077_45",
         "w_2077_44",
         "w_2077_43",
         "w_2077_42",
         "w_2077_40_c0027.001",
-        "w_2077_40_c0026.001-amd64",
         "w_2077_40_c0026.001",
+        "w_2077_40_c0026.001-amd64",
         "d_2077_10_21",
         "d_2077_10_20",
         "r22_0_1_rc1-arm64",
@@ -183,8 +185,8 @@ def test_collection() -> None:
     )
     assert [t.tag for t in subset.all_tags(hide_arch_specific=False)] == [
         "r21_0_1",
-        "w_2077_46-amd64",
         "w_2077_46",
+        "w_2077_46-amd64",
         "w_2077_45",
         "d_2077_10_21",
     ]
@@ -233,6 +235,7 @@ def test_from_str(data: NubladoData) -> None:
         "cycle_build": None,
         "rsp_build": None,
         "architecture": None,
+        "extra": None,
         "date": None,
     }
     assert RSPImageTag.from_str("").to_dict() == {
@@ -244,6 +247,7 @@ def test_from_str(data: NubladoData) -> None:
         "cycle_build": None,
         "rsp_build": None,
         "architecture": None,
+        "extra": None,
         "date": None,
     }
 
@@ -292,6 +296,7 @@ def test_from_str_varient(
     if extra:
         tag += f"_{extra}"
         expected["display_name"] += f" [{extra}]"
+        expected["extra"] = extra
     if architecture:
         tag += f"-{architecture}"
         expected["display_name"] += f" [{architecture}]"

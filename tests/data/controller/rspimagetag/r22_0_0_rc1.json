@@ -4,6 +4,7 @@
   "cycle_build": null,
   "date": null,
   "display_name": "Release Candidate r22.0.0-rc1",
+  "extra": null,
   "image_type": "Release Candidate",
   "rsp_build": null,
   "tag": "r22_0_0_rc1",
