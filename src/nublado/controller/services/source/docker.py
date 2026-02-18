@@ -15,7 +15,7 @@ from ...models.domain.image import MenuImage
 from ...models.domain.imagefilterpolicy import RSPImageFilterPolicy
 from ...models.domain.kubernetes import KubernetesNodeImage
 from ...models.domain.rspimage import RSPImage, RSPImageCollection
-from ...models.domain.rsptag import RSPImageTagCollection
+from ...models.domain.rsptag import RSPImageTag, RSPImageTagCollection
 from ...models.v1.prepuller import (
     DockerSourceOptions,
     PrepulledImage,
@@ -60,7 +60,7 @@ class DockerImageSource(ImageSource):
         self._docker = docker
 
         # All tags present in the registry and repository per its API.
-        self._tags = RSPImageTagCollection([])
+        self._tags = RSPImageTagCollection[RSPImageTag]([])
 
         # Tags that have been resolved to images.
         self._images = RSPImageCollection([])

@@ -469,7 +469,7 @@ class RSPImageTag:
         return -1 if left < right else 1
 
 
-class RSPImageTagCollection:
+class RSPImageTagCollection[T: RSPImageTag]:
     """Hold and perform operations on a set of `RSPImageTag` objects.
 
     Parameters
@@ -484,7 +484,7 @@ class RSPImageTagCollection:
         tag_names: Iterable[str],
         aliases: set[str],
         cycle: int | None = None,
-    ) -> Self:
+    ) -> RSPImageTagCollection[RSPImageTag]:
         """Create a collection from tag strings.
 
         Parameters
@@ -509,9 +509,9 @@ class RSPImageTagCollection:
                 tag = RSPImageTag.from_str(name)
             if cycle is None or tag.cycle == cycle:
                 tags.append(tag)
-        return cls(tags)
+        return RSPImageTagCollection[RSPImageTag](tags)
 
-    def __init__(self, tags: Iterable[RSPImageTag]) -> None:
+    def __init__(self, tags: Iterable[T]) -> None:
         self._by_tag = {}
         self._by_type = defaultdict(list)
         for tag in tags:
@@ -520,9 +520,19 @@ class RSPImageTagCollection:
         for tag_list in self._by_type.values():
             tag_list.sort(reverse=True)
 
-    def all_tags(
-        self, *, hide_arch_specific: bool = True
-    ) -> Iterator[RSPImageTag]:
+    def add(self, tag: T) -> None:
+        """Add a tag to the collection.
+
+        Parameters
+        ----------
+        tag
+            The tag to add.
+        """
+        self._by_tag[tag.tag] = tag
+        self._by_type[tag.image_type].append(tag)
+        self._by_type[tag.image_type].sort(reverse=True)
+
+    def all_tags(self, *, hide_arch_specific: bool = True) -> Iterator[T]:
         """Iterate over all tags.
 
         Parameters
@@ -542,20 +552,56 @@ class RSPImageTagCollection:
                     continue
                 yield tag
 
-    def tag_for_tag_name(self, tag_name: str) -> RSPImageTag | None:
-        """Look up a tag by tag name.
+    def filter(
+        self,
+        policy: RSPImageFilterPolicy,
+        age_basis: datetime,
+        *,
+        remove_arch_specific: bool = True,
+    ) -> list[T]:
+        """Apply a filter policy and return the remaining tags.
 
         Parameters
         ----------
-        tag_name
-            Tag to search for.
+        policy
+            Policy governing tag filtering.
+        age_basis
+            Timestamp to use as basis for image age calculation.
+        remove_arch_specific
+            If `True`, remove tags for a specific architecture and only
+            include tags for all supported architectures.
 
         Returns
         -------
-        bool
-            The tag if found in the collection, else `None`.
+        list[RSPImageTag]
+            Tags remaining after policy application.
         """
-        return self._by_tag.get(tag_name)
+        tags: list[T] = []
+        for category in RSPImageType:
+            partial = self._apply_category_policy(
+                policy,
+                category,
+                age_basis,
+                remove_arch_specific=remove_arch_specific,
+            )
+            tags.extend(partial)
+        return tags
+
+    def latest(self, image_type: RSPImageType) -> T | None:
+        """Get the latest tag of a given type.
+
+        Parameters
+        ----------
+        image_type
+            Image type to retrieve.
+
+        Returns
+        -------
+        RSPImageTag or None
+            Latest tag of that type, if any.
+        """
+        tags = self._by_type[image_type]
+        return tags[0] if tags else None
 
     def subset(
         self,
@@ -587,7 +633,7 @@ class RSPImageTagCollection:
         RSPImageTagCollection
             The desired subset.
         """
-        tags: list[RSPImageTag] = []
+        tags: list[T] = []
 
         # Extract the desired tag types.
         args = {"remove_arch_specific": remove_arch_specific}
@@ -603,40 +649,20 @@ class RSPImageTagCollection:
         # Return the results.
         return type(self)(tags)
 
-    def filter(
-        self,
-        policy: RSPImageFilterPolicy,
-        age_basis: datetime,
-        *,
-        remove_arch_specific: bool = True,
-    ) -> list[RSPImageTag]:
-        """Apply a filter policy and return the remaining tags.
+    def tag_for_tag_name(self, tag_name: str) -> T | None:
+        """Look up a tag by tag name.
 
         Parameters
         ----------
-        policy
-            Policy governing tag filtering.
-        age_basis
-            Timestamp to use as basis for image age calculation.
-        remove_arch_specific
-            If `True`, remove tags for a specific architecture and only
-            include tags for all supported architectures.
+        tag_name
+            Tag to search for.
 
         Returns
         -------
-        list[RSPImageTag]
-            Tags remaining after policy application.
+        bool
+            The tag if found in the collection, else `None`.
         """
-        tags: list[RSPImageTag] = []
-        for category in RSPImageType:
-            partial = self._apply_category_policy(
-                policy,
-                category,
-                age_basis,
-                remove_arch_specific=remove_arch_specific,
-            )
-            tags.extend(partial)
-        return tags
+        return self._by_tag.get(tag_name)
 
     def _apply_category_policy(  # noqa: C901
         self,
@@ -645,14 +671,14 @@ class RSPImageTagCollection:
         age_basis: datetime,
         *,
         remove_arch_specific: bool = True,
-    ) -> list[RSPImageTag]:
+    ) -> list[T]:
         candidates = []
         for tag in self._by_type[category]:
             if remove_arch_specific and tag.architecture:
                 continue
             candidates.append(tag)
 
-        remainder: list[RSPImageTag] = []
+        remainder: list[T] = []
         cat_policy = policy.policy_for_category(category)
         if cat_policy is None:
             return candidates
@@ -682,7 +708,7 @@ class RSPImageTagCollection:
         total: int,
         *,
         remove_arch_specific: bool = True,
-    ) -> Iterator[RSPImageTag]:
+    ) -> Iterator[T]:
         """Get the first ``total`` tags by type.
 
         Parameters
