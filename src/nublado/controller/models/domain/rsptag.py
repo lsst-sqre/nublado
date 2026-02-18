@@ -119,6 +119,9 @@ class RSPImageTag:
     architecture: str | None = None
     """Architecture of image, if specified."""
 
+    extra: str | None = None
+    """Additional information about the image."""
+
     date: datetime | None = None
     """When the image was created, or as close as we can get to that.
 
@@ -214,6 +217,7 @@ class RSPImageTag:
             "cycle_build": self.cycle_build,
             "rsp_build": self.rsp_build,
             "architecture": self.architecture,
+            "extra": self.extra,
             "date": format_datetime_for_logging(self.date),
         }
 
@@ -241,7 +245,7 @@ class RSPImageTag:
         cycle = data.get("cycle")
         cycle_build = data.get("cbuild")
         rsp_build = data.get("rspbuild")
-        rest = data.get("rest")
+        extra = data.get("rest")
         architecture = data.get("arch")
 
         # We can't do very much with unknown tags with a cycle, but we do want
@@ -264,26 +268,17 @@ class RSPImageTag:
         # a display name, try to parse the rest of the tag as a valid tag, and
         # extract its display name.
         #
-        # If the rest portion of the tag isn't a valid tag, it will turn into
-        # an unknown tag, which uses the tag string as its display name, so
-        # this will correctly generate a display name of "Experimental
-        # <rest>".
+        # If the extra portion of the tag isn't a valid tag, it will turn into
+        # an unknown tag, which uses the tag string as its display name. This
+        # will correctly generate a display name of "Experimental <rest>".
         if image_type == RSPImageType.EXPERIMENTAL:
-            if not rest:
+            if not extra:
                 raise RuntimeError("Invalid experimental tag match")
-            subtag = cls.from_str(rest)
-            display_name = f"{image_type.value} {subtag.display_name}"
-            return cls(
-                tag=tag,
-                image_type=image_type,
-                display_name=display_name,
-                version=subtag.version,
-                cycle=subtag.cycle,
-                cycle_build=subtag.cycle_build,
-                rsp_build=subtag.rsp_build,
-                architecture=subtag.architecture,
-                date=subtag.date,
-            )
+            subtag = cls.from_str(extra)
+            subtag.image_type = image_type
+            subtag.tag = tag
+            subtag.display_name = f"{image_type.value} {subtag.display_name}"
+            return subtag
 
         # Parse the remaining version information into a display name and a
         # semantic version.
@@ -294,8 +289,8 @@ class RSPImageTag:
             display_name += f" (RSP Build {rsp_build})"
         if cycle:
             display_name += f" (SAL Cycle {cycle}, Build {cycle_build})"
-        if rest:
-            display_name += f" [{rest}]"
+        if extra:
+            display_name += f" [{extra}]"
         if architecture:
             display_name += f" [{architecture}]"
 
@@ -309,6 +304,7 @@ class RSPImageTag:
             cycle_build=int(cycle_build) if cycle_build else None,
             rsp_build=int(rsp_build) if rsp_build else None,
             architecture=architecture,
+            extra=extra,
             date=cls._calculate_date(data),
         )
 
@@ -420,10 +416,14 @@ class RSPImageTag:
             return self._compare_str(self.tag, other.tag)
 
         # Otherwise, compare the semantic versions. If the semantic versions
-        # are equal, compare the RSP build, cycle, and cycle build in that
-        # order. (This is probably wrong: The cycle should take precedence
-        # over the RSP build. In practice, we don't use both at the same
-        # time.)
+        # are equal, compare the RSP build, cycle, cycle build, extra
+        # information, and architecture in that order. (This is probably
+        # wrong: The cycle should take precedence over the RSP build. In
+        # practice, we don't use both at the same time.)
+        #
+        # For the architecture, sort images without an architecture after
+        # images with one so that in the menu, where images are displayed in
+        # reverse sorted order, the generic images are first.
         if rank := self.version.compare(other.version):
             return rank
         if rank := self._compare_int(self.rsp_build, other.rsp_build):
@@ -432,12 +432,11 @@ class RSPImageTag:
             return rank
         if rank := self._compare_int(self.cycle_build, other.cycle_build):
             return rank
-
-        # Finally, fall back on comparing the display strings, since that will
-        # include the rest information and architecture, if any. This is not
-        # ideal; we should instead track rest separately so that we can sort
-        # by rest before architecture.
-        return self._compare_str(self.display_name, other.display_name)
+        if rank := self._compare_str(self.extra, other.extra):
+            return rank
+        return self._compare_str(
+            self.architecture, other.architecture, none_last=True
+        )
 
     def _is_comparable_type(self, other: object) -> TypeGuard[Self]:
         """Check if the other image tag is comparable.
@@ -458,14 +457,16 @@ class RSPImageTag:
             return 1
         return -1 if left < right else 1
 
-    def _compare_str(self, left: str | None, right: str | None) -> int:
+    def _compare_str(
+        self, left: str | None, right: str | None, *, none_last: bool = False
+    ) -> int:
         """Compare two strings that may be none."""
         if left == right:
             return 0
         if left is None:
-            return -1
+            return 1 if none_last else -1
         if right is None:
-            return 1
+            return -1 if none_last else 1
         return -1 if left < right else 1
 
 

@@ -109,12 +109,12 @@ def test_imagefilter() -> None:
     ]
     assert filtered_tags == [
         "recommended",
-        "r28_0_1-amd64",
         "r28_0_1",
+        "r28_0_1-amd64",
         "r28_0_0",
         "r27_0_0",
-        "w_2025_07-arm64",
         "w_2025_07",
+        "w_2025_07-arm64",
         "w_2025_06",
         "d_2025_02_19",
         "d_2025_02_18",

@@ -45,6 +45,7 @@ def test_image() -> None:
         "cycle_build": None,
         "rsp_build": None,
         "architecture": None,
+        "extra": None,
         "date": datetime(2077, 10, 23, tzinfo=UTC),
         "registry": "lighthouse.ceres",
         "repository": "library/sketchbook",
@@ -133,8 +134,8 @@ def test_collection() -> None:
     """Test RSPImageCollection."""
     tags = [
         "w_2077_46",
-        "w_2077_45-amd64",
         "w_2077_45",
+        "w_2077_45-amd64",
         "w_2077_44",
         "w_2077_43",
         "d_2077_10_21",
@@ -220,8 +221,8 @@ def test_collection() -> None:
     )
     assert [t.tag for t in subset.all_images(hide_arch_specific=False)] == [
         "w_2077_46",
-        "w_2077_45-amd64",
         "w_2077_45",
+        "w_2077_45-amd64",
         "d_2077_10_21",
     ]
     subset = collection.subset(
@@ -239,7 +240,7 @@ def test_collection() -> None:
 
     # Test subtraction. Note that this only returns one image per digest and
     # prefers the non-alias images.
-    other = RSPImageCollection((images[0], images[2]))
+    other = RSPImageCollection(images[0:2])
     remainder = collection.subtract(other)
     assert [i.tag for i in remainder.all_images()] == [
         "w_2077_44",
