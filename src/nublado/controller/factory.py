@@ -382,6 +382,25 @@ class Factory:
             logger=self._logger,
         )
 
+    def create_gar_storage(self) -> GARStorageClient:
+        """Create a Google Artifact Registry storage client.
+
+        Only used by the test suite.
+
+        Returns
+        -------
+        GARStorageClient
+            Newly-created Docker storage client.
+
+        Raises
+        ------
+        NotConfiguredError
+            Raised if the image source is not configured to use Docker.
+        """
+        if self._context.config.images.source.type != "google":
+            raise NotConfiguredError("GAR image source not configured")
+        return GARStorageClient(self._logger)
+
     def create_lab_builder(self) -> LabBuilder:
         """Create builder service for user labs.
 

@@ -8,6 +8,8 @@ __all__ = [
     "CONFIGURATION_PATH",
     "DOCKER_CREDENTIALS_PATH",
     "DROPDOWN_SENTINEL_VALUE",
+    "GAR_RETRY_DELAY",
+    "GAR_RETRY_LIMIT",
     "GROUPNAME_REGEX",
     "KUBERNETES_NAME_PATTERN",
     "KUBERNETES_REQUEST_TIMEOUT",
@@ -39,6 +41,12 @@ DOCKER_CREDENTIALS_PATH = Path("/etc/secrets/.dockerconfigjson")
 
 DROPDOWN_SENTINEL_VALUE = "use_image_from_dropdown"
 """Used in the lab form for ``image_list`` when ``image_dropdown`` is used."""
+
+GAR_RETRY_DELAY = timedelta(seconds=10)
+"""How long to wait between Google Artifact Registry retries."""
+
+GAR_RETRY_LIMIT = 3
+"""How many total times to attempt Google Artifact Registry calls."""
 
 KUBERNETES_NAME_PATTERN = "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
 """Pattern matching valid Kubernetes names."""

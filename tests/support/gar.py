@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator, Iterator
 from typing import Any, override
 from unittest.mock import Mock, patch
 
+from google.api_core.exceptions import ServiceUnavailable
 from google.cloud import artifactregistry_v1
 from google.cloud.artifactregistry_v1 import (
     ArtifactRegistryAsyncClient,
@@ -26,6 +27,7 @@ class MockArtifactRegistry(Mock):
     def __init__(self) -> None:
         super().__init__(spec=ArtifactRegistryAsyncClient)
         self._images: defaultdict[str, list[DockerImage]] = defaultdict(list)
+        self._fail = False
 
     def add_image_for_test(self, parent: str, image: DockerImage) -> None:
         """Add an image to the set of known images in the mock registry.
@@ -38,6 +40,14 @@ class MockArtifactRegistry(Mock):
             Image to add.
         """
         self._images[parent].append(image)
+
+    def fail_for_test(self) -> None:
+        """Fail the next image retrieval with an exception.
+
+        After the next retrieval fails, subsequent ones will work correctly
+        again.
+        """
+        self._fail = True
 
     async def list_docker_images(
         self,
@@ -55,6 +65,11 @@ class MockArtifactRegistry(Mock):
         DockerImage
             Next image matching the request.
 
+        Raises
+        ------
+        google.api_core.exceptions.ServiceUnavailable
+            Raised if `fail_for_test` was called.
+
         Notes
         -----
         The Google API documentation for this function is wrong. It claims
@@ -67,6 +82,9 @@ class MockArtifactRegistry(Mock):
 
         async def iterator() -> AsyncIterator[DockerImage]:
             for image in self._images[request.parent]:
+                if self._fail:
+                    self._fail = False
+                    raise ServiceUnavailable("Injected error for testing")
                 yield image
 
         return iterator()

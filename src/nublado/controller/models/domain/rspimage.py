@@ -61,20 +61,28 @@ class RSPImage(RSPImageTag):
 
     @classmethod
     def from_tag(
-        cls, *, registry: str, repository: str, tag: RSPImageTag, digest: str
+        cls,
+        tag: RSPImageTag,
+        *,
+        registry: str,
+        repository: str,
+        digest: str,
+        size: int | None = None,
     ) -> Self:
         """Construct an image from an existing tag.
 
         Parameters
         ----------
+        tag
+            Tag for this image.
         registry
             Docker registry for this image.
         repository
             Docker repository for this image.
-        tag
-            Tag for this image.
         digest
             Digest for this image.
+        size
+            Size of the image, if known.
 
         Returns
         -------
@@ -85,6 +93,7 @@ class RSPImage(RSPImageTag):
             registry=registry,
             repository=repository,
             digest=digest,
+            size=size,
             **asdict(tag),
         )
 
