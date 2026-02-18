@@ -8,10 +8,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Self
 
-import semver
-
 from .imagefilterpolicy import RSPImageFilterPolicy
-from .rsptag import RSPImageTag, RSPImageType
+from .rsptag import RSPImageTag, RSPImageTagCollection, RSPImageType
 
 __all__ = [
     "RSPImage",
@@ -168,8 +166,8 @@ class RSPImageCollection:
 
     Parameters
     ----------
-    images
-        `RSPImage` objects to store.
+    tags
+        Underlying collection of tags.
     cycle
         If given, only add images with a matching cycle.
     """
@@ -178,8 +176,7 @@ class RSPImageCollection:
         self, images: Iterable[RSPImage], cycle: int | None = None
     ) -> None:
         self._by_digest: dict[str, RSPImage]
-        self._by_tag_name: dict[str, RSPImage]
-        self._by_type: defaultdict[RSPImageType, list[RSPImage]]
+        self._collection: RSPImageTagCollection[RSPImage]
 
         # Unresolved aliases by digest that are not in _by_digest.
         self._unresolved_aliases: defaultdict[str, list[RSPImage]]
@@ -217,9 +214,7 @@ class RSPImageCollection:
             self._resolve_duplicate(image, other)
         else:
             self._by_digest[image.digest] = image
-        self._by_tag_name[image.tag] = image
-        self._by_type[image.image_type].append(image)
-        self._by_type[image.image_type].sort(reverse=True)
+        self._collection.add(image)
 
     def all_images(
         self,
@@ -255,16 +250,14 @@ class RSPImageCollection:
         list of RSPImage
             Images sorted by their type and then in reverse by their version.
         """
-        for image_type in RSPImageType:
-            for image in self._by_type[image_type]:
-                if hide_arch_specific and image.architecture:
+        args = {"hide_arch_specific": hide_arch_specific}
+        for image in self._collection.all_tags(**args):
+            if hide_aliased and self._is_image_aliased(image):
+                continue
+            if hide_resolved_aliases and image.alias_target:
+                if self._collection.tag_for_tag_name(image.alias_target):
                     continue
-                if hide_aliased and self._is_image_aliased(image):
-                    continue
-                if hide_resolved_aliases and image.alias_target:
-                    if image.alias_target in self._by_tag_name:
-                        continue
-                yield image
+            yield image
 
     def filter(
         self,
@@ -287,20 +280,12 @@ class RSPImageCollection:
 
         Returns
         -------
-        list[RSPImage]
+        list of RSPImage
             Tags remaining after policy application.
         """
-        images: list[RSPImage] = []
-        for category in RSPImageType:
-            images.extend(
-                self._apply_category_policy(
-                    policy,
-                    category,
-                    age_basis,
-                    remove_arch_specific=remove_arch_specific,
-                )
-            )
-        return images
+        return self._collection.filter(
+            policy, age_basis, remove_arch_specific=remove_arch_specific
+        )
 
     def image_for_digest(self, digest: str) -> RSPImage | None:
         """Find an image by digest.
@@ -324,7 +309,7 @@ class RSPImageCollection:
         RSPImage or None
             The image with that tag name if found, otherwise `None`.
         """
-        return self._by_tag_name.get(tag)
+        return self._collection.tag_for_tag_name(tag)
 
     def latest(self, image_type: RSPImageType) -> RSPImage | None:
         """Get the latest image of a given type.
@@ -339,8 +324,7 @@ class RSPImageCollection:
         RSPImage or None
             Latest image of that type, if any.
         """
-        images = self._by_type[image_type]
-        return images[0] if images else None
+        return self._collection.latest(image_type)
 
     def mark_image_seen_on_node(
         self, digest: str, node: str, image_size: int | None = None
@@ -366,12 +350,10 @@ class RSPImageCollection:
         if image_size:
             image.size = image_size
         for alias in image.aliases:
-            if alias not in self._by_tag_name:
-                continue
-            other = self._by_tag_name[alias]
-            other.nodes.add(node)
-            if image_size:
-                other.size = image_size
+            if other := self._collection.tag_for_tag_name(alias):
+                other.nodes.add(node)
+                if image_size:
+                    other.size = image_size
 
     def subset(
         self,
@@ -381,7 +363,7 @@ class RSPImageCollection:
         dailies: int = 0,
         include: set[str] | None = None,
         remove_arch_specific: bool = True,
-    ) -> RSPImageCollection:
+    ) -> Self:
         """Return a subset of the image collection.
 
         Parameters
@@ -403,28 +385,16 @@ class RSPImageCollection:
         RSPImageCollection
             The desired subset.
         """
-        images: list[RSPImage] = []
+        images = self._collection.subset(
+            releases=releases,
+            weeklies=weeklies,
+            dailies=dailies,
+            include=include,
+            remove_arch_specific=remove_arch_specific,
+        )
+        return type(self)(images.all_tags(hide_arch_specific=False))
 
-        # Extract the desired image types.
-        args = {"remove_arch_specific": remove_arch_specific}
-        partial = self._first_images(RSPImageType.RELEASE, releases, **args)
-        images.extend(partial)
-        partial = self._first_images(RSPImageType.WEEKLY, weeklies, **args)
-        images.extend(partial)
-        partial = self._first_images(RSPImageType.DAILY, dailies, **args)
-        images.extend(partial)
-
-        # Include additional images if they're present in the collection.
-        if include:
-            partial = (
-                self._by_tag_name[t] for t in include if t in self._by_tag_name
-            )
-            images.extend(partial)
-
-        # Return the results.
-        return type(self)(images)
-
-    def subtract(self, other: RSPImageCollection) -> RSPImageCollection:
+    def subtract(self, other: RSPImageCollection) -> Self:
         """Find the list of images in this collection missing from another.
 
         This returns only one image per digest, preferring the non-alias
@@ -448,43 +418,7 @@ class RSPImageCollection:
         for image in other.all_images():
             if image.digest in candidates:
                 del candidates[image.digest]
-        return RSPImageCollection(candidates.values())
-
-    def _first_images(
-        self,
-        image_type: RSPImageType,
-        total: int,
-        *,
-        remove_arch_specific: bool = True,
-    ) -> Iterator[RSPImage]:
-        """Get the first ``total`` images by type.
-
-        Parameters
-        ----------
-        image_type
-            Type of images to retrieve.
-        total
-            Total number of images to retrieve. The result may be shorter if
-            fewer than that may images are available.
-        remove_arch_specific
-            If `True`, filter out all images for a specific architecture and
-            only include images for all supported architectures.
-
-        Yields
-        ------
-        RSPImage
-            Images satisfying the given criteria.
-        """
-        if total == 0 or image_type not in self._by_type:
-            return
-        count = 0
-        for image in self._by_type[image_type]:
-            if remove_arch_specific and image.architecture:
-                continue
-            yield image
-            count += 1
-            if count >= total:
-                return
+        return type(self)(candidates.values())
 
     def _is_image_aliased(self, image: RSPImage) -> bool:
         """Return whether this image is aliased.
@@ -502,13 +436,11 @@ class RSPImageCollection:
         if image.image_type == RSPImageType.ALIAS:
             return False
         for alias in image.aliases:
-            alias_image = self._by_tag_name.get(alias)
-            if not alias_image:
-                continue
-            if alias_image.image_type != RSPImageType.ALIAS:
-                continue
-            if alias_image.alias_target == image.tag:
-                return True
+            if alias_image := self._collection.tag_for_tag_name(alias):
+                if alias_image.image_type != RSPImageType.ALIAS:
+                    continue
+                if alias_image.alias_target == image.tag:
+                    return True
         return False
 
     def _replace_contents(
@@ -527,20 +459,19 @@ class RSPImageCollection:
             If given, only add images with a matching cycle.
         """
         self._by_digest = {}
-        self._by_tag_name = {}
-        self._by_type = defaultdict(list)
         self._unresolved_aliases = defaultdict(list)
 
-        # First pass: store all images by tag name, and all images other than
-        # unresolved images by digest. If there is a conflict between two
-        # non-alias images, the first one added wins on the theory that
-        # hopefully the Docker image source API returns the newest images
+        # Zeroth pass: Filter by cycle and build a temporary tag collection.
+        images = [i for i in images if cycle is None or i.cycle == cycle]
+        self._collection = RSPImageTagCollection(images)
+
+        # First pass: Store all images other than unresolved images by digest.
+        # Accumulate a list of unresolved images. If there is a conflict
+        # between two non-alias images, the first one added wins on the theory
+        # that hopefully the Docker image source API returns the newest images
         # first.
         unresolved = []
         for image in images:
-            if cycle is not None and image.cycle != cycle:
-                continue
-            self._by_tag_name[image.tag] = image
             if image.is_possible_alias:
                 unresolved.append(image)
             elif image.digest in self._by_digest:
@@ -563,17 +494,10 @@ class RSPImageCollection:
                 self._unresolved_aliases[image.digest].append(image)
                 self._by_digest[image.digest] = image
 
-        # Now, all images have been resolved where possible. Take a third
-        # pass and register all images by type.
-        for image in images:
-            if cycle is not None and image.cycle != cycle:
-                continue
-            self._by_type[image.image_type].append(image)
-
-        # Sort all of the images by reverse order so the newest are first.
-        # This allows all_images to return sorted order efficiently.
-        for image_list in self._by_type.values():
-            image_list.sort(reverse=True)
+        # Now, all images have been resolved where possible. Rebuild the tag
+        # collection. This has to be done again since the type of the image
+        # may change, which affects the indexing.
+        self._collection = RSPImageTagCollection(images)
 
     def _resolve_duplicate(self, new: RSPImage, old: RSPImage) -> None:
         """Handle images with the same digest.
@@ -616,16 +540,17 @@ class RSPImageCollection:
             else:
                 new.resolve_alias(old)
             for alias in old.aliases:
-                if alias == new.tag or alias not in self._by_tag_name:
+                other = self._collection.tag_for_tag_name(alias)
+                if alias == new.tag or not other:
                     continue
-                self._by_tag_name[alias].aliases.add(new.tag)
+                other.aliases.add(new.tag)
         else:
             new.aliases.add(old.tag)
             for alias in old.aliases:
-                if alias == new.tag or alias not in self._by_tag_name:
+                other = self._collection.tag_for_tag_name(alias)
+                if alias == new.tag or not other:
                     continue
                 new.aliases.add(alias)
-                other = self._by_tag_name[alias]
                 if other.alias_target == old.tag:
                     other.resolve_alias(new)
                     other.aliases.add(old.tag)
@@ -633,41 +558,3 @@ class RSPImageCollection:
                     other.aliases.add(new.tag)
             old.aliases.add(new.tag)
             self._by_digest[new.digest] = new
-
-    def _apply_category_policy(  # noqa: C901
-        self,
-        policy: RSPImageFilterPolicy,
-        category: RSPImageType,
-        age_basis: datetime,
-        *,
-        remove_arch_specific: bool = True,
-    ) -> list[RSPImage]:
-        candidates = []
-        for image in self._by_type[category]:
-            if remove_arch_specific and image.architecture:
-                continue
-            candidates.append(image)
-
-        remainder: list[RSPImage] = []
-        cat_policy = policy.policy_for_category(category)
-        if cat_policy is None:
-            return candidates
-        cutoff_date = None
-        if cat_policy.age is not None:
-            cutoff_date = age_basis - cat_policy.age
-        cutoff_version: semver.Version | None = None
-        if cat_policy.cutoff_version is not None:
-            cutoff_version = cat_policy.cutoff_version
-        for image in candidates:
-            if cat_policy.number is not None and cat_policy.number <= len(
-                remainder
-            ):
-                break
-            if image.date is not None and cutoff_date is not None:
-                if image.date < cutoff_date:
-                    continue
-            if image.version is not None and cutoff_version is not None:
-                if image.version < cutoff_version:
-                    continue
-            remainder.append(image)
-        return remainder
