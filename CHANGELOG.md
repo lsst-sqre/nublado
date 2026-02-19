@@ -6,6 +6,14 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.0.1'></a>
+## 12.0.1 (2026-02-19)
+
+### Bug fixes
+
+- Always filter out architecture-specific images rather than including them if the non-architecture-specific image with the same tag is not present. This removes images for foreign architectures from the prepull targets and the drop-down menu.
+- Retry requests to Google Artifact Registry to retrieve the list of images up to three times with a ten second pause between attempts before reporting a fatal error. This will hopefully reduce log noise from the intermittant Google API failures.
+
 <a id='changelog-12.0.0'></a>
 ## 12.0.0 (2026-02-10)
 
