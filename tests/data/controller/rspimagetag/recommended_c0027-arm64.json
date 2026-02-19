@@ -1,0 +1,12 @@
+{
+  "architecture": "arm64",
+  "cycle": 27,
+  "cycle_build": null,
+  "date": null,
+  "display_name": "recommended (SAL Cycle 0027) [arm64]",
+  "extra": null,
+  "image_type": "Unknown",
+  "rsp_build": null,
+  "tag": "recommended_c0027-arm64",
+  "version": null
+}

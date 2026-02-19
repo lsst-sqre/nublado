@@ -112,6 +112,34 @@ def test_alias() -> None:
         "date": None,
     }
 
+    # Likewise with architecture.
+    tag = RSPImageTag.alias("latest-amd64")
+    assert asdict(tag) == {
+        "tag": "latest-amd64",
+        "image_type": RSPImageType.ALIAS,
+        "display_name": "Latest [amd64]",
+        "version": None,
+        "cycle": None,
+        "cycle_build": None,
+        "rsp_build": None,
+        "architecture": "amd64",
+        "extra": None,
+        "date": None,
+    }
+    tag = RSPImageTag.alias("latest_c0046-arm64")
+    assert asdict(tag) == {
+        "tag": "latest_c0046-arm64",
+        "image_type": RSPImageType.ALIAS,
+        "display_name": "Latest (SAL Cycle 0046) [arm64]",
+        "version": None,
+        "cycle": 46,
+        "cycle_build": None,
+        "rsp_build": None,
+        "architecture": "arm64",
+        "extra": None,
+        "date": None,
+    }
+
 
 def test_collection() -> None:
     """Test behavior of an RSPImageTagCollection object."""
@@ -135,6 +163,8 @@ def test_collection() -> None:
         "exp_w_2021_22",
         "recommended_c0027",
         "recommended",
+        "latest_c0027-arm64",
+        "latest-arm64",
     ]
     shuffled_tags = list(tags)
     SystemRandom().shuffle(shuffled_tags)
