@@ -418,6 +418,12 @@ class RSPImageTag:
         # Since the tags have to be the same type, generally if one has no
         # semantic version, the other will not as well, since they'll both be
         # alias tags, unknown tags, or the like.
+        #
+        # This is not the correct sorting for alias tags containing
+        # architectures (they will be sorted after ones that do not instead of
+        # before). Fixing this case is hard because it requires storing the
+        # portion of the tag without the architecture, and this is not used in
+        # the current Nublado API, so for now let this be broken.
         if not (self.version and other.version):
             return self._compare_str(self.tag, other.tag)
 
@@ -691,8 +697,14 @@ class RSPImageTagCollection[T: RSPImageTag]:
             include tags for all supported architectures.
         """
         if not policy:
-            yield from iter(tags)
+            for tag in tags:
+                if remove_arch_specific and tag.architecture:
+                    continue
+                yield tag
             return
+
+        # Some filtering rule applies. Calculate the cutoffs and apply the
+        # filtering.
         date = (age_basis - policy.age) if policy.age else None
         version = policy.cutoff_version
         count = 0

@@ -18,6 +18,7 @@ def test_imagefilter() -> None:
     """Test behavior of an RSPImageTagCollection object under a filter."""
     tags = [
         "recommended",
+        "recommended-amd64",
         "r28_0_1",
         "r28_0_1-amd64",
         "r28_0_0",
@@ -46,7 +47,7 @@ def test_imagefilter() -> None:
     shuffled_tags = list(tags)
     SystemRandom().shuffle(shuffled_tags)
 
-    recommended = {"recommended"}
+    recommended = {"recommended", "recommended-amd64"}
     collection = RSPImageTagCollection.from_tag_names(
         shuffled_tags, recommended
     )
@@ -106,6 +107,7 @@ def test_imagefilter() -> None:
         )
     ]
     assert filtered_tags == [
+        "recommended-amd64",
         "recommended",
         "r28_0_1",
         "r28_0_1-amd64",
