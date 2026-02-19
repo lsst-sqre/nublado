@@ -188,13 +188,29 @@ def test_collection() -> None:
         digest=images[0].digest,
     )
 
+    # Add two unknown images with the same digest as the third image, which is
+    # architecture-specific. These should be excluded from filtering and image
+    # listing by default.
+    latest_weekly_arch = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.from_str("latest_weekly_arch"),
+        digest=images[2].digest,
+    )
+    latest_weekly_amd64 = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.from_str("latest_weekly-amd64"),
+        digest=images[2].digest,
+    )
+
     # resolve_alias(), called below, may change image_type, but mypy doesn't
     # have enough information to know that and preserves type narrowing. This
     # is therefore written a little oddly to prevent mypy from doing type
     # narrowing.
     expected = RSPImageType.UNKNOWN
     assert latest_weekly.image_type == expected
-    images.append(latest_weekly)
+    images.extend([latest_weekly, latest_weekly_arch, latest_weekly_amd64])
 
     # Ingest into a collection.
     shuffled_images = list(images)
@@ -221,6 +237,8 @@ def test_collection() -> None:
     all_images = collection.all_images(hide_arch_specific=False)
     assert [i.tag for i in all_images] == [
         "recommended",
+        "latest_weekly_arch",
+        "latest_weekly-amd64",
         "latest_weekly",
         *tags,
     ]
