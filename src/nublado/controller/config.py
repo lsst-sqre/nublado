@@ -61,6 +61,7 @@ __all__ = [
     "GARSourceConfig",
     "HostPathVolumeSource",
     "LabConfig",
+    "LabFileBrowserRoot",
     "LabInitContainer",
     "LabNSSFiles",
     "LabSecret",
@@ -69,6 +70,7 @@ __all__ = [
     "PVCVolumeResources",
     "PVCVolumeSource",
     "PrepullerConfig",
+    "SharedLabConfig",
     "UserHomeDirectorySchema",
     "VolumeConfig",
     "VolumeMountConfig",
@@ -872,8 +874,84 @@ class LabNSSFiles(BaseModel):
     ] = "root:x:0\n"
 
 
-class LabConfig(BaseModel):
-    """Configuration for spawning user labs."""
+class SharedLabConfig(BaseModel):
+    """Sanitized configuration for mounting into the Lab as ConfigMap.
+
+    This is a subset of LabConfig.  It will have extra fields not part
+    of Lab config attached to it when the ConfigMap is constructed.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    homedir_prefix: Annotated[
+        str,
+        Field(
+            title="Prefix for home directory path",
+            description=(
+                "Portion of home directory path added before the username."
+                " This is the path *inside* the container, not the path of the"
+                " volume mounted in the container, so it need not reflect the"
+                " structure of the home directory volume source. The primary"
+                " reason to set this is to make paths inside the container"
+                " match a pattern that users are familiar with outside of"
+                " Nublado."
+            ),
+            examples=["/home", "/u"],
+        ),
+        AfterValidator(lambda v: v.rstrip("/")),
+    ] = "/home"
+
+    homedir_suffix: Annotated[
+        str,
+        Field(
+            title="Suffix for home directory path",
+            description=(
+                "Portion of home directory path added after the username. This"
+                " is primarily used for environments that want the user's"
+                " Nublado home directory to be a subdirectory of their regular"
+                " home directory outside of Nublado. This configuration is"
+                " strongly recommended in environments that change home"
+                " directories, since Nublado often has different needs for"
+                " dot files and other configuration."
+            ),
+            examples=["nublado", "jhome"],
+        ),
+        AfterValidator(lambda v: v.strip("/")),
+    ] = ""
+
+    jupyterlab_config_dir: Annotated[
+        str,
+        Field(
+            title="Root of Lab custom Jupyterlab configuration",
+            description=(
+                "Path inside the lab container where custom configuration is"
+                " stored.  Things like kernel definitions, custom logger"
+                " definitions, service tokens, and Lab-instance-specific"
+                " secrets are stored under this path."
+            ),
+        ),
+    ] = "/opt/lsst/software/jupyterlab"
+
+    runtime_mounts_dir: Annotated[
+        str,
+        Field(
+            title="Runtime-info mounts",
+            description=(
+                "Directory under which runtime information (e.g. tokens,"
+                " environment variables, and container resource information"
+                " will be mounted."
+            ),
+        ),
+    ] = "/opt/lsst/software/jupyterlab"
+
+
+class LabConfig(SharedLabConfig):
+    """Configuration for spawning user labs.
+
+    This is a superset of SharedLabConfig.
+    """
 
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
@@ -985,66 +1063,6 @@ class LabConfig(BaseModel):
         ),
     ] = {}
 
-    jupyterlab_config_dir: Annotated[
-        str,
-        Field(
-            title="Root of Lab custom Jupyterlab configuration",
-            description=(
-                "Path inside the lab container where custom configuration is"
-                " stored.  Things like kernel definitions, custom logger"
-                " definitions, service tokens, and Lab-instance-specific"
-                " secrets are stored under this path."
-            ),
-        ),
-    ] = "/opt/lsst/software/jupyterlab"
-
-    homedir_prefix: Annotated[
-        str,
-        Field(
-            title="Prefix for home directory path",
-            description=(
-                "Portion of home directory path added before the username."
-                " This is the path *inside* the container, not the path of the"
-                " volume mounted in the container, so it need not reflect the"
-                " structure of the home directory volume source. The primary"
-                " reason to set this is to make paths inside the container"
-                " match a pattern that users are familiar with outside of"
-                " Nublado."
-            ),
-            examples=["/home", "/u"],
-        ),
-        AfterValidator(lambda v: v.rstrip("/")),
-    ] = "/home"
-
-    homedir_schema: Annotated[
-        UserHomeDirectorySchema,
-        Field(
-            title="Schema for user homedir construction",
-            description=(
-                "Determines how the username portion of the home directory"
-                " path is constructed."
-            ),
-        ),
-    ] = UserHomeDirectorySchema.USERNAME
-
-    homedir_suffix: Annotated[
-        str,
-        Field(
-            title="Suffix for home directory path",
-            description=(
-                "Portion of home directory path added after the username. This"
-                " is primarily used for environments that want the user's"
-                " Nublado home directory to be a subdirectory of their regular"
-                " home directory outside of Nublado. This configuration is"
-                " strongly recommended in environments that change home"
-                " directories, since Nublado often has different needs for"
-                " dot files and other configuration."
-            ),
-            examples=["nublado", "jhome"],
-        ),
-        AfterValidator(lambda v: v.strip("/")),
-    ] = ""
-
     home_volume_name: Annotated[
         str,
         Field(
@@ -1057,6 +1075,17 @@ class LabConfig(BaseModel):
             ),
         ),
     ] = "home"
+
+    homedir_schema: Annotated[
+        UserHomeDirectorySchema,
+        Field(
+            title="Schema for user homedir construction",
+            description=(
+                "Determines how the username portion of the home directory"
+                " path is constructed."
+            ),
+        ),
+    ] = UserHomeDirectorySchema.USERNAME
 
     init_containers: Annotated[
         list[LabInitContainer],
@@ -1153,18 +1182,6 @@ class LabConfig(BaseModel):
             ),
         ),
     ] = timedelta(minutes=5)
-
-    runtime_mounts_dir: Annotated[
-        str,
-        Field(
-            title="Runtime-info mounts",
-            description=(
-                "Directory under which runtime information (e.g. tokens,"
-                " environment variables, and container resource information"
-                " will be mounted."
-            ),
-        ),
-    ] = "/opt/lsst/software/jupyterlab"
 
     secrets: Annotated[
         list[LabSecret],
