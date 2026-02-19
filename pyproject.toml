@@ -21,6 +21,7 @@ requires-python = ">=3.14"
 dependencies = [
     "aiojobs>=1",
     "bitmath>=1",
+    "google-api-core>=1",
     "google-cloud-artifact-registry>=1",
     "httpx>=0.28",
     "fastapi>=0.100",

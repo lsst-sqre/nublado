@@ -31,10 +31,11 @@ def make_test_image(tag: str) -> RSPImage:
 def test_image() -> None:
     """Test RSPImage class."""
     image = RSPImage.from_tag(
+        RSPImageTag.from_str("d_2077_10_23"),
         registry="lighthouse.ceres",
         repository="library/sketchbook",
-        tag=RSPImageTag.from_str("d_2077_10_23"),
         digest="sha256:1234",
+        size=12345,
     )
     assert asdict(image) == {
         "tag": "d_2077_10_23",
@@ -50,7 +51,7 @@ def test_image() -> None:
         "registry": "lighthouse.ceres",
         "repository": "library/sketchbook",
         "digest": "sha256:1234",
-        "size": None,
+        "size": 12345,
         "aliases": set(),
         "alias_target": None,
         "nodes": set(),
