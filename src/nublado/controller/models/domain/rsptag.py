@@ -36,15 +36,17 @@ _WEEKLY = r"w_(?P<year>\d+)_(?P<week>\d+)"
 # d_2021_05_13
 _DAILY = r"d_(?P<year>\d+)_(?P<month>\d+)_(?P<day>\d+)"
 # exp_
-_EXPERIMENTAL = r"exp_(?P<rest>.*)"
-# recommended_c0020 (used for alias tags)
-_UNKNOWN_WITH_CYCLE = r"(?P<tag>.*)_c(?P<cycle>\d+)"
+_EXPERIMENTAL = r"exp_(?P<rest>.+)"
+# recommended (non-greedy since architecture may follow)
+_UNKNOWN = r"(?P<tag>.*?)"
+# recommended_c0020 (used for alias tags) (non-greedy for architecture)
+_UNKNOWN_WITH_CYCLE = r"(?P<tag>.*?)_c(?P<cycle>\d+)"
 # c0020.002
 _CYCLE = r"(?:_c(?P<cycle>\d+)\.(?P<cbuild>\d+))?"
 # rsp19
 _RSP = r"(?:_rsp(?P<rspbuild>\d+))?"
 # _whatever_your_heart_desires (non-greedy since architecture may follow)
-_REST = r"(?:_(?P<rest>.*?))?"
+_REST = r"(?:_(?P<rest>.+?))?"
 # -amd64 or -arm64
 _ARCH = r"(?:-(?P<arch>[a-z0-9]+))?"
 
@@ -82,7 +84,9 @@ _TAG_REGEXES = [
     # exp_w_2021_05_13_nosudo
     (RSPImageType.EXPERIMENTAL, re.compile(_EXPERIMENTAL + "$")),
     # recommended_c0029
-    (RSPImageType.UNKNOWN, re.compile(_UNKNOWN_WITH_CYCLE + "$")),
+    (RSPImageType.UNKNOWN, re.compile(_UNKNOWN_WITH_CYCLE + _ARCH + "$")),
+    # latest-amd64
+    (RSPImageType.UNKNOWN, re.compile(_UNKNOWN + _ARCH + "$")),
 ]
 
 
@@ -145,18 +149,26 @@ class RSPImageTag:
         RSPImageTag
             The corresponding `RSPImageTag`.
         """
-        if match := re.match(_UNKNOWN_WITH_CYCLE + "$", tag):
+        cycle = None
+        architecture = None
+        if match := re.match(_UNKNOWN_WITH_CYCLE + _ARCH + "$", tag):
             cycle = match.group("cycle")
             display_name = match.group("tag").replace("_", " ").title()
             display_name += f" (SAL Cycle {cycle})"
+            architecture = match.group("arch")
+        elif match := re.match(_UNKNOWN + _ARCH + "$", tag):
+            display_name = match.group("tag").replace("_", " ").title()
+            architecture = match.group("arch")
         else:
-            cycle = None
             display_name = tag.replace("_", " ").title()
+        if architecture:
+            display_name += f" [{architecture}]"
         return cls(
             tag=tag,
             image_type=RSPImageType.ALIAS,
             display_name=display_name,
             cycle=int(cycle) if cycle else None,
+            architecture=architecture,
         )
 
     @classmethod
@@ -248,20 +260,6 @@ class RSPImageTag:
         extra = data.get("rest")
         architecture = data.get("arch")
 
-        # We can't do very much with unknown tags with a cycle, but we do want
-        # to capture the cycle so that they survive cycle filtering. We can
-        # also format the cycle for display purposes.
-        if image_type == RSPImageType.UNKNOWN:
-            display_name = data.get("tag", tag)
-            if cycle:
-                display_name += f" (SAL Cycle {cycle})"
-            return cls(
-                tag=tag,
-                image_type=image_type,
-                display_name=display_name,
-                cycle=int(cycle) if cycle else None,
-            )
-
         # Experimental tags are often exp_<legal-tag>, meaning that they are
         # an experimental build on top of another tag with additional
         # information in the trailing _rest component. Therefore, to generate
@@ -280,15 +278,23 @@ class RSPImageTag:
             subtag.display_name = f"{image_type.value} {subtag.display_name}"
             return subtag
 
-        # Parse the remaining version information into a display name and a
-        # semantic version.
-        display_name, version = cls._parse_version(image_type, data)
+        # We can't do very much with unknown tags with a cycle, but we do want
+        # to capture the cycle so that they survive cycle filtering. We can
+        # also format the cycle for display purposes.
+        if image_type == RSPImageType.UNKNOWN:
+            display_name = data.get("tag", tag)
+            version = None
+        else:
+            display_name, version = cls._parse_version(image_type, data)
 
         # If there is extra information, add it to the end of the display name.
-        if rsp_build:
+        if rsp_build is not None:
             display_name += f" (RSP Build {rsp_build})"
-        if cycle:
-            display_name += f" (SAL Cycle {cycle}, Build {cycle_build})"
+        if cycle is not None:
+            if cycle_build is not None:
+                display_name += f" (SAL Cycle {cycle}, Build {cycle_build})"
+            else:
+                display_name += f" (SAL Cycle {cycle})"
         if extra:
             display_name += f" [{extra}]"
         if architecture:

@@ -1,0 +1,12 @@
+{
+  "architecture": "amd64",
+  "cycle": 27,
+  "cycle_build": null,
+  "date": null,
+  "display_name": "Experimental random (SAL Cycle 0027) [amd64]",
+  "extra": null,
+  "image_type": "Experimental",
+  "rsp_build": null,
+  "tag": "exp_random_c0027-amd64",
+  "version": null
+}

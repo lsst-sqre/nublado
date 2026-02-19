@@ -131,6 +131,33 @@ def test_resolve_alias() -> None:
         image.resolve_alias(latest_daily)
 
 
+def test_resolve_alias_arch() -> None:
+    """Test enhancing an RSPImage alias to an architecture-specific image."""
+    image = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.from_str("r21_0_2_rsp64_stuff-amd64"),
+        digest="sha256:1234",
+    )
+    assert image.rsp_build == 64
+    assert image.architecture == "amd64"
+    latest = RSPImage.from_tag(
+        registry="lighthouse.ceres",
+        repository="library/sketchbook",
+        tag=RSPImageTag.from_str("latest"),
+        digest="sha256:1234",
+    )
+
+    latest.resolve_alias(image)
+    assert latest.image_type == RSPImageType.ALIAS
+    assert latest.alias_target == "r21_0_2_rsp64_stuff-amd64"
+    assert image.aliases == {"latest"}
+    assert latest.display_name == (
+        "Latest (Release r21.0.2, RSP Build 64 [stuff]) [amd64]"
+    )
+    assert latest.architecture == "amd64"
+
+
 def test_collection() -> None:
     """Test RSPImageCollection."""
     tags = [

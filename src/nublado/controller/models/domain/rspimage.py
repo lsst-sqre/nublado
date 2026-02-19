@@ -144,16 +144,14 @@ class RSPImage(RSPImageTag):
                 self.aliases.add(alias)
         target.aliases.add(self.tag)
         self.cycle = target.cycle
-        # If we don't have a date, adopt the target's (which might be None too)
+        if self.architecture is None:
+            self.architecture = target.architecture
         if self.date is None:
             self.date = target.date
 
-        # If the tag display name has cycle information, we don't want to keep
-        # that part when adding the description of the target tag since it
-        # will duplicate the cycle information in the target tag. We know how
-        # tag display names are constructed and know we can safely discard the
-        # parenthetical, so do that and otherwise keep the cycle-aware display
-        # name parsing done in the RSPImageTag alias method.
+        # Regenerate the tag display name, dropping any information added
+        # outside of the tag. The architecture and extra information from the
+        # alias tag will be re-added at the end.
         if " (" in self.display_name:
             cutoff = self.display_name.index(" (")
             base_display_name = self.display_name[:cutoff].title()
@@ -167,7 +165,16 @@ class RSPImage(RSPImageTag):
             extra = target.display_name.replace(" (", ", ").replace(")", "")
         else:
             extra = target.display_name
+
+        # Remove the architecture from the target display name if it matches
+        # the architecture of the aliased tag.
+        extra = extra.replace(f" [{self.architecture}]", "")
+
+        # Now reassemble the display name and add any architecture information
+        # to the end.
         self.display_name = f"{base_display_name} ({extra})"
+        if self.architecture:
+            self.display_name += f" [{self.architecture}]"
 
 
 class RSPImageCollection:
