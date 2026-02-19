@@ -4,12 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import (
-    BeforeValidator,
-    ConfigDict,
-    Field,
-    field_validator,
-)
+from pydantic import BeforeValidator, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 from ...config import (
