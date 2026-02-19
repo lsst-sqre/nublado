@@ -1,7 +1,5 @@
 """Base class for image sources."""
 
-from __future__ import annotations
-
 from abc import ABCMeta, abstractmethod
 from collections.abc import Mapping
 

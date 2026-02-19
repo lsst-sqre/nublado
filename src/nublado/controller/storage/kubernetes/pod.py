@@ -1,7 +1,5 @@
 """Storage layer for ``Pod`` objects."""
 
-from __future__ import annotations
-
 from collections.abc import AsyncIterator
 from datetime import timedelta
 

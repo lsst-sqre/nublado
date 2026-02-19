@@ -1,7 +1,5 @@
 """Tests for the prepuller service."""
 
-from __future__ import annotations
-
 import asyncio
 from dataclasses import asdict
 from typing import Any

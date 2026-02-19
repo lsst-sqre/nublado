@@ -1,7 +1,5 @@
 """Mock out the Google Artifact Registry API for tests."""
 
-from __future__ import annotations
-
 from collections import defaultdict
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, override

@@ -1,7 +1,5 @@
 """Kubernetes storage layer for user fileservers."""
 
-from __future__ import annotations
-
 import asyncio
 from collections.abc import AsyncIterator
 from datetime import timedelta

@@ -1,7 +1,5 @@
 """HTTP client wrapper for talking to JupyterHub and JupyterLab."""
 
-from __future__ import annotations
-
 from collections import Counter
 from collections.abc import Callable, Coroutine
 from contextlib import AbstractAsyncContextManager
@@ -31,13 +29,15 @@ __all__ = ["JupyterAsyncClient"]
 
 
 def _convert_exception[**P, T](
-    f: Callable[Concatenate[JupyterAsyncClient, P], Coroutine[None, None, T]],
-) -> Callable[Concatenate[JupyterAsyncClient, P], Coroutine[None, None, T]]:
+    f: Callable[
+        Concatenate["JupyterAsyncClient", P], Coroutine[None, None, T]
+    ],
+) -> Callable[Concatenate["JupyterAsyncClient", P], Coroutine[None, None, T]]:
     """Convert HTTPX exceptions to Nublado exceptions."""
 
     @wraps(f)
     async def wrapper(
-        client: JupyterAsyncClient, *args: P.args, **kwargs: P.kwargs
+        client: "JupyterAsyncClient", *args: P.args, **kwargs: P.kwargs
     ) -> T:
         start = datetime.now(tz=UTC)
         try:

@@ -1,7 +1,5 @@
 """Internal models returned by image service methods."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from .rspimage import RSPImageCollection

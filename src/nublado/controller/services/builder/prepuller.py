@@ -1,7 +1,5 @@
 """Construct Kubernetes objects used by the prepuller."""
 
-from __future__ import annotations
-
 import re
 
 from kubernetes_asyncio.client import (

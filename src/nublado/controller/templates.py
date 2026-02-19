@@ -4,8 +4,6 @@ Provides a shared Jinja template environment used whenever the Nublado
 controller generates responses based on templates.
 """
 
-from __future__ import annotations
-
 from datetime import timedelta
 
 from fastapi.templating import Jinja2Templates

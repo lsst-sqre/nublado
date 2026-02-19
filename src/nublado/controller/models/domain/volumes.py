@@ -1,7 +1,5 @@
 """Models for mounted volumes."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from kubernetes_asyncio.client import V1Volume, V1VolumeMount

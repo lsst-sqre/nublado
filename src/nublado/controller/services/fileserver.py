@@ -1,8 +1,7 @@
 """Service to manage user fileservers."""
 
-from __future__ import annotations
-
 import asyncio
+import builtins
 import contextlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -14,12 +13,8 @@ from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
 from ..config import EnabledFileserverConfig
-from ..constants import (
-    KUBERNETES_REQUEST_TIMEOUT,
-)
-from ..exceptions import (
-    UnknownUserError,
-)
+from ..constants import KUBERNETES_REQUEST_TIMEOUT
+from ..exceptions import UnknownUserError
 from ..models.domain.kubernetes import PodPhase
 from ..models.v1.fileserver import FileserverStatus
 from ..storage.kubernetes.fileserver import FileserverStorage
@@ -220,7 +215,7 @@ class FileserverManager:
             return FileserverStatus(running=False)
         return FileserverStatus(running=self._servers[username].running)
 
-    async def list(self) -> list[str]:
+    async def list(self) -> builtins.list[str]:
         """List users with running file servers."""
         return [u for u, s in self._servers.items() if s.running]
 

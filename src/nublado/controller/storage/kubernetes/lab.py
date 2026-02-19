@@ -1,7 +1,5 @@
 """Kubernetes storage layer for user labs."""
 
-from __future__ import annotations
-
 from collections.abc import AsyncIterator
 from datetime import timedelta
 

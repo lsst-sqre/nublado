@@ -1,7 +1,5 @@
 """Construction of Kubernetes objects for user fileservers."""
 
-from __future__ import annotations
-
 from kubernetes_asyncio.client import (
     V1Container,
     V1ObjectMeta,

@@ -1,7 +1,5 @@
 """The main application factory for the Nublado controller service."""
 
-from __future__ import annotations
-
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager

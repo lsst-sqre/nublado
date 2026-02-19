@@ -1,7 +1,5 @@
 """Mock out the Docker registry API for tests."""
 
-from __future__ import annotations
-
 import os
 from base64 import b64decode, b64encode
 from pathlib import Path

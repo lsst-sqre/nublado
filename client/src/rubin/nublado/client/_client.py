@@ -3,8 +3,6 @@
 Allows the caller to login to spawn labs and execute code within the lab.
 """
 
-from __future__ import annotations
-
 from collections.abc import AsyncGenerator
 from contextlib import aclosing
 from datetime import UTC, datetime, timedelta

@@ -1,7 +1,5 @@
 """Exceptions for the LabRunner startup service."""
 
-from __future__ import annotations
-
 import errno
 import os
 import subprocess

@@ -1,7 +1,5 @@
 """A mock JupyterHub and lab for tests."""
 
-from __future__ import annotations
-
 import asyncio
 import json
 import os
@@ -107,7 +105,7 @@ class MockJupyterState(Enum):
 
 
 type _MockHandler = Callable[
-    [MockJupyter, Request, str], Coroutine[None, None, Response]
+    ["MockJupyter", Request, str], Coroutine[None, None, Response]
 ]
 """Type of a handler for a mocked Jupyter call."""
 
@@ -115,7 +113,7 @@ type _MockRequiredState = MockJupyterState | Iterable[MockJupyterState]
 """Type of a specification for required state."""
 
 type _MockSideEffect = Callable[
-    [MockJupyter, Request], Coroutine[None, None, Response]
+    ["MockJupyter", Request], Coroutine[None, None, Response]
 ]
 """Type of a respx mock side effect function."""
 
@@ -329,7 +327,7 @@ class MockJupyter:
         return self._state.get(username, MockJupyterState.LOGGED_OUT)
 
     def install_hub_routes(
-        self, respx_mock: respx.Router, base_url: str
+        self, respx_mock: "respx.Router", base_url: str
     ) -> None:
         """Install the mock routes for a given JupyterHub base URL.
 
@@ -367,7 +365,7 @@ class MockJupyter:
         respx_mock.delete(url__regex=regex).mock(side_effect=handler)
 
     def install_lab_routes(
-        self, respx_mock: respx.Router, base_regex: str
+        self, respx_mock: "respx.Router", base_regex: str
     ) -> None:
         """Install the mock routes for a regular expression of hostnames.
 
@@ -615,7 +613,9 @@ class MockJupyter:
 
         def decorator(f: _MockHandler) -> _MockSideEffect:
             @wraps(f)
-            async def wrapper(mock: MockJupyter, request: Request) -> Response:
+            async def wrapper(
+                mock: "MockJupyter", request: Request
+            ) -> Response:
                 user = await mock._get_user_from_headers(request)
                 if user is None:
                     return Response(403, request=request)
@@ -1031,7 +1031,7 @@ def _mock_jupyter_websocket(
 
 @asynccontextmanager
 async def register_mock_jupyter(
-    respx_mock: respx.Router, *, use_subdomains: bool = False
+    respx_mock: "respx.Router", *, use_subdomains: bool = False
 ) -> AsyncGenerator[MockJupyter]:
     """Set up a mock JupyterHub and JupyterLab.
 

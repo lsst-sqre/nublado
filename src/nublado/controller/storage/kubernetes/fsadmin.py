@@ -1,7 +1,5 @@
 """Kubernetes storage layer for filesystem administration pod."""
 
-from __future__ import annotations
-
 from datetime import timedelta
 
 from kubernetes_asyncio.client import ApiClient

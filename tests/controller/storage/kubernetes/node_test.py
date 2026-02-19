@@ -1,7 +1,5 @@
 """Tests for the Kubernetes node storage layer."""
 
-from __future__ import annotations
-
 import pytest
 import structlog
 from kubernetes_asyncio.client import ApiClient, V1Node, V1NodeSpec, V1Taint

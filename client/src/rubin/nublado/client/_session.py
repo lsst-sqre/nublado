@@ -1,7 +1,5 @@
 """JupyterLab session management."""
 
-from __future__ import annotations
-
 import json
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass

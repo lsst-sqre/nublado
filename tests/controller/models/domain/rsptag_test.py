@@ -1,7 +1,5 @@
 """Tests of Docker image tag parsing and analysis."""
 
-from __future__ import annotations
-
 from dataclasses import asdict
 from random import SystemRandom
 

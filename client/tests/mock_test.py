@@ -1,7 +1,5 @@
 """Test features of the Jupyter mock for the Nublado client."""
 
-from __future__ import annotations
-
 import asyncio
 from datetime import UTC, datetime, timedelta
 

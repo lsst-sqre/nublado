@@ -1,7 +1,5 @@
 """Internal models related to user labs."""
 
-from __future__ import annotations
-
 import json
 from dataclasses import dataclass
 from enum import Enum

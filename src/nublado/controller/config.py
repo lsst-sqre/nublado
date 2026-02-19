@@ -1,7 +1,5 @@
 """Global configuration parsing."""
 
-from __future__ import annotations
-
 from datetime import timedelta
 from enum import Enum
 from pathlib import Path
@@ -54,11 +52,13 @@ __all__ = [
     "Config",
     "ContainerImage",
     "DisabledFileserverConfig",
+    "DockerSourceConfig",
     "EmptyDirSource",
     "EmptyDirVolumeSource",
     "EnabledFileserverConfig",
     "FSAdminConfig",
     "FileserverConfig",
+    "GARSourceConfig",
     "HostPathVolumeSource",
     "LabConfig",
     "LabInitContainer",
@@ -68,6 +68,7 @@ __all__ = [
     "NFSVolumeSource",
     "PVCVolumeResources",
     "PVCVolumeSource",
+    "PrepullerConfig",
     "UserHomeDirectorySchema",
     "VolumeConfig",
     "VolumeMountConfig",

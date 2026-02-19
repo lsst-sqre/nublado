@@ -1,7 +1,5 @@
 """Spawner class that uses the Nublado controller to manage labs."""
 
-from __future__ import annotations
-
 import asyncio
 from collections.abc import AsyncIterator, Callable, Coroutine
 from datetime import timedelta
@@ -34,13 +32,13 @@ _CLIENT: AsyncClient | None = None
 
 
 def _convert_exception[**P, T](
-    f: Callable[Concatenate[NubladoSpawner, P], Coroutine[None, None, T]],
-) -> Callable[Concatenate[NubladoSpawner, P], Coroutine[None, None, T]]:
+    f: Callable[Concatenate["NubladoSpawner", P], Coroutine[None, None, T]],
+) -> Callable[Concatenate["NubladoSpawner", P], Coroutine[None, None, T]]:
     """Convert ``httpx`` exceptions to `ControllerWebError`."""
 
     @wraps(f)
     async def wrapper(
-        spawner: NubladoSpawner, *args: P.args, **kwargs: P.kwargs
+        spawner: "NubladoSpawner", *args: P.args, **kwargs: P.kwargs
     ) -> T:
         try:
             return await f(spawner, *args, **kwargs)

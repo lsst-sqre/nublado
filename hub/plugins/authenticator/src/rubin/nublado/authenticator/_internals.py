@@ -1,7 +1,5 @@
 """Gafaelfawr authenticator for JupyterHub."""
 
-from __future__ import annotations
-
 from typing import Any
 
 from jupyterhub.app import JupyterHub
