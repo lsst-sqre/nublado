@@ -2,7 +2,6 @@
   "container_size": "Small (1.0 CPU, 3Gi RAM)",
   "cpu_guarantee": 0.25,
   "cpu_limit": 1.0,
-  "external_instance_url": "http://127.0.0.1:8080",
   "file_browser_root": "root",
   "homedir_prefix": "/home",
   "homedir_schema": "username",
@@ -11,8 +10,7 @@
   "image_digest": "sha256:1234",
   "jupyter_image_spec": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
   "jupyterlab_config_dir": "/opt/lsst/software/jupyterlab",
-  "jupyterlab_start_command": "/opt/lsst/software/jupyterlab/runlab.sh",
   "mem_guarantee": 805306368,
   "mem_limit": 3221225472,
-  "nublado_runtime_mounts_dir": "/opt/lsst/software/jupyterlab"
+  "runtime_mounts_dir": "/opt/lsst/software/jupyterlab"
 }
