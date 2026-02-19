@@ -1,7 +1,5 @@
 """Tests for the Nublado client."""
 
-from __future__ import annotations
-
 from contextlib import aclosing
 from dataclasses import dataclass
 from datetime import UTC, datetime

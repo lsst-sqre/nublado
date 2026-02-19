@@ -1,7 +1,6 @@
 """Storage layer for Kubernetes custom objects objects."""
 
-from __future__ import annotations
-
+import builtins
 from datetime import timedelta
 from typing import Any
 
@@ -177,7 +176,7 @@ class CustomStorage:
 
     async def list(
         self, namespace: str, timeout: Timeout
-    ) -> list[dict[str, Any]]:
+    ) -> builtins.list[dict[str, Any]]:
         """List the custom objects in a namespace.
 
         Parameters

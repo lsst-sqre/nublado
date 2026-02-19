@@ -1,7 +1,5 @@
 """Test retrieving user status."""
 
-from __future__ import annotations
-
 import asyncio
 
 import pytest

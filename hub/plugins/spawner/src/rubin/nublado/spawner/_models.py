@@ -1,9 +1,8 @@
 """Models for the Nublado JupyterHub spawner class."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Self
 
 from httpx_sse import ServerSentEvent
 
@@ -49,7 +48,7 @@ class SpawnEvent:
     """Whether the event indicated spawning failed."""
 
     @classmethod
-    def from_sse(cls, sse: ServerSentEvent, progress: int) -> SpawnEvent:
+    def from_sse(cls, sse: ServerSentEvent, progress: int) -> Self:
         """Convert from a server-sent event from the lab controller.
 
         Parameters

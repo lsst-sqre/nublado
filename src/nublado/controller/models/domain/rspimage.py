@@ -1,7 +1,5 @@
 """Abstract data types for handling RSP images."""
 
-from __future__ import annotations
-
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import asdict, dataclass, field

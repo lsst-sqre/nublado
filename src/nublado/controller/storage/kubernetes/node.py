@@ -1,6 +1,6 @@
 """Storage layer for Kubernetes node objects."""
 
-from __future__ import annotations
+import builtins
 
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client import ApiClient, ApiException, V1Node, V1Taint
@@ -34,8 +34,8 @@ class NodeStorage:
         self._logger = logger
 
     def get_cached_images(
-        self, nodes: list[V1Node]
-    ) -> dict[str, list[KubernetesNodeImage]]:
+        self, nodes: builtins.list[V1Node]
+    ) -> dict[str, builtins.list[KubernetesNodeImage]]:
         """Build map of what images are cached on each node.
 
         Parameters
@@ -61,7 +61,7 @@ class NodeStorage:
         return image_data
 
     def is_tolerated(
-        self, node: V1Node, tolerations: list[Toleration]
+        self, node: V1Node, tolerations: builtins.list[Toleration]
     ) -> NodeToleration:
         """Determine whether a pod can be placed on a node.
 
@@ -114,7 +114,7 @@ class NodeStorage:
 
     async def list(
         self, node_selector: dict[str, str], timeout: Timeout
-    ) -> list[V1Node]:
+    ) -> builtins.list[V1Node]:
         """Get data about Kubernetes nodes.
 
         Parameters

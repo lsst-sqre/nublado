@@ -1,7 +1,5 @@
 """Build test configurations for the Nublado lab controller."""
 
-from __future__ import annotations
-
 from kubernetes_asyncio.client import V1Namespace, V1ObjectMeta
 from safir.testing.kubernetes import MockKubernetesApi
 

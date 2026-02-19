@@ -5,8 +5,6 @@ the tests of lab routes. The tests performed here are mostly about reconciling
 state with Kubernetes.
 """
 
-from __future__ import annotations
-
 import asyncio
 from datetime import timedelta
 

@@ -1,7 +1,5 @@
 """Test unit conversions."""
 
-from __future__ import annotations
-
 import pytest
 
 from nublado.controller.units import bytes_to_si, cpu_to_cores, memory_to_bytes

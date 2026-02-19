@@ -5,7 +5,7 @@ same, so the distinction between exceptions is just for better error reporting
 and improved code readability.
 """
 
-from __future__ import annotations
+from typing import Self
 
 from httpx import HTTPError, HTTPStatusError, RequestError
 
@@ -38,7 +38,7 @@ class ControllerWebError(Exception):
     """
 
     @classmethod
-    def from_exception(cls, exc: HTTPError) -> ControllerWebError:
+    def from_exception(cls, exc: HTTPError) -> Self:
         """Create an exception from an httpx exception.
 
         Parameters

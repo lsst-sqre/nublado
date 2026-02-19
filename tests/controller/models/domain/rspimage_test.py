@@ -1,7 +1,5 @@
 """Tests of abstract data types for Docker image analysis."""
 
-from __future__ import annotations
-
 import os
 from dataclasses import asdict
 from datetime import UTC, datetime

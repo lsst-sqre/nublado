@@ -1,7 +1,5 @@
 """Container image service."""
 
-from __future__ import annotations
-
 import asyncio
 
 from kubernetes_asyncio.client import V1Node

@@ -5,8 +5,6 @@ therefore can't be tested easily (and is also kept as simple as possible).
 This tests the logic that's sufficiently separable to run in a test harness.
 """
 
-from __future__ import annotations
-
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock

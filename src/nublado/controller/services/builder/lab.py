@@ -1,7 +1,5 @@
 """Construction of Kubernetes objects for user lab environments."""
 
-from __future__ import annotations
-
 import json
 import os
 import re

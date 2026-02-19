@@ -1,7 +1,5 @@
 """Mock responses from Gafaelfawr."""
 
-from __future__ import annotations
-
 from rubin.gafaelfawr import GafaelfawrUserInfo, MockGafaelfawr
 
 from nublado.controller.models.domain.gafaelfawr import GafaelfawrUser

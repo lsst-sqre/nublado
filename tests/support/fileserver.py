@@ -1,7 +1,5 @@
 """Helper functions for fileserver tests."""
 
-from __future__ import annotations
-
 from kubernetes_asyncio.client import (
     V1Ingress,
     V1LoadBalancerIngress,

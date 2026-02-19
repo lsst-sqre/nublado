@@ -1,7 +1,5 @@
 """nox configuration for the Nublado client."""
 
-from __future__ import annotations
-
 import nox
 from nox_uv import session
 

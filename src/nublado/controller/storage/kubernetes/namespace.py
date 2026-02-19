@@ -1,7 +1,6 @@
 """Storage layer for ``Namespace`` objects."""
 
-from __future__ import annotations
-
+import builtins
 from datetime import timedelta
 
 from kubernetes_asyncio import client
@@ -115,7 +114,7 @@ class NamespaceStorage:
                 "Error deleting namespace", e, kind="Namespace", name=name
             ) from e
 
-    async def list(self, timeout: Timeout) -> list[V1Namespace]:
+    async def list(self, timeout: Timeout) -> builtins.list[V1Namespace]:
         """List all namespaces.
 
         Parameters

@@ -1,7 +1,5 @@
 """Fixtures for tests of the Nublado custom spawner class."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest

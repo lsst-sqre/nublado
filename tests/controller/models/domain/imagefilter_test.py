@@ -1,7 +1,5 @@
 """Tests of Docker image tag parsing and analysis."""
 
-from __future__ import annotations
-
 from datetime import UTC, datetime, timedelta
 from random import SystemRandom
 

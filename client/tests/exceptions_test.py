@@ -1,7 +1,5 @@
 """Test exception classes for the Nublado client."""
 
-from __future__ import annotations
-
 from httpx import HTTPError, Request, Response
 from safir.slack.blockkit import SlackCodeBlock, SlackTextBlock
 

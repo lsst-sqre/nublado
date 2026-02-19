@@ -1,7 +1,5 @@
 """Domain models for talking to the Docker API."""
 
-from __future__ import annotations
-
 import base64
 import re
 from dataclasses import dataclass

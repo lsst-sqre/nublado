@@ -1,7 +1,5 @@
 """Mock objects for data normally provided to the spawner by JupyterHub."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 __all__ = ["MockHub", "MockUser"]

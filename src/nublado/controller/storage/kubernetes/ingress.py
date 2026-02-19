@@ -1,7 +1,5 @@
 """Storage layer for ``Ingress`` objects."""
 
-from __future__ import annotations
-
 from datetime import timedelta
 
 from kubernetes_asyncio import client

@@ -1,7 +1,5 @@
 """Client for Google Artifact Registry."""
 
-from __future__ import annotations
-
 import asyncio
 
 from google.api_core.exceptions import ServiceUnavailable

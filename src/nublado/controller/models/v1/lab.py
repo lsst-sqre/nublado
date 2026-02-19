@@ -1,7 +1,5 @@
 """API-visible models for user lab environments."""
 
-from __future__ import annotations
-
 from enum import Enum, StrEnum
 from typing import Annotated, Any, Self
 
@@ -31,6 +29,7 @@ __all__ = [
     "LabState",
     "LabStatus",
     "ResourceQuantity",
+    "UserGroup",
     "UserInfo",
 ]
 

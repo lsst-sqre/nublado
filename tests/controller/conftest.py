@@ -1,7 +1,5 @@
 """Test fixtures for jupyterlab-controller tests."""
 
-from __future__ import annotations
-
 from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
 

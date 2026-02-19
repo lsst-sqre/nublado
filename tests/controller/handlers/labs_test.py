@@ -1,7 +1,5 @@
 """Tests for user lab routes."""
 
-from __future__ import annotations
-
 import asyncio
 import json
 from base64 import b64encode

@@ -1,7 +1,5 @@
 """Helper functions for Python asyncio."""
 
-from __future__ import annotations
-
 from collections.abc import AsyncIterator
 from contextlib import AbstractAsyncContextManager
 from types import TracebackType

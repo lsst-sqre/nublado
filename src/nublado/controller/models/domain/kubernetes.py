@@ -1,7 +1,5 @@
 """Data types for interacting with Kubernetes."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from enum import Enum, StrEnum
 from typing import Annotated, Any, Protocol, Self

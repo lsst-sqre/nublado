@@ -1,7 +1,5 @@
 """Construction of Kubernetes objects for volumes and volume mounts."""
 
-from __future__ import annotations
-
 from collections.abc import Iterable
 
 from kubernetes_asyncio.client import (

@@ -1,7 +1,5 @@
 """Service to manage administrative filesystem environment."""
 
-from __future__ import annotations
-
 import asyncio
 
 from safir.slack.webhook import SlackWebhookClient

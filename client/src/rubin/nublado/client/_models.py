@@ -1,7 +1,5 @@
 """Models used in the Nublado client public API."""
 
-from __future__ import annotations
-
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, StrEnum
