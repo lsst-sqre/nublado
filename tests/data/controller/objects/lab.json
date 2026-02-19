@@ -48,7 +48,7 @@
     "apiVersion": "v1",
     "data": {
       "discovery-v1-json": "{\n  \"datasets\": {\n    \"dp1\": {\n      \"butler_config\": \"https://data.example.com/api/butler/repo/dp1/butler.yaml\",\n      \"services\": {\n        \"cutout\": {\n          \"url\": \"https://data.example.com/api/cutout\",\n          \"versions\": {\n            \"soda-async-1.0\": {\n              \"url\": \"https://data.example.com/api/cutout/dp1/jobs\"\n            },\n            \"soda-sync-1.0\": {\n              \"url\": \"https://data.example.com/api/cutout/dp1/sync\"\n            }\n          }\n        },\n        \"hips\": {\n          \"url\": \"https://example.com/api/hips/v2/dp1/list\",\n          \"versions\": {\n            \"hips-list-1.0\": {\n              \"url\": \"https://example.com/api/hips/v2/dp1/list\"\n            }\n          }\n        }\n      }\n    }\n  },\n  \"influxdb_databases\": {\n    \"idfdev_efd\": {\n      \"credentials_url\": \"https://example.com/repertoire/discovery/influxdb/idfdev_efd\",\n      \"database\": \"efd\",\n      \"schema_registry\": \"http://sasquatch-schema-registry.sasquatch:8081/\",\n      \"url\": \"https://data.example.com/influxdb/\"\n    }\n  }\n}",
-      "lab-config-json": "{\n  \"container_size\": \"Small (1.0 CPU, 3Gi RAM)\",\n  \"cpu_guarantee\": 0.25,\n  \"cpu_limit\": 1.0,\n  \"external_instance_url\": \"http://127.0.0.1:8080\",\n  \"file_browser_root\": \"home\",\n  \"homedir_prefix\": \"/home\",\n  \"homedir_schema\": \"username\",\n  \"homedir_suffix\": \"\",\n  \"image_description\": \"Daily 2077_10_23\",\n  \"image_digest\": \"sha256:1234\",\n  \"jupyter_image_spec\": \"lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234\",\n  \"jupyterlab_config_dir\": \"/opt/lsst/software/jupyterlab\",\n  \"jupyterlab_start_command\": \"/opt/lsst/software/jupyterlab/runlab.sh\",\n  \"mem_guarantee\": 805306368,\n  \"mem_limit\": 3221225472,\n  \"nublado_runtime_mounts_dir\": \"/opt/lsst/software/jupyterlab\"\n}",
+      "lab-config-json": "{\n  \"container_size\": \"Small (1.0 CPU, 3Gi RAM)\",\n  \"cpu_guarantee\": 0.25,\n  \"cpu_limit\": 1.0,\n  \"debug\": false,\n  \"file_browser_root\": \"home\",\n  \"homedir_prefix\": \"/home\",\n  \"homedir_schema\": \"username\",\n  \"homedir_suffix\": \"\",\n  \"image_description\": \"Daily 2077_10_23\",\n  \"image_digest\": \"sha256:1234\",\n  \"jupyter_image_spec\": \"lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234\",\n  \"jupyterlab_config_dir\": \"/opt/lsst/software/jupyterlab\",\n  \"mem_guarantee\": 805306368,\n  \"mem_limit\": 3221225472,\n  \"reset_user_env\": false,\n  \"runtime_mounts_dir\": \"/opt/lsst/software/jupyterlab\"\n}",
       "lsst-dask-yml": "# No longer used, but preserves compatibility with runlab\ndask_worker.yml: |\n  enabled: false\n",
       "panda": "# Licensed under the Apache License, Version 2.0 (the \"License\");\n# You may not use this file except in compliance with the License.\n# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0\n#\n# Authors:\n# - Wen Guan, <wen.guan@cern.ch>, 2020\n[common]\n# if logdir is configured, idds will write to idds.log in this directory.\n# else idds will go to stdout/stderr.\n# With supervisord, it's good to write to stdout/stderr, then supervisord can manage and rotate logs.\n# logdir = /var/log/idds\nloglevel = INFO\n[rest]\nhost = https://iddsserver.cern.ch:443/idds\n#url_prefix = /idds\n#cacher_dir = /tmp\ncacher_dir = /data/idds\n"
     },
@@ -412,10 +412,10 @@
               "subPath": "v1.json"
             },
             {
-              "mountPath": "/etc/nublado/config/lab_config.json",
+              "mountPath": "/etc/nublado/config/lab-config.json",
               "name": "lab-config-json",
               "readOnly": true,
-              "subPath": "lab_config.json"
+              "subPath": "lab-config.json"
             },
             {
               "mountPath": "/opt/lsst/software/jupyterlab/secrets",
@@ -701,10 +701,10 @@
               "subPath": "v1.json"
             },
             {
-              "mountPath": "/etc/nublado/config/lab_config.json",
+              "mountPath": "/etc/nublado/config/lab-config.json",
               "name": "lab-config-json",
               "readOnly": true,
-              "subPath": "lab_config.json"
+              "subPath": "lab-config.json"
             },
             {
               "mountPath": "/opt/lsst/software/jupyterlab/secrets",
@@ -866,7 +866,7 @@
               {
                 "key": "lab-config-json",
                 "mode": 420,
-                "path": "lab_config.json"
+                "path": "lab-config.json"
               }
             ],
             "name": "rachel-nb-files"
