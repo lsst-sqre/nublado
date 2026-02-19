@@ -15,7 +15,7 @@ APP_NAME = "nublado"
 """Application name, used for logging."""
 
 
-CONFIG_FILE = Path("/etc/nublado/config/lab_config.json")
+CONFIG_FILE = Path("/etc/nublado/config/lab-config.json")
 """Lab config file, overrideable for tests.
 
 Usually /etc/nublado/config/lab_config.json.

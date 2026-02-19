@@ -1,5 +1,6 @@
 """RSP Lab preparer."""
 
+import contextlib
 import datetime
 import json
 import os
@@ -7,9 +8,11 @@ import shutil
 from pathlib import Path
 from textwrap import dedent
 
+import pydantic_core
 import structlog
 from safir.logging import LogLevel, configure_logging
 
+from ...controller.models.v1.lab_configmap import LabConfigMap
 from ..constants import (
     APP_NAME,
     CONFIG_FILE,
@@ -65,16 +68,16 @@ class Preparer:
         # git-lfs setup uses HOME.
         os.environ["HOME"] = self._env["HOME"]
 
-        try:
-            self._config = json.loads(Path(CONFIG_FILE).read_text())
-        except (
+        self._config: LabConfigMap | None = None
+        with contextlib.suppress(
             FileNotFoundError,
             UnicodeDecodeError,
             json.decoder.JSONDecodeError,
+            pydantic_core.ValidationError,
         ):
-            # Fallback in case we were started by a previous Nublado that
-            # did not supply a config file.
-            self._config = {"file_browser_root": "home"}
+            self._config = LabConfigMap.model_validate_json(
+                Path(CONFIG_FILE).read_text()
+            )
 
     def prepare(self) -> None:
         """Make necessary modifications to start the user lab."""
@@ -348,12 +351,15 @@ class Preparer:
     def _write_lab_args(self) -> None:
         log_level = "DEBUG" if self._debug else "INFO"
         cmd_args = list(LAB_STATIC_CMD_ARGS)
-        if self._config["file_browser_root"] == "home":
-            cmd_args.append(f"--notebook-dir={self._home!s}")
-        else:
+        if (
+            self._config is not None
+            and self._config.file_browser_root == "root"
+        ):
             rel_h = (self._home).relative_to(Path("/"))
             cmd_args.append("--notebook-dir=/")
             cmd_args.append(f"--ContentsManager.preferred_dir={rel_h!s}")
+        else:
+            cmd_args.append(f"--notebook-dir={self._home!s}")
         cmd_args.append(f"--log-level={log_level}")
         cmd_args.extend(self._set_timeout_variables())
         args_file = STARTUP_PATH / "args.json"
