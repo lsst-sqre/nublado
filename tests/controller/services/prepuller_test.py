@@ -9,8 +9,6 @@ import pytest
 from google.cloud.artifactregistry_v1 import DockerImage
 from kubernetes_asyncio.client import (
     ApiException,
-    V1Node,
-    V1NodeStatus,
     V1ObjectMeta,
     V1Pod,
 )
@@ -128,16 +126,7 @@ async def test_gar(
     assert isinstance(config.images.source, GARSourceOptions)
     known_images = data.read_json("controller/tags/gar")
     mock_gar.add_images_for_test(DockerImage(**i) for i in known_images)
-    nodes = [
-        V1Node(
-            metadata=V1ObjectMeta(name="node1"),
-            status=V1NodeStatus(images=[]),
-        ),
-        V1Node(
-            metadata=V1ObjectMeta(name="node2"),
-            status=V1NodeStatus(images=[]),
-        ),
-    ]
+    nodes = data.read_nodes("controller/nodes/empty")
     mock_kubernetes.set_nodes_for_test(nodes)
 
     async with Factory.standalone(config) as factory:
