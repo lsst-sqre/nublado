@@ -55,6 +55,7 @@ from structlog.stdlib import BoundLogger
 from ...config import (
     EmptyDirSource,
     LabConfig,
+    LabFileBrowserRoot,
     PVCVolumeSource,
     UserHomeDirectorySchema,
 )
@@ -73,6 +74,7 @@ from ...models.v1.lab import (
     UserGroup,
     UserInfo,
 )
+from ...models.v1.lab_configmap import LabConfigMap
 from ._introspect import _introspect_container
 from .volumes import VolumeBuilder
 
@@ -188,7 +190,7 @@ class LabBuilder:
         return LabObjects(
             namespace=self._build_namespace(user),
             env_config_map=self._build_env_config_map(user, lab, image),
-            config_maps=await self._build_config_maps(user),
+            config_maps=await self._build_config_maps(user, lab, image),
             network_policy=self._build_network_policy(user.username),
             pvcs=self._build_pvcs(user.username),
             quota=self._build_quota(user),
@@ -322,13 +324,52 @@ class LabBuilder:
             metadata.annotations[annotation] = value
         return V1Namespace(metadata=metadata)
 
+    def _build_lab_config_json(
+        self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
+    ) -> str:
+        """Build a map holding runtime configuration items, then serialize."""
+        # This will largely replace _build_env_config_map; the extensions will
+        # request the configuration from the backend, which will serve it
+        # from a mounted ConfigMap rather than from the environment.
+
+        # Note that some settings need to remain environment variables because
+        # that's what the Lab-Hub communication expects.  However, at least
+        # for the RSP extensions, we have total control of what we send and
+        # how we consume it, so there we can remove environment variables
+        # from the equation.
+
+        size = self._config.get_size_definition(lab.options.size)
+        resources = size.resources
+        return json.dumps(  # Pydantic doesn't sort the fields.
+            LabConfigMap(
+                container_size=str(size),
+                cpu_guarantee=resources.requests.cpu,
+                cpu_limit=resources.limits.cpu,
+                debug=lab.options.enable_debug,
+                file_browser_root=self._config.file_browser_root.value,
+                homedir_prefix=self._config.homedir_prefix,
+                homedir_schema=self._config.homedir_schema.value,
+                homedir_suffix=self._config.homedir_suffix,
+                image_description=image.display_name,
+                image_digest=image.digest,
+                jupyter_image_spec=image.reference_with_digest,
+                jupyterlab_config_dir=self._config.jupyterlab_config_dir,
+                mem_guarantee=resources.requests.memory,
+                mem_limit=resources.limits.memory,
+                reset_user_env=lab.options.reset_user_env,
+                runtime_mounts_dir=self._config.runtime_mounts_dir,
+            ).model_dump(),
+            sort_keys=True,
+            indent=2,
+        )
+
     async def _build_config_maps(
-        self, user: GafaelfawrUserInfo
+        self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
     ) -> list[V1ConfigMap]:
         """Build the config maps used by the user's lab pod."""
         return [
             self._build_nss_config_map(user),
-            await self._build_file_config_map(user.username),
+            await self._build_file_config_map(user, lab, image),
         ]
 
     def _build_env_config_map(
@@ -395,11 +436,18 @@ class LabBuilder:
             data=env,
         )
 
-    async def _build_file_config_map(self, username: str) -> V1ConfigMap:
+    async def _build_file_config_map(
+        self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
+    ) -> V1ConfigMap:
         """Build the config map holding supplemental mounted files."""
+        username = user.username
         discovery_dict = await self._discovery.build_nublado_dict()
         discovery_json = json.dumps(discovery_dict, sort_keys=True, indent=2)
-        data = {"discovery-v1-json": discovery_json}
+        config_json = self._build_lab_config_json(user, lab, image)
+        data = {
+            "discovery-v1-json": discovery_json,
+            "lab-config-json": config_json,
+        }
         if self._config.files:
             extra_files = {
                 re.sub(r"[_.]", "-", Path(k).name): v
@@ -699,6 +747,12 @@ class LabBuilder:
             "discovery-v1-json",
         )
         volumes.append(discovery_volume)
+        config_volume = self._build_pod_config_map_volume(
+            f"{username}-nb-files",
+            "/etc/nublado/config/lab-config.json",
+            "lab-config-json",
+        )
+        volumes.append(config_volume)
         return volumes
 
     def _build_pod_nss_volumes(self, username: str) -> list[MountedVolume]:
@@ -1035,6 +1089,12 @@ class LabBuilder:
 
         # Specification for the user's container.
         env_source = V1ConfigMapEnvSource(name=f"{user.username}-nb-env")
+        working_dir = "/"
+        # Necessary because using ContentsManager.root_dir (as of 18 Feb 2026)
+        # means that os.getcwd() always reports where the Lab started, rather
+        # than the parent of the active notebook.
+        if self._config.file_browser_root != LabFileBrowserRoot.ROOT:
+            working_dir = self._build_home_directory(user.username)
         container = V1Container(
             name="notebook",
             args=self._config.lab_start_command,
@@ -1053,7 +1113,7 @@ class LabBuilder:
                 run_as_group=user.gid,
             ),
             volume_mounts=mounts,
-            working_dir=self._build_home_directory(user.username),
+            working_dir=working_dir,
         )
         return [container]
 
