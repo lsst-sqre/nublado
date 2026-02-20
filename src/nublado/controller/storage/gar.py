@@ -66,7 +66,8 @@ class GARStorageClient:
                 images = await self._fetch_image_list(config)
             except ServiceUnavailable as e:
                 msg = "Error listing images from GAR, retrying"
-                logger.exception(msg, error=str(e), attempt=attempt)
+                error = f"{type(e).__name__}: {e!s}"
+                logger.warning(msg, error=error, attempt=attempt)
                 await asyncio.sleep(GAR_RETRY_DELAY.total_seconds())
             else:
                 break
