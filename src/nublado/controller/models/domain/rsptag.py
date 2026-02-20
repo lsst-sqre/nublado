@@ -108,6 +108,9 @@ class RSPImageTag:
     display_name: str
     """Human-readable display name."""
 
+    base: str | None = None
+    """Base tag name for unknown and alias tags."""
+
     version: Version | None = None
     """Version information as a semantic version."""
 
@@ -152,14 +155,17 @@ class RSPImageTag:
         cycle = None
         architecture = None
         if match := re.match(_UNKNOWN_WITH_CYCLE + _ARCH + "$", tag):
+            base = match.group("tag")
             cycle = match.group("cycle")
             display_name = match.group("tag").replace("_", " ").title()
             display_name += f" (SAL Cycle {cycle})"
             architecture = match.group("arch")
         elif match := re.match(_UNKNOWN + _ARCH + "$", tag):
+            base = match.group("tag")
             display_name = match.group("tag").replace("_", " ").title()
             architecture = match.group("arch")
         else:
+            base = tag
             display_name = tag.replace("_", " ").title()
         if architecture:
             display_name += f" [{architecture}]"
@@ -167,6 +173,7 @@ class RSPImageTag:
             tag=tag,
             image_type=RSPImageType.ALIAS,
             display_name=display_name,
+            base=base,
             cycle=int(cycle) if cycle else None,
             architecture=architecture,
         )
@@ -225,6 +232,7 @@ class RSPImageTag:
             "image_type": self.image_type.value,
             "display_name": self.display_name,
             "version": self.version.to_dict() if self.version else None,
+            "base": self.base,
             "cycle": self.cycle,
             "cycle_build": self.cycle_build,
             "rsp_build": self.rsp_build,
@@ -254,6 +262,7 @@ class RSPImageTag:
             The corresponding `RSPImageTag` object.
         """
         data = match.groupdict()
+        base = None
         cycle = data.get("cycle")
         cycle_build = data.get("cbuild")
         rsp_build = data.get("rspbuild")
@@ -278,11 +287,12 @@ class RSPImageTag:
             subtag.display_name = f"{image_type.value} {subtag.display_name}"
             return subtag
 
-        # We can't do very much with unknown tags with a cycle, but we do want
-        # to capture the cycle so that they survive cycle filtering. We can
-        # also format the cycle for display purposes.
+        # For unknown tags, capture the base tag name (the tag without any
+        # cycle or architecture information) so that we can use it for
+        # sorting.
         if image_type == RSPImageType.UNKNOWN:
             display_name = data.get("tag", tag)
+            base = data.get("tag", tag)
             version = None
         else:
             display_name, version = cls._parse_version(image_type, data)
@@ -306,6 +316,7 @@ class RSPImageTag:
             image_type=image_type,
             display_name=display_name,
             version=version,
+            base=base,
             cycle=int(cycle) if cycle else None,
             cycle_build=int(cycle_build) if cycle_build else None,
             rsp_build=int(rsp_build) if rsp_build else None,
@@ -414,30 +425,22 @@ class RSPImageTag:
         if not self._is_comparable_type(other):
             return NotImplemented
 
-        # If either tag has no semantic version, compare the tag strings.
-        # Since the tags have to be the same type, generally if one has no
-        # semantic version, the other will not as well, since they'll both be
-        # alias tags, unknown tags, or the like.
-        #
-        # This is not the correct sorting for alias tags containing
-        # architectures (they will be sorted after ones that do not instead of
-        # before). Fixing this case is hard because it requires storing the
-        # portion of the tag without the architecture, and this is not used in
-        # the current Nublado API, so for now let this be broken.
+        # If either tag has no semantic version, compare the base tag name
+        # first. Otherwise, compare the version first.
         if not (self.version and other.version):
-            return self._compare_str(self.tag, other.tag)
+            rank = self._compare_str(self.base, other.base)
+        else:
+            rank = self.version.compare(other.version)
+        if rank != 0:
+            return rank
 
         # Otherwise, compare the semantic versions. If the semantic versions
         # are equal, compare the RSP build, cycle, cycle build, extra
-        # information, and architecture in that order. (This is probably
-        # wrong: The cycle should take precedence over the RSP build. In
-        # practice, we don't use both at the same time.)
+        # information, and architecture in that order.
         #
         # For the architecture, sort images without an architecture after
         # images with one so that in the menu, where images are displayed in
         # reverse sorted order, the generic images are first.
-        if rank := self.version.compare(other.version):
-            return rank
         if rank := self._compare_int(self.cycle, other.cycle):
             return rank
         if rank := self._compare_int(self.cycle_build, other.cycle_build):

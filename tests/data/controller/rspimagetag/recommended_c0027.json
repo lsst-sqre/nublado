@@ -1,5 +1,6 @@
 {
   "architecture": null,
+  "base": "recommended",
   "cycle": 27,
   "cycle_build": null,
   "date": null,

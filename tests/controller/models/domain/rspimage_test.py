@@ -40,6 +40,7 @@ def test_image() -> None:
         "image_type": RSPImageType.DAILY,
         "display_name": "Daily 2077_10_23",
         "version": VersionInfo(2077, 10, 23),
+        "base": None,
         "cycle": None,
         "cycle_build": None,
         "rsp_build": None,
@@ -87,6 +88,7 @@ def test_resolve_alias() -> None:
     expected = RSPImageType.UNKNOWN
     assert recommended.image_type == expected
     assert recommended.display_name == "recommended"
+    assert recommended.base == "recommended"
     assert recommended.alias_target is None
     assert recommended.cycle is None
     assert recommended.date is None
@@ -112,6 +114,7 @@ def test_resolve_alias() -> None:
     )
     assert latest_daily.image_type == RSPImageType.ALIAS
     assert latest_daily.display_name == "Latest Daily (SAL Cycle 0045)"
+    assert latest_daily.base == "latest_daily"
     assert latest_daily.date is None
 
     latest_daily.resolve_alias(image)
@@ -139,13 +142,13 @@ def test_resolve_alias_arch() -> None:
     )
     assert image.rsp_build == 64
     assert image.architecture == "amd64"
+
     latest = RSPImage.from_tag(
         registry="lighthouse.ceres",
         repository="library/sketchbook",
         tag=RSPImageTag.from_str("latest"),
         digest="sha256:1234",
     )
-
     latest.resolve_alias(image)
     assert latest.image_type == RSPImageType.ALIAS
     assert latest.alias_target == "r21_0_2_rsp64_stuff-amd64"
@@ -191,26 +194,26 @@ def test_collection() -> None:
     # Add two unknown images with the same digest as the third image, which is
     # architecture-specific. These should be excluded from filtering and image
     # listing by default.
-    latest_weekly_arch = RSPImage.from_tag(
+    latest_cycle = RSPImage.from_tag(
         registry="lighthouse.ceres",
         repository="library/sketchbook",
-        tag=RSPImageTag.from_str("latest_weekly_arch"),
+        tag=RSPImageTag.from_str("latest_c0040"),
         digest=images[2].digest,
     )
     latest_weekly_amd64 = RSPImage.from_tag(
         registry="lighthouse.ceres",
         repository="library/sketchbook",
-        tag=RSPImageTag.from_str("latest_weekly-amd64"),
+        tag=RSPImageTag.from_str("latest_weekly-arm64"),
         digest=images[2].digest,
     )
 
-    # resolve_alias(), called below, may change image_type, but mypy doesn't
-    # have enough information to know that and preserves type narrowing. This
-    # is therefore written a little oddly to prevent mypy from doing type
-    # narrowing.
+    # resolve_alias, called when ingesting into a collection, may change
+    # image_type, but mypy doesn't have enough information to know that and
+    # preserves type narrowing. This is therefore written a little oddly to
+    # prevent mypy from doing type narrowing.
     expected = RSPImageType.UNKNOWN
     assert latest_weekly.image_type == expected
-    images.extend([latest_weekly, latest_weekly_arch, latest_weekly_amd64])
+    images.extend([latest_weekly, latest_cycle, latest_weekly_amd64])
 
     # Ingest into a collection.
     shuffled_images = list(images)
@@ -221,6 +224,19 @@ def test_collection() -> None:
     assert latest_weekly.alias_target == "w_2077_46"
     assert recommended.alias_target == "w_2077_46"
     assert images[0].aliases == {"recommended", "latest_weekly"}
+
+    # Check that the cycle, display name, and architecture for the two alias
+    # tags for the architecture-specific image are resolved correctly. The
+    # cycle is always reset to the cycle of the underlying tag, but the
+    # architecture of the alias tag is kept.
+    assert latest_cycle.cycle is None
+    assert latest_cycle.architecture == "amd64"
+    assert latest_cycle.display_name == ("Latest (Weekly 2077_45) [amd64]")
+    assert latest_weekly_amd64.cycle is None
+    assert latest_weekly_amd64.architecture == "arm64"
+    assert latest_weekly_amd64.display_name == (
+        "Latest Weekly (Weekly 2077_45 [amd64]) [arm64]"
+    )
 
     # Test asking for tags by name or the latest of a type.
     assert collection.image_for_tag_name(images[0].tag) == images[0]
@@ -237,9 +253,9 @@ def test_collection() -> None:
     all_images = collection.all_images(hide_arch_specific=False)
     assert [i.tag for i in all_images] == [
         "recommended",
-        "latest_weekly_arch",
-        "latest_weekly-amd64",
         "latest_weekly",
+        "latest_weekly-arm64",
+        "latest_c0040",
         *tags,
     ]
     without_arch = collection.all_images()

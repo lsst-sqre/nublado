@@ -1,5 +1,6 @@
 {
   "architecture": "amd64",
+  "base": "random",
   "cycle": 27,
   "cycle_build": null,
   "date": null,
