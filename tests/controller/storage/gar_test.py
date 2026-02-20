@@ -23,14 +23,13 @@ async def test_retries(
     assert isinstance(config.images.source, GARSourceConfig)
     mock_gar.fail_for_test()
     known_images = data.read_json("controller/tags/gar")
+    mock_gar.add_images_for_test(DockerImage(**i) for i in known_images)
 
+    # Find all the known tags in the relevant test images.
     tags: list[str] = []
-    for known_image in known_images:
-        image = DockerImage(**known_image)
-        if config.images.source.image in image.uri:
-            tags.extend(image.tags)
-        parent, _, _ = image.name.split("@", 1)[0].rsplit("/", 2)
-        mock_gar.add_image_for_test(parent, image)
+    for image in known_images:
+        if config.images.source.image in image["uri"]:
+            tags.extend(image["tags"])
 
     # The first request will fail with an exception, but the second attempt
     # will succeed. This should be hidden by the storage layer. Reduce the
