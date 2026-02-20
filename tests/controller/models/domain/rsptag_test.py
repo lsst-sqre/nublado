@@ -46,37 +46,32 @@ def test_tag_ordering() -> None:
     assert five != six
     assert five < six
 
-    seven = RSPImageTag.from_str("r21_0_1_rsp29")
-    assert one != seven
-    assert one < seven
-
-    eight = RSPImageTag.from_str("r21_0_1_rsp103")
-    assert seven != eight
-    assert seven < eight
-
-    nine = RSPImageTag.from_str("r21_0_1_rsp103_extra")
-    assert eight != nine
-    assert eight < nine
-
-    ten = RSPImageTag.from_str("r21_0_1_rsp103_foo")
-    assert nine != ten
-    assert nine < ten
-
-    assert ten == RSPImageTag.from_str("r21_0_1_rsp103_foo")
-
-    eleven = RSPImageTag.from_str("r21_0_1_rsp103_foo-amd64")
-    assert ten != eleven
-    assert ten > eleven
-
-    twelve = RSPImageTag.from_str("r21_0_1_rsp103_foo-arm64")
-    assert eleven != twelve
-    assert eleven < twelve
-
     exp_one = RSPImageTag.from_str("exp_20230209")
     exp_two = RSPImageTag.from_str("exp_random")
     assert exp_one == exp_one
     assert exp_one != exp_two
     assert exp_one < exp_two
+
+    # Test tag sorting with various edge cases. The following list of tags is
+    # in sorted order.
+    ordered = [
+        "r21_0_1",
+        "r21_0_1_rsp29",
+        "r21_0_1_rsp103",
+        "r21_0_1_rsp103_extra",
+        "r21_0_1_rsp103_foo-amd64",
+        "r21_0_1_rsp103_foo-arm64",
+        "r21_0_1_rsp103_foo",
+        "r21_0_1_c0031.004",
+        "r21_0_1_c0031.004_rsp103",
+        "r21_0_1_c0032.004_rsp102",
+        "r21_0_1_c0032.004_rsp103",
+        "r21_0_1_c0032.005_rsp101",
+    ]
+    for i in range(len(ordered) - 1):
+        left = RSPImageTag.from_str(ordered[i])
+        right = RSPImageTag.from_str(ordered[i + 1])
+        assert left < right
 
 
 def test_alias() -> None:
@@ -284,8 +279,8 @@ def test_from_str(data: NubladoData) -> None:
     "tag", ["d_2021_05_27", "w_2021_22", "r22_0_0_rc1", "r21_0_1"]
 )
 @pytest.mark.parametrize("experimental", [True, False])
-@pytest.mark.parametrize("rsp_build", [None, 19])
 @pytest.mark.parametrize("cycle", [None, ("0020", "001")])
+@pytest.mark.parametrize("rsp_build", [None, 19])
 @pytest.mark.parametrize("extra", [None, "20210527", "random"])
 @pytest.mark.parametrize("architecture", [None, "amd64"])
 def test_from_str_varient(
@@ -293,9 +288,9 @@ def test_from_str_varient(
     *,
     tag: str,
     experimental: bool,
-    rsp_build: int | None,
     cycle: tuple[str, str] | None,
     extra: str | None,
+    rsp_build: int | None,
     architecture: str | None,
 ) -> None:
     """Test all the variations of each tag.
@@ -310,10 +305,6 @@ def test_from_str_varient(
         tag = "exp_" + tag
         expected["image_type"] = "Experimental"
         expected["display_name"] = "Experimental " + expected["display_name"]
-    if rsp_build:
-        tag += f"_rsp{rsp_build}"
-        expected["display_name"] += f" (RSP Build {rsp_build})"
-        expected["rsp_build"] = rsp_build
     if cycle:
         cycle_str = f"c{cycle[0]}.{cycle[1]}"
         tag += f"_{cycle_str}"
@@ -321,6 +312,10 @@ def test_from_str_varient(
         expected["cycle_build"] = int(cycle[1])
         extra_display = f" (SAL Cycle {cycle[0]}, Build {cycle[1]})"
         expected["display_name"] += extra_display
+    if rsp_build:
+        tag += f"_rsp{rsp_build}"
+        expected["display_name"] += f" (RSP Build {rsp_build})"
+        expected["rsp_build"] = rsp_build
     if extra:
         tag += f"_{extra}"
         expected["display_name"] += f" [{extra}]"

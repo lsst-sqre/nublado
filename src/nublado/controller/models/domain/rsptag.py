@@ -52,7 +52,7 @@ _ARCH = r"(?:-(?P<arch>[a-z0-9]+))?"
 
 # An ordered list of tuples, each of which contains a tag type followed by a
 # regular expression defining something that matches that type, with named
-# capture groups. The _RSP, _CYCLE, and _REST capture groups are optional and
+# capture groups. The _CYCLE, _RSP, and _REST capture groups are optional and
 # will be attempted in that order.
 #
 # A tag is matched against these regular expressions in order. The release
@@ -62,24 +62,24 @@ _TAG_REGEXES = [
     # r23_0_0_rc1_rsp19_c0020.001_20210513
     (
         RSPImageType.CANDIDATE,
-        re.compile(_CANDIDATE + _RSP + _CYCLE + _REST + _ARCH + "$"),
+        re.compile(_CANDIDATE + _CYCLE + _RSP + _REST + _ARCH + "$"),
     ),
     # r22_0_1_rsp19_c0019.001_20210513
     (
         RSPImageType.RELEASE,
-        re.compile(_RELEASE + _RSP + _CYCLE + _REST + _ARCH + "$"),
+        re.compile(_RELEASE + _CYCLE + _RSP + _REST + _ARCH + "$"),
     ),
     # r170 (obsolete) (no new ones, no additional parts)
     (RSPImageType.RELEASE, re.compile(r"r(?P<major>\d\d)(?P<minor>\d)$")),
     # w_2021_13_rsp19_c0020.001_20210513
     (
         RSPImageType.WEEKLY,
-        re.compile(_WEEKLY + _RSP + _CYCLE + _REST + _ARCH + "$"),
+        re.compile(_WEEKLY + _CYCLE + _RSP + _REST + _ARCH + "$"),
     ),
     # d_2021_05_13_rsp19_c0019.001_20210513
     (
         RSPImageType.DAILY,
-        re.compile(_DAILY + _RSP + _CYCLE + _REST + _ARCH + "$"),
+        re.compile(_DAILY + _CYCLE + _RSP + _REST + _ARCH + "$"),
     ),
     # exp_w_2021_05_13_nosudo
     (RSPImageType.EXPERIMENTAL, re.compile(_EXPERIMENTAL + "$")),
@@ -288,13 +288,13 @@ class RSPImageTag:
             display_name, version = cls._parse_version(image_type, data)
 
         # If there is extra information, add it to the end of the display name.
-        if rsp_build is not None:
-            display_name += f" (RSP Build {rsp_build})"
         if cycle is not None:
             if cycle_build is not None:
                 display_name += f" (SAL Cycle {cycle}, Build {cycle_build})"
             else:
                 display_name += f" (SAL Cycle {cycle})"
+        if rsp_build is not None:
+            display_name += f" (RSP Build {rsp_build})"
         if extra:
             display_name += f" [{extra}]"
         if architecture:
@@ -438,11 +438,11 @@ class RSPImageTag:
         # reverse sorted order, the generic images are first.
         if rank := self.version.compare(other.version):
             return rank
-        if rank := self._compare_int(self.rsp_build, other.rsp_build):
-            return rank
         if rank := self._compare_int(self.cycle, other.cycle):
             return rank
         if rank := self._compare_int(self.cycle_build, other.cycle_build):
+            return rank
+        if rank := self._compare_int(self.rsp_build, other.rsp_build):
             return rank
         if rank := self._compare_str(self.extra, other.extra):
             return rank
