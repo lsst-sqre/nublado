@@ -389,6 +389,10 @@ class KubernetesError(SlackException):
         KubernetesError
             Newly-created exception.
         """
+        if exc.body is not None and isinstance(exc.body, bytes):
+            body: str | None = exc.body.decode()
+        else:
+            body = exc.body
         return cls(
             message,
             user=user,
@@ -396,7 +400,7 @@ class KubernetesError(SlackException):
             namespace=namespace,
             name=name,
             status=exc.status,
-            body=exc.body.decode() if exc.body else exc.reason,
+            body=body or exc.reason,
         )
 
     def __init__(
