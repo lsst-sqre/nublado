@@ -1,13 +1,13 @@
 {
   "architecture": "amd64",
   "base": "latest",
-  "cycle": null,
+  "cycle": 27,
   "cycle_build": null,
   "date": null,
-  "display_name": "latest [amd64]",
+  "display_name": "latest (SAL Cycle 0027) [amd64]",
   "extra": null,
   "image_type": "Unknown",
   "rsp_build": null,
-  "tag": "latest-amd64",
+  "tag": "latest_c0027-amd64",
   "version": null
 }

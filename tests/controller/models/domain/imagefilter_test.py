@@ -107,8 +107,8 @@ def test_imagefilter() -> None:
         )
     ]
     assert filtered_tags == [
-        "recommended-amd64",
         "recommended",
+        "recommended-amd64",
         "r28_0_1",
         "r28_0_1-amd64",
         "r28_0_0",

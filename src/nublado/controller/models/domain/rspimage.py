@@ -150,15 +150,12 @@ class RSPImage(RSPImageTag):
         # Regenerate the tag display name, dropping any information added
         # outside of the tag. The architecture and extra information from the
         # alias tag will be re-added at the end.
-        if " (" in self.display_name:
-            cutoff = self.display_name.index(" (")
-            base_display_name = self.display_name[:cutoff].title()
-        else:
-            base_display_name = self.tag.replace("_", " ").title()
+        base = self.base or self.tag
+        base_display_name = base.replace("_", " ").title()
 
-        # If the target has a SAL cycle, it already has parentheses in its
-        # description. Nested parentheses are ugly, so convert that to another
-        # comma-separated stanza.
+        # If the target has a SAL cycle or RSP build, it already has
+        # parentheses in its description. Nested parentheses are ugly, so
+        # convert that to another comma-separated stanza.
         if " (" in target.display_name:
             extra = target.display_name.replace(" (", ", ").replace(")", "")
         else:
