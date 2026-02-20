@@ -127,10 +127,7 @@ async def test_gar(
     config = await configure(data, "gar")
     assert isinstance(config.images.source, GARSourceOptions)
     known_images = data.read_json("controller/tags/gar")
-    for known_image in known_images:
-        image = DockerImage(**known_image)
-        parent, _, _ = image.name.split("@", 1)[0].rsplit("/", 2)
-        mock_gar.add_image_for_test(parent, image)
+    mock_gar.add_images_for_test(DockerImage(**i) for i in known_images)
     nodes = [
         V1Node(
             metadata=V1ObjectMeta(name="node1"),
@@ -229,10 +226,7 @@ async def test_gar_cycle(
 ) -> None:
     config = await configure(data, "gar-cycle")
     known_images = data.read_json("controller/tags/gar-cycle")
-    for known_image in known_images:
-        image = DockerImage(**known_image)
-        parent, _, _ = image.name.split("@", 1)[0].rsplit("/", 2)
-        mock_gar.add_image_for_test(parent, image)
+    mock_gar.add_images_for_test(DockerImage(**i) for i in known_images)
     nodes = data.read_nodes("controller/nodes/gar-cycle")
     mock_kubernetes.set_nodes_for_test(nodes)
 

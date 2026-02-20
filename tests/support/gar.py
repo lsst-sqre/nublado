@@ -1,7 +1,7 @@
 """Mock out the Google Artifact Registry API for tests."""
 
 from collections import defaultdict
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterable, Iterator
 from typing import Any, override
 from unittest.mock import Mock, patch
 
@@ -27,17 +27,17 @@ class MockArtifactRegistry(Mock):
         self._images: defaultdict[str, list[DockerImage]] = defaultdict(list)
         self._fail = False
 
-    def add_image_for_test(self, parent: str, image: DockerImage) -> None:
-        """Add an image to the set of known images in the mock registry.
+    def add_images_for_test(self, images: Iterable[DockerImage]) -> None:
+        """Add images to the known images in the mock.
 
         Parameters
         ----------
-        parent
-            Parent search key that should uncover this image.
-        image
-            Image to add.
+        images
+            Images to add.
         """
-        self._images[parent].append(image)
+        for image in images:
+            parent, _, _ = image.name.split("@", 1)[0].rsplit("/", 2)
+            self._images[parent].append(image)
 
     def fail_for_test(self) -> None:
         """Fail the next image retrieval with an exception.
