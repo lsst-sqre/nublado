@@ -25,11 +25,7 @@ from kubernetes_asyncio.client import (
 from rubin.gafaelfawr import GafaelfawrUserInfo
 from structlog.stdlib import BoundLogger
 
-from ...config import (
-    EnabledFileserverConfig,
-    PVCVolumeSource,
-    VolumeConfig,
-)
+from ...config import EnabledFileserverConfig, PVCVolumeSource, VolumeConfig
 from ...constants import ARGO_CD_ANNOTATIONS
 from ...models.domain.fileserver import (
     FileserverObjects,

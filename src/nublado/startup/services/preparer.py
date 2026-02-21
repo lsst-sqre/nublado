@@ -10,11 +10,7 @@ from textwrap import dedent
 import structlog
 from safir.logging import LogLevel, configure_logging
 
-from ..constants import (
-    APP_NAME,
-    LAB_STATIC_CMD_ARGS,
-    STARTUP_PATH,
-)
+from ..constants import APP_NAME, LAB_STATIC_CMD_ARGS, STARTUP_PATH
 from ..exceptions import RSPErrorCode, RSPStartupError
 from .environment import EnvironmentConfigurator
 from .homedir import HomedirManager

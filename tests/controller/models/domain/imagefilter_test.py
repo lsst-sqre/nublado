@@ -9,9 +9,7 @@ from nublado.controller.models.domain.imagefilterpolicy import (
     ImageFilterPolicy,
     RSPImageFilterPolicy,
 )
-from nublado.controller.models.domain.rsptag import (
-    RSPImageTagCollection,
-)
+from nublado.controller.models.domain.rsptag import RSPImageTagCollection
 
 
 def test_imagefilter() -> None:

@@ -16,19 +16,12 @@ from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import get_logger
 
 from . import __version__
-from .constants import (
-    ALERT_HOOK_ENV_VAR,
-    ROOT_LOGGER,
-)
+from .constants import ALERT_HOOK_ENV_VAR, ROOT_LOGGER
 from .inithome.provisioner import Provisioner
 from .landingpage.provisioner import Provisioner as LandingPageProvisioner
 from .purger.config import Config as PurgerConfig
-from .purger.constants import (
-    CONFIG_FILE as PURGER_CONFIG_FILE,
-)
-from .purger.constants import (
-    CONFIG_FILE_ENV_VAR as PURGER_CONFIG_FILE_ENV_VAR,
-)
+from .purger.constants import CONFIG_FILE as PURGER_CONFIG_FILE
+from .purger.constants import CONFIG_FILE_ENV_VAR as PURGER_CONFIG_FILE_ENV_VAR
 from .purger.purger import Purger
 from .startup.services.preparer import Preparer
 

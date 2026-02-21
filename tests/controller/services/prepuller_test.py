@@ -7,11 +7,7 @@ from unittest.mock import ANY
 
 import pytest
 from google.cloud.artifactregistry_v1 import DockerImage
-from kubernetes_asyncio.client import (
-    ApiException,
-    V1ObjectMeta,
-    V1Pod,
-)
+from kubernetes_asyncio.client import ApiException, V1ObjectMeta, V1Pod
 from safir.testing.kubernetes import MockKubernetesApi
 from safir.testing.slack import MockSlackWebhook
 

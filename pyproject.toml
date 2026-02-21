@@ -203,11 +203,7 @@ extend = "ruff-shared.toml"
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = [
-    "nublado",
-    "rubin.nublado",
-    "tests",
-]
+known-first-party = ["nublado", "rubin.nublado", "tests"]
 
 [tool.scriv]
 categories = [
