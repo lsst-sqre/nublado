@@ -18,9 +18,7 @@ from ...config import (
     VolumeMountConfig,
 )
 from ...constants import ARGO_CD_ANNOTATIONS
-from ...models.domain.fsadmin import (
-    FSAdminObjects,
-)
+from ...models.domain.fsadmin import FSAdminObjects
 from ._introspect import _introspect_container
 from .volumes import VolumeBuilder
 

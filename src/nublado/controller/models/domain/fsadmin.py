@@ -2,10 +2,7 @@
 
 from dataclasses import dataclass
 
-from kubernetes_asyncio.client import (
-    V1PersistentVolumeClaim,
-    V1Pod,
-)
+from kubernetes_asyncio.client import V1PersistentVolumeClaim, V1Pod
 
 __all__ = ["FSAdminObjects"]
 

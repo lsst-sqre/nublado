@@ -13,11 +13,7 @@ from pydantic_settings import (
 from safir.logging import LogLevel, Profile, configure_logging
 from safir.pydantic import HumanTimedelta
 
-from .constants import (
-    ENV_PREFIX,
-    POLICY_FILE,
-    ROOT_LOGGER,
-)
+from .constants import ENV_PREFIX, POLICY_FILE, ROOT_LOGGER
 
 __all__ = ["Config"]
 

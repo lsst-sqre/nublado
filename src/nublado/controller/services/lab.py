@@ -11,9 +11,7 @@ from typing import Self
 
 from safir.asyncio import AsyncMultiQueue
 from safir.sentry import report_exception
-from safir.slack.blockkit import (
-    SlackException,
-)
+from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
