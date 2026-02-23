@@ -885,6 +885,28 @@ class SharedLabConfig(BaseModel):
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
+    enable_rubin_query_menu: Annotated[
+        bool,
+        Field(
+            title="Whether to enable Rubin query menu",
+            description=(
+                "If true, put the Rubin menu and its submenus into the"
+                " JupyterLab UI."
+            ),
+        ),
+    ] = True
+
+    enable_tutorials_menu: Annotated[
+        bool,
+        Field(
+            title="Whether to enable tutorials menu",
+            description=(
+                "If true, put the Tutorials menu and its submenus into the"
+                " JupyterLab UI."
+            ),
+        ),
+    ] = True
+
     homedir_prefix: Annotated[
         str,
         Field(
