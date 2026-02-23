@@ -2,6 +2,8 @@
   "container_size": "Small (1.0 CPU, 3Gi RAM)",
   "cpu_guarantee": 0.25,
   "cpu_limit": 1.0,
+  "enable_rubin_query_menu": true,
+  "enable_tutorials_menu": true,
   "file_browser_root": "root",
   "homedir_prefix": "/home",
   "homedir_schema": "username",
