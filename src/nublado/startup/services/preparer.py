@@ -1,6 +1,5 @@
 """RSP Lab preparer."""
 
-import contextlib
 import datetime
 import json
 import os
@@ -12,7 +11,8 @@ import pydantic_core
 import structlog
 from safir.logging import LogLevel, configure_logging
 
-from ...controller.models.v1.lab_configmap import LabConfigMap
+from ...controller.config import LabFileBrowserRoot
+from ...controller.models.domain.lab_configmap import LabConfigMap
 from ..constants import (
     APP_NAME,
     CONFIG_FILE,
@@ -69,15 +69,17 @@ class Preparer:
         os.environ["HOME"] = self._env["HOME"]
 
         self._config: LabConfigMap | None = None
-        with contextlib.suppress(
+        try:
+            self._config = LabConfigMap.model_validate_json(
+                Path(CONFIG_FILE).read_text()
+            )
+        except (
             FileNotFoundError,
             UnicodeDecodeError,
             json.decoder.JSONDecodeError,
             pydantic_core.ValidationError,
         ):
-            self._config = LabConfigMap.model_validate_json(
-                Path(CONFIG_FILE).read_text()
-            )
+            self._logger.exception(f"Could not read config from {CONFIG_FILE}")
 
     def prepare(self) -> None:
         """Make necessary modifications to start the user lab."""
@@ -353,7 +355,7 @@ class Preparer:
         cmd_args = list(LAB_STATIC_CMD_ARGS)
         if (
             self._config is not None
-            and self._config.file_browser_root == "root"
+            and self._config.file_browser_root == LabFileBrowserRoot.ROOT
         ):
             rel_h = (self._home).relative_to(Path("/"))
             cmd_args.append("--notebook-dir=/")
