@@ -4,6 +4,7 @@ from pathlib import Path
 
 __all__ = [
     "APP_NAME",
+    "CONFIG_FILE",
     "ETC_PATH",
     "LAB_STATIC_CMD_ARGS",
     "MAX_NUMBER_OUTPUTS",
