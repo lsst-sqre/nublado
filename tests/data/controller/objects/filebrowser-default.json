@@ -59,7 +59,7 @@
     "apiVersion": "v1",
     "data": {
       "group": "root:x:0\nrachel:x:1101:\nlunatics:x:2028:rachel\nmechanics:x:2001:rachel\nstorytellers:x:2021:rachel\n99numbers:x:2029:rachel\n",
-      "passwd": "root:x:0:0:root:/root:/bin/bash\nrachel:x:1101:1101:Rachel (?):/u/home/r/rachel/jhome:/bin/bash\n"
+      "passwd": "root:x:0:0:root:/root:/bin/bash\nrachel:x:1101:1101:Rachel (?):/home/rachel:/bin/bash\n"
     },
     "immutable": true,
     "kind": "ConfigMap",
@@ -291,7 +291,7 @@
               "readOnly": true
             }
           ],
-          "workingDir": "/u/home/r/rachel/jhome"
+          "workingDir": "/home/rachel"
         }
       ],
       "initContainers": [
@@ -303,7 +303,7 @@
           "env": [
             {
               "name": "NUBLADO_HOME",
-              "value": "/u/home/r/rachel/jhome"
+              "value": "/home/rachel"
             },
             {
               "name": "NUBLADO_UID",

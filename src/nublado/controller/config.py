@@ -1,7 +1,7 @@
 """Global configuration parsing."""
 
 from datetime import timedelta
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Annotated, Literal, Self, override
 
@@ -64,6 +64,7 @@ __all__ = [
     "LabFileBrowserRoot",
     "LabInitContainer",
     "LabNSSFiles",
+    "LabResources",
     "LabSecret",
     "LabSizeDefinition",
     "NFSVolumeSource",
@@ -830,7 +831,7 @@ class LabSecret(BaseModel):
     ] = None
 
 
-class LabFileBrowserRoot(Enum):
+class LabFileBrowserRoot(StrEnum):
     """Where the top of the UI file browser is."""
 
     ROOT = "root"
@@ -906,42 +907,6 @@ class SharedLabConfig(BaseModel):
             ),
         ),
     ] = True
-
-    homedir_prefix: Annotated[
-        str,
-        Field(
-            title="Prefix for home directory path",
-            description=(
-                "Portion of home directory path added before the username."
-                " This is the path *inside* the container, not the path of the"
-                " volume mounted in the container, so it need not reflect the"
-                " structure of the home directory volume source. The primary"
-                " reason to set this is to make paths inside the container"
-                " match a pattern that users are familiar with outside of"
-                " Nublado."
-            ),
-            examples=["/home", "/u"],
-        ),
-        AfterValidator(lambda v: v.rstrip("/")),
-    ] = "/home"
-
-    homedir_suffix: Annotated[
-        str,
-        Field(
-            title="Suffix for home directory path",
-            description=(
-                "Portion of home directory path added after the username. This"
-                " is primarily used for environments that want the user's"
-                " Nublado home directory to be a subdirectory of their regular"
-                " home directory outside of Nublado. This configuration is"
-                " strongly recommended in environments that change home"
-                " directories, since Nublado often has different needs for"
-                " dot files and other configuration."
-            ),
-            examples=["nublado", "jhome"],
-        ),
-        AfterValidator(lambda v: v.strip("/")),
-    ] = ""
 
     jupyterlab_config_dir: Annotated[
         str,
@@ -1098,6 +1063,24 @@ class LabConfig(SharedLabConfig):
         ),
     ] = "home"
 
+    homedir_prefix: Annotated[
+        str,
+        Field(
+            title="Prefix for home directory path",
+            description=(
+                "Portion of home directory path added before the username."
+                " This is the path *inside* the container, not the path of the"
+                " volume mounted in the container, so it need not reflect the"
+                " structure of the home directory volume source. The primary"
+                " reason to set this is to make paths inside the container"
+                " match a pattern that users are familiar with outside of"
+                " Nublado."
+            ),
+            examples=["/home", "/u"],
+        ),
+        AfterValidator(lambda v: v.rstrip("/")),
+    ] = "/home"
+
     homedir_schema: Annotated[
         UserHomeDirectorySchema,
         Field(
@@ -1108,6 +1091,24 @@ class LabConfig(SharedLabConfig):
             ),
         ),
     ] = UserHomeDirectorySchema.USERNAME
+
+    homedir_suffix: Annotated[
+        str,
+        Field(
+            title="Suffix for home directory path",
+            description=(
+                "Portion of home directory path added after the username. This"
+                " is primarily used for environments that want the user's"
+                " Nublado home directory to be a subdirectory of their regular"
+                " home directory outside of Nublado. This configuration is"
+                " strongly recommended in environments that change home"
+                " directories, since Nublado often has different needs for"
+                " dot files and other configuration."
+            ),
+            examples=["nublado", "jhome"],
+        ),
+        AfterValidator(lambda v: v.strip("/")),
+    ] = ""
 
     init_containers: Annotated[
         list[LabInitContainer],

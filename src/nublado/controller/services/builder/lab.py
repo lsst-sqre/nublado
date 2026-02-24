@@ -61,6 +61,7 @@ from ...config import (
 )
 from ...constants import ARGO_CD_ANNOTATIONS, MEMORY_TO_TMP_SIZE_RATIO
 from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
+from ...models.domain.lab_configmap import LabConfigImageSettings, LabConfigMap
 from ...models.domain.rspimage import RSPImage
 from ...models.domain.volumes import MountedVolume
 from ...models.v1.lab import (
@@ -74,7 +75,6 @@ from ...models.v1.lab import (
     UserGroup,
     UserInfo,
 )
-from ...models.v1.lab_configmap import LabConfigMap
 from ._introspect import _introspect_container
 from .volumes import VolumeBuilder
 
@@ -340,23 +340,32 @@ class LabBuilder:
 
         size = self._config.get_size_definition(lab.options.size)
         resources = size.resources
+        img_settings = LabConfigImageSettings(
+            description=image.display_name,
+            digest=image.digest,
+            spec=image.reference_with_digest,
+        )
+        if self._config.file_browser_root == LabFileBrowserRoot.HOME:
+            relative_home = ""
+        else:
+            # long way of saying [1:], but more correct, I suppose.
+            relative_home = str(
+                Path(self._build_home_directory(user.username)).relative_to(
+                    Path("/")
+                )
+            )
         return json.dumps(  # Pydantic doesn't sort the fields.
             LabConfigMap(
                 container_size=str(size),
-                cpu_guarantee=resources.requests.cpu,
-                cpu_limit=resources.limits.cpu,
                 debug=lab.options.enable_debug,
-                file_browser_root=self._config.file_browser_root.value,
-                homedir_prefix=self._config.homedir_prefix,
-                homedir_schema=self._config.homedir_schema.value,
-                homedir_suffix=self._config.homedir_suffix,
-                image_description=image.display_name,
-                image_digest=image.digest,
-                jupyter_image_spec=image.reference_with_digest,
+                enable_rubin_query_menu=self._config.enable_rubin_query_menu,
+                enable_tutorials_menu=self._config.enable_tutorials_menu,
+                file_browser_root=self._config.file_browser_root,
+                home_relative_to_file_browser_root=relative_home,
+                image=img_settings,
                 jupyterlab_config_dir=self._config.jupyterlab_config_dir,
-                mem_guarantee=resources.requests.memory,
-                mem_limit=resources.limits.memory,
                 reset_user_env=lab.options.reset_user_env,
+                resources=resources,
                 runtime_mounts_dir=self._config.runtime_mounts_dir,
             ).model_dump(),
             sort_keys=True,
@@ -1089,10 +1098,12 @@ class LabBuilder:
 
         # Specification for the user's container.
         env_source = V1ConfigMapEnvSource(name=f"{user.username}-nb-env")
-        working_dir = "/"
         # Necessary because using ContentsManager.root_dir (as of 18 Feb 2026)
         # means that os.getcwd() always reports where the Lab started, rather
-        # than the parent of the active notebook.
+        # than the parent of the active notebook. Thus we can't set `root_dir`
+        # as a config item, but rather we just set our initial directory to
+        # the root at Lab process start time.
+        working_dir = "/"
         if self._config.file_browser_root != LabFileBrowserRoot.ROOT:
             working_dir = self._build_home_directory(user.username)
         container = V1Container(
