@@ -102,7 +102,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 # No default CMD or ENTRYPOINT.
 
 # For controller:
-# CMD ["uvicorn", "nublado.controller.main:create_app", "--port", "8080", "--host", "0.0.0.0" ]
+# CMD ["uvicorn", "--factory", "nublado.controller.main:create_app", "--port", "8080", "--host", "0.0.0.0" ]
 # For inithome:
 # CMD ["nublado", "inithome"]
 # For purger:
