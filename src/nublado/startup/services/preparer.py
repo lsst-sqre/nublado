@@ -20,6 +20,7 @@ from ..constants import (
     STARTUP_PATH,
 )
 from ..exceptions import RSPErrorCode, RSPStartupError
+from ..utils import load_config
 from .environment import EnvironmentConfigurator
 from .homedir import HomedirManager
 
@@ -70,9 +71,7 @@ class Preparer:
 
         self._config: LabConfigMap | None = None
         try:
-            self._config = LabConfigMap.model_validate_json(
-                Path(CONFIG_FILE).read_text()
-            )
+            self._config = load_config()
         except (
             FileNotFoundError,
             UnicodeDecodeError,
@@ -357,7 +356,7 @@ class Preparer:
             self._config is not None
             and self._config.file_browser_root == LabFileBrowserRoot.ROOT
         ):
-            rel_h = (self._home).relative_to(Path("/"))
+            rel_h = self._config.home_relative_to_file_browser_root
             cmd_args.append("--notebook-dir=/")
             cmd_args.append(f"--ContentsManager.preferred_dir={rel_h!s}")
         else:

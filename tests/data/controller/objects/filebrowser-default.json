@@ -10,13 +10,13 @@
       "IMAGE_DIGEST": "sha256:1234",
       "JUPYTERHUB_ACTIVITY_INTERVAL": "3600",
       "JUPYTERHUB_SERVICE_PREFIX": "/nb/user/rachel/",
-      "JUPYTERLAB_CONFIG_DIR": "/opt/lsst/software/jupyterlab",
-      "JUPYTERLAB_START_COMMAND": "/opt/lsst/software/jupyterlab/runlab.sh",
+      "JUPYTERLAB_CONFIG_DIR": "/etc/nublado",
+      "JUPYTERLAB_START_COMMAND": "/etc/nublado/runlab.sh",
       "JUPYTER_IMAGE": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
       "JUPYTER_IMAGE_SPEC": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
       "MEM_GUARANTEE": "805306368",
       "MEM_LIMIT": "3221225472",
-      "NUBLADO_RUNTIME_MOUNTS_DIR": "/opt/lsst/software/jupyterlab",
+      "NUBLADO_RUNTIME_MOUNTS_DIR": "/etc/nublado",
       "REPERTOIRE_BASE_URL": "https://example.com/repertoire"
     },
     "immutable": true,
@@ -167,7 +167,7 @@
       "containers": [
         {
           "args": [
-            "/opt/lsst/software/jupyterlab/runlab.sh"
+            "/etc/nublado/runlab.sh"
           ],
           "env": [
             {
@@ -266,12 +266,12 @@
               "subPath": "lab-config.json"
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/secrets",
+              "mountPath": "/etc/nublado/secrets",
               "name": "secrets",
               "readOnly": true
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/environment",
+              "mountPath": "/etc/nublado/environment",
               "name": "env",
               "readOnly": true
             },
@@ -286,7 +286,7 @@
               "readOnly": false
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/runtime",
+              "mountPath": "/etc/nublado/runtime",
               "name": "runtime",
               "readOnly": true
             }
@@ -387,12 +387,12 @@
               "subPath": "lab-config.json"
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/secrets",
+              "mountPath": "/etc/nublado/secrets",
               "name": "secrets",
               "readOnly": true
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/environment",
+              "mountPath": "/etc/nublado/environment",
               "name": "env",
               "readOnly": true
             },
@@ -407,7 +407,7 @@
               "readOnly": false
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/runtime",
+              "mountPath": "/etc/nublado/runtime",
               "name": "runtime",
               "readOnly": true
             }

@@ -26,9 +26,6 @@ def rsp_fs(
     fs.add_real_directory(
         data_root / "homedir", target_path="/home/hambone", read_only=False
     )
-    fs.add_real_directory(
-        data_root / "jupyterlab", target_path="/opt/lsst/software/jupyterlab"
-    )
     fs.add_real_directory(Path(__file__).parent.parent / "data")
     fs.create_dir("/etc/nublado/startup")
     fs.create_dir("/scratch")

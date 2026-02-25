@@ -4,10 +4,10 @@
   "enable_rubin_query_menu": true,
   "enable_tutorials_menu": true,
   "file_browser_root": "root",
-  "home_relative_to_file_browser_root": "",
+  "home_relative_to_file_browser_root": "home/hambone",
   "image": {
     "description": "Daily 2077_10_23",
-    "digest": "sha256:1234",
+    "digest": "1234",
     "spec": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234"
   },
   "jupyterlab_config_dir": "/opt/lsst/software/jupyterlab",
@@ -22,5 +22,5 @@
       "memory": 805306368
     }
   },
-  "runtime_mounts_dir": "/opt/lsst/software/jupyterlab"
+  "runtime_mounts_dir": "/etc/nublado"
 }

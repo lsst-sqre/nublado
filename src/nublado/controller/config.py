@@ -826,7 +826,7 @@ class LabSecret(BaseModel):
                 "If set, also mount the secret at this path inside the lab"
                 " container"
             ),
-            examples=["/opt/lsst/software/jupyterlab/butler-secret"],
+            examples=["/etc/nublado/butler-secret"],
         ),
     ] = None
 
@@ -919,7 +919,7 @@ class SharedLabConfig(BaseModel):
                 " secrets are stored under this path."
             ),
         ),
-    ] = "/opt/lsst/software/jupyterlab"
+    ] = "/etc/nublado"
 
     runtime_mounts_dir: Annotated[
         str,
@@ -931,7 +931,7 @@ class SharedLabConfig(BaseModel):
                 " will be mounted."
             ),
         ),
-    ] = "/opt/lsst/software/jupyterlab"
+    ] = "/etc/nublado"
 
 
 class LabConfig(SharedLabConfig):
@@ -1133,7 +1133,7 @@ class LabConfig(SharedLabConfig):
                 " start the lab"
             ),
         ),
-    ] = ["/opt/lsst/software/jupyterlab/runlab.sh"]
+    ] = ["/etc/nublado/runlab.sh"]
 
     namespace_annotations: Annotated[
         dict[str, str],

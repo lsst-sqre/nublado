@@ -130,10 +130,10 @@ def test_cpu_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     assert em._env["MPI_NUM_THREADS"] == "14"
 
 
+@pytest.mark.usefixtures("rsp_fs")
 def test_get_digest(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("JUPYTER_IMAGE_SPEC", "sciplat-lab@sha256:abcde")
     digest = get_digest()
-    assert digest == "abcde"
+    assert digest == "1234"
 
 
 @pytest.mark.usefixtures("rsp_fs")
@@ -363,7 +363,7 @@ def test_copy_logging_profile(monkeypatch: pytest.MonkeyPatch) -> None:
     hm._copy_logging_profile()
     assert pfile.exists()
     h_contents = pfile.read_text()
-    sfile = get_jupyterlab_config_dir() / "etc" / "20-logging.py"
+    sfile = get_jupyterlab_config_dir() / "20-logging.py"
     assert sfile.exists()
     s_contents = sfile.read_text()
     assert s_contents == h_contents
