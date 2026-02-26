@@ -10,7 +10,7 @@
     "digest": "1234",
     "spec": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234"
   },
-  "jupyterlab_config_dir": "/opt/lsst/software/jupyterlab",
+  "jupyterlab_config_dir": "/etc/nublado",
   "repertoire_base_url": "https://data.example.com/repertoire",
   "resources": {
     "limits": {

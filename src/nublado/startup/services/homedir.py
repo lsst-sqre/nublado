@@ -278,7 +278,9 @@ class HomedirManager:
             if not srcfile.is_file():
                 srcfile = jl_path / "20-logging.py"
             if not srcfile.is_file():
-                self._logger.warning("Could not find source user log profile.")
+                self._logger.warning(
+                    f"Could not find source user log profile at {srcfile}."
+                )
                 return
             user_profile.write_bytes(srcfile.read_bytes())
 

@@ -1,4 +1,4 @@
 #!/bin/sh
-if [ -n "${HOME}" ];
+if [ -n "${HOME}" ]; then
    cd "${HOME}"
 fi

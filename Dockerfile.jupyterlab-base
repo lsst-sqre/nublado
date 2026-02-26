@@ -18,11 +18,11 @@ ENV UV_LINK_MODE=copy
 COPY jupyterlab-base/scripts/install-base-packages /tmp/build
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    ./install-base-packages
+    /tmp/build/install-base-packages
 
 # Install other (non-dpkg) system-level files
 COPY jupyterlab-base/scripts/install-system-files /tmp/build
-RUN ./install-system-files
+RUN /tmp/build/install-system-files
 
 # Build-time dependencies, discarded after virtualenv installation.
 FROM base-image AS deps-image
@@ -30,15 +30,17 @@ FROM base-image AS deps-image
 COPY jupyterlab-base/scripts/install-dependency-packages /tmp/build
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    ./install-dependency-packages
+    /tmp/build/install-dependency-packages
 
 # Install JupyterLab and dependent Python packages.
 ADD . /tmp/build
 WORKDIR /tmp/build/jupyterlab-base
-RUN scripts/install-jupyterlab
+COPY jupyterlab-base/scripts/install-jupyterlab /tmp/build
+RUN /tmp/build/install-jupyterlab
 
 FROM base-image AS jupyterlab-image
 
+WORKDIR /tmp/build
 # Install a bunch of Jupyterlab support stuff.
 
 RUN mkdir -p /usr/local/share/jupyterlab/etc
@@ -80,8 +82,11 @@ COPY jupyterlab-base/runtime/runlab \
 
 # Get our manifests.  This has always been really useful for debugging
 # "what broke this week?"
+
+# Why does running from the current directory stop working here?
+# I don't know.
 COPY jupyterlab-base/scripts/generate-versions /tmp/build
-RUN ./generate-versions
+RUN /tmp/build/generate-versions
 
 # This needs to be numeric, since we will remove /etc/passwd and friends
 # while we're running.
@@ -89,13 +94,13 @@ USER 0:0
 
 # Add startup shim.
 COPY jupyterlab-base/scripts/install-compat /tmp/build
-RUN  ./install-compat
+RUN  /tmp/build/install-compat
 
 WORKDIR /
 
 # Clean up.
 COPY jupyterlab-base/scripts/cleanup-files /
-RUN ./cleanup-files && rm ./cleanup-files
+RUN /cleanup-files && rm /cleanup-files
 
 WORKDIR /tmp
 
