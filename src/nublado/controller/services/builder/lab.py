@@ -354,6 +354,7 @@ class LabBuilder:
                     Path("/")
                 )
             )
+        rep_url = os.environ.get("REPERTOIRE_BASE_URL", "")
         return json.dumps(  # Pydantic doesn't sort the fields.
             LabConfigMap(
                 container_size=str(size),
@@ -364,6 +365,7 @@ class LabBuilder:
                 home_relative_to_file_browser_root=relative_home,
                 image=img_settings,
                 jupyterlab_config_dir=self._config.jupyterlab_config_dir,
+                repertoire_base_url=rep_url,
                 reset_user_env=lab.options.reset_user_env,
                 resources=resources,
                 runtime_mounts_dir=self._config.runtime_mounts_dir,

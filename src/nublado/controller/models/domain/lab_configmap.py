@@ -112,6 +112,14 @@ class LabConfigMap(SharedLabConfig):
         ),
     ]
 
+    repertoire_base_url: Annotated[
+        str,
+        Field(
+            title="Repertoire base URL",
+            description="Base URL for Repertoire service discovery,",
+        ),
+    ]
+
     reset_user_env: Annotated[
         bool,
         Field(
