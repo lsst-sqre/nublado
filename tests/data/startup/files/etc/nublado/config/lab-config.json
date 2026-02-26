@@ -11,6 +11,7 @@
     "spec": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234"
   },
   "jupyterlab_config_dir": "/opt/lsst/software/jupyterlab",
+  "repertoire_base_url": "https://data.example.com/repertoire",
   "resources": {
     "limits": {
       "cpu": 1.0,
