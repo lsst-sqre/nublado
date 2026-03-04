@@ -8,7 +8,7 @@ env:
   # Current supported uv version. The uv documentation recommends pinning
   # this. The version should match the version used in .pre-commit-config.yaml
   # and frozen in uv.lock. It is updated by make update-deps.
-  UV_VERSION: "0.10.4"
+  UV_VERSION: "0.10.8"
 
 "on":
   schedule:
@@ -61,22 +61,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # The top-level Python version must be used for make update-deps,
-      # followed by a switch to the matrix version. Otherwise, the test may
-      # fail because the version of Python is too old to update some
-      # directories.
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           version: ${{ env.UV_VERSION }}
+          python-version: ${{ matrix.python }}
 
       - name: Update dependencies
-        run: make update-deps
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python }}
+        run: uv lock --upgrade --directory client -P ${{ matrix.python }}
 
       - name: Run nox
         run: uv run --only-group=nox nox -P ${{ matrix.python }} -s typing test
@@ -105,22 +97,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # The top-level Python version must be used for make update-deps,
-      # followed by a switch to the matrix version. Otherwise, the test may
-      # fail because the version of Python is too old to update some
-      # directories.
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           version: ${{ env.UV_VERSION }}
+          python-version: ${{ matrix.python }}
 
       - name: Update dependencies
-        run: make update-deps
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python }}
+        run: uv lock --upgrade --directory hub -P ${{ matrix.python }}
 
       - name: Run nox
         run: uv run --only-group=nox nox -P ${{ matrix.python }} -s typing test
