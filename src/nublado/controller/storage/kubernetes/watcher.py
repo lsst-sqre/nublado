@@ -1,7 +1,7 @@
 """Watch a Kubernetes namespace or cluster for events."""
 
 import math
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Self
@@ -219,19 +219,17 @@ class KubernetesWatcher[T]:
 
         while True:
             if self._timeout:
-                # We never want to wait longer than our reconnect_timeout
+                # We never want to wait longer than our reconnect_timeout.
                 left = self._timeout.left()
                 logger = logger.bind(timeout_left=left)
                 if left <= reconnect_seconds:
                     args["_request_timeout"] = left
                     args["timeout_seconds"] = math.ceil(left)
             try:
-                logger = logger.bind(
-                    _request_timeout=args["_request_timeout"],
-                )
+                logger = logger.bind(request_timeout=args["_request_timeout"])
                 async with self._watch.stream(self._method, **args) as s:
-                    async for event in s:
-                        yield WatchEvent.from_event(event, self._type)
+                    async for event in self._parse_events(s, logger):
+                        yield event
 
                 # Client timeouts will raise TimeoutError, but server timeouts
                 # will just end the iterator. Calling the stop method will
@@ -271,3 +269,29 @@ class KubernetesWatcher[T]:
                     namespace=self._namespace,
                     name=self._name,
                 ) from e
+
+    async def _parse_events(
+        self, stream: Watch, logger: BoundLogger
+    ) -> AsyncGenerator[WatchEvent[T]]:
+        """Read and parse events from a stream.
+
+        Events in an unexpected format will be logged with a warning and will
+        terminate the iterator.
+
+        Yields
+        ------
+        WatchEvent
+            Next event in the stream.
+        """
+        async for event in stream:
+            if not isinstance(event, dict):
+                msg = "Unexpected watch event, assuming restart"
+                logger.warning(msg, watch_event=str(event))
+                break
+            try:
+                yield WatchEvent.from_event(event, self._type)
+            except Exception as e:
+                msg = "Unable to parse watch event, restarting"
+                error = f"{type(e).__name__}: {e!s}"
+                logger.warning(msg, error=error, watch_event=str(event))
+                break
