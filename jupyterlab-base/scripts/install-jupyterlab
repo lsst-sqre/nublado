@@ -49,7 +49,7 @@ uv pip install --upgrade \
    panel \
    plotly \
    pythreejs \
-   'rsp-jupyter-extensions>=0.10.2' \
+   'git+https://github.com/lsst-sqre/rsp-jupyter-extensions@tickets/DM-53832' \
    sidecar
 
 # Install the rubin.nublado.startup module.
@@ -75,5 +75,4 @@ uv cache clean
 
 # Increase this to force a rebuild because a dependency package has changed.
 # Reset when you actually change a package or its pins.
-# Serial: 0
-
+# Serial: 10

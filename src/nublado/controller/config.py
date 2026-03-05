@@ -1,7 +1,7 @@
 """Global configuration parsing."""
 
 from datetime import timedelta
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Annotated, Literal, Self, override
 
@@ -61,14 +61,17 @@ __all__ = [
     "GARSourceConfig",
     "HostPathVolumeSource",
     "LabConfig",
+    "LabFileBrowserRoot",
     "LabInitContainer",
     "LabNSSFiles",
+    "LabResources",
     "LabSecret",
     "LabSizeDefinition",
     "NFSVolumeSource",
     "PVCVolumeResources",
     "PVCVolumeSource",
     "PrepullerConfig",
+    "SharedLabConfig",
     "UserHomeDirectorySchema",
     "VolumeConfig",
     "VolumeMountConfig",
@@ -823,9 +826,19 @@ class LabSecret(BaseModel):
                 "If set, also mount the secret at this path inside the lab"
                 " container"
             ),
-            examples=["/opt/lsst/software/jupyterlab/butler-secret"],
+            examples=["/etc/nublado/butler-secret"],
         ),
     ] = None
+
+
+class LabFileBrowserRoot(StrEnum):
+    """Where the top of the UI file browser is."""
+
+    ROOT = "root"
+    """The file browser can traverse up to the container root directory."""
+
+    HOME = "home"
+    """The user's home directory is as high as the file browser can go."""
 
 
 class LabNSSFiles(BaseModel):
@@ -862,8 +875,70 @@ class LabNSSFiles(BaseModel):
     ] = "root:x:0\n"
 
 
-class LabConfig(BaseModel):
-    """Configuration for spawning user labs."""
+class SharedLabConfig(BaseModel):
+    """Sanitized configuration for mounting into the Lab as ConfigMap.
+
+    This is a subset of LabConfig.  It will have extra fields not part
+    of Lab config attached to it when the ConfigMap is constructed.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="forbid", populate_by_name=True
+    )
+
+    enable_rubin_query_menu: Annotated[
+        bool,
+        Field(
+            title="Whether to enable Rubin query menu",
+            description=(
+                "If true, put the Rubin menu and its submenus into the"
+                " JupyterLab UI."
+            ),
+        ),
+    ] = True
+
+    enable_tutorials_menu: Annotated[
+        bool,
+        Field(
+            title="Whether to enable tutorials menu",
+            description=(
+                "If true, put the Tutorials menu and its submenus into the"
+                " JupyterLab UI."
+            ),
+        ),
+    ] = True
+
+    jupyterlab_config_dir: Annotated[
+        str,
+        Field(
+            title="Root of Lab custom Jupyterlab configuration",
+            description=(
+                "Path inside the lab container where custom configuration is"
+                " stored.  Things like kernel definitions, custom logger"
+                " definitions, service tokens, and Lab-instance-specific"
+                " secrets are stored under this path."
+            ),
+        ),
+    ] = "/etc/nublado"
+
+    runtime_mounts_dir: Annotated[
+        str,
+        Field(
+            title="Runtime-info mounts",
+            description=(
+                "Directory under which runtime information (e.g. tokens,"
+                " environment variables, and container resource information"
+                " will be mounted."
+            ),
+        ),
+    ] = "/etc/nublado"
+
+
+class LabConfig(SharedLabConfig):
+    """Configuration for spawning user labs.
+
+    This is a superset of SharedLabConfig.
+    """
 
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
@@ -952,6 +1027,18 @@ class LabConfig(BaseModel):
         ),
     ] = {}
 
+    file_browser_root: Annotated[
+        LabFileBrowserRoot,
+        Field(
+            title="JupyterLab file browser root",
+            description=(
+                "Whether to allow traversal in the UI file browser all"
+                " the way up to the container root, or only as high as"
+                " the user home directory."
+            ),
+        ),
+    ] = LabFileBrowserRoot.HOME
+
     files: Annotated[
         dict[Annotated[str, AfterValidator(_reject_reserved_paths)], str],
         Field(
@@ -963,18 +1050,18 @@ class LabConfig(BaseModel):
         ),
     ] = {}
 
-    jupyterlab_config_dir: Annotated[
+    home_volume_name: Annotated[
         str,
         Field(
-            title="Root of Lab custom Jupyterlab configuration",
+            title="Name of volume containing user homedirs",
             description=(
-                "Path inside the lab container where custom configuration is"
-                " stored.  Things like kernel definitions, custom logger"
-                " definitions, service tokens, and Lab-instance-specific"
-                " secrets are stored under this path."
+                "The standard inithome container, the landingpage"
+                " container, and the Lab startup initcontainer all"
+                " need to know which volume contains user home"
+                " directories."
             ),
         ),
-    ] = "/opt/lsst/software/jupyterlab"
+    ] = "home"
 
     homedir_prefix: Annotated[
         str,
@@ -1023,19 +1110,6 @@ class LabConfig(BaseModel):
         AfterValidator(lambda v: v.strip("/")),
     ] = ""
 
-    home_volume_name: Annotated[
-        str,
-        Field(
-            title="Name of volume containing user homedirs",
-            description=(
-                "The standard inithome container, the landingpage"
-                " container, and the Lab startup initcontainer all"
-                " need to know which volume contains user home"
-                " directories."
-            ),
-        ),
-    ] = "home"
-
     init_containers: Annotated[
         list[LabInitContainer],
         Field(
@@ -1059,7 +1133,7 @@ class LabConfig(BaseModel):
                 " start the lab"
             ),
         ),
-    ] = ["/opt/lsst/software/jupyterlab/runlab.sh"]
+    ] = ["/etc/nublado/runlab.sh"]
 
     namespace_annotations: Annotated[
         dict[str, str],
@@ -1131,18 +1205,6 @@ class LabConfig(BaseModel):
             ),
         ),
     ] = timedelta(minutes=5)
-
-    runtime_mounts_dir: Annotated[
-        str,
-        Field(
-            title="Runtime-info mounts",
-            description=(
-                "Directory under which runtime information (e.g. tokens,"
-                " environment variables, and container resource information"
-                " will be mounted."
-            ),
-        ),
-    ] = "/opt/lsst/software/jupyterlab"
 
     secrets: Annotated[
         list[LabSecret],

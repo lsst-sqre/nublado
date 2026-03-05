@@ -7,8 +7,6 @@ from pathlib import Path
 from rubin.repertoire import DiscoveryClient, RepertoireError
 from structlog.stdlib import BoundLogger
 
-from ..utils import get_digest
-
 __all__ = ["EnvironmentConfigurator"]
 
 
@@ -34,7 +32,6 @@ class EnvironmentConfigurator:
         self._set_tmpdir_if_scratch_available()
         self._set_butler_cache()
         self._set_cpu_variables()
-        self._set_image_digest()
         self._expand_panda_tilde()
         asyncio.run(self._set_firefly_variables())
         self._force_jupyter_prefer_env_path_false()
@@ -154,16 +151,6 @@ class EnvironmentConfigurator:
         ):
             self._env[vname] = cpu_limit_str
             self._logger.debug(f"Set '{vname}' -> '{cpu_limit_str}'")
-
-    def _set_image_digest(self) -> None:
-        self._logger.debug("Setting image digest if available")
-        # get_digest() is already a helper function in our parent package.
-        digest = get_digest()
-        if digest:
-            self._logger.debug(f"Set image digest to '{digest}'")
-            self._env["IMAGE_DIGEST"] = digest
-        else:
-            self._logger.debug("Could not get image digest")
 
     def _expand_panda_tilde(self) -> None:
         self._logger.debug("Expanding tilde in PANDA_CONFIG_ROOT, if needed")

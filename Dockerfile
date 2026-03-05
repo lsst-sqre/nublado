@@ -84,7 +84,7 @@ RUN cd /tmp && \
     cp dircolors-solarized/dircolors* /etc && \
     rm -rf dircolors-solarized && \
     mkdir -p /usr/local/share/jupyterlab/etc
-COPY assets/20-logging.py /usr/local/share/jupyterlab/etc/20-logging.py
+COPY assets/20-logging.py /etc/nublado/20-logging.py
 
 # Make root use bash by default.  It's no longer 1983, why suffer?
 RUN chsh -s /bin/bash root
