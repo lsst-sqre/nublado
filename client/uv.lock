@@ -601,11 +601,11 @@ wheels = [
 
 [[package]]
 name = "platformdirs"
-version = "4.9.2"
+version = "4.9.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/1b/04/fea538adf7dbbd6d186f551d595961e564a3b6715bdf276b477460858672/platformdirs-4.9.2.tar.gz", hash = "sha256:9a33809944b9db043ad67ca0db94b14bf452cc6aeaac46a88ea55b26e2e9d291", size = 28394, upload-time = "2026-02-16T03:56:10.574Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/19/56/8d4c30c8a1d07013911a8fdbd8f89440ef9f08d07a1b50ab8ca8be5a20f9/platformdirs-4.9.4.tar.gz", hash = "sha256:1ec356301b7dc906d83f371c8f487070e99d3ccf9e501686456394622a01a934", size = 28737, upload-time = "2026-03-05T18:34:13.271Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/48/31/05e764397056194206169869b50cf2fee4dbbbc71b344705b9c0d878d4d8/platformdirs-4.9.2-py3-none-any.whl", hash = "sha256:9170634f126f8efdae22fb58ae8a0eaa86f38365bc57897a6c4f781d1f5875bd", size = 21168, upload-time = "2026-02-16T03:56:08.891Z" },
+    { url = "https://files.pythonhosted.org/packages/63/d7/97f7e3a6abb67d8080dd406fd4df842c2be0efaf712d1c899c32a075027c/platformdirs-4.9.4-py3-none-any.whl", hash = "sha256:68a9a4619a666ea6439f2ff250c12a853cd1cbd5158d258bd824a7df6be2f868", size = 21216, upload-time = "2026-03-05T18:34:12.172Z" },
 ]
 
 [[package]]
@@ -935,7 +935,7 @@ typing = [{ name = "mypy", specifier = ">=1.15" }]
 
 [[package]]
 name = "rubin-repertoire"
-version = "0.11.0"
+version = "0.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastapi" },
@@ -947,9 +947,9 @@ dependencies = [
     { name = "safir" },
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9b/8d/9dd509b8d3a7484d87db0b89f7a678c7de2601956ceddcffd45a848f97ec/rubin_repertoire-0.11.0.tar.gz", hash = "sha256:3a241c8dad4255f19f6f615537b0e29d87a72bb295745d17b2e4e16f6d4134fb", size = 16438, upload-time = "2026-02-26T22:21:41.709Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c7/1c/4d5d2e2412697ca335579a17dbe018bd6205c98f00750ed83c622dff524e/rubin_repertoire-0.12.0.tar.gz", hash = "sha256:2d356cf23275dba998b5e9ff9565ae48bbc2d942043b01569fdb925cb40bed4f", size = 16430, upload-time = "2026-03-05T01:46:45.706Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/4d/50accfd0b0bfd2f943a807ab48ef8a931767d4e25fe725b068df93d1369b/rubin_repertoire-0.11.0-py3-none-any.whl", hash = "sha256:50d61402fb18e3aae38386412529d776296314cfaff77f16343849a8d4fed64b", size = 19248, upload-time = "2026-02-26T22:21:40.819Z" },
+    { url = "https://files.pythonhosted.org/packages/82/b1/6b4924760413e02f8a21b6fe85c2de185648c8b2bd03e7517689b3b11381/rubin_repertoire-0.12.0-py3-none-any.whl", hash = "sha256:e20e05f0a43b0f1b735e04c23aea4bad1acf40d904674ba687a56dd61ce222b5", size = 19247, upload-time = "2026-03-05T01:46:44.611Z" },
 ]
 
 [[package]]

@@ -6,6 +6,18 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.0.2'></a>
+## 12.0.2 (2026-03-05)
+
+### Bug fixes
+
+- Fix incorrect double-decoding of the body when reporting Kubernetes errors.
+- Handle unexpected messages on a Kubernetes watch by logging them and restarting the watch, rather than raising an exception and failing the operation.
+- Downgrade Google Artifact Registry retries to warnings so that they're not reported by Sentry.
+- Change the element ordering and sort order for RSP versions to list and sort cycle and cycle build number before the RSP build number. The latest cycle build should be preferred regardless of the RSP build. Currently, no tags contain both values, so this should not change existing menu displays.
+- Fix the display name of resolved aliases to use the base tag name without any cycle or architecture information.
+- Fix the sort order of unknown and alias tags with an architecture to sort architecture-independent tags before architecture-specific tags, matching the behavior of non-alias tags.
+
 <a id='changelog-12.0.1'></a>
 ## 12.0.1 (2026-02-19)
 
