@@ -7,10 +7,18 @@ import shutil
 from pathlib import Path
 from textwrap import dedent
 
+import pydantic_core
 import structlog
 from safir.logging import LogLevel, configure_logging
 
-from ..constants import APP_NAME, LAB_STATIC_CMD_ARGS, STARTUP_PATH
+from ...controller.config import LabFileBrowserRoot
+from ...controller.models.domain.lab_configmap import LabConfigMap
+from ..constants import (
+    APP_NAME,
+    CONFIG_FILE,
+    LAB_STATIC_CMD_ARGS,
+    STARTUP_PATH,
+)
 from ..exceptions import RSPErrorCode, RSPStartupError
 from .environment import EnvironmentConfigurator
 from .homedir import HomedirManager
@@ -59,6 +67,19 @@ class Preparer:
         # Force HOME in our own environment to be the discovered value since
         # git-lfs setup uses HOME.
         os.environ["HOME"] = self._env["HOME"]
+
+        self._config: LabConfigMap | None = None
+        try:
+            self._config = LabConfigMap.model_validate_json(
+                Path(CONFIG_FILE).read_text()
+            )
+        except (
+            FileNotFoundError,
+            UnicodeDecodeError,
+            json.decoder.JSONDecodeError,
+            pydantic_core.ValidationError,
+        ):
+            self._logger.exception(f"Could not read config from {CONFIG_FILE}")
 
     def prepare(self) -> None:
         """Make necessary modifications to start the user lab."""
@@ -332,7 +353,15 @@ class Preparer:
     def _write_lab_args(self) -> None:
         log_level = "DEBUG" if self._debug else "INFO"
         cmd_args = list(LAB_STATIC_CMD_ARGS)
-        cmd_args.append(f"--notebook-dir={self._home!s}")
+        if (
+            self._config is not None
+            and self._config.file_browser_root == LabFileBrowserRoot.ROOT
+        ):
+            rel_h = (self._home).relative_to(Path("/"))
+            cmd_args.append("--notebook-dir=/")
+            cmd_args.append(f"--ContentsManager.preferred_dir={rel_h!s}")
+        else:
+            cmd_args.append(f"--notebook-dir={self._home!s}")
         cmd_args.append(f"--log-level={log_level}")
         cmd_args.extend(self._set_timeout_variables())
         args_file = STARTUP_PATH / "args.json"
