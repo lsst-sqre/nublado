@@ -219,7 +219,7 @@ async def test_reconcile_succeeded(
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    namespace = data.read_text("controller/base/metadata/namespace").strip()
+    namespace = data.read_text("controller/metadata/namespace", strip=True)
     for secret in data.read_secrets("controller/base/secrets"):
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
     mock_kubernetes.initial_pod_phase = PodPhase.SUCCEEDED.value
@@ -256,7 +256,7 @@ async def test_spawn_timeout(
     user: GafaelfawrUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    namespace = data.read_text("controller/base/metadata/namespace").strip()
+    namespace = data.read_text("controller/metadata/namespace", strip=True)
     for secret in data.read_secrets("controller/base/secrets"):
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
     mock_kubernetes.initial_pod_phase = PodPhase.PENDING.value

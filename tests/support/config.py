@@ -46,7 +46,7 @@ async def configure(
     config.slack_webhook = slack_webhook
 
     # Set some configuration paths to the standard files.
-    config.metadata_path = data.path("controller/base/metadata")
+    config.metadata_path = data.path("controller/metadata")
     if isinstance(config.images.source, DockerSourceOptions):
         credentials_path = data.path("controller/base/docker-creds.json")
         config.images.source.credentials_path = credentials_path
