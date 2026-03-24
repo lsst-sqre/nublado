@@ -27,11 +27,6 @@ See the `uv installation instructions <https://docs.astral.sh/uv/getting-started
 
 .. _uv workspaces: https://docs.astral.sh/uv/concepts/projects/workspaces/
 
-Nublado development may require the :command:`pg_config` executable.
-For Debian-based systems, install the ``libpq-dev`` package.
-For RPM-based systems, install ``libpq-devel``.
-For MacOS, using :command:`brew`, install ``postgresql``, or you can get the `PostgreSQL App <https://postgresapp.com/>`_ if you prefer standard Mac application packaging.
-
 Once you have those prerequisites installed, get started by cloning the repository and setting up a virtual environment:
 
 .. code-block:: sh
@@ -64,11 +59,11 @@ Pre-commit hooks
 The pre-commit hooks, which are automatically installed by the :ref:`previous step <dev-environment>`, ensure that files are valid and properly formatted.
 Some pre-commit hooks automatically reformat code:
 
-``ruff``
-    Lint Python code and attempt to automatically fix some problems.
-
 ``blacken-docs``
     Automatically formats Python code in reStructuredText documentation and docstrings.
+
+``ruff``
+    Lint Python code and attempt to automatically fix some problems.
 
 When these hooks fail, your Git commit will be aborted.
 To proceed, stage the new modifications and commit again.
@@ -103,6 +98,16 @@ For example:
 .. prompt:: bash
 
    uv run nox -s test -- controller/tests/handlers/labs_test.py
+
+Nublado uses the `Safir test data library <https://safir.lsst.io/user-guide/test-data.html>`__ to manage test data.
+If you change the code in a way that would change test output, run:
+
+.. prompt:: bash
+
+   uv run nox -s test -- --update-test-data
+
+This will update any test output files to match the current output of the test suite.
+Review any changes with :command:`git diff` and ensure they match the expected changes.
 
 Building documentation
 ======================

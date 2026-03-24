@@ -27,6 +27,15 @@ from rubin.nublado.client import (
 )
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--update-test-data",
+        action="store_true",
+        default=False,
+        help="Overwrite expected test output with current results",
+    )
+
+
 @pytest.fixture
 def client(
     logger: BoundLogger,

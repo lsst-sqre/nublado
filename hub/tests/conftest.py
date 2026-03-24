@@ -13,6 +13,15 @@ from .support.controller import MockLabController, register_mock_lab_controller
 from .support.jupyterhub import MockHub, MockUser
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--update-test-data",
+        action="store_true",
+        default=False,
+        help="Overwrite expected test output with current results",
+    )
+
+
 @pytest.fixture(scope="session")
 def admin_token_path() -> Path:
     return Path(__file__).parent / "data" / "admin-token"
