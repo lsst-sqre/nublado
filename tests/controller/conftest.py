@@ -65,7 +65,7 @@ async def app(
     Wraps the application in a lifespan manager so that startup and shutdown
     events are sent during test execution.
     """
-    namespace = data.read_text("controller/base/metadata/namespace").strip()
+    namespace = data.read_text("controller/metadata/namespace", strip=True)
     for secret in data.read_secrets("controller/base/secrets"):
         await mock_kubernetes.create_namespaced_secret(namespace, secret)
     app = create_app()
