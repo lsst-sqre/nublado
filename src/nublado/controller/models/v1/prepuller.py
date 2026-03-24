@@ -170,6 +170,17 @@ class PrepullerOptions(BaseModel):
         ),
     ] = timedelta(minutes=5)
 
+    prepull_timeout: Annotated[
+        HumanTimedelta,
+        Field(
+            title="Timeout for image prepulling",
+            description=(
+                "How long to wait for an image to prepull before giving up."
+                " Increase for large images and slow networks."
+            ),
+        ),
+    ] = timedelta(minutes=10)
+
     recommended_tag: Annotated[
         str,
         Field(

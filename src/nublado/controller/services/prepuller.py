@@ -6,7 +6,7 @@ from safir.sentry import report_exception
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
-from ..constants import PREPULLER_POD_TIMEOUT
+from ..config import PrepullerConfig
 from ..models.domain.rspimage import RSPImage
 from ..storage.kubernetes.pod import PodStorage
 from ..storage.metadata import MetadataStorage
@@ -26,6 +26,8 @@ class Prepuller:
 
     Parameters
     ----------
+    config
+        Configuration for the prepuller.
     image_service
         Service to query for image information. Currently, the background
         refresh thread of the image service is also managed by this class.
@@ -44,6 +46,7 @@ class Prepuller:
     def __init__(
         self,
         *,
+        config: PrepullerConfig,
         image_service: ImageService,
         prepuller_builder: PrepullerBuilder,
         metadata_storage: MetadataStorage,
@@ -51,6 +54,7 @@ class Prepuller:
         slack_client: SlackWebhookClient | None = None,
         logger: BoundLogger,
     ) -> None:
+        self._config = config
         self._image_service = image_service
         self._builder = prepuller_builder
         self._metadata = metadata_storage
@@ -100,7 +104,7 @@ class Prepuller:
             Node on which to prepull it.
         """
         namespace = self._metadata.namespace
-        timeout = Timeout("Prepulling image", PREPULLER_POD_TIMEOUT)
+        timeout = Timeout("Prepulling image", self._config.prepull_timeout)
         logger = self._logger.bind(node=node, image=image.tag)
         logger.debug("Prepulling image")
         pod = self._builder.build_pod(image, node)
@@ -113,7 +117,7 @@ class Prepuller:
                     pod.metadata.name, namespace, timeout
                 )
         except Exception as e:
-            self._logger.exception("Failed to prepull image")
+            logger.exception("Failed to prepull image")
             await report_exception(e, self._slack)
         else:
-            self._logger.info("Prepulled image", delay=timeout.elapsed())
+            logger.info("Prepulled image", delay=timeout.elapsed())

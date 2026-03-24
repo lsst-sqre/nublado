@@ -101,6 +101,13 @@ The frequency with which the image source is checked for new images and the Kube
     How frequently to refresh the list of remote and cached images.
     The default is five minutes.
 
+Once the prepull of an image has been kicked off, the following setting controls how long to wait for the prepull to complete before raising an error.
+
+``controller.config.images.prepullTimeout``
+    How long to wait for a prepull pod to finish before raising an error.
+    This may need to be increased for large images and slow networks.
+    The default is ten minutes.
+
 What images to prepull and display as radio button selections are controlled by the following settings.
 
 ``controller.config.images.recommendedTag``

@@ -196,6 +196,7 @@ class ProcessContext:
             logger=logger,
         )
         prepuller = Prepuller(
+            config=config.images,
             image_service=image_service,
             prepuller_builder=PrepullerBuilder(
                 config=config.lab,

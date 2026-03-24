@@ -6,6 +6,7 @@
     "num_releases": 1,
     "num_weeklies": 2,
     "pin": [],
+    "prepull_timeout": 600.0,
     "recommended_tag": "recommended",
     "refresh_interval": 300.0,
     "source": {

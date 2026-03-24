@@ -15,7 +15,6 @@ __all__ = [
     "KUBERNETES_REQUEST_TIMEOUT",
     "MEMORY_TO_TMP_SIZE_RATIO",
     "METADATA_PATH",
-    "PREPULLER_POD_TIMEOUT",
     "RESERVED_ENV",
     "RESERVED_PATHS",
     "USERNAME_REGEX",
@@ -84,13 +83,6 @@ which is also sharply limited by node-local attached disk.
 
 METADATA_PATH = Path("/etc/podinfo")
 """Default path to injected pod metadata."""
-
-PREPULLER_POD_TIMEOUT = timedelta(minutes=10)
-"""How long to wait for a prepuller pod to spawn and finish running.
-
-This may take a substantial amount of time if the pod image is quite large or
-the network is slow.
-"""
 
 RESERVED_ENV = {
     "ACCESS_TOKEN",
