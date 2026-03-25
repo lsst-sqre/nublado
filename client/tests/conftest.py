@@ -18,6 +18,7 @@ from rubin.repertoire import (
     register_mock_discovery,
 )
 from safir.logging import LogLevel, Profile, configure_logging
+from safir.testing.data import Data
 from structlog.stdlib import BoundLogger
 
 from rubin.nublado.client import (
@@ -47,6 +48,12 @@ def client(
 
 
 @pytest.fixture
+def data(request: pytest.FixtureRequest) -> Data:
+    update = request.config.getoption("--update-test-data")
+    return Data(Path(__file__).parent / "data", update_test_data=update)
+
+
+@pytest.fixture
 def logger() -> BoundLogger:
     configure_logging(
         name="nublado", profile=Profile.development, log_level=LogLevel.DEBUG
@@ -56,13 +63,14 @@ def logger() -> BoundLogger:
 
 @pytest.fixture(params=["single", "subdomain"])
 def mock_discovery(
+    *,
+    data: Data,
     respx_mock: respx.Router,
     monkeypatch: pytest.MonkeyPatch,
     request: pytest.FixtureRequest,
 ) -> Discovery:
     monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
-    filename = f"{request.param}.json"
-    path = Path(__file__).parent / "data" / "discovery" / filename
+    path = data.path(f"discovery/{request.param}.json")
     return register_mock_discovery(respx_mock, path)
 
 
