@@ -381,33 +381,8 @@ async def test_delayed_spawn(
     # The listeners should now complete successfully and we should see
     # appropriate events.
     event_lists = await asyncio.gather(*listeners)
-    expected_events = data.read_json("controller/spawn/events")
-    expected_events = [
-        *expected_events[:-1],
-        *[
-            {
-                "data": json.dumps(
-                    {
-                        "message": "Autoscaling cluster for reasons",
-                        "progress": 35,
-                    }
-                ),
-                "event": "info",
-            },
-            {
-                "data": json.dumps(
-                    {
-                        "message": "Mounting all the things",
-                        "progress": 48,
-                    }
-                ),
-                "event": "info",
-            },
-        ],
-        *expected_events[-1:],
-    ]
     for event_list in event_lists:
-        assert event_list == expected_events
+        data.assert_json_matches(event_list, "controller/spawn/events-delayed")
 
     # And the pod should now be running.
     r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
@@ -417,7 +392,7 @@ async def test_delayed_spawn(
     # Retrieving events repeatedly should just keep returning the same event
     # list and immediately complete.
     events = await get_lab_events(client, user.username)
-    assert events == expected_events
+    data.assert_json_matches(events, "controller/spawn/events-delayed")
 
 
 @pytest.mark.asyncio

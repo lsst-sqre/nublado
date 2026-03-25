@@ -1,0 +1,22 @@
+[
+  {
+    "data": "{\"message\": \"Starting lab creation for rachel\", \"progress\": 1}",
+    "event": "info"
+  },
+  {
+    "data": "{\"message\": \"Created Kubernetes objects for user lab\", \"progress\": 30}",
+    "event": "info"
+  },
+  {
+    "data": "{\"message\": \"Autoscaling cluster for reasons\", \"progress\": 35}",
+    "event": "info"
+  },
+  {
+    "data": "{\"message\": \"Mounting all the things\", \"progress\": 48}",
+    "event": "info"
+  },
+  {
+    "data": "{\"message\": \"Lab Kubernetes pod started for rachel\"}",
+    "event": "complete"
+  }
+]
