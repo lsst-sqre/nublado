@@ -1,35 +1,40 @@
 """Internal models returned by image service methods."""
 
 from dataclasses import dataclass
+from typing import Self
 
-from .rspimage import RSPImageCollection
+from pydantic import BaseModel, Field
+
+from .rspimage import RSPImage, RSPImageCollection
 
 __all__ = [
     "MenuImage",
     "MenuImages",
+    "NodeData",
 ]
 
 
-@dataclass(frozen=True, slots=True)
-class MenuImage:
+class MenuImage(BaseModel):
     """A single spawnable image."""
 
-    reference: str
-    """Docker reference."""
+    reference: str = Field(..., title="Docker reference")
 
-    name: str
-    """Human-readable name."""
+    name: str = Field(..., title="Human-readable name")
+
+    @classmethod
+    def from_rsp_image(cls, image: RSPImage) -> Self:
+        """Create a menu image from an RSP image."""
+        return cls(
+            reference=image.reference_with_digest, name=image.display_name
+        )
 
 
-@dataclass(frozen=True, slots=True)
-class MenuImages:
+class MenuImages(BaseModel):
     """All available spawnable images."""
 
-    menu: list[MenuImage]
-    """Images that should appear as regular menu choices."""
+    menu: list[MenuImage] = Field(..., title="Regular menu choices")
 
-    dropdown: list[MenuImage]
-    """Extra images to populate the dropdown."""
+    dropdown: list[MenuImage] = Field(..., title="Additional dropdown choices")
 
 
 @dataclass(frozen=True)

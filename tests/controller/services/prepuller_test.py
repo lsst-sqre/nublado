@@ -1,7 +1,6 @@
 """Tests for the prepuller service."""
 
 import asyncio
-from dataclasses import asdict
 from typing import Any
 from unittest.mock import ANY
 
@@ -133,12 +132,8 @@ async def test_gar(
         images = factory.image_service.images()
         data.assert_pydantic_matches(images, "controller/images/gar-before")
 
-        menu_images = factory.image_service.menu_images()
-        seen = {
-            "menu": [asdict(e) for e in menu_images.menu],
-            "dropdown": [asdict(e) for e in menu_images.dropdown],
-        }
-        data.assert_json_matches(seen, "controller/menu/gar-before")
+        seen = factory.image_service.menu_images()
+        data.assert_pydantic_matches(seen, "controller/menu/gar-before")
 
         # There should be two running pods, one for each node.
         pod_list = await mock_kubernetes.list_namespaced_pod("nublado")
@@ -169,12 +164,8 @@ async def test_gar(
         images = factory.image_service.images()
         data.assert_pydantic_matches(images, "controller/images/gar-after")
 
-        menu_images = factory.image_service.menu_images()
-        seen = {
-            "menu": [asdict(e) for e in menu_images.menu],
-            "dropdown": [asdict(e) for e in menu_images.dropdown],
-        }
-        data.assert_json_matches(seen, "controller/menu/gar-after")
+        seen = factory.image_service.menu_images()
+        data.assert_pydantic_matches(seen, "controller/menu/gar-after")
 
 
 @pytest.mark.asyncio
@@ -195,12 +186,8 @@ async def test_cycle(
         images = factory.image_service.images()
         data.assert_pydantic_matches(images, "controller/images/cycle")
 
-        menu_images = factory.image_service.menu_images()
-        seen = {
-            "menu": [asdict(e) for e in menu_images.menu],
-            "dropdown": [asdict(e) for e in menu_images.dropdown],
-        }
-        data.assert_json_matches(seen, "controller/menu/cycle")
+        seen = factory.image_service.menu_images()
+        data.assert_pydantic_matches(seen, "controller/menu/cycle")
 
 
 @pytest.mark.asyncio
@@ -222,12 +209,8 @@ async def test_gar_cycle(
         images = factory.image_service.images()
         data.assert_pydantic_matches(images, "controller/images/gar-cycle")
 
-        menu_images = factory.image_service.menu_images()
-        seen = {
-            "menu": [asdict(e) for e in menu_images.menu],
-            "dropdown": [asdict(e) for e in menu_images.dropdown],
-        }
-        data.assert_json_matches(seen, "controller/menu/gar-cycle")
+        seen = factory.image_service.menu_images()
+        data.assert_pydantic_matches(seen, "controller/menu/gar-cycle")
 
 
 @pytest.mark.asyncio

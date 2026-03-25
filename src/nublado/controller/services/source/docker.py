@@ -212,11 +212,12 @@ class DockerImageSource(ImageSource):
         for tag in self._tags.filter(self._image_filter, datetime.now(tz=UTC)):
             image = self._images.image_for_tag_name(tag.tag)
             if image:
-                reference = image.reference_with_digest
-                menu_image = MenuImage(reference, image.display_name)
+                menu_image = MenuImage.from_rsp_image(image)
             else:
-                reference = f"{registry}/{repository}:{tag.tag}"
-                menu_image = MenuImage(reference, tag.display_name)
+                menu_image = MenuImage(
+                    reference=f"{registry}/{repository}:{tag.tag}",
+                    name=tag.display_name,
+                )
             menu_images.append(menu_image)
         return menu_images
 

@@ -222,7 +222,7 @@ class ImageService:
         menu = []
         recommended = None
         for image in self._to_prepull.all_images(hide_aliased=True):
-            entry = MenuImage(image.reference_with_digest, image.display_name)
+            entry = MenuImage.from_rsp_image(image)
             if image.tag == self._config.recommended_tag:
                 recommended = entry
             elif image.nodes >= nodes:
