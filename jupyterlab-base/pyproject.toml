@@ -34,5 +34,41 @@ Source = "https://github.com/lsst-sqre/nublado"
 requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
 build-backend = 'setuptools.build_meta'
 
+[dependency-groups]
+# Additional packages used in JupyterLab at runtime.
+lab = [
+    "astrowidgets",
+    "black-nb",
+    "bqplot",
+    "datashader",
+    "geoviews",
+    "holoviews",
+    "ipydatawidgets",
+    "ipympl",
+    "ipyvolume",
+    "ipyvuetify",
+    "ipywebrtc",
+    "ipywidgets",
+    "jupyter-bokeh",
+    "jupyter-console",
+    "jupyter-firefly-extensions",
+    "jupyter-resource-usage",
+    "jupyter-server-proxy",
+    "jupyterhub",
+    "jupyterlab",
+    "jupyterlab-execute-time",
+    "jupyterlab-iframe",
+    "jupyterlab-widgets",
+    "lckr-jupyterlab-variableinspector",
+    "nbconvert",
+    "nbdime",
+    "notebook",
+    "panel",
+    "plotly",
+    "pythreejs",
+    "rsp-jupyter-extensions>=0.10.2",
+    "sidecar",
+]
+
 [tool.setuptools_scm]
 root = ".."
