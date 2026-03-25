@@ -153,12 +153,9 @@ class GARImageSource(ImageSource):
             f"Constructing menu from {len(list(self._images.all_images()))}"
             " images"
         )
-        menu_images = [
-            MenuImage(i.reference_with_digest, i.display_name)
-            for i in self._images.filter(
-                self._image_filter, datetime.now(tz=UTC)
-            )
-        ]
+        now = datetime.now(tz=UTC)
+        filtered = self._images.filter(self._image_filter, now)
+        menu_images = [MenuImage.from_rsp_image(i) for i in filtered]
         self._logger.debug(f"Filtered menu contains {len(menu_images)} images")
         return menu_images
 
