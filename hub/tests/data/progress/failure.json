@@ -1,0 +1,30 @@
+[
+  {
+    "message": "[info] Lab creation initiated",
+    "progress": 2
+  },
+  {
+    "message": "[info] Pod requested",
+    "progress": 45
+  },
+  {
+    "message": "[unknown] This is not JSON",
+    "progress": 45
+  },
+  {
+    "message": "[error] Something is going wrong",
+    "progress": 45
+  },
+  {
+    "message": "[info] {\"invalid\": \"value\"}",
+    "progress": 45
+  },
+  {
+    "message": "[info] {\"message\": \"Blah\", \"progress\": \"Happy!\"}",
+    "progress": 45
+  },
+  {
+    "message": "[error] Some random failure for rachel",
+    "progress": 45
+  }
+]

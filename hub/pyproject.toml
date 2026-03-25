@@ -50,6 +50,7 @@ dev = [
     "pytest-sugar",
     "respx",
     "rubin-repertoire",
+    "safir>=14.3",
 ]
 nox = [
     "nox",

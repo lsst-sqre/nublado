@@ -6,6 +6,7 @@ import pytest
 import pytest_asyncio
 import respx
 from rubin.repertoire import DiscoveryClient, register_mock_discovery
+from safir.testing.data import Data
 
 from rubin.nublado.spawner import NubladoSpawner
 
@@ -22,14 +23,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
-@pytest.fixture(scope="session")
-def admin_token_path() -> Path:
-    return Path(__file__).parent / "data" / "admin-token"
+@pytest.fixture
+def data(request: pytest.FixtureRequest) -> Data:
+    update = request.config.getoption("--update-test-data")
+    return Data(Path(__file__).parent / "data", update_test_data=update)
 
 
 @pytest.fixture
-def discovery_url(respx_mock: respx.Router) -> str:
-    path = Path(__file__).parent / "data" / "discovery.json"
+def discovery_url(data: Data, respx_mock: respx.Router) -> str:
+    path = data.path("discovery.json")
     base_url = "https://example.com/repertoire"
     register_mock_discovery(respx_mock, path, base_url)
     return base_url
@@ -37,7 +39,7 @@ def discovery_url(respx_mock: respx.Router) -> str:
 
 @pytest_asyncio.fixture
 async def mock_lab_controller(
-    admin_token_path: Path, discovery_url: str, respx_mock: respx.Router
+    data: Data, discovery_url: str, respx_mock: respx.Router
 ) -> MockLabController:
     discovery = DiscoveryClient(base_url=discovery_url)
     nublado_url = await discovery.url_for_internal("nublado-controller")
@@ -46,19 +48,17 @@ async def mock_lab_controller(
         respx_mock,
         nublado_url,
         user_token="token-of-affection",
-        admin_token=admin_token_path.read_text().strip(),
+        admin_token=data.read_text("admin-token", strip=True),
     )
 
 
 @pytest.fixture
 def spawner(
-    admin_token_path: Path,
-    discovery_url: str,
-    mock_lab_controller: MockLabController,
+    data: Data, discovery_url: str, mock_lab_controller: MockLabController
 ) -> NubladoSpawner:
     """Add spawner state that normally comes from JupyterHub."""
     result = NubladoSpawner(
-        admin_token_path=str(admin_token_path),
+        admin_token_path=str(data.path("admin-token")),
         repertoire_base_url=discovery_url,
     )
     result.hub = MockHub()

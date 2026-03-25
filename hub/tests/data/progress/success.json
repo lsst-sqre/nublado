@@ -1,0 +1,14 @@
+[
+  {
+    "message": "[info] Lab creation initiated",
+    "progress": 2
+  },
+  {
+    "message": "[info] Pod requested",
+    "progress": 45
+  },
+  {
+    "message": "[info] Pod successfully spawned for rachel",
+    "progress": 75
+  }
+]

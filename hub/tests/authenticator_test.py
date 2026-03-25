@@ -5,11 +5,10 @@ therefore can't be tested easily (and is also kept as simple as possible).
 This tests the logic that's sufficiently separable to run in a test harness.
 """
 
-import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from safir.testing.data import Data
 from tornado import web
 from tornado.httputil import HTTPHeaders
 
@@ -110,7 +109,7 @@ async def test_login_handler() -> None:
 
 
 @pytest.mark.asyncio
-async def test_logout_url(discovery_url: str) -> None:
+async def test_logout_url(data: Data, discovery_url: str) -> None:
     """Test use of service discovery to get the logout URL.
 
     As with the login handler, we can't test it directly because mocking out
@@ -118,7 +117,6 @@ async def test_logout_url(discovery_url: str) -> None:
     handler glue works and make sure discovery returns the right URL.
     """
     authenticator = GafaelfawrAuthenticator(repertoire_base_url=discovery_url)
-    path = Path(__file__).parent / "data" / "discovery.json"
-    discovery = json.loads(path.read_text())
+    discovery = data.read_json("discovery")
     logout_url = discovery["services"]["ui"]["logout"]["url"]
     assert await authenticator.get_logout_url() == logout_url

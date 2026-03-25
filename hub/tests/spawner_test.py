@@ -4,6 +4,7 @@ import asyncio
 from datetime import timedelta
 
 import pytest
+from safir.testing.data import Data
 
 from rubin.nublado.spawner import NubladoSpawner
 from rubin.nublado.spawner._exceptions import SpawnFailedError
@@ -77,62 +78,28 @@ async def test_options_form(spawner: NubladoSpawner) -> None:
 
 
 @pytest.mark.asyncio
-async def test_progress(spawner: NubladoSpawner) -> None:
+async def test_progress(data: Data, spawner: NubladoSpawner) -> None:
     await spawner.start()
-    user = spawner.user.name
-    expected = [
-        {"progress": 2, "message": "[info] Lab creation initiated"},
-        {"progress": 45, "message": "[info] Pod requested"},
-        {
-            "progress": 75,
-            "message": f"[info] Pod successfully spawned for {user}",
-        },
-    ]
-    index = 0
-    async for message in spawner.progress():
-        assert message == expected[index]
-        index += 1
-    assert index == len(expected)
+    progress = await collect_progress(spawner)
+    data.assert_json_matches(progress, "progress/success")
 
 
 @pytest.mark.asyncio
-async def test_progress_conflict(spawner: NubladoSpawner) -> None:
+async def test_progress_conflict(data: Data, spawner: NubladoSpawner) -> None:
     await spawner.start()
 
     # Start it a second time, which should trigger deleting the old lab.
     await spawner.start()
-    user = spawner.user.name
-    expected = [
-        {"progress": 1, "message": "[warning] Deleting existing orphaned lab"},
-        {"progress": 2, "message": "[info] Lab creation initiated"},
-        {"progress": 45, "message": "[info] Pod requested"},
-        {
-            "progress": 75,
-            "message": f"[info] Pod successfully spawned for {user}",
-        },
-    ]
-    index = 0
-    async for message in spawner.progress():
-        assert message == expected[index]
-        index += 1
-    assert index == len(expected)
+    progress = await collect_progress(spawner)
+    data.assert_json_matches(progress, "progress/conflict")
 
 
 @pytest.mark.asyncio
 async def test_progress_multiple(
-    spawner: NubladoSpawner, mock_lab_controller: MockLabController
+    data: Data, spawner: NubladoSpawner, mock_lab_controller: MockLabController
 ) -> None:
     """Test multiple progress listeners for the same spawn."""
     mock_lab_controller.delay = timedelta(milliseconds=750)
-    user = spawner.user.name
-    expected = [
-        {"progress": 2, "message": "[info] Lab creation initiated"},
-        {"progress": 45, "message": "[info] Pod requested"},
-        {
-            "progress": 75,
-            "message": f"[info] Pod successfully spawned for {user}",
-        },
-    ]
 
     results = await asyncio.gather(
         spawner.start(),
@@ -141,14 +108,14 @@ async def test_progress_multiple(
         collect_progress(spawner),
     )
     url = results[0]
-    assert url == f"http://lab.nublado-{user}:8888"
+    assert url == f"http://lab.nublado-{spawner.user.name}:8888"
     for events in results[1:]:
-        assert events == expected
+        data.assert_json_matches(events, "progress/success")
 
 
 @pytest.mark.asyncio
 async def test_spawn_failure(
-    spawner: NubladoSpawner, mock_lab_controller: MockLabController
+    data: Data, spawner: NubladoSpawner, mock_lab_controller: MockLabController
 ) -> None:
     """Test error handling when a spawn fails.
 
@@ -157,25 +124,9 @@ async def test_spawn_failure(
     """
     mock_lab_controller.delay = timedelta(milliseconds=750)
     mock_lab_controller.fail_during_spawn = True
-    user = spawner.user.name
-    expected = [
-        {"progress": 2, "message": "[info] Lab creation initiated"},
-        {"progress": 45, "message": "[info] Pod requested"},
-        {"progress": 45, "message": "[unknown] This is not JSON"},
-        {"progress": 45, "message": "[error] Something is going wrong"},
-        {"progress": 45, "message": '[info] {"invalid": "value"}'},
-        {
-            "progress": 45,
-            "message": '[info] {"message": "Blah", "progress": "Happy!"}',
-        },
-        {
-            "progress": 45,
-            "message": f"[error] Some random failure for {user}",
-        },
-    ]
 
     results = await asyncio.gather(
         spawner.start(), collect_progress(spawner), return_exceptions=True
     )
     assert isinstance(results[0], SpawnFailedError)
-    assert results[1] == expected
+    data.assert_json_matches(results[1], "progress/failure")
