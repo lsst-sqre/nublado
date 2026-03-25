@@ -9,6 +9,7 @@ from uuid import UUID
 import pytest
 from safir.datetime import format_datetime_for_logging
 from safir.slack.blockkit import SlackCodeBlock, SlackTextBlock, SlackTextField
+from safir.testing.data import Data
 
 from rubin.nublado.client import (
     CodeContext,
@@ -28,8 +29,6 @@ from rubin.nublado.client import (
     NubladoSpawnError,
     NubladoWebError,
 )
-
-from .support.data import read_test_data
 
 
 @pytest.mark.asyncio
@@ -109,10 +108,14 @@ async def test_hub_flow(
 
 @pytest.mark.asyncio
 async def test_run_notebook(
-    client: NubladoClient, username: str, mock_jupyter: MockJupyter
+    *,
+    data: Data,
+    client: NubladoClient,
+    username: str,
+    mock_jupyter: MockJupyter,
 ) -> None:
-    notebook = read_test_data("faux-input-nb")
-    output = read_test_data("faux-output-nb")
+    notebook = data.read_text("faux-input-nb")
+    output = data.read_text("faux-output-nb")
     expected = NotebookExecutionResult(notebook=output)
     mock_jupyter.register_notebook_result(notebook, expected)
 
@@ -230,10 +233,14 @@ def check_web_exception(
 
 @pytest.mark.asyncio
 async def test_failures(
-    client: NubladoClient, username: str, mock_jupyter: MockJupyter
+    *,
+    data: Data,
+    client: NubladoClient,
+    username: str,
+    mock_jupyter: MockJupyter,
 ) -> None:
     start = datetime.now(tz=UTC)
-    notebook = read_test_data("faux-input-nb")
+    notebook = data.read_text("faux-input-nb")
 
     mock_jupyter.fail_on(username, MockJupyterAction.LOGIN)
     with pytest.raises(NubladoWebError) as exc_info:
