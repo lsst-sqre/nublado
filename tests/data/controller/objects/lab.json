@@ -426,13 +426,13 @@
               "readOnly": false
             },
             {
-              "mountPath": "/etc/nublado/startup",
-              "name": "lab-startup",
-              "readOnly": false
-            },
-            {
               "mountPath": "/opt/lsst/software/jupyterlab/runtime",
               "name": "runtime",
+              "readOnly": true
+            },
+            {
+              "mountPath": "/etc/nublado/startup",
+              "name": "lab-startup",
               "readOnly": true
             },
             {
@@ -709,14 +709,14 @@
               "readOnly": false
             },
             {
-              "mountPath": "/etc/nublado/startup",
-              "name": "lab-startup",
-              "readOnly": false
-            },
-            {
               "mountPath": "/opt/lsst/software/jupyterlab/runtime",
               "name": "runtime",
               "readOnly": true
+            },
+            {
+              "mountPath": "/etc/nublado/startup",
+              "name": "lab-startup",
+              "readOnly": false
             },
             {
               "mountPath": "/opt/lsst/software/jupyterlab/butler-secret",
@@ -867,13 +867,6 @@
           "name": "tmp"
         },
         {
-          "emptyDir": {
-            "medium": "Memory",
-            "sizeLimit": "655360"
-          },
-          "name": "lab-startup"
-        },
-        {
           "downwardAPI": {
             "items": [
               {
@@ -907,6 +900,13 @@
             ]
           },
           "name": "runtime"
+        },
+        {
+          "emptyDir": {
+            "medium": "Memory",
+            "sizeLimit": "655360"
+          },
+          "name": "lab-startup"
         }
       ]
     },

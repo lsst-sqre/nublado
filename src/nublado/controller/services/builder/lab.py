@@ -560,27 +560,39 @@ class LabBuilder:
         metadata = self._build_metadata(f"{user.username}-nb", user.username)
         metadata.annotations.update(self._build_pod_annotations(user))
 
-        size = self._config.get_size_definition(lab.options.size)
-        resources = size.resources
-
-        # Gather the volume and volume mount definitions.
-        mounted_volumes = [
+        # Gather the volume and volume mount definitions. The mount policy is
+        # somewhat different between the lab and the init containers.
+        shared_mounted_volumes = [
             *self._build_pod_nss_volumes(user.username),
             *self._build_pod_file_volumes(user.username),
             self._build_pod_secret_volume(user.username),
             self._build_pod_env_volume(user.username),
             self._build_pod_tmp_volume(mem_size=resources.limits.memory),
-            # "640k ought to be enough for anybody." -- Bill Gates
-            self._build_pod_startup_volume(mem_size=640 * 1024),
             self._build_pod_downward_api_volume(user.username),
         ]
-        volumes = self._build_pod_volumes(user.username, mounted_volumes)
-        mounts = self._build_pod_volume_mounts(user.username, mounted_volumes)
+        init_mounted_volumes = [
+            *shared_mounted_volumes,
+            # "640k ought to be enough for anybody." -- Bill Gates
+            self._build_pod_startup_volume(size=640 * 1024, lab=False),
+        ]
+        lab_mounted_volumes = [
+            *shared_mounted_volumes,
+            # "640k ought to be enough for anybody." -- Bill Gates
+            self._build_pod_startup_volume(size=640 * 1024, lab=True),
+        ]
+        volumes = self._build_pod_volumes(user.username, lab_mounted_volumes)
 
         # Build the pod object itself.
-        containers = self._build_pod_containers(user, mounts, resources, image)
         init_containers = self._build_pod_init_containers(
-            user, mounts, resources
+            user,
+            self._build_pod_volume_mounts(user.username, init_mounted_volumes),
+            resources,
+        )
+        containers = self._build_pod_containers(
+            user,
+            self._build_pod_volume_mounts(user.username, lab_mounted_volumes),
+            resources,
+            image,
         )
         affinity = None
         if self._config.affinity:
@@ -774,31 +786,35 @@ class LabBuilder:
             ),
         )
 
-    def _build_pod_startup_volume(self, mem_size: int) -> MountedVolume:
-        """Build the volume that provides a shared means of communication
-        between init containers and the running Lab.
+    def _build_pod_startup_volume(
+        self, *, size: int, lab: bool
+    ) -> MountedVolume:
+        """Build volume shared between init containers and the running lab.
 
-        This is used so that the nublado startup classes in the controller can
-        write a file governing Lab start in the Lab container.
+        This is used by Nublado init volumes to communicate with the lab
+        container via files stored in this shared volume. It uses the
+        ``Memory`` medium to force it into tmpfs rather than ephemeral storage
+        so that it comes out of the pod's memory budget.
 
-        Note that it is the `Memory` medium setting that forces this to
-        be tmpfs rather than ephemeral storage, and therefore usage will
-        come from the pod memory allocation rather than disk space.
+        Parameters
+        ----------
+        size
+            Size of the volume in bytes.
+        lab
+            Whether the volume is being constructed for the lab, in which case
+            it should be mounted read-only.
         """
-        medium = None
-        if self._config.empty_dir_source == EmptyDirSource.MEMORY:
-            medium = "Memory"
         return MountedVolume(
             volume=V1Volume(
                 empty_dir=V1EmptyDirVolumeSource(
-                    medium=medium, size_limit=str(mem_size)
+                    medium="Memory", size_limit=str(size)
                 ),
                 name="lab-startup",
             ),
             volume_mount=V1VolumeMount(
                 mount_path="/etc/nublado/startup",
                 name="lab-startup",
-                read_only=False,
+                read_only=lab,
             ),
         )
 

@@ -862,9 +862,7 @@ async def test_tmp_on_disk(
     user: GafaelfawrTestUser,
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
-    """Check that /tmp is constructed correctly if set to use disk rather
-    than memory.
-    """
+    """Check object construction if /tmp should use disk rather than memory."""
     config = await configure(data, "tmp-disk")
     lab = data.read_pydantic(
         LabSpecification, "controller/base/lab-specification"
@@ -883,7 +881,7 @@ async def test_tmp_on_disk(
         f"{config.lab.namespace_prefix}-{user.username}",
     )
     for vol in pod.spec.volumes:
-        if vol.empty_dir:
+        if vol.empty_dir and vol.name != "lab-startup":
             assert vol.empty_dir.medium is None
 
 
