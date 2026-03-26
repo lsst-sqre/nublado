@@ -10,51 +10,10 @@ uv venv /usr/local/share/jupyterlab/venv
 # Use that venv.
 source /usr/local/share/jupyterlab/venv/bin/activate
 
-# Because we may rebuild rsp-jupyter-extensions...
-uv pip install hatchling hatch-nodejs-version
-
-# Install the set of packages we need for the RSP JupyterLab UI
-# jupyter_firefly_extensions is slightly incompatible with bokeh
-uv pip install --upgrade \
-   astrowidgets \
-   black-nb \
-   bqplot \
-   datashader \
-   firefly-client \
-   geoviews \
-   holoviews \
-   ipydatawidgets \
-   ipython-genutils \
-   ipympl \
-   ipyvolume \
-   ipyvuetify \
-   ipywebrtc \
-   ipywidgets \
-   jupyter \
-   jupyter_firefly_extensions \
-   jupyter-resource-usage \
-   jupyter-server \
-   jupyter-server-proxy \
-   jupyter_bokeh \
-   jupyterhub \
-   jupyterlab \
-   jupyterlab_execute_time \
-   jupyterlab_iframe \
-   jupyterlab_widgets \
-   lckr-jupyterlab-variableinspector \
-   lsst-rsp \
-   nbconvert \
-   nbdime \
-   nbval \
-   panel \
-   plotly \
-   pythreejs \
-   'rsp-jupyter-extensions>=0.10.2' \
-   sidecar
-
-# Install the rubin.nublado.startup module.
+# Install the rubin.nublado.startup module and the JupyterLab dependency
+# group.
 uv sync --frozen --active --inexact --no-default-groups --compile-bytecode \
-    --no-editable
+    --no-editable --group lab
 
 # File sharing doesn't work in the RSP environment; remove the extension.
 jupyter labextension disable "@jupyterlab/filebrowser-extension:share-file"
@@ -72,8 +31,3 @@ jupyter labextension lock "@jupyterlab/hub-extension:menu" \
 
 # Clean up cache
 uv cache clean
-
-# Increase this to force a rebuild because a dependency package has changed.
-# Reset when you actually change a package or its pins.
-# Serial: 0
-
