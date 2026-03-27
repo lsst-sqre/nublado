@@ -94,6 +94,7 @@ class Preparer:
         if not self._broken:
             try:
                 home_mgr.copy_files_to_user_homedir()
+                home_mgr.modify_interactive_settings()
             except OSError as exc:
                 self._set_abnormal_startup(exc)
 
