@@ -12,14 +12,14 @@
 # necessary while installing extra Python modules.
 
 # This is just an alias to avoid repeating the base image.
-FROM quay.io/jupyterhub/k8s-hub:4.3.2
+FROM quay.io/jupyterhub/k8s-hub:4.3.3
 
 # The upstream chart already switched users, but we have additional
 # operations that must be done as root.
 USER 0
 
 # Install uv.
-COPY --from=ghcr.io/astral-sh/uv:0.11.1 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.2 /uv /bin/uv
 
 # Update and install packages.
 COPY hub/scripts/install-packages.sh .
