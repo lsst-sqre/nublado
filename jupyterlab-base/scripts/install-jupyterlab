@@ -15,6 +15,9 @@ source /usr/local/share/jupyterlab/venv/bin/activate
 uv sync --frozen --active --inexact --no-default-groups --compile-bytecode \
     --no-editable --group lab
 
+# GRRR
+uv pip install git+https://github.com/lsst-sqre/rsp-jupyter-extensions@tickets/DM-53832-modernize
+
 # File sharing doesn't work in the RSP environment; remove the extension.
 jupyter labextension disable "@jupyterlab/filebrowser-extension:share-file"
 

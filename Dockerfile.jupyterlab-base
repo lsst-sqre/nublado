@@ -78,10 +78,11 @@ COPY jupyterlab-base/jupyter_server/jupyter_server_config.py \
 COPY jupyterlab-base/runtime/runlab \
      /usr/local/share/jupyterlab/
 
+WORKDIR /tmp/build
 # Get our manifests.  This has always been really useful for debugging
 # "what broke this week?"
 COPY jupyterlab-base/scripts/generate-versions /tmp/build
-RUN ./generate-versions
+RUN /tmp/build/generate-versions
 
 # This needs to be numeric, since we will remove /etc/passwd and friends
 # while we're running.
@@ -89,13 +90,13 @@ USER 0:0
 
 # Add startup shim.
 COPY jupyterlab-base/scripts/install-compat /tmp/build
-RUN  ./install-compat
+RUN  /tmp/build/install-compat
 
 WORKDIR /
 
 # Clean up.
 COPY jupyterlab-base/scripts/cleanup-files /
-RUN ./cleanup-files && rm ./cleanup-files
+RUN /cleanup-files && rm /cleanup-files
 
 WORKDIR /tmp
 
