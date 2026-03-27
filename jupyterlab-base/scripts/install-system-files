@@ -9,13 +9,12 @@ set -euo pipefail
 src=/usr/local/share/git
 mkdir -p ${src}
 cd ${src}
-git clone https://github.com/pkoning2/pyteco.git
+git clone https://github.com/lsst-sqre/pyteco.git
 install -m 0755 pyteco/teco.py /usr/local/bin/teco
 
 # The default terminal colors look bad in light mode.
-git clone https://github.com/seebi/dircolors-solarized.git
+git clone https://github.com/lsst-sqre/dircolors-solarized.git
 cp dircolors-solarized/dircolors* /etc
-
 
 # Install typst.  It's not packaged for Debian, but there are binary releases
 # available on its GitHub page.
