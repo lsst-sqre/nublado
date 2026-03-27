@@ -962,24 +962,24 @@ class LabBuilder:
         containers.append(container)
         return containers
 
-    def _extract_env_secrets(
-        self, *, user: GafaelfawrUserInfo
-    ) -> list[V1EnvVar]:
-        """ACCESS_TOKEN is always taken from a particular secret.
+    def _extract_env_secrets(self, user: GafaelfawrUserInfo) -> list[V1EnvVar]:
+        """Define environment variables containing secrets.
 
-        Other secrets may be injected as environment variables.
-        This method collects those for use by both the startup initcontainer
-        and the main Lab container.
+        ``ACCESS_TOKEN`` and ``NUBLADO_TOKEN`` are always taken from a
+        particular secret. Other secrets may be injected as environment
+        variables. This method collects those for use by both the startup
+        initcontainer and the main Lab container.
         """
         env = [
             V1EnvVar(
-                name="ACCESS_TOKEN",
+                name=name,
                 value_from=V1EnvVarSource(
                     secret_key_ref=V1SecretKeySelector(
                         key="token", name=f"{user.username}-nb", optional=False
                     )
                 ),
-            ),
+            )
+            for name in ("ACCESS_TOKEN", "NUBLADO_TOKEN")
         ]
         for spec in self._config.secrets:
             if not spec.env:
@@ -1025,7 +1025,7 @@ class LabBuilder:
         # Additional environment variables to set, layered on top of the env
         # ConfigMap. The ConfigMap holds public information known before the
         # lab is spawned; these environment variables hold everything else.
-        env = self._extract_env_secrets(user=user)
+        env = self._extract_env_secrets(user)
         env.extend(
             [
                 V1EnvVar(

@@ -17,11 +17,7 @@ from ..constants import (
     PREVIOUS_LOGGING_CHECKSUMS,
 )
 from ..storage.command import Command
-from ..utils import (
-    get_access_token,
-    get_jupyterlab_config_dir,
-    get_runtime_mounts_dir,
-)
+from ..utils import get_jupyterlab_config_dir, get_runtime_mounts_dir
 from .credentials import CredentialManager
 from .dask import DaskConfigurator
 
@@ -210,15 +206,8 @@ class HomedirManager:
             tokfile.symlink_to(ctr_token)
             with contextlib.suppress(NotImplementedError):
                 tokfile.chmod(0o600, follow_symlinks=False)
-            return
-        self._logger.debug("Did not find container token file")
-        token = get_access_token()
-        if token:
-            tokfile.touch(mode=0o600)
-            tokfile.write_text(token)
-            self._logger.debug(f"Created {tokfile}")
         else:
-            self._logger.debug("Could not determine access token")
+            self._logger.debug("Did not find container token file")
 
     def _setup_gitlfs(self) -> None:
         # Check for git-lfs

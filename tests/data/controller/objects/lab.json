@@ -24,7 +24,7 @@
       "MEM_GUARANTEE": "805306368",
       "MEM_LIMIT": "3221225472",
       "NO_ACTIVITY_TIMEOUT": "432000",
-      "NUBLADO_RUNTIME_MOUNTS_DIR": "/opt/lsst/software/jupyterlab",
+      "NUBLADO_RUNTIME_MOUNTS_DIR": "/etc/nublado",
       "REPERTOIRE_BASE_URL": "https://example.com/repertoire",
       "TAP_ROUTE": "/api/tap"
     },
@@ -289,6 +289,16 @@
               }
             },
             {
+              "name": "NUBLADO_TOKEN",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "token",
+                  "name": "rachel-nb",
+                  "optional": false
+                }
+              }
+            },
+            {
               "name": "BUTLER_SECRET",
               "valueFrom": {
                 "secretKeyRef": {
@@ -411,12 +421,12 @@
               "subPath": "v1.json"
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/secrets",
+              "mountPath": "/etc/nublado/secrets",
               "name": "secrets",
               "readOnly": true
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/environment",
+              "mountPath": "/etc/nublado/environment",
               "name": "env",
               "readOnly": true
             },
@@ -426,7 +436,7 @@
               "readOnly": false
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/runtime",
+              "mountPath": "/etc/nublado/runtime",
               "name": "runtime",
               "readOnly": true
             },
@@ -594,6 +604,16 @@
               }
             },
             {
+              "name": "NUBLADO_TOKEN",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "token",
+                  "name": "rachel-nb",
+                  "optional": false
+                }
+              }
+            },
+            {
               "name": "BUTLER_SECRET",
               "valueFrom": {
                 "secretKeyRef": {
@@ -694,12 +714,12 @@
               "subPath": "v1.json"
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/secrets",
+              "mountPath": "/etc/nublado/secrets",
               "name": "secrets",
               "readOnly": true
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/environment",
+              "mountPath": "/etc/nublado/environment",
               "name": "env",
               "readOnly": true
             },
@@ -709,7 +729,7 @@
               "readOnly": false
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/runtime",
+              "mountPath": "/etc/nublado/runtime",
               "name": "runtime",
               "readOnly": true
             },
