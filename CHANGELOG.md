@@ -6,6 +6,23 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-12.1.0'></a>
+## 12.1.0 (2026-03-27)
+
+### New features
+
+- Add configuration setting for the timeout for prepulling images. The default of ten minutes may be too low for large images and slow networks.
+
+### Bug fixes
+
+- Mount the lab startup volume read-only in the lab container. It should only be written to by the init container and should not be available to the user as a writable directory.
+- Always force the lab startup volume to use tmpfs instead of following the configuration for `/tmp`.
+- Update JupyterHub to 5.4.4 (Zero to JupyterHub 4.3.3).
+
+### Other changes
+
+- Remove unused packages from the JupyterLab virtualenv in the jupyterlab-base image: hatchling, batch-nodejs-version, firefly-client, ipython-genutils, and nbval.
+
 <a id='changelog-12.0.2'></a>
 ## 12.0.2 (2026-03-05)
 
