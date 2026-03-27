@@ -103,6 +103,7 @@ jobs:
     outputs:
       docs: ${{ steps.filter.outputs.docs }}
       docs-specific: ${{ steps.filter.outputs.docs-specific }}
+      jupyterhub: ${{ steps.filter.outputs.jupyterhub }}
       jupyterlab-base: ${{ steps.filter.outputs.jupyterlab-base }}
 
     steps:
