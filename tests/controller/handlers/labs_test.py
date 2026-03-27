@@ -915,7 +915,7 @@ async def test_alternate_paths(
     secrets_mount = next(
         x for x in container.volume_mounts if x.name == "secrets"
     )
-    assert secrets_mount.mount_path == "/etc/nublado/secrets"
+    assert secrets_mount.mount_path == "/usr/local/nublado/secrets"
     config_map = await mock_kubernetes.read_namespaced_config_map(
         f"{user.username}-nb-env",
         f"{config.lab.namespace_prefix}-{user.username}",

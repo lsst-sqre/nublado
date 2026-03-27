@@ -1,41 +1,13 @@
 """Utility functions for starting LSST JupyterLab notebook environment."""
 
 import os
-from contextlib import suppress
 from pathlib import Path
-from typing import Any
 
 __all__ = [
-    "get_access_token",
     "get_digest",
     "get_jupyterlab_config_dir",
     "get_runtime_mounts_dir",
 ]
-
-
-def get_access_token(
-    tokenfile: str | Path | None = None, log: Any | None = None
-) -> str:
-    """Get the Gafaelfawr access token for the user.
-
-    Determine the access token from the mounted location (nublado 3/2) or
-    environment (any).  Prefer the mounted version since it can be updated,
-    while the environment variable stays at whatever it was when the process
-    was started.  Return the empty string if the token cannot be determined.
-    """
-    if tokenfile:
-        return Path(tokenfile).read_text().strip()
-    base_dir = get_runtime_mounts_dir()
-    for candidate in (
-        base_dir / "secrets" / "token",
-        base_dir / "environment" / "ACCESS_TOKEN",
-    ):
-        with suppress(FileNotFoundError):
-            return candidate.read_text().strip()
-
-    # If we got here, we couldn't find a file. Return the environment variable
-    # if set, otherwise the empty string.
-    return os.environ.get("ACCESS_TOKEN", "")
 
 
 def get_digest() -> str:

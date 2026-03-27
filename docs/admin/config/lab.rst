@@ -239,9 +239,25 @@ Files
 
     When overriding this setting, be sure to include any necessary entries from the default setting.
 
+``controller.config.lab.runtimeMountsDir``
+    Where additional configuration and other information for Nublado is mounted inside the container.
+    Under this directory will be three directories:
+
+    :file:`secrets`
+        All of the secrets for the lab, including one named ``token``, which holds the Gafaelfawr_ token used to authenticate to other services.
+        See :ref:`config-lab-secrets` for more details.
+
+    :file:`environment`
+        A copy of all of the original values of environment variables (except those containing secrets or derived from Kubernetes metadata) set when the lab container is started.
+        Each file in the directory will be the name of an environment variable, and the contents will be its value.
+
+    :file:`runtime`
+        Information about the Kubernetes pod derived from Kubernetes metadata via the Kubernetes downward API.
+        This is used internally by the Nublado lab startup code and should not be used by users.
+
 .. _config-lab-secrets:
 
-Lab Secrets
+Lab secrets
 ===========
 
 The Nublado controller can create a Kubernetes ``Secret`` resource alongside the uesr lab and use that to pass secrets to the lab.
@@ -252,7 +268,7 @@ The Nublado controller can create a Kubernetes ``Secret`` resource alongside the
     The same secret value is injected for every lab, so do not use this for per-user secrets.
     The default is an empty list (no injected secrets).
 
-    All secrets will be visible as files under the path :file:`/opt/lsst/software/jupyterlab/secrets`.
+    All secrets will be visible as files under the path :file:`/etc/nublado/secrets` (or a different path if ``controller.config.lab.runtimeMountsDir`` has been changed from its default).
     The name of the file is the key of the secret (``secretKey`` below) and the contents of the file are the value of the secret.
     Secrets can also be injected as environment variables or files mounted elsewhere, as described below.
 
@@ -273,6 +289,9 @@ The Nublado controller can create a Kubernetes ``Secret`` resource alongside the
     ``path``
         File to create inside the lab with contents equal to the value of this secret.
         The default is to not create an additional file containing this secret.
+
+In addition to any explicitly-configured secrets, there will always be a secret named ``token``, which contains the Gafaelfawr_ authentication token used by code running inside the lab to authenticate to other services.
+This secret will be visible in the secrets directory and is also available in the environment variable ``ACCESS_TOKEN``.
 
 .. _config-lab-init:
 

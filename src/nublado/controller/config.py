@@ -1142,7 +1142,7 @@ class LabConfig(BaseModel):
                 " will be mounted."
             ),
         ),
-    ] = "/opt/lsst/software/jupyterlab"
+    ] = "/etc/nublado"
 
     secrets: Annotated[
         list[LabSecret],

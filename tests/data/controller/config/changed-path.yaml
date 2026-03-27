@@ -3,7 +3,7 @@ logProfile: development
 lab:
   jupyterlab_config_dir: "/usr/local/share/jupyterlab"
   lab_start_command: ["/usr/local/share/jupyterlab/runlab"]
-  runtime_mounts_dir: "/etc/nublado"
+  runtime_mounts_dir: "/usr/local/nublado"
   namespacePrefix: userlabs
   sizes:
     - size: small

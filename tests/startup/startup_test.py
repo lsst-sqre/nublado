@@ -464,29 +464,12 @@ def test_increase_log_limit(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.usefixtures("rsp_fs")
 def test_manage_access_token(monkeypatch: pytest.MonkeyPatch) -> None:
     ctr_file = get_runtime_mounts_dir() / "secrets" / "token"
-
-    # Save the token
     assert ctr_file.exists()
     token = ctr_file.read_text()
-
-    # Remove the token file and ensure the fallback to the environment works.
-    monkeypatch.setenv("ACCESS_TOKEN", token)
-    ctr_file.unlink()
-    assert not ctr_file.exists()
     pr = Preparer()
     tfile = pr._home / ".access_token"
     assert not tfile.exists()
     hm = HomedirManager(env=pr._env, home=pr._home, logger=pr._logger)
-    hm._manage_access_token()
-    assert tfile.exists()
-    assert tfile.read_text() == token
-    tfile.unlink()
-
-    # Put the token back in its expected location and make sure it's copied.
-    monkeypatch.delenv("ACCESS_TOKEN")
-    ctr_file.write_text(token)
-    assert ctr_file.exists()
-    assert not tfile.exists()
     hm._manage_access_token()
     assert tfile.exists()
     assert tfile.read_text() == token
