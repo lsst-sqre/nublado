@@ -70,5 +70,8 @@ lab = [
     "sidecar",
 ]
 
+[tool.uv.sources]
+rsp-jupyter-extensions = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions", tag = "tickets/DM-53832-config" }
+
 [tool.setuptools_scm]
 root = ".."
