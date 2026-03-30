@@ -15,10 +15,6 @@ source /usr/local/share/jupyterlab/venv/bin/activate
 uv sync --frozen --active --inexact --no-default-groups --compile-bytecode \
     --no-editable --group lab
 
-# Dunno why uv.tool.sources didn't take.
-
-uv pip install git+https://github.com/lsst-sqre/rsp-jupyter-extensions@tickets/DM-53832-config
-
 # File sharing doesn't work in the RSP environment; remove the extension.
 jupyter labextension disable "@jupyterlab/filebrowser-extension:share-file"
 
@@ -36,5 +32,4 @@ jupyter labextension lock "@jupyterlab/hub-extension:menu" \
 # Clean up cache
 uv cache clean
 
-# Serial: 1
-
+# Serial: 6
