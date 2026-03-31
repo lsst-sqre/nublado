@@ -82,11 +82,10 @@ def test_resolve_alias() -> None:
     )
 
     # resolve_alias(), called below, may change image_type, but mypy doesn't
-    # have enough information to know that and preserves type narrowing. This
-    # is therefore written a little oddly to prevent mypy from doing type
-    # narrowing.
-    expected = RSPImageType.UNKNOWN
-    assert recommended.image_type == expected
+    # have enough information to know that and preserves type narrowing. See
+    # https://github.com/python/mypy/issues/11969. recommended = recommended
+    # is the odd but documented workaround for this problem.
+    assert recommended.image_type == RSPImageType.UNKNOWN
     assert recommended.display_name == "recommended"
     assert recommended.base == "recommended"
     assert recommended.alias_target is None
@@ -95,6 +94,7 @@ def test_resolve_alias() -> None:
     assert recommended.is_possible_alias
 
     recommended.resolve_alias(image)
+    recommended = recommended
     assert recommended.image_type == RSPImageType.ALIAS
     assert recommended.alias_target == "d_2077_10_23_c0045.003"
     assert image.aliases == {"recommended"}
@@ -118,6 +118,7 @@ def test_resolve_alias() -> None:
     assert latest_daily.date is None
 
     latest_daily.resolve_alias(image)
+    latest_daily = latest_daily
     assert latest_daily.image_type == RSPImageType.ALIAS
     assert latest_daily.alias_target == "d_2077_10_23_c0045.003"
     assert latest_daily.aliases == {"recommended"}
@@ -339,6 +340,8 @@ def test_collection() -> None:
     assert contents == [second, first]
 
     # Finally, add the non-alias image with the same hash as both of these.
+    # second = second resets mypy's type narrowing because mypy doesn't
+    # understand that adding an object to a collection may mutate it.
     third = RSPImage.from_tag(
         registry="lighthouse.ceres",
         repository="library/sketchbook",
@@ -346,6 +349,7 @@ def test_collection() -> None:
         digest=first.digest,
     )
     collection.add(third)
+    second = second
     assert first.alias_target == third.tag
     assert second.alias_target == third.tag
     assert third.aliases == {first.tag, second.tag}
@@ -540,7 +544,9 @@ def test_node_tracking() -> None:
     assert recommended.size is None
 
     # If we include size information, the size should get updated everywhere.
+    # weekly = weekly resets mypy's type narrowing.
     collection.mark_image_seen_on_node(weekly.digest, "node2", 123456)
+    weekly = weekly
     assert weekly.nodes == {"node1", "node2"}
     assert weekly.size == 123456
     assert recommended.nodes == {"node1", "node2"}
