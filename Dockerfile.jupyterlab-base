@@ -54,6 +54,7 @@ COPY jupyterlab-base/profile.d/local01-nbstripjq.sh \
      jupyterlab-base/profile.d/local03-pythonrc.sh \
      jupyterlab-base/profile.d/local04-path.sh \
      jupyterlab-base/profile.d/local05-term.sh \
+     jupyterlab-base/profile.d/local06-cd.sh \
      /etc/profile.d/
 
 # /etc/skel
