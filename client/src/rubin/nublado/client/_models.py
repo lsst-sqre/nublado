@@ -176,10 +176,7 @@ class NubladoImageByReference(NubladoImage):
 
     @override
     def to_spawn_form(self) -> dict[str, str]:
-        result = {
-            "image_list": self.reference,
-            "size": self.size.value,
-        }
+        result = {"image_list": self.reference, "size": self.size.value}
         if self.debug:
             result["enable_debug"] = "true"
         return result

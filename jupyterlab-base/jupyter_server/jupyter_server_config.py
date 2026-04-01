@@ -19,10 +19,5 @@ c.Application.logging_config = {
             "stream": "ext://sys.stdout",
         }
     },
-    "loggers": {
-        "stdout": {
-            "level": level,
-            "handlers": ["stdout"],
-        }
-    },
+    "loggers": {"stdout": {"level": level, "handlers": ["stdout"]}},
 }

@@ -55,9 +55,7 @@ async def create_working_ingress_for_user(
 
 
 async def delete_ingress_for_user(
-    mock_kubernetes: MockKubernetesApi,
-    username: str,
-    namespace: str,
+    mock_kubernetes: MockKubernetesApi, username: str, namespace: str
 ) -> None:
     await mock_kubernetes.delete_namespaced_ingress(
         name=f"{username}-fs", namespace=namespace

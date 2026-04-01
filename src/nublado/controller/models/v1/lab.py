@@ -577,8 +577,7 @@ class LabState(BaseModel):
     user: Annotated[
         UserInfo,
         Field(
-            title="Owner",
-            description="Metadata for the user who owns the lab",
+            title="Owner", description="Metadata for the user who owns the lab"
         ),
     ]
 

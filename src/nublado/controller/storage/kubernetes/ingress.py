@@ -11,10 +11,7 @@ from ...timeout import Timeout
 from .deleter import KubernetesObjectDeleter
 from .watcher import KubernetesWatcher
 
-__all__ = [
-    "IngressStorage",
-    "ingress_has_ip_address",
-]
+__all__ = ["IngressStorage", "ingress_has_ip_address"]
 
 
 def ingress_has_ip_address(ingress: V1Ingress) -> bool:

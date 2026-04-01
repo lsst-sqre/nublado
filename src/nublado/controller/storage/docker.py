@@ -22,10 +22,7 @@ _MANIFEST_ACCEPT_TYPES = [
 ]
 """Possible MIME types for an image manifest for the ``Accept`` header."""
 
-__all__ = [
-    "DockerCredentialStore",
-    "DockerStorageClient",
-]
+__all__ = ["DockerCredentialStore", "DockerStorageClient"]
 
 
 class DockerCredentialStore:

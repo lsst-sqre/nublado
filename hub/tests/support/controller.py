@@ -9,10 +9,7 @@ from httpx import AsyncByteStream, Request, Response
 
 from rubin.nublado.spawner._models import LabStatus
 
-__all__ = [
-    "MockLabController",
-    "register_mock_lab_controller",
-]
+__all__ = ["MockLabController", "register_mock_lab_controller"]
 
 
 class MockProgress(AsyncByteStream):

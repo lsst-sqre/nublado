@@ -437,8 +437,7 @@ class PrepullerImageStatus(BaseModel):
     """Status of the images being prepulled."""
 
     prepulled: Annotated[
-        list[NodeImage],
-        Field(title="Successfully cached images"),
+        list[NodeImage], Field(title="Successfully cached images")
     ] = []
 
     pending: Annotated[

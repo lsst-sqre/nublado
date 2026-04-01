@@ -68,8 +68,7 @@ async def test_bad_ids() -> None:
 
 @pytest.mark.asyncio
 async def test_existing_dir(
-    privileged_fs: FakeFilesystem,
-    caplog: pytest.LogCaptureFixture,
+    privileged_fs: FakeFilesystem, caplog: pytest.LogCaptureFixture
 ) -> None:
     uid = 2000
     gid = 200
@@ -94,8 +93,7 @@ async def test_existing_dir(
 
 @pytest.mark.asyncio
 async def test_bad_ownership(
-    privileged_fs: FakeFilesystem,
-    caplog: pytest.LogCaptureFixture,
+    privileged_fs: FakeFilesystem, caplog: pytest.LogCaptureFixture
 ) -> None:
     uid = 9942
     gid = 500
@@ -137,8 +135,7 @@ async def test_bad_ownership(
 
 @pytest.mark.asyncio
 async def test_not_directory(
-    privileged_fs: FakeFilesystem,
-    caplog: pytest.LogCaptureFixture,
+    privileged_fs: FakeFilesystem, caplog: pytest.LogCaptureFixture
 ) -> None:
     uid = 4346
     gid = 4346
@@ -157,8 +154,7 @@ async def test_not_directory(
 
 @pytest.mark.asyncio
 async def test_wrong_permissions(
-    privileged_fs: FakeFilesystem,
-    caplog: pytest.LogCaptureFixture,
+    privileged_fs: FakeFilesystem, caplog: pytest.LogCaptureFixture
 ) -> None:
     uid = 7304
     gid = 7304

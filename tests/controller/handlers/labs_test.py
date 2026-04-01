@@ -791,7 +791,7 @@ async def test_spawn_errors(
                     },
                     {"type": "divider"},
                 ]
-            },
+            }
         ]
         mock_slack.messages = []
         r = await client.get(f"/nublado/spawner/v1/labs/{user.username}")
@@ -877,8 +877,7 @@ async def test_tmp_on_disk(
     await asyncio.sleep(0)
 
     pod = await mock_kubernetes.read_namespaced_pod(
-        f"{user.username}-nb",
-        f"{config.lab.namespace_prefix}-{user.username}",
+        f"{user.username}-nb", f"{config.lab.namespace_prefix}-{user.username}"
     )
     for vol in pod.spec.volumes:
         if vol.empty_dir and vol.name != "lab-startup":
@@ -907,8 +906,7 @@ async def test_alternate_paths(
     assert r.status_code == 201
     await asyncio.sleep(0)
     pod = await mock_kubernetes.read_namespaced_pod(
-        f"{user.username}-nb",
-        f"{config.lab.namespace_prefix}-{user.username}",
+        f"{user.username}-nb", f"{config.lab.namespace_prefix}-{user.username}"
     )
     container = pod.spec.containers[0]
     assert container.args == ["/usr/local/share/jupyterlab/runlab"]
@@ -1042,8 +1040,7 @@ async def test_init_container_command(
     await asyncio.sleep(0)
 
     pod = await mock_kubernetes.read_namespaced_pod(
-        f"{user.username}-nb",
-        f"{config.lab.namespace_prefix}-{user.username}",
+        f"{user.username}-nb", f"{config.lab.namespace_prefix}-{user.username}"
     )
     ic = pod.spec.init_containers[0]
     assert ic.command == ["nublado", "inithome"]
@@ -1072,8 +1069,7 @@ async def test_standard_inithome(
     await asyncio.sleep(0)
 
     pod = await mock_kubernetes.read_namespaced_pod(
-        f"{user.username}-nb",
-        f"{config.lab.namespace_prefix}-{user.username}",
+        f"{user.username}-nb", f"{config.lab.namespace_prefix}-{user.username}"
     )
     ic = pod.spec.init_containers[0]
     assert ic.name == "nublado-std-inithome"
@@ -1102,8 +1098,7 @@ async def test_landingpage(
     await asyncio.sleep(0)
 
     pod = await mock_kubernetes.read_namespaced_pod(
-        f"{user.username}-nb",
-        f"{config.lab.namespace_prefix}-{user.username}",
+        f"{user.username}-nb", f"{config.lab.namespace_prefix}-{user.username}"
     )
     icnames = [x.name for x in pod.spec.init_containers]
     assert icnames == [
@@ -1136,8 +1131,7 @@ async def test_alternative_home_volume(
     await asyncio.sleep(0)
 
     pod = await mock_kubernetes.read_namespaced_pod(
-        f"{user.username}-nb",
-        f"{config.lab.namespace_prefix}-{user.username}",
+        f"{user.username}-nb", f"{config.lab.namespace_prefix}-{user.username}"
     )
     icnames = [x.name for x in pod.spec.init_containers]
     assert icnames == [

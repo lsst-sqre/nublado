@@ -149,6 +149,9 @@ python_files = ["tests/*.py", "tests/*/*.py", "tests/*/*/*.py"]
 [tool.ruff]
 extend = "ruff-shared.toml"
 
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
 [tool.ruff.lint.extend-per-file-ignores]
 "*/noxfile.py" = [
     "INP001",  # subdirectory nox configuration isn't in a package

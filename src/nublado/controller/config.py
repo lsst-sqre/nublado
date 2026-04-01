@@ -1404,8 +1404,7 @@ class Config(BaseSettings):
     ] = DisabledFileserverConfig()
 
     fsadmin: Annotated[
-        FSAdminConfig,
-        Field(title="Filesystem admin configuration"),
+        FSAdminConfig, Field(title="Filesystem admin configuration")
     ]
 
     images: Annotated[

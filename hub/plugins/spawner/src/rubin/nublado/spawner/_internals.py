@@ -22,10 +22,7 @@ from ._exceptions import (
 )
 from ._models import LabStatus, SpawnEvent
 
-__all__ = [
-    "LabStatus",
-    "NubladoSpawner",
-]
+__all__ = ["LabStatus", "NubladoSpawner"]
 
 _CLIENT: AsyncClient | None = None
 """Cached global HTTP client so that we can share a connection pool."""
@@ -95,7 +92,7 @@ class NubladoSpawner(Spawner):
     repertoire_base_url = Unicode(
         help="""
         Base URL of service discovery service, used to get the controller URL.
-        """,
+        """
     ).tag(config=True)
 
     # Do not preserve any of JupyterHub's environment variables in the default
