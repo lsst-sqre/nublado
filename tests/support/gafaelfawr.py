@@ -6,10 +6,7 @@ from nublado.controller.models.domain.gafaelfawr import GafaelfawrUser
 
 from .data import NubladoData
 
-__all__ = [
-    "GafaelfawrTestUser",
-    "create_gafaelfawr_user",
-]
+__all__ = ["GafaelfawrTestUser", "create_gafaelfawr_user"]
 
 
 class GafaelfawrTestUser(GafaelfawrUser):

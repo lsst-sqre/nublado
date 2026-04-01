@@ -24,9 +24,7 @@ class NubladoData(Data):
     """Test data management wrapper class."""
 
     def assert_kubernetes_matches(
-        self,
-        objects_raw: Iterable[dict | KubernetesModel],
-        path: str,
+        self, objects_raw: Iterable[dict | KubernetesModel], path: str
     ) -> None:
         """Serialize a list of Kubernetes objects and compare them.
 

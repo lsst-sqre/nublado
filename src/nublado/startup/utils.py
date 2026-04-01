@@ -3,11 +3,7 @@
 import os
 from pathlib import Path
 
-__all__ = [
-    "get_digest",
-    "get_jupyterlab_config_dir",
-    "get_runtime_mounts_dir",
-]
+__all__ = ["get_digest", "get_jupyterlab_config_dir", "get_runtime_mounts_dir"]
 
 
 def get_digest() -> str:

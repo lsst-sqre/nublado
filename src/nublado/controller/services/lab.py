@@ -1164,10 +1164,7 @@ class LabManager:
         await self._watch_lab_spawn(state, events, timeout)
 
     async def _watch_lab_spawn(
-        self,
-        state: LabState,
-        events: AsyncMultiQueue[Event],
-        timeout: Timeout,
+        self, state: LabState, events: AsyncMultiQueue[Event], timeout: Timeout
     ) -> None:
         """Wait for a lab spawn to complete, reflecting Kubernetes events.
 

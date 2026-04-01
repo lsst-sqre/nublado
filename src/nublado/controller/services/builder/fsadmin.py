@@ -73,9 +73,7 @@ class FSAdminBuilder:
         labels = {"nublado.lsst.io/category": "fsadmin"}
         annotations = ARGO_CD_ANNOTATIONS.copy()
         return V1ObjectMeta(
-            name=name + suffix,
-            labels=labels,
-            annotations=annotations,
+            name=name + suffix, labels=labels, annotations=annotations
         )
 
     def _build_pod(self) -> V1Pod:
@@ -133,9 +131,7 @@ class FSAdminBuilder:
                 containers=[container],
                 node_selector=node_selector,
                 restart_policy="Never",
-                security_context=V1PodSecurityContext(
-                    run_as_non_root=False,
-                ),
+                security_context=V1PodSecurityContext(run_as_non_root=False),
                 tolerations=tolerations,
                 volumes=volume_list,
             ),

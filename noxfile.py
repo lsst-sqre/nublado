@@ -177,12 +177,7 @@ def test(session: nox.Session) -> None:
                 "--cov-branch",
                 "--cov-report=",
             ]
-        session.run(
-            "pytest",
-            *cov_args,
-            *args.generic,
-            *args.parent_tests,
-        )
+        session.run("pytest", *cov_args, *args.generic, *args.parent_tests)
 
     # Run in a subdirectory if a test in that subdirectory was specified, or
     # if no tests were specified.
@@ -198,13 +193,7 @@ def test(session: nox.Session) -> None:
 @session(uv_groups=["dev", "nox", "typing"])
 def typing(session: nox.Session) -> None:
     """Run mypy."""
-    session.run(
-        "mypy",
-        *session.posargs,
-        "noxfile.py",
-        "src",
-        "tests",
-    )
+    session.run("mypy", *session.posargs, "noxfile.py", "src", "tests")
     session.run(
         "mypy",
         *session.posargs,

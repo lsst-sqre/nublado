@@ -274,7 +274,7 @@ async def test_kubernetes_error(
                 },
                 {"type": "divider"},
             ]
-        },
+        }
     ]
 
 
