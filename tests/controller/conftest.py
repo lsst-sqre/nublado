@@ -109,9 +109,7 @@ def mock_docker(
     assert isinstance(config.images.source, DockerSourceOptions)
     return register_mock_docker(
         respx_mock,
-        host=config.images.source.registry,
-        repository=config.images.source.repository,
-        credentials_path=config.images.source.credentials_path,
+        config.images.source,
         tags=data.read_json("controller/tags/docker"),
         require_bearer=True,
     )

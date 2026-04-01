@@ -2,13 +2,13 @@
 
 import os
 from base64 import b64decode, b64encode
-from pathlib import Path
 from urllib.parse import parse_qsl
 
 import respx
 from httpx import Request, Response
 
 from nublado.controller.models.domain.docker import DockerCredentials
+from nublado.controller.models.v1.prepuller import DockerSourceOptions
 from nublado.controller.storage.docker import DockerCredentialStore
 
 __all__ = ["MockDockerRegistry", "register_mock_docker"]
@@ -231,11 +231,9 @@ class MockDockerRegistry:
 
 def register_mock_docker(
     respx_mock: respx.Router,
-    *,
-    host: str,
-    repository: str,
-    credentials_path: Path,
+    config: DockerSourceOptions,
     tags: dict[str, str],
+    *,
     require_bearer: bool = False,
     paginate: bool = True,
     duplicate_url: bool = False,
@@ -247,13 +245,8 @@ def register_mock_docker(
     ----------
     respx_mock
         Mock router.
-    host
-        The hostname on which the mock API should appear to listen.
-    repository
-        The name of the repository (like ``lsstsqre/sciplat-lab``) for which
-        to register the mocks.
-    credentials_path
-        Path to a Docker credentials store.
+    config
+        Configuration for the Docker image source.
     tags
         A mapping of tags to image digests that should appear on that
         registry.
@@ -275,13 +268,13 @@ def register_mock_docker(
     MockDockerRegistry
         The mock Docker API object.
     """
-    base_url = f"https://{host}"
+    base_url = f"https://{config.registry}"
     auth_url = f"{base_url}/auth"
-    tags_url = f"{base_url}/v2/{repository}/tags/list"
-    digest_url = f"{base_url}/v2/{repository}/manifests/(?P<tag>.*)"
+    tags_url = f"{base_url}/v2/{config.repository}/tags/list"
+    digest_url = f"{base_url}/v2/{config.repository}/manifests/(?P<tag>.*)"
 
-    store = DockerCredentialStore.from_path(credentials_path)
-    credentials = store.get(host)
+    store = DockerCredentialStore.from_path(config.credentials_path)
+    credentials = store.get(config.registry)
     assert credentials
     mock = MockDockerRegistry(
         tags,
