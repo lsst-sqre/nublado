@@ -3971,7 +3971,7 @@ wheels = [
 [[package]]
 name = "rsp-jupyter-extensions"
 version = "0.21.0"
-source = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?tag=tickets%2FDM-53832-filebrowser-root#d538b290c5665815378fe89c42a0f1ba045bdc04" }
+source = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?tag=tickets%2FDM-53832-statusbar#8987ffd0646f382a039aa4ff33b08b4f4e37bf4f" }
 dependencies = [
     { name = "httpx" },
     { name = "jinja2" },
@@ -4150,7 +4150,7 @@ lab = [
     { name = "panel" },
     { name = "plotly" },
     { name = "pythreejs" },
-    { name = "rsp-jupyter-extensions", git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?tag=tickets%2FDM-53832-filebrowser-root" },
+    { name = "rsp-jupyter-extensions", git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?tag=tickets%2FDM-53832-statusbar" },
     { name = "sidecar" },
 ]
 
