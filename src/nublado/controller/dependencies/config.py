@@ -5,10 +5,7 @@ from pathlib import Path
 from ..config import Config
 from ..constants import CONFIGURATION_PATH
 
-__all__ = [
-    "ConfigDependency",
-    "config_dependency",
-]
+__all__ = ["ConfigDependency", "config_dependency"]
 
 
 class ConfigDependency:

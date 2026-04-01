@@ -21,9 +21,7 @@ class Purger:
     """Object to plan and execute filesystem purges."""
 
     def __init__(
-        self,
-        config: Config,
-        logger: BoundLogger | None = None,
+        self, config: Config, logger: BoundLogger | None = None
     ) -> None:
         self._config = config
         self._logger = logger or get_logger(ROOT_LOGGER)

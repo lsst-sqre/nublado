@@ -35,9 +35,7 @@ class CommandFailedError(Exception):
     """
 
     def __init__(
-        self,
-        args: Iterable[str],
-        exc: subprocess.CalledProcessError,
+        self, args: Iterable[str], exc: subprocess.CalledProcessError
     ) -> None:
         args_str = join(args)
         msg = f"'{args_str}' failed with status {exc.returncode}"
@@ -65,9 +63,7 @@ class CommandTimedOutError(Exception):
     """
 
     def __init__(
-        self,
-        args: Iterable[str],
-        exc: subprocess.TimeoutExpired,
+        self, args: Iterable[str], exc: subprocess.TimeoutExpired
     ) -> None:
         args_str = join(args)
         msg = f"'{args_str}' timed out after {exc.timeout}s"

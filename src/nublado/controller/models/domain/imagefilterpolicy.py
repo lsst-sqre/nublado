@@ -49,18 +49,13 @@ class ImageFilterPolicy(BaseModel):
     number: Annotated[
         int | None,
         Field(
-            title="Number",
-            description="Number of images to display.",
-            ge=0,
+            title="Number", description="Number of images to display.", ge=0
         ),
     ] = None
 
     age: Annotated[
         HumanTimedelta | None,
-        Field(
-            title="Age",
-            description="Maximum age of image to display.",
-        ),
+        Field(title="Age", description="Maximum age of image to display."),
     ] = None
 
     cutoff_version: Annotated[

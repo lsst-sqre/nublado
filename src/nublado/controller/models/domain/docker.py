@@ -5,10 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Self, override
 
-__all__ = [
-    "DockerCredentials",
-    "DockerReference",
-]
+__all__ = ["DockerCredentials", "DockerReference"]
 
 # Regex fragments used for Docker reference parsing.
 _REGISTRY = r"(?P<registry>[^/]+)"

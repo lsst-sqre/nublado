@@ -14,10 +14,7 @@ from ...exceptions import KubernetesError
 from ...models.domain.kubernetes import WatchEventType
 from ...timeout import Timeout
 
-__all__ = [
-    "KubernetesWatcher",
-    "WatchEvent",
-]
+__all__ = ["KubernetesWatcher", "WatchEvent"]
 
 
 @dataclass

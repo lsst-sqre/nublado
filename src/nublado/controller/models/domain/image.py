@@ -7,11 +7,7 @@ from pydantic import BaseModel, Field
 
 from .rspimage import RSPImage, RSPImageCollection
 
-__all__ = [
-    "MenuImage",
-    "MenuImages",
-    "NodeData",
-]
+__all__ = ["MenuImage", "MenuImages", "NodeData"]
 
 
 class MenuImage(BaseModel):

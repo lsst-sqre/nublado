@@ -216,8 +216,7 @@ class NodeSelectorTerm(BaseModel):
         expressions = [e.to_kubernetes() for e in self.match_expressions]
         fields = [e.to_kubernetes() for e in self.match_fields]
         return V1NodeSelectorTerm(
-            match_expressions=expressions or None,
-            match_fields=fields or None,
+            match_expressions=expressions or None, match_fields=fields or None
         )
 
 
@@ -565,10 +564,7 @@ class Affinity(BaseModel):
     )
 
     node_affinity: Annotated[
-        NodeAffinity | None,
-        Field(
-            title="Node affinity rules",
-        ),
+        NodeAffinity | None, Field(title="Node affinity rules")
     ] = None
 
     pod_affinity: Annotated[
