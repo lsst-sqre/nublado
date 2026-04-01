@@ -33,14 +33,7 @@ async def test_api(
     }
     tags = {t: "sha256:" + os.urandom(32).hex() for t in tag_names}
     assert isinstance(config.images.source, DockerSourceOptions)
-    register_mock_docker(
-        respx_mock,
-        host=config.images.source.registry,
-        repository=config.images.source.repository,
-        credentials_path=config.images.source.credentials_path,
-        tags=tags,
-        paginate=True,
-    )
+    register_mock_docker(respx_mock, config.images.source, tags, paginate=True)
     docker = factory.create_docker_storage()
     assert await docker.list_tags(config.images.source) == tag_names
     digest = await docker.get_image_digest(config.images.source, "w_2021_21")
@@ -57,12 +50,7 @@ async def test_api_nonpaginated(
     tags = {t: "sha256:" + os.urandom(32).hex() for t in tag_names}
     assert isinstance(config.images.source, DockerSourceOptions)
     register_mock_docker(
-        respx_mock,
-        host=config.images.source.registry,
-        repository=config.images.source.repository,
-        credentials_path=config.images.source.credentials_path,
-        tags=tags,
-        paginate=False,
+        respx_mock, config.images.source, tags, paginate=False
     )
     docker = factory.create_docker_storage()
     assert await docker.list_tags(config.images.source) == tag_names
@@ -79,12 +67,7 @@ async def test_bearer_auth(
     assert isinstance(config.images.source, DockerSourceOptions)
     tags = {"r23_0_4": "sha256:" + os.urandom(32).hex()}
     register_mock_docker(
-        respx_mock,
-        host=config.images.source.registry,
-        repository=config.images.source.repository,
-        credentials_path=config.images.source.credentials_path,
-        tags=tags,
-        require_bearer=True,
+        respx_mock, config.images.source, tags, require_bearer=True
     )
     docker = factory.create_docker_storage()
     assert await docker.list_tags(config.images.source) == {"r23_0_4"}
@@ -140,10 +123,8 @@ async def test_duplicate_url(
     assert isinstance(config.images.source, DockerSourceOptions)
     register_mock_docker(
         respx_mock,
-        host=config.images.source.registry,
-        repository=config.images.source.repository,
-        credentials_path=config.images.source.credentials_path,
-        tags=tags,
+        config.images.source,
+        tags,
         paginate=True,
         duplicate_url=True,
     )
