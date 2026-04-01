@@ -29,16 +29,15 @@ class MockDockerRegistry:
         Whether to require bearer token authentication, which requires another
         round trip to exchange the username and password for a bearer token.
     paginate
-        Whether to paginate responses with Link header (GHCR does, but
-        Docker Hub does not).
+        Whether to paginate responses with ``Link`` header.
     duplicate_url
-        Whether to (incorrectly) return the same "next" tag multiple times when
-        paginating.  This is only used to test error-handling functionality
-        in the tag-handling code, and only makes sense with paginate.
+        Whether to (incorrectly) return the same ``next`` tag multiple times
+        when paginating. This is only used to test error-handling
+        functionality in the tag-handling code, and only makes sense with
+        paginate.
     netloc_paginate
-        Whether to return a URL with a scheme and netloc when paginating
-        (GHCR does not).  This only makes sense with paginate.
-
+        Whether to return a URL with a scheme and netloc when paginating (GHCR
+        does not). This only makes sense with paginate.
 
     Attributes
     ----------
@@ -69,7 +68,7 @@ class MockDockerRegistry:
 
         # The token authentication protocol for the Docker API returns
         # parameters in the WWW-Authenticate header that should be passed into
-        # the authentication route.  These are the parameters that we return
+        # the authentication route. These are the parameters that we return
         # and then expect.
         self._challenge = {
             "realm": realm,
@@ -118,9 +117,10 @@ class MockDockerRegistry:
         """
         if not self._check_auth(request):
             return self._make_auth_challenge()
-        if not self._paginate:
+        if self._paginate:
+            return self._return_paginated_response(request)
+        else:
             return Response(200, json={"tags": list(self.tags.keys())})
-        return self._return_paginated_response(request)
 
     def _return_paginated_response(self, request: Request) -> Response:
         #
@@ -194,25 +194,14 @@ class MockDockerRegistry:
         """
         if not self._check_auth(request):
             return self._make_auth_challenge()
-        if not self._check_appropriate_accept(request):
-            return Response(404)
+        types = request.headers.get("Accept").split(", ")
+        assert "application/vnd.docker.distribution.manifest.v2+json" in types
         if tag in self.tags:
             return Response(
                 200, headers={"Docker-Content-Digest": self.tags[tag]}
             )
         else:
             return Response(404)
-
-    @staticmethod
-    def _check_appropriate_accept(request: Request) -> bool:
-        """Make sure that an Accept header allowing multi-architecture
-        manifests is present.
-
-        Our client actually sends several of these, comma-separated.  This
-        is the first.
-        """
-        accept = request.headers.get("Accept").split(",")[0].strip()
-        return accept == "application/vnd.docker.distribution.manifest.v2+json"
 
     def _check_auth(self, request: Request) -> bool:
         """Check whether the request is authenticated."""

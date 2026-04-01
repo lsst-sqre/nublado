@@ -234,6 +234,7 @@ rubin-nublado-authenticator = { path = "hub/plugins/authenticator", editable = t
 rubin-nublado-client = { path = "client", editable = true }
 rubin-nublado-spawner = { path = "hub/plugins/spawner", editable = true }
 rubin-nublado-startup = { workspace = true }
+safir = { git = "https://github.com/lsst-sqre/safir" }
 
 [tool.uv.workspace]
 members = ["jupyterlab-base"]
