@@ -2,7 +2,7 @@
 
 import os
 from base64 import b64decode, b64encode
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qs, parse_qsl
 
 import respx
 from httpx import Request, Response
@@ -123,53 +123,59 @@ class MockDockerRegistry:
             return Response(200, json={"tags": list(self.tags.keys())})
 
     def _return_paginated_response(self, request: Request) -> Response:
-        #
-        # This is a very simple pagination strategy.  We just split the
-        # list of tags in half, and on first response, return the first
-        # half (or slightly less, if there are an odd number of tags),
-        # and when given a page parameter, return the rest.
-        #
-        # Actual Docker registries behave differently.  ghcr.io tells
-        # you the last tag it gave you, you tell it that was the last one
-        # you saw on the previous call, and it starts from just past there
-        # in its list when giving you the next set of tags.
-        #
-        # Docker Hub doesn't paginate tags at all, at least out to the
-        # 1500-ish tags range.
-        #
-        # Nexus uses an opaque continuation token that presumably maps to
-        # a checksum of some pointer into its list of tags.
-        #
-        tags = list(self.tags.keys())  # We want a list, not a set.
-        midpoint = int(len(tags) / 2)
-        done = False
+        """Paginate the tags based on the request parameters.
 
-        these_tags = tags[:midpoint]
-        query = request.url.query
-        if query:
-            # We're going to pretend that any query parameter means,
-            # "give me the second half"
-            these_tags = tags[midpoint:]
-            done = True
-        resp_json = {"tags": these_tags}
-        if done:
-            # No next link; we've run out of tags.
-            return Response(200, json=resp_json)
-        target = request.url.path
-        # Canonicalize target path to start with '/'
-        target = target if target.startswith("/") else f"/{target}"
+        Split the list of tags in half, and on first response, return the
+        first half (or slightly less, if there are an odd number of tags). and
+        when given a page parameter, return the rest.
+
+        Parameters
+        ----------
+        request
+            Incoming request.
+
+        Returns
+        -------
+            Returns 200 with the relevant portion of the tag list given the
+            request.
+
+        Notes
+        -----
+        Actual Docker registries behave differently. ghcr.io tells you the
+        last tag it gave you, you tell it that was the last one you saw on the
+        previous call, and it starts from just past there in its list when
+        giving you the next set of tags.
+
+        Docker Hub doesn't paginate tags at all, at least out to the
+        1500-ish tags range.
+
+        Nexus uses an opaque continuation token that presumably maps to a
+        checksum of some pointer into its list of tags.
+        """
+        tags = list(self.tags.keys())
+        midpoint = int(len(tags) / 2)
+
+        # The only parameter we should see is page, which must be 2 to get the
+        # second page. Any other value is incorrect.
+        if request.url.query:
+            query = parse_qs(request.url.query.decode())
+            assert query == {"page": ["2"]}
+            return Response(200, json={"tags": tags[midpoint:]})
+
+        # The request is for the first page. Do pagination. This will
+        # construct a next URL that matches the current URL plus ?page=2 and
+        # stick that in a link header.
+        url = request.url.path
         if self._netloc_paginate:
-            # We're just ignoring port for testing purposes and assuming
-            # scheme is 'https'.  The actual code does the latter too.
-            target = f"https://{request.url.host}{target}"
+            if not url.startswith("/"):
+                url = "/" + url
+            url = f"https://{request.url.host}{url}"
         if self._duplicate_url:
-            # Return a link to the base URL, to simulate a faulty registry
-            # that sends you on an infinite loop when paginating tags.
-            next_link = f'<{target}>; rel="next"'
+            link_header = f'<{url}>; rel="next"'
         else:
-            # Ask for the second half this time.
-            next_link = f'<{target}?page=1>; rel="next"'
-        return Response(200, json=resp_json, headers={"Link": next_link})
+            link_header = f'<{url}?page=2>; rel="next"'
+        result = {"tags": tags[:midpoint]}
+        return Response(200, json=result, headers={"Link": link_header})
 
     def get_digest(self, request: Request, tag: str) -> Response:
         """Simulate the image manifest route for a Docker Registry.
