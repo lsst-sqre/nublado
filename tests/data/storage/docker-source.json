@@ -1,0 +1,5 @@
+{
+  "type": "docker",
+  "registry": "lighthouse.ceres",
+  "repository": "library/sketchbook"
+}

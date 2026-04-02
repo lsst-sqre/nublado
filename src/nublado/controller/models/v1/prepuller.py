@@ -1,18 +1,14 @@
 """Models for prepuller."""
 
 from datetime import timedelta
-from pathlib import Path
-from typing import Annotated, Literal, Self
+from typing import Annotated, Self
 
 from pydantic import BaseModel, Field
 from safir.pydantic import HumanTimedelta
 
-from ....models.images import RSPImage
-from ...constants import DOCKER_CREDENTIALS_PATH
+from ....models.images import ImageSource, RSPImage
 
 __all__ = [
-    "DockerSourceOptions",
-    "GARSourceOptions",
     "Image",
     "Node",
     "NodeImage",
@@ -22,127 +18,6 @@ __all__ = [
     "PrepullerStatus",
     "SpawnerImages",
 ]
-
-
-class DockerSourceOptions(BaseModel):
-    """Docker Registry from which to get images."""
-
-    type: Annotated[Literal["docker"], Field(title="Type of image source")]
-
-    registry: Annotated[
-        str,
-        Field(
-            title="Docker registry",
-            description=(
-                "Hostname and optional port of the Docker registry holding lab"
-                " images"
-            ),
-            examples=["lighthouse.ceres"],
-        ),
-    ] = "docker.io"
-
-    repository: Annotated[
-        str,
-        Field(
-            title="Docker repository (image name)",
-            description=(
-                "Docker repository path to the lab image, without tags or"
-                " digests. This is sometimes called the image name."
-            ),
-            examples=["library/sketchbook"],
-        ),
-    ]
-
-    credentials_path: Annotated[
-        Path,
-        Field(
-            title="Path to Docker API credentials",
-            description=(
-                "Path to a file containing a JSON-encoded dictionary of Docker"
-                " credentials for various registries, in the same format as"
-                " the Docker configuration file and the value of a Kubernetes"
-                " pull secret"
-            ),
-            exclude=True,
-        ),
-    ] = DOCKER_CREDENTIALS_PATH
-
-
-class GARSourceOptions(BaseModel):
-    """Google Artifact Registry from which to get images.
-
-    The Google Artifact Repository naming convention is unfortunate. It uses
-    ``repository`` for a specific management level of the Google Artifact
-    Registry within a Google project that does not include the name of the
-    image, unlike the terminology that is used elsewhere where the registry is
-    the hostname and the repository is everything else except the tag and
-    hash.
-
-    Everywhere else, repository is used in the non-Google sense. In this
-    class, the main class uses the Google terminology to avoid confusion, and
-    uses ``path`` for what everything else calls the repository.
-    """
-
-    type: Annotated[Literal["google"], Field(title="Type of image source")]
-
-    location: Annotated[
-        str,
-        Field(
-            title="Region or multiregion of registry",
-            description=(
-                "This is the same as the hostname of the registry but with the"
-                " ``-docker.pkg.dev`` suffix removed."
-            ),
-            examples=["us-central1"],
-        ),
-    ]
-
-    project_id: Annotated[
-        str,
-        Field(
-            title="GCP project ID",
-            description=(
-                "Google Cloud Platform project ID containing the registry"
-            ),
-            examples=["ceres-lighthouse-6ab4"],
-        ),
-    ]
-
-    repository: Annotated[
-        str,
-        Field(
-            title="GAR repository",
-            description="Google Artifact Registry repository name",
-            examples=["library"],
-        ),
-    ]
-
-    image: Annotated[
-        str,
-        Field(
-            title="GAR image name",
-            description="Google Artifact Registry image name",
-            examples=["sketchbook"],
-        ),
-    ]
-
-    @property
-    def registry(self) -> str:
-        """Hostname holding the registry."""
-        return f"{self.location}-docker.pkg.dev"
-
-    @property
-    def parent(self) -> str:
-        """Parent string for searches in Google Artifact Repository."""
-        return (
-            f"projects/{self.project_id}/locations/{self.location}"
-            f"/repositories/{self.repository}"
-        )
-
-    @property
-    def path(self) -> str:
-        """What everything else calls a repository."""
-        return f"{self.project_id}/{self.repository}/{self.image}"
 
 
 class PrepullerOptions(BaseModel):
@@ -155,9 +30,7 @@ class PrepullerOptions(BaseModel):
     the API to return snake-case.
     """
 
-    source: Annotated[
-        DockerSourceOptions | GARSourceOptions, Field(title="Source of images")
-    ]
+    source: Annotated[ImageSource, Field(title="Source of images")]
 
     refresh_interval: Annotated[
         HumanTimedelta,

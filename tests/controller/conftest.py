@@ -21,14 +21,13 @@ from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from nublado.controller.config import Config
 from nublado.controller.factory import Factory
 from nublado.controller.main import create_app
-from nublado.controller.models.v1.prepuller import DockerSourceOptions
+from nublado.models.images import DockerSource
 
 from ..support.config import configure
 from ..support.constants import TEST_BASE_URL
 from ..support.data import NubladoData
 from ..support.docker import MockDockerRegistry, register_mock_docker
 from ..support.gafaelfawr import GafaelfawrTestUser, create_gafaelfawr_user
-from ..support.gar import MockArtifactRegistry, patch_artifact_registry
 
 
 @pytest.fixture(autouse=True)
@@ -105,11 +104,11 @@ async def factory(
 def mock_docker(
     config: Config, data: NubladoData, respx_mock: respx.Router
 ) -> MockDockerRegistry:
-    assert isinstance(config.images.source, DockerSourceOptions)
+    assert isinstance(config.images.source, DockerSource)
     return register_mock_docker(
         respx_mock,
         config.images.source,
-        tags=data.read_json("controller/tags/docker"),
+        tags=data.read_json("registry/docker"),
         require_bearer=True,
     )
 
@@ -117,11 +116,6 @@ def mock_docker(
 @pytest_asyncio.fixture
 async def mock_gafaelfawr(respx_mock: respx.Router) -> MockGafaelfawr:
     return await register_mock_gafaelfawr(respx_mock)
-
-
-@pytest.fixture
-def mock_gar() -> Iterator[MockArtifactRegistry]:
-    yield from patch_artifact_registry()
 
 
 @pytest.fixture
