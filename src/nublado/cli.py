@@ -3,6 +3,7 @@
 import asyncio
 import functools
 import os
+import sys
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from pathlib import Path
@@ -16,7 +17,9 @@ from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import get_logger
 
 from . import __version__
+from .config.images import ImagesConfig
 from .constants import ALERT_HOOK_ENV_VAR, ROOT_LOGGER
+from .factory import ImagesFactory
 from .inithome.provisioner import Provisioner
 from .landingpage.provisioner import Provisioner as LandingPageProvisioner
 from .purger.config import Config as PurgerConfig
@@ -25,7 +28,7 @@ from .purger.constants import CONFIG_FILE_ENV_VAR as PURGER_CONFIG_FILE_ENV_VAR
 from .purger.purger import Purger
 from .startup.services.preparer import Preparer
 
-__all__ = ["inithome", "landingpage", "main", "purger", "startup"]
+__all__ = ["main"]
 
 # Do this at the very beginning so that Sentry gets all exceptions.
 initialize_sentry(release=__version__)
@@ -75,7 +78,7 @@ def _purger_common[**P, R](
         logger = get_logger(ROOT_LOGGER)
         if alert_hook := os.environ.get(ALERT_HOOK_ENV_VAR):
             slack_client = SlackWebhookClient(
-                alert_hook, "Nublado File Purger", logger=logger
+                alert_hook, "Nublado File Purger", logger
             )
         else:
             slack_client = None
@@ -103,6 +106,35 @@ def main() -> None:
 def help(ctx: click.Context, topic: str | None, subtopic: str | None) -> None:
     """Show help for any command."""
     display_help(main, ctx, topic, subtopic)
+
+
+@main.group()
+def images() -> None:
+    """Commands to manage Docker images."""
+
+
+@images.command
+@click.option(
+    "-c",
+    "--config",
+    "config_path",
+    type=click.Path(path_type=Path),
+    required=True,
+    help="Path to images configuration.",
+)
+@click.option(
+    "--debug", "-d", is_flag=True, envvar="DEBUG", help="Enable debug logging"
+)
+@run_with_asyncio
+async def images_list(*, config_path: Path, debug: bool) -> None:
+    """List the available images."""
+    config = ImagesConfig.from_file(config_path, debug=debug)
+    config.configure_logging()
+    async with ImagesFactory.standalone(config) as factory:
+        manager = factory.create_images_manager()
+        images = await manager.list_tags()
+    sys.stdout.write("\n".join(str(i) for i in images))
+    sys.stdout.write("\n")
 
 
 def _make_purger(

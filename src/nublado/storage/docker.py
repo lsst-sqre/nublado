@@ -1,8 +1,6 @@
 """Client for the Docker v2 API."""
 
-import json
 from pathlib import Path
-from typing import Self
 from urllib.parse import urljoin
 
 from httpx import AsyncClient, HTTPError, Response
@@ -10,8 +8,8 @@ from safir.http import PaginationLinkData
 from structlog.stdlib import BoundLogger
 
 from ..exceptions import DockerError, DockerInvalidUrlError
-from ..models.domain.docker import DockerCredentials
-from ..models.v1.prepuller import DockerSourceOptions
+from ..models.docker import DockerCredentialStore
+from ..models.images import DockerSource
 
 _MANIFEST_ACCEPT_TYPES = [
     "application/vnd.docker.distribution.manifest.v2+json",
@@ -22,86 +20,7 @@ _MANIFEST_ACCEPT_TYPES = [
 ]
 """Possible MIME types for an image manifest for the ``Accept`` header."""
 
-__all__ = ["DockerCredentialStore", "DockerStorageClient"]
-
-
-class DockerCredentialStore:
-    """Read and write the ``.dockerconfigjson`` syntax used by Kubernetes."""
-
-    @classmethod
-    def from_path(cls, path: Path) -> Self:
-        """Load credentials for Docker API hosts from a file.
-
-        Parameters
-        ----------
-        path
-            Path to file containing credentials.
-
-        Returns
-        -------
-        DockerCredentialStore
-            The resulting credential store.
-        """
-        with path.open("r") as f:
-            credentials_data = json.load(f)
-        credentials = {}
-        for host, config in credentials_data["auths"].items():
-            credentials[host] = DockerCredentials.from_config(config)
-        return cls(credentials)
-
-    def __init__(self, credentials: dict[str, DockerCredentials]) -> None:
-        self._credentials = credentials
-
-    def get(self, host: str) -> DockerCredentials | None:
-        """Get credentials for a given host.
-
-        These may be domain credentials, so if there is no exact match, return
-        the credentials for any parent domain found.
-
-        Parameters
-        ----------
-        host
-            Host to which to authenticate.
-
-        Returns
-        -------
-        DockerCredentials or None
-            The corresponding credentials or `None` if there are no
-            credentials in the store for that host.
-        """
-        credentials = self._credentials.get(host)
-        if credentials:
-            return credentials
-        for domain, credentials in self._credentials.items():
-            if host.endswith(f".{domain}"):
-                return credentials
-        return None
-
-    def set(self, host: str, credentials: DockerCredentials) -> None:
-        """Set credentials for a given host.
-
-        Parameters
-        ----------
-        host
-            The Docker API host.
-        credentials
-            The credentials to use for that host.
-        """
-        self._credentials[host] = credentials
-
-    def save(self, path: Path) -> None:
-        """Save the credentials store in ``.dockerconfigjson`` format.
-
-        Parameters
-        ----------
-        path
-            Path at which to save the credential store.
-        """
-        data = {
-            "auths": {h: c.to_config() for h, c in self._credentials.items()}
-        }
-        with path.open("w") as f:
-            json.dump(data, f)
+__all__ = ["DockerStorageClient"]
 
 
 class DockerStorageClient:
@@ -119,7 +38,6 @@ class DockerStorageClient:
 
     def __init__(
         self,
-        *,
         credentials_path: Path,
         http_client: AsyncClient,
         logger: BoundLogger,
@@ -134,9 +52,7 @@ class DockerStorageClient:
         # obtained via API calls.
         self._authorization: dict[str, str] = {}
 
-    async def get_image_digest(
-        self, config: DockerSourceOptions, tag: str
-    ) -> str:
+    async def get_image_digest(self, config: DockerSource, tag: str) -> str:
         """Get the digest associated with an image tag.
 
         Parameters
@@ -156,14 +72,13 @@ class DockerStorageClient:
         DockerError
             Unable to retrieve the digest from the Docker Registry.
         """
-        url = (
-            f"https://{config.registry}/v2/{config.repository}/manifests/{tag}"
-        )
+        logger = self._logger.bind(**config.to_logging_context())
+        url = config.url_for(f"manifests/{tag}")
         headers = self._build_headers(config.registry, manifest=True)
         try:
             r = await self._client.head(url, headers=headers)
             if r.status_code == 401:
-                headers = await self._authenticate(config.registry, r)
+                headers = await self._authenticate(config.registry, r, logger)
                 r = await self._client.head(url, headers=headers)
             r.raise_for_status()
             digest = r.headers["Docker-Content-Digest"]
@@ -175,15 +90,11 @@ class DockerStorageClient:
             raise DockerError(msg, method="GET", url=url) from e
         else:
             self._logger.debug(
-                "Retrieved image digest for tag",
-                registry=config.registry,
-                repository=config.repository,
-                tag=tag,
-                digest=digest,
+                "Retrieved image digest for tag", tag=tag, digest=digest
             )
             return digest
 
-    async def list_tags(self, config: DockerSourceOptions) -> set[str]:
+    async def list_tags(self, config: DockerSource) -> set[str]:
         """List tags for a given registry and repository.
 
         Parameters
@@ -196,26 +107,21 @@ class DockerStorageClient:
         set of str
             All the non-platform-specific tags found for that repository.
         """
-        headers = self._build_headers(config.registry)
-        all_tags = set()
-        seen_urls = set()
-        logger = self._logger.bind(
-            registry=config.registry, repository=config.repository
-        )
-
-        # We're assuming HTTPS.  If you have an HTTP-only registry without
-        # TLS in 2025, well, I feel bad for you, son.  You got 99 problems
-        # and your URL's just one.
-        url = f"https://{config.registry}/v2/{config.repository}/tags/list"
+        logger = self._logger.bind(**config.to_logging_context())
+        url = config.url_for("tags/list")
+        registry = config.registry
+        headers = self._build_headers(registry)
 
         # The results may be paginated, so keep retrieving pages for as long
         # as each page has a Link header with a next element.
+        all_tags = set()
+        seen_urls = set()
         while True:
             seen_urls.add(url)
             try:
                 r = await self._client.get(url, headers=headers)
                 if r.status_code == 401:
-                    headers = await self._authenticate(config.registry, r)
+                    headers = await self._authenticate(registry, r, logger)
                     r = await self._client.get(url, headers=headers)
                 r.raise_for_status()
                 tags = r.json()["tags"]
@@ -227,11 +133,11 @@ class DockerStorageClient:
                 raise DockerError(msg, method="GET", url=url) from e
 
             # Add the seen tags to the set.
-            logger.debug(f"Retrieved {len(tags)} image tags")
+            logger.debug("Retrieved image tags", count=len(tags))
             all_tags.update(tags)
 
             # Check for a continuation.
-            if next_url := self._parse_next_link_header(config, r, url):
+            if next_url := self._parse_next_link_header(registry, r, url):
                 if next_url in seen_urls:
                     raise DockerInvalidUrlError(
                         "Repeated tag page URL", url, next_url, method="GET"
@@ -246,7 +152,7 @@ class DockerStorageClient:
         return all_tags
 
     async def _authenticate(
-        self, host: str, response: Response
+        self, host: str, response: Response, logger: BoundLogger
     ) -> dict[str, str]:
         """Authenticate after getting an auth challenge.
 
@@ -260,10 +166,12 @@ class DockerStorageClient:
             Docker credentials to use for authentication.
         response
             The response from the server that includes an auth challenge.
+        logger
+            Logger to use.
 
         Returns
         -------
-        dict of str to str
+        dict of str
             New headers to use for this host.
 
         Raises
@@ -289,18 +197,16 @@ class DockerStorageClient:
 
         if challenge_type == "basic":
             self._authorization[host] = credentials.authorization
-            self._logger.info(
+            logger.info(
                 "Authenticated to Docker API with basic auth",
-                registry=host,
                 username=credentials.username,
             )
         elif challenge_type == "bearer":
             # Bearer is used by Docker's official registry.
-            token = await self._get_bearer_token(host, credentials, params)
+            token = await self._get_bearer_token(host, params, logger)
             self._authorization[host] = f"Bearer {token}"
-            self._logger.info(
+            logger.info(
                 "Authenticated to Docker API with bearer token",
-                registry=host,
                 username=credentials.username,
             )
         else:
@@ -338,7 +244,7 @@ class DockerStorageClient:
         return headers
 
     async def _get_bearer_token(
-        self, host: str, credentials: DockerCredentials, challenge_params: str
+        self, host: str, challenge: str, logger: BoundLogger
     ) -> str:
         """Get a bearer token for subsequent API calls.
 
@@ -348,8 +254,10 @@ class DockerStorageClient:
             The host to which we're authenticating.
         credentials
             Authentication credentials.
-        challenge_params
+        challenge
             The parameters it sent in the ``WWW-Authenticate`` header.
+        logger
+            Logger to use.
 
         Returns
         -------
@@ -361,13 +269,16 @@ class DockerStorageClient:
         DockerError
             Some failure in talking to the Docker registry API server.
         """
+        credentials = self._credentials.get(host)
+        if not credentials:
+            msg = f"No Docker API credentials available for {host}"
+            raise DockerError(msg)
+
         # We need to reflect the challenge parameters back as query
         # parameters when obtaining our bearer token.
-        self._logger.debug(
-            "Parsing Docker API bearer challenge", params=challenge_params
-        )
+        logger.debug("Parsing Docker API bearer challenge", params=challenge)
         params = {}
-        for param in challenge_params.split(","):
+        for param in challenge.split(","):
             key, value = param.split("=", 1)
             params[key] = value.replace('"', "")
 
@@ -375,9 +286,8 @@ class DockerStorageClient:
         url = params["realm"]
 
         # Request a bearer token.
-        self._logger.info(
+        logger.info(
             "Obtaining Docker API bearer token",
-            registry=host,
             url=url,
             username=credentials.username,
         )
@@ -394,14 +304,14 @@ class DockerStorageClient:
             raise DockerError(msg, method="GET", url=url) from e
 
     def _parse_next_link_header(
-        self, config: DockerSourceOptions, response: Response, base_url: str
+        self, host: str, response: Response, base_url: str
     ) -> str | None:
         """Parse the response for a ``Link`` header with a next URL.
 
         Parameters
         ----------
-        config
-            Configuration for the registry and repository to use.
+        host
+            The host under which all URLs should be found.
         response
             HTTP response, which may contain a ``Link`` header.
         base_url
@@ -419,12 +329,10 @@ class DockerStorageClient:
         link_data = PaginationLinkData.from_header(link)
         if link_data.next_url:
             next_url = urljoin(base_url, link_data.next_url)
-            if not next_url.startswith(f"https://{config.registry}/"):
+            if not next_url.startswith(f"https://{host}/"):
+                msg = f"Docker Link URL not relative to {host}"
                 raise DockerInvalidUrlError(
-                    f"Docker Link URL not relative to {config.registry}",
-                    base_url,
-                    next_url,
-                    method="GET",
+                    msg, base_url, next_url, method="GET"
                 )
             return next_url
         else:

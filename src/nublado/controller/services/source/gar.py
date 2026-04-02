@@ -6,16 +6,17 @@ from typing import override
 
 from structlog.stdlib import BoundLogger
 
-from ....models.images import ImageFilterPolicy, RSPImage, RSPImageCollection
+from ....models.images import (
+    GARSource,
+    ImageFilterPolicy,
+    RSPImage,
+    RSPImageCollection,
+)
 from ...exceptions import InvalidDockerReferenceError, UnknownDockerImageError
 from ...models.domain.docker import DockerReference
 from ...models.domain.image import MenuImage
 from ...models.domain.kubernetes import KubernetesNodeImage
-from ...models.v1.prepuller import (
-    GARSourceOptions,
-    PrepulledImage,
-    PrepullerOptions,
-)
+from ...models.v1.prepuller import PrepulledImage, PrepullerOptions
 from ...storage.gar import GARStorageClient
 from .base import ImageSource
 
@@ -44,7 +45,7 @@ class GARImageSource(ImageSource):
 
     def __init__(
         self,
-        config: GARSourceOptions,
+        config: GARSource,
         gar: GARStorageClient,
         logger: BoundLogger,
         image_filter: ImageFilterPolicy,
