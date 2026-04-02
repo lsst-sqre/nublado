@@ -1,5 +1,6 @@
 """pytest fixtures for Nublado tests."""
 
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,7 @@ import respx
 from rubin.repertoire import Discovery, register_mock_discovery
 
 from .support.data import NubladoData
+from .support.gar import MockArtifactRegistry, patch_artifact_registry
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -31,3 +33,9 @@ def mock_discovery(
     monkeypatch.setenv("REPERTOIRE_BASE_URL", "https://example.com/repertoire")
     path = Path(__file__).parent / "data" / "discovery.json"
     return register_mock_discovery(respx_mock, path)
+
+
+@pytest.fixture
+def mock_gar() -> Iterator[MockArtifactRegistry]:
+    with patch_artifact_registry() as mock:
+        yield mock

@@ -6,7 +6,7 @@ from safir.testing.kubernetes import MockKubernetesApi
 from nublado.controller.config import Config
 from nublado.controller.dependencies.config import config_dependency
 from nublado.controller.dependencies.context import context_dependency
-from nublado.controller.models.v1.prepuller import DockerSourceOptions
+from nublado.models.images import DockerSource
 
 from .data import NubladoData
 
@@ -18,7 +18,7 @@ async def configure(
     name: str,
     mock_kubernetes: MockKubernetesApi | None = None,
 ) -> Config:
-    """Configure or reconfigure with a test configuration.
+    """Configure or reconfigure the Nublado controller.
 
     If the global process context was already initialized, stop the background
     processes and restart them with the new configuration.
@@ -47,8 +47,8 @@ async def configure(
 
     # Set some configuration paths to the standard files.
     config.metadata_path = data.path("controller/metadata")
-    if isinstance(config.images.source, DockerSourceOptions):
-        credentials_path = data.path("controller/base/docker-creds.json")
+    if isinstance(config.images.source, DockerSource):
+        credentials_path = data.path("registry/docker-creds.json")
         config.images.source.credentials_path = credentials_path
 
     # If the new configuration enables fileservers, create the namespace for

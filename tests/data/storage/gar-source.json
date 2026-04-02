@@ -1,0 +1,7 @@
+{
+  "type": "google",
+  "location": "us-central1",
+  "project_id": "rubin-shared-services-71ec",
+  "repository": "sciplat",
+  "image": "sciplat-lab"
+}

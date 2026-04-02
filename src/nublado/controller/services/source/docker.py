@@ -8,22 +8,19 @@ from typing import override
 from structlog.stdlib import BoundLogger
 
 from ....models.images import (
+    DockerSource,
     ImageFilterPolicy,
     RSPImage,
     RSPImageCollection,
     RSPImageTag,
     RSPImageTagCollection,
 )
+from ....storage.docker import DockerStorageClient
 from ...exceptions import InvalidDockerReferenceError, UnknownDockerImageError
 from ...models.domain.docker import DockerReference
 from ...models.domain.image import MenuImage
 from ...models.domain.kubernetes import KubernetesNodeImage
-from ...models.v1.prepuller import (
-    DockerSourceOptions,
-    PrepulledImage,
-    PrepullerOptions,
-)
-from ...storage.docker import DockerStorageClient
+from ...models.v1.prepuller import PrepulledImage, PrepullerOptions
 from .base import ImageSource
 
 __all__ = ["DockerImageSource"]
@@ -52,7 +49,7 @@ class DockerImageSource(ImageSource):
 
     def __init__(
         self,
-        config: DockerSourceOptions,
+        config: DockerSource,
         docker: DockerStorageClient,
         logger: BoundLogger,
         image_filter: ImageFilterPolicy,
