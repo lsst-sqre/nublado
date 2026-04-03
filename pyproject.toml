@@ -195,11 +195,11 @@ skip-magic-trailing-comma = true
 "src/nublado/startup/services/preparer.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
 ]
-"tests/controller/models/domain/rsptag_test.py" = [
-    "PLR0124", # testing comparison dunder methods requires strange assertions
-]
-"tests/controller/models/domain/rspimage_test.py" = [
+"tests/models/images/image_test.py" = [
     "PLW0127", # self-assignment clears mypy type narrowing
+]
+"tests/models/images/tag_test.py" = [
+    "PLR0124", # testing comparison dunder methods requires strange assertions
 ]
 "tests/data/**" = [
     "INP001",  # configuration, not a module in a namespace

@@ -9,11 +9,12 @@ from typing import cast
 import pytest
 from semver.version import VersionInfo
 
-from nublado.controller.models.domain.rspimage import (
+from nublado.models.images import (
     RSPImage,
     RSPImageCollection,
+    RSPImageTag,
+    RSPImageType,
 )
-from nublado.controller.models.domain.rsptag import RSPImageTag, RSPImageType
 
 
 def make_test_image(tag: str) -> RSPImage:

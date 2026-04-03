@@ -15,6 +15,7 @@ from safir.slack.blockkit import SlackException
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
+from ...models.images import RSPImage
 from ..config import LabConfig
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..events import (
@@ -39,7 +40,6 @@ from ..exceptions import (
 from ..models.domain.docker import DockerReference
 from ..models.domain.gafaelfawr import GafaelfawrUser
 from ..models.domain.lab import Event, EventType, LabObjectNames
-from ..models.domain.rspimage import RSPImage
 from ..models.v1.lab import (
     LabRequestOptions,
     LabSpecification,

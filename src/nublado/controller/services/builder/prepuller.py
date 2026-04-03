@@ -11,8 +11,8 @@ from kubernetes_asyncio.client import (
     V1ResourceRequirements,
 )
 
+from ....models.images import RSPImage
 from ...config import LabConfig
-from ...models.domain.rspimage import RSPImage
 from ...storage.metadata import MetadataStorage
 
 __all__ = ["PrepullerBuilder"]

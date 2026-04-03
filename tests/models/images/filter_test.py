@@ -5,11 +5,11 @@ from random import SystemRandom
 
 from semver import Version
 
-from nublado.controller.models.domain.imagefilterpolicy import (
+from nublado.models.images import (
+    ImageFilter,
     ImageFilterPolicy,
-    RSPImageFilterPolicy,
+    RSPImageTagCollection,
 )
-from nublado.controller.models.domain.rsptag import RSPImageTagCollection
 
 
 def test_imagefilter() -> None:
@@ -51,27 +51,27 @@ def test_imagefilter() -> None:
     )
 
     # Create image policy
-    policy = RSPImageFilterPolicy(
-        release=ImageFilterPolicy(
+    policy = ImageFilterPolicy(
+        release=ImageFilter(
             # We should get three
             cutoff_version=Version(major=27, minor=0, patch=0)
         ),
-        weekly=ImageFilterPolicy(
+        weekly=ImageFilter(
             # We should get two
             age=timedelta(weeks=2)
         ),
-        daily=ImageFilterPolicy(
+        daily=ImageFilter(
             # We should get two from the age policy: number will never be
             # the filter.
             age=timedelta(days=2),
             number=4,
         ),
-        release_candidate=ImageFilterPolicy(
+        release_candidate=ImageFilter(
             # We should only get one, not two: number will be the filter
             cutoff_version=Version(major=25, minor=3, patch=1),
             number=1,
         ),
-        experimental=ImageFilterPolicy(
+        experimental=ImageFilter(
             # We should get one.  We'll use calver, which because the
             # experimental is built from a weekly, should work fine.
             cutoff_version=Version(major=2025, minor=7, patch=0)

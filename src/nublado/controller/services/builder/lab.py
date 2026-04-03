@@ -52,6 +52,7 @@ from rubin.gafaelfawr import GafaelfawrGroup, GafaelfawrUserInfo
 from rubin.repertoire import DiscoveryClient
 from structlog.stdlib import BoundLogger
 
+from ....models.images import RSPImage
 from ...config import (
     EmptyDirSource,
     LabConfig,
@@ -60,7 +61,6 @@ from ...config import (
 )
 from ...constants import ARGO_CD_ANNOTATIONS, MEMORY_TO_TMP_SIZE_RATIO
 from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
-from ...models.domain.rspimage import RSPImage
 from ...models.domain.volumes import MountedVolume
 from ...models.v1.lab import (
     LabOptions,
