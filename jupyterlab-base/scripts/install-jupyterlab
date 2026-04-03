@@ -31,3 +31,5 @@ jupyter labextension lock "@jupyterlab/hub-extension:menu" \
 
 # Clean up cache
 uv cache clean
+
+# Serial: 1
