@@ -5,7 +5,7 @@ from typing import Self
 
 from pydantic import BaseModel, Field
 
-from .rspimage import RSPImage, RSPImageCollection
+from ....models.images import RSPImage, RSPImageCollection
 
 __all__ = ["MenuImage", "MenuImages", "NodeData"]
 

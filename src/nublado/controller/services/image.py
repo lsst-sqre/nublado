@@ -6,13 +6,12 @@ from kubernetes_asyncio.client import V1Node
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
+from ...models.images import RSPImage, RSPImageCollection, RSPImageType
 from ..constants import KUBERNETES_REQUEST_TIMEOUT
 from ..exceptions import UnknownDockerImageError
 from ..models.domain.docker import DockerReference
 from ..models.domain.image import MenuImage, MenuImages, NodeData
 from ..models.domain.kubernetes import KubernetesNodeImage, Toleration
-from ..models.domain.rspimage import RSPImage, RSPImageCollection
-from ..models.domain.rsptag import RSPImageType
 from ..models.v1.lab import ImageClass
 from ..models.v1.prepuller import (
     Node,
@@ -23,9 +22,9 @@ from ..models.v1.prepuller import (
     PrepullerStatus,
     SpawnerImages,
 )
-from ..services.source.base import ImageSource
 from ..storage.kubernetes.node import NodeStorage
 from ..timeout import Timeout
+from .source.base import ImageSource
 
 __all__ = ["ImageService"]
 
@@ -165,8 +164,7 @@ class ImageService:
         """Determine the image corresponding to a tag.
 
         Assume that the tag is for our configured registry and repository, and
-        construct the corresponding
-        `~nublado.controller.models.domain.rspimage.RSPImage`.
+        construct the corresponding `~nublado.models.images.RSPImage`.
 
         Parameters
         ----------
