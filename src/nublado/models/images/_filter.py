@@ -13,9 +13,9 @@ from pydantic.alias_generators import to_camel
 from safir.pydantic import HumanTimedelta
 from semver import Version
 
-from .rspimagetype import RSPImageType
+from ._type import RSPImageType
 
-__all__ = ["ImageFilterPolicy", "RSPImageFilterPolicy"]
+__all__ = ["ImageFilter", "ImageFilterPolicy"]
 
 
 def _validate_version(v: Version | str | None) -> Version | None:
@@ -27,7 +27,7 @@ def _validate_version(v: Version | str | None) -> Version | None:
     return Version.parse(v)
 
 
-class ImageFilterPolicy(BaseModel):
+class ImageFilter(BaseModel):
     """Policy for images to display within a given category.
 
     All specified policies will be applied.  For instance, if the policy
@@ -75,7 +75,7 @@ class ImageFilterPolicy(BaseModel):
     ] = None
 
 
-class RSPImageFilterPolicy(BaseModel):
+class ImageFilterPolicy(BaseModel):
     """Configuration for display of RSP images.
 
     Images in the "alias" category are always displayed; images in the
@@ -87,53 +87,41 @@ class RSPImageFilterPolicy(BaseModel):
     )
 
     release: Annotated[
-        ImageFilterPolicy,
-        Field(
-            title="Release",
-            description="Policy for releases to display.",
-            default_factory=ImageFilterPolicy,
-        ),
-    ]
+        ImageFilter,
+        Field(title="Release", description="Policy for releases to display."),
+    ] = ImageFilter()
 
     weekly: Annotated[
-        ImageFilterPolicy,
+        ImageFilter,
         Field(
-            title="Weekly",
-            description="Policy for weekly builds to display.",
-            default_factory=ImageFilterPolicy,
+            title="Weekly", description="Policy for weekly builds to display."
         ),
-    ]
+    ] = ImageFilter()
 
     daily: Annotated[
-        ImageFilterPolicy,
+        ImageFilter,
         Field(
-            title="Daily",
-            description="Policy for daily builds to display.",
-            default_factory=ImageFilterPolicy,
+            title="Daily", description="Policy for daily builds to display."
         ),
-    ]
+    ] = ImageFilter()
 
     release_candidate: Annotated[
-        ImageFilterPolicy,
+        ImageFilter,
         Field(
             title="Release Candidate",
             description="Policy for release candidate builds to display.",
-            default_factory=ImageFilterPolicy,
         ),
-    ]
+    ] = ImageFilter()
 
     experimental: Annotated[
-        ImageFilterPolicy,
+        ImageFilter,
         Field(
             title="Experimental",
             description="Policy for experimental builds to display.",
-            default_factory=ImageFilterPolicy,
         ),
-    ]
+    ] = ImageFilter()
 
-    def policy_for_image_type(
-        self, image_type: RSPImageType
-    ) -> ImageFilterPolicy | None:
+    def for_image_type(self, image_type: RSPImageType) -> ImageFilter | None:
         match image_type:
             case RSPImageType.ALIAS:
                 return None  # Always show all alias tags

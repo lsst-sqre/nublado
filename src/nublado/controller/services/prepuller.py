@@ -6,8 +6,8 @@ from safir.sentry import report_exception
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
+from ...models.images import RSPImage
 from ..config import PrepullerConfig
-from ..models.domain.rspimage import RSPImage
 from ..storage.kubernetes.pod import PodStorage
 from ..storage.metadata import MetadataStorage
 from ..timeout import Timeout

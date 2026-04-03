@@ -51,19 +51,10 @@ This documentation therefore exists only to assist developers and code analysis 
 .. automodapi:: nublado.controller.models.domain.image
    :include-all-objects:
 
-.. automodapi:: nublado.controller.models.domain.imagefilterpolicy
-   :include-all-objects:
-
 .. automodapi:: nublado.controller.models.domain.kubernetes
    :include-all-objects:
 
 .. automodapi:: nublado.controller.models.domain.lab
-   :include-all-objects:
-
-.. automodapi:: nublado.controller.models.domain.rspimage
-   :include-all-objects:
-
-.. automodapi:: nublado.controller.models.domain.rsptag
    :include-all-objects:
 
 .. automodapi:: nublado.controller.models.domain.volumes

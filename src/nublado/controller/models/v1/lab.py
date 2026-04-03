@@ -13,10 +13,10 @@ from pydantic import (
 )
 from rubin.gafaelfawr import GafaelfawrNotebookQuota
 
+from ....models.images import RSPImage
 from ...constants import DROPDOWN_SENTINEL_VALUE
 from ...units import cpu_to_cores, memory_to_bytes
 from ..domain.kubernetes import PodPhase
-from ..domain.rspimage import RSPImage
 
 __all__ = [
     "CommonLabOptions",

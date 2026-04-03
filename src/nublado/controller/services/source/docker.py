@@ -7,13 +7,17 @@ from typing import override
 
 from structlog.stdlib import BoundLogger
 
+from ....models.images import (
+    ImageFilterPolicy,
+    RSPImage,
+    RSPImageCollection,
+    RSPImageTag,
+    RSPImageTagCollection,
+)
 from ...exceptions import InvalidDockerReferenceError, UnknownDockerImageError
 from ...models.domain.docker import DockerReference
 from ...models.domain.image import MenuImage
-from ...models.domain.imagefilterpolicy import RSPImageFilterPolicy
 from ...models.domain.kubernetes import KubernetesNodeImage
-from ...models.domain.rspimage import RSPImage, RSPImageCollection
-from ...models.domain.rsptag import RSPImageTag, RSPImageTagCollection
 from ...models.v1.prepuller import (
     DockerSourceOptions,
     PrepulledImage,
@@ -51,7 +55,7 @@ class DockerImageSource(ImageSource):
         config: DockerSourceOptions,
         docker: DockerStorageClient,
         logger: BoundLogger,
-        image_filter: RSPImageFilterPolicy,
+        image_filter: ImageFilterPolicy,
     ) -> None:
         super().__init__(logger, image_filter)
         self._config = config
