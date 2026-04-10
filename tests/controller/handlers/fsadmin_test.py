@@ -1,11 +1,10 @@
 """Tests for fsadmin route."""
 
 import asyncio
-import datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
-from safir.datetime import current_datetime
 from safir.testing.kubernetes import MockKubernetesApi
 
 from ...support.config import configure
@@ -28,14 +27,12 @@ async def test_create_delete(
     assert r.status_code == 204
 
     # Start fsadmin
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
     r = await client.post("/nublado/fsadmin/v1/service", json={"start": True})
     assert r.status_code == 200
-    # Verify that start time looks sane
     obj = r.json()
-    started = datetime.datetime.fromisoformat(obj["start_time"])
-    elapsed = started - now
-    assert elapsed.total_seconds() >= 0
+    started = datetime.fromisoformat(obj["start_time"])
+    assert now <= started <= now + timedelta(seconds=2)
 
     # # Verify it's running
     r = await client.get("/nublado/fsadmin/v1/service")
@@ -48,7 +45,7 @@ async def test_create_delete(
     r = await client.get("/nublado/fsadmin/v1/service")
     assert r.status_code == 200
     obj = r.json()
-    new_started = datetime.datetime.fromisoformat(obj["start_time"])
+    new_started = datetime.fromisoformat(obj["start_time"])
     assert started == new_started
 
     # Remove it.
@@ -141,8 +138,7 @@ async def test_locking(
     # The mock sets start time to pod creation time, and doesn't update it
     # when we patch it to "Running", so we need to capture the time *now*
     # rather than when the pod "starts" so the delta is positive.
-
-    now = current_datetime()
+    now = datetime.now(tz=UTC).replace(microsecond=0)
 
     # Try to start pod (it won't, because it will go into Pending)
     post_task = asyncio.create_task(
@@ -185,7 +181,7 @@ async def test_locking(
     # Check that the POST result has a datetime which decodes to sometime
     # at or after when we patched the pod to start it.
     obj = r.json()
-    started = datetime.datetime.fromisoformat(obj["start_time"])
+    started = datetime.fromisoformat(obj["start_time"])
     elapsed = started - now
     assert elapsed.total_seconds() >= 0
     # However, since that ran, then the DELETE should have run once it could
