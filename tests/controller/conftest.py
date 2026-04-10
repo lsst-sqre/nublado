@@ -1,7 +1,6 @@
 """Test fixtures for jupyterlab-controller tests."""
 
 from collections.abc import AsyncIterator, Iterator
-from contextlib import contextmanager
 
 import pytest
 import pytest_asyncio
@@ -137,7 +136,7 @@ def mock_kubernetes(data: NubladoData) -> Iterator[MockKubernetesApi]:
         account = V1ServiceAccount(metadata=V1ObjectMeta(name="default"))
         await mock.create_namespaced_service_account(name, account)
 
-    with contextmanager(patch_kubernetes)() as mock:
+    with patch_kubernetes() as mock:
         mock.set_nodes_for_test(nodes)
         mock.register_create_hook_for_test("Namespace", create_default)
         yield mock

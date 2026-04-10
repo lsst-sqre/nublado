@@ -32,7 +32,7 @@ dependencies = [
     "pyyaml>=6",
     "rubin-gafaelfawr",
     "rubin-repertoire>=0.6.0",
-    "safir[kafka,kubernetes]>=14.3",
+    "safir[kafka,kubernetes]>=15",
     "semver>=3",
     "sse-starlette>=3",
     "uvicorn[standard]>=0.37",
