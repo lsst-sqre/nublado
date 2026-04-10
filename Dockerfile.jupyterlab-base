@@ -4,7 +4,7 @@ USER root
 SHELL ["/bin/bash", "-lc"]
 
 # Install uv.
-COPY --from=ghcr.io/astral-sh/uv:0.11.2 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /bin/uv
 
 # Set up workspace
 RUN mkdir -p /tmp/build
@@ -54,6 +54,7 @@ COPY jupyterlab-base/profile.d/local01-nbstripjq.sh \
      jupyterlab-base/profile.d/local03-pythonrc.sh \
      jupyterlab-base/profile.d/local04-path.sh \
      jupyterlab-base/profile.d/local05-term.sh \
+     jupyterlab-base/profile.d/local06-cd.sh \
      /etc/profile.d/
 
 # /etc/skel
