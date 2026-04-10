@@ -24,9 +24,9 @@ from .models.v1.lab import LabSize
 
 __all__ = [
     "ControllerTimeoutError",
-    "DockerRegistryError",
+    "DockerError",
+    "DockerInvalidUrlError",
     "DuplicateObjectError",
-    "DuplicateUrlError",
     "GafaelfawrParseError",
     "GafaelfawrWebError",
     "InsufficientQuotaError",
@@ -217,8 +217,17 @@ class ControllerTimeoutError(SlackException):
         return info
 
 
-class DockerRegistryError(SlackWebException):
+class DockerError(SlackWebException):
     """An API call to a Docker Registry failed."""
+
+
+class DockerInvalidUrlError(DockerError):
+    """An invalid link was encountered while retrieving tag results."""
+
+    def __init__(
+        self, error: str, url: str, next_url: str, *, method: str
+    ) -> None:
+        super().__init__(f"{error}: {next_url}", method=method, url=url)
 
 
 class DuplicateObjectError(SlackException):
@@ -278,10 +287,6 @@ class DuplicateObjectError(SlackException):
         if self.namespace:
             info.tags["namespace"] = self.namespace
         return info
-
-
-class DuplicateUrlError(SlackException):
-    """A duplicate link was encountered while paginating tag results."""
 
 
 class GafaelfawrParseError(SlackException):

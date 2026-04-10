@@ -1,74 +1,31 @@
 """Client for the Docker v2 API."""
 
 import json
-import re
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
-from urllib.parse import urlparse
+from urllib.parse import urljoin
 
 from httpx import AsyncClient, HTTPError, Response
+from safir.http import PaginationLinkData
 from structlog.stdlib import BoundLogger
 
-from ..exceptions import DockerRegistryError, DuplicateUrlError
+from ..exceptions import DockerError, DockerInvalidUrlError
 from ..models.domain.docker import DockerCredentials
 from ..models.v1.prepuller import DockerSourceOptions
+
+_MANIFEST_ACCEPT_TYPES = [
+    "application/vnd.docker.distribution.manifest.v2+json",
+    "application/vnd.docker.distribution.manifest.list.v2+json",
+    "application/vnd.oci.image.manifest.v1+json",
+    "application/vnd.oci.image.index.v1+json",
+    "application/json;q=0.5",
+]
+"""Possible MIME types for an image manifest for the ``Accept`` header."""
 
 __all__ = [
     "DockerCredentialStore",
     "DockerStorageClient",
 ]
-
-
-# _LINK_REGEX and _PaginationLinkData are adapted from Safir:
-# src/database/_pagination.py
-
-_LINK_REGEX = re.compile(
-    r'\s*<(?P<target>[^>]+)>;\s*rel=(?P<maybe_quote>"?)(?P<type>[^"]+)\2'
-)
-
-
-@dataclass
-class _PaginationLinkData:
-    """Holds the data returned in an :rfc:`8288` ``Link`` header."""
-
-    prev_url: str | None
-    """URL of the previous page, or `None` for the first page."""
-
-    next_url: str | None
-    """URL of the next page, or `None` for the last page."""
-
-    first_url: str | None
-    """URL of the first page."""
-
-    @classmethod
-    def from_header(cls, header: str | None) -> Self:
-        """Parse an :rfc:`8288` ``Link`` with pagination URLs.
-
-        Parameters
-        ----------
-        header
-            Contents of an RFC 8288 ``Link`` header.
-
-        Returns
-        -------
-        PaginationLinkData
-            Parsed form of that header.
-        """
-        links = {}
-        if header:
-            for element in header.split(","):
-                if m := re.match(_LINK_REGEX, element):
-                    if m.group("type") in ("prev", "next", "first"):
-                        links[m.group("type")] = m.group("target")
-                    elif m.group("type") == "previous":
-                        links["prev"] = m.group("target")
-
-        return cls(
-            prev_url=links.get("prev"),
-            next_url=links.get("next"),
-            first_url=links.get("first"),
-        )
 
 
 class DockerCredentialStore:
@@ -199,13 +156,13 @@ class DockerStorageClient:
 
         Raises
         ------
-        DockerRegistryError
+        DockerError
             Unable to retrieve the digest from the Docker Registry.
         """
         url = (
             f"https://{config.registry}/v2/{config.repository}/manifests/{tag}"
         )
-        headers = self._build_manifest_headers(config.registry)
+        headers = self._build_headers(config.registry, manifest=True)
         try:
             r = await self._client.head(url, headers=headers)
             if r.status_code == 401:
@@ -214,11 +171,11 @@ class DockerStorageClient:
             r.raise_for_status()
             digest = r.headers["Docker-Content-Digest"]
         except HTTPError as e:
-            raise DockerRegistryError.from_exception(e) from e
+            raise DockerError.from_exception(e) from e
         except Exception as e:
             error = f"{type(e).__name__}: {e!s}"
             msg = f"Cannot get image digest from Docker registry: {error}"
-            raise DockerRegistryError(msg, method="GET", url=url) from e
+            raise DockerError(msg, method="GET", url=url) from e
         else:
             self._logger.debug(
                 "Retrieved image digest for tag",
@@ -266,46 +223,30 @@ class DockerStorageClient:
                 r.raise_for_status()
                 tags = r.json()["tags"]
             except HTTPError as e:
-                raise DockerRegistryError.from_exception(e) from e
+                raise DockerError.from_exception(e) from e
             except Exception as e:
                 error = f"{type(e).__name__}: {e!s}"
                 msg = f"Cannot parse response from Docker registry: {error}"
-                raise DockerRegistryError(msg, method="GET", url=url) from e
+                raise DockerError(msg, method="GET", url=url) from e
 
             # Add the seen tags to the set.
             logger.debug(f"Retrieved {len(tags)} image tags")
             all_tags.update(tags)
 
             # Check for a continuation.
-            if link_url := self._parse_next_link_header(r):
-                url = self._canonicalize_url(link_url, config)
-                if url in seen_urls:
-                    raise DuplicateUrlError(f"Repeated tag page URL: {url}")
-                logger.debug("Following Link header", url=link_url)
+            if next_url := self._parse_next_link_header(config, r, url):
+                if next_url in seen_urls:
+                    raise DockerInvalidUrlError(
+                        "Repeated tag page URL", url, next_url, method="GET"
+                    )
+                url = next_url
+                logger.debug("Following Link header", url=url)
             else:
                 break
 
         # All done, return the results.
         logger.debug("Listed all tags", count=len(all_tags))
         return all_tags
-
-    @staticmethod
-    def _canonicalize_url(link_url: str, config: DockerSourceOptions) -> str:
-        parsed = urlparse(link_url)
-        if parsed.netloc:
-            # It specified a netloc, so use it as is.
-            return link_url
-        # Relative to the current netloc (this is how GHCR does it).
-        if link_url[0] != "/":
-            link_url = f"/{link_url}"
-        return f"https://{config.registry}{link_url}"
-
-    def _parse_next_link_header(self, response: Response) -> str | None:
-        """Parse the response for a ``Link`` header with a next URL."""
-        link = response.headers.get("Link")
-        if not link:
-            return None
-        return _PaginationLinkData.from_header(link).next_url
 
     async def _authenticate(
         self, host: str, response: Response
@@ -330,22 +271,22 @@ class DockerStorageClient:
 
         Raises
         ------
-        DockerRegistryError
+        DockerError
             Some failure in talking to the Docker registry API server.
         """
         if host in self._authorization:
             msg = f"Authentication credentials for {host} rejected"
-            raise DockerRegistryError(msg)
+            raise DockerError(msg)
 
         credentials = self._credentials.get(host)
         if not credentials:
             msg = f"No Docker API credentials available for {host}"
-            raise DockerRegistryError(msg)
+            raise DockerError(msg)
 
         challenge = response.headers.get("WWW-Authenticate")
         if not challenge:
             msg = f"Docker API 401 response from {host} contains no challenge"
-            raise DockerRegistryError(msg)
+            raise DockerError(msg)
         challenge_type, params = challenge.split(None, 1)
         challenge_type = challenge_type.lower()
 
@@ -367,25 +308,13 @@ class DockerStorageClient:
             )
         else:
             msg = f'Unknown Docker authentication challenge "{challenge_type}"'
-            raise DockerRegistryError(msg)
+            raise DockerError(msg)
 
         return self._build_headers(host)
 
-    def _build_manifest_headers(self, host: str) -> dict[str, str]:
-        """Construct the headers we need for a query to a given host to
-        inspect a manifest. This requires additional media types.
-        """
-        headers = self._build_headers(host)
-        headers["Accept"] = (
-            "application/vnd.docker.distribution.manifest.v2+json, "
-            "application/vnd.docker.distribution.manifest.list.v2+json, "
-            "application/vnd.oci.image.manifest.v1+json, "
-            "application/vnd.oci.image.index.v1+json, "
-            "application/json;q=0.5"
-        )
-        return headers
-
-    def _build_headers(self, host: str) -> dict[str, str]:
+    def _build_headers(
+        self, host: str, *, manifest: bool = False
+    ) -> dict[str, str]:
         """Construct the headers used for a query to a given host.
 
         Adds the ``Authorization`` header if we have discovered that this host
@@ -395,13 +324,18 @@ class DockerStorageClient:
         ----------
         host
             Docker registry API host.
+        manifest
+            Whether to construct the headers for retrieving a manifest.
 
         Returns
         -------
         dict of str to str
             Headers to pass to this host.
         """
-        headers = {"Accept": "application/json"}
+        if manifest:
+            headers = {"Accept": ", ".join(_MANIFEST_ACCEPT_TYPES)}
+        else:
+            headers = {"Accept": "application/json"}
         if host in self._authorization:
             headers["Authorization"] = self._authorization[host]
         return headers
@@ -427,7 +361,7 @@ class DockerStorageClient:
 
         Raises
         ------
-        DockerRegistryError
+        DockerError
             Some failure in talking to the Docker registry API server.
         """
         # We need to reflect the challenge parameters back as query
@@ -456,8 +390,45 @@ class DockerStorageClient:
             r.raise_for_status()
             return r.json()["token"]
         except HTTPError as e:
-            raise DockerRegistryError.from_exception(e) from e
+            raise DockerError.from_exception(e) from e
         except Exception as e:
             error = f"{type(e).__name__}: {e!s}"
             msg = f"Cannot parse Docker registry login response: {error}"
-            raise DockerRegistryError(msg, method="GET", url=url) from e
+            raise DockerError(msg, method="GET", url=url) from e
+
+    def _parse_next_link_header(
+        self, config: DockerSourceOptions, response: Response, base_url: str
+    ) -> str | None:
+        """Parse the response for a ``Link`` header with a next URL.
+
+        Parameters
+        ----------
+        config
+            Configuration for the registry and repository to use.
+        response
+            HTTP response, which may contain a ``Link`` header.
+        base_url
+            URL retrieved to create that response, used for relative link
+            following.
+
+        Raises
+        ------
+        DockerInvalidUrlError
+            Raised if the next URL is not relative to the expected registry.
+        """
+        link = response.headers.get("Link")
+        if not link:
+            return None
+        link_data = PaginationLinkData.from_header(link)
+        if link_data.next_url:
+            next_url = urljoin(base_url, link_data.next_url)
+            if not next_url.startswith(f"https://{config.registry}/"):
+                raise DockerInvalidUrlError(
+                    f"Docker Link URL not relative to {config.registry}",
+                    base_url,
+                    next_url,
+                    method="GET",
+                )
+            return next_url
+        else:
+            return None
