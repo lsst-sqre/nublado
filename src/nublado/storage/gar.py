@@ -2,7 +2,7 @@
 
 import asyncio
 
-from google.api_core.exceptions import ServiceUnavailable
+from google.api_core.exceptions import InternalServerError, ServiceUnavailable
 from google.cloud import artifactregistry_v1
 from google.cloud.artifactregistry_v1 import ListDockerImagesRequest
 from structlog.stdlib import BoundLogger
@@ -62,7 +62,7 @@ class GARStorageClient:
         for attempt in range(GAR_RETRY_LIMIT):
             try:
                 images = await self._fetch_image_list(config)
-            except ServiceUnavailable as e:
+            except (InternalServerError, ServiceUnavailable) as e:
                 msg = "Error listing images from GAR, retrying"
                 error = f"{type(e).__name__}: {e!s}"
                 logger.warning(msg, error=error, attempt=attempt)
