@@ -86,7 +86,7 @@ class DockerImageSource(ImageSource):
 
         Raises
         ------
-        DockerRegistryError
+        DockerError
             Raised if retrieving the digest from the Docker Registry failed.
         InvalidDockerReferenceError
             Raised if the Docker reference doesn't contain a tag. References
@@ -161,9 +161,9 @@ class DockerImageSource(ImageSource):
         Raises
         ------
         UnknownDockerImageError
-            The requested tag is not found.
-        DockerRegistryError
-            Unable to retrieve the digest from the Docker Registry.
+            Raised if the requested tag was not found.
+        DockerError
+            Raised if retrieving the digest from the Docker Registry failed.
         """
         image = self._images.image_for_tag_name(tag_name)
         if image:
