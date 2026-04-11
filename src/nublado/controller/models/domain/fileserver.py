@@ -11,10 +11,7 @@ from kubernetes_asyncio.client import (
     V1Service,
 )
 
-__all__ = [
-    "FileserverObjects",
-    "FileserverStateObjects",
-]
+__all__ = ["FileserverObjects", "FileserverStateObjects"]
 
 
 @dataclass

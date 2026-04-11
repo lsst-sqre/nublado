@@ -22,11 +22,7 @@ from ..services.fsadmin import FSAdminManager
 from ..services.image import ImageService
 from ..services.lab import LabManager
 
-__all__ = [
-    "ContextDependency",
-    "RequestContext",
-    "context_dependency",
-]
+__all__ = ["ContextDependency", "RequestContext", "context_dependency"]
 
 
 @dataclass(slots=True)

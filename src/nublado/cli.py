@@ -25,13 +25,7 @@ from .purger.constants import CONFIG_FILE_ENV_VAR as PURGER_CONFIG_FILE_ENV_VAR
 from .purger.purger import Purger
 from .startup.services.preparer import Preparer
 
-__all__ = [
-    "inithome",
-    "landingpage",
-    "main",
-    "purger",
-    "startup",
-]
+__all__ = ["inithome", "landingpage", "main", "purger", "startup"]
 
 # Do this at the very beginning so that Sentry gets all exceptions.
 initialize_sentry(release=__version__)
@@ -81,9 +75,7 @@ def _purger_common[**P, R](
         logger = get_logger(ROOT_LOGGER)
         if alert_hook := os.environ.get(ALERT_HOOK_ENV_VAR):
             slack_client = SlackWebhookClient(
-                alert_hook,
-                "Nublado File Purger",
-                logger=logger,
+                alert_hook, "Nublado File Purger", logger=logger
             )
         else:
             slack_client = None
@@ -150,11 +142,7 @@ def _make_purger(
 @main.group()
 @_purger_common
 async def purger(
-    *,
-    config_file: Path,
-    policy_file: Path | None,
-    dry_run: bool,
-    debug: bool,
+    *, config_file: Path, policy_file: Path | None, dry_run: bool, debug: bool
 ) -> None:
     """Purge files, or plan future purge."""
 
@@ -162,11 +150,7 @@ async def purger(
 @purger.command()
 @_purger_common
 async def report(
-    *,
-    config_file: Path,
-    policy_file: Path | None,
-    dry_run: bool,
-    debug: bool,
+    *, config_file: Path, policy_file: Path | None, dry_run: bool, debug: bool
 ) -> None:
     """Report what files would be purged."""
     purger = _make_purger(
@@ -182,11 +166,7 @@ async def report(
 @purger.command()
 @_purger_common
 async def execute(
-    *,
-    config_file: Path,
-    policy_file: Path | None,
-    dry_run: bool,
-    debug: bool,
+    *, config_file: Path, policy_file: Path | None, dry_run: bool, debug: bool
 ) -> None:
     """Make a plan, report, and purge files."""
     purger = _make_purger(

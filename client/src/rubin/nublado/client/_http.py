@@ -238,11 +238,7 @@ class JupyterAsyncClient:
 
     @_convert_exception
     async def open_websocket(
-        self,
-        route: str,
-        *,
-        open_timeout: timedelta,
-        max_size: int | None,
+        self, route: str, *, open_timeout: timedelta, max_size: int | None
     ) -> AbstractAsyncContextManager[ClientConnection]:
         """Open a WebSocket connection.
 

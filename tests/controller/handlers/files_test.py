@@ -382,21 +382,13 @@ async def test_start_errors(
             "GafaelfawrIngress",
             f"{namespace}/{username}-fs",
         ),
-        (
-            "create_namespaced_job",
-            "Job",
-            f"{namespace}/{username}-fs",
-        ),
+        ("create_namespaced_job", "Job", f"{namespace}/{username}-fs"),
         (
             "create_namespaced_persistent_volume_claim",
             "PersistentVolumeClaim",
             f"{namespace}/{username}-fs-pvc-scratch",
         ),
-        (
-            "create_namespaced_service",
-            "Service",
-            f"{namespace}/{username}-fs",
-        ),
+        ("create_namespaced_service", "Service", f"{namespace}/{username}-fs"),
     ]
     for api, kind, obj in possible_errors:
         apis_to_fail = {api}
@@ -463,7 +455,7 @@ async def test_start_errors(
                     },
                     {"type": "divider"},
                 ]
-            },
+            }
         ]
         mock_slack.messages = []
         r = await client.get("/nublado/fileserver/v1/users")

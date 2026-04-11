@@ -21,7 +21,7 @@ __all__ = ["router"]
         404: {
             "description": "Filesystem admin instance not running",
             "model": ErrorModel,
-        },
+        }
     },
     description=(
         "On successful return, the fsadmin instance is operational."
@@ -44,7 +44,7 @@ async def get_fsadmin_status(
         404: {
             "description": "Filesystem admin instance not running",
             "model": ErrorModel,
-        },
+        }
     },
     description="On successful return, the fsadmin instance is operational.",
     summary="Create fsadmin instance",

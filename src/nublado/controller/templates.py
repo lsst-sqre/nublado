@@ -15,7 +15,7 @@ templates = Jinja2Templates(
     env=Environment(
         loader=PackageLoader("nublado.controller", package_path="templates"),
         autoescape=True,
-    ),
+    )
 )
 """The template manager."""
 

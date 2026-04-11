@@ -249,8 +249,7 @@ class LabBuilder:
         try:
             resources = LabResources(
                 limits=ResourceQuantity(
-                    cpu=float(env["CPU_LIMIT"]),
-                    memory=int(env["MEM_LIMIT"]),
+                    cpu=float(env["CPU_LIMIT"]), memory=int(env["MEM_LIMIT"])
                 ),
                 requests=ResourceQuantity(
                     cpu=float(env["CPU_GUARANTEE"]),
@@ -460,8 +459,7 @@ class LabBuilder:
         ingress_rules = [
             V1NetworkPolicyPeer(namespace_selector=lab_selector),
             V1NetworkPolicyPeer(
-                namespace_selector=V1LabelSelector(),
-                pod_selector=hub_selector,
+                namespace_selector=V1LabelSelector(), pod_selector=hub_selector
             ),
         ]
         return V1NetworkPolicy(
@@ -473,7 +471,7 @@ class LabBuilder:
                     V1NetworkPolicyIngressRule(
                         _from=ingress_rules,
                         ports=[V1NetworkPolicyPort(port=8888)],
-                    ),
+                    )
                 ],
             ),
         )
@@ -692,10 +690,7 @@ class LabBuilder:
                 ),
             ),
             volume_mount=V1VolumeMount(
-                mount_path=path,
-                name=name,
-                read_only=True,
-                sub_path=subpath,
+                mount_path=path, name=name, read_only=True, sub_path=subpath
             ),
         )
 
@@ -850,9 +845,7 @@ class LabBuilder:
                 downward_api=V1DownwardAPIVolumeSource(items=files),
             ),
             volume_mount=V1VolumeMount(
-                mount_path=runtime_path,
-                name="runtime",
-                read_only=True,
+                mount_path=runtime_path, name="runtime", read_only=True
             ),
         )
 

@@ -80,10 +80,7 @@ def test_controller_timeout_error_sentry() -> None:
 
 def test_duplicate_object_error_slack() -> None:
     error = DuplicateObjectError(
-        message="whatever",
-        user="whomever",
-        kind="kind",
-        namespace="namespace",
+        message="whatever", user="whomever", kind="kind", namespace="namespace"
     )
 
     slack = error.to_slack().to_slack()
@@ -133,10 +130,7 @@ def test_duplicate_object_error_slack() -> None:
 
 def test_duplicate_object_error_sentry() -> None:
     error = DuplicateObjectError(
-        message="whatever",
-        user="whomever",
-        kind="kind",
-        namespace="namespace",
+        message="whatever", user="whomever", kind="kind", namespace="namespace"
     )
 
     sentry = error.to_sentry()

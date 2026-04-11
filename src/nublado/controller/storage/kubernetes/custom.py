@@ -13,10 +13,7 @@ from ...models.domain.kubernetes import PropagationPolicy, WatchEventType
 from ...timeout import Timeout
 from .watcher import KubernetesWatcher
 
-__all__ = [
-    "CustomStorage",
-    "GafaelfawrIngressStorage",
-]
+__all__ = ["CustomStorage", "GafaelfawrIngressStorage"]
 
 
 class CustomStorage:
@@ -264,10 +261,7 @@ class CustomStorage:
             ) from e
 
     async def wait_for_deletion(
-        self,
-        name: str,
-        namespace: str,
-        timeout: Timeout,
+        self, name: str, namespace: str, timeout: Timeout
     ) -> None:
         """Wait for a custom object deletion to complete.
 

@@ -9,10 +9,7 @@ from typing import Self
 from .imagefilterpolicy import RSPImageFilterPolicy
 from .rsptag import RSPImageTag, RSPImageTagCollection, RSPImageType
 
-__all__ = [
-    "RSPImage",
-    "RSPImageCollection",
-]
+__all__ = ["RSPImage", "RSPImageCollection"]
 
 _ALIAS_TYPES = (RSPImageType.ALIAS, RSPImageType.UNKNOWN)
 """Image types that may be aliases and can be resolved."""

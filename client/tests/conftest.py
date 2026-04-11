@@ -39,10 +39,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 @pytest.fixture
 def client(
-    logger: BoundLogger,
-    username: str,
-    token: str,
-    mock_jupyter: MockJupyter,
+    logger: BoundLogger, username: str, token: str, mock_jupyter: MockJupyter
 ) -> NubladoClient:
     return NubladoClient(username, token, logger=logger)
 

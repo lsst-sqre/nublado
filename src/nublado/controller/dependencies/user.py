@@ -9,10 +9,7 @@ from ..exceptions import InvalidTokenError, PermissionDeniedError
 from ..models.domain.gafaelfawr import GafaelfawrUser
 from .context import RequestContext, context_dependency
 
-__all__ = [
-    "user_dependency",
-    "username_path_dependency",
-]
+__all__ = ["user_dependency", "username_path_dependency"]
 
 
 async def user_dependency(

@@ -13,10 +13,7 @@ from google.cloud.artifactregistry_v1 import (
     ListDockerImagesRequest,
 )
 
-__all__ = [
-    "MockArtifactRegistry",
-    "patch_artifact_registry",
-]
+__all__ = ["MockArtifactRegistry", "patch_artifact_registry"]
 
 
 class MockArtifactRegistry(Mock):
@@ -48,8 +45,7 @@ class MockArtifactRegistry(Mock):
         self._fail = True
 
     async def list_docker_images(
-        self,
-        request: ListDockerImagesRequest,
+        self, request: ListDockerImagesRequest
     ) -> AsyncIterator[DockerImage]:
         """Retrieve the known list of images matching the request.
 
