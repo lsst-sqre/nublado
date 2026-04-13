@@ -19,6 +19,7 @@ from . import __version__
 from .constants import ALERT_HOOK_ENV_VAR, ROOT_LOGGER
 from .inithome.provisioner import Provisioner
 from .landingpage.provisioner import Provisioner as LandingPageProvisioner
+from .migrator import Migrator
 from .purger.config import Config as PurgerConfig
 from .purger.constants import CONFIG_FILE as PURGER_CONFIG_FILE
 from .purger.constants import CONFIG_FILE_ENV_VAR as PURGER_CONFIG_FILE_ENV_VAR
@@ -265,6 +266,14 @@ def landingpage() -> None:
         provisioner.go()
     except Exception:
         logger.exception("Provisioner failed")
+
+
+@main.command()
+def migrator() -> None:
+    """Copy a user's files from their old homespace to their new homespace."""
+    # Don't catch exceptions: we want to use the container exit code.
+    migrator = Migrator.from_env()
+    migrator.go()
 
 
 @main.command()
