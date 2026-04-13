@@ -688,6 +688,16 @@ class UserHomeDirectorySchema(Enum):
     """Paths like ``/home/r/rachel``."""
 
 
+class FileBrowserRoot(Enum):
+    """Selector for choosing where the top of the Lab file browser tree is."""
+
+    HOME = "home"
+    """The top of the visible tree is the user home directory."""
+
+    ROOT = "root"
+    """The top of the visible tree is the container root directory."""
+
+
 class LabInitContainer(BaseModel):
     """A container to run as an init container before the user's lab."""
 
@@ -933,6 +943,51 @@ class LabConfig(BaseModel):
             ),
         ),
     ] = {}
+
+    enable_cst_landing_page: Annotated[
+        bool,
+        Field(
+            title="Enable CST landing page",
+            description=(
+                "Whether or not to direct the user to the CST landing page"
+                " at Lab spawn time."
+            ),
+        ),
+    ] = False
+
+    enable_rubin_query_menu: Annotated[
+        bool,
+        Field(
+            title="Enable Rubin query menu",
+            description=(
+                "Whether or not to enable the recent queries menu in the"
+                " user's Lab."
+            ),
+        ),
+    ] = False
+
+    enable_tutorials_menu: Annotated[
+        bool,
+        Field(
+            title="Enable tutorials menu",
+            description=(
+                "Whether or not to enable the tutorials menu in the user's"
+                " Lab."
+            ),
+        ),
+    ] = False
+
+    file_browser_root: Annotated[
+        FileBrowserRoot,
+        Field(
+            title="Root of JupyterLab file browser",
+            description=(
+                "Selector for choosing whether the top of the Lab file"
+                " browser is the user's home directory or the container"
+                " root directory."
+            ),
+        ),
+    ] = FileBrowserRoot.HOME
 
     jupyterlab_config_dir: Annotated[
         str,

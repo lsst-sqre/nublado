@@ -55,6 +55,7 @@ from structlog.stdlib import BoundLogger
 from ....models.images import RSPImage
 from ...config import (
     EmptyDirSource,
+    FileBrowserRoot,
     LabConfig,
     PVCVolumeSource,
     UserHomeDirectorySchema,
@@ -343,13 +344,16 @@ class LabBuilder:
             env["RESET_USER_ENV"] = "TRUE"
 
         # Add standard environment variables.
+        #
+        # Much of this will eventually end up in config.json rather than
+        # env.json, but we're doing a phased implementation.
         size = self._config.get_size_definition(lab.options.size)
         activity = str(int(self._config.activity_interval.total_seconds()))
         resources = size.resources
         env.update(
             {
-                # We would like to deprecate this, following KubeSpawner, but
-                # it's currently used by the lab extensions.
+                # This setting is now deprecated. With version 0.21 of
+                # rsp-jupyter-extensions it is no longer needed.
                 "JUPYTER_IMAGE": image.reference_with_digest,
                 # Image data for display frame.
                 "JUPYTER_IMAGE_SPEC": image.reference_with_digest,
@@ -375,7 +379,19 @@ class LabBuilder:
                 "NUBLADO_RUNTIME_MOUNTS_DIR": self._config.runtime_mounts_dir,
             }
         )
-
+        # Set file browser root ("home" or "root")
+        env["FILE_BROWSER_ROOT"] = self._config.file_browser_root.value
+        # Set relative path to home dir
+        _hrfbr = "HOME_RELATIVE_TO_FILE_BROWSER_ROOT"
+        if self._config.file_browser_root == FileBrowserRoot.ROOT:
+            env[_hrfbr] = self._build_home_directory(user.username)
+        else:
+            env[_hrfbr] = "."
+        # Set up booleans previously represented by RSP_SITE_TYPE
+        if self._config.enable_rubin_query_menu:
+            env["ENABLE_RUBIN_QUERY_MENU"] = "TRUE"
+        if self._config.enable_tutorials_menu:
+            env["ENABLE_TUTORIALS_MENU"] = "TRUE"
         # Inject REPERTOIRE_BASE_URL if we know it.
         rep_base = os.environ.get("REPERTOIRE_BASE_URL")
         if rep_base:
@@ -922,12 +938,12 @@ class LabBuilder:
             )
             containers.append(container)
 
-        # If it's a "science" type site, we run the "set up a landing page"
-        # container before startup.
+        # If we enable the CST landing page, run a container to copy the
+        # landing page into the user's home space at startup.
         #
         # We want all the mounts because we are copying tutorials material from
         # a shared, read-only filesystem into the user home directory.
-        if self._config.env.get("RSP_SITE_TYPE", "") == "science":
+        if self._config.enable_cst_landing_page:
             container = self._build_nublado_initcontainer(
                 function="landingpage",
                 env=env,
