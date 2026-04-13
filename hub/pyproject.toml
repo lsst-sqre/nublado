@@ -39,7 +39,7 @@ Source = "https://github.com/lsst-sqre/nublado"
 "Issue tracker" = "https://github.com/lsst-sqre/nublado/issues"
 
 [build-system]
-requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=82.0.1", "setuptools_scm[toml]>=6.2"]
 build-backend = 'setuptools.build_meta'
 
 [dependency-groups]
