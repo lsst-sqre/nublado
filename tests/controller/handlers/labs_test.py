@@ -1134,10 +1134,81 @@ async def test_alternative_home_volume(
         f"{user.username}-nb", f"{config.lab.namespace_prefix}-{user.username}"
     )
     icnames = [x.name for x in pod.spec.init_containers]
+    assert icnames == ["nublado-std-inithome", "nublado-std-startup"]
+    inithome = pod.spec.init_containers[0]
+    assert inithome.volume_mounts[0].name == "noplacelikehome"
+
+
+@pytest.mark.asyncio
+async def test_file_browser_root(
+    *,
+    client: AsyncClient,
+    data: NubladoData,
+    user: GafaelfawrTestUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    """Check that we respect changing file browser root setting."""
+    config = await configure(data, "browserroot")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/lab-specification"
+    )
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_test_headers(),
+    )
+    assert r.status_code == 201
+    await asyncio.sleep(0)
+
+    config_map = await mock_kubernetes.read_namespaced_config_map(
+        f"{user.username}-nb-env",
+        f"{config.lab.namespace_prefix}-{user.username}",
+    )
+    assert config_map.data["FILE_BROWSER_ROOT"] == "root"
+    assert (
+        config_map.data["HOME_RELATIVE_TO_FILE_BROWSER_ROOT"] == "/home/rachel"
+    )
+
+
+@pytest.mark.asyncio
+async def test_enable_options(
+    *,
+    client: AsyncClient,
+    data: NubladoData,
+    user: GafaelfawrTestUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    """Check that we respect setting various options."""
+    config = await configure(data, "enable-options")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/lab-specification"
+    )
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_test_headers(),
+    )
+    assert r.status_code == 201
+    await asyncio.sleep(0)
+
+    config_map = await mock_kubernetes.read_namespaced_config_map(
+        f"{user.username}-nb-env",
+        f"{config.lab.namespace_prefix}-{user.username}",
+    )
+    assert config_map.data["ENABLE_RUBIN_QUERY_MENU"] == "TRUE"
+    assert config_map.data["ENABLE_TUTORIALS_MENU"] == "TRUE"
+    assert config_map.data["FILE_BROWSER_ROOT"] == "root"
+    assert (
+        config_map.data["HOME_RELATIVE_TO_FILE_BROWSER_ROOT"] == "/home/rachel"
+    )
+    pod = await mock_kubernetes.read_namespaced_pod(
+        f"{user.username}-nb", f"{config.lab.namespace_prefix}-{user.username}"
+    )
+    icnames = [x.name for x in pod.spec.init_containers]
     assert icnames == [
         "nublado-std-inithome",
         "nublado-std-landingpage",
         "nublado-std-startup",
     ]
-    inithome = pod.spec.init_containers[0]
-    assert inithome.volume_mounts[0].name == "noplacelikehome"

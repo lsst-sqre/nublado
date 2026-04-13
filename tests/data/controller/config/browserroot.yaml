@@ -4,9 +4,8 @@ lab:
   standardInithome: true
   namespacePrefix: userlabs
   emptyDirSource: disk
-  enable_cst_landing_page: true
-  env:
-      RSP_SITE_TYPE: science
+  enable_rubin_query_menu: true
+  enable_tutorials_menu: true
   sizes:
     - size: small
       resources:
@@ -16,6 +15,7 @@ lab:
         requests:
           cpu: 0.25
           memory: 0.75Gi
+  file_browser_root: root
   volumes:
     - name: home
       source:
