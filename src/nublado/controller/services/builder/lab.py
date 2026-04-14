@@ -284,7 +284,7 @@ class LabBuilder:
             logger.exception("Invalid lab environment", error=str(e))
             return None
 
-    def _build_home_directory(self, username: str) -> str:
+    def build_home_directory(self, username: str) -> str:
         """Construct the home directory path for a user."""
         prefix = self._config.homedir_prefix
         match self._config.homedir_schema:
@@ -424,7 +424,7 @@ class LabBuilder:
 
         # Construct the user's /etc/passwd entry. Different sites use
         # different schemes for constructing the home directory path.
-        homedir = self._build_home_directory(user.username)
+        homedir = self.build_home_directory(user.username)
         etc_passwd += (
             f"{user.username}:x:{user.uid}:{user.gid}:"
             f"{user.name}:{homedir}:/bin/bash\n"
@@ -878,7 +878,7 @@ class LabBuilder:
         # the user's home directory, which is our interface to provisioning
         # init containers.
         env_source = V1ConfigMapEnvSource(name=f"{username}-nb-env")
-        home = self._build_home_directory(user.username)
+        home = self.build_home_directory(user.username)
         env = [
             V1EnvVar(name="NUBLADO_HOME", value=home),
             V1EnvVar(name="NUBLADO_UID", value=str(user.uid)),
@@ -1062,7 +1062,7 @@ class LabBuilder:
                 run_as_group=user.gid,
             ),
             volume_mounts=mounts,
-            working_dir=self._build_home_directory(user.username),
+            working_dir=self.build_home_directory(user.username),
         )
         return [container]
 

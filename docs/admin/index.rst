@@ -17,6 +17,7 @@ Guides to common problems and instructions on how to integrate properly with Pha
    init-containers
    fileserver
    fsadmin
+   migrator
    setup-gar
    stop-all-labs
    delete-user-session
