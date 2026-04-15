@@ -38,7 +38,7 @@ class NoSourceUserDirectoryError(BaseMigratorError):
 
 
 class NoTargetUserDirectoryError(BaseMigratorError):
-    """The source directory does not exist."""
+    """The target directory does not exist."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message)

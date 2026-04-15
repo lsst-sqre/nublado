@@ -1,0 +1,29 @@
+logLevel: DEBUG
+logProfile: development
+lab:
+  namespacePrefix: userlabs
+  sizes:
+    - size: small
+      resources:
+        limits:
+          cpu: 1.0
+          memory: 3Gi
+        requests:
+          cpu: 0.25
+          memory: 0.75Gi
+  volumes:
+    - name: home
+      source:
+        type: nfs
+        server: 10.13.105.122
+        serverPath: /share1/home
+  volumeMounts:
+    - containerPath: /home
+      volumeName: home
+images:
+  source:
+    type: docker
+    registry: lighthouse.ceres
+    repository: library/sketchbook
+fsadmin:
+  mountPrefix: /user-filesystems

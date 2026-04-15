@@ -5,7 +5,7 @@ import asyncio
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
-from ..config import FSAdminConfig, LabConfig
+from ..config import Config
 from ..models.v1.migrator import MigratorStatus
 from ..storage.kubernetes.migrator import MigratorStorage
 from ..timeout import Timeout
@@ -18,68 +18,50 @@ __all__ = ["MigratorManager"]
 class MigratorManager:
     """Manage filesystem migrator.
 
-    This class is a manages the migrator environment for a particular user
-    migration.
+    This singleton manages the migrator environment and maintains a cache
+    for particular user migrations.
 
     Parameters
     ----------
-    old_user
-        Username for source user to copy from.
-    new_user
-        Username for target user to copy to.
-    lab_config
-        Lab configuration (used for home volume).
-    fsadmin_config
-        Filesystem admin configuration (used for timeout)
+    config
+        Nublado configuration (used for home volume and timeout).
     lab_builder
-        Lab builder (used for home volume)
+        Lab builder (used for home volume).
+    migrator_storage
+        Shared storage driver for migrator K8s objects.
     slack_client
         Optional Slack webhook client for alerts.
     logger
         Logger to use.
-    debug
-        Whether to enable debug logging.
     """
 
     def __init__(
         self,
         *,
-        old_user: str,
-        new_user: str,
-        lab_config: LabConfig,
-        fsadmin_config: FSAdminConfig,
+        config: Config,
         lab_builder: LabBuilder,
         migrator_storage: MigratorStorage,
         slack_client: SlackWebhookClient | None,
         logger: BoundLogger,
-        debug: bool = False,
     ) -> None:
-        self._old_user = old_user
-        self._new_user = new_user
-        self._lab_config = lab_config
-        self._fsadmin_config = fsadmin_config
-        self._timeout = fsadmin_config.timeout
+        self._lab_config = config.lab
+        self._fsadmin_config = config.fsadmin
+        self._timeout = self._fsadmin_config.timeout
         self._builder = MigratorBuilder(
-            old_user=old_user,
-            new_user=new_user,
-            lab_config=lab_config,
-            fsadmin_config=fsadmin_config,
-            lab_builder=lab_builder,
-            logger=logger,
-            debug=debug,
+            config=config, lab_builder=lab_builder, logger=logger
         )
         self._storage = migrator_storage
         self._slack = slack_client
         self._logger = logger
-        self._debug = debug
         self._lock = asyncio.Lock()
 
-    async def create(self) -> MigratorStatus:
+    async def create(self, old_user: str, new_user: str) -> MigratorStatus:
         """Ensure the migrator environment exists.
 
-        If we don't have a filesystem admin environment, create it.  If we do,
-        just return. This gets called by the handler when someone POSTs to the
-        ``/migrator/v1/service`` ingress.
+        If we don't have a migration environment for this user pair,
+        create it.  If we do, just return. This gets called by the
+        handler when someone POSTs to the ``/migrator/v1/service``
+        ingress.
 
         Return
         ------
@@ -94,17 +76,21 @@ class MigratorManager:
         KubernetesError
             Raised if there is some failure in a Kubernetes API call.
         """
-        self._logger.info(
-            f"Migrator for {self._old_user} -> {self._new_user}requested"
-        )
+        self._logger.info(f"Migrator for {old_user} -> {new_user} requested")
         timeout = Timeout("Migrator creation", self._timeout)
-        objs = self._builder.build()
+        objs = self._builder.build(old_user, new_user)
         async with self._lock:
-            return await self._storage.create(objs, timeout)
+            status = await self._storage.create(
+                old_user, new_user, objs, timeout
+            )
+            status.raise_for_status()
+            return status
 
-    async def get_status(self) -> MigratorStatus | None:
-        """Return the status for the migrator container.  If the pod is not
-        running, remove the exited pod, if it exists.
+    async def get_status(
+        self, old_user: str, new_user: str
+    ) -> MigratorStatus | None:
+        """Return the status for the migrator container for a particular
+        user pair, or None if no migration has been attempted.
 
         Raises
         ------
@@ -115,14 +101,11 @@ class MigratorManager:
             Raised if there is some failure in a Kubernetes API call.
         """
         self._logger.info(
-            f"Requesting migrator status for {self._old_user}"
-            f" -> {self._new_user}"
+            f"Requesting migrator status for {old_user} -> {new_user}"
         )
         timeout = Timeout("Migration query", self._timeout)
-        pod_name = self._builder.build_pod_name()
-        objs = self._builder.build()
+        objs = self._builder.build(old_user, new_user)
         async with self._lock:
-            st = await self._storage.get_status(pod_name, timeout)
-            if st is not None and st.exit_code is not None:
-                await self._storage.delete(objs, timeout)
-            return st
+            return await self._storage.get_status(
+                old_user, new_user, objs, timeout
+            )

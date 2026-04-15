@@ -99,6 +99,7 @@ RESERVED_ENV = {
     "KUBERNETES_NODE_NAME",
     "MEM_GUARANTEE",
     "MEM_LIMIT",
+    "MIGRATOR_POD_REGEX",
     "RESET_USER_ENV",
 }
 """Environment variables reserved to the controller or JupyterHub.
@@ -126,4 +127,5 @@ GROUPNAME_REGEX = (
 USERNAME_REGEX = (
     "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*[a-z](?:[a-z0-9]|-[a-z0-9])*$"
 )
+
 """Regex matching all valid usernames."""

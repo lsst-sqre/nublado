@@ -20,15 +20,31 @@ It is an admin scope, although it is much more limited than full administrative 
 User Migration API
 ==================
 
-#. ``GET`` to ``/nublado/migrator/v1/service`` with ``old_user`` and ``new_user`` query parameters returns ``200`` if a migration of ``old_user`` to ``new_user`` is currently in progress.
-It returns ``204`` if no such operation is in progress.
-The HTTP body for a a response is JSON with three fields:
+The migrator REST API is very small.
+
+#. ``GET`` to ``/nublado/migrator/v1/service`` with ``old_user`` and ``new_user`` query parameters returns ``204`` if there is no record of such a migration (either it has not been attempted, or the corresponding pod was deleted by reading its exit status).
+It returns ``200`` if a migration of ``old_user`` to ``new_user`` is currently in progress or if has completed without error.
+The ``running`` field and the presence of a timestamp in ``end_time`` can be used to differentiate between these two cases.
+
+The HTTP body for a ``200`` response is JSON with four fields:
+
    #. ``start_time``, whose value is a textual representation of a UTC ISO 8601 datestamp showing the time the pod was created.
    #. ``end_time``, whose value is a textual representation of a UTC ISO 8601 datestamp showing the time the pod exited (or ``null`` if it has not exited).
-   #. ``exit_code``, whose value is the exit code of the migrator pod process (or ``null`` if the pod has not exited).
+   #. ``running``, a boolean indicating whether the pod is running.
+   #. ``exit_code``, whose value is the exit code of the migrator pod process (or ``null`` if the pod has not exited, in which case ``running`` should be ``true`` and ``end_time`` should be ``null``).
 
-In any case that does not return a ``200`` indicating an operation in progress, the completed pod, if any, will be removed.
-Thus the querier gets only one chance to read the pod's exit status, which is encoded in the ``exit_code`` field of the JSON response.
+   The ``GET`` returns an error code if the migration was attempted but failed for some reason:
+
+   It returns ``404`` if either the source or target user cannot be found.
+
+   It returns ``406`` if the file copy fails.
+
+   It returns ``403`` if there is an error changing ownership of the copied files after the copy completes.
+
+   It returns ``409`` if a migration for the same user pair, but in the opposite direction, is currently in progess.
+
+   In any case that does not return a status with ``running`` set, indicating an operation in progress, the completed pod, if any, will be removed.
+   Thus the querier gets only one chance to read the pod's exit status, which is encoded in the ``exit_code`` field of the JSON response (or, perhaps more conveniently, determined from the HTTP status code returned).
 
 #. ``POST`` to ``/nublado/migrator/v1/service`` with ``old_user`` and ``new_user`` parameters set in the JSON message body, where each is a username, initiates the file copy, assuming that both ``old_user`` and ``new_user`` have home directories.
 
