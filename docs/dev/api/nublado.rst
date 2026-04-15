@@ -65,6 +65,15 @@ This documentation therefore exists only to assist developers and code analysis 
 .. automodapi:: nublado.controller.models.domain.lab
    :include-all-objects:
 
+.. automodapi:: nublado.controller.models.domain.migrator
+   :include-all-objects:
+
+.. automodapi:: nublado.controller.models.domain.rspimage
+   :include-all-objects:
+
+.. automodapi:: nublado.controller.models.domain.rsptag
+   :include-all-objects:
+
 .. automodapi:: nublado.controller.models.domain.volumes
    :include-all-objects:
 
@@ -80,6 +89,9 @@ This documentation therefore exists only to assist developers and code analysis 
 .. automodapi:: nublado.controller.models.v1.lab
    :include-all-objects:
 
+.. automodapi:: nublado.controller.models.v1.migrator
+   :include-all-objects:
+
 .. automodapi:: nublado.controller.models.v1.prepuller
    :include-all-objects:
 
@@ -90,6 +102,9 @@ This documentation therefore exists only to assist developers and code analysis 
    :include-all-objects:
 
 .. automodapi:: nublado.controller.services.builder.lab
+   :include-all-objects:
+
+.. automodapi:: nublado.controller.services.builder.migrator
    :include-all-objects:
 
 .. automodapi:: nublado.controller.services.builder.prepuller
@@ -108,6 +123,9 @@ This documentation therefore exists only to assist developers and code analysis 
    :include-all-objects:
 
 .. automodapi:: nublado.controller.services.lab
+   :include-all-objects:
+
+.. automodapi:: nublado.controller.services.migrator
    :include-all-objects:
 
 .. automodapi:: nublado.controller.services.prepuller
@@ -141,6 +159,9 @@ This documentation therefore exists only to assist developers and code analysis 
    :include-all-objects:
 
 .. automodapi:: nublado.controller.storage.kubernetes.lab
+   :include-all-objects:
+
+.. automodapi:: nublado.controller.storage.kubernetes.migrator
    :include-all-objects:
 
 .. automodapi:: nublado.controller.storage.kubernetes.namespace

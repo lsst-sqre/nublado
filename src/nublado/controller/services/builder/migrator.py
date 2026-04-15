@@ -12,11 +12,11 @@ from kubernetes_asyncio.client import (
 )
 from structlog.stdlib import BoundLogger
 
-from ...config import FSAdminConfig, LabConfig, PVCVolumeSource
+from ...config import Config, PVCVolumeSource
 from ...constants import ARGO_CD_ANNOTATIONS
-from ...models.domain.migrator import MigratorObjects
+from ...models.domain.migrator import MigratorObjects, build_migrator_pod_name
 from ._introspect import _introspect_container
-from .builder.lab import LabBuilder
+from .lab import LabBuilder
 from .volumes import VolumeBuilder
 
 __all__ = ["MigratorBuilder"]
@@ -28,52 +28,43 @@ class MigratorBuilder:
 
     Parameters
     ----------
-    old_user
-        Source user to copy files from.
-    new_user
-        Target user to copy files to.
-    lab_config
-        Configuration for this RSP's lab objects (used for home volumes).
-    fsadmin_config
-        Configuration for this RSP's FSAdmin objects (used for pod resources).
+    config
+        Nublado configuration, used for home volumes and pod resources.
     lab_builder
         Builder for this RSP's lab objects (used for home volumes).
     logger
         Logger to use.
-    debug
-        Whether to enable debug logging.
     """
 
     def __init__(
-        self,
-        old_user: str,
-        new_user: str,
-        *,
-        lab_config: LabConfig,
-        fsadmin_config: FSAdminConfig,
-        lab_builder: LabBuilder,
-        logger: BoundLogger,
-        debug: bool = False,
+        self, config: Config, lab_builder: LabBuilder, logger: BoundLogger
     ) -> None:
-        self._old_user = old_user
-        self._new_user = new_user
-        self._lab_config = lab_config
-        self._fsadmin_config = fsadmin_config
+        self._lab_config = config.lab
+        self._fsadmin_config = config.fsadmin
         self._lab_builder = lab_builder
         self._logger = logger
-        self._debug = debug
         self._volume_builder = VolumeBuilder()
         self._container = _introspect_container(logger)
 
-    def build(self) -> MigratorObjects:
+    def build(self, old_user: str, new_user: str) -> MigratorObjects:
         """Construct the objects that make up migrator for these users.
+
+        Parameters
+        ----------
+        old_user
+            Username for source user to copy from.
+        new_user
+            Username for target user to copy to.
 
         Returns
         -------
         MigratorObjects
             Kubernetes objects for the migrator environment.
         """
-        return MigratorObjects(pvcs=self._build_pvcs(), pod=self._build_pod())
+        return MigratorObjects(
+            pvcs=self._build_pvcs(old_user, new_user),
+            pod=self._build_pod(old_user, new_user),
+        )
 
     def _build_metadata(self, name: str, suffix: str = "") -> V1ObjectMeta:
         """Construct the metadata for an object.
@@ -87,8 +78,9 @@ class MigratorBuilder:
             name=name + suffix, labels=labels, annotations=annotations
         )
 
-    def _build_pod(self) -> V1Pod:
+    def _build_pod(self, old_user: str, new_user: str) -> V1Pod:
         """Construct the pod for fsadmin."""
+        pod_name = build_migrator_pod_name(old_user, new_user)
         # Volumes and volume_mounts should each be a one-item list
         volumes = [
             x
@@ -104,16 +96,16 @@ class MigratorBuilder:
         for vol in volume_mounts:
             vol.read_only = False
         volume_list = self._volume_builder.build_volumes(
-            (v for v in volumes), pvc_prefix=self.build_pod_name()
+            (v for v in volumes), pvc_prefix=pod_name
         )
         mounts = self._volume_builder.build_mounts(volume_mounts)
         resources = self._fsadmin_config.resources
 
         # Specification for the migrator container.
         container = V1Container(
-            name=self.build_pod_name(),
+            name=pod_name,
             command=["nublado", "migrator"],
-            env=self._build_env(),
+            env=self._build_env(old_user, new_user),
             image=f"{self._container.repository}:{self._container.tag}",
             image_pull_policy=self._container.pull_policy.value,
             resources=resources.to_kubernetes() if resources else None,
@@ -127,7 +119,7 @@ class MigratorBuilder:
         )
 
         # Build the pod specification itself.
-        metadata = self._build_metadata(name=self.build_pod_name())
+        metadata = self._build_metadata(name=pod_name)
         if self._fsadmin_config.extra_annotations:
             metadata.annotations.update(self._fsadmin_config.extra_annotations)
         affinity = None
@@ -152,28 +144,23 @@ class MigratorBuilder:
             ),
         )
 
-    def build_pod_name(self) -> str:
-        return f"migrator-{self._old_user}-to-{self._new_user}"
-
-    def _build_env(self) -> list[V1EnvVar]:
-        env: list[V1EnvVar] = []
-        env = [
-            V1EnvVar(name="NUBLADO_OLD_USER", value=self._old_user),
-            V1EnvVar(name="NUBLADO_NEW_USER", value=self._new_user),
+    def _build_env(self, old_user: str, new_user: str) -> list[V1EnvVar]:
+        return [
+            V1EnvVar(name="NUBLADO_OLD_USER", value=old_user),
+            V1EnvVar(name="NUBLADO_NEW_USER", value=new_user),
             V1EnvVar(
                 name="NUBLADO_OLD_HOMEDIR",
-                value=self._lab_builder.build_home_directory(self._old_user),
+                value=self._lab_builder.build_home_directory(old_user),
             ),
             V1EnvVar(
                 name="NUBLADO_NEW_HOMEDIR",
-                value=self._lab_builder.build_home_directory(self._new_user),
+                value=self._lab_builder.build_home_directory(new_user),
             ),
         ]
-        if self._debug:
-            env.append(V1EnvVar(name="NUBLADO_DEBUG", value="TRUE"))
-        return env
 
-    def _build_pvcs(self) -> list[V1PersistentVolumeClaim]:
+    def _build_pvcs(
+        self, old_user: str, new_user: str
+    ) -> list[V1PersistentVolumeClaim]:
         """Construct the persistent volume claims for migrator."""
         volumes = [
             x
@@ -187,7 +174,8 @@ class MigratorBuilder:
             suffix = f"-pvc-{volume.name}"
             pvc = V1PersistentVolumeClaim(
                 metadata=self._build_metadata(
-                    name=self.build_pod_name(), suffix=suffix
+                    name=build_migrator_pod_name(old_user, new_user),
+                    suffix=suffix,
                 ),
                 spec=volume.source.to_kubernetes_spec(),
             )

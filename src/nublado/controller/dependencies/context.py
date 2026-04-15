@@ -21,6 +21,7 @@ from ..services.fileserver import FileserverManager
 from ..services.fsadmin import FSAdminManager
 from ..services.image import ImageService
 from ..services.lab import LabManager
+from ..services.migrator import MigratorManager
 
 __all__ = ["ContextDependency", "RequestContext", "context_dependency"]
 
@@ -58,6 +59,9 @@ class RequestContext:
 
     _fileserver_manager: FileserverManager | None
     """User fileserver state."""
+
+    migrator_manager: MigratorManager
+    """User migrator state."""
 
     @property
     def fileserver_manager(self) -> FileserverManager:
@@ -110,6 +114,7 @@ class ContextDependency:
             lab_manager=self._process_context.lab_manager,
             fsadmin_manager=self._process_context.fsadmin_manager,
             _fileserver_manager=fileserver_manager,
+            migrator_manager=self._process_context.migrator_manager,
         )
 
     @property
