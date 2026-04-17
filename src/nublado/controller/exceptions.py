@@ -24,6 +24,8 @@ from .models.v1.lab import LabSize
 
 __all__ = [
     "ControllerTimeoutError",
+    "CopyError",
+    "CopyPermissionError",
     "DockerError",
     "DockerInvalidUrlError",
     "DuplicateObjectError",
@@ -40,6 +42,8 @@ __all__ = [
     "MissingObjectError",
     "MissingSecretError",
     "NoOperationError",
+    "NoSourceUserDirectoryError",
+    "NoTargetUserDirectoryError",
     "NotConfiguredError",
     "OperationConflictError",
     "PermissionDeniedError",
@@ -149,6 +153,37 @@ class UnknownUserError(ClientRequestError):
 
     error = "unknown_user"
     status_code = status.HTTP_404_NOT_FOUND
+
+
+class NoSourceUserDirectoryError(UnknownUserError):
+    """Source user directory for a migration was not found."""
+
+    error = "no_source_user_directory"
+
+
+class NoTargetUserDirectoryError(UnknownUserError):
+    """Target user directory for a migration was not found."""
+
+    error = "no_target_user_directory"
+
+
+class CopyError(ClientRequestError):
+    """File copy failed during migration."""
+
+    error = "copy_error"
+    status_code = status.HTTP_406_NOT_ACCEPTABLE
+
+
+class CopyPermissionError(PermissionDeniedError):
+    """Changing ownership on target directory failed after migration copy."""
+
+    error = "copy_permission_error"
+
+
+class MigratorConflictError(OperationConflictError):
+    """The reverse migration (new->old) is already in progress."""
+
+    error = "migrator_conflict_error"
 
 
 class ControllerTimeoutError(SlackException):
