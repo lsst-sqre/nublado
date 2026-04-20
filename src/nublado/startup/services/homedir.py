@@ -1,6 +1,5 @@
 """Tasks around ensuring the home directory is working correctly."""
 
-import contextlib
 import hashlib
 import json
 import shutil
@@ -17,7 +16,7 @@ from ..constants import (
     PREVIOUS_LOGGING_CHECKSUMS,
 )
 from ..storage.command import Command
-from ..utils import get_jupyterlab_config_dir, get_runtime_mounts_dir
+from ..utils import get_jupyterlab_config_dir
 from .credentials import CredentialManager
 from .dask import DaskConfigurator
 
@@ -163,9 +162,6 @@ class HomedirManager:
             Raised if some file manipulation fails.  Caught in the preparer.
         """
         self._logger.debug("Modifying interactive settings if needed")
-        # These both write files; if either fails, start up but warn
-        # the user their experience is likely to be bad.
-        self._manage_access_token()
         self._increase_log_limit()
 
     def _increase_log_limit(self) -> None:
@@ -195,19 +191,6 @@ class HomedirManager:
                 json.dump(settings, f, sort_keys=True, indent=4)
         else:
             self._logger.debug("Log limit increase not needed")
-
-    def _manage_access_token(self) -> None:
-        self._logger.debug("Updating access token")
-        tokfile = self._home / ".access_token"
-        tokfile.unlink(missing_ok=True)
-        ctr_token = get_runtime_mounts_dir() / "secrets" / "token"
-        if ctr_token.exists():
-            self._logger.debug(f"Symlinking {tokfile!s}->{ctr_token!s}")
-            tokfile.symlink_to(ctr_token)
-            with contextlib.suppress(NotImplementedError):
-                tokfile.chmod(0o600, follow_symlinks=False)
-        else:
-            self._logger.debug("Did not find container token file")
 
     def _setup_gitlfs(self) -> None:
         # Check for git-lfs
