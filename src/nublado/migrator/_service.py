@@ -16,7 +16,7 @@ from typing import Self
 import structlog
 from safir.logging import LogLevel, configure_logging
 
-from ._constants import APP_NAME
+from ..constants import ROOT_LOGGER
 from ._exceptions import (
     BaseMigratorError,
     CopyError,
@@ -51,8 +51,8 @@ class Migrator:
         self._new = new_homedir
         self._debug = debug
         _level = LogLevel.DEBUG if debug else LogLevel.INFO
-        configure_logging(name=APP_NAME, log_level=_level)
-        self._logger = structlog.getLogger(APP_NAME)
+        configure_logging(name=ROOT_LOGGER, log_level=_level)
+        self._logger = structlog.getLogger(ROOT_LOGGER)
         self._logger.debug("Migrator logging started")
         self._logger.debug(f"Resolving paths for {self._old} and {self._new}")
         self._determine_paths()
