@@ -24,11 +24,11 @@ def get_digest() -> str:
 
 
 def get_jupyterlab_config_dir() -> Path:
-    """Return the directory where Jupyterlab configuration is stored.
-    For single-python images, this will be `/opt/lsst/software/jupyterlab`.
+    """Return the directory where Jupyterlab configuration is stored. For
+    single-python images, this will be :file:`/opt/lsst/software/jupyterlab`.
 
     For images with split stack and Jupyterlab Pythons, it will be the
-    value of `JUPYTERLAB_CONFIG_DIR`.
+    value of ``JUPYTERLAB_CONFIG_DIR``.
 
     Returns
     -------
@@ -43,11 +43,11 @@ def get_jupyterlab_config_dir() -> Path:
 
 
 def get_runtime_mounts_dir() -> Path:
-    """Return the directory where Nublado runtime info is mounted.  For
-    single-python images, this will be `/opt/lsst/software/jupyterlab`.
+    """Return the directory where Nublado runtime info is mounted. For
+    single-python images, this will be :file:`/opt/lsst/software/jupyterlab`.
 
     For images with split stack and Jupyterlab Pythons, it will be the
-    value of `NUBLADO_RUNTIME_MOUNTS_DIR`.
+    value of ``NUBLADO_RUNTIME_MOUNTS_DIR``.
 
     Returns
     -------

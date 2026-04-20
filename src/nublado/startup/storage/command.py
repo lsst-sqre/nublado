@@ -76,7 +76,7 @@ class Command:
         *args
             Arguments to the command.  The first argument is the command
             itself, and if not fully-qualified must exist somewhere in the
-            caller's `PATH`.
+            caller's ``PATH``.
         cwd
             If provided, change working directories to this path before
             running the command.
@@ -85,8 +85,8 @@ class Command:
             not, use the caller's process environment.
         timeout
             If given, the command will be terminated and a
-            `~lsst.rsp.startup.exceptions.CommandTimedOutError` will be
-            raised if execution time exceeds this timeout.
+            `~nublado.startup.exceptions.CommandTimedOutError` will be raised
+            if execution time exceeds this timeout.
 
         Raises
         ------
@@ -98,7 +98,6 @@ class Command:
             that to complete.
         subprocess.SubprocessError
             Raised if the command could not be executed at all.
-
         """
         check = not self._ignore_fail
         if isinstance(timeout, timedelta):

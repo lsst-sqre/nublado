@@ -9,5 +9,4 @@ These internal Python APIs are not exposed to users and are only of interest to 
 
    authenticator
    spawner
-   inithome
-   controller
+   nublado

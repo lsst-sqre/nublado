@@ -16,6 +16,8 @@ from .exceptions import PlanNotReadyError, PurgeFailedError
 from .models.plan import FileClass, FileReason, FileRecord, Plan
 from .models.v1.policy import DirectoryPolicy, Policy
 
+__all__ = ["Purger"]
+
 
 class Purger:
     """Object to plan and execute filesystem purges."""

@@ -11,6 +11,15 @@ from safir.pydantic import CamelCaseModel, HumanTimedelta
 # HumanSizeBytes should eventually go into safir.pydantic next to
 # HumanTimedelta.
 
+__all__ = [
+    "DirectoryPolicy",
+    "HumanSizeBytes",
+    "Intervals",
+    "MantissaAndMultiplier",
+    "Policy",
+    "SizedIntervals",
+]
+
 
 @dataclass
 class MantissaAndMultiplier:
@@ -161,7 +170,7 @@ class Intervals(CamelCaseModel):
 
 
 class SizedIntervals(CamelCaseModel):
-    """Container to hold intervals for purging `large` and `small` files."""
+    """Container to hold intervals for purging large and small files."""
 
     large: Annotated[
         Intervals, Field(title="Intervals before purging large files")
@@ -182,12 +191,12 @@ class DirectoryPolicy(CamelCaseModel):
 
     threshold: Annotated[
         HumanSizeBytes,
-        Field(title="Size in bytes demarcating `large` from `small` files"),
+        Field(title="Size in bytes demarcating large from small files"),
     ]
 
     intervals: Annotated[
         SizedIntervals,
-        Field(title="Intervals before purging `large` and `small` files"),
+        Field(title="Intervals before purging large and small files"),
     ]
 
     def to_dict(self) -> dict[str, str | int | dict[str, dict[str, int]]]:
@@ -237,7 +246,7 @@ class Policy(CamelCaseModel):
 
         Returns
         -------
-        Config
+        nublado.purger.config.Config
             The corresponding configuration.
         """
         with path.open("r") as f:

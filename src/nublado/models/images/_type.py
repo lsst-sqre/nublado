@@ -7,6 +7,8 @@ RSPImageTag, from which it is re-exported.
 
 from enum import Enum
 
+__all__ = ["RSPImageType"]
+
 
 class RSPImageType(Enum):
     """The type (generally, release series) of the identified image.

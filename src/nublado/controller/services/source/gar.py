@@ -102,8 +102,8 @@ class GARImageSource(ImageSource):
     async def image_for_tag_name(self, tag_name: str) -> RSPImage:
         """Determine the image corresponding to a tag.
 
-        Assuming the tag is for our configured image, find the
-        corresponding `~nublado.controller.models.domain.rspimage.RSPImage`.
+        Assuming the tag is for our configured image, find the corresponding
+        `~nublado.models.images.RSPImage`.
 
         Parameters
         ----------

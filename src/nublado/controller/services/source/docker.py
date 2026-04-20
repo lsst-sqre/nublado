@@ -150,7 +150,7 @@ class DockerImageSource(ImageSource):
         """Determine the image corresponding to a tag.
 
         Assuming that the tag is for our image source, construct the
-        corresponding `~nublado.controller.models.domain.rspimage.RSPImage`.
+        corresponding `~nublado.models.images.RSPImage`.
 
         Parameters
         ----------
