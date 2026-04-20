@@ -119,5 +119,4 @@ GROUPNAME_REGEX = (
 USERNAME_REGEX = (
     "^[a-z0-9](?:[a-z0-9]|-[a-z0-9])*[a-z](?:[a-z0-9]|-[a-z0-9])*$"
 )
-
 """Regex matching all valid usernames."""
