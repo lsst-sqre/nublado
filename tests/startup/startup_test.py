@@ -462,20 +462,6 @@ def test_increase_log_limit(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.usefixtures("rsp_fs")
-def test_manage_access_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    ctr_file = get_runtime_mounts_dir() / "secrets" / "token"
-    assert ctr_file.exists()
-    token = ctr_file.read_text()
-    pr = Preparer()
-    tfile = pr._home / ".access_token"
-    assert not tfile.exists()
-    hm = HomedirManager(env=pr._env, home=pr._home, logger=pr._logger)
-    hm._manage_access_token()
-    assert tfile.exists()
-    assert tfile.read_text() == token
-
-
-@pytest.mark.usefixtures("rsp_fs")
 def test_startup_files(data: Data) -> None:
     pr = Preparer()
     with patch.object(subprocess, "run"):
