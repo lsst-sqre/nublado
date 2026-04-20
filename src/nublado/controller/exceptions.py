@@ -26,8 +26,6 @@ __all__ = [
     "ControllerTimeoutError",
     "CopyError",
     "CopyPermissionError",
-    "DockerError",
-    "DockerInvalidUrlError",
     "DuplicateObjectError",
     "GafaelfawrParseError",
     "GafaelfawrWebError",

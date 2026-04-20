@@ -68,12 +68,6 @@ This documentation therefore exists only to assist developers and code analysis 
 .. automodapi:: nublado.controller.models.domain.migrator
    :include-all-objects:
 
-.. automodapi:: nublado.controller.models.domain.rspimage
-   :include-all-objects:
-
-.. automodapi:: nublado.controller.models.domain.rsptag
-   :include-all-objects:
-
 .. automodapi:: nublado.controller.models.domain.volumes
    :include-all-objects:
 
