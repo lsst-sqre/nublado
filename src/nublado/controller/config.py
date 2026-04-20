@@ -26,13 +26,13 @@ from safir.logging import LogLevel, Profile
 from safir.metrics import MetricsConfiguration, metrics_configuration_factory
 from safir.pydantic import HumanTimedelta
 
+from ..models.images import ImageFilterPolicy
 from .constants import (
     KUBERNETES_NAME_PATTERN,
     METADATA_PATH,
     RESERVED_ENV,
     RESERVED_PATHS,
 )
-from .models.domain.imagefilterpolicy import RSPImageFilterPolicy
 from .models.domain.kubernetes import (
     Affinity,
     PullPolicy,
@@ -1420,7 +1420,7 @@ class Config(BaseSettings):
     ]
 
     dropdown_menu: Annotated[
-        RSPImageFilterPolicy,
+        ImageFilterPolicy,
         Field(
             title="Dropdown menu display policy",
             description=(
@@ -1428,9 +1428,8 @@ class Config(BaseSettings):
                 " spawner dropdown menu for users to choose from when"
                 " spawning labs."
             ),
-            default_factory=RSPImageFilterPolicy,
         ),
-    ]
+    ] = ImageFilterPolicy()
 
     lab: Annotated[LabConfig, Field(title="User lab configuration")]
 

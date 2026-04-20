@@ -206,8 +206,8 @@ class ControllerTimeoutError(SlackException):
         Returns
         -------
         safir.slack.sentry.SentryEventInfo
-            Sentry event metadata for use with \
-            `~safir.sentry.before_send_handler`
+            Sentry event metadata for use with
+            `~safir.sentry.before_send_handler`.
         """
         info = super().to_sentry()
         started_at = format_datetime_for_logging(self.started_at)

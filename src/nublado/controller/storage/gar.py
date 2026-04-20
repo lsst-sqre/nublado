@@ -7,9 +7,8 @@ from google.cloud import artifactregistry_v1
 from google.cloud.artifactregistry_v1 import ListDockerImagesRequest
 from structlog.stdlib import BoundLogger
 
+from ...models.images import RSPImage, RSPImageCollection, RSPImageTag
 from ..constants import GAR_RETRY_DELAY, GAR_RETRY_LIMIT
-from ..models.domain.rspimage import RSPImage, RSPImageCollection
-from ..models.domain.rsptag import RSPImageTag
 from ..models.v1.prepuller import GARSourceOptions
 
 __all__ = ["GARStorageClient"]

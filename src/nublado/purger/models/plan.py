@@ -8,6 +8,8 @@ from typing import Annotated, override
 from pydantic import Field
 from safir.pydantic import CamelCaseModel
 
+__all__ = ["FileClass", "FileReason", "FileRecord", "Plan"]
+
 
 class FileClass(StrEnum):
     """Whether a file is large or small."""

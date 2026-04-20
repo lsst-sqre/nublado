@@ -1,11 +1,11 @@
-###############################
-Internal Nublado controller API
-###############################
+####################
+Internal Nublado API
+####################
 
-The Nublado controller is built as a Docker image intended for deployment in a Kubernetes cluster using Phalanx_ and is not supported as an installed Python module.
+The Nublado controller and the command-line tools are built as a Docker image intended for deployment in a Kubernetes cluster using Phalanx_ and is not supported as an installed Python module.
 This documentation therefore exists only to assist developers and code analysis and does not define a supported API.
 
-.. automodapi:: nublado.controller
+.. automodapi:: nublado.constants
    :include-all-objects:
 
 .. automodapi:: nublado.controller.background
@@ -18,8 +18,10 @@ This documentation therefore exists only to assist developers and code analysis 
    :include-all-objects:
 
 .. automodapi:: nublado.controller.dependencies.config
+   :include-all-objects:
 
 .. automodapi:: nublado.controller.dependencies.context
+   :include-all-objects:
 
 .. automodapi:: nublado.controller.dependencies.user
    :include-all-objects:
@@ -51,19 +53,10 @@ This documentation therefore exists only to assist developers and code analysis 
 .. automodapi:: nublado.controller.models.domain.image
    :include-all-objects:
 
-.. automodapi:: nublado.controller.models.domain.imagefilterpolicy
-   :include-all-objects:
-
 .. automodapi:: nublado.controller.models.domain.kubernetes
    :include-all-objects:
 
 .. automodapi:: nublado.controller.models.domain.lab
-   :include-all-objects:
-
-.. automodapi:: nublado.controller.models.domain.rspimage
-   :include-all-objects:
-
-.. automodapi:: nublado.controller.models.domain.rsptag
    :include-all-objects:
 
 .. automodapi:: nublado.controller.models.domain.volumes
@@ -172,4 +165,64 @@ This documentation therefore exists only to assist developers and code analysis 
    :include-all-objects:
 
 .. automodapi:: nublado.controller.units
+   :include-all-objects:
+
+.. automodapi:: nublado.controller
+   :include-all-objects:
+
+.. automodapi:: nublado.inithome.provisioner
+   :include-all-objects:
+
+.. automodapi:: nublado.landingpage.exceptions
+   :include-all-objects:
+
+.. automodapi:: nublado.landingpage.provisioner
+   :include-all-objects:
+
+.. automodapi:: nublado.models.images
+   :include-all-objects:
+
+.. automodapi:: nublado.purger.config
+   :include-all-objects:
+
+.. automodapi:: nublado.purger.constants
+   :include-all-objects:
+
+.. automodapi:: nublado.purger.exceptions
+   :include-all-objects:
+
+.. automodapi:: nublado.purger.models.plan
+   :include-all-objects:
+
+.. automodapi:: nublado.purger.models.v1.policy
+   :include-all-objects:
+
+.. automodapi:: nublado.purger.purger
+   :include-all-objects:
+
+.. automodapi:: nublado.startup.constants
+   :include-all-objects:
+
+.. automodapi:: nublado.startup.exceptions
+   :include-all-objects:
+
+.. automodapi:: nublado.startup.services.credentials
+   :include-all-objects:
+
+.. automodapi:: nublado.startup.services.dask
+   :include-all-objects:
+
+.. automodapi:: nublado.startup.services.environment
+   :include-all-objects:
+
+.. automodapi:: nublado.startup.services.homedir
+   :include-all-objects:
+
+.. automodapi:: nublado.startup.services.preparer
+   :include-all-objects:
+
+.. automodapi:: nublado.startup.storage.command
+   :include-all-objects:
+
+.. automodapi:: nublado.startup.utils
    :include-all-objects:

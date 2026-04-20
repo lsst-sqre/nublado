@@ -5,13 +5,13 @@ from random import SystemRandom
 
 import pytest
 
-from nublado.controller.models.domain.rsptag import (
+from nublado.models.images import (
     RSPImageTag,
     RSPImageTagCollection,
     RSPImageType,
 )
 
-from ....support.data import NubladoData
+from ...support.data import NubladoData
 
 
 def test_tag_ordering() -> None:

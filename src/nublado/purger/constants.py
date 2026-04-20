@@ -2,6 +2,15 @@
 
 from pathlib import Path
 
+__all__ = [
+    "ALERT_HOOK_ENV_VAR",
+    "CONFIG_FILE",
+    "CONFIG_FILE_ENV_VAR",
+    "ENV_PREFIX",
+    "POLICY_FILE",
+    "ROOT_LOGGER",
+]
+
 CONFIG_FILE = Path("/etc/purger/config.yaml")
 ENV_PREFIX = "RSP_SCRATCHPURGER_"
 ALERT_HOOK_ENV_VAR = f"{ENV_PREFIX}ALERT_HOOK"

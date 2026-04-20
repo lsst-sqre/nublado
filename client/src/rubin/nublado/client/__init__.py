@@ -69,7 +69,6 @@ __all__ = [
     "NubladoSpawnError",
     "NubladoTimeoutError",
     "NubladoWebError",
-    "NubladoWebError",
     "NubladoWebSocketError",
     "SpawnProgressMessage",
     "register_mock_jupyter",

@@ -6,12 +6,11 @@ from typing import override
 
 from structlog.stdlib import BoundLogger
 
+from ....models.images import ImageFilterPolicy, RSPImage, RSPImageCollection
 from ...exceptions import InvalidDockerReferenceError, UnknownDockerImageError
 from ...models.domain.docker import DockerReference
 from ...models.domain.image import MenuImage
-from ...models.domain.imagefilterpolicy import RSPImageFilterPolicy
 from ...models.domain.kubernetes import KubernetesNodeImage
-from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.v1.prepuller import (
     GARSourceOptions,
     PrepulledImage,
@@ -48,7 +47,7 @@ class GARImageSource(ImageSource):
         config: GARSourceOptions,
         gar: GARStorageClient,
         logger: BoundLogger,
-        image_filter: RSPImageFilterPolicy,
+        image_filter: ImageFilterPolicy,
     ) -> None:
         super().__init__(logger, image_filter)
         self._config = config
@@ -103,8 +102,8 @@ class GARImageSource(ImageSource):
     async def image_for_tag_name(self, tag_name: str) -> RSPImage:
         """Determine the image corresponding to a tag.
 
-        Assuming the tag is for our configured image, find the
-        corresponding `~nublado.controller.models.domain.rspimage.RSPImage`.
+        Assuming the tag is for our configured image, find the corresponding
+        `~nublado.models.images.RSPImage`.
 
         Parameters
         ----------

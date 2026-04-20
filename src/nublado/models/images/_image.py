@@ -6,8 +6,9 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Self
 
-from .imagefilterpolicy import RSPImageFilterPolicy
-from .rsptag import RSPImageTag, RSPImageTagCollection, RSPImageType
+from ._filter import ImageFilterPolicy
+from ._tag import RSPImageTag, RSPImageTagCollection
+from ._type import RSPImageType
 
 __all__ = ["RSPImage", "RSPImageCollection"]
 
@@ -19,11 +20,10 @@ _ALIAS_TYPES = (RSPImageType.ALIAS, RSPImageType.UNKNOWN)
 class RSPImage(RSPImageTag):
     """A tagged Rubin Science Platform image.
 
-    An `RSPImage` differs from a
-    `~nublado.controller.models.domain.rsptag.RSPImageTag` by having a
-    reference and digest, potentially additional alias tags, and possibly
-    information discovered from a Kubernetes cluster, such as the image size
-    and the list of nodes on which it is present.
+    An `RSPImage` differs from a `~nublado.models.images.RSPImageTag` by
+    having a reference and digest, potentially additional alias tags, and
+    possibly information discovered from a Kubernetes cluster, such as the
+    image size and the list of nodes on which it is present.
     """
 
     registry: str
@@ -269,7 +269,7 @@ class RSPImageCollection:
 
     def filter(
         self,
-        policy: RSPImageFilterPolicy,
+        policy: ImageFilterPolicy,
         age_basis: datetime,
         *,
         remove_arch_specific: bool = True,

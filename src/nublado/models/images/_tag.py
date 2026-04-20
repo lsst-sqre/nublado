@@ -12,18 +12,13 @@ from typing import Any, Self, TypeGuard, override
 from safir.datetime import format_datetime_for_logging
 from semver import Version
 
-from .imagefilterpolicy import ImageFilterPolicy, RSPImageFilterPolicy
-from .rspimagetype import RSPImageType
+from ._filter import ImageFilter, ImageFilterPolicy
+from ._type import RSPImageType
 
 DOCKER_DEFAULT_TAG = "latest"
 """Implicit tag used by Docker/Kubernetes when no tag is specified."""
 
-__all__ = [
-    "DOCKER_DEFAULT_TAG",
-    "RSPImageTag",
-    "RSPImageTagCollection",
-    "RSPImageType",
-]
+__all__ = ["DOCKER_DEFAULT_TAG", "RSPImageTag", "RSPImageTagCollection"]
 
 # Regular expression components used to construct the parsing regexes.
 
@@ -570,7 +565,7 @@ class RSPImageTagCollection[T: RSPImageTag]:
 
     def filter(
         self,
-        policy: RSPImageFilterPolicy,
+        policy: ImageFilterPolicy,
         age_basis: datetime,
         *,
         remove_arch_specific: bool = True,
@@ -595,7 +590,7 @@ class RSPImageTagCollection[T: RSPImageTag]:
         for image_type in RSPImageType:
             yield from self._filter_image_list(
                 self._by_type[image_type],
-                policy.policy_for_image_type(image_type),
+                policy.for_image_type(image_type),
                 age_basis,
                 remove_arch_specific=remove_arch_specific,
             )
@@ -680,7 +675,7 @@ class RSPImageTagCollection[T: RSPImageTag]:
     def _filter_image_list(
         self,
         tags: list[T],
-        policy: ImageFilterPolicy | None,
+        policy: ImageFilter | None,
         age_basis: datetime,
         *,
         remove_arch_specific: bool = True,

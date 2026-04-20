@@ -5,11 +5,10 @@ from collections.abc import Mapping
 
 from structlog.stdlib import BoundLogger
 
+from ....models.images import ImageFilterPolicy, RSPImage, RSPImageCollection
 from ...models.domain.docker import DockerReference
 from ...models.domain.image import MenuImage
-from ...models.domain.imagefilterpolicy import RSPImageFilterPolicy
 from ...models.domain.kubernetes import KubernetesNodeImage
-from ...models.domain.rspimage import RSPImage, RSPImageCollection
 from ...models.v1.prepuller import PrepulledImage, PrepullerOptions
 
 __all__ = ["ImageSource"]
@@ -34,7 +33,7 @@ class ImageSource(metaclass=ABCMeta):
     """
 
     def __init__(
-        self, logger: BoundLogger, image_filter: RSPImageFilterPolicy
+        self, logger: BoundLogger, image_filter: ImageFilterPolicy
     ) -> None:
         self._logger = logger
         self._image_filter = image_filter
@@ -61,7 +60,7 @@ class ImageSource(metaclass=ABCMeta):
         """Determine the image corresponding to a tag.
 
         Assuming that the tag is for our image source, construct the
-        corresponding `~nublado.controller.models.domain.rspimage.RSPImage`.
+        corresponding `~nublado.models.images.RSPImage`.
 
         Parameters
         ----------

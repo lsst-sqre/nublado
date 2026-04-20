@@ -102,10 +102,10 @@ class RSPStartupError(OSError):
     more portable than the standard OSError, since we are throwing it
     to a client that could, potentially, be running on a different
     architecture or OS, and whose numeric error codes might therefore
-    not match (e.g. `EDQUOT` is 69 under MacOS aarch64, but 122 for
+    not match (e.g. ``EDQUOT`` is 69 under MacOS aarch64, but 122 for
     Linux x64).
 
-    This also gives us the opportunity to set the `filename` parameter
+    This also gives us the opportunity to set the ``filename`` parameter
     to, for instance, indicate a missing environment variable.
     """
 

@@ -15,7 +15,7 @@ from safir.pydantic import HumanTimedelta
 
 from .constants import ENV_PREFIX, POLICY_FILE, ROOT_LOGGER
 
-__all__ = ["Config"]
+__all__ = ["Config", "EnvFirstSettings"]
 
 
 class EnvFirstSettings(BaseSettings):
@@ -151,7 +151,7 @@ class Config(EnvFirstSettings):
 
         Returns
         -------
-        Config
+        nublado.purger.config.Config
             The corresponding configuration.
         """
         with path.open("r") as f:

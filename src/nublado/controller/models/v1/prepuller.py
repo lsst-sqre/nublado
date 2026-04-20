@@ -7,8 +7,8 @@ from typing import Annotated, Literal, Self
 from pydantic import BaseModel, Field
 from safir.pydantic import HumanTimedelta
 
+from ....models.images import RSPImage
 from ...constants import DOCKER_CREDENTIALS_PATH
-from ..domain.rspimage import RSPImage
 
 __all__ = [
     "DockerSourceOptions",
@@ -352,7 +352,7 @@ class PrepulledImage(Image):
 
     @classmethod
     def from_rsp_image(cls, image: RSPImage, nodes: set[str]) -> Self:
-        """Convert from `~nublado.controller.models.domain.rspimage.RSPImage`.
+        """Convert from `~nublado.models.images.RSPImage`.
 
         Parameters
         ----------
@@ -411,7 +411,7 @@ class NodeImage(Image):
 
     @classmethod
     def from_rsp_image(cls, image: RSPImage) -> Self:
-        """Convert from `~nublado.controller.models.domain.rspimage.RSPImage`.
+        """Convert from `~nublado.models.images.RSPImage`.
 
         Parameters
         ----------

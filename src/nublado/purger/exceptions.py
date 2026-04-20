@@ -24,6 +24,14 @@ class PurgeFailedError(SlackException):
 
     @override
     def to_slack(self) -> SlackMessage:
+        """Format the exception as a Slack message.
+
+        Returns
+        -------
+        safir.slack.blockkit.SlackMessage
+            Slack message suitable for posting with
+            `~safir.slack.webhook.SlackWebhookClient`.
+        """
         message = super().to_slack()
         attachment = SlackTextBlock(heading="Failed Files", text=self.report)
         message.attachments.append(attachment)
@@ -31,6 +39,14 @@ class PurgeFailedError(SlackException):
 
     @override
     def to_sentry(self) -> SentryEventInfo:
+        """Return a collection of Sentry event metadata about the exception.
+
+        Returns
+        -------
+        safir.slack.sentry.SentryEventInfo
+            Sentry event metadata for use with
+            `~safir.sentry.before_send_handler`.
+        """
         info = super().to_sentry()
         info.contexts["failed_files"] = self.failed_files
         return info
