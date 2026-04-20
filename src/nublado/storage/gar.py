@@ -7,9 +7,13 @@ from google.cloud import artifactregistry_v1
 from google.cloud.artifactregistry_v1 import ListDockerImagesRequest
 from structlog.stdlib import BoundLogger
 
-from ...models.images import RSPImage, RSPImageCollection, RSPImageTag
 from ..constants import GAR_RETRY_DELAY, GAR_RETRY_LIMIT
-from ..models.v1.prepuller import GARSourceOptions
+from ..models.images import (
+    GARSource,
+    RSPImage,
+    RSPImageCollection,
+    RSPImageTag,
+)
 
 __all__ = ["GARStorageClient"]
 
@@ -32,7 +36,7 @@ class GARStorageClient:
         self._client = artifactregistry_v1.ArtifactRegistryAsyncClient()
 
     async def list_images(
-        self, config: GARSourceOptions, cycle: int | None = None
+        self, config: GARSource, cycle: int | None = None
     ) -> RSPImageCollection:
         """Return images stored in the remote repository, with arch-specific
         images filtered out if a corresponding base image exists.
@@ -49,12 +53,7 @@ class GARStorageClient:
         RSPImageCollection
             All images stored with that name.
         """
-        logger = self._logger.bind(
-            location=config.location,
-            project_id=config.project_id,
-            repository=config.repository,
-            image=config.image,
-        )
+        logger = self._logger.bind(**config.to_logging_context())
 
         # Requests to the Google API periodically fail in the middle of the
         # request with 503 Authentication server unavailable, so retry up to
@@ -80,9 +79,7 @@ class GARStorageClient:
         logger.debug("Listed all images", count=len(images))
         return RSPImageCollection(images, cycle=cycle)
 
-    async def _fetch_image_list(
-        self, config: GARSourceOptions
-    ) -> list[RSPImage]:
+    async def _fetch_image_list(self, config: GARSource) -> list[RSPImage]:
         """Fetch the list of images from Google.
 
         Retrieve the list of images from Google Artifact Registry and parse
@@ -93,12 +90,12 @@ class GARStorageClient:
         Parameters
         ----------
         config
-            Path to a specific image name in Google Artifact Registry.
+            Image source configuration.
 
-        Yields
-        ------
-        RSPImage
-            The next image in the list at Google.
+        Returns
+        -------
+        list of RSPImage
+            List of images.
         """
         request = ListDockerImagesRequest(parent=config.parent)
         image_list = await self._client.list_docker_images(request=request)

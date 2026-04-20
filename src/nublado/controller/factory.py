@@ -13,11 +13,13 @@ from rubin.repertoire import DiscoveryClient
 from safir.slack.webhook import SlackWebhookClient
 from structlog.stdlib import BoundLogger
 
+from ..models.images import DockerSource, GARSource
+from ..storage.docker import DockerStorageClient
+from ..storage.gar import GARStorageClient
 from .background import BackgroundTaskManager
 from .config import Config
 from .events import LabEvents
 from .exceptions import NotConfiguredError
-from .models.v1.prepuller import DockerSourceOptions, GARSourceOptions
 from .services.builder.fileserver import FileserverBuilder
 from .services.builder.fsadmin import FSAdminBuilder
 from .services.builder.lab import LabBuilder
@@ -30,8 +32,6 @@ from .services.prepuller import Prepuller
 from .services.source.base import ImageSource
 from .services.source.docker import DockerImageSource
 from .services.source.gar import GARImageSource
-from .storage.docker import DockerStorageClient
-from .storage.gar import GARStorageClient
 from .storage.kubernetes.fileserver import FileserverStorage
 from .storage.kubernetes.fsadmin import FSAdminStorage
 from .storage.kubernetes.lab import LabStorage
@@ -125,7 +125,7 @@ class ProcessContext:
             )
 
         match config.images.source:
-            case DockerSourceOptions():
+            case DockerSource():
                 docker_client = DockerStorageClient(
                     credentials_path=config.images.source.credentials_path,
                     http_client=http_client,
@@ -137,7 +137,7 @@ class ProcessContext:
                     logger=logger,
                     image_filter=config.dropdown_menu,
                 )
-            case GARSourceOptions():
+            case GARSource():
                 gar_client = GARStorageClient(logger)
                 source = GARImageSource(
                     config=config.images.source,

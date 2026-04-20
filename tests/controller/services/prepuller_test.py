@@ -13,7 +13,7 @@ from safir.testing.slack import MockSlackWebhook
 from nublado.controller.config import Config
 from nublado.controller.factory import Factory
 from nublado.controller.models.domain.kubernetes import PodPhase
-from nublado.controller.models.v1.prepuller import GARSourceOptions
+from nublado.models.images import GARSource
 
 from ...support.config import configure
 from ...support.data import NubladoData
@@ -118,8 +118,8 @@ async def test_gar(
 ) -> None:
     """Test the prepuller service configured to talk to GAR."""
     config = await configure(data, "gar")
-    assert isinstance(config.images.source, GARSourceOptions)
-    known_images = data.read_json("controller/tags/gar")
+    assert isinstance(config.images.source, GARSource)
+    known_images = data.read_json("registry/gar")
     mock_gar.add_images_for_test(DockerImage(**i) for i in known_images)
     nodes = data.read_nodes("controller/nodes/empty")
     mock_kubernetes.set_nodes_for_test(nodes)
@@ -175,7 +175,7 @@ async def test_cycle(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure(data, "cycle")
-    mock_docker.tags = data.read_json("controller/tags/docker-cycle")
+    mock_docker.tags = data.read_json("registry/docker-cycle")
     nodes = data.read_nodes("controller/nodes/cycle")
     mock_kubernetes.set_nodes_for_test(nodes)
 
@@ -197,7 +197,7 @@ async def test_gar_cycle(
     mock_kubernetes: MockKubernetesApi,
 ) -> None:
     config = await configure(data, "gar-cycle")
-    known_images = data.read_json("controller/tags/gar-cycle")
+    known_images = data.read_json("registry/gar-cycle")
     mock_gar.add_images_for_test(DockerImage(**i) for i in known_images)
     nodes = data.read_nodes("controller/nodes/gar-cycle")
     mock_kubernetes.set_nodes_for_test(nodes)

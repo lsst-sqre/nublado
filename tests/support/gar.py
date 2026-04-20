@@ -2,6 +2,7 @@
 
 from collections import defaultdict
 from collections.abc import AsyncIterator, Iterable, Iterator
+from contextlib import contextmanager
 from typing import Any, override
 from unittest.mock import Mock, patch
 
@@ -88,6 +89,7 @@ class MockArtifactRegistry(Mock):
         return Mock(**kwargs)
 
 
+@contextmanager
 def patch_artifact_registry() -> Iterator[MockArtifactRegistry]:
     """Replace the Google Artifact Registry API with a mock class.
 

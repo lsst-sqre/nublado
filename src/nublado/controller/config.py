@@ -26,6 +26,7 @@ from safir.logging import LogLevel, Profile
 from safir.metrics import MetricsConfiguration, metrics_configuration_factory
 from safir.pydantic import HumanTimedelta
 
+from ..config.images import ImageSourceConfig
 from ..models.images import ImageFilterPolicy
 from .constants import (
     KUBERNETES_NAME_PATTERN,
@@ -40,11 +41,7 @@ from .models.domain.kubernetes import (
     VolumeAccessMode,
 )
 from .models.v1.lab import LabResources, LabSize
-from .models.v1.prepuller import (
-    DockerSourceOptions,
-    GARSourceOptions,
-    PrepullerOptions,
-)
+from .models.v1.prepuller import PrepullerOptions
 from .units import bytes_to_si, memory_to_bytes
 
 __all__ = [
@@ -52,13 +49,11 @@ __all__ = [
     "Config",
     "ContainerImage",
     "DisabledFileserverConfig",
-    "DockerSourceConfig",
     "EmptyDirSource",
     "EmptyDirVolumeSource",
     "EnabledFileserverConfig",
     "FSAdminConfig",
     "FileserverConfig",
-    "GARSourceConfig",
     "HostPathVolumeSource",
     "LabConfig",
     "LabInitContainer",
@@ -630,30 +625,6 @@ class FSAdminConfig(BaseModel):
     ] = []
 
 
-class DockerSourceConfig(DockerSourceOptions):
-    """Configuration for a Docker source.
-
-    This is identical to the API model used to return the prepuller
-    configuration to an API client except that camel-case aliases are enabled.
-    """
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
-    )
-
-
-class GARSourceConfig(GARSourceOptions):
-    """Configuration for a Google Artifact Registry source.
-
-    This is identical to the API model used to return the prepuller
-    configuration to an API client except that camel-case aliases are enabled.
-    """
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
-    )
-
-
 class PrepullerConfig(PrepullerOptions):
     """Configuration for the prepuller.
 
@@ -665,7 +636,7 @@ class PrepullerConfig(PrepullerOptions):
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
-    source: DockerSourceConfig | GARSourceConfig
+    source: Annotated[ImageSourceConfig, Field(title="Source of images")]
 
 
 class LabSizeDefinition(BaseModel):

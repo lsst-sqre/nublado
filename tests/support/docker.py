@@ -7,9 +7,8 @@ from urllib.parse import parse_qs, parse_qsl
 import respx
 from httpx import Request, Response
 
-from nublado.controller.models.domain.docker import DockerCredentials
-from nublado.controller.models.v1.prepuller import DockerSourceOptions
-from nublado.controller.storage.docker import DockerCredentialStore
+from nublado.models.docker import DockerCredentials, DockerCredentialStore
+from nublado.models.images import DockerSource
 
 __all__ = ["MockDockerRegistry", "register_mock_docker"]
 
@@ -237,7 +236,7 @@ class MockDockerRegistry:
 
 def register_mock_docker(
     respx_mock: respx.Router,
-    config: DockerSourceOptions,
+    config: DockerSource,
     tags: dict[str, str],
     *,
     require_bearer: bool = False,
