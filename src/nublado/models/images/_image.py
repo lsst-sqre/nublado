@@ -272,6 +272,7 @@ class RSPImageCollection:
         policy: ImageFilterPolicy,
         age_basis: datetime,
         *,
+        invert: bool = False,
         remove_arch_specific: bool = True,
     ) -> Iterator[RSPImage]:
         """Apply a filter policy and return the remaining images.
@@ -282,9 +283,12 @@ class RSPImageCollection:
             Policy governing tag filtering.
         age_basis
             Timestamp to use as basis for image age calculation.
+        invert
+            Invert the filtering: Return only images that are not accepted by
+            the filter.
         remove_arch_specific
-            If `True`, remove images for a specific architecture and only
-            include images for all supported architectures.
+            If `True`, remove all images for a specific architecture from the
+            results and return only architecture-independent images.
 
         Yields
         ------
@@ -473,11 +477,11 @@ class RSPImageCollection:
         images = [i for i in images if cycle is None or i.cycle == cycle]
         self._collection = RSPImageTagCollection(images)
 
-        # First pass: Store all images other than unresolved images by digest.
-        # Accumulate a list of unresolved images. If there is a conflict
-        # between two non-alias images, the first one added wins on the theory
-        # that hopefully the Docker image source API returns the newest images
-        # first.
+        # First pass: Store all images other than unresolved aliases by
+        # digest. Accumulate a list of unresolved images. If there is a
+        # conflict between two non-alias images, the first one added wins on
+        # the theory that hopefully the Docker image source API returns the
+        # newest images first.
         unresolved = []
         for image in images:
             if image.is_possible_alias:
@@ -488,7 +492,7 @@ class RSPImageCollection:
             else:
                 self._by_digest[image.digest] = image
 
-        # Second pass: add the unresolved images now that any images they
+        # Second pass: Add the unresolved images now that any images they
         # alias should have been found. This is when we discover the targets
         # of alias images so that we can resolve them. Do not try to resolve
         # one alias or unknown tag with another; that adds no value. Keep
@@ -503,8 +507,8 @@ class RSPImageCollection:
                 self._by_digest[image.digest] = image
 
         # Now, all images have been resolved where possible. Rebuild the tag
-        # collection. This has to be done again since the type of the image
-        # may change, which affects the indexing.
+        # collection. The rebuild is required since the type of images may
+        # have changed during alias resolution, which affects the indexing.
         self._collection = RSPImageTagCollection(images)
 
     def _resolve_duplicate(self, new: RSPImage, old: RSPImage) -> None:
@@ -513,7 +517,7 @@ class RSPImageCollection:
         Implements the following logic:
 
         #. If both images are possible aliases, mark them as aliases of each
-           other and add ``new`` to the list of possible aliases.
+           other and add ``new`` to the list of unresolved aliases.
         #. If ``new`` is a possible alias and ``old`` is not, resolve ``new``
            as an alias of ``old`` and add ``new`` as an alias of all of the
            aliases of ``old``.
@@ -525,8 +529,8 @@ class RSPImageCollection:
 
         The final case, where ``old`` is a possible alias and ``new`` is not,
         is not possible by construction so is ignored. (In `add`, this case is
-        handled by rebuilding the whole collection, and when building the
-        collection possible aliases are always added second.)
+        handled by rebuilding the whole collection. When building the
+        collection, possible aliases are always added second.)
 
         Parameters
         ----------

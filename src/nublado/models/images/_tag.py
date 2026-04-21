@@ -3,7 +3,7 @@
 import contextlib
 import re
 from collections import defaultdict
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import total_ordering
@@ -576,6 +576,7 @@ class RSPImageTagCollection[T: RSPImageTag]:
         policy: ImageFilterPolicy,
         age_basis: datetime,
         *,
+        invert: bool = False,
         remove_arch_specific: bool = True,
     ) -> Iterator[T]:
         """Apply a filter policy and return the remaining tags.
@@ -585,10 +586,13 @@ class RSPImageTagCollection[T: RSPImageTag]:
         policy
             Policy governing tag filtering.
         age_basis
-            Timestamp to use as basis for image age calculation.
+            Timestamp to use as basis for tag age calculation.
+        invert
+            Invert the filtering: Return only tags that are not accepted by
+            the filter.
         remove_arch_specific
-            If `True`, remove tags for a specific architecture and only
-            include tags for all supported architectures.
+            If `True`, remove all tags for a specific architecture from the
+            results and return only architecture-independent tags.
 
         Yields
         ------
@@ -600,6 +604,7 @@ class RSPImageTagCollection[T: RSPImageTag]:
                 self._by_type[image_type],
                 policy.for_image_type(image_type),
                 age_basis,
+                invert=invert,
                 remove_arch_specific=remove_arch_specific,
             )
 
@@ -680,12 +685,66 @@ class RSPImageTagCollection[T: RSPImageTag]:
         """
         return self._by_tag.get(tag_name)
 
+    def _build_filter(
+        self,
+        policy: ImageFilter,
+        age_basis: datetime,
+        *,
+        invert: bool = False,
+        remove_arch_specific: bool = False,
+    ) -> Callable[[Iterable[T]], Iterator[T]]:
+        """Construct a filter iterator from an image filter.
+
+        Parameters
+        ----------
+        policy
+            Image filter policy to apply, or `None` to do no filtering.
+        age_basis
+            Current time to use as a basis for age filters.
+        invert
+            Invert the filtering: Return only tags that are not accepted by
+            the filter.
+        remove_arch_specific
+            If `True`, remove all tags for a specific architecture from the
+            results and return only architecture-independent tags.
+
+        Returns
+        -------
+        typing.Callable
+            A function that takes an iterator of tags and returns the filtered
+            version of those tags.
+        """
+        date = (age_basis - policy.age) if policy.age else None
+        if policy.cutoff_date and (not date or date < policy.cutoff_date):
+            date = policy.cutoff_date
+        version = policy.cutoff_version
+
+        # Construct a closure that implements the filtering rules.
+        def tag_filter(tags: Iterable[T]) -> Iterator[T]:
+            count = 0
+            for tag in tags:
+                if remove_arch_specific and tag.architecture:
+                    continue
+                if tag.date and date and tag.date < date:
+                    continue
+                if tag.semantic:
+                    if tag.version and version and tag.version < version:
+                        continue
+                yield tag
+                count += 1
+                if policy.number and count >= policy.number:
+                    break
+
+        # Return the constructed filter.
+        return tag_filter
+
     def _filter_image_list(
         self,
         tags: list[T],
         policy: ImageFilter | None,
         age_basis: datetime,
         *,
+        invert: bool = False,
         remove_arch_specific: bool = True,
     ) -> Iterator[T]:
         """Filter a list of tags against a filter policy.
@@ -698,37 +757,33 @@ class RSPImageTagCollection[T: RSPImageTag]:
             Image filter policy to apply, or `None` to do no filtering.
         age_basis
             Current time to use as a basis for age filters.
+        invert
+            Invert the filtering: Return only tags that are not accepted by
+            the filter.
         remove_arch_specific
-            If `True`, remove tags for a specific architecture and only
-            include tags for all supported architectures.
+            If `True`, remove all tags for a specific architecture from the
+            results and return only architecture-independent tags.
         """
+        if remove_arch_specific:
+            candidate_tags = (t for t in tags if not t.architecture)
+        else:
+            candidate_tags = (t for t in tags)
+
+        # If there is no policy, return all tags (or, if inverted, no tags).
         if not policy:
-            if remove_arch_specific:
-                filtered_tags = (t for t in tags if not t.architecture)
-            else:
-                filtered_tags = (t for t in tags)
-            yield from filtered_tags
+            if invert:
+                return
+            yield from candidate_tags
             return
 
-        # Some filtering rule applies. Calculate the cutoffs and apply the
-        # filtering.
-        date = (age_basis - policy.age) if policy.age else None
-        if policy.cutoff_date and (not date or date < policy.cutoff_date):
-            date = policy.cutoff_date
-        version = policy.cutoff_version
-        count = 0
-        for tag in tags:
-            if remove_arch_specific and tag.architecture:
-                continue
-            if tag.date and date and tag.date < date:
-                continue
-            if tag.semantic:
-                if tag.version and version and tag.version < version:
-                    continue
-            yield tag
-            count += 1
-            if policy.number and count >= policy.number:
-                break
+        # Otherwise, do the filtering, and then invert it if requested.
+        tag_filter = self._build_filter(policy, age_basis)
+        if invert:
+            all_tags = list(candidate_tags)
+            remove_tags = set(tag_filter(all_tags))
+            yield from (t for t in all_tags if t not in remove_tags)
+        else:
+            yield from tag_filter(candidate_tags)
 
     def _first_tags(
         self,
