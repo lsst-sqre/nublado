@@ -501,7 +501,7 @@ class RSPImageTagCollection[T: RSPImageTag]:
     def from_tag_names(
         cls,
         tag_names: Iterable[str],
-        aliases: set[str],
+        aliases: set[str] | None = None,
         cycle: int | None = None,
     ) -> RSPImageTagCollection[RSPImageTag]:
         """Create a collection from tag strings.
@@ -520,6 +520,8 @@ class RSPImageTagCollection[T: RSPImageTag]:
         RSPImageTagCollection
             The resulting collection of tags.
         """
+        if aliases is None:
+            aliases = set()
         tags = []
         for name in tag_names:
             if name in aliases:

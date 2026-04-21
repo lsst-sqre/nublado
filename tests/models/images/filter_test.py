@@ -138,7 +138,7 @@ def test_filter_semver() -> None:
         "exp_r28_0_1_exp",
         "exp_r28_0_0_exp",
     ]
-    collection = RSPImageTagCollection.from_tag_names(tags, set())
+    collection = RSPImageTagCollection.from_tag_names(tags)
 
     # Construct a filter that uses 28.0.1 as a semantic version cutoff. This
     # should have no effect on the weeklies but should affect the experimental
