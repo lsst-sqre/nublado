@@ -49,7 +49,7 @@ async def configure(
     config.metadata_path = data.path("controller/metadata")
     if isinstance(config.images.source, DockerSource):
         credentials_path = data.path("registry/docker-creds.json")
-        config.images.source.credentials_path = credentials_path
+        config.images.docker_credentials_path = credentials_path
 
     # If the new configuration enables fileservers, create the namespace for
     # the fileserver pods. Existence of the fileserver namespace is checked

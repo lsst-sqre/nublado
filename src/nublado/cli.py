@@ -115,6 +115,13 @@ def images() -> None:
 
 @images.command("list")
 @click.option(
+    "-a",
+    "--credentials",
+    "docker_credentials_path",
+    type=click.Path(path_type=Path),
+    help="Path to Docker API credentials.",
+)
+@click.option(
     "-c",
     "--config",
     "config_path",
@@ -126,9 +133,18 @@ def images() -> None:
     "--debug", "-d", is_flag=True, envvar="DEBUG", help="Enable debug logging"
 )
 @run_with_asyncio
-async def images_list(*, config_path: Path, debug: bool) -> None:
+async def images_list(
+    *,
+    docker_credentials_path: Path | None = None,
+    config_path: Path,
+    debug: bool,
+) -> None:
     """List the available images."""
-    config = ImagesConfig.from_file(config_path, debug=debug)
+    config = ImagesConfig.from_file(
+        config_path,
+        docker_credentials_path=docker_credentials_path,
+        debug=debug,
+    )
     config.configure_logging()
     async with ImagesFactory.standalone(config) as factory:
         manager = factory.create_images_manager()

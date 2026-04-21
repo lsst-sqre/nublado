@@ -76,7 +76,7 @@ class ImagesFactory:
         match self._config.source:
             case DockerSource():
                 docker_client = DockerStorageClient(
-                    self._config.source.credentials_path,
+                    self._config.docker_credentials_path,
                     self._http_client,
                     self._logger,
                 )

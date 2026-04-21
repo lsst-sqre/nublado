@@ -29,7 +29,8 @@ class DockerStorageClient:
     Parameters
     ----------
     credentials_path
-        Path to a Docker credentials store.
+        Path to a Docker credentials store, or `None` if no authentication
+        will be required.
     http_client
         Client to use to make requests.
     logger
@@ -38,11 +39,15 @@ class DockerStorageClient:
 
     def __init__(
         self,
-        credentials_path: Path,
+        credentials_path: Path | None,
         http_client: AsyncClient,
         logger: BoundLogger,
     ) -> None:
-        self._credentials = DockerCredentialStore.from_path(credentials_path)
+        if credentials_path:
+            credentials = DockerCredentialStore.from_path(credentials_path)
+        else:
+            credentials = DockerCredentialStore()
+        self._credentials = credentials
         self._client = http_client
         self._logger = logger
 

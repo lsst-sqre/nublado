@@ -21,6 +21,7 @@ from safir.testing.slack import MockSlackWebhook, mock_slack_webhook
 from nublado.controller.config import Config
 from nublado.controller.factory import Factory
 from nublado.controller.main import create_app
+from nublado.models.docker import DockerCredentialStore
 from nublado.models.images import DockerSource
 
 from ..support.config import configure
@@ -105,9 +106,13 @@ def mock_docker(
     config: Config, data: NubladoData, respx_mock: respx.Router
 ) -> MockDockerRegistry:
     assert isinstance(config.images.source, DockerSource)
+    credentials_path = config.images.docker_credentials_path
+    assert credentials_path
+    credentials_store = DockerCredentialStore.from_path(credentials_path)
     return register_mock_docker(
         respx_mock,
         config.images.source,
+        credentials_store,
         tags=data.read_json("registry/docker"),
         require_bearer=True,
     )

@@ -66,7 +66,14 @@ class DockerCredentials:
 
 
 class DockerCredentialStore:
-    """Read and write the ``.dockerconfigjson`` syntax used by Kubernetes."""
+    """Read and write the ``.dockerconfigjson`` syntax used by Kubernetes.
+
+    Parameters
+    ----------
+    credentials
+        Mapping of registry hosts to credentials, or `None` to create an
+        empty credential store.
+    """
 
     @classmethod
     def from_path(cls, path: Path) -> Self:
@@ -89,8 +96,10 @@ class DockerCredentialStore:
             credentials[host] = DockerCredentials.from_config(config)
         return cls(credentials)
 
-    def __init__(self, credentials: dict[str, DockerCredentials]) -> None:
-        self._credentials = credentials
+    def __init__(
+        self, credentials: dict[str, DockerCredentials] | None = None
+    ) -> None:
+        self._credentials = credentials or {}
 
     def get(self, host: str) -> DockerCredentials | None:
         """Get credentials for a given host.

@@ -127,7 +127,7 @@ class ProcessContext:
         match config.images.source:
             case DockerSource():
                 docker_client = DockerStorageClient(
-                    credentials_path=config.images.source.credentials_path,
+                    credentials_path=config.images.docker_credentials_path,
                     http_client=http_client,
                     logger=logger,
                 )
@@ -371,7 +371,7 @@ class Factory:
         """
         if self._context.config.images.source.type != "docker":
             raise NotConfiguredError("Docker image source not configured")
-        credentials_path = self._context.config.images.source.credentials_path
+        credentials_path = self._context.config.images.docker_credentials_path
         return DockerStorageClient(
             credentials_path=credentials_path,
             http_client=self._context.http_client,
