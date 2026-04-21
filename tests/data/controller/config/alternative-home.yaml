@@ -4,9 +4,8 @@ lab:
   standardInithome: true
   namespacePrefix: userlabs
   emptyDirSource: disk
+  enable_landing_page: true
   homeVolumeName: noplacelikehome
-  env:
-      RSP_SITE_TYPE: science
   sizes:
     - size: small
       resources:
