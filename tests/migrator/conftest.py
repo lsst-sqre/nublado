@@ -32,5 +32,16 @@ def migration_fs(fs: FakeFilesystem) -> FakeFilesystem:
     Path("/home/coop/hello.txt").chmod(0o0600)
     fs.create_symlink(Path("/home/coop/hi"), Path("./hello.txt"))
     fs.create_symlink(Path("/home/coop/howdy"), Path("/home/coop/hello.txt"))
+    fs.create_dir(Path("/home/coop/filemodes"), perm_bits=0o0755)
+    fs.create_file(
+        Path("/home/coop/filemodes/setuid"), contents="#!/bin/sh\n/bin/ls -l\n"
+    )
+    Path("/home/coop/filemodes/setuid").chmod(0o4755)
+    fs.create_file(
+        Path("/home/coop/filemodes/setgid"), contents="#!/bin/sh\n/bin/ls -l\n"
+    )
+    Path("/home/coop/filemodes/setgid").chmod(0o2755)
+    fs.create_dir(Path("/home/coop/filemodes/sticky"))
+    Path("/home/coop/filemodes/sticky").chmod(0o1777)
 
     return fs

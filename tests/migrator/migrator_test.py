@@ -49,6 +49,17 @@ def test_migration() -> None:
     assert ak.is_file()
     assert stat.S_IMODE(ak.stat().st_mode) == 0o0644
     assert ak.read_text() == "this-is-an-rsa-key-no-really"
+    # Test high-octal-digit modes.
+    mode_dir = tgt / "filemodes"
+    suid = mode_dir / "setuid"
+    sgid = mode_dir / "setgid"
+    sticky = mode_dir / "sticky"
+    assert suid.is_file()
+    assert stat.S_IMODE(suid.stat().st_mode) == 0o4755
+    assert sgid.is_file()
+    assert stat.S_IMODE(sgid.stat().st_mode) == 0o2755
+    assert sticky.is_dir()
+    assert stat.S_IMODE(sticky.stat().st_mode) == 0o1777
 
 
 def test_bad_source() -> None:
