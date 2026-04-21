@@ -29,6 +29,7 @@ from safir.pydantic import HumanTimedelta
 from ..config.images import ImageSourceConfig
 from ..models.images import ImageFilterPolicy
 from .constants import (
+    DOCKER_CREDENTIALS_PATH,
     KUBERNETES_NAME_PATTERN,
     METADATA_PATH,
     RESERVED_ENV,
@@ -629,12 +630,27 @@ class PrepullerConfig(PrepullerOptions):
     """Configuration for the prepuller.
 
     This is identical to the API model used to return the prepuller
-    configuration to an API client except that camel-case aliases are enabled.
+    configuration to an API client except that camel-case aliases are enabled
+    and it adds the path to the Docker credentials, if any.
     """
 
     model_config = ConfigDict(
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
+
+    docker_credentials_path: Annotated[
+        Path | None,
+        Field(
+            title="Path to Docker API credentials",
+            description=(
+                "Path to a file containing a JSON-encoded dictionary of Docker"
+                " credentials for various registries, in the same format as"
+                " the Docker configuration file and the value of a Kubernetes"
+                " pull secret"
+            ),
+            exclude=True,
+        ),
+    ] = DOCKER_CREDENTIALS_PATH
 
     source: Annotated[ImageSourceConfig, Field(title="Source of images")]
 

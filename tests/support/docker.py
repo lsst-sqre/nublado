@@ -237,8 +237,9 @@ class MockDockerRegistry:
 def register_mock_docker(
     respx_mock: respx.Router,
     config: DockerSource,
-    tags: dict[str, str],
+    credential_store: DockerCredentialStore,
     *,
+    tags: dict[str, str],
     require_bearer: bool = False,
     paginate: bool = True,
     duplicate_url: bool = False,
@@ -252,6 +253,8 @@ def register_mock_docker(
         Mock router.
     config
         Configuration for the Docker image source.
+    credential_store
+        Store of Docker credentials to expect.
     tags
         A mapping of tags to image digests that should appear on that
         registry.
@@ -278,8 +281,7 @@ def register_mock_docker(
     tags_url = f"{base_url}/v2/{config.repository}/tags/list"
     digest_url = f"{base_url}/v2/{config.repository}/manifests/(?P<tag>.*)"
 
-    store = DockerCredentialStore.from_path(config.credentials_path)
-    credentials = store.get(config.registry)
+    credentials = credential_store.get(config.registry)
     assert credentials
     mock = MockDockerRegistry(
         tags,

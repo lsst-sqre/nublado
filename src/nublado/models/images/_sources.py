@@ -1,12 +1,8 @@
 """Models for specifying the sources of images."""
 
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
-
-from ...constants import DOCKER_CREDENTIALS_PATH
-from ..docker import DockerCredentialStore
 
 __all__ = ["DockerSource", "GARSource", "ImageSource"]
 
@@ -39,36 +35,6 @@ class DockerSource(BaseModel):
             examples=["library/sketchbook"],
         ),
     ]
-
-    credentials_path: Annotated[
-        Path,
-        Field(
-            title="Path to Docker API credentials",
-            description=(
-                "Path to a file containing a JSON-encoded dictionary of Docker"
-                " credentials for various registries, in the same format as"
-                " the Docker configuration file and the value of a Kubernetes"
-                " pull secret"
-            ),
-            exclude=True,
-        ),
-    ] = DOCKER_CREDENTIALS_PATH
-
-    def read_credentials(self) -> DockerCredentialStore:
-        """Load the credentials store.
-
-        Returns
-        -------
-        DockerCredentialStore
-            Object representing the contents of the credentials store.
-
-        Raises
-        ------
-        FileNotFoundError
-            Raised if the file pointed to by ``credentials_path`` does not
-            exist.
-        """
-        return DockerCredentialStore.from_path(self.credentials_path)
 
     def to_logging_context(self) -> dict[str, str]:
         """Build key/value pairs suitable for passing to structlog.

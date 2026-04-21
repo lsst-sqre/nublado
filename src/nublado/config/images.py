@@ -8,7 +8,7 @@ from pydantic import ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from safir.logging import LogLevel, Profile, configure_logging
 
-from ..constants import ROOT_LOGGER
+from ..constants import DOCKER_CREDENTIALS_PATH, ROOT_LOGGER
 from ..models.images import DockerSource, GARSource
 from .base import CamelEnvFirstSettings
 
@@ -54,6 +54,20 @@ type ImageSourceConfig = Annotated[
 class ImagesConfig(CamelEnvFirstSettings):
     """Configuration for Nublado image management."""
 
+    docker_credentials_path: Annotated[
+        Path | None,
+        Field(
+            title="Path to Docker API credentials",
+            description=(
+                "Path to a file containing a JSON-encoded dictionary of Docker"
+                " credentials for various registries, in the same format as"
+                " the Docker configuration file and the value of a Kubernetes"
+                " pull secret"
+            ),
+            exclude=True,
+        ),
+    ] = None
+
     log_level: Annotated[LogLevel, Field(title="Log level")] = LogLevel.INFO
 
     log_profile: Annotated[Profile, Field(title="Logging profile")] = (
@@ -66,16 +80,30 @@ class ImagesConfig(CamelEnvFirstSettings):
     ]
 
     @classmethod
-    def from_file(cls, path: Path, *, debug: bool | None = None) -> Self:
+    def from_file(
+        cls,
+        path: Path,
+        *,
+        debug: bool | None = None,
+        docker_credentials_path: Path | None = None,
+    ) -> Self:
         """Load the images configuration from a YAML file.
 
         Parameters
         ----------
         path
             Path to the configuration file.
+        debug
+            Whether to force debug logging.
+        docker_credentials_path
+            Path to the Docker API credentials file.
         """
+        if not docker_credentials_path and DOCKER_CREDENTIALS_PATH.is_file():
+            docker_credentials_path = DOCKER_CREDENTIALS_PATH
         with path.open("r") as f:
             config = cls.model_validate(yaml.safe_load(f))
+        if docker_credentials_path:
+            config.docker_credentials_path = docker_credentials_path
         if debug:
             config.log_level = LogLevel.DEBUG
         return config
