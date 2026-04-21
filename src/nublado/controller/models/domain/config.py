@@ -49,7 +49,8 @@ class UIConfig:
 
     container_size: str
     debug: bool
-    enable_query_menu: bool
+    enable_landing_page: bool
+    enable_queries_menu: bool
     enable_tutorials_menu: bool
     file_browser_root: str
     home_relative_to_file_browser_root: str

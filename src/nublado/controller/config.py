@@ -936,11 +936,13 @@ class LabConfig(BaseModel):
         ),
     ] = False
 
-    enable_query_menu: Annotated[
+    enable_queries_menu: Annotated[
         bool,
         Field(
-            title="Enable query menu",
-            description=("Whether to enable the query menu in the Lab UI"),
+            title="Enable TAP queries menu",
+            description=(
+                "Whether to enable the TAP queries menu in the Lab UI"
+            ),
         ),
     ] = False
 

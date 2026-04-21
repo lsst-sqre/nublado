@@ -1141,3 +1141,32 @@ async def test_alternative_home_volume(
     ]
     inithome = pod.spec.init_containers[0]
     assert inithome.volume_mounts[0].name == "noplacelikehome"
+
+
+@pytest.mark.asyncio
+async def test_config_options(
+    *,
+    client: AsyncClient,
+    data: NubladoData,
+    user: GafaelfawrTestUser,
+    mock_kubernetes: MockKubernetesApi,
+) -> None:
+    """Check that we can specify what volume holds user home directories."""
+    config = await configure(data, "config-options")
+    lab = data.read_pydantic(
+        LabSpecification, "controller/base/lab-specification"
+    )
+
+    r = await client.post(
+        f"/nublado/spawner/v1/labs/{user.username}/create",
+        json={"options": lab.options.model_dump(), "env": lab.env},
+        headers=user.to_test_headers(),
+    )
+    assert r.status_code == 201
+    await asyncio.sleep(0)
+
+    namespace = f"{config.lab.namespace_prefix}-{user.username}"
+    objects = mock_kubernetes.get_namespace_objects_for_test(namespace)
+    data.assert_kubernetes_matches(
+        objects, "controller/objects/lab-enable-configs"
+    )

@@ -411,7 +411,8 @@ class LabBuilder:
         return UIConfig(
             container_size=str(size),
             debug=lab.options.enable_debug,
-            enable_query_menu=self._config.enable_query_menu,
+            enable_landing_page=self._config.enable_landing_page,
+            enable_queries_menu=self._config.enable_queries_menu,
             enable_tutorials_menu=self._config.enable_tutorials_menu,
             file_browser_root=str(self._config.file_browser_root.value),
             home_relative_to_file_browser_root=self._build_relative_home(user),
@@ -438,8 +439,8 @@ class LabBuilder:
 
     def _build_relative_home(self, user: GafaelfawrUserInfo) -> str:
         if self._config.file_browser_root == LabFileBrowserRoot.HOME:
-            return "."
-        return self._build_home_directory(user.username)
+            return ""
+        return self._build_home_directory(user.username).lstrip("/")
 
     async def _build_statusbar(self, image: RSPImage) -> str:
         descr = image.display_name
