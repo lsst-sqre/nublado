@@ -81,6 +81,15 @@ def test_filter() -> None:
         "unknown",
     ]
 
+    # If this filtering is inverted, the combination of the two lists should
+    # be exactly the original list of tags except for ones with architecture
+    # qualifiers.
+    remaining_tags = [
+        x.tag for x in collection.filter(policy, age_basis, invert=True)
+    ]
+    non_arch = sorted(t for t in tags if not t.endswith(("-amd64", "-arm64")))
+    assert sorted(filtered_tags + remaining_tags) == sorted(non_arch)
+
     # Redo the filtering without excluding arch-specific images (the
     # non-default mode). Version- and date-based filtering should just include
     # the new images. Count-based filtering will push a different image off.
@@ -106,6 +115,15 @@ def test_filter() -> None:
         "exp_w_2025_07",
         "unknown",
     ]
+
+    # If this filtering is inverted, we should get exactly the excluded tags.
+    remaining_tags = [
+        x.tag
+        for x in collection.filter(
+            policy, age_basis, invert=True, remove_arch_specific=False
+        )
+    ]
+    assert sorted(filtered_tags + remaining_tags) == sorted(tags)
 
 
 def test_filter_semver() -> None:
