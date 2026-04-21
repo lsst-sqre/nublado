@@ -8,6 +8,7 @@
   "extra": null,
   "image_type": "Daily",
   "rsp_build": null,
+  "semantic": false,
   "tag": "d_2021_05_27",
   "version": {
     "build": null,

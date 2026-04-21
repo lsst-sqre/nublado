@@ -41,6 +41,7 @@ def test_image() -> None:
         "image_type": RSPImageType.DAILY,
         "display_name": "Daily 2077_10_23",
         "version": VersionInfo(2077, 10, 23),
+        "semantic": False,
         "base": None,
         "cycle": None,
         "cycle_build": None,
@@ -159,6 +160,7 @@ def test_resolve_alias_arch() -> None:
         "Latest (Release r21.0.2, RSP Build 64 [stuff]) [amd64]"
     )
     assert latest.architecture == "amd64"
+    assert not latest.semantic
 
 
 def test_collection() -> None:

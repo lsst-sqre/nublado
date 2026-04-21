@@ -8,6 +8,7 @@
   "extra": null,
   "image_type": "Release Candidate",
   "rsp_build": null,
+  "semantic": true,
   "tag": "r22_0_0_rc1",
   "version": {
     "build": null,

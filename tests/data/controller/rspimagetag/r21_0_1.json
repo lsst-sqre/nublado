@@ -8,6 +8,7 @@
   "extra": null,
   "image_type": "Release",
   "rsp_build": null,
+  "semantic": true,
   "tag": "r21_0_1",
   "version": {
     "build": null,
