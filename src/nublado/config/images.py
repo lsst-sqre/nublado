@@ -102,10 +102,10 @@ class ImagesConfig(CamelEnvFirstSettings):
             docker_credentials_path = DOCKER_CREDENTIALS_PATH
         with path.open("r") as f:
             config = cls.model_validate(yaml.safe_load(f))
-        if docker_credentials_path:
-            config.docker_credentials_path = docker_credentials_path
         if debug:
             config.log_level = LogLevel.DEBUG
+        if docker_credentials_path:
+            config.docker_credentials_path = docker_credentials_path
         return config
 
     def configure_logging(self) -> None:

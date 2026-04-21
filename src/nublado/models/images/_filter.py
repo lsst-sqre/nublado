@@ -1,5 +1,6 @@
 """Policy for selecting images based on filter criteria."""
 
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import (
@@ -48,14 +49,31 @@ class ImageFilter(BaseModel):
 
     number: Annotated[
         int | None,
-        Field(
-            title="Number", description="Number of images to display.", ge=0
-        ),
+        Field(title="Number", description="Number of images to retain", ge=0),
     ] = None
 
     age: Annotated[
         HumanTimedelta | None,
-        Field(title="Age", description="Maximum age of image to display."),
+        Field(
+            title="Age",
+            description=(
+                "Maximum age of image to retain. Applies only to images based"
+                " on weeklies or dailies and is based on the age of the weekly"
+                " or daily, not on the age of the build."
+            ),
+        ),
+    ] = None
+
+    cutoff_date: Annotated[
+        datetime | None,
+        Field(
+            title="Cutoff date",
+            description=(
+                "Minimum date of image to display. Applies only to images"
+                " based on weeklies or dailies. Weeklies are assumed to be"
+                " built on Thursday."
+            ),
+        ),
     ] = None
 
     cutoff_version: Annotated[
@@ -63,9 +81,8 @@ class ImageFilter(BaseModel):
         Field(
             title="Cutoff version",
             description=(
-                "Minimum version of image to display."
-                " This does not apply to unparseable tags or to"
-                " experimental tags not derived from a parseable tag."
+                "Minimum version of image to display. Applies only to images"
+                " based on releases or release candidates."
             ),
         ),
         BeforeValidator(_validate_version, json_schema_input_type=str | None),
@@ -86,45 +103,30 @@ class ImageFilterPolicy(BaseModel):
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
-    release: Annotated[
-        ImageFilter,
-        Field(title="Release", description="Policy for releases to display."),
-    ] = ImageFilter()
+    release: ImageFilter = Field(
+        default_factory=ImageFilter, title="Policy for releases"
+    )
 
-    weekly: Annotated[
-        ImageFilter,
-        Field(
-            title="Weekly", description="Policy for weekly builds to display."
-        ),
-    ] = ImageFilter()
+    weekly: ImageFilter = Field(
+        default_factory=ImageFilter, title="Policy for weekly builds"
+    )
 
-    daily: Annotated[
-        ImageFilter,
-        Field(
-            title="Daily", description="Policy for daily builds to display."
-        ),
-    ] = ImageFilter()
+    daily: ImageFilter = Field(
+        default_factory=ImageFilter, title="Policy for daily builds"
+    )
 
-    release_candidate: Annotated[
-        ImageFilter,
-        Field(
-            title="Release Candidate",
-            description="Policy for release candidate builds to display.",
-        ),
-    ] = ImageFilter()
+    release_candidate: ImageFilter = Field(
+        default_factory=ImageFilter, title="Policy for release candidates"
+    )
 
-    experimental: Annotated[
-        ImageFilter,
-        Field(
-            title="Experimental",
-            description="Policy for experimental builds to display.",
-        ),
-    ] = ImageFilter()
+    experimental: ImageFilter = Field(
+        default_factory=ImageFilter, title="Policy for experimental builds"
+    )
 
     def for_image_type(self, image_type: RSPImageType) -> ImageFilter | None:
         match image_type:
             case RSPImageType.ALIAS:
-                return None  # Always show all alias tags
+                return None  # Do not filter aliases
             case RSPImageType.RELEASE:
                 return self.release
             case RSPImageType.WEEKLY:
@@ -136,4 +138,4 @@ class ImageFilterPolicy(BaseModel):
             case RSPImageType.EXPERIMENTAL:
                 return self.experimental
             case RSPImageType.UNKNOWN:
-                return None  # Show all unknowns (subject to change)
+                return None  # Do not filter unknown tags (subject to change)

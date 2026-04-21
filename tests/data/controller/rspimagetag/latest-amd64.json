@@ -8,6 +8,7 @@
   "extra": null,
   "image_type": "Unknown",
   "rsp_build": null,
+  "semantic": false,
   "tag": "latest-amd64",
   "version": null
 }

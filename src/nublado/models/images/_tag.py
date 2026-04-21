@@ -18,6 +18,9 @@ from ._type import RSPImageType
 DOCKER_DEFAULT_TAG = "latest"
 """Implicit tag used by Docker/Kubernetes when no tag is specified."""
 
+_SEMANTIC_TYPES = (RSPImageType.RELEASE, RSPImageType.CANDIDATE)
+"""Types of tags that have meaningful semantic versions, used for filtering."""
+
 __all__ = ["DOCKER_DEFAULT_TAG", "RSPImageTag", "RSPImageTagCollection"]
 
 # Regular expression components used to construct the parsing regexes.
@@ -109,6 +112,9 @@ class RSPImageTag:
     version: Version | None = None
     """Version information as a semantic version."""
 
+    semantic: bool = False
+    """Whether this tag has an underlying semantic version."""
+
     cycle: int | None = None
     """XML schema version implemented by this image (only for T&S builds)."""
 
@@ -128,9 +134,9 @@ class RSPImageTag:
     """When the image was created, or as close as we can get to that.
 
     For daily or weekly tags, this can be calculated within a day or week,
-    which is good enough for filtering purposes. Other images are not handled
-    for now, since the upload time is not necessarily when the image was
-    created.
+    which is good enough for filtering purposes. Other image types will have a
+    value of `None`, since upload time is not always available and even when
+    available is not necessarily when the image was created.
     """
 
     @classmethod
@@ -227,6 +233,7 @@ class RSPImageTag:
             "image_type": self.image_type.value,
             "display_name": self.display_name,
             "version": self.version.to_dict() if self.version else None,
+            "semantic": self.semantic,
             "base": self.base,
             "cycle": self.cycle,
             "cycle_build": self.cycle_build,
@@ -311,6 +318,7 @@ class RSPImageTag:
             image_type=image_type,
             display_name=display_name,
             version=version,
+            semantic=image_type in _SEMANTIC_TYPES,
             base=base,
             cycle=int(cycle) if cycle else None,
             cycle_build=int(cycle_build) if cycle_build else None,
@@ -372,7 +380,7 @@ class RSPImageTag:
         display_name = image_type.value
 
         # What match groups are available depend on the type of tag.
-        if image_type in (RSPImageType.RELEASE, RSPImageType.CANDIDATE):
+        if image_type in _SEMANTIC_TYPES:
             major = int(data["major"])
             minor = int(data["minor"])
             patch = int(data.get("patch", "0"))
@@ -695,15 +703,18 @@ class RSPImageTagCollection[T: RSPImageTag]:
             include tags for all supported architectures.
         """
         if not policy:
-            for tag in tags:
-                if remove_arch_specific and tag.architecture:
-                    continue
-                yield tag
+            if remove_arch_specific:
+                filtered_tags = (t for t in tags if not t.architecture)
+            else:
+                filtered_tags = (t for t in tags)
+            yield from filtered_tags
             return
 
         # Some filtering rule applies. Calculate the cutoffs and apply the
         # filtering.
         date = (age_basis - policy.age) if policy.age else None
+        if policy.cutoff_date and (not date or date < policy.cutoff_date):
+            date = policy.cutoff_date
         version = policy.cutoff_version
         count = 0
         for tag in tags:
@@ -711,8 +722,9 @@ class RSPImageTagCollection[T: RSPImageTag]:
                 continue
             if tag.date and date and tag.date < date:
                 continue
-            if tag.version and version and tag.version < version:
-                continue
+            if tag.semantic:
+                if tag.version and version and tag.version < version:
+                    continue
             yield tag
             count += 1
             if policy.number and count >= policy.number:

@@ -8,6 +8,7 @@
   "extra": "foo",
   "image_type": "Experimental",
   "rsp_build": 19,
+  "semantic": false,
   "tag": "exp_w_2021_22_c0020.001_rsp19_foo-amd64",
   "version": {
     "build": null,
