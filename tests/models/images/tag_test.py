@@ -170,7 +170,7 @@ def test_collection() -> None:
     shuffled_tags = list(tags)
     SystemRandom().shuffle(shuffled_tags)
 
-    collection = RSPImageTagCollection.from_tag_names(shuffled_tags, set())
+    collection = RSPImageTagCollection.from_tag_names(shuffled_tags)
     all_tags = [t.tag for t in collection.all_tags(hide_arch_specific=False)]
     assert all_tags == tags
     assert [t.tag for t in collection.all_tags()] == [
@@ -182,9 +182,7 @@ def test_collection() -> None:
     assert collection.tag_for_tag_name("w_2080_01") is None
 
     # Filter by cycle.
-    collection = RSPImageTagCollection.from_tag_names(
-        shuffled_tags, set(), cycle=27
-    )
+    collection = RSPImageTagCollection.from_tag_names(shuffled_tags, cycle=27)
     assert [t.tag for t in collection.all_tags()] == [
         "r20_0_1_c0027.001",
         "w_2077_40_c0027.001",
