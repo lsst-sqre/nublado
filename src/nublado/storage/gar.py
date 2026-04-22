@@ -1,13 +1,17 @@
 """Client for Google Artifact Registry."""
 
 import asyncio
+from itertools import batched
 
 from google.api_core.exceptions import InternalServerError, ServiceUnavailable
 from google.cloud import artifactregistry_v1
-from google.cloud.artifactregistry_v1 import ListDockerImagesRequest
+from google.cloud.artifactregistry_v1 import (
+    BatchDeleteVersionsRequest,
+    ListDockerImagesRequest,
+)
 from structlog.stdlib import BoundLogger
 
-from ..constants import GAR_RETRY_DELAY, GAR_RETRY_LIMIT
+from ..constants import GAR_DELETE_BATCH_SIZE, GAR_RETRY_DELAY, GAR_RETRY_LIMIT
 from ..models.images import (
     GARSource,
     RSPImage,
@@ -34,6 +38,29 @@ class GARStorageClient:
     def __init__(self, logger: BoundLogger) -> None:
         self._logger = logger
         self._client = artifactregistry_v1.ArtifactRegistryAsyncClient()
+
+    async def delete_images(
+        self, config: GARSource, digests: list[str]
+    ) -> None:
+        """Delete images by digest.
+
+        Deletion is done in batches since experimentally Google rejects
+        deletion of more than 50 images in a request.
+
+        Parameters
+        ----------
+        config
+            Configuration for the repository.
+        digests
+            List of image digests to delete.
+        """
+        logger = self._logger.bind(**config.to_logging_context())
+        parent = f"{config.parent}/packages/{config.image}"
+        names = (f"{parent}/versions/{d}" for d in digests)
+        for chunk in batched(names, GAR_DELETE_BATCH_SIZE, strict=False):
+            request = BatchDeleteVersionsRequest(parent=parent, names=chunk)
+            logger.debug("Deleting images", images=chunk)
+            await self._client.batch_delete_versions(request)
 
     async def list_images(
         self, config: GARSource, cycle: int | None = None

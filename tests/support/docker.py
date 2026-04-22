@@ -97,6 +97,33 @@ class MockDockerRegistry:
         assert auth_data == auth_b64
         return Response(200, json={"token": self._token})
 
+    def delete(self, request: Request, digest: str) -> Response:
+        """Simulate the delete image route for a Docker Registry.
+
+        Parameters
+        ----------
+        request
+            Incoming request.
+        digest
+            Digest of image to delete.
+
+        Returns
+        -------
+        httpx.Response
+            Returns 202 if the request is successful.
+        """
+        if not self._check_auth(request):
+            return self._make_auth_challenge()
+        to_delete = None
+        for tag, tag_digest in self.tags.items():
+            if tag_digest == digest:
+                to_delete = tag
+                break
+        if not to_delete:
+            return Response(404)
+        del self.tags[to_delete]
+        return Response(202)
+
     def list_tags(self, request: Request) -> Response:
         """Simulate the list tags route for a Docker Registry.
 
@@ -120,61 +147,6 @@ class MockDockerRegistry:
             return self._return_paginated_response(request)
         else:
             return Response(200, json={"tags": list(self.tags.keys())})
-
-    def _return_paginated_response(self, request: Request) -> Response:
-        """Paginate the tags based on the request parameters.
-
-        Split the list of tags in half, and on first response, return the
-        first half (or slightly less, if there are an odd number of tags). and
-        when given a page parameter, return the rest.
-
-        Parameters
-        ----------
-        request
-            Incoming request.
-
-        Returns
-        -------
-            Returns 200 with the relevant portion of the tag list given the
-            request.
-
-        Notes
-        -----
-        Actual Docker registries behave differently. ghcr.io tells you the
-        last tag it gave you, you tell it that was the last one you saw on the
-        previous call, and it starts from just past there in its list when
-        giving you the next set of tags.
-
-        Docker Hub doesn't paginate tags at all, at least out to the
-        1500-ish tags range.
-
-        Nexus uses an opaque continuation token that presumably maps to a
-        checksum of some pointer into its list of tags.
-        """
-        tags = list(self.tags.keys())
-        midpoint = int(len(tags) / 2)
-
-        # The only parameter we should see is page, which must be 2 to get the
-        # second page. Any other value is incorrect.
-        if request.url.query:
-            query = parse_qs(request.url.query.decode())
-            assert query == {"page": ["2"]}
-            return Response(200, json={"tags": tags[midpoint:]})
-
-        # The request is for the first page. Do pagination. This will
-        # construct a next URL that matches the current URL plus ?page=2 and
-        # stick that in a link header.
-        url = request.url.path
-        if self._netloc_paginate:
-            if not url.startswith("/"):
-                url = "/" + url
-            url = f"https://{request.url.host}{url}"
-        if self._duplicate_url:
-            link_header = f'<{url}>; rel="next"'
-        else:
-            link_header = f'<{url}?page=2>; rel="next"'
-        result = {"tags": tags[:midpoint]}
-        return Response(200, json=result, headers={"Link": link_header})
 
     def get_digest(self, request: Request, tag: str) -> Response:
         """Simulate the image manifest route for a Docker Registry.
@@ -233,6 +205,61 @@ class MockDockerRegistry:
             challenge = f'Basic realm="{self._challenge["realm"]}"'
         return Response(401, headers={"WWW-Authenticate": challenge})
 
+    def _return_paginated_response(self, request: Request) -> Response:
+        """Paginate the tags based on the request parameters.
+
+        Split the list of tags in half, and on first response, return the
+        first half (or slightly less, if there are an odd number of tags). and
+        when given a page parameter, return the rest.
+
+        Parameters
+        ----------
+        request
+            Incoming request.
+
+        Returns
+        -------
+            Returns 200 with the relevant portion of the tag list given the
+            request.
+
+        Notes
+        -----
+        Actual Docker registries behave differently. ghcr.io tells you the
+        last tag it gave you, you tell it that was the last one you saw on the
+        previous call, and it starts from just past there in its list when
+        giving you the next set of tags.
+
+        Docker Hub doesn't paginate tags at all, at least out to the
+        1500-ish tags range.
+
+        Nexus uses an opaque continuation token that presumably maps to a
+        checksum of some pointer into its list of tags.
+        """
+        tags = list(self.tags.keys())
+        midpoint = int(len(tags) / 2)
+
+        # The only parameter we should see is page, which must be 2 to get the
+        # second page. Any other value is incorrect.
+        if request.url.query:
+            query = parse_qs(request.url.query.decode())
+            assert query == {"page": ["2"]}
+            return Response(200, json={"tags": tags[midpoint:]})
+
+        # The request is for the first page. Do pagination. This will
+        # construct a next URL that matches the current URL plus ?page=2 and
+        # stick that in a link header.
+        url = request.url.path
+        if self._netloc_paginate:
+            if not url.startswith("/"):
+                url = "/" + url
+            url = f"https://{request.url.host}{url}"
+        if self._duplicate_url:
+            link_header = f'<{url}>; rel="next"'
+        else:
+            link_header = f'<{url}?page=2>; rel="next"'
+        result = {"tags": tags[:midpoint]}
+        return Response(200, json=result, headers={"Link": link_header})
+
 
 def register_mock_docker(
     respx_mock: respx.Router,
@@ -280,6 +307,7 @@ def register_mock_docker(
     auth_url = f"{base_url}/auth"
     tags_url = f"{base_url}/v2/{config.repository}/tags/list"
     digest_url = f"{base_url}/v2/{config.repository}/manifests/(?P<tag>.*)"
+    delete_url = f"{base_url}/v2/{config.repository}/manifests/(?P<digest>.*)"
 
     credentials = credential_store.get(config.registry)
     assert credentials
@@ -296,4 +324,5 @@ def register_mock_docker(
     respx_mock.get(base_url + "/auth").mock(side_effect=mock.authenticate)
     respx_mock.get(tags_url).mock(side_effect=mock.list_tags)
     respx_mock.head(url__regex=digest_url).mock(side_effect=mock.get_digest)
+    respx_mock.delete(url__regex=delete_url).mock(side_effect=mock.delete)
     return mock

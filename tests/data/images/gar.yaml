@@ -1,0 +1,9 @@
+prune:
+  weekly:
+    cutoffDate: "2077-10-25"
+source:
+  type: "google"
+  location: "us-central1"
+  projectId: "rubin-shared-services-71ec"
+  repository: "sciplat"
+  image: "sciplat-lab"

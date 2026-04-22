@@ -22,6 +22,7 @@ from .constants import ALERT_HOOK_ENV_VAR, ROOT_LOGGER
 from .factory import ImagesFactory
 from .inithome.provisioner import Provisioner
 from .landingpage.provisioner import Provisioner as LandingPageProvisioner
+from .models.images import RSPImageTagCollection
 from .purger.config import Config as PurgerConfig
 from .purger.constants import CONFIG_FILE as PURGER_CONFIG_FILE
 from .purger.constants import CONFIG_FILE_ENV_VAR as PURGER_CONFIG_FILE_ENV_VAR
@@ -148,8 +149,63 @@ async def images_list(
     config.configure_logging()
     async with ImagesFactory.standalone(config) as factory:
         manager = factory.create_images_manager()
-        images = await manager.list_tags(config.source)
-    sys.stdout.write("\n".join(sorted(images)))
+        unsorted_tags = await manager.list_tags(config.source)
+        collection = RSPImageTagCollection.from_tag_names(unsorted_tags)
+        tags = [t.tag for t in collection.all_tags(hide_arch_specific=False)]
+    sys.stdout.write("\n".join(tags))
+    sys.stdout.write("\n")
+
+
+@images.command("prune")
+@click.option(
+    "-a",
+    "--credentials",
+    "docker_credentials_path",
+    type=click.Path(path_type=Path),
+    help="Path to Docker API credentials.",
+)
+@click.option(
+    "-c",
+    "--config",
+    "config_path",
+    type=click.Path(path_type=Path),
+    required=True,
+    help="Path to images configuration.",
+)
+@click.option(
+    "--debug", "-d", is_flag=True, envvar="DEBUG", help="Enable debug logging"
+)
+@click.option(
+    "-n",
+    "--dry-run",
+    is_flag=True,
+    help="Do not act, but report what would be done",
+)
+@run_with_asyncio
+async def images_prune(
+    *,
+    docker_credentials_path: Path | None = None,
+    config_path: Path,
+    debug: bool,
+    dry_run: bool,
+) -> None:
+    """List the available images."""
+    config = ImagesConfig.from_file(
+        config_path,
+        docker_credentials_path=docker_credentials_path,
+        debug=debug,
+    )
+    if not config.prune:
+        raise click.UsageError("No image prune filter defined in config")
+    config.configure_logging()
+    async with ImagesFactory.standalone(config) as factory:
+        manager = factory.create_images_manager()
+        images = await manager.prune_images(
+            config.source, config.prune, dry_run=dry_run
+        )
+    sys.stdout.write("Would delete images" if dry_run else "Deleted images")
+    sys.stdout.write(":\n  ")
+    sys.stdout.write("\n  ".join(images))
     sys.stdout.write("\n")
 
 

@@ -1,0 +1,7 @@
+prune:
+  weekly:
+    cutoffDate: "2021-05-31"
+source:
+  type: "docker"
+  registry: "lighthouse.ceres"
+  repository: "library/sketchbook"

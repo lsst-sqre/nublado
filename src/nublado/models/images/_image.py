@@ -297,7 +297,10 @@ class RSPImageCollection:
             Next image matching the criteria.
         """
         yield from self._collection.filter(
-            policy, age_basis, remove_arch_specific=remove_arch_specific
+            policy,
+            age_basis,
+            invert=invert,
+            remove_arch_specific=remove_arch_specific,
         )
 
     def image_for_digest(self, digest: str) -> RSPImage | None:

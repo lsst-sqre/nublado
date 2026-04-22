@@ -10,6 +10,7 @@ from google.api_core.exceptions import ServiceUnavailable
 from google.cloud import artifactregistry_v1
 from google.cloud.artifactregistry_v1 import (
     ArtifactRegistryAsyncClient,
+    BatchDeleteVersionsRequest,
     DockerImage,
     ListDockerImagesRequest,
 )
@@ -44,6 +45,26 @@ class MockArtifactRegistry(Mock):
         again.
         """
         self._fail = True
+
+    async def batch_delete_versions(
+        self, request: BatchDeleteVersionsRequest
+    ) -> None:
+        """Delete images by digest.
+
+        Parameters
+        ----------
+        request
+            Image list request. Only the ``parent`` field is used.
+        """
+        parent = "/".join(request.parent.split("/")[:-2])
+        images = self._images[parent]
+        to_remove = set()
+        for name in request.names:
+            mangled_name = name.replace("packages", "dockerImages")
+            mangled_name = mangled_name.replace("/versions/", "@")
+            to_remove.add(mangled_name)
+        assert to_remove <= {i.name for i in images}
+        self._images[parent] = [i for i in images if i.name not in to_remove]
 
     async def list_docker_images(
         self, request: ListDockerImagesRequest
