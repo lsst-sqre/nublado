@@ -1,7 +1,6 @@
 """Image source using a Google Artifact Registry."""
 
 from collections.abc import Mapping
-from datetime import UTC, datetime
 from typing import override
 
 from structlog.stdlib import BoundLogger
@@ -153,8 +152,7 @@ class GARImageSource(ImageSource):
             f"Constructing menu from {len(list(self._images.all_images()))}"
             " images"
         )
-        now = datetime.now(tz=UTC)
-        filtered = self._images.filter(self._image_filter, now)
+        filtered = self._images.filter(self._image_filter)
         menu_images = [MenuImage.from_rsp_image(i) for i in filtered]
         self._logger.debug(f"Filtered menu contains {len(menu_images)} images")
         return menu_images
