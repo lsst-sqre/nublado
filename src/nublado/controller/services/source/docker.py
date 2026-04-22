@@ -2,7 +2,6 @@
 
 import asyncio
 from collections.abc import Mapping
-from datetime import UTC, datetime
 from typing import override
 
 from structlog.stdlib import BoundLogger
@@ -210,7 +209,7 @@ class DockerImageSource(ImageSource):
         registry = self._config.registry
         repository = self._config.repository
         menu_images = []
-        for tag in self._tags.filter(self._image_filter, datetime.now(tz=UTC)):
+        for tag in self._tags.filter(self._image_filter):
             image = self._images.image_for_tag_name(tag.tag)
             if image:
                 menu_image = MenuImage.from_rsp_image(image)

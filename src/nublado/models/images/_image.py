@@ -270,7 +270,7 @@ class RSPImageCollection:
     def filter(
         self,
         policy: ImageFilterPolicy,
-        age_basis: datetime,
+        age_basis: datetime | None = None,
         *,
         invert: bool = False,
         remove_arch_specific: bool = True,
@@ -282,7 +282,8 @@ class RSPImageCollection:
         policy
             Policy governing tag filtering.
         age_basis
-            Timestamp to use as basis for image age calculation.
+            Timestamp to use as basis for image age calculation. If `None` or
+            not given, use the current time.
         invert
             Invert the filtering: Return only images that are not accepted by
             the filter.

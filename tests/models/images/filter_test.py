@@ -152,8 +152,7 @@ def test_filter_semver() -> None:
     )
 
     # Run the filter and check the results. The age basis shouldn't matter.
-    now = datetime.now(tz=UTC)
-    filtered_tags = [x.tag for x in collection.filter(policy, now)]
+    filtered_tags = [x.tag for x in collection.filter(policy)]
     assert filtered_tags == [
         "r28_0_1",
         "w_2025_07",
