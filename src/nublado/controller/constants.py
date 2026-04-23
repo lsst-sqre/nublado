@@ -91,6 +91,7 @@ RESERVED_ENV = {
     "KUBERNETES_NODE_NAME",
     "MEM_GUARANTEE",
     "MEM_LIMIT",
+    "MIGRATOR_POD_REGEX",
     "RESET_USER_ENV",
 }
 """Environment variables reserved to the controller or JupyterHub.

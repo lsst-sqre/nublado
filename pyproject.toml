@@ -180,6 +180,9 @@ skip-magic-trailing-comma = true
 "jupyterlab-base/src/rubin/nublado/startup/_launch.py" = [
     "S606",    # intentionally calling os.execvpe
 ]
+"src/nublado/migrator/_exceptions.py" = [
+    "T201",    # This function does indeed print to stderr
+]
 "src/nublado/controller/constants.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
 ]

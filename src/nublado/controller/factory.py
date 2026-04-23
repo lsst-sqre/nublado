@@ -28,6 +28,7 @@ from .services.fileserver import FileserverManager
 from .services.fsadmin import FSAdminManager
 from .services.image import ImageService
 from .services.lab import LabManager
+from .services.migrator import MigratorManager
 from .services.prepuller import Prepuller
 from .services.source.base import ImageSource
 from .services.source.docker import DockerImageSource
@@ -35,6 +36,7 @@ from .services.source.gar import GARImageSource
 from .storage.kubernetes.fileserver import FileserverStorage
 from .storage.kubernetes.fsadmin import FSAdminStorage
 from .storage.kubernetes.lab import LabStorage
+from .storage.kubernetes.migrator import MigratorStorage
 from .storage.kubernetes.node import NodeStorage
 from .storage.kubernetes.pod import PodStorage
 from .storage.metadata import MetadataStorage
@@ -83,6 +85,9 @@ class ProcessContext:
 
     _fileserver_manager: FileserverManager | None
     """State management for user file servers."""
+
+    migrator_manager: MigratorManager
+    """State management for user migration."""
 
     background: BackgroundTaskManager
     """Manager for background tasks."""
@@ -211,20 +216,33 @@ class ProcessContext:
         await event_manager.initialize()
         lab_events = LabEvents()
         await lab_events.initialize(event_manager)
+        lab_builder = LabBuilder(
+            config=config.lab,
+            base_url=config.base_url,
+            discovery_client=discovery_client,
+            logger=logger,
+        )
         lab_manager = LabManager(
             config=config.lab,
             image_service=image_service,
-            lab_builder=LabBuilder(
-                config=config.lab,
-                base_url=config.base_url,
-                discovery_client=discovery_client,
-                logger=logger,
-            ),
             metadata_storage=metadata_storage,
+            lab_builder=lab_builder,
             lab_storage=LabStorage(
                 kubernetes_client, config.watch_reconnect_timeout, logger
             ),
             events=lab_events,
+            slack_client=slack_client,
+            logger=logger,
+        )
+        migrator_manager = MigratorManager(
+            config=config,
+            lab_builder=lab_builder,
+            migrator_storage=MigratorStorage(
+                metadata_storage=metadata_storage,
+                api_client=kubernetes_client,
+                reconnect_timeout=config.watch_reconnect_timeout,
+                logger=logger,
+            ),
             slack_client=slack_client,
             logger=logger,
         )
@@ -239,6 +257,7 @@ class ProcessContext:
             lab_manager=lab_manager,
             fsadmin_manager=fsadmin_manager,
             _fileserver_manager=fileserver_manager,
+            migrator_manager=migrator_manager,
             background=BackgroundTaskManager(
                 config=config,
                 image_service=image_service,

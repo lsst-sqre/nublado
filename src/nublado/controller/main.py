@@ -26,6 +26,7 @@ from .handlers import (
     fsadmin,
     index,
     labs,
+    migrator,
     prepuller,
     user_status,
 )
@@ -110,6 +111,7 @@ def create_app(*, load_config: bool = True) -> FastAPI:
     app.include_router(index.external_router, prefix=path_prefix)
     app.include_router(form.router, prefix=path_prefix)
     app.include_router(labs.router, prefix=path_prefix)
+    app.include_router(migrator.router, prefix=path_prefix)
     app.include_router(prepuller.router, prefix=path_prefix)
     app.include_router(user_status.router, prefix=path_prefix)
     app.include_router(fileserver.router, prefix=path_prefix)
