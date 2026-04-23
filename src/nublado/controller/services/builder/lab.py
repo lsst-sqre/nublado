@@ -56,10 +56,18 @@ from ....models.images import RSPImage
 from ...config import (
     EmptyDirSource,
     LabConfig,
+    LabFileBrowserRoot,
     PVCVolumeSource,
     UserHomeDirectorySchema,
 )
 from ...constants import ARGO_CD_ANNOTATIONS, MEMORY_TO_TMP_SIZE_RATIO
+from ...models.domain.config import (
+    UIConfig,
+    UIConfigPrimitive,
+    UIContainerResource,
+    UIImageSpecification,
+    UIResources,
+)
 from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
 from ...models.domain.volumes import MountedVolume
 from ...models.v1.lab import (
@@ -188,7 +196,7 @@ class LabBuilder:
         return LabObjects(
             namespace=self._build_namespace(user),
             env_config_map=self._build_env_config_map(user, lab, image),
-            config_maps=await self._build_config_maps(user),
+            config_maps=await self._build_config_maps(user, lab, image),
             network_policy=self._build_network_policy(user.username),
             pvcs=self._build_pvcs(user.username),
             quota=self._build_quota(user),
@@ -322,12 +330,12 @@ class LabBuilder:
         return V1Namespace(metadata=metadata)
 
     async def _build_config_maps(
-        self, user: GafaelfawrUserInfo
+        self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
     ) -> list[V1ConfigMap]:
         """Build the config maps used by the user's lab pod."""
         return [
             self._build_nss_config_map(user),
-            await self._build_file_config_map(user.username),
+            await self._build_file_config_map(user, lab, image),
         ]
 
     def _build_env_config_map(
@@ -394,17 +402,82 @@ class LabBuilder:
             data=env,
         )
 
-    async def _build_file_config_map(self, username: str) -> V1ConfigMap:
+    async def _build_config_dict(
+        self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
+    ) -> UIConfigPrimitive:
+        """Build the dict holding configuration used by the UI."""
+        size = self._config.get_size_definition(lab.options.size)
+        resources = size.resources
+        return UIConfig(
+            container_size=str(size),
+            debug=lab.options.enable_debug,
+            enable_landing_page=self._config.enable_landing_page,
+            enable_queries_menu=self._config.enable_queries_menu,
+            enable_tutorials_menu=self._config.enable_tutorials_menu,
+            file_browser_root=str(self._config.file_browser_root.value),
+            home_relative_to_file_browser_root=self._build_relative_home(user),
+            image=UIImageSpecification(
+                description=image.display_name,
+                digest=image.digest,
+                spec=image.reference_with_digest,
+            ),
+            jupyterlab_config_dir=self._config.jupyterlab_config_dir,
+            repertoire_base_url=os.environ.get("REPERTOIRE_BASE_URL", ""),
+            reset_user_env=lab.options.reset_user_env,
+            resources=UIResources(
+                limits=UIContainerResource(
+                    cpu=resources.limits.cpu, memory=resources.limits.memory
+                ),
+                requests=UIContainerResource(
+                    cpu=resources.requests.cpu,
+                    memory=resources.requests.memory,
+                ),
+            ),
+            runtime_mounts_dir=self._config.runtime_mounts_dir,
+            statusbar=await self._build_statusbar(image),
+        ).to_dict()
+
+    def _build_relative_home(self, user: GafaelfawrUserInfo) -> str:
+        if self._config.file_browser_root == LabFileBrowserRoot.HOME:
+            return ""
+        return self._build_home_directory(user.username).lstrip("/")
+
+    async def _build_statusbar(self, image: RSPImage) -> str:
+        descr = image.display_name
+        spec = image.reference_with_digest
+        digest = image.digest
+        digest_str = f" [{digest[0:8]}...]"
+        img_arr = spec.split("/")
+        try:
+            pullname, _ = img_arr[-1].split("@", 1)
+            imagename = f" ({pullname})"
+        except ValueError:
+            imagename = ""
+        ename = await self._discovery.environment_name()
+        if not ename:
+            ename = "Nublado Lab Aspect"
+        env_name = f" {ename}"
+        return descr + digest_str + imagename + env_name
+
+    async def _build_file_config_map(
+        self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
+    ) -> V1ConfigMap:
         """Build the config map holding supplemental mounted files."""
         discovery_dict = await self._discovery.build_nublado_dict()
         discovery_json = json.dumps(discovery_dict, sort_keys=True, indent=2)
-        data = {"discovery-v1-json": discovery_json}
+        config_dict = await self._build_config_dict(user, lab, image)
+        config_json = json.dumps(config_dict, sort_keys=True, indent=2)
+        data = {
+            "discovery-v1-json": discovery_json,
+            "config.json": config_json,
+        }
         if self._config.files:
             extra_files = {
                 re.sub(r"[_.]", "-", Path(k).name): v
                 for k, v in self._config.files.items()
             }
             data.update(extra_files)
+        username = user.username
         return V1ConfigMap(
             metadata=self._build_metadata(f"{username}-nb-files", username),
             immutable=True,
@@ -922,12 +995,11 @@ class LabBuilder:
             )
             containers.append(container)
 
-        # If it's a "science" type site, we run the "set up a landing page"
-        # container before startup.
+        # Enable the custom landing page if requested.
         #
         # We want all the mounts because we are copying tutorials material from
         # a shared, read-only filesystem into the user home directory.
-        if self._config.env.get("RSP_SITE_TYPE", "") == "science":
+        if self._config.enable_landing_page:
             container = self._build_nublado_initcontainer(
                 function="landingpage",
                 env=env,

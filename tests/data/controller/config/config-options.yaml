@@ -5,7 +5,9 @@ lab:
   namespacePrefix: userlabs
   emptyDirSource: disk
   enable_landing_page: true
-  homeVolumeName: noplacelikehome
+  enable_queries_menu: true
+  enable_tutorials_menu: true
+  file_browser_root: root
   sizes:
     - size: small
       resources:
@@ -16,14 +18,14 @@ lab:
           cpu: 0.25
           memory: 0.75Gi
   volumes:
-    - name: noplacelikehome
+    - name: home
       source:
         type: nfs
         server: 10.13.105.122
         serverPath: /share1/home
   volumeMounts:
     - containerPath: /home
-      volumeName: noplacelikehome
+      volumeName: home
 images:
   source:
     type: docker

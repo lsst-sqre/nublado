@@ -704,6 +704,16 @@ class UserHomeDirectorySchema(Enum):
     """Paths like ``/home/r/rachel``."""
 
 
+class LabFileBrowserRoot(Enum):
+    """Where the top of the Lab file browser is."""
+
+    HOME = "home"
+    """Start at the user home directory."""
+
+    ROOT = "root"
+    """Start at the container root."""
+
+
 class LabInitContainer(BaseModel):
     """A container to run as an init container before the user's lab."""
 
@@ -916,6 +926,34 @@ class LabConfig(BaseModel):
         ),
     ] = EmptyDirSource.MEMORY
 
+    enable_landing_page: Annotated[
+        bool,
+        Field(
+            title="Enable landing page",
+            description=(
+                "Whether to enable a custom landing page for the Lab UI"
+            ),
+        ),
+    ] = False
+
+    enable_queries_menu: Annotated[
+        bool,
+        Field(
+            title="Enable TAP queries menu",
+            description=(
+                "Whether to enable the TAP queries menu in the Lab UI"
+            ),
+        ),
+    ] = False
+
+    enable_tutorials_menu: Annotated[
+        bool,
+        Field(
+            title="Enable query menu",
+            description=("Whether to enable the tutorials menu in the Lab UI"),
+        ),
+    ] = False
+
     env: Annotated[
         dict[Annotated[str, AfterValidator(_reject_reserved_env)], str],
         Field(
@@ -938,6 +976,17 @@ class LabConfig(BaseModel):
             ),
         ),
     ] = {}
+
+    file_browser_root: Annotated[
+        LabFileBrowserRoot,
+        Field(
+            title="Root of file browser in Lab UI",
+            description=(
+                "This chooses between starting the filebrowser with its top at"
+                " the user home directory or at the container root."
+            ),
+        ),
+    ] = LabFileBrowserRoot.HOME
 
     files: Annotated[
         dict[Annotated[str, AfterValidator(_reject_reserved_paths)], str],
