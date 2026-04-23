@@ -785,8 +785,8 @@ class RSPImageTagCollection[T: RSPImageTag]:
         tag_filter = self._build_filter(policy, age_basis)
         if invert:
             all_tags = list(candidate_tags)
-            remove_tags = set(tag_filter(all_tags))
-            yield from (t for t in all_tags if t not in remove_tags)
+            remove_tags = {t.tag for t in tag_filter(all_tags)}
+            yield from (t for t in all_tags if t.tag not in remove_tags)
         else:
             yield from tag_filter(candidate_tags)
 

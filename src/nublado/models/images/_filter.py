@@ -1,6 +1,5 @@
 """Policy for selecting images based on filter criteria."""
 
-from datetime import datetime
 from typing import Annotated
 
 from pydantic import (
@@ -11,7 +10,7 @@ from pydantic import (
     PlainSerializer,
 )
 from pydantic.alias_generators import to_camel
-from safir.pydantic import HumanTimedelta
+from safir.pydantic import HumanTimedelta, UtcDatetime
 from semver import Version
 
 from ._type import RSPImageType
@@ -65,7 +64,7 @@ class ImageFilter(BaseModel):
     ] = None
 
     cutoff_date: Annotated[
-        datetime | None,
+        UtcDatetime | None,
         Field(
             title="Cutoff date",
             description=(

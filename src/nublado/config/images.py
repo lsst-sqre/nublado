@@ -9,7 +9,7 @@ from pydantic.alias_generators import to_camel
 from safir.logging import LogLevel, Profile, configure_logging
 
 from ..constants import DOCKER_CREDENTIALS_PATH, ROOT_LOGGER
-from ..models.images import DockerSource, GARSource
+from ..models.images import DockerSource, GARSource, ImageFilterPolicy
 from .base import CamelEnvFirstSettings
 
 __all__ = [
@@ -73,6 +73,17 @@ class ImagesConfig(CamelEnvFirstSettings):
     log_profile: Annotated[Profile, Field(title="Logging profile")] = (
         Profile.production
     )
+
+    prune: Annotated[
+        ImageFilterPolicy | None,
+        Field(
+            title="Prune policy",
+            description=(
+                "Policy describing which images to retain. All others will be"
+                " pruned."
+            ),
+        ),
+    ] = None
 
     source: Annotated[
         ImageSourceConfig,

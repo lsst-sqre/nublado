@@ -7,6 +7,7 @@ __all__ = [
     "ALERT_HOOK_ENV_VAR",
     "DOCKER_CREDENTIALS_PATH",
     "ENV_PREFIX",
+    "GAR_DELETE_BATCH_SIZE",
     "GAR_RETRY_DELAY",
     "GAR_RETRY_LIMIT",
     "ROOT_LOGGER",
@@ -20,6 +21,9 @@ ALERT_HOOK_ENV_VAR = f"{ENV_PREFIX}_ALERT_HOOK"
 
 DOCKER_CREDENTIALS_PATH = Path("/etc/secrets/.dockerconfigjson")
 """Default path to the Docker API secrets."""
+
+GAR_DELETE_BATCH_SIZE = 50
+"""Number of images to delete from Google Artifact Registry at a time."""
 
 GAR_RETRY_DELAY = timedelta(seconds=10)
 """How long to wait between Google Artifact Registry retries."""

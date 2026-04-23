@@ -57,6 +57,34 @@ class DockerStorageClient:
         # obtained via API calls.
         self._authorization: dict[str, str] = {}
 
+    async def delete_image(self, config: DockerSource, digest: str) -> None:
+        """Delete an image by digest.
+
+        Parameters
+        ----------
+        config
+            Configuration for the repository.
+        digest
+            Digest of image to delete.
+
+        Raises
+        ------
+        DockerError
+            Raised if unable to delete the image from the Docker registry.
+        """
+        logger = self._logger.bind(**config.to_logging_context())
+        url = config.url_for(f"manifests/{digest}")
+        headers = self._build_headers(config.registry)
+        logger.debug("Deleting image", image=digest)
+        try:
+            r = await self._client.delete(url, headers=headers)
+            if r.status_code == 401:
+                headers = await self._authenticate(config.registry, r, logger)
+                r = await self._client.delete(url, headers=headers)
+            r.raise_for_status()
+        except HTTPError as e:
+            raise DockerError.from_exception(e) from e
+
     async def get_image_digest(self, config: DockerSource, tag: str) -> str:
         """Get the digest associated with an image tag.
 
@@ -75,9 +103,9 @@ class DockerStorageClient:
         Raises
         ------
         DockerError
-            Unable to retrieve the digest from the Docker Registry.
+            Raised if unable to retrieve the digest from the Docker registry.
         """
-        logger = self._logger.bind(**config.to_logging_context())
+        logger = self._logger.bind(**config.to_logging_context(), tag=tag)
         url = config.url_for(f"manifests/{tag}")
         headers = self._build_headers(config.registry, manifest=True)
         try:
@@ -94,9 +122,7 @@ class DockerStorageClient:
             msg = f"Cannot get image digest from Docker registry: {error}"
             raise DockerError(msg, method="GET", url=url) from e
         else:
-            self._logger.debug(
-                "Retrieved image digest for tag", tag=tag, digest=digest
-            )
+            logger.debug("Retrieved image digest for tag", digest=digest)
             return digest
 
     async def list_tags(self, config: DockerSource) -> set[str]:
@@ -111,6 +137,11 @@ class DockerStorageClient:
         -------
         set of str
             All the non-platform-specific tags found for that repository.
+
+        Raises
+        ------
+        DockerError
+            Raised if unable to list tags from the Docker registry.
         """
         logger = self._logger.bind(**config.to_logging_context())
         url = config.url_for("tags/list")
@@ -182,7 +213,8 @@ class DockerStorageClient:
         Raises
         ------
         DockerError
-            Some failure in talking to the Docker registry API server.
+            Raised if there was some failure in talking to the Docker registry
+            API server.
         """
         if host in self._authorization:
             msg = f"Authentication credentials for {host} rejected"
@@ -202,7 +234,7 @@ class DockerStorageClient:
 
         if challenge_type == "basic":
             self._authorization[host] = credentials.authorization
-            logger.info(
+            logger.debug(
                 "Authenticated to Docker API with basic auth",
                 username=credentials.username,
             )
@@ -210,7 +242,7 @@ class DockerStorageClient:
             # Bearer is used by Docker's official registry.
             token = await self._get_bearer_token(host, params, logger)
             self._authorization[host] = f"Bearer {token}"
-            logger.info(
+            logger.debug(
                 "Authenticated to Docker API with bearer token",
                 username=credentials.username,
             )
@@ -272,7 +304,8 @@ class DockerStorageClient:
         Raises
         ------
         DockerError
-            Some failure in talking to the Docker registry API server.
+            Raised if there was some failure in talking to the Docker registry
+            API server.
         """
         credentials = self._credentials.get(host)
         if not credentials:
@@ -291,7 +324,7 @@ class DockerStorageClient:
         url = params["realm"]
 
         # Request a bearer token.
-        logger.info(
+        logger.debug(
             "Obtaining Docker API bearer token",
             url=url,
             username=credentials.username,
