@@ -7,7 +7,7 @@
   "display_name": "Weekly 2021_22 (RSP Build 19) [arm64]",
   "extra": null,
   "image_type": "Weekly",
-  "rsp_build": 19,
+  "build": 19,
   "semantic": false,
   "tag": "w_2021_22_rsp19-arm64",
   "version": {

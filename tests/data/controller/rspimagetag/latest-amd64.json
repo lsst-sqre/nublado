@@ -7,7 +7,7 @@
   "display_name": "latest [amd64]",
   "extra": null,
   "image_type": "Unknown",
-  "rsp_build": null,
+  "build": null,
   "semantic": false,
   "tag": "latest-amd64",
   "version": null

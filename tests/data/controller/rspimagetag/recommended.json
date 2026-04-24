@@ -7,7 +7,7 @@
   "display_name": "recommended",
   "extra": null,
   "image_type": "Unknown",
-  "rsp_build": null,
+  "build": null,
   "semantic": false,
   "tag": "recommended",
   "version": null
