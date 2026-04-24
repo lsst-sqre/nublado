@@ -42,7 +42,7 @@ _UNKNOWN_WITH_CYCLE = r"(?P<tag>.*?)_c(?P<cycle>\d+)"
 # c0020.002
 _CYCLE = r"(?:_c(?P<cycle>\d+)\.(?P<cbuild>\d+))?"
 # rsp19
-_RSP = r"(?:_rsp(?P<rspbuild>\d+))?"
+_RSP = r"(?:_rsp(?P<build>\d+))?"
 # _whatever_your_heart_desires (non-greedy since architecture may follow)
 _REST = r"(?:_(?P<rest>.+?))?"
 # -amd64 or -arm64
@@ -121,7 +121,7 @@ class RSPImageTag:
     cycle_build: int | None = None
     """XML schema build number (only for T&S builds)."""
 
-    rsp_build: int | None = None
+    build: int | None = None
     """Version number of the RSP build machinery."""
 
     architecture: str | None = None
@@ -237,7 +237,7 @@ class RSPImageTag:
             "base": self.base,
             "cycle": self.cycle,
             "cycle_build": self.cycle_build,
-            "rsp_build": self.rsp_build,
+            "build": self.build,
             "architecture": self.architecture,
             "extra": self.extra,
             "date": format_datetime_for_logging(self.date),
@@ -267,7 +267,7 @@ class RSPImageTag:
         base = None
         cycle = data.get("cycle")
         cycle_build = data.get("cbuild")
-        rsp_build = data.get("rspbuild")
+        build = data.get("build")
         extra = data.get("rest")
         architecture = data.get("arch")
 
@@ -305,8 +305,8 @@ class RSPImageTag:
                 display_name += f" (SAL Cycle {cycle}, Build {cycle_build})"
             else:
                 display_name += f" (SAL Cycle {cycle})"
-        if rsp_build is not None:
-            display_name += f" (RSP Build {rsp_build})"
+        if build is not None:
+            display_name += f" (RSP Build {build})"
         if extra:
             display_name += f" [{extra}]"
         if architecture:
@@ -322,7 +322,7 @@ class RSPImageTag:
             base=base,
             cycle=int(cycle) if cycle else None,
             cycle_build=int(cycle_build) if cycle_build else None,
-            rsp_build=int(rsp_build) if rsp_build else None,
+            build=int(build) if build else None,
             architecture=architecture,
             extra=extra,
             date=cls._calculate_date(data),
@@ -448,7 +448,7 @@ class RSPImageTag:
             return rank
         if rank := self._compare_int(self.cycle_build, other.cycle_build):
             return rank
-        if rank := self._compare_int(self.rsp_build, other.rsp_build):
+        if rank := self._compare_int(self.build, other.build):
             return rank
         if rank := self._compare_str(self.extra, other.extra):
             return rank
@@ -731,7 +731,7 @@ class RSPImageTagCollection[T: RSPImageTag]:
             for tag in tags:
                 if remove_arch_specific and tag.architecture:
                     continue
-                if tag.rsp_build and build and tag.rsp_build < build:
+                if tag.build and build and tag.build < build:
                     continue
                 if tag.date and date and tag.date < date:
                     continue

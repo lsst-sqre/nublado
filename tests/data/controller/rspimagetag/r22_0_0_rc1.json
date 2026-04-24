@@ -7,7 +7,7 @@
   "display_name": "Release Candidate r22.0.0-rc1",
   "extra": null,
   "image_type": "Release Candidate",
-  "rsp_build": null,
+  "build": null,
   "semantic": true,
   "tag": "r22_0_0_rc1",
   "version": {

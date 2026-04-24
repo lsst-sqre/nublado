@@ -86,7 +86,7 @@ def test_alias() -> None:
         "semantic": False,
         "cycle": None,
         "cycle_build": None,
-        "rsp_build": None,
+        "build": None,
         "architecture": None,
         "extra": None,
         "date": None,
@@ -103,7 +103,7 @@ def test_alias() -> None:
         "semantic": False,
         "cycle": 46,
         "cycle_build": None,
-        "rsp_build": None,
+        "build": None,
         "architecture": None,
         "extra": None,
         "date": None,
@@ -120,7 +120,7 @@ def test_alias() -> None:
         "semantic": False,
         "cycle": None,
         "cycle_build": None,
-        "rsp_build": None,
+        "build": None,
         "architecture": "amd64",
         "extra": None,
         "date": None,
@@ -135,7 +135,7 @@ def test_alias() -> None:
         "semantic": False,
         "cycle": 46,
         "cycle_build": None,
-        "rsp_build": None,
+        "build": None,
         "architecture": "arm64",
         "extra": None,
         "date": None,
@@ -264,7 +264,7 @@ def test_from_str(data: NubladoData) -> None:
         "semantic": False,
         "cycle": None,
         "cycle_build": None,
-        "rsp_build": None,
+        "build": None,
         "architecture": None,
         "extra": None,
         "date": None,
@@ -278,7 +278,7 @@ def test_from_str(data: NubladoData) -> None:
         "semantic": False,
         "cycle": None,
         "cycle_build": None,
-        "rsp_build": None,
+        "build": None,
         "architecture": None,
         "extra": None,
         "date": None,
@@ -290,7 +290,7 @@ def test_from_str(data: NubladoData) -> None:
 )
 @pytest.mark.parametrize("experimental", [True, False])
 @pytest.mark.parametrize("cycle", [None, ("0020", "001")])
-@pytest.mark.parametrize("rsp_build", [None, 19])
+@pytest.mark.parametrize("build", [None, 19])
 @pytest.mark.parametrize("extra", [None, "20210527", "random"])
 @pytest.mark.parametrize("architecture", [None, "amd64"])
 def test_from_str_varient(
@@ -300,7 +300,7 @@ def test_from_str_varient(
     experimental: bool,
     cycle: tuple[str, str] | None,
     extra: str | None,
-    rsp_build: int | None,
+    build: int | None,
     architecture: str | None,
 ) -> None:
     """Test all the variations of each tag.
@@ -322,10 +322,10 @@ def test_from_str_varient(
         expected["cycle_build"] = int(cycle[1])
         extra_display = f" (SAL Cycle {cycle[0]}, Build {cycle[1]})"
         expected["display_name"] += extra_display
-    if rsp_build:
-        tag += f"_rsp{rsp_build}"
-        expected["display_name"] += f" (RSP Build {rsp_build})"
-        expected["rsp_build"] = rsp_build
+    if build:
+        tag += f"_rsp{build}"
+        expected["display_name"] += f" (RSP Build {build})"
+        expected["build"] = build
     if extra:
         tag += f"_{extra}"
         expected["display_name"] += f" [{extra}]"

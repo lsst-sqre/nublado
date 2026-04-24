@@ -45,7 +45,7 @@ def test_image() -> None:
         "base": None,
         "cycle": None,
         "cycle_build": None,
-        "rsp_build": None,
+        "build": None,
         "architecture": None,
         "extra": None,
         "date": datetime(2077, 10, 23, tzinfo=UTC),
@@ -143,7 +143,7 @@ def test_resolve_alias_arch() -> None:
         tag=RSPImageTag.from_str("r21_0_2_rsp64_stuff-amd64"),
         digest="sha256:1234",
     )
-    assert image.rsp_build == 64
+    assert image.build == 64
     assert image.architecture == "amd64"
 
     latest = RSPImage.from_tag(

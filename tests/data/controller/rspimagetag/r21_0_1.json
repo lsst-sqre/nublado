@@ -7,7 +7,7 @@
   "display_name": "Release r21.0.1",
   "extra": null,
   "image_type": "Release",
-  "rsp_build": null,
+  "build": null,
   "semantic": true,
   "tag": "r21_0_1",
   "version": {
