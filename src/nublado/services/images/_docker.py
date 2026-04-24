@@ -1,5 +1,6 @@
 """Image manager implementation for the Docker API."""
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import override
 
@@ -32,6 +33,14 @@ class DockerImagesManager(ImagesManager[DockerSource]):
     ) -> None:
         self._client = docker_client
         self._logger = logger
+
+    @override
+    async def delete_tags(
+        self, config: DockerSource, tags: Iterable[str]
+    ) -> None:
+        for tag in tags:
+            digest = await self._client.get_image_digest(config, tag)
+            await self._client.delete_image(config, digest)
 
     @override
     async def list_tags(self, config: DockerSource) -> set[str]:

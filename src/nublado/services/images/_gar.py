@@ -1,5 +1,6 @@
 """Image manager implementation for the Google Artifact Registry API."""
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import override
 
@@ -28,6 +29,18 @@ class GARImagesManager(ImagesManager[GARSource]):
     ) -> None:
         self._client = gar_client
         self._logger = logger
+
+    @override
+    async def delete_tags(
+        self, config: GARSource, tags: Iterable[str]
+    ) -> None:
+        images = await self._client.list_images(config)
+        digests = []
+        for tag in tags:
+            image = images.image_for_tag_name(tag)
+            if image:
+                digests.append(image.digest)
+        await self._client.delete_images(config, digests)
 
     @override
     async def list_tags(self, config: GARSource) -> set[str]:
