@@ -63,6 +63,18 @@ class ImageFilter(BaseModel):
         ),
     ] = None
 
+    cutoff_build: Annotated[
+        int | None,
+        Field(
+            title="Cutoff build number",
+            description=(
+                "Minimum build number for images containing a build number."
+                " If the image tag has no build number, this constraint is"
+                " ignored."
+            ),
+        ),
+    ] = None
+
     cutoff_date: Annotated[
         UtcDatetime | None,
         Field(

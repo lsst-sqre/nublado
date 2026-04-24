@@ -17,6 +17,8 @@ def test_filter() -> None:
     tags = [
         "recommended",
         "recommended-amd64",
+        "r29_2_1_rsp2742",
+        "r29_2_1_rsp2332",
         "r28_0_1",
         "r28_0_1-amd64",
         "r28_0_0",
@@ -48,13 +50,15 @@ def test_filter() -> None:
     recommended = {"recommended", "recommended-amd64"}
     collection = RSPImageTagCollection.from_tag_names(tags, recommended)
 
-    # Create image policy. This should return three releases, two weeklies,
-    # two dailies (due to the age policy; the number policy will have no
-    # effect), one release candidate (from the number policy, version will
-    # have no effect), and one experimental.
+    # Create image policy. This should return four releases (dropping one due
+    # to the RSP build restriction and another due to the version
+    # restriction), two weeklies, two dailies (due to the age policy; the
+    # number policy will have no effect), one release candidate (from the
+    # number policy, version will have no effect), and one experimental.
     policy = ImageFilterPolicy(
         release=ImageFilter(
-            cutoff_version=Version(major=27, minor=0, patch=0)
+            cutoff_build=2600,
+            cutoff_version=Version(major=27, minor=0, patch=0),
         ),
         weekly=ImageFilter(age=timedelta(weeks=2)),
         daily=ImageFilter(age=timedelta(days=2), number=4),
@@ -69,6 +73,7 @@ def test_filter() -> None:
     filtered_tags = [x.tag for x in collection.filter(policy, age_basis)]
     assert filtered_tags == [
         "recommended",
+        "r29_2_1_rsp2742",
         "r28_0_1",
         "r28_0_0",
         "r27_0_0",
@@ -102,6 +107,7 @@ def test_filter() -> None:
     assert filtered_tags == [
         "recommended",
         "recommended-amd64",
+        "r29_2_1_rsp2742",
         "r28_0_1",
         "r28_0_1-amd64",
         "r28_0_0",
