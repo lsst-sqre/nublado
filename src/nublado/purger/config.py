@@ -1,71 +1,25 @@
 """Application configuration for the purger."""
 
 from pathlib import Path
-from typing import Annotated, Self, override
+from typing import Annotated, Self
 
 import yaml
-from pydantic import AliasChoices, Field, SecretStr
-from pydantic_settings import (
-    BaseSettings,
-    PydanticBaseSettingsSource,
-    SettingsConfigDict,
-)
+from pydantic import Field, SecretStr
 from safir.logging import LogLevel, Profile, configure_logging
 from safir.pydantic import HumanTimedelta
 
-from .constants import ENV_PREFIX, POLICY_FILE, ROOT_LOGGER
+from ..config.base import CamelEnvFirstSettings
+from .constants import POLICY_FILE, ROOT_LOGGER
 
-__all__ = ["Config", "EnvFirstSettings"]
-
-
-class EnvFirstSettings(BaseSettings):
-    """Base class for Pydantic settings with environment overrides.
-
-    Classes that inherit from this base class will prioritize environment
-    variables over arguments to the class constructor.
-    """
-
-    model_config = SettingsConfigDict(
-        env_prefix=ENV_PREFIX, extra="forbid", validate_by_name=True
-    )
-
-    @override
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: type[BaseSettings],
-        init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
-    ) -> tuple[PydanticBaseSettingsSource, ...]:
-        """Override the sources of settings.
-
-        Deactivate :file:`.env` and secret file support, since Phalanx doesn't
-        use them. Allow environment variables to override init parameters,
-        since init parameters come from the YAML configuration file and we
-        want environment variables to take precedent.
-
-        Ideally, this code would use Pydantic's ``YamlConfigSettingsSource``,
-        but unfortunately it currently doesn't support overriding the path to
-        the configuration file dynamically, which is required by the test
-        suite.
-        """
-        return (env_settings, init_settings)
+__all__ = ["Config"]
 
 
-class Config(EnvFirstSettings):
+class Config(CamelEnvFirstSettings):
     """Configuration for the purger."""
 
-    policy_file: Annotated[
-        Path,
-        Field(
-            title="Policy file location",
-            validation_alias=AliasChoices(
-                ENV_PREFIX + "POLICY_FILE", "policyFile"
-            ),
-        ),
-    ] = POLICY_FILE
+    policy_file: Annotated[Path, Field(title="Policy file location")] = (
+        POLICY_FILE
+    )
 
     debug: Annotated[
         bool,
@@ -79,51 +33,22 @@ class Config(EnvFirstSettings):
     ] = False
 
     dry_run: Annotated[
-        bool,
-        Field(
-            title="Report rather than execute plan",
-            validation_alias=AliasChoices(ENV_PREFIX + "DRY_RUN", "dryRun"),
-        ),
+        bool, Field(title="Report rather than execute plan")
     ] = False
 
     future_duration: Annotated[
         HumanTimedelta | None,
-        Field(
-            title="Duration into the future to use for planning purposes",
-            validation_alias=AliasChoices(
-                ENV_PREFIX + "FUTURE_DURATION", "futureDuration"
-            ),
-        ),
+        Field(title="Duration into the future to use for planning purposes"),
     ] = None
 
-    log_profile: Annotated[
-        Profile,
-        Field(
-            title="Logging profile",
-            validation_alias=AliasChoices(
-                ENV_PREFIX + "LOG_PROFILE", "logProfile"
-            ),
-        ),
-    ] = Profile.production
+    log_profile: Annotated[Profile, Field(title="Logging profile")] = (
+        Profile.production
+    )
 
-    log_level: Annotated[
-        LogLevel,
-        Field(
-            title="Log level",
-            validation_alias=AliasChoices(
-                ENV_PREFIX + "LOG_LEVEL", "logLevel"
-            ),
-        ),
-    ] = LogLevel.INFO
+    log_level: Annotated[LogLevel, Field(title="Log level")] = LogLevel.INFO
 
     add_timestamp: Annotated[
-        bool,
-        Field(
-            title="Add timestamp to log lines",
-            validation_alias=AliasChoices(
-                ENV_PREFIX + "ADD_TIMESTAMP", "addTimestamp"
-            ),
-        ),
+        bool, Field(title="Add timestamp to log lines")
     ] = False
 
     alert_hook: Annotated[
@@ -133,9 +58,6 @@ class Config(EnvFirstSettings):
             description=(
                 "An https URL, which should be considered secret."
                 " If not set or set to `None`, this feature will be disabled."
-            ),
-            validation_alias=AliasChoices(
-                ENV_PREFIX + "ALERT_HOOK", "alertHook"
             ),
         ),
     ] = None
