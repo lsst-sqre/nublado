@@ -111,7 +111,8 @@ class DockerStorageClient:
         try:
             r = await self._client.head(url, headers=headers)
             if r.status_code == 401:
-                headers = await self._authenticate(config.registry, r, logger)
+                await self._authenticate(config.registry, r, logger)
+                headers = self._build_headers(config.registry, manifest=True)
                 r = await self._client.head(url, headers=headers)
             r.raise_for_status()
             digest = r.headers["Docker-Content-Digest"]

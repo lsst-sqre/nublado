@@ -114,6 +114,46 @@ def images() -> None:
     """Commands to manage Docker images."""
 
 
+@images.command("delete")
+@click.argument("tags", nargs=-1)
+@click.option(
+    "-a",
+    "--credentials",
+    "docker_credentials_path",
+    type=click.Path(path_type=Path),
+    help="Path to Docker API credentials.",
+)
+@click.option(
+    "-c",
+    "--config",
+    "config_path",
+    type=click.Path(path_type=Path),
+    required=True,
+    help="Path to images configuration.",
+)
+@click.option(
+    "--debug", "-d", is_flag=True, envvar="DEBUG", help="Enable debug logging"
+)
+@run_with_asyncio
+async def images_delete(
+    tags: tuple[str],
+    *,
+    docker_credentials_path: Path | None = None,
+    config_path: Path,
+    debug: bool,
+) -> None:
+    """List the available images."""
+    config = ImagesConfig.from_file(
+        config_path,
+        docker_credentials_path=docker_credentials_path,
+        debug=debug,
+    )
+    config.configure_logging()
+    async with ImagesFactory.standalone(config) as factory:
+        manager = factory.create_images_manager()
+        await manager.delete_tags(config.source, tags)
+
+
 @images.command("list")
 @click.option(
     "-a",

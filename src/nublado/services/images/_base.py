@@ -1,6 +1,7 @@
 """Shared API for images managers."""
 
 from abc import ABCMeta, abstractmethod
+from collections.abc import Iterable
 
 from ...models.images import ImageFilterPolicy, ImageSource
 
@@ -13,6 +14,23 @@ class ImagesManager[T: ImageSource](metaclass=ABCMeta):
     There are separate implementations of the images manager API for each
     image source. This class provides the common API.
     """
+
+    @abstractmethod
+    async def delete_tags(self, config: T, tags: Iterable[str]) -> None:
+        """Delete the given tags.
+
+        The underlying image will be deleted, even if the image also has other
+        tags, so this will also delete other tags attached to the same image.
+        Use with caution for images that may be tagged with ``recommended`` or
+        other alias tags.
+
+        Parameters
+        ----------
+        config
+            Configuration for the repository.
+        tags
+            Tags to delete.
+        """
 
     @abstractmethod
     async def list_tags(self, config: T) -> set[str]:
