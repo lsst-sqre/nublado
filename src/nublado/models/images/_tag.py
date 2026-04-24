@@ -720,6 +720,7 @@ class RSPImageTagCollection[T: RSPImageTag]:
             version of those tags.
         """
         date = (age_basis - policy.age) if policy.age else None
+        build = policy.cutoff_build
         if policy.cutoff_date and (not date or date < policy.cutoff_date):
             date = policy.cutoff_date
         version = policy.cutoff_version
@@ -729,6 +730,8 @@ class RSPImageTagCollection[T: RSPImageTag]:
             count = 0
             for tag in tags:
                 if remove_arch_specific and tag.architecture:
+                    continue
+                if tag.rsp_build and build and tag.rsp_build < build:
                     continue
                 if tag.date and date and tag.date < date:
                     continue
