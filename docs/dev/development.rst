@@ -39,7 +39,7 @@ This init step does three things:
 
 1. Creates a Python virtual environment in the :file:`.venv` subdirectory with the packages needed to do Nublado development installed.
 2. Installs Nublado in an editable mode in that virtual environment.
-3. Installs the pre-commit hooks.
+3. Installs the pre-commit hooks (run by prek_).
 
 You can activate the Nublado virtual environment if you wish with:
 
@@ -70,6 +70,8 @@ To proceed, stage the new modifications and commit again.
 
 If you have to commit changes that fail pre-commit checks, pass the ``--no-verify`` flag to :command:`git commit`.
 This will have to be temporary, though, since the change will fail GitHub CI checks.
+
+Despite the name, Nublado uses prek_ to run pre-commit hooks rather than the package named pre-commit.
 
 .. _dev-run-tests:
 

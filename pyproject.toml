@@ -81,9 +81,9 @@ docs = [
     "rubin-nublado-spawner",
 ]
 lint = [
-    "pre-commit",
-    "pre-commit-uv",
+    "prek",
     "ruff>=0.15",
+    "uv",
 ]
 nox = [
     "nox",
