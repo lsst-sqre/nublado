@@ -38,6 +38,8 @@ nitpick_ignore = [
     ["py:class", "pathlib._local.Path"],
     # Bug in Sphinx with type declarations
     ["py:class", "safir.pydantic._types.TypeAliasType"],
+    # Bug in Sphinx with Python 3.14
+    ["py:data", "typing.Union"]
 ]
 nitpick_ignore_regex = [
     ["py:class", "kubernetes_asyncio\\.client\\.models\\..*"],
@@ -49,7 +51,7 @@ python_api_dir = "dev/api/contents"
 
 [sphinx.intersphinx.projects]
 jupyerhub = "https://jupyterhub.readthedocs.io/en/stable"
-python = "https://docs.python.org/3.13"  # Union gets weird in 3.14
+python = "https://docs.python.org/3.14"
 rubin-gafaelfawr = "https://gafaelfawr.lsst.io"
 rubin-repertoire = "https://repertoire.lsst.io"
 safir = "https://safir.lsst.io"

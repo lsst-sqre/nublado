@@ -6,6 +6,35 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-13.0.0'></a>
+## 13.0.0 (2026-04-27)
+
+### Backwards-incompatible changes
+
+- Rename the `Rubin` menu to `Jobs` in the standard extensions installed in the JupyterLab base image. Beneath that, rename `Query` to `TAP Query`. This menu now separates jobs by dataset, although jobs may be listed under multiple datasets if the extension cannot determine what dataset that job was querying.
+- Change the default runtime mount location to `/etc/nublado` from `/opt/lsst/software/jupyterlab`. This change should be invisible to users since all code that relies on its location should be using the `NUBLADO_RUNTIME_MOUNTS_DIR` environment variable to find it.
+- Stop creating an `.access_token` symlink in the user's home directory to the injected Gafaelfawr access token. The lsst.rsp library, which should be used by most payloads, knows how to find the access token, and other languages should use the `NUBLADO_TOKEN` environment variable.
+- Semantic version filters in the dropdown menu are no longer supported for weekly and daily images. Switching between calendar versions and semantic versions for `cutoffVersion` was potentially confusing.
+- Use `NUBLADO_` as the prefix for environment variables to configure the `nublado purger` command-line tool instead of `RSP_SCRATCHPURGER_`. This brings it in line with the rest of Nublado.
+
+### New features
+
+- Add a new command, `nublado images list`, to list the available Nublado image tags given an image source configuration.
+- Add a new command, `nublado images prune`, to delete some Nublado images from a repository based on a pruning policy.
+- Add a new command, `nublado images delete`, to delete specific images by tag.
+- Provide the lab's Gafaelfawr token in the `NUBLADO_TOKEN` environment variable as well as the `ACCESS_TOKEN` environment variable. The latter will eventually be deprecated.
+- Add a new `cutoffDate` attribute for dropdown menu filtering, used to restrict display of daily and weekly images to only those after a given date. Filtering of experimental images can now be done with both `cutoffVersion` and `cutoffDate`, with the former applying to the semantic version of experimental builds based on releases and release candidates and the latter applying to builds based on weeklies and dailies.
+- Add a new `cutoffBuild` attribute for dropdown menu filtering, used to restrict display of images with build numbers to only those with larger or equal build numbers. Images without build numbers are ignored.
+
+### Bug fixes
+
+- Restore lab startup code to increase log output limits. This was accidentally dropped as part of the init container changes.
+- Retry Google Artifact Registry requests on internal service errors as well as service unavailable errors. These errors also seem to be transitory problems with the Google API.
+
+### Other changes
+
+- Relax the dependency on Safir in rubin.nublado.client to allow Safir 15.0.0.
+
 <a id='changelog-12.1.0'></a>
 ## 12.1.0 (2026-03-27)
 
