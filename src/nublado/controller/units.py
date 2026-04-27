@@ -27,7 +27,8 @@ def memory_to_bytes(memory: Any) -> int:
         Raised if the input string is not a valid byte specification.
     """
     memory = str(memory)
-    return int(bitmath.parse_string_unsafe(memory).bytes)
+    parsed = bitmath.parse_string(memory, system=bitmath.SI, strict=False)
+    return int(parsed.bytes)
 
 
 def bytes_to_si(val: int) -> str:
