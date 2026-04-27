@@ -13,6 +13,7 @@
 .. _nox: https://nox.thea.codes/en/stable/
 .. _Nublado Phalanx application: https://phalanx.lsst.io/applications/nublado/index.html
 .. _Phalanx: https://phalanx.lsst.io/
+.. _prek: https://prek.j178.dev/
 .. _Repertoire: https://repertoire.lsst.io/
 .. _RESPX: https://lundberg.github.io/respx/
 .. _Ruff: https://docs.astral.sh/ruff/
