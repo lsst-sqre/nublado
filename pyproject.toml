@@ -20,7 +20,7 @@ classifiers = [
 requires-python = ">=3.14"
 dependencies = [
     "aiojobs>=1",
-    "bitmath>=1",
+    "bitmath>=2",
     "google-api-core>=2",
     "google-cloud-artifact-registry>=1",
     "httpx>=0.28",
