@@ -25,6 +25,5 @@ apt-get update
 
 # Build-essential is sometimes needed to build Python packages if no
 # prepackaged wheel exists and it has binary components.
-# Nodejs is needed to build JupyterLab extensions from source.
-apt-get -y install build-essential nodejs
+apt-get -y install build-essential
 
