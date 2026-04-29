@@ -73,3 +73,5 @@ lab = [
 
 [tool.setuptools_scm]
 root = ".."
+
+[tools.uv.sources]
