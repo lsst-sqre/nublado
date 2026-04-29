@@ -50,6 +50,7 @@ lab = [
     "ipywebrtc",
     "ipywidgets",
     "jupyter-ai",
+    "jupyter-ai-magic-commands",
     "jupyter-bokeh",
     "jupyter-console",
     "jupyter-firefly-extensions",
@@ -74,5 +75,5 @@ lab = [
 [tool.setuptools_scm]
 root = ".."
 
-[tools.uv.sources]
+[tool.uv.sources]
 rsp-jupyter-extensions = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions", branch = "tickets/DM-49034" }
