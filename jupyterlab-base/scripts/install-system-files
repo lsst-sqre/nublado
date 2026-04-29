@@ -45,3 +45,27 @@ curl -L "${url}" > typst.tar.xz
 
 tar x --strip-components=1 -vf typst.tar.xz
 install -m 0755 typst /usr/local/bin/typst
+
+# Install agents for use by jupyter-ai
+
+mkdir -p /tmp/agents
+cd /tmp/agents
+curl -fsSL "https://claude.ai/install.sh" > claude-install.sh
+bash -x ./claude-install.sh
+# Claude does not make it easy to modify where it lands.
+cd $HOME/.local/share
+mv claude /usr/local/share
+cd /usr/local/share/claude/versions
+latest_ver=$(ls -1 | tail -1)  # There should only ever be one anyway.
+ln -s /usr/local/share/claude/versions/${latest_ver} /usr/local/bin/claude
+
+curl -fsSL https://gh.io/copilot-install > copilot-install.sh
+bash -x ./copilot-install.sh
+
+npm i -g @agentclientprotocol/claude-agent-acp
+npm i -g @zed-industries/codex-acp
+npm i -g @openai/codex
+npm i -g @google/gemini-cli
+
+cd /
+rm -rf /tmp/agents
