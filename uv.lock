@@ -1447,14 +1447,14 @@ wheels = [
 
 [[package]]
 name = "gitpython"
-version = "3.1.48"
+version = "3.1.49"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "gitdb" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a6/c3/e4a9656f3cdb280f5dc65a68cc6fc46e79f897d27c1a36bbb4f0f47aaac5/gitpython-3.1.48.tar.gz", hash = "sha256:b7c49ff4a49946fce38ac84116efa311b15e7dad06dc3787fc9e206bf9ef75e1", size = 217288, upload-time = "2026-04-28T05:35:45.328Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e1/63/210aaa302d6a0a78daa67c5c15bbac2cad361722841278b0209b6da20855/gitpython-3.1.49.tar.gz", hash = "sha256:42f9399c9eb33fc581014bedd76049dfbaf6375aa2a5754575966387280315e1", size = 219367, upload-time = "2026-04-29T00:31:20.478Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/94/50/bb9703c364c00e7be67ccda03536f3d684766ce109d184c9d1f072d866ca/gitpython-3.1.48-py3-none-any.whl", hash = "sha256:737698b05889cca0f9aba7054d796620df2092c68926ee1470e5c7f5ac886680", size = 209800, upload-time = "2026-04-28T05:35:42.543Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/6f/b842bfa6f21d6f87c57f9abf7194225e55279d96d869775e19e9f7236fc5/gitpython-3.1.49-py3-none-any.whl", hash = "sha256:024b0422d7f84d15cd794844e029ffebd4c5d42a7eb9b936b458697ef550a02c", size = 212190, upload-time = "2026-04-29T00:31:18.412Z" },
 ]
 
 [[package]]
@@ -2180,16 +2180,15 @@ wheels = [
 
 [[package]]
 name = "jupyter-ai-router"
-version = "0.0.4"
+version = "0.0.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jupyter-server" },
-    { name = "jupyter-server-documents" },
     { name = "jupyterlab-chat" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/40/92/5ac019912ef2288c0fa803e57ef7fb7fb0862e2b9673c26f380bba2a4e63/jupyter_ai_router-0.0.4.tar.gz", hash = "sha256:81878b138ecf62f8e42e8ffbb8ae3eb21befc86235f253f5c55acebe767f065a", size = 142481, upload-time = "2026-04-21T23:48:51.189Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/68/30/0e20a6e3a0c4153fb9cb45920b748980ea06eb0fd532c50cde538c05181c/jupyter_ai_router-0.0.5.tar.gz", hash = "sha256:6f2d199a61f7440db8d9bbd32e3f2be313622fc8e3dc5a7c54820a3f680aeec1", size = 142582, upload-time = "2026-04-29T08:03:26.967Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/18/59/7af6327ba071a5a47b5d0971adf285840d7b26bb29689720a0923fa6a37d/jupyter_ai_router-0.0.4-py3-none-any.whl", hash = "sha256:6deb6450728ceedf3820677e785be3e3ab3ff0d61c9ac1ce8c9e7b8502908562", size = 28081, upload-time = "2026-04-21T23:48:49.778Z" },
+    { url = "https://files.pythonhosted.org/packages/90/d4/642db8d69902a012ca166f12ae88a844e6b48da19ebef8d44fd756c45899/jupyter_ai_router-0.0.5-py3-none-any.whl", hash = "sha256:89b877ade735ffd4bd0d26d92bd574634d3efc3226cb16d6bf2b0591ee0d7d36", size = 28071, upload-time = "2026-04-29T08:03:25.065Z" },
 ]
 
 [[package]]
@@ -2538,7 +2537,7 @@ wheels = [
 
 [[package]]
 name = "jupyterlab"
-version = "4.5.6"
+version = "4.5.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-lru" },
@@ -2555,9 +2554,9 @@ dependencies = [
     { name = "tornado" },
     { name = "traitlets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ac/d5/730628e03fff2e8a8e8ccdaedde1489ab1309f9a4fa2536248884e30b7c7/jupyterlab-4.5.6.tar.gz", hash = "sha256:642fe2cfe7f0f5922a8a558ba7a0d246c7bc133b708dfe43f7b3a826d163cf42", size = 23970670, upload-time = "2026-03-11T14:17:04.531Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/22/8440ec827762146e7cdecf04335bd348795899d29dc6ae82238707353a2c/jupyterlab-4.5.7.tar.gz", hash = "sha256:55a9822c4754da305f41e113452c68383e214dcf96de760146af89ce5d5117b0", size = 23992763, upload-time = "2026-04-29T16:43:51.328Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e1/1b/dad6fdcc658ed7af26fdf3841e7394072c9549a8b896c381ab49dd11e2d9/jupyterlab-4.5.6-py3-none-any.whl", hash = "sha256:d6b3dac883aa4d9993348e0f8e95b24624f75099aed64eab6a4351a9cdd1e580", size = 12447124, upload-time = "2026-03-11T14:17:00.229Z" },
+    { url = "https://files.pythonhosted.org/packages/3d/aa/537b8f7d80e799af19af35fb3ddfc970b951088a13c57dd9387dcfbb7f61/jupyterlab-4.5.7-py3-none-any.whl", hash = "sha256:fba4cb0e2c44a52859669d8c98b45de029d5e515f8407bf8534d2a8fc5f0964d", size = 12450123, upload-time = "2026-04-29T16:43:46.639Z" },
 ]
 
 [[package]]
@@ -2577,15 +2576,15 @@ wheels = [
 
 [[package]]
 name = "jupyterlab-commands-toolkit"
-version = "0.1.5"
+version = "0.1.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jupyter-server" },
     { name = "jupyterlab-eventlistener" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/81/09/c865ee74c3191d6684a6514367818bfb9c37a6b04e35bb1ff72f755fcbf9/jupyterlab_commands_toolkit-0.1.5.tar.gz", hash = "sha256:de1cae480d676c289c4952d4a3535ecf91ca1b851c293707822f81098bd4b12e", size = 82358, upload-time = "2026-04-02T15:49:23.158Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/29/fb873568c258a385cfcc763ca5f9bf703e60e0ded05d3dee28e71565ba4e/jupyterlab_commands_toolkit-0.1.6.tar.gz", hash = "sha256:e6f81a815e7247841ec875f9fa8c876a45fb13d38401589dd9dc3743e39beaea", size = 82477, upload-time = "2026-04-29T12:29:06.102Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/99/01/3ceec55af32890b276a49e00ae89f9891fb734c0eb747d9ea340d5b0cf14/jupyterlab_commands_toolkit-0.1.5-py3-none-any.whl", hash = "sha256:803de3ace66b5df57033a078e4a0e4ccfeb58cd8776e5d5ee99888957c2c81d6", size = 22958, upload-time = "2026-04-02T15:49:21.67Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/a4/8020b94a839ead57e2f82eaf29003b826ece4b3847380b159ac8ea083c1b/jupyterlab_commands_toolkit-0.1.6-py3-none-any.whl", hash = "sha256:2a4a917d3dd352d21df16692346c19166ed4bd42e95ac3d2e028377308033b71", size = 23033, upload-time = "2026-04-29T12:29:04.434Z" },
 ]
 
 [[package]]
@@ -4834,7 +4833,7 @@ lab = [
     { name = "panel" },
     { name = "plotly" },
     { name = "pythreejs" },
-    { name = "rsp-jupyter-extensions", specifier = ">=0.10.2" },
+    { name = "rsp-jupyter-extensions" },
     { name = "sidecar" },
 ]
 
