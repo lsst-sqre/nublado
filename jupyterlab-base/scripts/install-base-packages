@@ -26,8 +26,11 @@ apt-get update
 # curl: CLI http client is useful
 # nano ... ed: enough editors to cover most people's habits
 #  (I gave up on emacs in the base container, alas)
+# Nodejs is needed to build JupyterLab extensions from source.
+# Npm is required for Gemini and Codex agents.
 apt-get -y install --no-install-recommends \
     git git-lfs pandoc \
     jq gh hub unzip xz-utils ack screen tmux tree file less \
     man curl \
-    nano vim ed
+    nano vim ed \
+    nodejs npm
