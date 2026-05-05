@@ -34,6 +34,7 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 ### Other changes
 
 - Relax the dependency on Safir in rubin.nublado.client to allow Safir 15.0.0.
+- Switch to [prek](https://prek.j178.dev/) for pre-commit checks during development.
 
 <a id='changelog-12.1.0'></a>
 ## 12.1.0 (2026-03-27)
