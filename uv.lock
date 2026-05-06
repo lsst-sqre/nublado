@@ -4,10 +4,14 @@ requires-python = ">=3.14"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
     "python_full_version >= '3.15' and sys_platform == 'emscripten'",
-    "python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "(python_full_version >= '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
     "python_full_version < '3.15' and sys_platform == 'win32'",
     "python_full_version < '3.15' and sys_platform == 'emscripten'",
-    "python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+    "python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
 ]
 required-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'manylinux'",
@@ -37,7 +41,7 @@ name = "agent-client-protocol"
 version = "0.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pydantic" },
+    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/13/3b893421369767e7043cc115d6ef0df417c298b84563be3a12df0416158d/agent_client_protocol-0.9.0.tar.gz", hash = "sha256:f744c48ab9af0f0b4452e5ab5498d61bcab97c26dbe7d6feec5fd36de49be30b", size = 71853, upload-time = "2026-03-26T01:21:00.379Z" }
 wheels = [
@@ -69,7 +73,7 @@ name = "aiofile"
 version = "3.11.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "caio" },
+    { name = "caio", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/48/41/2fea7e193e061ce54eacc3b7bc0e6a99e4fcff43c78cf0a76dd781ed8334/aiofile-3.11.1.tar.gz", hash = "sha256:1f91912c6643d2a4e49ca4ae3514f0bf3867ce948a36d99a6411b8f4755f4cf9", size = 19342, upload-time = "2026-05-16T08:18:33.538Z" }
 wheels = [
@@ -174,6 +178,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fb/76/641ae371508676492379f16e2fa48f4e2c11741bd63c48be4b12a6b09cba/aiosignal-1.4.0-py3-none-any.whl", hash = "sha256:053243f8b92b990551949e63930a839ff0cf0b0ebbe0597b0f3fb19e1a0fe82e", size = 7490, upload-time = "2025-07-03T22:54:42.156Z" },
+]
+
+[[package]]
+name = "aiosqlite"
+version = "0.22.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/8a/64761f4005f17809769d23e518d915db74e6310474e733e3593cfc854ef1/aiosqlite-0.22.1.tar.gz", hash = "sha256:043e0bd78d32888c0a9ca90fc788b38796843360c855a7262a532813133a0650", size = 14821, upload-time = "2025-12-23T19:25:43.997Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/00/b7/e3bf5133d697a08128598c8d0abc5e16377b51465a33756de24fa7dee953/aiosqlite-0.22.1-py3-none-any.whl", hash = "sha256:21c002eb13823fad740196c5a2e9d8e62f6243bd9e7e4a1f87fb5e44ecb4fceb", size = 17405, upload-time = "2025-12-23T19:25:42.139Z" },
 ]
 
 [[package]]
@@ -472,8 +485,8 @@ name = "authlib"
 version = "1.7.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography" },
-    { name = "joserfc" },
+    { name = "cryptography", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "joserfc", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/36/98/7d93f30d029643c0275dbc0bd6d5a6f670661ee6c9a94d93af7ab4887600/authlib-1.7.2.tar.gz", hash = "sha256:2cea25fefcd4e7173bdf1372c0afc265c8034b23a8cd5dcb6a9164b826c64231", size = 176511, upload-time = "2026-05-06T08:10:23.116Z" }
 wheels = [
@@ -830,6 +843,15 @@ wheels = [
 ]
 
 [[package]]
+name = "cloudpickle"
+version = "3.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/27/fb/576f067976d320f5f0114a8d9fa1215425441bb35627b1993e5afd8111e5/cloudpickle-3.1.2.tar.gz", hash = "sha256:7fda9eb655c9c230dab534f1983763de5835249750e85fbcef43aaa30a9a2414", size = 22330, upload-time = "2025-11-03T09:25:26.604Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/88/39/799be3f2f0f38cc727ee3b4f1445fe6d5e4133064ec2e4115069418a5bb6/cloudpickle-3.1.2-py3-none-any.whl", hash = "sha256:9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a", size = 22228, upload-time = "2025-11-03T09:25:25.534Z" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1007,10 +1029,10 @@ name = "cyclopts"
 version = "4.14.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "attrs" },
-    { name = "docstring-parser" },
-    { name = "rich" },
-    { name = "rich-rst" },
+    { name = "attrs", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "docstring-parser", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "rich", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "rich-rst", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e0/70/f81df9a60825e716228c325a4842ff9a29e922b3197010981fd1abd88ad3/cyclopts-4.14.0.tar.gz", hash = "sha256:2cb3d619330fdc8ba0b5acece85618915078aeb56117d12b96e289a128783938", size = 177291, upload-time = "2026-05-18T12:53:40.912Z" }
 wheels = [
@@ -1024,6 +1046,29 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/55/a0/7ca79796e799a3e782045d29bf052b5cde7439a2bbb17f15ff44f7aacc63/dacite-1.9.2.tar.gz", hash = "sha256:6ccc3b299727c7aa17582f0021f6ae14d5de47c7227932c47fec4cdfefd26f09", size = 22420, upload-time = "2025-02-05T09:27:29.757Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/94/35/386550fd60316d1e37eccdda609b074113298f23cef5bddb2049823fe666/dacite-1.9.2-py3-none-any.whl", hash = "sha256:053f7c3f5128ca2e9aceb66892b1a3c8936d02c686e707bee96e19deef4bc4a0", size = 16600, upload-time = "2025-02-05T09:27:24.345Z" },
+]
+
+[[package]]
+name = "dask"
+version = "2026.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "cloudpickle", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "fsspec", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "packaging", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "partd", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pyyaml", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "toolz", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d7/2a/5d8cc1579590af86576dde890254440e478c7174b93a02095ecfc2e6ba38/dask-2026.3.0.tar.gz", hash = "sha256:f7d96c8274e8a900d217c1ff6ea8d1bbf0b4c2c21e74a409644498d925eb8f85", size = 11000710, upload-time = "2026-03-18T07:10:14.945Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4a/f3/00bb1e867fba351e2d784170955713bee200c43ea306c59f30bd7e748192/dask-2026.3.0-py3-none-any.whl", hash = "sha256:be614b9242b0b38288060fb2d7696125946469c98a1c30e174883fd199e0428d", size = 1485630, upload-time = "2026-03-18T07:10:12.832Z" },
+]
+
+[package.optional-dependencies]
+distributed = [
+    { name = "distributed", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
 ]
 
 [[package]]
@@ -1041,6 +1086,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/53/75/3aaf3217c0eb8b886020ac3e0531b146c943303eaf1dd9bd57e07c9cd5d3/dataclasses_avroschema-0.70.0.tar.gz", hash = "sha256:ed0686eec199d2f1f6487112c4ff9f42e6c8f373effde36496a257c046d51e3f", size = 46193, upload-time = "2026-05-18T15:01:56.989Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/eb/2f/c7c0d6c015123eff625a43dae8f3709167c0dec54399dc8adc08c35aae88/dataclasses_avroschema-0.70.0-py3-none-any.whl", hash = "sha256:30820d24e8209f1ba65befd5e8f90b7bb45269f7bd8c1aae77f381e298e5ca9f", size = 56969, upload-time = "2026-05-18T15:01:58.125Z" },
+]
+
+[[package]]
+name = "dataclasses-json"
+version = "0.6.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "marshmallow", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "typing-inspect", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/64/a4/f71d9cf3a5ac257c993b5ca3f93df5f7fb395c725e7f1e6479d2514173c3/dataclasses_json-0.6.7.tar.gz", hash = "sha256:b6b3e528266ea45b9535223bc53ca645f5208833c29229e847b3f26a1cc55fc0", size = 32227, upload-time = "2024-06-09T16:20:19.103Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c3/be/d0d44e092656fe7a06b55e6103cbce807cdbdee17884a5367c68c9860853/dataclasses_json-0.6.7-py3-none-any.whl", hash = "sha256:0dbf33f26c8d5305befd61b39d2b3414e8a407bedc2834dea9b8d642666fb40a", size = 28686, upload-time = "2024-06-09T16:20:16.715Z" },
 ]
 
 [[package]]
@@ -1089,6 +1147,15 @@ wheels = [
 ]
 
 [[package]]
+name = "deepmerge"
+version = "2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a8/3a/b0ba594708f1ad0bc735884b3ad854d3ca3bdc1d741e56e40bbda6263499/deepmerge-2.0.tar.gz", hash = "sha256:5c3d86081fbebd04dd5de03626a0607b809a98fb6ccba5770b62466fe940ff20", size = 19890, upload-time = "2024-08-30T05:31:50.308Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2d/82/e5d2c1c67d19841e9edc74954c827444ae826978499bde3dfc1d007c8c11/deepmerge-2.0-py3-none-any.whl", hash = "sha256:6de9ce507115cff0bed95ff0ce9ecc31088ef50cbdf09bc90a09349a318b3d00", size = 13475, upload-time = "2024-08-30T05:31:48.659Z" },
+]
+
+[[package]]
 name = "defusedxml"
 version = "0.7.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1130,6 +1197,32 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/96/8e/709914eb2b5749865801041647dc7f4e6d00b549cfe88b65ca192995f07c/distlib-0.4.0.tar.gz", hash = "sha256:feec40075be03a04501a973d81f633735b4b69f98b05450592310c0f401a4e0d", size = 614605, upload-time = "2025-07-17T16:52:00.465Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/33/6b/e0547afaf41bf2c42e52430072fa5658766e3d65bd4b03a563d1b6336f57/distlib-0.4.0-py2.py3-none-any.whl", hash = "sha256:9659f7d87e46584a30b5780e43ac7a2143098441670ff0a49d5f9034c54a6c16", size = 469047, upload-time = "2025-07-17T16:51:58.613Z" },
+]
+
+[[package]]
+name = "distributed"
+version = "2026.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "cloudpickle", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "dask", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jinja2", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "locket", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "msgpack", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "packaging", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "psutil", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pyyaml", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "sortedcontainers", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "tblib", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "toolz", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "tornado", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "urllib3", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "zict", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e7/84/3e98a2d61493d201f253743091cbd4f099f502f957a9a33bb9ce5b8d5416/distributed-2026.3.0.tar.gz", hash = "sha256:4a8fc6102fededfbaae45288501276da2297a054d74eb6589f01b087c7f95c26", size = 2103970, upload-time = "2026-03-18T07:10:23.555Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b9/77/2ff7aefc09cf1306a81cd7a46af34f80ebefef81a2e8329b94b58ad813ae/distributed-2026.3.0-py3-none-any.whl", hash = "sha256:52518f4b3e6795e87b442e8f57788ba1ddc750c62d0835669c85927280d38f07", size = 1009769, upload-time = "2026-03-18T07:10:21.241Z" },
 ]
 
 [[package]]
@@ -1218,8 +1311,8 @@ name = "email-validator"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "dnspython" },
-    { name = "idna" },
+    { name = "dnspython", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "idna", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f5/22/900cb125c76b7aaa450ce02fd727f452243f2e91a61af068b40adba60ea9/email_validator-2.3.0.tar.gz", hash = "sha256:9fc05c37f2f6cf439ff414f8fc46d917929974a82244c20eb10231ba60c54426", size = 51238, upload-time = "2025-08-26T13:09:06.831Z" }
 wheels = [
@@ -1243,6 +1336,16 @@ sdist = { url = "https://files.pythonhosted.org/packages/cc/28/c14e053b6762b1044
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c1/ea/53f2148663b321f21b5a606bd5f191517cf40b7072c0497d3c92c4a13b1e/executing-2.2.1-py2.py3-none-any.whl", hash = "sha256:760643d3452b4d777d295bb167ccc74c64a81df23fb5e08eff250c425a4b2017", size = 28317, upload-time = "2025-09-01T09:48:08.5Z" },
 ]
+
+[[package]]
+name = "faiss-cpu"
+version = "1.12.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "packaging", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7d/80/bb75a7ed6e824dea452a24d3434a72ed799324a688b10b047d441d270185/faiss_cpu-1.12.0.tar.gz", hash = "sha256:2f87cbcd603f3ed464ebceb857971fdebc318de938566c9ae2b82beda8e953c0", size = 69292, upload-time = "2025-08-13T06:07:26.553Z" }
 
 [[package]]
 name = "fast-depends"
@@ -1312,7 +1415,7 @@ name = "fastmcp"
 version = "3.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "fastmcp-slim", extra = ["client", "server"] },
+    { name = "fastmcp-slim", extra = ["client", "server"], marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3b/a9/5c5a01b6abd5346bf60b97cfd29e4a86661940c27dd562bfcda07fd03519/fastmcp-3.3.1.tar.gz", hash = "sha256:979362ea557de42a5f40342563c7e4b236bcc8e7cd192715f50030695d1a71cd", size = 28681699, upload-time = "2026-05-15T15:50:39.673Z" }
 wheels = [
@@ -1324,12 +1427,12 @@ name = "fastmcp-slim"
 version = "3.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "platformdirs" },
-    { name = "pydantic", extra = ["email"] },
-    { name = "pydantic-settings" },
-    { name = "python-dotenv" },
-    { name = "rich" },
-    { name = "typing-extensions" },
+    { name = "platformdirs", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pydantic", extra = ["email"], marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pydantic-settings", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "python-dotenv", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "rich", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d1/a0/627103e517e1d0d6f1eec633d5662d13e776f01b45ad188e4f5f7478b438/fastmcp_slim-3.3.1.tar.gz", hash = "sha256:0957835fc59452e143ab2f4b7836d2d2df9b2d9958408edc79ba8b56232b2a88", size = 567007, upload-time = "2026-05-15T15:50:10.426Z" }
 wheels = [
@@ -1338,33 +1441,33 @@ wheels = [
 
 [package.optional-dependencies]
 client = [
-    { name = "authlib" },
-    { name = "exceptiongroup" },
-    { name = "httpx" },
-    { name = "mcp" },
-    { name = "opentelemetry-api" },
-    { name = "py-key-value-aio", extra = ["filetree", "keyring", "memory"] },
+    { name = "authlib", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "exceptiongroup", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "httpx", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "mcp", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "opentelemetry-api", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "py-key-value-aio", extra = ["filetree", "keyring", "memory"], marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 server = [
-    { name = "authlib" },
-    { name = "cyclopts" },
-    { name = "exceptiongroup" },
-    { name = "griffelib" },
-    { name = "httpx" },
-    { name = "jsonref" },
-    { name = "jsonschema-path" },
-    { name = "mcp" },
-    { name = "openapi-pydantic" },
-    { name = "opentelemetry-api" },
-    { name = "packaging" },
-    { name = "py-key-value-aio", extra = ["filetree", "keyring", "memory"] },
-    { name = "pyperclip" },
-    { name = "python-multipart" },
-    { name = "pyyaml" },
-    { name = "uncalled-for" },
-    { name = "uvicorn" },
-    { name = "watchfiles" },
-    { name = "websockets" },
+    { name = "authlib", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "cyclopts", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "exceptiongroup", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "griffelib", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "httpx", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jsonref", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jsonschema-path", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "mcp", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "openapi-pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "opentelemetry-api", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "packaging", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "py-key-value-aio", extra = ["filetree", "keyring", "memory"], marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pyperclip", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "python-multipart", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pyyaml", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "uncalled-for", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "uvicorn", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "watchfiles", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "websockets", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 
 [[package]]
@@ -2123,7 +2226,7 @@ name = "jaraco-classes"
 version = "3.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "more-itertools" },
+    { name = "more-itertools", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/06/c0/ed4a27bc5571b99e3cff68f8a9fa5b56ff7df1c2251cc715a652ddd26402/jaraco.classes-3.4.0.tar.gz", hash = "sha256:47a024b51d0239c0dd8c8540c6c7f484be3b8fcf0b2d85c13825780d3b3f3acd", size = 11780, upload-time = "2024-03-31T07:27:36.643Z" }
 wheels = [
@@ -2144,7 +2247,7 @@ name = "jaraco-functools"
 version = "4.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "more-itertools" },
+    { name = "more-itertools", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/36/cf/ea4ef2920830dea3f5ab2ea4da6fb67724e6dca80ee2553788c3607243d0/jaraco_functools-4.5.0.tar.gz", hash = "sha256:3bb5665ea4a020cf78a7040e89154c77edadb3ca74f366479669c5999aa70b03", size = 20272, upload-time = "2026-05-15T21:34:10.025Z" }
 wheels = [
@@ -2224,7 +2327,7 @@ name = "joserfc"
 version = "1.6.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography" },
+    { name = "cryptography", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3b/dc/5f768c2e391e9afabe5d18e3221346deb5fb6338565f1ccc9e7c6d7befdd/joserfc-1.6.5.tar.gz", hash = "sha256:1482a7db78fb4602e44ed89e51b599d052e091288c7c532c5b694e20149dec48", size = 231881, upload-time = "2026-05-06T04:58:13.408Z" }
 wheels = [
@@ -2238,6 +2341,27 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/9c/4b/6f8906aaf67d501e259b0adab4d312945bb7211e8b8d4dcc77c92320edaa/json5-0.14.0.tar.gz", hash = "sha256:b3f492fad9f6cdbced8b7d40b28b9b1c9701c5f561bef0d33b81c2ff433fefcb", size = 52656, upload-time = "2026-03-27T22:50:48.108Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b8/42/cf027b4ac873b076189d935b135397675dac80cb29acb13e1ab86ad6c631/json5-0.14.0-py3-none-any.whl", hash = "sha256:56cf861bab076b1178eb8c92e1311d273a9b9acea2ccc82c276abf839ebaef3a", size = 36271, upload-time = "2026-03-27T22:50:47.073Z" },
+]
+
+[[package]]
+name = "jsonpatch"
+version = "1.33"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jsonpointer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/42/78/18813351fe5d63acad16aec57f94ec2b70a09e53ca98145589e185423873/jsonpatch-1.33.tar.gz", hash = "sha256:9fcd4009c41e6d12348b4a0ff2563ba56a2923a7dfee731d004e212e1ee5030c", size = 21699, upload-time = "2023-06-26T12:07:29.144Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/73/07/02e16ed01e04a374e644b575638ec7987ae846d25ad97bcc9945a3ee4b0e/jsonpatch-1.33-py2.py3-none-any.whl", hash = "sha256:0ae28c0cd062bbd8b8ecc26d7d164fbbea9652a1a3693f3b956c1eae5145dade", size = 12898, upload-time = "2023-06-16T21:01:28.466Z" },
+]
+
+[[package]]
+name = "jsonpath-ng"
+version = "1.8.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/32/58/250751940d75c8019659e15482d548a4aa3b6ce122c515102a4bfdac50e3/jsonpath_ng-1.8.0.tar.gz", hash = "sha256:54252968134b5e549ea5b872f1df1168bd7defe1a52fed5a358c194e1943ddc3", size = 74513, upload-time = "2026-02-24T14:42:06.182Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/03/99/33c7d78a3fb70d545fd5411ac67a651c81602cc09c9cf0df383733f068c5/jsonpath_ng-1.8.0-py3-none-any.whl", hash = "sha256:b8dde192f8af58d646fc031fac9c99fe4d00326afc4148f1f043c601a8cfe138", size = 67844, upload-time = "2026-02-28T00:53:19.637Z" },
 ]
 
 [[package]]
@@ -2291,9 +2415,9 @@ name = "jsonschema-path"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pathable" },
-    { name = "pyyaml" },
-    { name = "referencing" },
+    { name = "pathable", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pyyaml", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "referencing", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/01/86/cfee6dd25843bec0760f456599a4f7e7e40221a934b9229fda0662c859bc/jsonschema_path-0.4.6.tar.gz", hash = "sha256:c89eb635f4d497c9ac328eeff359c489755838806a7d033510a692e9576f5c4b", size = 15302, upload-time = "2026-04-27T18:57:08.412Z" }
 wheels = [
@@ -2314,19 +2438,52 @@ wheels = [
 
 [[package]]
 name = "jupyter-ai"
+version = "2.31.7"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+]
+dependencies = [
+    { name = "dask", extra = ["distributed"], marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "deepmerge", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "faiss-cpu", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "importlib-metadata", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-ai-magics", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-server", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pydantic", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "traitlets", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9c/7c/30117568ac7412f6d5b97fb9d0fbab9b7b0b4101030f8e26b2b36ea32afb/jupyter_ai-2.31.7.tar.gz", hash = "sha256:88289ee0fabdfa9e1883a0089c9afa36a0cc916c81e81b6f4e2655f000437159", size = 387345, upload-time = "2025-11-25T22:42:15.461Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/57/31/3d0addda5b60327b50b9f7926aca9711f9de48444407e7fe1e77aa579fc4/jupyter_ai-2.31.7-py3-none-any.whl", hash = "sha256:e73eb87d6777e4f0c1bf9d42e90da39d5e2463ba0051031f02f9863e535cc955", size = 314200, upload-time = "2025-11-25T22:42:13.239Z" },
+]
+
+[[package]]
+name = "jupyter-ai"
 version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and sys_platform == 'win32'",
+    "python_full_version >= '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version >= '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+    "python_full_version < '3.15' and sys_platform == 'win32'",
+    "python_full_version < '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+]
 dependencies = [
-    { name = "jupyter-ai-acp-client" },
-    { name = "jupyter-ai-chat-commands" },
-    { name = "jupyter-ai-persona-manager" },
-    { name = "jupyter-ai-router" },
-    { name = "jupyter-ai-tools" },
-    { name = "jupyter-server-documents" },
-    { name = "jupyter-server-mcp" },
-    { name = "jupyterlab-chat" },
-    { name = "jupyterlab-commands-toolkit" },
-    { name = "jupyterlab-notebook-awareness" },
+    { name = "jupyter-ai-acp-client", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ai-chat-commands", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ai-persona-manager", version = "0.0.11", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ai-router", version = "0.0.5", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ai-tools", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-server-documents", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-server-mcp", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyterlab-chat", version = "0.22.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyterlab-commands-toolkit", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyterlab-notebook-awareness", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2d/09/ebd494d3869a8632162d8e9f41e2fd29c082222ba9038f15faa121e99bd8/jupyter_ai-3.0.0.tar.gz", hash = "sha256:f7e56c5884328812500d1e4bb4c47146f0a920f913b8033fce15ac56d62ec87b", size = 26756331, upload-time = "2026-04-01T00:03:28.439Z" }
 wheels = [
@@ -2338,11 +2495,11 @@ name = "jupyter-ai-acp-client"
 version = "0.1.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "agent-client-protocol" },
-    { name = "jupyter-ai-persona-manager" },
-    { name = "jupyter-server" },
-    { name = "jupyterlab-chat" },
-    { name = "pydantic" },
+    { name = "agent-client-protocol", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ai-persona-manager", version = "0.0.11", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyterlab-chat", version = "0.22.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c1/1f/2d4dc377111a66a6dbe20ce1954e8ca5306c9e9f6f1a219085399d6d4db8/jupyter_ai_acp_client-0.1.4.tar.gz", hash = "sha256:6d113fff70983d95057919602257ed81853e2a5a241a3d745de670b14e435063", size = 271302, upload-time = "2026-05-19T06:01:55.086Z" }
 wheels = [
@@ -2354,14 +2511,74 @@ name = "jupyter-ai-chat-commands"
 version = "0.0.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "jupyter-ai-persona-manager" },
-    { name = "jupyter-ai-router" },
-    { name = "jupyter-server" },
-    { name = "jupyterlab-chat" },
+    { name = "jupyter-ai-persona-manager", version = "0.0.11", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ai-router", version = "0.0.5", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyterlab-chat", version = "0.22.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/de/99/57c42641c8a2dd46f658e5ec474f4863b444175895162c8f137ebf55e624/jupyter_ai_chat_commands-0.0.4.tar.gz", hash = "sha256:0c9722d139376e1bff87a730fbb6cc14019b010282fbce9d62001223d3d3c6b0", size = 170997, upload-time = "2025-11-04T00:51:13.365Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e3/b9/08f75e5133cc4aada0d324dfdd6aba8437627b580848288d47be15f016cc/jupyter_ai_chat_commands-0.0.4-py3-none-any.whl", hash = "sha256:5f8ca69ae3e3c07f911b64219673ec2a2ddffc1e93e04d8ccdb79bb792503ab5", size = 48603, upload-time = "2025-11-04T00:51:11.31Z" },
+]
+
+[[package]]
+name = "jupyter-ai-jupyternaut"
+version = "0.0.2"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+]
+dependencies = [
+    { name = "deepmerge", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jinja2", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-ai-litellm", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-ai-persona-manager", version = "0.0.4", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-server", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyterlab-chat", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pydantic", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "python-dotenv", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "traitlets", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/29/a7/545d59f48570d7102a46b5e0d031bc404e056c22e866f8bb742ddfed3400/jupyter_ai_jupyternaut-0.0.2.tar.gz", hash = "sha256:f9e8356a62b2888b1256606a72db7d67621a84c49443ac5e8329d53dfb798809", size = 404087, upload-time = "2025-10-14T00:10:01.319Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/05/0a/4e965f28a8467733c1891b3d0ed3eed696508907894d8e2c7027837e434e/jupyter_ai_jupyternaut-0.0.2-py3-none-any.whl", hash = "sha256:6ab579bd17c4e499c9996ccfec048832efc542e32ffe6313eb77eca16e789ad8", size = 269757, upload-time = "2025-10-14T00:09:59.26Z" },
+]
+
+[[package]]
+name = "jupyter-ai-jupyternaut"
+version = "0.0.11"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and sys_platform == 'win32'",
+    "python_full_version >= '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version >= '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+    "python_full_version < '3.15' and sys_platform == 'win32'",
+    "python_full_version < '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+]
+dependencies = [
+    { name = "aiosqlite", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "deepmerge", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jinja2", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ai-litellm", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ai-persona-manager", version = "0.0.11", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-server-documents", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyterlab-chat", version = "0.22.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyterlab-commands-toolkit", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyterlab-notebook-awareness", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langchain", version = "1.3.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langgraph-checkpoint-sqlite", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "python-dotenv", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "traitlets", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/39/3e/e3cd27dd38c7dd53adf375450b803644fe94b04ee573481f0f5dae7f26b5/jupyter_ai_jupyternaut-0.0.11.tar.gz", hash = "sha256:d152b615d0870c5603ab446bbcb432f8be65eab50e3e135a10cc4036173d327a", size = 412908, upload-time = "2026-03-24T20:35:30.549Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f7/97/96091a2cdf7b53124e8ff5fcd1daa5d2107bc4f18bbae7c9f2c1478eeef1/jupyter_ai_jupyternaut-0.0.11-py3-none-any.whl", hash = "sha256:29f599aa3f7c9036264f01f71d01220f79ba1f389d0c582e46000f7cfe53d046", size = 281708, upload-time = "2026-03-24T20:35:28.985Z" },
 ]
 
 [[package]]
@@ -2393,17 +2610,67 @@ wheels = [
 ]
 
 [[package]]
+name = "jupyter-ai-magics"
+version = "2.31.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "importlib-metadata", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "ipython", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jsonpath-ng", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "langchain", version = "0.3.28", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "langchain-community", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pydantic", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f0/ec/8dd617ccc1e523f7b2023140934d1118e545eb70eec8a169b4484264ec5a/jupyter_ai_magics-2.31.7.tar.gz", hash = "sha256:c6d77a29b19e520ff1113fb92c4830df4154e322c917a4c356739440450721e4", size = 32080, upload-time = "2025-11-25T22:42:21.23Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/36/ea/40bf58459fe7edc45b1da1e012b7337141c516825f02e1c591f770ce68c1/jupyter_ai_magics-2.31.7-py3-none-any.whl", hash = "sha256:42b0b26d1864bd98cf6c6a303733d42186801eb1477a3b85acb396e2a94b5ab1", size = 43463, upload-time = "2025-11-25T22:42:19.584Z" },
+]
+
+[[package]]
+name = "jupyter-ai-persona-manager"
+version = "0.0.4"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+]
+dependencies = [
+    { name = "importlib-metadata", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-ai-router", version = "0.0.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-server", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-server-fileid", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyterlab-chat", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pycrdt", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pydantic", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/50/1f/4cdfe89f277e3c9b66f53587f0ae801bb6ba172e76b7f36627bb0a0d5f6f/jupyter_ai_persona_manager-0.0.4.tar.gz", hash = "sha256:0d1ccdb88b8196307a4f80aa05ff794d084b10caf590497e75352f7137b0cf7f", size = 152561, upload-time = "2025-10-24T16:12:22.365Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/be/a9/a5ff204419aec7f1548cb5ca8108d5262d5e226804e3e207f82b0dec853c/jupyter_ai_persona_manager-0.0.4-py3-none-any.whl", hash = "sha256:b68a7c0fa0d7702b4dfb4909fca1823a8e90b8293528e2b79624bbb3701c981f", size = 42359, upload-time = "2025-10-24T16:12:20.893Z" },
+]
+
+[[package]]
 name = "jupyter-ai-persona-manager"
 version = "0.0.11"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and sys_platform == 'win32'",
+    "python_full_version >= '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version >= '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+    "python_full_version < '3.15' and sys_platform == 'win32'",
+    "python_full_version < '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+]
 dependencies = [
-    { name = "importlib-metadata" },
-    { name = "jupyter-ai-router" },
-    { name = "jupyter-server" },
-    { name = "jupyter-server-fileid" },
-    { name = "jupyterlab-chat" },
-    { name = "pycrdt" },
-    { name = "pydantic" },
+    { name = "importlib-metadata", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ai-router", version = "0.0.5", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-server-fileid", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyterlab-chat", version = "0.22.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pycrdt", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1e/00/f4444bc468dc84516793fa62759db8c35ea49f1d2646b5616f78b4ba4641/jupyter_ai_persona_manager-0.0.11.tar.gz", hash = "sha256:d2386cf2132e5942b67476521816de34a7e35584f7b9a3cf52d0371f647e1aba", size = 159633, upload-time = "2026-04-22T19:08:57.69Z" }
 wheels = [
@@ -2412,11 +2679,39 @@ wheels = [
 
 [[package]]
 name = "jupyter-ai-router"
+version = "0.0.2"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+]
+dependencies = [
+    { name = "jupyter-collaboration", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-server", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyterlab-chat", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c2/69/49d02cde0ce2b9dd3b9141903b329614e1062e2bdcbeef657d5dd6e990b2/jupyter_ai_router-0.0.2.tar.gz", hash = "sha256:4a152a10ebf25dc335a2877c2572d597f5f7bc11410beb1e12465b62cd74d977", size = 140782, upload-time = "2025-10-30T16:52:12.456Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/7b/ce626e9b322521940aacfad14bb7175af55edaf8e928e60e51dc1ebd68bf/jupyter_ai_router-0.0.2-py3-none-any.whl", hash = "sha256:a79c01cd5a1e974f5dad91463c0180d1e16bcb4262e20bc15147e7ea868ee391", size = 26987, upload-time = "2025-10-30T16:52:10.992Z" },
+]
+
+[[package]]
+name = "jupyter-ai-router"
 version = "0.0.5"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and sys_platform == 'win32'",
+    "python_full_version >= '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version >= '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+    "python_full_version < '3.15' and sys_platform == 'win32'",
+    "python_full_version < '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+]
 dependencies = [
-    { name = "jupyter-server" },
-    { name = "jupyterlab-chat" },
+    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyterlab-chat", version = "0.22.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/68/30/0e20a6e3a0c4153fb9cb45920b748980ea06eb0fd532c50cde538c05181c/jupyter_ai_router-0.0.5.tar.gz", hash = "sha256:6f2d199a61f7440db8d9bbd32e3f2be313622fc8e3dc5a7c54820a3f680aeec1", size = 142582, upload-time = "2026-04-29T08:03:26.967Z" }
 wheels = [
@@ -2428,9 +2723,9 @@ name = "jupyter-ai-tools"
 version = "0.5.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "jupyter-server" },
-    { name = "jupyter-ydoc" },
-    { name = "pycrdt" },
+    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ydoc", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pycrdt", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c3/52/fc6221d3f43f1561be8c486ba4a101862f7090f21bc036d31a1d4ae56190/jupyter_ai_tools-0.5.1.tar.gz", hash = "sha256:37423f452072ed1b6eb7bf5ac142a8476d434bb4f6a076c4aa2ebfd9525fe7c0", size = 38490, upload-time = "2026-04-22T19:04:57.934Z" }
 wheels = [
@@ -2672,8 +2967,8 @@ name = "jupyter-server-mcp"
 version = "0.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "fastmcp" },
-    { name = "jupyter-server" },
+    { name = "fastmcp", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/11/7e/1bc12a0e5d840e6d896d83402b992dcb897e9fdeb875a49f0ba03a98527f/jupyter_server_mcp-0.2.1.tar.gz", hash = "sha256:41392496ced1d8de441fbcfff7c31b3fc2767abaa350e25660bbcc8aa5c8a9ae", size = 24615, upload-time = "2026-04-23T05:22:07.901Z" }
 wheels = [
@@ -2793,13 +3088,42 @@ wheels = [
 
 [[package]]
 name = "jupyterlab-chat"
+version = "0.17.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+]
+dependencies = [
+    { name = "jupyter-collaboration", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-server", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-ydoc", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pycrdt", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ff/7b/d629a169dc3740cbc5ba49f48f2610024ad8f848e221a7a954173e9198df/jupyterlab_chat-0.17.0.tar.gz", hash = "sha256:9c8716cfb96bb60c47374d04fa270ec43e5b61361c7e8772e06682aff504d6cc", size = 311286, upload-time = "2025-07-29T01:59:12.735Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f8/d8/2b7ba5bfc753a4a5e66413f5ed3098c67a5600438ea2209a1bf581ef73f0/jupyterlab_chat-0.17.0-py3-none-any.whl", hash = "sha256:0697a94365b152eeec7cab7dd8cc37104c21819d7f3fd377da27286fd7d27b25", size = 146353, upload-time = "2025-07-29T01:59:11.281Z" },
+]
+
+[[package]]
+name = "jupyterlab-chat"
 version = "0.22.0"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and sys_platform == 'win32'",
+    "python_full_version >= '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version >= '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+    "python_full_version < '3.15' and sys_platform == 'win32'",
+    "python_full_version < '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+]
 dependencies = [
-    { name = "jupyter-collaboration" },
-    { name = "jupyter-server" },
-    { name = "jupyter-ydoc" },
-    { name = "pycrdt" },
+    { name = "jupyter-collaboration", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ydoc", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pycrdt", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5e/01/0265b3e95fdaefa5d94487b482cfd20e534c38df895ca056f5a6d22fd9d8/jupyterlab_chat-0.22.0.tar.gz", hash = "sha256:603b3d91ca2db0f0494fbe20c226db63a165cbc52a569cf838aa549bb4235a21", size = 326947, upload-time = "2026-05-18T17:44:01.534Z" }
 wheels = [
@@ -2811,8 +3135,8 @@ name = "jupyterlab-commands-toolkit"
 version = "0.1.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "jupyter-server" },
-    { name = "jupyterlab-eventlistener" },
+    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyterlab-eventlistener", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d8/29/fb873568c258a385cfcc763ca5f9bf703e60e0ded05d3dee28e71565ba4e/jupyterlab_commands_toolkit-0.1.6.tar.gz", hash = "sha256:e6f81a815e7247841ec875f9fa8c876a45fb13d38401589dd9dc3743e39beaea", size = 82477, upload-time = "2026-04-29T12:29:06.102Z" }
 wheels = [
@@ -2904,9 +3228,9 @@ name = "keyring"
 version = "25.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "jaraco-classes" },
-    { name = "jaraco-context" },
-    { name = "jaraco-functools" },
+    { name = "jaraco-classes", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jaraco-context", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jaraco-functools", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
     { name = "jeepney", marker = "sys_platform == 'linux'" },
     { name = "pywin32-ctypes", marker = "sys_platform == 'win32'" },
     { name = "secretstorage", marker = "sys_platform == 'linux'" },
@@ -2969,6 +3293,241 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/67/b9/f3b9fb2d3ef4550918b83c328dc720a58f65bc66732d9438e06469573ad1/kubernetes_asyncio-35.0.1.tar.gz", hash = "sha256:975870e3097b647c265a59b9175ab0841f0de06cd2162268273ca210b1fa672e", size = 1320250, upload-time = "2026-02-25T20:40:42.87Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/36/b3/a8917d253763095fb8dcaaefc6a135ed31abbd13f681e78752e226e252fe/kubernetes_asyncio-35.0.1-py3-none-any.whl", hash = "sha256:244ef45943e89c5c5104276a646bfcbf1a9dc3d060876c2094aa601e932f1c03", size = 2868606, upload-time = "2026-02-25T20:40:41.191Z" },
+]
+
+[[package]]
+name = "langchain"
+version = "0.3.28"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+]
+dependencies = [
+    { name = "langchain-core", version = "0.3.76", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "langchain-text-splitters", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "langsmith", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pydantic", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pyyaml", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "requests", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "sqlalchemy", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/87/bb/a65e29c8e4aaf0348c2617962e427c8e760d82a67adbd197019e49c7769d/langchain-0.3.28.tar.gz", hash = "sha256:30a32f44cc6690bcc6a6fb7c14d61a15406d5eda1a0e7eab60b3660944888741", size = 10242473, upload-time = "2026-03-06T22:45:17.911Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5b/f5/ecd71e5b78e67944b2600a155ef63000bc00148e6794e8e7809b2453887a/langchain-0.3.28-py3-none-any.whl", hash = "sha256:1ba1244477b67b812b775f346209fa596e78bf055a34e45ce22acb7a45842a32", size = 1024717, upload-time = "2026-03-06T22:45:15.545Z" },
+]
+
+[[package]]
+name = "langchain"
+version = "1.3.1"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and sys_platform == 'win32'",
+    "python_full_version >= '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version >= '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+    "python_full_version < '3.15' and sys_platform == 'win32'",
+    "python_full_version < '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+]
+dependencies = [
+    { name = "langchain-core", version = "1.4.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langgraph", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/11/e5/6350e77a9e2764eaafcb2d581cbf0b800f53c6bc98fdf5ebc85f3a931ded/langchain-1.3.1.tar.gz", hash = "sha256:bc283c220233230f48b8e50ab1fbf1b688bcb206d933fa448d40a9b143177f62", size = 581329, upload-time = "2026-05-15T18:14:55.368Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/78/11/3d7ed10b535413a07ed5e15682abcb77f3c4204ac49586977a495f9b24e6/langchain-1.3.1-py3-none-any.whl", hash = "sha256:154e9c30c90b391eba4315296f6bf6b6fac6b058ddea4cc771a10470968fe36f", size = 114345, upload-time = "2026-05-15T18:14:53.984Z" },
+]
+
+[[package]]
+name = "langchain-community"
+version = "0.3.30"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "dataclasses-json", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "httpx-sse", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "langchain", version = "0.3.28", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "langchain-core", version = "0.3.76", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "langsmith", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "numpy", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pydantic-settings", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pyyaml", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "requests", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "sqlalchemy", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "tenacity", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d7/32/852facdba14140bbfc9b02e6dcb00fe2e0c5f50901d512a473351cf013e2/langchain_community-0.3.30.tar.gz", hash = "sha256:df68fbde7f7fa5142ab93b0cbc104916b12ab4163e200edd933ee93e67956ee9", size = 33240417, upload-time = "2025-09-26T05:52:49.588Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7f/1b/3c7930361567825a473da10deacf261e029258eb450c9fa8cb98368548ce/langchain_community-0.3.30-py3-none-any.whl", hash = "sha256:a49dcedbf8f320d9868d5944d0991c7bcc9f2182a602e5d5e872d315183c11c3", size = 2532469, upload-time = "2025-09-26T05:52:47.037Z" },
+]
+
+[[package]]
+name = "langchain-core"
+version = "0.3.76"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'manylinux'",
+    "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
+]
+dependencies = [
+    { name = "jsonpatch", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "langsmith", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "packaging", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pydantic", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "pyyaml", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "tenacity", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "typing-extensions", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4f/4d/5e2ea7754ee0a1f524c412801c6ba9ad49318ecb58b0d524903c3d9efe0a/langchain_core-0.3.76.tar.gz", hash = "sha256:71136a122dd1abae2c289c5809d035cf12b5f2bb682d8a4c1078cd94feae7419", size = 573568, upload-time = "2025-09-10T14:49:39.863Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/77/b5/501c0ffcb09c734457ceaa86bc7b1dd37b6a261147bd653add03b838aacb/langchain_core-0.3.76-py3-none-any.whl", hash = "sha256:46e0eb48c7ac532432d51f8ca1ece1804c82afe9ae3dcf027b867edadf82b3ec", size = 447508, upload-time = "2025-09-10T14:49:38.179Z" },
+]
+
+[[package]]
+name = "langchain-core"
+version = "1.4.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and sys_platform == 'win32'",
+    "python_full_version >= '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version >= '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+    "python_full_version < '3.15' and sys_platform == 'win32'",
+    "python_full_version < '3.15' and sys_platform == 'emscripten'",
+    "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
+]
+dependencies = [
+    { name = "jsonpatch", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langchain-protocol", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langsmith", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "packaging", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pyyaml", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "tenacity", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "uuid-utils", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/59/de/679a53472c25860837e32c0442c962fa86e95317a36460e2c9d5c91b17c2/langchain_core-1.4.0.tar.gz", hash = "sha256:1dc341eed802ed9c117c0df3923c991e5e9e226571e5725c194eeb5bd93d1a7f", size = 920260, upload-time = "2026-05-11T18:42:35.919Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0f/1a/86c38c27b81913a1c6c12448cab55defb5a1097c7dc9a4cea83f55477a2d/langchain_core-1.4.0-py3-none-any.whl", hash = "sha256:23cbbdb46e38ddd1dd5247e6167e96013eae74bea4c5949c550809970a9e565c", size = 548120, upload-time = "2026-05-11T18:42:33.992Z" },
+]
+
+[[package]]
+name = "langchain-protocol"
+version = "0.0.15"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4f/24/9777489d6fbbee64af0c8f96d4f840239c408cf694f3394672807dafc490/langchain_protocol-0.0.15.tar.gz", hash = "sha256:9ab2d11ee73944754f10e037e717098d3a6796f0e58afa9cadda6154e7655ade", size = 5862, upload-time = "2026-05-01T22:30:04.748Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1d/7a/9c97a7b9cbe4c5dc6a44cdb1545450c28f0c8ce89b9c1f0ee7fbad896263/langchain_protocol-0.0.15-py3-none-any.whl", hash = "sha256:461eb794358f83d5e42635a5797799ffec7b4702314e34edf73ac21e75d3ef79", size = 6982, upload-time = "2026-05-01T22:30:03.877Z" },
+]
+
+[[package]]
+name = "langchain-text-splitters"
+version = "0.3.11"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain-core", version = "0.3.76", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/11/43/dcda8fd25f0b19cb2835f2f6bb67f26ad58634f04ac2d8eae00526b0fa55/langchain_text_splitters-0.3.11.tar.gz", hash = "sha256:7a50a04ada9a133bbabb80731df7f6ddac51bc9f1b9cab7fa09304d71d38a6cc", size = 46458, upload-time = "2025-08-31T23:02:58.316Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/58/0d/41a51b40d24ff0384ec4f7ab8dd3dcea8353c05c973836b5e289f1465d4f/langchain_text_splitters-0.3.11-py3-none-any.whl", hash = "sha256:cf079131166a487f1372c8ab5d0bfaa6c0a4291733d9c43a34a16ac9bcd6a393", size = 33845, upload-time = "2025-08-31T23:02:57.195Z" },
+]
+
+[[package]]
+name = "langgraph"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain-core", version = "1.4.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langgraph-checkpoint", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langgraph-prebuilt", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langgraph-sdk", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "xxhash", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/58/61/d5d25e783035aa307d289b37e082258a6061c0fb4caa4a284f3bf1e87169/langgraph-1.2.0.tar.gz", hash = "sha256:4a9baaf62afc5d5f63144a50095140a34b9aa9b7cea695d25326d564775348e7", size = 690248, upload-time = "2026-05-12T03:46:39.164Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f6/e8/e3304ac0015c2bdb04ad9785e4ed65c788855ce7857ce6104dd2f5d322db/langgraph-1.2.0-py3-none-any.whl", hash = "sha256:03fd5895a8d4b70db1ff63ebc3bacead29dd20cd794a8b1a483e7ec9018f7a65", size = 234262, upload-time = "2026-05-12T03:46:37.971Z" },
+]
+
+[[package]]
+name = "langgraph-checkpoint"
+version = "4.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain-core", version = "1.4.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "ormsgpack", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/02/b4/6005c5dd88ad484fe6235d4c43a0d2cee7e91b08ad85a180985c2662df87/langgraph_checkpoint-4.1.0.tar.gz", hash = "sha256:e5bb304e30fc1363ac8fcb5f7dee5ca2185d77fe475b0d01de2c5f91324c2c21", size = 181942, upload-time = "2026-05-12T03:33:49.888Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/93/74/d3be2b41955e20ccd624dba5f6fe9d38dcee385ba470a6e13ed86732fc86/langgraph_checkpoint-4.1.0-py3-none-any.whl", hash = "sha256:8bc2a0466a20c38b865ce6671b42093fd5c041133f32351cae4222e0eeaf7fb5", size = 56047, upload-time = "2026-05-12T03:33:48.548Z" },
+]
+
+[[package]]
+name = "langgraph-checkpoint-sqlite"
+version = "3.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiosqlite", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langgraph-checkpoint", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "sqlite-vec", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e3/ea/83917c2369acf8a10a894d4247655fd063c07924ba5bc4e83c85d2eaeded/langgraph_checkpoint_sqlite-3.1.0.tar.gz", hash = "sha256:f926916ebc1b985d802cc9c820026036e84db9d910d62c97b57e4ba64f67d5ae", size = 147902, upload-time = "2026-05-12T03:34:52.503Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/97/07/b342811a16327900af2747c752ea19676172fcddf9b592cc384031076623/langgraph_checkpoint_sqlite-3.1.0-py3-none-any.whl", hash = "sha256:cc9b40df0076feae8a9ad42ae713621b148b00ac23adc09dc1dc66090a46e5ad", size = 38587, upload-time = "2026-05-12T03:34:51.231Z" },
+]
+
+[[package]]
+name = "langgraph-prebuilt"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain-core", version = "1.4.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langgraph-checkpoint", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/29/66/ed9b93f56bc17ef22d551892f0ac2b225a97fe0fcf23a511b857f70d590b/langgraph_prebuilt-1.1.0.tar.gz", hash = "sha256:3c579cf6eed2d17f9c157c2d0fcaddcd8688524e7022d3b22b37a3bf4589d528", size = 178833, upload-time = "2026-05-12T03:37:49.332Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e9/43/3fe1a700b8490ed02679cdbbc8c915eb23a092faf496c9c1118abcd10be3/langgraph_prebuilt-1.1.0-py3-none-any.whl", hash = "sha256:51e311747d755b751d5c6b39b0c1446124d3a7643d2515017e6714b323508fc9", size = 41043, upload-time = "2026-05-12T03:37:48.007Z" },
+]
+
+[[package]]
+name = "langgraph-sdk"
+version = "0.3.14"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "orjson", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/02/f1/134046c20bc4a4a15d410d1d21c9e298a3e9923777b4cc867b8669bc636b/langgraph_sdk-0.3.14.tar.gz", hash = "sha256:acd1674c538e97f3cdaa610f6dd7e34bc9bad30167f0ccc482dcd563325e81f5", size = 198162, upload-time = "2026-05-05T18:40:03.524Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/34/96/1c9f9fbfe756ddd850a2585e7f1949d8ebb97fdaa7a5eff8f45ed1314670/langgraph_sdk-0.3.14-py3-none-any.whl", hash = "sha256:68935bf6f4924eda92617a9e5dfb4f4281197508c648cb9d62ff083907607f9d", size = 97028, upload-time = "2026-05-05T18:40:02.099Z" },
+]
+
+[[package]]
+name = "langsmith"
+version = "0.8.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "orjson", marker = "platform_python_implementation != 'PyPy'" },
+    { name = "packaging" },
+    { name = "pydantic" },
+    { name = "requests" },
+    { name = "requests-toolbelt" },
+    { name = "uuid-utils" },
+    { name = "xxhash" },
+    { name = "zstandard" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/17/eb/8883d1158c743d0aac350f09df7880714d27283497e8c80bb9fe3480f165/langsmith-0.8.5.tar.gz", hash = "sha256:3615243d99c12f4047f13042bdc05a373dce232d106a6511b3ca7b48c5af1c2c", size = 4462348, upload-time = "2026-05-15T21:31:41.093Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/23/85/968c88a63e32a59b3e5c68afd2fe114ce0708a125db0be1a85efc25fb2ea/langsmith-0.8.5-py3-none-any.whl", hash = "sha256:efc779f9d450dcaf9d97bc8894f4926276509d6e730e05289af9a64debce06ae", size = 399564, upload-time = "2026-05-15T21:31:39.046Z" },
 ]
 
 [[package]]
@@ -3084,6 +3643,15 @@ wheels = [
 ]
 
 [[package]]
+name = "locket"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2f/83/97b29fe05cb6ae28d2dbd30b81e2e402a3eed5f460c26e9eaa5895ceacf5/locket-1.0.0.tar.gz", hash = "sha256:5c0d4c052a8bbbf750e056a8e65ccd309086f4f0f18a2eac306a8dfa4112a632", size = 4350, upload-time = "2022-04-20T22:04:44.312Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/db/bc/83e112abc66cd466c6b83f99118035867cecd41802f8d044638aa78a106e/locket-1.0.0-py2.py3-none-any.whl", hash = "sha256:b6c819a722f7b6bd955b80781788e4a66a55628b858d347536b7e81325a3a5e3", size = 4398, upload-time = "2022-04-20T22:04:42.23Z" },
+]
+
+[[package]]
 name = "mako"
 version = "1.3.12"
 source = { registry = "https://pypi.org/simple" }
@@ -3152,6 +3720,18 @@ wheels = [
 ]
 
 [[package]]
+name = "marshmallow"
+version = "3.26.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/55/79/de6c16cc902f4fc372236926b0ce2ab7845268dcc30fb2fbb7f71b418631/marshmallow-3.26.2.tar.gz", hash = "sha256:bbe2adb5a03e6e3571b573f42527c6fe926e17467833660bebd11593ab8dfd57", size = 222095, upload-time = "2025-12-22T06:53:53.309Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/be/2f/5108cb3ee4ba6501748c4908b908e55f42a5b66245b4cfe0c99326e1ef6e/marshmallow-3.26.2-py3-none-any.whl", hash = "sha256:013fa8a3c4c276c24d26d84ce934dc964e2aa794345a0f8c7e5a7191482c8a73", size = 50964, upload-time = "2025-12-22T06:53:51.801Z" },
+]
+
+[[package]]
 name = "matplotlib"
 version = "3.10.9"
 source = { registry = "https://pypi.org/simple" }
@@ -3201,20 +3781,20 @@ name = "mcp"
 version = "1.27.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio" },
-    { name = "httpx" },
-    { name = "httpx-sse" },
-    { name = "jsonschema" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "pyjwt", extra = ["crypto"] },
-    { name = "python-multipart" },
+    { name = "anyio", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "httpx", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "httpx-sse", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jsonschema", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pydantic-settings", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pyjwt", extra = ["crypto"], marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "python-multipart", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
-    { name = "sse-starlette" },
-    { name = "starlette" },
-    { name = "typing-extensions" },
-    { name = "typing-inspection" },
-    { name = "uvicorn", marker = "sys_platform != 'emscripten'" },
+    { name = "sse-starlette", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "starlette", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "typing-inspection", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "uvicorn", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (sys_platform != 'emscripten' and sys_platform != 'manylinux')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/38/83/d1efe7c2980d8a3afa476f4e3d42d53dd54c0ab94c27bee5d755b45c8b73/mcp-1.27.1.tar.gz", hash = "sha256:0f47e1820f8f8f941466b39749eb1d1839a04caddca2bc60e9d46e8a99914924", size = 608458, upload-time = "2026-05-08T16:50:12.601Z" }
 wheels = [
@@ -3259,6 +3839,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/a2/f7/139d22fef48ac7812
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/98/6af411189d9413534c3eb691182bff1f5c6d44ed2f93f2edfe52a1bbceb8/more_itertools-11.0.2-py3-none-any.whl", hash = "sha256:6e35b35f818b01f691643c6c611bc0902f2e92b46c18fffa77ae1e7c46e912e4", size = 71939, upload-time = "2026-04-09T15:01:32.21Z" },
 ]
+
+[[package]]
+name = "msgpack"
+version = "1.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4d/f2/bfb55a6236ed8725a96b0aa3acbd0ec17588e6a2c3b62a93eb513ed8783f/msgpack-1.1.2.tar.gz", hash = "sha256:3b60763c1373dd60f398488069bcdc703cd08a711477b5d480eecc9f9626f47e", size = 173581, upload-time = "2025-10-08T09:15:56.596Z" }
 
 [[package]]
 name = "multidict"
@@ -3758,7 +4344,7 @@ name = "openapi-pydantic"
 version = "0.5.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pydantic" },
+    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/02/2e/58d83848dd1a79cb92ed8e63f6ba901ca282c5f09d04af9423ec26c56fd7/openapi_pydantic-0.5.1.tar.gz", hash = "sha256:ff6835af6bde7a459fb93eb93bb92b8749b754fc6e51b2f1590a19dc3005ee0d", size = 60892, upload-time = "2025-01-08T19:29:27.083Z" }
 wheels = [
@@ -3770,11 +4356,55 @@ name = "opentelemetry-api"
 version = "1.42.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/86/ca/25288069c399be6769159d9fb7b1190b603537d82aad2fa2746a0cc2c8c6/opentelemetry_api-1.42.0.tar.gz", hash = "sha256:ea84c893ad177791d138e0349d6ceebd8d3bf006440900400ce220008dafc372", size = 72300, upload-time = "2026-05-19T09:46:29.885Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1b/0b/be5daf659b82b525338fde371dfcfab09b606a19bb5620c37076964710ec/opentelemetry_api-1.42.0-py3-none-any.whl", hash = "sha256:558d88f88192a973579910ef6f2c13db47a268d5ec2e53e83e50e74a39a02922", size = 61310, upload-time = "2026-05-19T09:46:06.561Z" },
+]
+
+[[package]]
+name = "orjson"
+version = "3.11.9"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7e/0c/964746fcafbd16f8ff53219ad9f6b412b34f345c75f384ad434ceaadb538/orjson-3.11.9.tar.gz", hash = "sha256:4fef17e1f8722c11587a6ef18e35902450221da0028e65dbaaa543619e68e48f", size = 5599163, upload-time = "2026-05-06T15:11:08.309Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/eb/5da01e356015aee6ecfa1187ced87aef51364e306f5e695dd52719bf0e78/orjson-3.11.9-cp314-cp314-macosx_10_15_x86_64.macosx_11_0_arm64.macosx_10_15_universal2.whl", hash = "sha256:b6ef1979adc4bc243523f1a2ba91418030a8e29b0a99cbe7e0e2d6807d4dce6e", size = 228465, upload-time = "2026-05-06T15:10:44.097Z" },
+    { url = "https://files.pythonhosted.org/packages/64/62/3e0e0c14c957133bcd855395c62b55ed4e3b0af23ffea11b032cb1dcbdb1/orjson-3.11.9-cp314-cp314-macosx_15_0_arm64.whl", hash = "sha256:f36b7f32c7c0db4a719f1fc5824db4a9c6f8bd1a354debb91faf26ebf3a4c71e", size = 128364, upload-time = "2026-05-06T15:10:45.839Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/5a/07d8aa117211a8ed7630bda80c8c0b14d04e0f8dcf99bcf49656e4a710eb/orjson-3.11.9-cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:08f4d8ebb44925c794e535b2bebc507cebf32209df81de22ae285fb0d8d66de0", size = 132063, upload-time = "2026-05-06T15:10:47.267Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/ec/4acaf21483e18aa945be74a474c74b434f284b549f275a0a39b9f98956e9/orjson-3.11.9-cp314-cp314-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:6cc7923789694fd58f001cbcac7e47abc13af4d560ebbfcf3b41a8b1a0748124", size = 122356, upload-time = "2026-05-06T15:10:48.765Z" },
+    { url = "https://files.pythonhosted.org/packages/13/d8/5f0555e7638801323b7a75850f92e7dfa891bc84fe27a1ba4449170d1200/orjson-3.11.9-cp314-cp314-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:ea5c46eb2d3af39e806b986f4b09d5c2706a1f5afde3cbf7544ce6616127173c", size = 129592, upload-time = "2026-05-06T15:10:50.13Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/30/ed9860412a3603ceb3c5955bfd72d28b9d0e7ba6ed81add14f83d7114236/orjson-3.11.9-cp314-cp314-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:f5d89a2ed90731df3be64bab0aa44f78bff39fdc9d71c291f4a8023aa46425b7", size = 140491, upload-time = "2026-05-06T15:10:51.582Z" },
+    { url = "https://files.pythonhosted.org/packages/d0/17/adc514dea7ac7c505527febf884934b815d34f0c7b8693c1a8b39c5c4a57/orjson-3.11.9-cp314-cp314-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:25e4aed0312d292c09f61af25bba34e0b2c88546041472b09088c39a4d828af1", size = 127309, upload-time = "2026-05-06T15:10:53.329Z" },
+    { url = "https://files.pythonhosted.org/packages/76/3e/c0b690253f0b82d86e99949af13533363acfb5432ecb5d53dd5b3bce9c34/orjson-3.11.9-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:aaea64f3f467d22e70eeed68bdccb3bc4f83f650446c4a03c59f2cba28a108db", size = 134030, upload-time = "2026-05-06T15:10:54.988Z" },
+    { url = "https://files.pythonhosted.org/packages/c1/7a/bc82a0bb25e9faaf92dc4d9ef002732efc09737706af83e346788641d4a7/orjson-3.11.9-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:a028425d1b440c5d92a6be1e1a020739dfe67ea87d96c6dbe828c1b30041728b", size = 141482, upload-time = "2026-05-06T15:10:56.663Z" },
+    { url = "https://files.pythonhosted.org/packages/01/55/e69188b939f77d5d32a9833745ace31ea5ccae3ab613a1ec185d3cd2c4fb/orjson-3.11.9-cp314-cp314-musllinux_1_2_armv7l.whl", hash = "sha256:5b192c6cf397e4455b11523c5cf2b18ed084c1bbd61b6c0926344d2129481972", size = 415178, upload-time = "2026-05-06T15:10:58.446Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/1a/b8a5a7ac527e80b9cb11d51e3f6689b709279183264b9ec5c7bc680bb8b5/orjson-3.11.9-cp314-cp314-musllinux_1_2_i686.whl", hash = "sha256:ea407d4ccf5891d667d045fecae97a7a1e5e87b3b97f97ae1803c2e741130be0", size = 148089, upload-time = "2026-05-06T15:11:00.441Z" },
+    { url = "https://files.pythonhosted.org/packages/97/4e/00503f64204bf859b37213a63927028f30fb6268cd8677fb0a5ad48155e1/orjson-3.11.9-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:5f63aaf97afd9f6dec5b1a68e1b8da12bfccb4cb9a9a65c3e0b6c847849e7586", size = 136921, upload-time = "2026-05-06T15:11:02.176Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/ba/a23b82a0a8d0ed7bed4e5f5035aae751cad4ff6a1e8d2ecd14d8860f5929/orjson-3.11.9-cp314-cp314-win32.whl", hash = "sha256:e30ab17845bb9fa54ccf67fa4f9f5282652d54faa6d17452f47d0f369d038673", size = 131638, upload-time = "2026-05-06T15:11:03.696Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/c3/0c6798456bade745c75c452342dabacce5798196483e77e643be1f53877d/orjson-3.11.9-cp314-cp314-win_amd64.whl", hash = "sha256:32ef5f4283a3be81913947d19608eacb7c6608026851123790cd9cc8982af34b", size = 127078, upload-time = "2026-05-06T15:11:05.123Z" },
+    { url = "https://files.pythonhosted.org/packages/16/21/5a3f1e8913103b703a436a5664238e5b965ec392b555fe68943ea3691e6b/orjson-3.11.9-cp314-cp314-win_arm64.whl", hash = "sha256:eebdbdeef0094e4f5aefa20dcd4eb2368ab5e7a3b4edea27f1e7b2892e009cf9", size = 126687, upload-time = "2026-05-06T15:11:06.602Z" },
+]
+
+[[package]]
+name = "ormsgpack"
+version = "1.12.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/12/0c/f1761e21486942ab9bb6feaebc610fa074f7c5e496e6962dea5873348077/ormsgpack-1.12.2.tar.gz", hash = "sha256:944a2233640273bee67521795a73cf1e959538e0dfb7ac635505010455e53b33", size = 39031, upload-time = "2026-01-18T20:55:28.023Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/94/16/24d18851334be09c25e87f74307c84950f18c324a4d3c0b41dabdbf19c29/ormsgpack-1.12.2-cp314-cp314-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:bc68dd5915f4acf66ff2010ee47c8906dc1cf07399b16f4089f8c71733f6e36c", size = 378717, upload-time = "2026-01-18T20:55:26.164Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/a2/88b9b56f83adae8032ac6a6fa7f080c65b3baf9b6b64fd3d37bd202991d4/ormsgpack-1.12.2-cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:46d084427b4132553940070ad95107266656cb646ea9da4975f85cb1a6676553", size = 203183, upload-time = "2026-01-18T20:55:18.815Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/80/43e4555963bf602e5bdc79cbc8debd8b6d5456c00d2504df9775e74b450b/ormsgpack-1.12.2-cp314-cp314-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:c010da16235806cf1d7bc4c96bf286bfa91c686853395a299b3ddb49499a3e13", size = 210814, upload-time = "2026-01-18T20:55:33.973Z" },
+    { url = "https://files.pythonhosted.org/packages/78/e1/7cfbf28de8bca6efe7e525b329c31277d1b64ce08dcba723971c241a9d60/ormsgpack-1.12.2-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:18867233df592c997154ff942a6503df274b5ac1765215bceba7a231bea2745d", size = 212634, upload-time = "2026-01-18T20:55:28.634Z" },
+    { url = "https://files.pythonhosted.org/packages/95/f8/30ae5716e88d792a4e879debee195653c26ddd3964c968594ddef0a3cc7e/ormsgpack-1.12.2-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:b009049086ddc6b8f80c76b3955df1aa22a5fbd7673c525cd63bf91f23122ede", size = 387139, upload-time = "2026-01-18T20:56:02.013Z" },
+    { url = "https://files.pythonhosted.org/packages/dc/81/aee5b18a3e3a0e52f718b37ab4b8af6fae0d9d6a65103036a90c2a8ffb5d/ormsgpack-1.12.2-cp314-cp314-musllinux_1_2_armv7l.whl", hash = "sha256:1dcc17d92b6390d4f18f937cf0b99054824a7815818012ddca925d6e01c2e49e", size = 482578, upload-time = "2026-01-18T20:55:35.117Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/17/71c9ba472d5d45f7546317f467a5fc941929cd68fb32796ca3d13dcbaec2/ormsgpack-1.12.2-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:f04b5e896d510b07c0ad733d7fce2d44b260c5e6c402d272128f8941984e4285", size = 425539, upload-time = "2026-01-18T20:56:04.009Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/a6/ac99cd7fe77e822fed5250ff4b86fa66dd4238937dd178d2299f10b69816/ormsgpack-1.12.2-cp314-cp314-win_amd64.whl", hash = "sha256:ae3aba7eed4ca7cb79fd3436eddd29140f17ea254b91604aa1eb19bfcedb990f", size = 117493, upload-time = "2026-01-18T20:56:07.343Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/67/339872846a1ae4592535385a1c1f93614138566d7af094200c9c3b45d1e5/ormsgpack-1.12.2-cp314-cp314-win_arm64.whl", hash = "sha256:118576ea6006893aea811b17429bfc561b4778fad393f5f538c84af70b01260c", size = 111579, upload-time = "2026-01-18T20:55:21.161Z" },
+    { url = "https://files.pythonhosted.org/packages/49/c2/6feb972dc87285ad381749d3882d8aecbde9f6ecf908dd717d33d66df095/ormsgpack-1.12.2-cp314-cp314t-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:7121b3d355d3858781dc40dafe25a32ff8a8242b9d80c692fd548a4b1f7fd3c8", size = 378721, upload-time = "2026-01-18T20:55:52.12Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/9a/900a6b9b413e0f8a471cf07830f9cf65939af039a362204b36bd5b581d8b/ormsgpack-1.12.2-cp314-cp314t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4ee766d2e78251b7a63daf1cddfac36a73562d3ddef68cacfb41b2af64698033", size = 203170, upload-time = "2026-01-18T20:55:44.469Z" },
+    { url = "https://files.pythonhosted.org/packages/87/4c/27a95466354606b256f24fad464d7c97ab62bce6cc529dd4673e1179b8fb/ormsgpack-1.12.2-cp314-cp314t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:292410a7d23de9b40444636b9b8f1e4e4b814af7f1ef476e44887e52a123f09d", size = 212816, upload-time = "2026-01-18T20:55:23.501Z" },
+    { url = "https://files.pythonhosted.org/packages/73/cd/29cee6007bddf7a834e6cd6f536754c0535fcb939d384f0f37a38b1cddb8/ormsgpack-1.12.2-cp314-cp314t-win_amd64.whl", hash = "sha256:837dd316584485b72ef451d08dd3e96c4a11d12e4963aedb40e08f89685d8ec2", size = 117232, upload-time = "2026-01-18T20:55:45.448Z" },
 ]
 
 [[package]]
@@ -3874,6 +4504,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/30/4b/90c937815137d43ce71ba043cd3566221e9df6b9c805f24b5d138c9d40a7/parso-0.8.7.tar.gz", hash = "sha256:eaaac4c9fdd5e9e8852dc778d2d7405897ec510f2a298071453e5e3a07914bb1", size = 401824, upload-time = "2026-05-01T23:13:02.138Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/99/5d/8268b644392ee874ee82a635cd0df1773de230bde356c38de28e298392cc/parso-0.8.7-py2.py3-none-any.whl", hash = "sha256:a8926eb2a1b915486941fdbd31e86a4baf88fe8c210f25f2f35ecec5b574ca1c", size = 107025, upload-time = "2026-05-01T23:12:58.867Z" },
+]
+
+[[package]]
+name = "partd"
+version = "1.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "locket", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "toolz", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b2/3a/3f06f34820a31257ddcabdfafc2672c5816be79c7e353b02c1f318daa7d4/partd-1.4.2.tar.gz", hash = "sha256:d022c33afbdc8405c226621b015e8067888173d85f7f5ecebb3cafed9a20f02c", size = 21029, upload-time = "2024-05-06T19:51:41.945Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/71/e7/40fb618334dcdf7c5a316c0e7343c5cd82d3d866edc100d98e29bc945ecd/partd-1.4.2-py3-none-any.whl", hash = "sha256:978e4ac767ec4ba5b86c6eaa52e5a2a3bc748a2ca839e8cc798f1cc6ce6efb0f", size = 18905, upload-time = "2024-05-06T19:51:39.271Z" },
 ]
 
 [[package]]
@@ -4155,8 +4798,8 @@ name = "py-key-value-aio"
 version = "0.4.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "beartype" },
-    { name = "typing-extensions" },
+    { name = "beartype", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/04/3c/0397c072a38d4bc580994b42e0c90c5f44f679303489e4376289534735e5/py_key_value_aio-0.4.4.tar.gz", hash = "sha256:e3012e6243ed7cc09bb05457bd4d03b1ba5c2b1ca8700096b3927db79ffbbe55", size = 92300, upload-time = "2026-02-16T21:21:43.245Z" }
 wheels = [
@@ -4165,14 +4808,14 @@ wheels = [
 
 [package.optional-dependencies]
 filetree = [
-    { name = "aiofile" },
-    { name = "anyio" },
+    { name = "aiofile", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "anyio", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 keyring = [
-    { name = "keyring" },
+    { name = "keyring", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 memory = [
-    { name = "cachetools" },
+    { name = "cachetools", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 
 [[package]]
@@ -4312,7 +4955,7 @@ wheels = [
 
 [package.optional-dependencies]
 email = [
-    { name = "email-validator" },
+    { name = "email-validator", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 
 [[package]]
@@ -4849,6 +5492,18 @@ wheels = [
 ]
 
 [[package]]
+name = "requests-toolbelt"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f3/61/d7545dafb7ac2230c70d38d31cbfe4cc64f7144dc41f6e4e4b78ecd9f5bb/requests-toolbelt-1.0.0.tar.gz", hash = "sha256:7681a0a3d047012b5bdc0ee37d7f8f07ebe76ab08caeccfc3921ce23c88d5bc6", size = 206888, upload-time = "2023-05-01T04:11:33.229Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3f/51/d4db610ef29373b879047326cbf6fa98b6c1969d6f6dc423279de2b1be2c/requests_toolbelt-1.0.0-py2.py3-none-any.whl", hash = "sha256:cccfdd665f0a24fcf4726e690f65639d272bb0637b9b92dfd91a5568ccf6bd06", size = 54481, upload-time = "2023-05-01T04:11:28.427Z" },
+]
+
+[[package]]
 name = "respx"
 version = "0.23.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4911,8 +5566,8 @@ name = "rich-rst"
 version = "2.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pygments" },
-    { name = "rich" },
+    { name = "pygments", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "rich", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/57/56/3191bae66b08ccc637ea8120426068bcb361cc323c96404c310886937067/rich_rst-2.0.1.tar.gz", hash = "sha256:cbe236ed0901d1ec8427cc6a50bf0a34353ba28ad014dc24def68bfe7f3b9e68", size = 300570, upload-time = "2026-05-16T00:47:57.362Z" }
 wheels = [
@@ -5091,7 +5746,10 @@ lab = [
     { name = "ipyvuetify" },
     { name = "ipywebrtc" },
     { name = "ipywidgets" },
-    { name = "jupyter-ai" },
+    { name = "jupyter-ai", version = "2.31.7", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-ai", version = "3.0.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ai-jupyternaut", version = "0.0.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-ai-jupyternaut", version = "0.0.11", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
     { name = "jupyter-ai-magic-commands" },
     { name = "jupyter-bokeh" },
     { name = "jupyter-console" },
@@ -5131,6 +5789,7 @@ lab = [
     { name = "ipywebrtc" },
     { name = "ipywidgets" },
     { name = "jupyter-ai" },
+    { name = "jupyter-ai-jupyternaut" },
     { name = "jupyter-ai-magic-commands" },
     { name = "jupyter-bokeh" },
     { name = "jupyter-console" },
@@ -5296,8 +5955,8 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
-    { name = "jeepney", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "cryptography", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')" },
+    { name = "jeepney", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
@@ -5435,6 +6094,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/75/a7/9810d872919697c9d01295633f5d574fb416d47e535f258272ca1f01f447/snowballstemmer-3.0.1.tar.gz", hash = "sha256:6d5eeeec8e9f84d4d56b847692bacf79bc2c8e90c7f80ca4444ff8b6f2e52895", size = 105575, upload-time = "2025-05-09T16:34:51.843Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/78/3565d011c61f5a43488987ee32b6f3f656e7f107ac2782dd57bdd7d91d9a/snowballstemmer-3.0.1-py3-none-any.whl", hash = "sha256:6cd7b3897da8d6c9ffb968a6781fa6532dce9c3618a4b127d920dab764a19064", size = 103274, upload-time = "2025-05-09T16:34:50.371Z" },
+]
+
+[[package]]
+name = "sortedcontainers"
+version = "2.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e8/c4/ba2f8066cceb6f23394729afe52f3bf7adec04bf9ed2c820b39e19299111/sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88", size = 30594, upload-time = "2021-05-16T22:03:42.897Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/32/46/9cb0e58b2deb7f82b84065f37f3bffeb12413f947f9388e4cac22c4621ce/sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0", size = 29575, upload-time = "2021-05-16T22:03:41.177Z" },
 ]
 
 [[package]]
@@ -5791,6 +6459,18 @@ wheels = [
 ]
 
 [[package]]
+name = "sqlite-vec"
+version = "0.1.9"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/68/85/9fad0045d8e7c8df3e0fa5a56c630e8e15ad6e5ca2e6106fceb666aa6638/sqlite_vec-0.1.9-py3-none-macosx_10_6_x86_64.whl", hash = "sha256:1b62a7f0a060d9475575d4e599bbf94a13d85af896bc1ce86ee80d1b5b48e5fb", size = 131171, upload-time = "2026-03-31T08:02:31.717Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/3d/3677e0cd2f92e5ebc43cd29fbf565b75582bff1ccfa0b8327c7508e1084f/sqlite_vec-0.1.9-py3-none-macosx_11_0_arm64.whl", hash = "sha256:1d52e30513bae4cc9778ddbf6145610434081be4c3afe57cd877893bad9f6b6c", size = 165434, upload-time = "2026-03-31T08:02:32.712Z" },
+    { url = "https://files.pythonhosted.org/packages/00/d4/f2b936d3bdc38eadcbd2a87875815db36430fab0363182ba5d12cd8e0b51/sqlite_vec-0.1.9-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4e921e592f24a5f9a18f590b6ddd530eb637e2d474e3b1972f9bbeb773aa3cb9", size = 160076, upload-time = "2026-03-31T08:02:33.796Z" },
+    { url = "https://files.pythonhosted.org/packages/6f/ad/6afd073b0f817b3e03f9e37ad626ae341805891f23c74b5292818f49ac63/sqlite_vec-0.1.9-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux1_x86_64.whl", hash = "sha256:1515727990b49e79bcaf75fdee2ffc7d461f8b66905013231251f1c8938e7786", size = 163388, upload-time = "2026-03-31T08:02:34.888Z" },
+    { url = "https://files.pythonhosted.org/packages/42/89/81b2907cda14e566b9bf215e2ad82fc9b349edf07d2010756ffdb902f328/sqlite_vec-0.1.9-py3-none-win_amd64.whl", hash = "sha256:4a28dc12fa4b53d7b1dced22da2488fade444e96b5d16fd2d698cd670675cf32", size = 292804, upload-time = "2026-03-31T08:02:36.035Z" },
+]
+
+[[package]]
 name = "sse-starlette"
 version = "3.4.4"
 source = { registry = "https://pypi.org/simple" }
@@ -5845,6 +6525,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/46/58/8c37dea7bbf769b20d58e7ace7e5edfe65b849442b00ffcdd56be88697c6/tabulate-0.10.0.tar.gz", hash = "sha256:e2cfde8f79420f6deeffdeda9aaec3b6bc5abce947655d17ac662b126e48a60d", size = 91754, upload-time = "2026-03-04T18:55:34.402Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl", hash = "sha256:f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3", size = 39814, upload-time = "2026-03-04T18:55:31.284Z" },
+]
+
+[[package]]
+name = "tblib"
+version = "3.2.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f4/8a/14c15ae154895cc131174f858c707790d416c444fc69f93918adfd8c4c0b/tblib-3.2.2.tar.gz", hash = "sha256:e9a652692d91bf4f743d4a15bc174c0b76afc750fe8c7b6d195cc1c1d6d2ccec", size = 35046, upload-time = "2025-11-12T12:21:16.572Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/02/be/5d2d47b1fb58943194fb59dcf222f7c4e35122ec0ffe8c36e18b5d728f0b/tblib-3.2.2-py3-none-any.whl", hash = "sha256:26bdccf339bcce6a88b2b5432c988b266ebbe63a4e593f6b578b1d2e723d2b76", size = 12893, upload-time = "2025-11-12T12:21:14.407Z" },
+]
+
+[[package]]
+name = "tenacity"
+version = "9.1.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/c6/ee486fd809e357697ee8a44d3d69222b344920433d3b6666ccd9b374630c/tenacity-9.1.4.tar.gz", hash = "sha256:adb31d4c263f2bd041081ab33b498309a57c77f9acf2db65aadf0898179cf93a", size = 49413, upload-time = "2026-02-07T10:45:33.841Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl", hash = "sha256:6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55", size = 28926, upload-time = "2026-02-07T10:45:32.24Z" },
 ]
 
 [[package]]
@@ -6079,6 +6777,19 @@ wheels = [
 ]
 
 [[package]]
+name = "typing-inspect"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "mypy-extensions", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "typing-extensions", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/dc/74/1789779d91f1961fa9438e9a8710cdae6bd138c80d7303996933d117264a/typing_inspect-0.9.0.tar.gz", hash = "sha256:b23fc42ff6f6ef6954e4852c1fb512cdd18dbea03134f91f856a95ccc9461f78", size = 13825, upload-time = "2023-05-24T20:25:47.612Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/65/f3/107a22063bf27bdccf2024833d3445f4eea42b2e598abfbd46f6a63b6cb0/typing_inspect-0.9.0-py3-none-any.whl", hash = "sha256:9ee6fc59062311ef8547596ab6b955e1b8aa46242d854bfc78f4f6b0eff35f9f", size = 8827, upload-time = "2023-05-24T20:25:45.287Z" },
+]
+
+[[package]]
 name = "typing-inspection"
 version = "0.4.2"
 source = { registry = "https://pypi.org/simple" }
@@ -6142,6 +6853,42 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
+]
+
+[[package]]
+name = "uuid-utils"
+version = "0.16.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/01/a1/822ceef22d1c139cffebe4b1b660cfaa10253d5c770aa2598dc8e9497593/uuid_utils-0.16.0.tar.gz", hash = "sha256:d6902d4375dfba4c9902c736bb82d3c040417b67f7d0fa48910ddfdb1ac95de7", size = 42596, upload-time = "2026-05-19T07:44:23.28Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b7/77/50ac87b6e18b1c686f700aa38c9471a990683c6a955f71ac1a6677ed8145/uuid_utils-0.16.0-cp314-cp314-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:6853b627983aa1b4fd95aa52d9e87136eb94a7b3b7de0fbb1db8a498d457eeec", size = 564108, upload-time = "2026-05-19T07:43:55.609Z" },
+    { url = "https://files.pythonhosted.org/packages/83/16/65046676de246bb5334d9f58aa96d2feb9fc347fda3556aaff7da1c2fc7a/uuid_utils-0.16.0-cp314-cp314-macosx_10_12_x86_64.whl", hash = "sha256:f44b65ae0c329843817d9c90e36a7a3c677b413bf407c99e67db874dac49dad3", size = 289967, upload-time = "2026-05-19T07:45:38.886Z" },
+    { url = "https://files.pythonhosted.org/packages/91/d6/54fa988606a15dfd2028e925d8eb9c3ee6edbf1eb7692a67b37282880b56/uuid_utils-0.16.0-cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:de8a365795a76f347f5622621c2bee543cffa0c70949f3ee093bdefc9d926dcc", size = 325835, upload-time = "2026-05-19T07:44:42.02Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/1b/50622f967ceacea1f89fd065d9bfd395b51acb02cfb0a4ddc8fa9ff0c983/uuid_utils-0.16.0-cp314-cp314-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:426a8c9af90242d879706ccf29da56f0b0712e7739fb0bbe16baacabc75596e2", size = 332607, upload-time = "2026-05-19T07:43:42.42Z" },
+    { url = "https://files.pythonhosted.org/packages/12/f5/4059706be6617e2787e375ea52994ce3c3fa3920b7d4a9c8ebf7895681a5/uuid_utils-0.16.0-cp314-cp314-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:833bc4b3c3fc24be541f67b01b4a75b6b9942a9b7137395b4eb35435948bd6da", size = 444287, upload-time = "2026-05-19T07:43:37.106Z" },
+    { url = "https://files.pythonhosted.org/packages/65/d5/f44b2710563da687a368f0ce4dcbd462dfb6708bcd46439d831991d595c7/uuid_utils-0.16.0-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:efb5252d7c00d586077f10e169d6e6d0b0d0f806d8a085073f0d19b4737aef4e", size = 324949, upload-time = "2026-05-19T07:45:33.175Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/a7/a69e859e37d26c5603f0bc0ae481860f691224f140e5a832f325b804770d/uuid_utils-0.16.0-cp314-cp314-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:0b3377ce388fd7bf8d231ec9d1d4f58c8e87888ddea93581f60ed6f878a4f722", size = 349651, upload-time = "2026-05-19T07:43:59.998Z" },
+    { url = "https://files.pythonhosted.org/packages/db/73/4139cd3ca7b81ea283c1c8769373e9b2008241c0744a8ffb25f0a1b31325/uuid_utils-0.16.0-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:12b6310beb38adc173ec5dc89e98812fd7e3d98f87f3ef01d2ea6ecb5d87994f", size = 502326, upload-time = "2026-05-19T07:45:40.292Z" },
+    { url = "https://files.pythonhosted.org/packages/cb/8c/858101583fbad1b3fa04da88b1f7170836aa0f00b4cb712063325c44466d/uuid_utils-0.16.0-cp314-cp314-musllinux_1_2_armv7l.whl", hash = "sha256:a49b5a75497643479c919e2e537a4a36224ac3aaa0fada61b75d87024021ac3e", size = 607689, upload-time = "2026-05-19T07:44:48.355Z" },
+    { url = "https://files.pythonhosted.org/packages/5e/bd/8f3d54a4763dd91ebd0f3d7b0c2ec434e4e0b1fc667b03a44d611a465ec6/uuid_utils-0.16.0-cp314-cp314-musllinux_1_2_i686.whl", hash = "sha256:63bfdf00be51b6b3b79275d6767d034ea5c7a0caa067a35d72861284100cb60a", size = 566214, upload-time = "2026-05-19T07:44:53.519Z" },
+    { url = "https://files.pythonhosted.org/packages/54/76/4c9a8d9baaa243c7902d84dbba4d51b1ab51c379c66d3fd6368ff6933ecf/uuid_utils-0.16.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:7525bc59ac4579c32317d2493dd42cf134b9bb50cd0bc6a41dd9f77e4740dde6", size = 529989, upload-time = "2026-05-19T07:44:43.141Z" },
+    { url = "https://files.pythonhosted.org/packages/6d/13/d32cea997f880cedde415730ce0e872ebfd7a040155ae0bbda70eccd208e/uuid_utils-0.16.0-cp314-cp314-win32.whl", hash = "sha256:fbcac6e6710aa2e4bfbb81762758e01470dc56d5048ba4253acc77c9833568ff", size = 169146, upload-time = "2026-05-19T07:45:46.655Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/19/9fc55172d8fe59e1f27a14d598b427fa508a7ebb35fa7b7b99c24fa0ef13/uuid_utils-0.16.0-cp314-cp314-win_amd64.whl", hash = "sha256:d23fcaf37368a1647319187ef6f8b741bf079f033065899bc2d00a44b0a1214a", size = 175364, upload-time = "2026-05-19T07:45:55.335Z" },
+    { url = "https://files.pythonhosted.org/packages/89/5d/fcd9226b715c5aa0638fcdd6deaf0de6c6c3c451c692cd76bfca810c6512/uuid_utils-0.16.0-cp314-cp314-win_arm64.whl", hash = "sha256:ea3265f8e2b452a4870f3298cb1d183dc4e36a3682cbb264dbe46af31267e706", size = 173268, upload-time = "2026-05-19T07:44:31.19Z" },
+    { url = "https://files.pythonhosted.org/packages/c1/64/97ec9af95e58b8187f2934008ffab26e1604d149e34fe01c388b0543a24f/uuid_utils-0.16.0-cp314-cp314t-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:99f8420c3ed59f89a086782ac197e257f4b1debb4545dffa90cf5db23f96c892", size = 564464, upload-time = "2026-05-19T07:44:40.856Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/6d/e4082f407484ac28923c0bf8e861e71d277118d8b7542d0a350340e45350/uuid_utils-0.16.0-cp314-cp314t-macosx_10_12_x86_64.whl", hash = "sha256:259bab73c241743d684dcc3507feb76f484d720545e4e4805582aeff8e19700b", size = 290087, upload-time = "2026-05-19T07:44:01.084Z" },
+    { url = "https://files.pythonhosted.org/packages/8c/43/c5c5f273c0ff889f20f10344784f9197dd00eb81ccc294330d4b949fea7e/uuid_utils-0.16.0-cp314-cp314t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:897e8ef0dc5e4ac0b17cf9cae84bb41e560d806280ec5b93db7475b504022105", size = 325532, upload-time = "2026-05-19T07:43:47.508Z" },
+    { url = "https://files.pythonhosted.org/packages/13/7f/669aa899ab5378374d28a28231e6978f739921a1af394c7ebd6cc86e2639/uuid_utils-0.16.0-cp314-cp314t-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:c5af79cde16a7600dfccb7d431aec0afd3088ff170b6a09887bf3f7ab3cc7c81", size = 332209, upload-time = "2026-05-19T07:43:51.528Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/57/a2a32406d79a222794ef98a19254fd9a81a029a0f32d7740fba9873bff1f/uuid_utils-0.16.0-cp314-cp314t-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:bece1a6f677ca36047442c465d8166643eed9818b9e43e0bf42d3cf73e92dcff", size = 445507, upload-time = "2026-05-19T07:44:20.541Z" },
+    { url = "https://files.pythonhosted.org/packages/26/6b/85459a35bfa7d73e79acbc4eab1cf6aa6e4d9d022c3260ed9dea539c7f0b/uuid_utils-0.16.0-cp314-cp314t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2bb3444498e7b099499c8a607d7771377020fa55f7274e46f54106af19f752d7", size = 326154, upload-time = "2026-05-19T07:45:23.587Z" },
+    { url = "https://files.pythonhosted.org/packages/84/9e/e965efdbb503ed14d6e57aec1a22b98326ed24cc2fb48e750c4d192267a0/uuid_utils-0.16.0-cp314-cp314t-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:542098f6cb6874aebeff98715f3ab7646fbe0f2ffb24509ca372828c68c4ed0e", size = 350905, upload-time = "2026-05-19T07:44:36.957Z" },
+    { url = "https://files.pythonhosted.org/packages/23/ae/4321867888a783d03b7c053c0b68ca45d03974d86fcebf44d4ec268db397/uuid_utils-0.16.0-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:7207b25fe534bcf4d57e0110f90670e61c1c38b6f4598ba855af69ab428fc118", size = 502098, upload-time = "2026-05-19T07:44:17.696Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/9a/914a47bf42479bff0ce3e1fa1cbe3585354708edc928e27687cf91de9c26/uuid_utils-0.16.0-cp314-cp314t-musllinux_1_2_armv7l.whl", hash = "sha256:16dc5c6e439f75b0456114e955983e2156c1f38887733e54d54205d3005223e4", size = 607032, upload-time = "2026-05-19T07:44:22.151Z" },
+    { url = "https://files.pythonhosted.org/packages/85/4c/2abacd6badba61a047eaa39c8347656229d12843bd9bbe4906daa6dc752c/uuid_utils-0.16.0-cp314-cp314t-musllinux_1_2_i686.whl", hash = "sha256:a6d3ee32c57898d8415242b08d5dd086bc4f7bcbbb3fc102ef257f3d793eb294", size = 567664, upload-time = "2026-05-19T07:45:21.043Z" },
+    { url = "https://files.pythonhosted.org/packages/53/1f/9d1a09521276424da19dc0d74456aed3311170fec181b28fa6acba45d963/uuid_utils-0.16.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:7555f120a2282d1901c9a632c2398a614101af4fe3f7c8114aa0f1d8c1978855", size = 530996, upload-time = "2026-05-19T07:45:44.229Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/22/14dbedb6b61f492d5524077fd10bbfb137583b0f0aafa6cd870ccb43f39a/uuid_utils-0.16.0-cp314-cp314t-win32.whl", hash = "sha256:756575d082ea4cb7d2f923d5b640c0efe7c82573aab49220c4e09b62d13737ff", size = 169358, upload-time = "2026-05-19T07:45:05.146Z" },
+    { url = "https://files.pythonhosted.org/packages/25/f4/a636806c98401a1108f2456e9cc3fa39a618145bfb1d0860c57203159cfe/uuid_utils-0.16.0-cp314-cp314t-win_amd64.whl", hash = "sha256:aa50261a83991dbb570a00573741455bd8f3249444f7329e5bdcd494799d1504", size = 174813, upload-time = "2026-05-19T07:45:59.579Z" },
+    { url = "https://files.pythonhosted.org/packages/75/12/3823742459d87a100deb24bb6b41692aa961b267abd130fa7739cdf7d409/uuid_utils-0.16.0-cp314-cp314t-win_arm64.whl", hash = "sha256:22a17e93a371d850ffce8fcdbacc2239f890efe73aa3262b6170c1febc08afe1", size = 171733, upload-time = "2026-05-19T07:45:29.283Z" },
 ]
 
 [[package]]
@@ -6372,6 +7119,57 @@ wheels = [
 ]
 
 [[package]]
+name = "xxhash"
+version = "3.7.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/24/2f/e183a1b407002f5af81822bee18b61cdb94b8670208ef34734d8d2b8ebe9/xxhash-3.7.0.tar.gz", hash = "sha256:6cc4eefbb542a5d6ffd6d70ea9c502957c925e800f998c5630ecc809d6702bae", size = 82022, upload-time = "2026-04-25T11:10:32.553Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0e/cc/431db584f6fbb9312e40a173af027644e5580d39df1f73603cbb9dca4d6b/xxhash-3.7.0-cp314-cp314-android_24_arm64_v8a.whl", hash = "sha256:8c5fcfd806c335bfa2adf1cd0b3110a44fc7b6995c3a648c27489bae85801465", size = 36644, upload-time = "2026-04-25T11:08:00.658Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/01/255ec513e0a705d1f9a61413e78dfce4e3235203f0ed525a24c2b4b56345/xxhash-3.7.0-cp314-cp314-android_24_x86_64.whl", hash = "sha256:506a0b488f190f0a06769575e30caf71615c898ed93ab18b0dbcb6dec5c3713c", size = 35003, upload-time = "2026-04-25T11:08:02.338Z" },
+    { url = "https://files.pythonhosted.org/packages/68/70/c55fc33c93445b44d8fc5a17b41ed99e3cebe92bcf8396809e63fc9a1165/xxhash-3.7.0-cp314-cp314-ios_13_0_arm64_iphoneos.whl", hash = "sha256:ec68dbba21532c0173a9872298e65c89749f7c9d21538c3a78b5bb6105871568", size = 29655, upload-time = "2026-04-25T11:08:03.701Z" },
+    { url = "https://files.pythonhosted.org/packages/c2/72/ff8de73df000d74467d12a59ce6d6e2b2a368b978d41ab7b1fba5ed442be/xxhash-3.7.0-cp314-cp314-ios_13_0_arm64_iphonesimulator.whl", hash = "sha256:fa77e7ec1450d415d20129961814787c9abd9a07f98872f070b1fe96c5084611", size = 30664, upload-time = "2026-04-25T11:08:05.011Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/91/08416d9bd9bc3bf39d831abe8a5631ac2db5141dfd6fe81c3fe59a1f9264/xxhash-3.7.0-cp314-cp314-ios_13_0_x86_64_iphonesimulator.whl", hash = "sha256:fe32736295ea38e43e7d9424053c8c47c9f64fecfc7c895fb3da9b30b131c9ee", size = 33317, upload-time = "2026-04-25T11:08:06.413Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/3b/86b1caa4dee10a99f4bf9521e623359341c5e50d05158fa10c275b2bd079/xxhash-3.7.0-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:ab9dd2c83c4bbd63e422181a76f13502d049d3ddcac9a1bdc29196263d692bb8", size = 33457, upload-time = "2026-04-25T11:08:08.099Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/38/98ea14ad1517e1461292a65906951458d520689782bfbae111050145bdba/xxhash-3.7.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:3afec3a336a2286601a437cb07562ab0227685e6fbb9ec17e8c18457ff348ecf", size = 30894, upload-time = "2026-04-25T11:08:09.429Z" },
+    { url = "https://files.pythonhosted.org/packages/61/a2/074654d0b893606541199993c7db70067d9fc63b748e0d60020a52a1bd36/xxhash-3.7.0-cp314-cp314-manylinux1_i686.manylinux_2_28_i686.manylinux_2_5_i686.whl", hash = "sha256:565df64437a9390f84465dcca33e7377114c7ede8d05cd2cf20081f831ea788e", size = 194409, upload-time = "2026-04-25T11:08:10.91Z" },
+    { url = "https://files.pythonhosted.org/packages/e2/26/6d2a1afc468189f77ca28c32e1c83e1b9da1178231e05641dbc1b350e332/xxhash-3.7.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:12eca820a5d558633d423bf8bb78ce72a55394823f64089247f788a7e0ae691e", size = 213135, upload-time = "2026-04-25T11:08:12.575Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/0e/d8aecf95e09c42547453137be74d2f7b8b14e08f5177fa2fab6144a19061/xxhash-3.7.0-cp314-cp314-manylinux2014_armv7l.manylinux_2_17_armv7l.manylinux_2_31_armv7l.whl", hash = "sha256:f262b8f7599516567e070abf607b9af649052b2c4bd6f9be02b0cb41b7024805", size = 236379, upload-time = "2026-04-25T11:08:14.206Z" },
+    { url = "https://files.pythonhosted.org/packages/f2/74/8140e8210536b3dd0cc816c4faaeb5ba6e63e8125ab25af4bcddd6a037b3/xxhash-3.7.0-cp314-cp314-manylinux2014_ppc64le.manylinux_2_17_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:f1598916cb197681e03e601901e4ab96a9a963de398c59d0964f8a6f44a2b361", size = 212447, upload-time = "2026-04-25T11:08:15.79Z" },
+    { url = "https://files.pythonhosted.org/packages/a0/d2/462001d2903b4bee5a5689598a0a55e5e7cd1ac7f4247a5545cff10d3ebb/xxhash-3.7.0-cp314-cp314-manylinux2014_s390x.manylinux_2_17_s390x.manylinux_2_28_s390x.whl", hash = "sha256:322b2f0622230f526aeb1738149948a7ae357a9e2ceb1383c6fd1fdaecdafa16", size = 445660, upload-time = "2026-04-25T11:08:17.441Z" },
+    { url = "https://files.pythonhosted.org/packages/23/09/2bd1ed7f8689b20e51727952cac8329d50c694dc32b2eba06ba5bc742b37/xxhash-3.7.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:24cc22070880cc57b830a65cde4e65fa884c6d9b28ae4803b5ee05911e7bafba", size = 194076, upload-time = "2026-04-25T11:08:19.134Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/6e/692302cd0a5f4ac4e6289f37fa888dc2e1e07750b68fe3e4bfe939b8cea3/xxhash-3.7.0-cp314-cp314-manylinux_2_31_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:cb5a888a968b2434abf9ecda357b5d43f10d7b5a6da6fdbbe036208473aff0e2", size = 284990, upload-time = "2026-04-25T11:08:20.618Z" },
+    { url = "https://files.pythonhosted.org/packages/05/d9/e54b159b3d9df7999d2a7c676ce7b323d1b5588a64f8f51ed8172567bd87/xxhash-3.7.0-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:a999771ff97bec27d18341be4f3a36b163bb1ac41ec17bef6d2dabd84acd33c7", size = 210590, upload-time = "2026-04-25T11:08:22.24Z" },
+    { url = "https://files.pythonhosted.org/packages/50/93/0e0df1a3a196ced4ca71de76d65ead25d8e87bbfb87b64306ea47a40c00d/xxhash-3.7.0-cp314-cp314-musllinux_1_2_armv7l.whl", hash = "sha256:ed4a6efe2dee1655adb73e7ad40c6aa955a6892422b1e3b95de6a34de56e3cbb", size = 241442, upload-time = "2026-04-25T11:08:23.844Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/a9/d917a7a814e90b218f8a0d37967105eea91bf752c3303683c99a1f7bfc1f/xxhash-3.7.0-cp314-cp314-musllinux_1_2_i686.whl", hash = "sha256:9fd17f14ac0faa12126c2f9ca774a8cf342957265ec3c8669c144e5e6cdb478c", size = 198356, upload-time = "2026-04-25T11:08:25.99Z" },
+    { url = "https://files.pythonhosted.org/packages/89/5e/f2ba1877c39469abbefc72991d6ebdcbd4c0880db01ae8cb1f553b0c537d/xxhash-3.7.0-cp314-cp314-musllinux_1_2_ppc64le.whl", hash = "sha256:05fd1254268c59b5cb2a029dfc204275e9fc52de2913f1e53aa8d01442c96b4d", size = 210898, upload-time = "2026-04-25T11:08:27.608Z" },
+    { url = "https://files.pythonhosted.org/packages/90/c6/be56b58e73de531f39a10de1355bb77ceb663900dc4bf2d6d3002a9c3f9e/xxhash-3.7.0-cp314-cp314-musllinux_1_2_riscv64.whl", hash = "sha256:a2eae53197c6276d5b317f75a1be226bbf440c20b58bf525f36b5d0e1f657ca6", size = 275519, upload-time = "2026-04-25T11:08:29.301Z" },
+    { url = "https://files.pythonhosted.org/packages/92/e2/17ddc85d5765b9c709f192009ed8f5a1fc876f4eb35bba7c307b5b1169f9/xxhash-3.7.0-cp314-cp314-musllinux_1_2_s390x.whl", hash = "sha256:bfe6f92e3522dcbe8c4281efd74fa7542a336cb00b0e3272c4ec0edabeaeaf67", size = 414191, upload-time = "2026-04-25T11:08:31.16Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/42/85f5b79f4bf1ec7ba052491164adfd4f4e9519f5dc7246de4fbd64a1bd56/xxhash-3.7.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:7ab9a49c410d8c6c786ab99e79c529938d894c01433130353dd0fe999111077a", size = 191604, upload-time = "2026-04-25T11:08:32.862Z" },
+    { url = "https://files.pythonhosted.org/packages/b8/d0/6127b623aa4cca18d8b7743592b048d689fd6c6e37ff26a22cddf6cd9d7f/xxhash-3.7.0-cp314-cp314-win32.whl", hash = "sha256:040ea63668f9185b92bc74942df09c7e65703deed71431333678fc6e739a9955", size = 31271, upload-time = "2026-04-25T11:08:34.651Z" },
+    { url = "https://files.pythonhosted.org/packages/64/4f/44fc4788568004c43921701cbc127f48218a1eede2c9aea231115323564d/xxhash-3.7.0-cp314-cp314-win_amd64.whl", hash = "sha256:2a61e2a3fb23c892496d587b470dee7fa1b58b248a187719c65ea8e94ec13257", size = 32284, upload-time = "2026-04-25T11:08:35.987Z" },
+    { url = "https://files.pythonhosted.org/packages/6d/77/18bb895eb60a49453d16e17d67990e5caff557c78eafc90ad4e2eabf4570/xxhash-3.7.0-cp314-cp314-win_arm64.whl", hash = "sha256:c7741c7524961d8c0cb4d4c21b28957ff731a3fd5b5cd8b856dc80a40e9e5acc", size = 28701, upload-time = "2026-04-25T11:08:37.767Z" },
+    { url = "https://files.pythonhosted.org/packages/45/a0/46f72244570c550fbbb7db1ef554183dd5ebe9136385f30e032b781ae8f6/xxhash-3.7.0-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:fc84bf7aa7592f31ec63a3e7b11d624f468a3f19f5238cec7282a42e838ab1d7", size = 33646, upload-time = "2026-04-25T11:08:39.109Z" },
+    { url = "https://files.pythonhosted.org/packages/4a/3a/453846a7eceea11e75def361eed01ec6a0205b9822c19927ed364ccae7cc/xxhash-3.7.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:9f1563fdc8abfc389748e6932c7e4e99c89a53e4ec37d4563c24fc06f5e5644b", size = 31125, upload-time = "2026-04-25T11:08:40.467Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/3e/49434aba738885d512f9e486db1bdd19db28dfa40372b56da26ef7a4e738/xxhash-3.7.0-cp314-cp314t-manylinux1_i686.manylinux_2_28_i686.manylinux_2_5_i686.whl", hash = "sha256:2d415f18becf6f153046ab6adc97da77e3643a0ee205dae61c4012604113a020", size = 196633, upload-time = "2026-04-25T11:08:41.943Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/e9/006cb6127baeb9f8abe6d15e62faa01349f09b34e2bfd65175b2422d026b/xxhash-3.7.0-cp314-cp314t-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:bb16aa13ed175bc9be5c2491ba031b85a9b51c4ed90e0b3d4ebe63cf3fb54f8e", size = 215899, upload-time = "2026-04-25T11:08:43.645Z" },
+    { url = "https://files.pythonhosted.org/packages/27/e4/cc57d72e66df0ae29b914335f1c6dcf61e8f3746ddf0ae3c471aa4f15e00/xxhash-3.7.0-cp314-cp314t-manylinux2014_armv7l.manylinux_2_17_armv7l.manylinux_2_31_armv7l.whl", hash = "sha256:f9fd595f1e5941b3d7863e4774e4b30caa6731fc34b9277da032295aa5656ee5", size = 238116, upload-time = "2026-04-25T11:08:45.698Z" },
+    { url = "https://files.pythonhosted.org/packages/af/78/3531d4a3fd8a0038cc6be1f265a69c1b3587f557a10b677dd736de2202c1/xxhash-3.7.0-cp314-cp314t-manylinux2014_ppc64le.manylinux_2_17_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:1295325c5a98d552333fa53dc2b026b0ef0ec9c8e73ca3a952990b4c7d65d459", size = 215012, upload-time = "2026-04-25T11:08:47.355Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/f6/259fb1eaaec921f59b17203b0daee69829761226d3b980d5191d7723dd83/xxhash-3.7.0-cp314-cp314t-manylinux2014_s390x.manylinux_2_17_s390x.manylinux_2_28_s390x.whl", hash = "sha256:3573a651d146912da9daa9e29e5fbc45994420daaa9ef1e2fa5823e1dc485513", size = 448534, upload-time = "2026-04-25T11:08:49.149Z" },
+    { url = "https://files.pythonhosted.org/packages/7b/16/a66d0eaf6a7e68532c07714361ddc904c663ec940f3b028c1ae4a21a7b9d/xxhash-3.7.0-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5ec1e080a3d02d94ea9335bfab0e3374b877e25411422c18f51a943fa4b46381", size = 196217, upload-time = "2026-04-25T11:08:50.805Z" },
+    { url = "https://files.pythonhosted.org/packages/8d/ef/d2efc7fc51756dc52509109d1a25cefc859d74bc4b19a167b12dbd8c2786/xxhash-3.7.0-cp314-cp314t-manylinux_2_31_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:84415265192072d8638a3afc3c1bc5995e310570cd9acb54dc46d3939e364fe0", size = 286906, upload-time = "2026-04-25T11:08:52.418Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/67/25decd1d4a4018582ec4db2a868a2b7e40640f4adb20dfeb19ac923aa825/xxhash-3.7.0-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:8d4dea659b57443989ef32f4295104fd6912c73d0bf26d1d148bb88a9f159b02", size = 213057, upload-time = "2026-04-25T11:08:54.105Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/5d/17651eb29d06786cdc40c60ae3d27d645aa5d61d2eca6237a7ba0b94789b/xxhash-3.7.0-cp314-cp314t-musllinux_1_2_armv7l.whl", hash = "sha256:05ece0fe4d9c9c2728912d1981ae1566cfc83a011571b24732cbf76e1fb70dca", size = 243886, upload-time = "2026-04-25T11:08:56.109Z" },
+    { url = "https://files.pythonhosted.org/packages/8a/d4/174d9cf7502243d586e6a9ae842b1ae23026620995114f85f1380e588bc9/xxhash-3.7.0-cp314-cp314t-musllinux_1_2_i686.whl", hash = "sha256:fd880353cf1ffaf321bc18dd663e111976dbd0d3bbd8a66d58d2b470dfa7f396", size = 201015, upload-time = "2026-04-25T11:08:57.777Z" },
+    { url = "https://files.pythonhosted.org/packages/91/8c/2254e2d06c3ac5e6fe22eaf3da791b87ea823ae9f2c17b4af66755c5752d/xxhash-3.7.0-cp314-cp314t-musllinux_1_2_ppc64le.whl", hash = "sha256:4e15cc9e2817f6481160f930c62842b3ff419e20e13072bcbab12230943092bc", size = 213457, upload-time = "2026-04-25T11:08:59.826Z" },
+    { url = "https://files.pythonhosted.org/packages/79/a2/e3daa762545921173e3360f3b4ff7fc63c2d27359f7230ec1a7a74e117f6/xxhash-3.7.0-cp314-cp314t-musllinux_1_2_riscv64.whl", hash = "sha256:90b9d1a8bd37d768ffc92a1f651ec69afc532a96fa1ac2ea7abbed5d630b3237", size = 277738, upload-time = "2026-04-25T11:09:01.423Z" },
+    { url = "https://files.pythonhosted.org/packages/e1/4c/e186da2c46b87f5204640e008d42730bf3c1ee9f0efb71ae1ebcdfeac681/xxhash-3.7.0-cp314-cp314t-musllinux_1_2_s390x.whl", hash = "sha256:157c49475b34ecea8809e51123d9769a534e139d1247942f7a4bc67710bb2533", size = 417127, upload-time = "2026-04-25T11:09:03.592Z" },
+    { url = "https://files.pythonhosted.org/packages/17/28/3798e15007a3712d0da3d3fe70f8e11916569858b5cc371053bc26270832/xxhash-3.7.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:5a6ddec83325685e729ca119d1f5c518ec39294212ecd770e60693cdc5f7eb79", size = 193962, upload-time = "2026-04-25T11:09:06.228Z" },
+    { url = "https://files.pythonhosted.org/packages/ad/95/a26baa93b5241fd7630998816a4ec47a5a0bad193b3f8fc8f3593e1a4a67/xxhash-3.7.0-cp314-cp314t-win32.whl", hash = "sha256:a04a6cab47e2166435aaf5b9e5ee41d1532cc8300efdef87f2a4d0acb7db19ed", size = 31643, upload-time = "2026-04-25T11:09:08.153Z" },
+    { url = "https://files.pythonhosted.org/packages/44/36/5454f13c447e395f9b06a3e91274c59f503d31fad84e1836efe3bdb71f6a/xxhash-3.7.0-cp314-cp314t-win_amd64.whl", hash = "sha256:8653dd7c2eda020545bb2c71c7f7039b53fe7434d0fc1a0a9deb79ab3f1a4fc1", size = 32522, upload-time = "2026-04-25T11:09:09.534Z" },
+    { url = "https://files.pythonhosted.org/packages/74/35/698e7e3ff38e22992ea24870a511d8762474fb6783627a2910ff22a185c2/xxhash-3.7.0-cp314-cp314t-win_arm64.whl", hash = "sha256:468f0fc114faaa4b36699f8e328bbc3bb11dc418ba94ac52c26dd736d4b6c637", size = 28807, upload-time = "2026-04-25T11:09:11.234Z" },
+]
+
+[[package]]
 name = "xyzservices"
 version = "2026.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -6431,10 +7229,42 @@ wheels = [
 ]
 
 [[package]]
+name = "zict"
+version = "3.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d1/ac/3c494dd7ec5122cff8252c1a209b282c0867af029f805ae9befd73ae37eb/zict-3.0.0.tar.gz", hash = "sha256:e321e263b6a97aafc0790c3cfb3c04656b7066e6738c37fffcca95d803c9fba5", size = 33238, upload-time = "2023-04-17T21:41:16.041Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/ab/11a76c1e2126084fde2639514f24e6111b789b0bfa4fc6264a8975c7e1f1/zict-3.0.0-py2.py3-none-any.whl", hash = "sha256:5796e36bd0e0cc8cf0fbc1ace6a68912611c1dbd74750a3f3026b9b9d6a327ae", size = 43332, upload-time = "2023-04-17T21:41:13.444Z" },
+]
+
+[[package]]
 name = "zipp"
 version = "4.1.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b9/d8/eab98a517c14134c0b2eb4e2387bc5f457334293ec5d2dd3857ec2966802/zipp-4.1.0.tar.gz", hash = "sha256:4cb57381f544315db7688e976e922a2b18cdb513d21cc194eb42232ba2a3e602", size = 26214, upload-time = "2026-05-18T20:08:57.967Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3a/13/547360d81e6d88d58492968ffda9f9542854f11310ee556fef14260cc886/zipp-4.1.0-py3-none-any.whl", hash = "sha256:25ad4e16390cd314347dd8f1de67a2ac538ae658ed4ab9db16029c07c188e97f", size = 10238, upload-time = "2026-05-18T20:08:57.045Z" },
+]
+
+[[package]]
+name = "zstandard"
+version = "0.25.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/aa/3e0508d5a5dd96529cdc5a97011299056e14c6505b678fd58938792794b1/zstandard-0.25.0.tar.gz", hash = "sha256:7713e1179d162cf5c7906da876ec2ccb9c3a9dcbdffef0cc7f70c3667a205f0b", size = 711513, upload-time = "2025-09-14T22:15:54.002Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3d/5c/f8923b595b55fe49e30612987ad8bf053aef555c14f05bb659dd5dbe3e8a/zstandard-0.25.0-cp314-cp314-macosx_10_13_x86_64.whl", hash = "sha256:e29f0cf06974c899b2c188ef7f783607dbef36da4c242eb6c82dcd8b512855e3", size = 795887, upload-time = "2025-09-14T22:17:54.198Z" },
+    { url = "https://files.pythonhosted.org/packages/8d/09/d0a2a14fc3439c5f874042dca72a79c70a532090b7ba0003be73fee37ae2/zstandard-0.25.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:05df5136bc5a011f33cd25bc9f506e7426c0c9b3f9954f056831ce68f3b6689f", size = 640658, upload-time = "2025-09-14T22:17:55.423Z" },
+    { url = "https://files.pythonhosted.org/packages/5d/7c/8b6b71b1ddd517f68ffb55e10834388d4f793c49c6b83effaaa05785b0b4/zstandard-0.25.0-cp314-cp314-manylinux2010_i686.manylinux_2_12_i686.manylinux_2_28_i686.whl", hash = "sha256:f604efd28f239cc21b3adb53eb061e2a205dc164be408e553b41ba2ffe0ca15c", size = 5379849, upload-time = "2025-09-14T22:17:57.372Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/86/a48e56320d0a17189ab7a42645387334fba2200e904ee47fc5a26c1fd8ca/zstandard-0.25.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:223415140608d0f0da010499eaa8ccdb9af210a543fac54bce15babbcfc78439", size = 5058095, upload-time = "2025-09-14T22:17:59.498Z" },
+    { url = "https://files.pythonhosted.org/packages/f8/ad/eb659984ee2c0a779f9d06dbfe45e2dc39d99ff40a319895df2d3d9a48e5/zstandard-0.25.0-cp314-cp314-manylinux2014_ppc64le.manylinux_2_17_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:2e54296a283f3ab5a26fc9b8b5d4978ea0532f37b231644f367aa588930aa043", size = 5551751, upload-time = "2025-09-14T22:18:01.618Z" },
+    { url = "https://files.pythonhosted.org/packages/61/b3/b637faea43677eb7bd42ab204dfb7053bd5c4582bfe6b1baefa80ac0c47b/zstandard-0.25.0-cp314-cp314-manylinux2014_s390x.manylinux_2_17_s390x.manylinux_2_28_s390x.whl", hash = "sha256:ca54090275939dc8ec5dea2d2afb400e0f83444b2fc24e07df7fdef677110859", size = 6364818, upload-time = "2025-09-14T22:18:03.769Z" },
+    { url = "https://files.pythonhosted.org/packages/31/dc/cc50210e11e465c975462439a492516a73300ab8caa8f5e0902544fd748b/zstandard-0.25.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e09bb6252b6476d8d56100e8147b803befa9a12cea144bbe629dd508800d1ad0", size = 5560402, upload-time = "2025-09-14T22:18:05.954Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/ae/56523ae9c142f0c08efd5e868a6da613ae76614eca1305259c3bf6a0ed43/zstandard-0.25.0-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:a9ec8c642d1ec73287ae3e726792dd86c96f5681eb8df274a757bf62b750eae7", size = 4955108, upload-time = "2025-09-14T22:18:07.68Z" },
+    { url = "https://files.pythonhosted.org/packages/98/cf/c899f2d6df0840d5e384cf4c4121458c72802e8bda19691f3b16619f51e9/zstandard-0.25.0-cp314-cp314-musllinux_1_2_i686.whl", hash = "sha256:a4089a10e598eae6393756b036e0f419e8c1d60f44a831520f9af41c14216cf2", size = 5269248, upload-time = "2025-09-14T22:18:09.753Z" },
+    { url = "https://files.pythonhosted.org/packages/1b/c0/59e912a531d91e1c192d3085fc0f6fb2852753c301a812d856d857ea03c6/zstandard-0.25.0-cp314-cp314-musllinux_1_2_ppc64le.whl", hash = "sha256:f67e8f1a324a900e75b5e28ffb152bcac9fbed1cc7b43f99cd90f395c4375344", size = 5430330, upload-time = "2025-09-14T22:18:11.966Z" },
+    { url = "https://files.pythonhosted.org/packages/a0/1d/7e31db1240de2df22a58e2ea9a93fc6e38cc29353e660c0272b6735d6669/zstandard-0.25.0-cp314-cp314-musllinux_1_2_s390x.whl", hash = "sha256:9654dbc012d8b06fc3d19cc825af3f7bf8ae242226df5f83936cb39f5fdc846c", size = 5811123, upload-time = "2025-09-14T22:18:13.907Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/49/fac46df5ad353d50535e118d6983069df68ca5908d4d65b8c466150a4ff1/zstandard-0.25.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:4203ce3b31aec23012d3a4cf4a2ed64d12fea5269c49aed5e4c3611b938e4088", size = 5359591, upload-time = "2025-09-14T22:18:16.465Z" },
+    { url = "https://files.pythonhosted.org/packages/c2/38/f249a2050ad1eea0bb364046153942e34abba95dd5520af199aed86fbb49/zstandard-0.25.0-cp314-cp314-win32.whl", hash = "sha256:da469dc041701583e34de852d8634703550348d5822e66a0c827d39b05365b12", size = 444513, upload-time = "2025-09-14T22:18:20.61Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/43/241f9615bcf8ba8903b3f0432da069e857fc4fd1783bd26183db53c4804b/zstandard-0.25.0-cp314-cp314-win_amd64.whl", hash = "sha256:c19bcdd826e95671065f8692b5a4aa95c52dc7a02a4c5a0cac46deb879a017a2", size = 516118, upload-time = "2025-09-14T22:18:17.849Z" },
+    { url = "https://files.pythonhosted.org/packages/f0/ef/da163ce2450ed4febf6467d77ccb4cd52c4c30ab45624bad26ca0a27260c/zstandard-0.25.0-cp314-cp314-win_arm64.whl", hash = "sha256:d7541afd73985c630bafcd6338d2518ae96060075f9463d7dc14cfb33514383d", size = 476940, upload-time = "2025-09-14T22:18:19.088Z" },
 ]
