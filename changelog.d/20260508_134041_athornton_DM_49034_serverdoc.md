@@ -1,6 +1,6 @@
 ### Backwards-incompatible changes
 
-- Remove manual saving from Hub interaction extension.
+- jupyterlab-base requires a newer set of Lab extensions, which remove the "Save All" items from the File menu, leaving only "Exit" and "Logout": the new version continually autosaves so explicit saving is ineffectual.
 
 ### New features
 
