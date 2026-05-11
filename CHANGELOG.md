@@ -6,6 +6,21 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-14.0.0'></a>
+## 14.0.0 (2026-05-11)
+
+### Backwards-incompatible changes
+
+- Remove the `Save All` items from the File menu created by the lab extensions installed in jupyterlab-base. Only `Exit` and `Logout` remain. The new JupyterLab base image continually autosaves, so explicit saving is unnecessary.
+
+### New features
+
+- Add jupyter-server-documents to the default extensions in jupyterlab-base. This extension enables collaboration on shared-writable documents and continually autosaves notebooks.
+
+### Bug fixes
+
+- Update JupyterHub to 5.4.6 (Zero to JupyterHub 4.3.5), fixing a CSRF vulnerability in JupyterHub.
+
 <a id='changelog-13.0.0'></a>
 ## 13.0.0 (2026-04-27)
 
