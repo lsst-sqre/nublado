@@ -76,5 +76,5 @@ lab = [
 [tool.setuptools_scm]
 root = ".."
 
-[tools.uv.sources]
+[tool.uv.sources]
 rsp-jupyter-extensions = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions", branch = "tickets/DM-49034-internal-config" }
