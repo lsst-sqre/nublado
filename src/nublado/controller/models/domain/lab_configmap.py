@@ -112,7 +112,7 @@ class LabConfigMap(SharedLabConfig):
         str,
         Field(
             title="Repertoire base URL",
-            description="Base URL for Repertoire service discovery,",
+            description="Base URL for Repertoire service discovery",
         ),
     ]
 
