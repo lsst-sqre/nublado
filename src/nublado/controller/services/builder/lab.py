@@ -63,7 +63,6 @@ from ...config import (
 from ...constants import ARGO_CD_ANNOTATIONS, MEMORY_TO_TMP_SIZE_RATIO
 from ...models.domain.lab import LabObjectNames, LabObjects, LabStateObjects
 from ...models.domain.lab_configmap import LabConfigImageSettings, LabConfigMap
-from ...models.domain.rspimage import RSPImage
 from ...models.domain.volumes import MountedVolume
 from ...models.v1.lab import (
     LabOptions,

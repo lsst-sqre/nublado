@@ -74,11 +74,7 @@ class LabConfigMap(SharedLabConfig):
     ]
 
     debug: Annotated[
-        bool,
-        Field(
-            title="Debug",
-            description="Enable debug logging",
-        ),
+        bool, Field(title="Debug", description="Enable debug logging")
     ] = False
 
     file_browser_root: Annotated[
