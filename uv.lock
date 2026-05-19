@@ -5750,6 +5750,7 @@ lab = [
     { name = "jupyter-ai", version = "3.0.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
     { name = "jupyter-ai-jupyternaut", version = "0.0.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
     { name = "jupyter-ai-jupyternaut", version = "0.0.11", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ai-litellm" },
     { name = "jupyter-ai-magic-commands" },
     { name = "jupyter-bokeh" },
     { name = "jupyter-console" },
@@ -5790,6 +5791,7 @@ lab = [
     { name = "ipywidgets" },
     { name = "jupyter-ai" },
     { name = "jupyter-ai-jupyternaut" },
+    { name = "jupyter-ai-litellm" },
     { name = "jupyter-ai-magic-commands" },
     { name = "jupyter-bokeh" },
     { name = "jupyter-console" },
@@ -5808,7 +5810,7 @@ lab = [
     { name = "panel" },
     { name = "plotly" },
     { name = "pythreejs" },
-    { name = "rsp-jupyter-extensions", specifier = ">=0.23.0" },
+    { name = "rsp-jupyter-extensions", specifier = ">=0.24.0" },
     { name = "sidecar" },
 ]
 

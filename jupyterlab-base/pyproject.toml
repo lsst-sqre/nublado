@@ -52,6 +52,7 @@ lab = [
     "jupyter-ai",
     "jupyter-ai-jupyternaut",
     "jupyter-ai-magic-commands",
+    "jupyter-ai-litellm",
     "jupyter-bokeh",
     "jupyter-console",
     "jupyter-firefly-extensions",
@@ -69,11 +70,9 @@ lab = [
     "panel",
     "plotly",
     "pythreejs",
-    "rsp-jupyter-extensions>=0.23.0",
+    "rsp-jupyter-extensions>=0.24.0",
     "sidecar",
 ]
 
 [tool.setuptools_scm]
 root = ".."
-
-[tools.uv.sources]
