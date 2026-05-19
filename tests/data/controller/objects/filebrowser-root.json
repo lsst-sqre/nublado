@@ -16,7 +16,7 @@
       "JUPYTER_IMAGE_SPEC": "lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234",
       "MEM_GUARANTEE": "805306368",
       "MEM_LIMIT": "3221225472",
-      "NUBLADO_RUNTIME_MOUNTS_DIR": "/opt/lsst/software/jupyterlab",
+      "NUBLADO_RUNTIME_MOUNTS_DIR": "/etc/nublado",
       "REPERTOIRE_BASE_URL": "https://example.com/repertoire"
     },
     "immutable": true,
@@ -38,7 +38,7 @@
     "apiVersion": "v1",
     "data": {
       "discovery-v1-json": "{\n  \"datasets\": {\n    \"dp1\": {\n      \"butler_config\": \"https://data.example.com/api/butler/repo/dp1/butler.yaml\",\n      \"services\": {\n        \"cutout\": {\n          \"url\": \"https://data.example.com/api/cutout\",\n          \"versions\": {\n            \"soda-async-1.0\": {\n              \"url\": \"https://data.example.com/api/cutout/dp1/jobs\"\n            },\n            \"soda-sync-1.0\": {\n              \"url\": \"https://data.example.com/api/cutout/dp1/sync\"\n            }\n          }\n        },\n        \"hips\": {\n          \"url\": \"https://example.com/api/hips/v2/dp1/list\",\n          \"versions\": {\n            \"hips-list-1.0\": {\n              \"url\": \"https://example.com/api/hips/v2/dp1/list\"\n            }\n          }\n        }\n      }\n    }\n  },\n  \"influxdb_databases\": {\n    \"idfdev_efd\": {\n      \"credentials_url\": \"https://example.com/repertoire/discovery/influxdb/idfdev_efd\",\n      \"database\": \"efd\",\n      \"schema_registry\": \"http://sasquatch-schema-registry.sasquatch:8081/\",\n      \"url\": \"https://data.example.com/influxdb/\"\n    }\n  }\n}",
-      "lab-config-json": "{\n  \"container_size\": \"Small (1.0 CPU, 3Gi RAM)\",\n  \"debug\": false,\n  \"enable_rubin_query_menu\": true,\n  \"enable_tutorials_menu\": true,\n  \"file_browser_root\": \"root\",\n  \"home_relative_to_file_browser_root\": \"home/rachel\",\n  \"image\": {\n    \"description\": \"Daily 2077_10_23\",\n    \"digest\": \"sha256:1234\",\n    \"spec\": \"lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234\"\n  },\n  \"jupyterlab_config_dir\": \"/opt/lsst/software/jupyterlab\",\n  \"repertoire_base_url\": \"https://example.com/repertoire\",\n  \"reset_user_env\": false,\n  \"resources\": {\n    \"limits\": {\n      \"cpu\": 1.0,\n      \"memory\": 3221225472\n    },\n    \"requests\": {\n      \"cpu\": 0.25,\n      \"memory\": 805306368\n    }\n  },\n  \"runtime_mounts_dir\": \"/opt/lsst/software/jupyterlab\"\n}"
+      "lab-config-json": "{\n  \"container_size\": \"Small (1.0 CPU, 3Gi RAM)\",\n  \"debug\": false,\n  \"enable_rubin_query_menu\": true,\n  \"enable_tutorials_menu\": true,\n  \"file_browser_root\": \"root\",\n  \"home_relative_to_file_browser_root\": \"home/rachel\",\n  \"image\": {\n    \"description\": \"Daily 2077_10_23\",\n    \"digest\": \"sha256:1234\",\n    \"spec\": \"lighthouse.ceres/library/sketchbook:d_2077_10_23@sha256:1234\"\n  },\n  \"jupyterlab_config_dir\": \"/opt/lsst/software/jupyterlab\",\n  \"repertoire_base_url\": \"https://example.com/repertoire\",\n  \"reset_user_env\": false,\n  \"resources\": {\n    \"limits\": {\n      \"cpu\": 1.0,\n      \"memory\": 3221225472\n    },\n    \"requests\": {\n      \"cpu\": 0.25,\n      \"memory\": 805306368\n    }\n  },\n  \"runtime_mounts_dir\": \"/etc/nublado\"\n}"
     },
     "immutable": true,
     "kind": "ConfigMap",
@@ -181,6 +181,16 @@
               }
             },
             {
+              "name": "NUBLADO_TOKEN",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "token",
+                  "name": "rachel-nb",
+                  "optional": false
+                }
+              }
+            },
+            {
               "name": "KUBERNETES_NODE_NAME",
               "valueFrom": {
                 "fieldRef": {
@@ -266,12 +276,12 @@
               "subPath": "lab-config.json"
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/secrets",
+              "mountPath": "/etc/nublado/secrets",
               "name": "secrets",
               "readOnly": true
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/environment",
+              "mountPath": "/etc/nublado/environment",
               "name": "env",
               "readOnly": true
             },
@@ -281,13 +291,13 @@
               "readOnly": false
             },
             {
-              "mountPath": "/etc/nublado/startup",
-              "name": "lab-startup",
-              "readOnly": false
+              "mountPath": "/etc/nublado/runtime",
+              "name": "runtime",
+              "readOnly": true
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/runtime",
-              "name": "runtime",
+              "mountPath": "/etc/nublado/startup",
+              "name": "lab-startup",
               "readOnly": true
             }
           ],
@@ -315,6 +325,16 @@
             },
             {
               "name": "ACCESS_TOKEN",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "token",
+                  "name": "rachel-nb",
+                  "optional": false
+                }
+              }
+            },
+            {
+              "name": "NUBLADO_TOKEN",
               "valueFrom": {
                 "secretKeyRef": {
                   "key": "token",
@@ -387,12 +407,12 @@
               "subPath": "lab-config.json"
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/secrets",
+              "mountPath": "/etc/nublado/secrets",
               "name": "secrets",
               "readOnly": true
             },
             {
-              "mountPath": "/opt/lsst/software/jupyterlab/environment",
+              "mountPath": "/etc/nublado/environment",
               "name": "env",
               "readOnly": true
             },
@@ -402,14 +422,14 @@
               "readOnly": false
             },
             {
+              "mountPath": "/etc/nublado/runtime",
+              "name": "runtime",
+              "readOnly": true
+            },
+            {
               "mountPath": "/etc/nublado/startup",
               "name": "lab-startup",
               "readOnly": false
-            },
-            {
-              "mountPath": "/opt/lsst/software/jupyterlab/runtime",
-              "name": "runtime",
-              "readOnly": true
             }
           ]
         }
@@ -506,13 +526,6 @@
           "name": "tmp"
         },
         {
-          "emptyDir": {
-            "medium": "Memory",
-            "sizeLimit": "655360"
-          },
-          "name": "lab-startup"
-        },
-        {
           "downwardAPI": {
             "items": [
               {
@@ -546,6 +559,13 @@
             ]
           },
           "name": "runtime"
+        },
+        {
+          "emptyDir": {
+            "medium": "Memory",
+            "sizeLimit": "655360"
+          },
+          "name": "lab-startup"
         }
       ]
     },
