@@ -347,14 +347,17 @@ class LabBuilder:
         if self._config.file_browser_root == LabFileBrowserRoot.HOME:
             relative_home = ""
         else:
-            # long way of saying [1:], but more correct, I suppose.
             relative_home = str(
                 Path(self._build_home_directory(user.username)).relative_to(
                     Path("/")
                 )
             )
         rep_url = os.environ.get("REPERTOIRE_BASE_URL", "")
-        return json.dumps(  # Pydantic doesn't sort the fields.
+        if not rep_url:
+            self._logger.warning(
+                "REPERTOIRE_BASE_URL not set; service discovery disabled."
+            )
+        return json.dumps(
             LabConfigMap(
                 container_size=str(size),
                 debug=lab.options.enable_debug,
@@ -369,7 +372,7 @@ class LabBuilder:
                 resources=resources,
                 runtime_mounts_dir=self._config.runtime_mounts_dir,
             ).model_dump(),
-            sort_keys=True,
+            sort_keys=True,  # Pydantic doesn't sort the fields on its own.
             indent=2,
         )
 

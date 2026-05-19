@@ -78,8 +78,12 @@ class Preparer:
             UnicodeDecodeError,
             json.decoder.JSONDecodeError,
             pydantic_core.ValidationError,
-        ):
-            self._logger.exception(f"Could not read config from {CONFIG_FILE}")
+        ) as exc:
+            self._logger.exception(
+                f"Could not parse config from {CONFIG_FILE}"
+            )
+            n_exc = RSPStartupError(RSPErrorCode.EBADCFG, None, str(exc))
+            self._set_abnormal_startup(n_exc)
 
     def prepare(self) -> None:
         """Make necessary modifications to start the user lab."""
@@ -358,7 +362,7 @@ class Preparer:
             self._config is not None
             and self._config.file_browser_root == LabFileBrowserRoot.ROOT
         ):
-            rel_h = (self._home).relative_to(Path("/"))
+            rel_h = self._home.relative_to(Path("/"))
             cmd_args.append("--notebook-dir=/")
             cmd_args.append(f"--ContentsManager.preferred_dir={rel_h!s}")
         else:
