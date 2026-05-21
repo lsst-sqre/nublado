@@ -31,10 +31,6 @@ RUN  ./install-node-packages
 # Build-time dependencies, discarded after virtualenv installation.
 FROM base-image AS deps-image
 
-# npm only exists in the build environment, so we need to do this here.
-COPY jupyterlab-base/scripts/install-node-packages /tmp/build
-RUN  /tmp/build/install-node-packages && rm /tmp/build/install-node-packages
-
 COPY jupyterlab-base/scripts/install-dependency-packages /tmp/build
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -60,7 +56,7 @@ COPY --from=deps-image /usr/local/lib/node_modules \
     /usr/local/lib/node_modules
 
 # Copy node module list from dependency image
-COPY --from-deps-image /usr/local/share/jupyterlab/versions-installed \
+COPY --from=deps-image /usr/local/share/jupyterlab/versions-installed \
     /usr/local/share/jupyterlab/versions-installed
 
 # /etc/profile.d parts
