@@ -361,7 +361,7 @@ class LabBuilder:
             LabConfigMap(
                 container_size=str(size),
                 debug=lab.options.enable_debug,
-                enable_rubin_query_menu=self._config.enable_rubin_query_menu,
+                enable_jobs_menu=self._config.enable_jobs_menu,
                 enable_tutorials_menu=self._config.enable_tutorials_menu,
                 file_browser_root=self._config.file_browser_root,
                 home_relative_to_file_browser_root=relative_home,

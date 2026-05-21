@@ -873,12 +873,12 @@ class SharedLabConfig(BaseModel):
         alias_generator=to_camel, extra="forbid", populate_by_name=True
     )
 
-    enable_rubin_query_menu: Annotated[
+    enable_jobs_menu: Annotated[
         bool,
         Field(
-            title="Whether to enable Rubin query menu",
+            title="Whether to enable Jobs menu",
             description=(
-                "If true, put the Rubin menu and its submenus into the"
+                "If true, put the Jobs menu and its submenus into the"
                 " JupyterLab UI."
             ),
         ),
