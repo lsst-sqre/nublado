@@ -254,7 +254,7 @@ jobs:
     secrets: inherit
 
     # Only do Docker builds of tagged releases and pull requests from ticket
-    # branches. This will still trigger on pull requests from untrusted
+    # and user branches. This will still trigger on pull requests from untrusted
     # repositories whose branch names match our tickets/* branch convention,
     # but in this case the build will fail with an error since the secret
     # won't be set.
@@ -262,7 +262,8 @@ jobs:
       (needs.changes.outputs.jupyterlab-base == 'true'
        && github.event_name != 'merge_group'
        && (startsWith(github.head_ref, 'tickets/')
-           || startsWith(github.head_ref, 't/')))
+           || startsWith(github.head_ref, 't/')
+           || startsWith(github.head_ref, 'u/')))
       || (github.event_name == 'workflow_dispatch')
       || (github.event_name == 'release' && github.event.action == 'published')
 
