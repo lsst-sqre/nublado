@@ -85,6 +85,11 @@ COPY jupyterlab-base/jupyter_server/jupyter_server_config.json \
 COPY jupyterlab-base/jupyter_server/jupyter_server_config.py \
      /usr/local/share/jupyterlab/venv/etc/jupyter
 
+# Probably npm has some magic to do this, but this should work.
+RUN cd /usr/local/bin && \
+    ln -s '../lib/node_modules/@google/gemini-cli/bundle/gemini.js' gemini && \
+    ln -s '../lib/node_modules/@openai/codex/bin/codex.js' codex
+
 # The JupyterLab launch script.
 COPY jupyterlab-base/runtime/runlab \
      /usr/local/share/jupyterlab/
