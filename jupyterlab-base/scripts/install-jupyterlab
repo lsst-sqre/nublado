@@ -2,6 +2,16 @@
 set -x
 set -euo pipefail
 
+# This doesn't really belong here, but this script runs inside the build
+# environment, which is where we want to put npm.
+#
+# Install the various node-based protocol servers and CLIs.
+
+npm i -g @agentclientprotocol/claude-agent-acp
+npm i -g @zed-industries/codex-acp
+npm i -g @openai/codex
+npm i -g @google/gemini-cli
+
 # Install Jupyterlab and its runtime extensions in its own virtualenv
 # (not the Stack python).  This will let us iterate the UI without having
 # to worry about stack compatibility.
