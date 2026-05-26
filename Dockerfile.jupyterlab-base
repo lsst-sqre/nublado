@@ -51,6 +51,14 @@ RUN mkdir -p /usr/local/share/jupyterlab/etc
 COPY --from=deps-image /usr/local/share/jupyterlab/venv \
     /usr/local/share/jupyterlab/venv
 
+# Copy node modules from dependency image
+COPY --from=deps-image /usr/local/lib/node_modules \
+    /usr/local/lib/node_modules
+
+# Copy node module list from dependency image
+COPY --from-deps-image /usr/local/share/jupyterlab/versions-installed \
+    /usr/local/share/jupyterlab/versions-installed
+
 # /etc/profile.d parts
 RUN mkdir -p /etc/profile.d
 COPY jupyterlab-base/static/etc/profile.d/local01-cd.sh \
