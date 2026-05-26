@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -x
+set -euo pipefail
+
+# Install the various node-based protocol servers and CLIs.
+
+npm i -g @agentclientprotocol/claude-agent-acp
+npm i -g @zed-industries/codex-acp
+npm i -g @openai/codex
+npm i -g @google/gemini-cli
+
+# Write a manifest; this is out of order but we only have npm in the
+# build environment
+
+vi_dir="/usr/local/share/jupyterlab/versions-installed"
+mkdir -p ${vi_dir}
+cd ${vi_dir}
+
+npm list -g --depth=0 | tee "npm-packages"

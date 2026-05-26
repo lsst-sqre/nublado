@@ -62,10 +62,5 @@ ln -s /usr/local/share/claude/versions/${latest_ver} /usr/local/bin/claude
 curl -fsSL https://gh.io/copilot-install > copilot-install.sh
 bash -x ./copilot-install.sh
 
-npm i -g @agentclientprotocol/claude-agent-acp
-npm i -g @zed-industries/codex-acp
-npm i -g @openai/codex
-npm i -g @google/gemini-cli
-
 cd /
 rm -rf /tmp/agents

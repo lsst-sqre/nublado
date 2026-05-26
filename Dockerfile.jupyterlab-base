@@ -32,6 +32,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     ./install-dependency-packages
 
+# npm only exists in the build environment, so we need to do this here.
+COPY jupyterlab-base/scripts/install-node-packages /tmp/build
+RUN  /tmp/build/install-node-packages && rm /tmp/build/install-node-packages
+
 # Install JupyterLab and dependent Python packages.
 ADD . /tmp/build
 WORKDIR /tmp/build/jupyterlab-base
