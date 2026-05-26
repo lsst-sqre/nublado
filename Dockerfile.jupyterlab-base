@@ -81,6 +81,7 @@ COPY jupyterlab-base/runtime/runlab \
 # "what broke this week?"
 COPY jupyterlab-base/scripts/generate-versions /tmp/build
 RUN ./generate-versions
+RUN echo serial 0
 
 # This needs to be numeric, since we will remove /etc/passwd and friends
 # while we're running.
