@@ -4,7 +4,7 @@ USER root
 SHELL ["/bin/bash", "-lc"]
 
 # Install uv.
-COPY --from=ghcr.io/astral-sh/uv:0.11.13 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.16 /uv /bin/uv
 
 # Set up workspace
 RUN mkdir -p /tmp/build
@@ -24,6 +24,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 COPY jupyterlab-base/scripts/install-system-files /tmp/build
 RUN ./install-system-files
 
+# Install global node modules for LLM interaction
+COPY jupyterlab-base/scripts/install-node-packages /tmp/build
+RUN  ./install-node-packages
+
 # Build-time dependencies, discarded after virtualenv installation.
 FROM base-image AS deps-image
 
@@ -31,10 +35,6 @@ COPY jupyterlab-base/scripts/install-dependency-packages /tmp/build
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     ./install-dependency-packages
-
-# npm only exists in the build environment, so we need to do this here.
-COPY jupyterlab-base/scripts/install-node-packages /tmp/build
-RUN  /tmp/build/install-node-packages && rm /tmp/build/install-node-packages
 
 # Install JupyterLab and dependent Python packages.
 ADD . /tmp/build
@@ -51,44 +51,32 @@ RUN mkdir -p /usr/local/share/jupyterlab/etc
 COPY --from=deps-image /usr/local/share/jupyterlab/venv \
     /usr/local/share/jupyterlab/venv
 
-# Copy node modules from dependency image
-COPY --from=deps-image /usr/local/lib/node_modules \
-    /usr/local/lib/node_modules
-
-# Copy node module list from dependency image
-COPY --from=deps-image /usr/local/share/jupyterlab/versions-installed \
-    /usr/local/share/jupyterlab/versions-installed
-
 # /etc/profile.d parts
 RUN mkdir -p /etc/profile.d
-COPY jupyterlab-base/profile.d/local01-nbstripjq.sh \
-     jupyterlab-base/profile.d/local02-hub.sh \
-     jupyterlab-base/profile.d/local03-pythonrc.sh \
-     jupyterlab-base/profile.d/local04-path.sh \
-     jupyterlab-base/profile.d/local05-term.sh \
+COPY jupyterlab-base/static/etc/profile.d/local01-cd.sh \
+     jupyterlab-base/static/etc/profile.d/local02-nbstripjq.sh \
+     jupyterlab-base/static/etc/profile.d/local03-hub.sh \
+     jupyterlab-base/static/etc/profile.d/local04-pythonrc.sh \
+     jupyterlab-base/static/etc/profile.d/local05-path.sh \
+     jupyterlab-base/static/etc/profile.d/local06-term.sh \
      /etc/profile.d/
 
 # /etc/skel
-COPY jupyterlab-base/skel/pythonrc /etc/skel/.pythonrc
+COPY jupyterlab-base/static/etc/skel/pythonrc /etc/skel/.pythonrc
 
 # We may want to move these or make them owned by the jupyter user.
 # For now they need to live in /usr/local as a compatibility layer with
 # older sciplat-lab images.
-COPY jupyterlab-base/jupyter_server/jupyter_server_config.json \
-     jupyterlab-base/jupyter_server/jupyter_server_config.py \
+COPY jupyterlab-base/static/usr/local/etc/jupyter/jupyter_server_config.json \
+     jupyterlab-base/static/usr/local/etc/jupyter/jupyter_server_config.py \
      /usr/local/etc/jupyter/
 
-# Configuration specific to the RSP JupyterLab installation.
+# Configuration specific to the RSP JupyterLab UI virtualenv.
 RUN mkdir -p /usr/local/share/jupyterlab/venv/etc/jupyter
-COPY jupyterlab-base/jupyter_server/jupyter_server_config.json \
+COPY jupyterlab-base/static/usr/local/etc/jupyter/jupyter_server_config.json \
      /usr/local/share/jupyterlab/venv/etc/jupyter/jupyter_server_config.d
-COPY jupyterlab-base/jupyter_server/jupyter_server_config.py \
+COPY jupyterlab-base/static/usr/local/etc/jupyter/jupyter_server_config.py \
      /usr/local/share/jupyterlab/venv/etc/jupyter
-
-# Probably npm has some magic to do this, but this should work.
-RUN cd /usr/local/bin && \
-    ln -s '../lib/node_modules/@google/gemini-cli/bundle/gemini.js' gemini && \
-    ln -s '../lib/node_modules/@openai/codex/bin/codex.js' codex
 
 # The JupyterLab launch script.
 COPY jupyterlab-base/runtime/runlab \
@@ -96,8 +84,11 @@ COPY jupyterlab-base/runtime/runlab \
 
 # Get our manifests.  This has always been really useful for debugging
 # "what broke this week?"
+#
+# Note that from here on out we have to explicitly cd to the working
+# directory, because /etc/profile.d forces us to ${HOME}.
 COPY jupyterlab-base/scripts/generate-versions /tmp/build
-RUN ./generate-versions
+RUN cd /tmp/build && ./generate-versions
 
 # This needs to be numeric, since we will remove /etc/passwd and friends
 # while we're running.
@@ -105,13 +96,13 @@ USER 0:0
 
 # Add startup shim.
 COPY jupyterlab-base/scripts/install-compat /tmp/build
-RUN  ./install-compat
+RUN  cd /tmp/build && ./install-compat
 
 WORKDIR /
 
 # Clean up.
 COPY jupyterlab-base/scripts/cleanup-files /
-RUN ./cleanup-files && rm ./cleanup-files
+RUN cd / && ./cleanup-files && rm ./cleanup-files
 
 WORKDIR /tmp
 

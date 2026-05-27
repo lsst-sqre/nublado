@@ -173,7 +173,7 @@ skip-magic-trailing-comma = true
 "hub/plugins/spawner/src/rubin/nublado/spawner/_internals.py" = [
     "UP037",   # quotes are required for Python 3.13 support
 ]
-"jupyterlab-base/jupyter_server/jupyter_server_config.py" = [
+"jupyterlab-base/static/usr/local/etc/jupyter/jupyter_server_config.py" = [
     "INP001",  # Jupyter server configuration file, so has no namespace
     "F821",    # Jupyter configuration uses a magic c variable
 ]
