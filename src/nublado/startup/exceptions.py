@@ -81,7 +81,8 @@ class RSPErrorCode(Enum):
     """New Error codes for RSP Startup."""
 
     EBADENV = 200
-    EUNKNOWN = 201
+    EBADCFG = 201
+    EUNKNOWN = 202
 
 
 # Used internally to populate our RSPStartupErrors
@@ -89,6 +90,10 @@ _rsp_errors: dict[int, dict[str, str | int]] = {
     RSPErrorCode.EBADENV.value: {
         "errorcode": "EBADENV",  # Bad environment variable
         "strerror": "Missing environment variable",
+    },
+    RSPErrorCode.EBADCFG.value: {
+        "errorcode": "EBADCFG",  # Bad configuration
+        "strerror": "Bad configuration",
     },
     RSPErrorCode.EUNKNOWN.value: {
         "errorcode": "EUNKNOWN",  # Unknown error
@@ -129,7 +134,6 @@ class RSPStartupError(OSError):
         if errnum not in vals:
             # It's not one of ours, and it's not standard.
             # That makes it unknown.
-            # We say 201 the fancy way, in case we ever need to renumber.
             errnum = RSPErrorCode.EUNKNOWN.value
             self.errno = errnum
         errnum = self.errno  # Maybe we reset it to EUNKNOWN

@@ -26,8 +26,12 @@ apt-get update
 # curl: CLI http client is useful
 # nano ... ed: enough editors to cover most people's habits
 #  (I gave up on emacs in the base container, alas)
+# Nodejs is needed for Gemini and Codex agents, and LLM Chat doesn't work
+# right for Codex and Claude without npm installed at runtime;
+# I think this is something to do with entrypoint magic.
 apt-get -y install --no-install-recommends \
     git git-lfs pandoc \
     jq gh hub unzip xz-utils ack screen tmux tree file less \
     man curl \
-    nano vim ed
+    nano vim ed \
+    nodejs npm
