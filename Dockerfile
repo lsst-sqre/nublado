@@ -17,7 +17,7 @@
 FROM python:3.14.5-slim-trixie AS base-image
 
 # Install uv.
-COPY --from=ghcr.io/astral-sh/uv:0.11.13 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.16 /uv /bin/uv
 
 # Update already-installed packages and Install additional packages required
 # (mostly by fsadmin)
@@ -78,7 +78,7 @@ COPY assets/screenrc /etc/screenrc
 
 # Set up source files for nublado startup.  These mirror file location in
 # the runtime JupyterLab container; they are copied in `nublado.startup`.
-COPY jupyterlab-base/skel/pythonrc /etc/skel/.pythonrc
+COPY jupyterlab-base/static/etc/skel/pythonrc /etc/skel/.pythonrc
 RUN cd /tmp && \
     git clone https://github.com/seebi/dircolors-solarized.git && \
     cp dircolors-solarized/dircolors* /etc && \

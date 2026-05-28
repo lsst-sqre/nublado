@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -x
+set -euo pipefail
+
+# Install the various node-based protocol servers and CLIs.
+# These are required both for the CLI and for JupyterLab LLM chat.
+
+npm install --global @agentclientprotocol/claude-agent-acp
+npm install --global @zed-industries/codex-acp
+npm install --global @openai/codex
+npm install --global @google/gemini-cli

@@ -10,6 +10,7 @@ mkdir -p ${vi_dir}
 cd ${vi_dir}
 dpkg -l | tee "system-dpkgs"
 pip list | tee "system-python"
+npm list --global --long --json | tee "node-modules"
 
 # Now JupyterLab python
 
