@@ -129,6 +129,9 @@ async def test_bad_ownership(
     # Provisioning should succeed with a message and fix the ownership.
     provisioner = Provisioner(home, uid, gid)
     await provisioner.provision()
+    # Null sleep seems to avoid an asyncio "Unclosed client session" error
+    # which generates another line in caplog.
+    await asyncio.sleep(0)
     assert len(caplog.records) == 1
     assert "resetting ownership" in caplog.records[0].message
     stat = home.stat()

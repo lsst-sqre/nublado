@@ -869,9 +869,7 @@ class SharedLabConfig(BaseModel):
     of Lab config attached to it when the ConfigMap is constructed.
     """
 
-    model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     enable_jobs_menu: Annotated[
         bool,
