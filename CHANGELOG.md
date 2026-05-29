@@ -6,6 +6,19 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-14.1.0'></a>
+## 14.1.0 (2026-05-28)
+
+### New features
+
+- Add Claude, Codex, Copilot, and Gemini CLI to the jupyterlab-base image.
+- Add a set of JupyterLab extensions to the jupyterlab-base image to support interacting with AI agents via chat.
+
+### Bug fixes
+
+- In the jupyterlab-base image, change the `File` menu entries to `Autosave and Exit` and `Autosave, Exit, and Logout` to make it clear that changes are saved as part of exiting the lab.
+- When spawning a login shell via JupyterLab in the jupyterlab-base image, switch working directories to the user's home directory. This ensures a consistent working directory when using an alternative file browser root.
+
 <a id='changelog-14.0.0'></a>
 ## 14.0.0 (2026-05-11)
 
