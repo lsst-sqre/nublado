@@ -923,7 +923,7 @@ class MockJupyterWebSocket:
     async def close(self) -> None:
         """Simulate close of the WebSocket."""
 
-    async def send(self, message_str: str) -> None:
+    async def send(self, message_str: str, text: bool | None = None) -> None:
         """Simulate sending a message to the JupyterLab WebSocket."""
         message = json.loads(message_str)
         expected = {

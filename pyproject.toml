@@ -163,6 +163,7 @@ skip-magic-trailing-comma = true
     "UP037",   # quotes are required for Python 3.13 support
 ]
 "client/src/rubin/nublado/client/_mock.py" = [
+    "FBT001",  # the mocked method has a boolean optional parameter
     "S101",    # test support functions are allowed to use assert
     "SLF001",  # used in a private decorator
     "UP037",   # Ruff bug, quotes are required

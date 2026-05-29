@@ -164,7 +164,7 @@ class JupyterLabSession:
         # Send the message and consume messages waiting for the response.
         result = ""
         try:
-            await self._socket.send(json.dumps(request))
+            await self._socket.send(json.dumps(request), text=False)
             async with aclosing_iter(aiter(self._socket)) as messages:
                 async for message in messages:
                     try:
