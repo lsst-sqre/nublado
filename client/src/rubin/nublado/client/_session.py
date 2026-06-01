@@ -1,12 +1,10 @@
 """JupyterLab session management."""
 
-import json
-import struct
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from types import TracebackType
-from typing import Any, Literal
+from typing import Literal
 from uuid import uuid4
 
 from structlog.stdlib import BoundLogger
@@ -22,6 +20,7 @@ from ._exceptions import (
 )
 from ._http import JupyterAsyncClient
 from ._models import CodeContext
+from ._websocket import decode_websocket_message, encode_websocket_message
 
 __all__ = ["JupyterLabSession", "JupyterLabSessionManager"]
 
@@ -64,6 +63,7 @@ class JupyterLabSession:
         "comm_msg",
         "comm_open",
         "display_data",
+        "error",
         "execute_input",
         "execute_result",
         "status",
@@ -159,13 +159,12 @@ class JupyterLabSession:
                 "allow_stdin": False,
             },
             "metadata": {},
-            "buffers": {},
         }
 
         # Send the message and consume messages waiting for the response.
         result = ""
         try:
-            await self._socket.send(self._build_message(request))
+            await self._socket.send(encode_websocket_message(request))
             async with aclosing_iter(aiter(self._socket)) as messages:
                 async for message in messages:
                     try:
@@ -202,23 +201,6 @@ class JupyterLabSession:
         # Return the accumulated output.
         return result
 
-    def _build_message(self, message: dict[str, Any]) -> bytes:
-        """Construct a message in the JupyterLab WebSocket binary format.
-
-        Parameters
-        ----------
-        message
-            Message contents to send.
-
-        Returns
-        -------
-        bytes
-            Message encoded in the binary protocol.
-        """
-        message_json = json.dumps(message).encode()
-        header = struct.pack("!II", 1, 8)
-        return header + message_json
-
     def _parse_message(
         self, message: str | bytes, message_id: str
     ) -> _JupyterOutput | None:
@@ -243,25 +225,11 @@ class JupyterLabSession:
             Raised if the WebSocket message wasn't in the expected format.
         NubladoExecutionError
             Raised if code execution fails.
+        ValueError
+            Raised if the WebSocket message wasn't in the expected format.
         """
-        if isinstance(message, str):
-            data = json.loads(message)
-            self._logger.debug("Received kernel message", message=data)
-        else:
-            count, offset = struct.unpack("!II", message[:8])
-            binary_offset = None
-            if count > 1:
-                binary_offset = struct.unpack("!I", message[8:12])[0]
-                data = json.loads(message[offset:binary_offset])
-            else:
-                data = json.loads(message[offset:])
-            self._logger.debug(
-                "Received kernel message",
-                parts=count,
-                offset=offset,
-                binary_offset=binary_offset,
-                message=data,
-            )
+        data = decode_websocket_message(message)
+        self._logger.debug("Received kernel message", message=data)
 
         # Ignore headers not intended for us. The web socket is rather
         # chatty with broadcast status messages.
@@ -269,24 +237,25 @@ class JupyterLabSession:
             return None
 
         # Analyze the message type to figure out what to do with the response.
-        msg_type = data["msg_type"]
-        if msg_type in self._IGNORED_MESSAGE_TYPES:
-            return None
-        elif msg_type == "stream":
-            return _JupyterOutput(content=data["content"]["text"])
-        elif msg_type == "execute_reply":
-            status = data["content"]["status"]
-            if status == "ok":
-                return _JupyterOutput(content="", done=True)
-            else:
-                raise NubladoExecutionError(self._username, status=status)
-        elif msg_type == "error":
-            error = "".join(data["content"]["traceback"])
-            raise NubladoExecutionError(user=self._username, error=error)
-        else:
-            msg = "Ignoring unrecognized WebSocket message"
-            self._logger.warning(msg, message_type=msg_type, message=data)
-            return None
+        match data["header"]["msg_type"]:
+            case "execute_reply":
+                status = data["content"]["status"]
+                if status == "ok":
+                    return _JupyterOutput(content="", done=True)
+                traceback = data["content"].get("traceback")
+                raise NubladoExecutionError(
+                    self._username,
+                    status=status,
+                    error="".join(traceback) if traceback else None,
+                )
+            case "stream":
+                return _JupyterOutput(content=data["content"]["text"])
+            case msg_type if msg_type in self._IGNORED_MESSAGE_TYPES:
+                return None
+            case _:
+                msg = "Ignoring unrecognized WebSocket message"
+                self._logger.warning(msg, message_type=msg_type, message=data)
+                return None
 
 
 class JupyterLabSessionManager:

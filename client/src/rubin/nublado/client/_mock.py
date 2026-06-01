@@ -4,7 +4,6 @@ import asyncio
 import json
 import os
 import re
-import struct
 from collections import defaultdict
 from collections.abc import (
     AsyncGenerator,
@@ -32,6 +31,7 @@ from rubin.gafaelfawr import GafaelfawrClient
 from rubin.repertoire import DiscoveryClient
 
 from ._models import NotebookExecutionResult
+from ._websocket import decode_websocket_message, encode_websocket_message
 
 if TYPE_CHECKING:
     import respx
@@ -167,9 +167,7 @@ class MockJupyter:
         self._spawn_delay: timedelta | None = None
         self._state: dict[str, MockJupyterState] = {}
 
-    def build_code_result(
-        self, code: str, variables: dict[str, Any]
-    ) -> str | None:
+    def build_code_result(self, code: str, variables: dict[str, Any]) -> str:
         """Get the execution results for a piece of code.
 
         Normally, this is only used by the JupyterLab WebSocket mock, but test
@@ -928,15 +926,7 @@ class MockJupyterWebSocket:
         self, message: str | bytes, *, text: bool | None = None
     ) -> None:
         """Simulate sending a message to the JupyterLab WebSocket."""
-        if isinstance(message, bytes) and text:
-            message = message.decode()
-        if isinstance(message, bytes):
-            count, offset = struct.unpack("!II", message[:8])
-            assert count == 1, "Too many parts in WebSocket message"
-            assert offset == 8, "Wrong offset for WebSocket JSON portion"
-            message_json = json.loads(message[8:].decode())
-        else:
-            message_json = json.loads(message)
+        message_json = decode_websocket_message(message)
         expected = {
             "header": {
                 "username": self._username,
@@ -956,7 +946,6 @@ class MockJupyterWebSocket:
                 "allow_stdin": False,
             },
             "metadata": {},
-            "buffers": {},
         }
         assert message_json == expected, (
             f"Unexpected WebSocket message: {message_json} != {expected}"
@@ -964,43 +953,48 @@ class MockJupyterWebSocket:
         self._header = message_json["header"]
         self._code = message_json["content"]["code"]
 
-    async def __aiter__(self) -> AsyncIterator[str]:
+    async def __aiter__(self) -> AsyncIterator[bytes]:
         """Simulate receiving messages from the JupyterLab WebSocket."""
         while True:
-            assert self._header, "Read from WebSocket before sending message"
-            yield json.dumps(self._build_response())
+            yield self._build_response()
 
-    def _build_response(self) -> dict[str, Any]:
+    def _build_response(self) -> bytes:
         """Construct a response to a code execution request."""
+        assert self._header, "Read from WebSocket before sending message"
         parent = self._parent
         if self._code:
             try:
                 result = parent.build_code_result(self._code, self._state)
                 self._code = None
-                if isinstance(result, BaseException):
-                    raise result
-            except BaseException:
+            except BaseException as e:
                 response = {
-                    "msg_type": "error",
+                    "header": {"msg_type": "execute_reply"},
                     "parent_header": self._header,
-                    "content": {"traceback": format_exc()},
+                    "channel": "shell",
+                    "content": {
+                        "status": "error",
+                        "ename": type(e).__name__,
+                        "evalue": str(e),
+                        "traceback": format_exc(),
+                    },
                 }
                 self._header = None
-                return response
             else:
-                return {
-                    "msg_type": "stream",
+                response = {
+                    "header": {"msg_type": "stream"},
+                    "channel": "iopub",
                     "parent_header": self._header,
                     "content": {"text": result},
                 }
         else:
             response = {
-                "msg_type": "execute_reply",
+                "header": {"msg_type": "execute_reply"},
                 "parent_header": self._header,
+                "channel": "shell",
                 "content": {"status": "ok"},
             }
             self._header = None
-            return response
+        return encode_websocket_message(response)
 
 
 def _url_regex(base_regex: str, route: str) -> Pattern[str]:
@@ -1009,7 +1003,11 @@ def _url_regex(base_regex: str, route: str) -> Pattern[str]:
 
 
 def _mock_jupyter_websocket(
-    url: str, headers: dict[str, str], mock_jupyter: MockJupyter
+    url: str,
+    mock_jupyter: MockJupyter,
+    *,
+    headers: dict[str, str],
+    subprotocols: list[str] | None,
 ) -> MockJupyterWebSocket:
     """Create a new mock ClientWebSocketResponse that simulates a lab.
 
@@ -1017,10 +1015,12 @@ def _mock_jupyter_websocket(
     ----------
     url
         URL of the request to open a WebSocket.
-    headers
-        Extra headers sent with that request.
     mock_jupyter
         Mock JupyterHub and JupyterLab object.
+    headers
+        Extra headers sent with that request.
+    subprotocols
+        Requested subprotocols in priority order.
 
     Returns
     -------
@@ -1032,6 +1032,8 @@ def _mock_jupyter_websocket(
     username = match.group(1)
     session = mock_jupyter.get_session(username)
     assert session, "User has no open lab session"
+    expected = ["v1.kernel.websocket.jupyter.org"]
+    assert subprotocols == expected, "Incorrect subprotocol negotiation"
     kernel_id = match.group(2)
     assert kernel_id == session.kernel_id, (
         f"Kernel doesn't match session: {kernel_id} != {session.kernel_id}"
@@ -1071,11 +1073,14 @@ async def register_mock_jupyter(
     @asynccontextmanager
     async def mock_connect(
         url: str,
+        subprotocols: list[str] | None,
         additional_headers: dict[str, str],
         max_size: int | None,
         open_timeout: int,
     ) -> AsyncGenerator[MockJupyterWebSocket]:
-        yield _mock_jupyter_websocket(url, additional_headers, mock)
+        yield _mock_jupyter_websocket(
+            url, mock, headers=additional_headers, subprotocols=subprotocols
+        )
 
     with patch.object(websockets, "connect") as mock_websockets:
         mock_websockets.side_effect = mock_connect

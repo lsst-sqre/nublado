@@ -14,6 +14,7 @@ from httpx_sse import EventSource, aconnect_sse
 from rubin.repertoire import DiscoveryClient
 from structlog.stdlib import BoundLogger
 from websockets.asyncio.client import ClientConnection
+from websockets.typing import Subprotocol
 
 from ._exceptions import (
     NubladoDiscoveryError,
@@ -272,6 +273,7 @@ class JupyterAsyncClient:
         headers["Cookie"] = request.headers["Cookie"]
         return websockets.connect(
             self._url_for_websocket(url),
+            subprotocols=[Subprotocol("v1.kernel.websocket.jupyter.org")],
             additional_headers=headers,
             open_timeout=open_timeout.total_seconds(),
             max_size=max_size,
