@@ -71,18 +71,20 @@ class Preparer:
         self._config: LabConfigMap | None = None
         try:
             self._config = LabConfigMap.model_validate_json(
-                Path(CONFIG_FILE).read_text()
+                CONFIG_FILE.read_text()
             )
         except (
-            FileNotFoundError,
+            OSError,
             UnicodeDecodeError,
             json.decoder.JSONDecodeError,
             ValidationError,
         ) as exc:
             self._logger.exception(
-                f"Could not parse config from {CONFIG_FILE}"
+                f"Could not parse config from {CONFIG_FILE!s}"
             )
-            n_exc = RSPStartupError(RSPErrorCode.EBADCFG, None, str(exc))
+            n_exc = RSPStartupError(
+                RSPErrorCode.EBADCFG.value, None, str(CONFIG_FILE)
+            )
             # Warn user on startup that the lab is going to be broken.
             self._set_abnormal_startup(n_exc)
 
@@ -297,6 +299,12 @@ class Preparer:
                     """
                     You are missing environment variables necessary for RSP
                     operation.
+                    """
+                )
+            case "EBADCFG":
+                txt += dedent(
+                    """
+                    Nublado configuration is missing or corrupt.
                     """
                 )
             case _:
