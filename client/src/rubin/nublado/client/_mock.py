@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import re
+import struct
 from collections import defaultdict
 from collections.abc import (
     AsyncGenerator,
@@ -253,7 +254,7 @@ class MockJupyter:
         -------
         MockJupyterExecutionParameters
             A structure representing the kernel name and whether to clear
-        local site packages for the last execution call.
+            local site packages for the last execution call.
         """
         return self._execution_parameters.get(username)
 
@@ -923,9 +924,19 @@ class MockJupyterWebSocket:
     async def close(self) -> None:
         """Simulate close of the WebSocket."""
 
-    async def send(self, message_str: str) -> None:
+    async def send(
+        self, message: str | bytes, *, text: bool | None = None
+    ) -> None:
         """Simulate sending a message to the JupyterLab WebSocket."""
-        message = json.loads(message_str)
+        if isinstance(message, bytes) and text:
+            message = message.decode()
+        if isinstance(message, bytes):
+            count, offset = struct.unpack("!II", message[:8])
+            assert count == 1, "Too many parts in WebSocket message"
+            assert offset == 8, "Wrong offset for WebSocket JSON portion"
+            message_json = json.loads(message[8:].decode())
+        else:
+            message_json = json.loads(message)
         expected = {
             "header": {
                 "username": self._username,
@@ -947,18 +958,17 @@ class MockJupyterWebSocket:
             "metadata": {},
             "buffers": {},
         }
-        assert message == expected, (
-            f"Unexpected WebSocket message: {message} != {expected}"
+        assert message_json == expected, (
+            f"Unexpected WebSocket message: {message_json} != {expected}"
         )
-        self._header = message["header"]
-        self._code = message["content"]["code"]
+        self._header = message_json["header"]
+        self._code = message_json["content"]["code"]
 
     async def __aiter__(self) -> AsyncIterator[str]:
         """Simulate receiving messages from the JupyterLab WebSocket."""
         while True:
             assert self._header, "Read from WebSocket before sending message"
-            response = self._build_response()
-            yield json.dumps(response)
+            yield json.dumps(self._build_response())
 
     def _build_response(self) -> dict[str, Any]:
         """Construct a response to a code execution request."""

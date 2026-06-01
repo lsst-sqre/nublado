@@ -1,6 +1,7 @@
 """JupyterLab session management."""
 
 import json
+import struct
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -164,7 +165,7 @@ class JupyterLabSession:
         # Send the message and consume messages waiting for the response.
         result = ""
         try:
-            await self._socket.send(json.dumps(request))
+            await self._socket.send(json.dumps(request), text=True)
             async with aclosing_iter(aiter(self._socket)) as messages:
                 async for message in messages:
                     try:
@@ -226,10 +227,24 @@ class JupyterLabSession:
         NubladoExecutionError
             Raised if code execution fails.
         """
-        if isinstance(message, bytes):
-            message = message.decode()
-        data = json.loads(message)
-        self._logger.debug("Received kernel message", message=data)
+        if isinstance(message, str):
+            data = json.loads(message)
+            self._logger.debug("Received kernel message", message=data)
+        else:
+            count, offset = struct.unpack("!II", message[:8])
+            binary_offset = None
+            if count > 1:
+                binary_offset = struct.unpack("!I", message[8:12])[0]
+                data = json.loads(message[offset:binary_offset])
+            else:
+                data = json.loads(message[offset:])
+            self._logger.debug(
+                "Received kernel message",
+                parts=count,
+                offset=offset,
+                binary_offset=binary_offset,
+                message=data,
+            )
 
         # Ignore headers not intended for us. The web socket is rather
         # chatty with broadcast status messages.
