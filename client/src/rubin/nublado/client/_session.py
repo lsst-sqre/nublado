@@ -6,7 +6,7 @@ from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from types import TracebackType
-from typing import Literal
+from typing import Any, Literal
 from uuid import uuid4
 
 from structlog.stdlib import BoundLogger
@@ -165,7 +165,7 @@ class JupyterLabSession:
         # Send the message and consume messages waiting for the response.
         result = ""
         try:
-            await self._socket.send(json.dumps(request), text=True)
+            await self._socket.send(self._build_message(request))
             async with aclosing_iter(aiter(self._socket)) as messages:
                 async for message in messages:
                     try:
@@ -201,6 +201,23 @@ class JupyterLabSession:
 
         # Return the accumulated output.
         return result
+
+    def _build_message(self, message: dict[str, Any]) -> bytes:
+        """Construct a message in the JupyterLab WebSocket binary format.
+
+        Parameters
+        ----------
+        message
+            Message contents to send.
+
+        Returns
+        -------
+        bytes
+            Message encoded in the binary protocol.
+        """
+        message_json = json.dumps(message).encode()
+        header = struct.pack("!II", 1, 8)
+        return header + message_json
 
     def _parse_message(
         self, message: str | bytes, message_id: str
