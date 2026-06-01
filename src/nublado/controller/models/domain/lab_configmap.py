@@ -6,7 +6,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from ...config import LabFileBrowserRoot, LabResources, SharedLabConfig
+from ...config import LabResources, SharedLabConfig
 
 __all__ = ["LabConfigImageSettings", "LabConfigMap"]
 
@@ -76,18 +76,6 @@ class LabConfigMap(SharedLabConfig):
     debug: Annotated[
         bool, Field(title="Debug", description="Enable debug logging")
     ] = False
-
-    file_browser_root: Annotated[
-        LabFileBrowserRoot,
-        Field(
-            title="JupyterLab file browser root",
-            description=(
-                "Whether to allow traversal in the UI file browser all"
-                " the way up to the container root, or only as high as"
-                " the user home directory."
-            ),
-        ),
-    ] = LabFileBrowserRoot.HOME
 
     home_relative_to_file_browser_root: Annotated[
         str,

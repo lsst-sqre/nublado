@@ -326,17 +326,21 @@ class LabBuilder:
     def _build_lab_config_json(
         self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
     ) -> str:
-        """Build a map holding runtime configuration items, then serialize."""
-        # This will largely replace _build_env_config_map; the extensions will
-        # request the configuration from the backend, which will serve it
-        # from a mounted ConfigMap rather than from the environment.
+        """Build a map holding runtime configuration items, then serialize.
 
-        # Note that some settings need to remain environment variables because
-        # that's what the Lab-Hub communication expects.  However, at least
-        # for the RSP extensions, we have total control of what we send and
-        # how we consume it, so there we can remove environment variables
-        # from the equation.
+        This will largely replace _build_env_config_map; the extensions will
+        request the configuration from the backend, which will serve it
+        from a mounted ConfigMap rather than from the environment.
 
+        Note that some settings need to remain environment variables because
+        that's what the Lab-Hub communication expects.  However, at least
+        for our own RSP extensions, we have total control of what we send and
+        how we consume it, so there we can remove environment variables
+        from the equation.
+
+        REPERTOIRE_BASE_URL is unique; we will always need it in order to
+        bootstrap service discovery.
+        """
         size = self._config.get_size_definition(lab.options.size)
         resources = size.resources
         img_settings = LabConfigImageSettings(
@@ -388,7 +392,11 @@ class LabBuilder:
     def _build_env_config_map(
         self, user: GafaelfawrUserInfo, lab: LabSpecification, image: RSPImage
     ) -> V1ConfigMap:
-        """Build the config map holding the lab environment variables."""
+        """Build the config map holding the lab environment variables.
+
+        Once we have transitioned to using lab-config.json rather than the
+        environment, we can take many of these out.
+        """
         env = lab.env.copy()
 
         # Add additional environment variables based on user options.
@@ -403,8 +411,7 @@ class LabBuilder:
         resources = size.resources
         env.update(
             {
-                # We would like to deprecate this, following KubeSpawner, but
-                # it's currently used by the lab extensions.
+                # Deprecated; use JUPYTER_IMAGE_SPEC instead.
                 "JUPYTER_IMAGE": image.reference_with_digest,
                 # Image data for display frame.
                 "JUPYTER_IMAGE_SPEC": image.reference_with_digest,

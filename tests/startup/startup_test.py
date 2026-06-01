@@ -441,7 +441,7 @@ def test_setup_gitlfs(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.usefixtures("rsp_fs")
-def test_increase_log_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_increase_log_limit() -> None:
     pr = Preparer()
     settings = (
         pr._home

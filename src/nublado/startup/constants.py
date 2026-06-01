@@ -19,7 +19,7 @@ APP_NAME = "nublado"
 CONFIG_FILE = Path("/etc/nublado/config/lab-config.json")
 """Lab config file, overrideable for tests.
 
-Usually /etc/nublado/config/lab_config.json.
+Usually /etc/nublado/config/lab-config.json.
 """
 
 ETC_PATH = Path("/etc")

@@ -7,8 +7,8 @@ import shutil
 from pathlib import Path
 from textwrap import dedent
 
-import pydantic_core
 import structlog
+from pydantic import ValidationError
 from safir.logging import LogLevel, configure_logging
 
 from ...controller.config import LabFileBrowserRoot
@@ -77,12 +77,13 @@ class Preparer:
             FileNotFoundError,
             UnicodeDecodeError,
             json.decoder.JSONDecodeError,
-            pydantic_core.ValidationError,
+            ValidationError,
         ) as exc:
             self._logger.exception(
                 f"Could not parse config from {CONFIG_FILE}"
             )
             n_exc = RSPStartupError(RSPErrorCode.EBADCFG, None, str(exc))
+            # Warn user on startup that the lab is going to be broken.
             self._set_abnormal_startup(n_exc)
 
     def prepare(self) -> None:

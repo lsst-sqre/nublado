@@ -893,6 +893,18 @@ class SharedLabConfig(BaseModel):
         ),
     ] = True
 
+    file_browser_root: Annotated[
+        LabFileBrowserRoot,
+        Field(
+            title="JupyterLab file browser root",
+            description=(
+                "Whether to allow traversal in the UI file browser all"
+                " the way up to the container root, or only as high as"
+                " the user home directory."
+            ),
+        ),
+    ] = LabFileBrowserRoot.HOME
+
     jupyterlab_config_dir: Annotated[
         str,
         Field(
@@ -904,7 +916,7 @@ class SharedLabConfig(BaseModel):
                 " secrets are stored under this path."
             ),
         ),
-    ] = "/opt/lsst/software/jupyterlab"
+    ] = "/etc/nublado"
 
     runtime_mounts_dir: Annotated[
         str,
@@ -916,7 +928,7 @@ class SharedLabConfig(BaseModel):
                 " will be mounted."
             ),
         ),
-    ] = "/opt/lsst/software/jupyterlab"
+    ] = "/etc/nublado"
 
 
 class LabConfig(SharedLabConfig):
@@ -1011,18 +1023,6 @@ class LabConfig(SharedLabConfig):
             ),
         ),
     ] = {}
-
-    file_browser_root: Annotated[
-        LabFileBrowserRoot,
-        Field(
-            title="JupyterLab file browser root",
-            description=(
-                "Whether to allow traversal in the UI file browser all"
-                " the way up to the container root, or only as high as"
-                " the user home directory."
-            ),
-        ),
-    ] = LabFileBrowserRoot.HOME
 
     files: Annotated[
         dict[Annotated[str, AfterValidator(_reject_reserved_paths)], str],
