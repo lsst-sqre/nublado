@@ -114,20 +114,11 @@ class JupyterLabSession:
 
         Raises
         ------
-        NubladoDiscoveryError
-            Raised if Nublado is missing from service discovery.
         NubladoExecutionError
             Raised if an error was reported by the Jupyter lab kernel.
-        NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
         NubladoWebSocketError
             Raised if there was a WebSocket protocol error while running code
             or waiting for the response.
-        rubin.repertoire.RepertoireError
-            Raised if there was an error talking to service discovery.
-        RuntimeError
-            Raised if called before entering the context and thus before
-            creating the WebSocket session.
 
         Notes
         -----
