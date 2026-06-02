@@ -2,7 +2,7 @@
 
 from contextlib import aclosing
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import ANY
 from uuid import UUID
 
@@ -19,6 +19,7 @@ from rubin.nublado.client import (
     NotebookExecutionResult,
     NubladoClient,
     NubladoExecutionError,
+    NubladoExecutionTimeoutError,
     NubladoImage,
     NubladoImageByClass,
     NubladoImageByReference,
@@ -522,3 +523,45 @@ async def test_execution_failure(client: NubladoClient, username: str) -> None:
     assert isinstance(image, SlackTextField)
     assert image.heading == "Image"
     assert image.text == "some/image:tag"
+
+
+@pytest.mark.asyncio
+async def test_cell_timeout(
+    client: NubladoClient, mock_jupyter: MockJupyter, username: str
+) -> None:
+    start = datetime.now(tz=UTC)
+
+    await client.auth_to_hub()
+    await client.spawn_lab(NubladoImageByClass())
+    await client.wait_for_spawn()
+
+    code = "print(42)"
+    mock_jupyter.register_python_result(code, "42", delay=timedelta(seconds=1))
+    timeout = timedelta(milliseconds=10)
+    with pytest.raises(NubladoExecutionTimeoutError) as exc_info:
+        async with client.lab_session() as session:
+            await session.run_python(code, timeout=timeout)
+
+    # Check the properties of the resulting exception.
+    exc = exc_info.value
+    assert exc.user == username
+    assert exc.code == code
+    assert f"{username}: running code timed out" in str(exc)
+    assert exc.context == CodeContext()
+    assert exc.started_at
+    assert exc.started_at >= start
+    assert exc.failed_at
+    assert exc.failed_at >= exc.started_at
+
+    info = exc.to_sentry()
+    assert info.tags == {}
+    assert info.attachments["nublado_code.txt"] == code
+    started_at = format_datetime_for_logging(exc.started_at)
+    assert info.contexts["info"]["started_at"] == started_at
+
+    message = exc.to_slack()
+    assert message.message == "Timeout while running code"
+    code_attachment = message.attachments[-1]
+    assert isinstance(code_attachment, SlackCodeBlock)
+    assert code_attachment.heading == "Code executed"
+    assert code_attachment.code == code

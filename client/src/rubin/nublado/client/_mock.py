@@ -11,7 +11,6 @@ from collections.abc import (
     Callable,
     Coroutine,
     Iterable,
-    Iterator,
 )
 from contextlib import asynccontextmanager, redirect_stdout
 from dataclasses import dataclass, field
@@ -150,6 +149,7 @@ class MockJupyter:
         self._lab_xsrf = os.urandom(8).hex()
 
         self._clear_local_site_packages: dict[str, bool] = {}
+        self._code_delays: dict[str, timedelta | None] = {}
         self._code_results: dict[str, str | BaseException] = {}
         self._delete_at: dict[str, datetime | None] = {}
         self._delete_delay: timedelta | None = None
@@ -165,7 +165,9 @@ class MockJupyter:
         self._spawn_delay: timedelta | None = None
         self._state: dict[str, MockJupyterState] = {}
 
-    def build_code_result(self, code: str, variables: dict[str, Any]) -> str:
+    async def build_code_result(
+        self, code: str, variables: dict[str, Any]
+    ) -> str:
         """Get the execution results for a piece of code.
 
         Normally, this is only used by the JupyterLab WebSocket mock, but test
@@ -203,6 +205,8 @@ class MockJupyter:
             raised).
         """
         if result := self._code_results.get(code):
+            if delay := self._code_delays.get(code):
+                await asyncio.sleep(delay.total_seconds())
             if isinstance(result, BaseException):
                 raise result
             return result
@@ -406,7 +410,11 @@ class MockJupyter:
         self._notebook_results[notebook] = result
 
     def register_python_result(
-        self, code: str, result: str | BaseException
+        self,
+        code: str,
+        result: str | BaseException,
+        *,
+        delay: timedelta | None = None,
     ) -> None:
         """Register the expected cell output for a given source input.
 
@@ -421,8 +429,12 @@ class MockJupyter:
         result
             Result (standard output) of execution, or a `BaseException` object
             to raise that exception.
+        delay
+            If set, delay for this long before returning the registered
+            result. This can be used to test timeout handling.
         """
         self._code_results[code] = result
+        self._code_delays[code] = delay
 
     def set_delete_delay(self, delay: timedelta | None) -> None:
         """Set whether to delete labs immediately.
@@ -952,10 +964,10 @@ class MockJupyterWebSocket:
     async def __aiter__(self) -> AsyncIterator[bytes]:
         """Simulate receiving messages from the JupyterLab WebSocket."""
         while True:
-            for response in self._build_response():
+            async for response in self._build_response():
                 yield encode_websocket_message(response)
 
-    def _build_response(self) -> Iterator[dict[str, Any]]:
+    async def _build_response(self) -> AsyncIterator[dict[str, Any]]:
         """Construct a response to a code execution request."""
         assert self._header, "Read from WebSocket before sending message"
         assert self._code is not None, (
@@ -963,8 +975,10 @@ class MockJupyterWebSocket:
         )
         parent = self._parent
         try:
-            result = parent.build_code_result(self._code, self._state)
+            result = await parent.build_code_result(self._code, self._state)
             self._code = None
+        except asyncio.CancelledError:
+            raise
         except BaseException as e:
             yield {
                 "header": {"msg_type": "execute_reply"},

@@ -178,13 +178,18 @@ The mock will never attempt to run :command:`nbconvert` in the way that the Nubl
 Injecting delays
 ----------------
 
-There are two ways to inject delays into the mock to simulate how long it takes Nublado operations to take on a real cluster:
+There are three ways to inject delays into the mock to simulate how long it takes Nublado operations to take on a real cluster:
 
 `MockJupyter.set_delete_delay`
     Wait this long before deleting the lab.
     The lab will be fully delated if at least this long has passed and the client makes a call to the API endpoint listing running labs (called by `NubladoClient.is_lab_stopped`).
+
 `MockJupyter.set_spawn_delay`
     Pause for this long before returning success from the spawn progress route.
+
+`MockJupyter.register_python_result` (``delay`` parameter)
+    Pause for this long before returning the registered code execution results.
+    This can be used to test execution timeout handling.
 
 Testing Jupyter errors
 ----------------------
