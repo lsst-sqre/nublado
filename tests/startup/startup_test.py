@@ -14,6 +14,7 @@ import yaml
 from pyfakefs.fake_filesystem import FakeFilesystem
 from safir.testing.data import Data
 
+from nublado.startup.exceptions import RSPErrorCode
 from nublado.startup.services.credentials import CredentialManager
 from nublado.startup.services.dask import DaskConfigurator
 from nublado.startup.services.environment import EnvironmentConfigurator
@@ -441,7 +442,7 @@ def test_setup_gitlfs(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.usefixtures("rsp_fs")
-def test_increase_log_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_increase_log_limit() -> None:
     pr = Preparer()
     settings = (
         pr._home
@@ -473,3 +474,43 @@ def test_startup_files(data: Data) -> None:
 
     data.assert_json_matches(env, "startup/output/env")
     data.assert_json_matches(args, "startup/output/args")
+
+
+@pytest.mark.usefixtures("rsp_fs_no_config")
+def test_bad_config() -> None:
+    # Config is not there at all.
+    pr = Preparer()
+    pr.prepare()
+    assert pr._broken
+    assert pr._env["ABNORMAL_STARTUP"] == "TRUE"
+    assert pr._env["ABNORMAL_STARTUP_ERRNO"] == str(RSPErrorCode.EBADCFG.value)
+
+
+@pytest.mark.usefixtures("rsp_fs_no_config")
+def test_preferred_dir_not_set(data: Data) -> None:
+    std_cfg_p = data.path("startup/files/etc/nublado/config/lab-config.json")
+    std_cfg = json.loads(std_cfg_p.read_text())
+    std_cfg["home_relative_to_file_browser_root"] = ""
+    std_cfg["file_browser_root"] = "home"
+
+    Path("/etc/nublado/config/lab-config.json").write_text(json.dumps(std_cfg))
+    pr = Preparer()
+    with patch.object(subprocess, "run"):
+        pr.prepare()
+
+    arg_file = Path("/etc/nublado/startup/args.json")
+    args = json.loads(arg_file.read_text())
+
+    check = [x.startswith("--ContentsManager.preferred_dir") for x in args]
+    assert not any(check)
+
+
+@pytest.mark.usefixtures("rsp_fs")
+def test_preferred_dir_set(data: Data) -> None:
+    pr = Preparer()
+    with patch.object(subprocess, "run"):
+        pr.prepare()
+    arg_file = Path("/etc/nublado/startup/args.json")
+    args = json.loads(arg_file.read_text())
+
+    assert "--ContentsManager.preferred_dir=home/hambone" in args

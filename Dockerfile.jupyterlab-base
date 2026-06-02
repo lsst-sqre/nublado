@@ -88,7 +88,7 @@ COPY jupyterlab-base/runtime/runlab \
 # Note that from here on out we have to explicitly cd to the working
 # directory, because /etc/profile.d forces us to ${HOME}.
 COPY jupyterlab-base/scripts/generate-versions /tmp/build
-RUN cd /tmp/build && ./generate-versions
+RUN cd /tmp/build && ./generate-versions  # profile does a `cd $HOME` now
 
 # This needs to be numeric, since we will remove /etc/passwd and friends
 # while we're running.
@@ -109,7 +109,7 @@ WORKDIR /tmp
 # Run as unprivileged user.  There's no /etc/passwd entry for it at
 # this point, but the Nublado machinery will ensure that the right
 # unprivileged user runs the container.  This is just to keep the
-# Lab as running as root in the container by default.
+# Lab from running as root in the container by default.
 # Conventionally, this is nobody:nogroup.
 USER 65534:65534
 

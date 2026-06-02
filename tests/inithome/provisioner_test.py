@@ -1,5 +1,6 @@
 """Test inithome functionality."""
 
+import asyncio
 import os
 from pathlib import Path
 
@@ -84,6 +85,9 @@ async def test_existing_dir(
     # This sometimes fails with aio session not closed.  We do not
     # use aiohttp directly, so it's coming from somewhere else,
     # maybe kubernetes-asyncio.
+    #
+    # Adding a null sleep seems to ameliorate the problem.
+    await asyncio.sleep(0.0)
     stat = home.stat()
     assert stat.st_uid == uid
     assert stat.st_gid == gid
@@ -125,6 +129,9 @@ async def test_bad_ownership(
     # Provisioning should succeed with a message and fix the ownership.
     provisioner = Provisioner(home, uid, gid)
     await provisioner.provision()
+    # Null sleep seems to avoid an asyncio "Unclosed client session" error
+    # which generates another line in caplog.
+    await asyncio.sleep(0)
     assert len(caplog.records) == 1
     assert "resetting ownership" in caplog.records[0].message
     stat = home.stat()
