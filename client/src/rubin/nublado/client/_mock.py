@@ -11,6 +11,7 @@ from collections.abc import (
     Callable,
     Coroutine,
     Iterable,
+    Iterator,
 )
 from contextlib import asynccontextmanager, redirect_stdout
 from dataclasses import dataclass, field
@@ -956,45 +957,50 @@ class MockJupyterWebSocket:
     async def __aiter__(self) -> AsyncIterator[bytes]:
         """Simulate receiving messages from the JupyterLab WebSocket."""
         while True:
-            yield self._build_response()
+            for response in self._build_response():
+                yield encode_websocket_message(response)
 
-    def _build_response(self) -> bytes:
+    def _build_response(self) -> Iterator[dict[str, Any]]:
         """Construct a response to a code execution request."""
         assert self._header, "Read from WebSocket before sending message"
+        assert self._code, "Read from WebSocket before sending message"
         parent = self._parent
-        if self._code:
-            try:
-                result = parent.build_code_result(self._code, self._state)
-                self._code = None
-            except BaseException as e:
-                response = {
-                    "header": {"msg_type": "execute_reply"},
-                    "parent_header": self._header,
-                    "channel": "shell",
-                    "content": {
-                        "status": "error",
-                        "ename": type(e).__name__,
-                        "evalue": str(e),
-                        "traceback": format_exc(),
-                    },
-                }
-                self._header = None
-            else:
-                response = {
-                    "header": {"msg_type": "stream"},
-                    "channel": "iopub",
-                    "parent_header": self._header,
-                    "content": {"text": result},
-                }
+        try:
+            result = parent.build_code_result(self._code, self._state)
+            self._code = None
+        except BaseException as e:
+            yield {
+                "header": {"msg_type": "execute_reply"},
+                "parent_header": self._header,
+                "channel": "shell",
+                "content": {
+                    "status": "error",
+                    "ename": type(e).__name__,
+                    "evalue": str(e),
+                    "traceback": format_exc(),
+                },
+            }
         else:
-            response = {
+            yield {
                 "header": {"msg_type": "execute_reply"},
                 "parent_header": self._header,
                 "channel": "shell",
                 "content": {"status": "ok"},
             }
-            self._header = None
-        return encode_websocket_message(response)
+            yield {
+                "header": {"msg_type": "stream"},
+                "channel": "iopub",
+                "parent_header": self._header,
+                "content": {"text": result},
+            }
+            yield {
+                "header": {"msg_type": "status"},
+                "channel": "iopub",
+                "parent_header": self._header,
+                "content": {"execution_state": "idle"},
+            }
+        self._header = None
+        return
 
 
 def _url_regex(base_regex: str, route: str) -> Pattern[str]:

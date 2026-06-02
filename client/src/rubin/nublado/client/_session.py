@@ -37,7 +37,15 @@ class _JupyterOutput:
     """Partial output from code execution (may be empty)."""
 
     done: bool = False
-    """Whether this indicates the end of execution."""
+    """Whether this indicates execution completed."""
+
+    idle: bool = False
+    """Whether this indicates the kernel is now idle.
+
+    Execution completes, then the kernel produces output, and then the kernel
+    goes idle, and only when the kernel is idle is the code execution truly
+    done.
+    """
 
 
 class JupyterLabSession:
@@ -66,7 +74,6 @@ class JupyterLabSession:
         "error",
         "execute_input",
         "execute_result",
-        "status",
     )
     """WebSocket messge types ignored by the parser.
 
@@ -90,7 +97,7 @@ class JupyterLabSession:
         self._socket = socket
         self._logger = logger
 
-    async def run_python(
+    async def run_python(  # noqa: C901
         self, code: str, context: CodeContext | None = None
     ) -> str:
         """Run a block of Python code in a Jupyter lab kernel.
@@ -163,6 +170,7 @@ class JupyterLabSession:
 
         # Send the message and consume messages waiting for the response.
         result = ""
+        complete = False
         try:
             await self._socket.send(encode_websocket_message(request))
             async with aclosing_iter(aiter(self._socket)) as messages:
@@ -177,13 +185,14 @@ class JupyterLabSession:
                         self._logger.warning(msg, error=error, message=message)
                         continue
 
-                    # Accumulate the results if they are of interest, and exit
-                    # and return the results if this message indicated the end
-                    # of execution.
+                    # Accumulate the output, and repeat until we receive both
+                    # an execution complete message and a kernel idle message.
                     if not output:
                         continue
                     result += output.content
                     if output.done:
+                        complete = True
+                    if complete and output.idle:
                         break
         except NubladoExecutionError as e:
             e.code = code
@@ -242,12 +251,18 @@ class JupyterLabSession:
                 status = data["content"]["status"]
                 if status == "ok":
                     return _JupyterOutput(content="", done=True)
-                traceback = data["content"].get("traceback")
-                raise NubladoExecutionError(
-                    self._username,
-                    status=status,
-                    error="".join(traceback) if traceback else None,
-                )
+                else:
+                    traceback = data["content"].get("traceback")
+                    raise NubladoExecutionError(
+                        self._username,
+                        status=status,
+                        error="".join(traceback) if traceback else None,
+                    )
+            case "status":
+                if data["content"]["execution_state"] == "idle":
+                    return _JupyterOutput(content="", idle=True)
+                else:
+                    return None
             case "stream":
                 return _JupyterOutput(content=data["content"]["text"])
             case msg_type if msg_type in self._IGNORED_MESSAGE_TYPES:
