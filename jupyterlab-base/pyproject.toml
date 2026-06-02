@@ -44,6 +44,7 @@ lab = [
     "geoviews",
     "holoviews",
     "ipydatawidgets",
+    "ipykernel!=7",
     "ipympl",
     "ipyvolume",
     "ipyvuetify",
