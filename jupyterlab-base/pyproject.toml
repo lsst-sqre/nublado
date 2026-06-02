@@ -43,6 +43,7 @@ lab = [
     "datashader",
     "geoviews",
     "holoviews",
+    'ipykernel>=6.0.0,!= 7.*',
     "ipydatawidgets",
     "ipympl",
     "ipyvolume",
