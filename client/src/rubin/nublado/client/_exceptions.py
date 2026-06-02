@@ -300,7 +300,7 @@ class NubladoExecutionError(NubladoError):
                 msg = f"{self.user}: cell {cell} of notebook {notebook} failed"
             else:
                 msg = f"{self.user}: cell of notebook {notebook} failed"
-            if self.status:
+            if self.status and self.status != "error":
                 msg += f" (status: {self.status})"
             if self.code:
                 msg += f"\nCode: {self.code}"
@@ -333,7 +333,7 @@ class NubladoExecutionError(NubladoError):
                 intro += f" cell `{self.context.cell}`"
         else:
             intro = "Error while running code"
-        if self.status:
+        if self.status and self.status != "error":
             intro += f" (status: {self.status})"
         message.message = intro
 

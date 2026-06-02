@@ -6,6 +6,7 @@
 .. _kubernetes-asyncio: https://github.com/tomplus/kubernetes_asyncio
 .. _Jinja: https://jinja.palletsprojects.com/en/stable/
 .. _JupyterHub: https://jupyter.org/hub
+.. _JupyterLab WebSocket protocol: https://jupyter-server.readthedocs.io/en/latest/developers/websocket-protocols.html
 .. _JupyterLab wire protocol: https://jupyter-client.readthedocs.io/en/latest/messaging.html
 .. _Mend Renovate: https://www.mend.io/renovate/
 .. _mobu: https://mobu.lsst.io/

@@ -57,6 +57,7 @@ lab = [
     "jupyter-console",
     "jupyter-firefly-extensions",
     "jupyter-resource-usage",
+    "jupyter-server-documents>=0.2.2",
     "jupyter-server-proxy",
     "jupyterhub",
     "jupyterlab",

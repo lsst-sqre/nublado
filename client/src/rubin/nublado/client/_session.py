@@ -1,6 +1,5 @@
 """JupyterLab session management."""
 
-import json
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -21,6 +20,7 @@ from ._exceptions import (
 )
 from ._http import JupyterAsyncClient
 from ._models import CodeContext
+from ._websocket import decode_websocket_message, encode_websocket_message
 
 __all__ = ["JupyterLabSession", "JupyterLabSessionManager"]
 
@@ -37,7 +37,15 @@ class _JupyterOutput:
     """Partial output from code execution (may be empty)."""
 
     done: bool = False
-    """Whether this indicates the end of execution."""
+    """Whether this indicates execution completed."""
+
+    idle: bool = False
+    """Whether this indicates the kernel is now idle.
+
+    Execution completes, then the kernel produces output, and then the kernel
+    goes idle, and only when the kernel is idle is the code execution truly
+    done.
+    """
 
 
 class JupyterLabSession:
@@ -63,9 +71,9 @@ class JupyterLabSession:
         "comm_msg",
         "comm_open",
         "display_data",
+        "error",
         "execute_input",
         "execute_result",
-        "status",
     )
     """WebSocket messge types ignored by the parser.
 
@@ -106,20 +114,11 @@ class JupyterLabSession:
 
         Raises
         ------
-        NubladoDiscoveryError
-            Raised if Nublado is missing from service discovery.
         NubladoExecutionError
             Raised if an error was reported by the Jupyter lab kernel.
-        NubladoRedirectError
-            Raised if the URL is outside of Nublado's URL space.
         NubladoWebSocketError
             Raised if there was a WebSocket protocol error while running code
             or waiting for the response.
-        rubin.repertoire.RepertoireError
-            Raised if there was an error talking to service discovery.
-        RuntimeError
-            Raised if called before entering the context and thus before
-            creating the WebSocket session.
 
         Notes
         -----
@@ -158,13 +157,14 @@ class JupyterLabSession:
                 "allow_stdin": False,
             },
             "metadata": {},
-            "buffers": {},
         }
 
         # Send the message and consume messages waiting for the response.
         result = ""
+        complete = False
+        idle = False
         try:
-            await self._socket.send(json.dumps(request))
+            await self._socket.send(encode_websocket_message(request))
             async with aclosing_iter(aiter(self._socket)) as messages:
                 async for message in messages:
                     try:
@@ -177,13 +177,14 @@ class JupyterLabSession:
                         self._logger.warning(msg, error=error, message=message)
                         continue
 
-                    # Accumulate the results if they are of interest, and exit
-                    # and return the results if this message indicated the end
-                    # of execution.
+                    # Accumulate the output, and repeat until we receive both
+                    # an execution complete message and a kernel idle message.
                     if not output:
                         continue
                     result += output.content
-                    if output.done:
+                    complete = complete or output.done
+                    idle = idle or output.idle
+                    if complete and idle:
                         break
         except NubladoExecutionError as e:
             e.code = code
@@ -225,10 +226,13 @@ class JupyterLabSession:
             Raised if the WebSocket message wasn't in the expected format.
         NubladoExecutionError
             Raised if code execution fails.
+        TypeError
+            Raised if the WebSocket message was Text, which would mean the
+            protocol negotiation was not honored.
+        ValueError
+            Raised if the WebSocket message wasn't in the expected format.
         """
-        if isinstance(message, bytes):
-            message = message.decode()
-        data = json.loads(message)
+        data = decode_websocket_message(message)
         self._logger.debug("Received kernel message", message=data)
 
         # Ignore headers not intended for us. The web socket is rather
@@ -237,24 +241,31 @@ class JupyterLabSession:
             return None
 
         # Analyze the message type to figure out what to do with the response.
-        msg_type = data["msg_type"]
-        if msg_type in self._IGNORED_MESSAGE_TYPES:
-            return None
-        elif msg_type == "stream":
-            return _JupyterOutput(content=data["content"]["text"])
-        elif msg_type == "execute_reply":
-            status = data["content"]["status"]
-            if status == "ok":
-                return _JupyterOutput(content="", done=True)
-            else:
-                raise NubladoExecutionError(self._username, status=status)
-        elif msg_type == "error":
-            error = "".join(data["content"]["traceback"])
-            raise NubladoExecutionError(user=self._username, error=error)
-        else:
-            msg = "Ignoring unrecognized WebSocket message"
-            self._logger.warning(msg, message_type=msg_type, message=data)
-            return None
+        match data["header"]["msg_type"]:
+            case "execute_reply":
+                status = data["content"]["status"]
+                if status == "ok":
+                    return _JupyterOutput(content="", done=True)
+                else:
+                    traceback = data["content"].get("traceback")
+                    raise NubladoExecutionError(
+                        self._username,
+                        status=status,
+                        error="".join(traceback) if traceback else None,
+                    )
+            case "status":
+                if data["content"]["execution_state"] == "idle":
+                    return _JupyterOutput(content="", idle=True)
+                else:
+                    return None
+            case "stream":
+                return _JupyterOutput(content=data["content"]["text"])
+            case msg_type if msg_type in self._IGNORED_MESSAGE_TYPES:
+                return None
+            case _:
+                msg = "Ignoring unrecognized WebSocket message"
+                self._logger.warning(msg, message_type=msg_type, message=data)
+                return None
 
 
 class JupyterLabSessionManager:
@@ -319,9 +330,8 @@ class JupyterLabSessionManager:
             f"user/{username}/api/sessions",
             json={
                 "kernel": {"name": self._kernel_name},
-                "name": self._notebook or "(no notebook)",
-                "path": self._notebook or uuid4().hex,
-                "type": "notebook" if self._notebook else "console",
+                "path": uuid4().hex,
+                "type": "console",
             },
         )
         response = r.json()

@@ -75,7 +75,6 @@ async def test_hub_flow(
         session_data = mock_jupyter.get_session(username)
         assert session_data
         assert session_data.kernel_name == "lsst"
-        assert session_data.name == "(no notebook)"
         assert UUID(session_data.path)
         assert session_data.type == "console"
 
@@ -90,9 +89,8 @@ async def test_hub_flow(
         session_data = mock_jupyter.get_session(username)
         assert session_data
         assert session_data.kernel_name == "custom"
-        assert session_data.name == "notebook.ipynb"
-        assert session_data.path == "notebook.ipynb"
-        assert session_data.type == "notebook"
+        assert UUID(session_data.path)
+        assert session_data.type == "console"
 
     # It's possible to get the spawn progress again while the lab is running.
     async with aclosing(client.watch_spawn_progress()) as spawn_progress:
@@ -441,10 +439,10 @@ async def test_execution_failure(client: NubladoClient, username: str) -> None:
     assert exc.started_at >= start
     assert exc.failed_at
     assert exc.failed_at >= exc.started_at
-    assert exc.status is None
+    assert exc.status == "error"
 
     info = exc.to_sentry()
-    assert info.tags == {}
+    assert info.tags == {"status": "error"}
     assert "ZeroDivisionError" in info.attachments["nublado_error.txt"]
     assert info.attachments["nublado_code.txt"] == "1 / 0"
     started_at = format_datetime_for_logging(exc.started_at)
@@ -489,6 +487,7 @@ async def test_execution_failure(client: NubladoClient, username: str) -> None:
         "notebook": "notebook.ipynb",
         "cell": "some-uuid",
         "cell_number": "14",
+        "status": "error",
     }
     assert "ZeroDivisionError" in info.attachments["nublado_error.txt"]
     assert info.attachments["nublado_code.txt"] == "1 / 0"
