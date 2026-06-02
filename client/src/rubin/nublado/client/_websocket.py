@@ -1,7 +1,7 @@
 """JupyterLab WebSocket protocol.
 
 See `JupyterLab WebSocket protocol`_ for more details. The
-jupyter-server-documents extension appears to only implement the
+jupyter-server-documents extension only implements
 ``v1.kernel.websocket.jupyter.org``, so we send all messages in that protocol.
 """
 
@@ -13,6 +13,9 @@ __all__ = ["decode_websocket_message", "encode_websocket_message"]
 
 def decode_websocket_message(message: str | bytes) -> dict[str, Any]:
     """Decode a message in the JupyterLab WebSocket binary format.
+
+    Only supports ``v1.kernel.websocket.jupyter.org``, which is negotiated by
+    the client as a subprotocol.
 
     Parameters
     ----------
@@ -65,6 +68,9 @@ def decode_websocket_message(message: str | bytes) -> dict[str, Any]:
 
 def encode_websocket_message(message: dict[str, Any]) -> bytes:
     """Construct a message in the JupyterLab WebSocket binary format.
+
+    Only supports ``v1.kernel.websocket.jupyter.org``. The
+    jupyter-server-documents extension requires that message format.
 
     Parameters
     ----------
