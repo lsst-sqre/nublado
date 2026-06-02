@@ -32,11 +32,13 @@ def decode_websocket_message(message: str | bytes) -> dict[str, Any]:
     ------
     KeyError
         Raised if the message is malformed.
+    TypeError
+        Raised if a Text WebSocket message was received.
     ValueError
         Raised if the message is malformed.
     """
     if isinstance(message, str):
-        return json.loads(message)
+        raise TypeError("Unexpected Text WebSocket message")
 
     # Assume the message is in the v1.kernel.websocket.jupyter.org protocol
     # and get the count of offsets.

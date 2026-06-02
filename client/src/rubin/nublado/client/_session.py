@@ -235,6 +235,9 @@ class JupyterLabSession:
             Raised if the WebSocket message wasn't in the expected format.
         NubladoExecutionError
             Raised if code execution fails.
+        TypeError
+            Raised if the WebSocket message was Text, which would mean the
+            protocol negotiation was not honored.
         ValueError
             Raised if the WebSocket message wasn't in the expected format.
         """
