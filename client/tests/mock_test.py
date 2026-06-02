@@ -117,3 +117,13 @@ async def test_set_delete_delay(
     assert await client.is_lab_stopped()
     await client.spawn_lab(NubladoImageByClass())
     await client.wait_for_spawn()
+
+
+@pytest.mark.asyncio
+async def test_empty_code(client: NubladoClient) -> None:
+    await client.auth_to_hub()
+    await client.spawn_lab(NubladoImageByClass())
+    await client.wait_for_spawn()
+    async with client.lab_session() as session:
+        result = await session.run_python("")
+        assert result.strip() == ""

@@ -963,7 +963,9 @@ class MockJupyterWebSocket:
     def _build_response(self) -> Iterator[dict[str, Any]]:
         """Construct a response to a code execution request."""
         assert self._header, "Read from WebSocket before sending message"
-        assert self._code, "Read from WebSocket before sending message"
+        assert self._code is not None, (
+            "Read from WebSocket before sending message"
+        )
         parent = self._parent
         try:
             result = parent.build_code_result(self._code, self._state)
