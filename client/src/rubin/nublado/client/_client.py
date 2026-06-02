@@ -230,10 +230,9 @@ class NubladoClient:
         Parameters
         ----------
         notebook_name
-            Name of the notebook we will be running, which is passed to the
-            session and might influence logging on the lab side. If set, the
-            session type will be set to ``notebook``. If not set, the session
-            type will be set to ``console``.
+            Name of the notebook we will be running. This has no effect on
+            the lab, which always uses a session type of ``console``, no name,
+            and a UUID for the ``path`` parameter.
         kernel_name
             Name of the kernel to use for the session.
         max_websocket_size

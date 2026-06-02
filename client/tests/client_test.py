@@ -75,7 +75,6 @@ async def test_hub_flow(
         session_data = mock_jupyter.get_session(username)
         assert session_data
         assert session_data.kernel_name == "lsst"
-        assert session_data.name == "(no notebook)"
         assert UUID(session_data.path)
         assert session_data.type == "console"
 
@@ -90,9 +89,8 @@ async def test_hub_flow(
         session_data = mock_jupyter.get_session(username)
         assert session_data
         assert session_data.kernel_name == "custom"
-        assert session_data.name == "notebook.ipynb"
-        assert session_data.path == "notebook.ipynb"
-        assert session_data.type == "notebook"
+        assert UUID(session_data.path)
+        assert session_data.type == "console"
 
     # It's possible to get the spawn progress again while the lab is running.
     async with aclosing(client.watch_spawn_progress()) as spawn_progress:

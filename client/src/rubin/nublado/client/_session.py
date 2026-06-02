@@ -330,9 +330,8 @@ class JupyterLabSessionManager:
             f"user/{username}/api/sessions",
             json={
                 "kernel": {"name": self._kernel_name},
-                "name": self._notebook or "(no notebook)",
-                "path": self._notebook or uuid4().hex,
-                "type": "notebook" if self._notebook else "console",
+                "path": uuid4().hex,
+                "type": "console",
             },
         )
         response = r.json()
