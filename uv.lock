@@ -2095,7 +2095,7 @@ wheels = [
 
 [[package]]
 name = "ipykernel"
-version = "6.31.0"
+version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "appnope", marker = "sys_platform == 'darwin'" },
@@ -2112,9 +2112,9 @@ dependencies = [
     { name = "tornado" },
     { name = "traitlets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a5/1d/d5ba6edbfe6fae4c3105bca3a9c889563cc752c7f2de45e333164c7f4846/ipykernel-6.31.0.tar.gz", hash = "sha256:2372ce8bc1ff4f34e58cafed3a0feb2194b91fc7cad0fc72e79e47b45ee9e8f6", size = 167493, upload-time = "2025-10-20T11:42:39.948Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/8d/b68b728e2d06b9e0051019640a40a9eb7a88fcd82c2e1b5ce70bef5ff044/ipykernel-7.2.0.tar.gz", hash = "sha256:18ed160b6dee2cbb16e5f3575858bc19d8f1fe6046a9a680c708494ce31d909e", size = 176046, upload-time = "2026-02-06T16:43:27.403Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f6/d8/502954a4ec0efcf264f99b65b41c3c54e65a647d9f0d6f62cd02227d242c/ipykernel-6.31.0-py3-none-any.whl", hash = "sha256:abe5386f6ced727a70e0eb0cf1da801fa7c5fa6ff82147747d5a0406cd8c94af", size = 117003, upload-time = "2025-10-20T11:42:37.502Z" },
+    { url = "https://files.pythonhosted.org/packages/82/b9/e73d5d9f405cba7706c539aa8b311b49d4c2f3d698d9c12f815231169c71/ipykernel-7.2.0-py3-none-any.whl", hash = "sha256:3bbd4420d2b3cc105cbdf3756bfc04500b1e52f090a90716851f3916c62e1661", size = 118788, upload-time = "2026-02-06T16:43:25.149Z" },
 ]
 
 [[package]]
@@ -4213,7 +4213,6 @@ dependencies = [
     { name = "google-api-core" },
     { name = "google-cloud-artifact-registry" },
     { name = "httpx" },
-    { name = "ipykernel" },
     { name = "jinja2" },
     { name = "kubernetes-asyncio" },
     { name = "pydantic" },
@@ -4276,7 +4275,6 @@ requires-dist = [
     { name = "google-api-core", specifier = ">=2" },
     { name = "google-cloud-artifact-registry", specifier = ">=1" },
     { name = "httpx", specifier = ">=0.28" },
-    { name = "ipykernel", specifier = ">=6.0.0,!=7.*" },
     { name = "jinja2", specifier = ">=3" },
     { name = "kubernetes-asyncio", specifier = ">=33" },
     { name = "pydantic", specifier = ">=2.10" },
@@ -4626,7 +4624,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -5747,7 +5745,7 @@ wheels = [
 
 [[package]]
 name = "rubin-gafaelfawr"
-version = "15.3.0"
+version = "15.2.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
@@ -5759,9 +5757,9 @@ dependencies = [
     { name = "safir" },
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/28/b3/aa1502ee6872aa441c0f203064f8f221107b8089f4eaca77bcfe7cafed17/rubin_gafaelfawr-15.3.0.tar.gz", hash = "sha256:7b010061aa9cd0843eca201d8843a0a2a77a0936b29d7a5f8e1fdb90e6ec8727", size = 67860, upload-time = "2026-06-02T19:02:02.93Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/37/eb1d32bf2bc88c70154129750420c09e0d6f2a9eca653473355268359b9c/rubin_gafaelfawr-15.2.5.tar.gz", hash = "sha256:f58cc8657d9934818d0ba21b47085d9757687556b3e0ee4ce24581000cc21b9f", size = 67866, upload-time = "2026-05-26T23:58:15.658Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/76/9c/972186cb385600e5f635469e2ff866bcf0f8c7bc84fe830f0300fbf902d5/rubin_gafaelfawr-15.3.0-py3-none-any.whl", hash = "sha256:73eb32077252e14c479de9f20ed1a8934741ae679f0db9cbbefb04425fb374d6", size = 13821, upload-time = "2026-06-02T19:02:01.921Z" },
+    { url = "https://files.pythonhosted.org/packages/af/85/002ac337bce000e98aee61649ac6561a5d7377954dc17fc9c5f4c393d2bf/rubin_gafaelfawr-15.2.5-py3-none-any.whl", hash = "sha256:b98bb9a4b490123da621b8bf1fbadc7c5644465428b00d2b5c0c0cbd45f114c0", size = 13822, upload-time = "2026-05-26T23:58:14.35Z" },
 ]
 
 [[package]]

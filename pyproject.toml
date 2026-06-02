@@ -25,7 +25,6 @@ dependencies = [
     "google-cloud-artifact-registry>=1",
     "httpx>=0.28",
     "fastapi>=0.100",
-    'ipykernel>=6.0.0,!= 7.*',
     "jinja2>=3",
     "kubernetes-asyncio>=33",
     "pydantic>=2.10",
