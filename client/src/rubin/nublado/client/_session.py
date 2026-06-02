@@ -97,7 +97,7 @@ class JupyterLabSession:
         self._socket = socket
         self._logger = logger
 
-    async def run_python(  # noqa: C901
+    async def run_python(
         self, code: str, context: CodeContext | None = None
     ) -> str:
         """Run a block of Python code in a Jupyter lab kernel.
@@ -171,6 +171,7 @@ class JupyterLabSession:
         # Send the message and consume messages waiting for the response.
         result = ""
         complete = False
+        idle = False
         try:
             await self._socket.send(encode_websocket_message(request))
             async with aclosing_iter(aiter(self._socket)) as messages:
@@ -190,9 +191,9 @@ class JupyterLabSession:
                     if not output:
                         continue
                     result += output.content
-                    if output.done:
-                        complete = True
-                    if complete and output.idle:
+                    complete = complete or output.done
+                    idle = idle or output.idle
+                    if complete and idle:
                         break
         except NubladoExecutionError as e:
             e.code = code
