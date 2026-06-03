@@ -1,0 +1,72 @@
+{
+  "attachments": [
+    {
+      "blocks": [
+        {
+          "text": {
+            "text": "*Code executed*\n```\nprint(42)\n```",
+            "type": "mrkdwn",
+            "verbatim": true
+          },
+          "type": "section"
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "text": {
+        "text": "Timeout while running `notebook.ipynb` cell `some-uuid` after 0.01s",
+        "type": "mrkdwn",
+        "verbatim": true
+      },
+      "type": "section"
+    },
+    {
+      "fields": [
+        {
+          "text": "<ANY>",
+          "type": "mrkdwn",
+          "verbatim": true
+        },
+        {
+          "text": "<ANY>",
+          "type": "mrkdwn",
+          "verbatim": true
+        },
+        {
+          "text": "*Exception type*\nNubladoExecutionTimeoutError",
+          "type": "mrkdwn",
+          "verbatim": true
+        },
+        {
+          "text": "*User*\nrachel",
+          "type": "mrkdwn",
+          "verbatim": true
+        },
+        {
+          "text": "*Image*\nsome/image:tag",
+          "type": "mrkdwn",
+          "verbatim": true
+        }
+      ],
+      "type": "section"
+    },
+    {
+      "text": {
+        "text": "*Node*\nsome-node",
+        "type": "mrkdwn",
+        "verbatim": true
+      },
+      "type": "section"
+    },
+    {
+      "text": {
+        "text": "*Cell*\n`notebook.ipynb` cell `some-uuid` (14)",
+        "type": "mrkdwn",
+        "verbatim": true
+      },
+      "type": "section"
+    }
+  ]
+}

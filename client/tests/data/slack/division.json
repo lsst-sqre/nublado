@@ -1,0 +1,59 @@
+{
+  "attachments": [
+    {
+      "blocks": [
+        {
+          "text": {
+            "text": "<ANY>",
+            "type": "mrkdwn",
+            "verbatim": true
+          },
+          "type": "section"
+        },
+        {
+          "text": {
+            "text": "*Code executed*\n```\n1 / 0\n```",
+            "type": "mrkdwn",
+            "verbatim": true
+          },
+          "type": "section"
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "text": {
+        "text": "Error while running code",
+        "type": "mrkdwn",
+        "verbatim": true
+      },
+      "type": "section"
+    },
+    {
+      "fields": [
+        {
+          "text": "<ANY>",
+          "type": "mrkdwn",
+          "verbatim": true
+        },
+        {
+          "text": "<ANY>",
+          "type": "mrkdwn",
+          "verbatim": true
+        },
+        {
+          "text": "*Exception type*\nNubladoExecutionError",
+          "type": "mrkdwn",
+          "verbatim": true
+        },
+        {
+          "text": "*User*\nrachel",
+          "type": "mrkdwn",
+          "verbatim": true
+        }
+      ],
+      "type": "section"
+    }
+  ]
+}

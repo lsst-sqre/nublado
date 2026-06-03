@@ -146,21 +146,26 @@ class NubladoError(SlackException):
             Annotated Sentry object.
         """
         info = super().to_sentry()
+
         if image := self.context.image:
             info.tags["image"] = image
         if self.context.node:
             info.tags["node"] = self.context.node
         if self.context.notebook:
             info.tags["notebook"] = self.context.notebook
+
         if self.context.cell:
-            info.tags["cell"] = self.context.cell
-        if self.context.cell_number:
-            info.tags["cell_number"] = self.context.cell_number
+            context = info.contexts.setdefault("cell_info", {})
+            context["cell_id"] = self.context.cell
+            if self.context.cell_number:
+                context["cell_number"] = self.context.cell_number
 
         if self.started_at:
             context = info.contexts.setdefault("info", {})
             started_at = format_datetime_for_logging(self.started_at)
             context["started_at"] = started_at
+            failed_at = format_datetime_for_logging(self.failed_at)
+            context["failed_at"] = failed_at
 
         return info
 
@@ -322,7 +327,8 @@ class NubladoExecutionError(NubladoError):
             error = _remove_ansi_escapes(self.error)
             info.attachments["nublado_error.txt"] = error
         if self.code:
-            info.attachments["nublado_code.txt"] = self.code
+            context = info.contexts.setdefault("cell_info", {})
+            context["code"] = self.code
         return info
 
     @override
@@ -418,7 +424,8 @@ class NubladoExecutionTimeoutError(NubladoError):
     def to_sentry(self) -> SentryEventInfo:
         info = super().to_sentry()
         if self.code:
-            info.attachments["nublado_code.txt"] = self.code
+            context = info.contexts.setdefault("cell_info", {})
+            context["code"] = self.code
         return info
 
     @override
@@ -430,7 +437,11 @@ class NubladoExecutionTimeoutError(NubladoError):
                 intro += f" cell `{self.context.cell}`"
         else:
             intro = "Timeout while running code"
-        message.message = intro
+        if self.started_at:
+            timeout = (self.failed_at - self.started_at).total_seconds()
+            message.message = intro + f" after {timeout:.02f}s"
+        else:
+            message.message = intro
 
         if code := self.code:
             attachment = SlackCodeBlock(heading="Code executed", code=code)

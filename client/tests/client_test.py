@@ -8,7 +8,7 @@ from uuid import UUID
 
 import pytest
 from safir.datetime import format_datetime_for_logging
-from safir.slack.blockkit import SlackCodeBlock, SlackTextBlock, SlackTextField
+from safir.slack.blockkit import SlackCodeBlock, SlackTextField
 from safir.testing.data import Data
 
 from rubin.nublado.client import (
@@ -418,7 +418,9 @@ async def test_redirect_loop(
 
 
 @pytest.mark.asyncio
-async def test_execution_failure(client: NubladoClient, username: str) -> None:
+async def test_execution_failure(
+    data: Data, client: NubladoClient, username: str
+) -> None:
     start = datetime.now(tz=UTC)
 
     await client.auth_to_hub()
@@ -443,31 +445,23 @@ async def test_execution_failure(client: NubladoClient, username: str) -> None:
     assert exc.status == "error"
 
     info = exc.to_sentry()
-    assert info.tags == {"status": "error"}
+    data.assert_json_matches(
+        {"contexts": info.contexts, "tags": info.tags}, "sentry/division"
+    )
     assert "ZeroDivisionError" in info.attachments["nublado_error.txt"]
-    assert info.attachments["nublado_code.txt"] == "1 / 0"
     started_at = format_datetime_for_logging(exc.started_at)
     assert info.contexts["info"]["started_at"] == started_at
+    failed_at = format_datetime_for_logging(exc.failed_at)
+    assert info.contexts["info"]["failed_at"] == failed_at
 
     message = exc.to_slack()
-    assert message.message == "Error while running code"
+    data.assert_json_matches(message.to_slack(), "slack/division")
     error = message.attachments[-2]
     assert isinstance(error, SlackCodeBlock)
-    assert error.heading == "Error"
     assert "ZeroDivisionError" in error.code
-    code = message.attachments[-1]
-    assert isinstance(code, SlackCodeBlock)
-    assert code.heading == "Code executed"
-    assert code.code == "1 / 0"
 
     # Now try again with a context.
-    context = CodeContext(
-        node="some-node",
-        image="some/image:tag",
-        notebook="notebook.ipynb",
-        cell="some-uuid",
-        cell_number="14",
-    )
+    context = CodeContext(**data.read_json("context"))
     with pytest.raises(NubladoExecutionError) as exc_info:
         async with client.lab_session() as session:
             await session.run_python("1 / 0", context=context)
@@ -482,52 +476,32 @@ async def test_execution_failure(client: NubladoClient, username: str) -> None:
     assert exc.context == context
 
     info = exc.to_sentry()
-    assert info.tags == {
-        "image": "some/image:tag",
-        "node": "some-node",
-        "notebook": "notebook.ipynb",
-        "cell": "some-uuid",
-        "cell_number": "14",
-        "status": "error",
-    }
+    data.assert_json_matches(
+        {"contexts": info.contexts, "tags": info.tags},
+        "sentry/division-context",
+    )
     assert "ZeroDivisionError" in info.attachments["nublado_error.txt"]
-    assert info.attachments["nublado_code.txt"] == "1 / 0"
 
     message = exc.to_slack()
-    assert message.message == (
-        "Error while running `notebook.ipynb` cell `some-uuid`"
-    )
-    node = message.blocks[0]
-    assert isinstance(node, SlackTextBlock)
-    assert node.heading == "Node"
-    assert node.text == "some-node"
-    cell = message.blocks[1]
-    assert isinstance(cell, SlackTextBlock)
-    assert cell.heading == "Cell"
-    assert cell.text == "`notebook.ipynb` cell `some-uuid` (14)"
+    data.assert_json_matches(message.to_slack(), "slack/division-context")
     started = message.fields[0]
     assert isinstance(started, SlackTextField)
     assert started.heading == "Started at"
     failed = message.fields[1]
     assert isinstance(failed, SlackTextField)
     assert failed.heading == "Failed at"
-    exc_type = message.fields[2]
-    assert isinstance(exc_type, SlackTextField)
-    assert exc_type.heading == "Exception type"
-    assert exc_type.text == "NubladoExecutionError"
-    user = message.fields[3]
-    assert isinstance(user, SlackTextField)
-    assert user.heading == "User"
-    assert user.text == username
-    image = message.fields[4]
-    assert isinstance(image, SlackTextField)
-    assert image.heading == "Image"
-    assert image.text == "some/image:tag"
+    error = message.attachments[-2]
+    assert isinstance(error, SlackCodeBlock)
+    assert "ZeroDivisionError" in error.code
 
 
 @pytest.mark.asyncio
 async def test_cell_timeout(
-    client: NubladoClient, mock_jupyter: MockJupyter, username: str
+    *,
+    data: Data,
+    client: NubladoClient,
+    mock_jupyter: MockJupyter,
+    username: str,
 ) -> None:
     start = datetime.now(tz=UTC)
 
@@ -538,30 +512,34 @@ async def test_cell_timeout(
     code = "print(42)"
     mock_jupyter.register_python_result(code, "42", delay=timedelta(seconds=1))
     timeout = timedelta(milliseconds=10)
+    context = CodeContext(**data.read_json("context"))
     with pytest.raises(NubladoExecutionTimeoutError) as exc_info:
         async with client.lab_session() as session:
-            await session.run_python(code, timeout=timeout)
+            await session.run_python(code, context, timeout=timeout)
 
     # Check the properties of the resulting exception.
     exc = exc_info.value
     assert exc.user == username
     assert exc.code == code
-    assert f"{username}: running code timed out" in str(exc)
-    assert exc.context == CodeContext()
+    assert str(exc) == (
+        f"{username}: cell some-uuid of notebook notebook.ipynb timed out"
+    )
+    assert exc.context == context
     assert exc.started_at
     assert exc.started_at >= start
     assert exc.failed_at
     assert exc.failed_at >= exc.started_at
 
     info = exc.to_sentry()
-    assert info.tags == {}
-    assert info.attachments["nublado_code.txt"] == code
+    data.assert_json_matches(
+        {"contexts": info.contexts, "tags": info.tags}, "sentry/timeout"
+    )
     started_at = format_datetime_for_logging(exc.started_at)
     assert info.contexts["info"]["started_at"] == started_at
+    failed_at = format_datetime_for_logging(exc.failed_at)
+    assert info.contexts["info"]["failed_at"] == failed_at
 
     message = exc.to_slack()
-    assert message.message == "Timeout while running code"
-    code_attachment = message.attachments[-1]
-    assert isinstance(code_attachment, SlackCodeBlock)
-    assert code_attachment.heading == "Code executed"
-    assert code_attachment.code == code
+    data.assert_json_matches(message.to_slack(), "slack/timeout")
+    expected = "Timeout while running `notebook.ipynb` cell `some-uuid` after "
+    assert message.message.startswith(expected)
