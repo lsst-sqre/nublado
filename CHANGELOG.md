@@ -6,6 +6,35 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-15.0.0'></a>
+## 15.0.0 (2026-06-03)
+
+### Backwards-incompatible changes
+
+- Change the Nublado client to always send and receive the new JupyterLab WebSocket protocol (`v1.kernel.websocket.jupyter.org`). This has been supported by JupyterLab for several years, so should work with reasonably recent images. The jupyter-server-documents extension only supports that protocol and breaks WebSocket sessions if older versions are used.
+
+### New features
+
+- Add the Claude, Codex, Copilot, and Gemini CLIs to the JupyterLab base image.
+- Add JupyterLab base image support for those AI agents via chat.
+- Change the JupyterLab base `File` menu entries are now `Autosave and Exit` and `Autosave, Exit, and Logout`.
+- Force the working directory to `$HOME` when a login shell spawns in the JupyterLab base image. This has no effect for now but prepares for an alternate file browser root in the future.
+- Add an optional timeout parameter to the `run_python` method of `JupyterLabSession` so that users of the Nublado client can enforce a timeout on the execution of each block of code.
+- Add an optional `delay` parameter to the `register_python_result` of `MockJupyter` to tell the JupyterLab mock to wait before returning execution results, allowing users of the mock to test timeout handling.
+
+### Bug fixes
+
+- In the client, read code execution failures from `execute_result` messages, not `error` messages to the `iopub` channel. This more closely matches the documented messaging protocol. Add `error` messages to the ignore list.
+- In the client, collect code execution output after the `execute_reply` message indicating completion up until a `status` message indicating the kernel is idle. The current protocol standard says JupyterLab sends `execute_reply` first, followed by the output, and the output is only known to be complete once the kernel is idle.
+- Always create sessions with type `console` in the client and do not use type `notebook`. The latter appears to confuse jupyter-server-documents, and it then attempts to open nonexistent files.
+- Fix the client mock to return correctly-structured JupyterLab messages following the current standard.
+- Update the jupyter-server-documents extension in the jupyterlab-base image to at least 0.2.2, which fixes serious bugs with console sessions.
+- Pin ipykernel to a version earlier than 7.0.0 in the hope that this fixes some subtle issues in the JupyterLab base image.
+
+### Other changes
+
+- Restructure the Sentry annotations in Nublado client exceptions to match the annotations added by mobu. This allows mobu to use the Nublado client exceptions as-is. The primary change is that the failing code is now stored in the `cell_info` context rather than an attachment.
+
 <a id='changelog-14.0.0'></a>
 ## 14.0.0 (2026-05-11)
 
