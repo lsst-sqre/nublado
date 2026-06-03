@@ -1,0 +1,14 @@
+{
+  "contexts": {
+    "cell_info": {
+      "code": "1 / 0"
+    },
+    "info": {
+      "failed_at": "<ANY>",
+      "started_at": "<ANY>"
+    }
+  },
+  "tags": {
+    "status": "error"
+  }
+}

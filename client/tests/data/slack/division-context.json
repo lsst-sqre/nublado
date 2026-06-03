@@ -1,0 +1,80 @@
+{
+  "attachments": [
+    {
+      "blocks": [
+        {
+          "text": {
+            "text": "<ANY>",
+            "type": "mrkdwn",
+            "verbatim": true
+          },
+          "type": "section"
+        },
+        {
+          "text": {
+            "text": "*Code executed*\n```\n1 / 0\n```",
+            "type": "mrkdwn",
+            "verbatim": true
+          },
+          "type": "section"
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "text": {
+        "text": "Error while running `notebook.ipynb` cell `some-uuid`",
+        "type": "mrkdwn",
+        "verbatim": true
+      },
+      "type": "section"
+    },
+    {
+      "fields": [
+        {
+          "text": "<ANY>",
+          "type": "mrkdwn",
+          "verbatim": true
+        },
+        {
+          "text": "<ANY>",
+          "type": "mrkdwn",
+          "verbatim": true
+        },
+        {
+          "text": "*Exception type*\nNubladoExecutionError",
+          "type": "mrkdwn",
+          "verbatim": true
+        },
+        {
+          "text": "*User*\nrachel",
+          "type": "mrkdwn",
+          "verbatim": true
+        },
+        {
+          "text": "*Image*\nsome/image:tag",
+          "type": "mrkdwn",
+          "verbatim": true
+        }
+      ],
+      "type": "section"
+    },
+    {
+      "text": {
+        "text": "*Node*\nsome-node",
+        "type": "mrkdwn",
+        "verbatim": true
+      },
+      "type": "section"
+    },
+    {
+      "text": {
+        "text": "*Cell*\n`notebook.ipynb` cell `some-uuid` (14)",
+        "type": "mrkdwn",
+        "verbatim": true
+      },
+      "type": "section"
+    }
+  ]
+}

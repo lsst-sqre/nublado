@@ -1,0 +1,19 @@
+{
+  "contexts": {
+    "cell_info": {
+      "cell_id": "some-uuid",
+      "cell_number": "14",
+      "code": "1 / 0"
+    },
+    "info": {
+      "failed_at": "<ANY>",
+      "started_at": "<ANY>"
+    }
+  },
+  "tags": {
+    "image": "some/image:tag",
+    "node": "some-node",
+    "notebook": "notebook.ipynb",
+    "status": "error"
+  }
+}

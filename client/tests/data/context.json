@@ -1,0 +1,7 @@
+{
+  "cell_number": "14",
+  "cell": "some-uuid",
+  "image": "some/image:tag",
+  "node": "some-node",
+  "notebook": "notebook.ipynb"
+}

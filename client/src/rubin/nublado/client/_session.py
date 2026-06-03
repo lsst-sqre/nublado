@@ -1,5 +1,7 @@
 """JupyterLab session management."""
 
+import asyncio
+from collections.abc import AsyncIterator
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -14,6 +16,7 @@ from websockets.exceptions import WebSocketException
 from ._asyncio import aclosing_iter
 from ._exceptions import (
     NubladoExecutionError,
+    NubladoExecutionTimeoutError,
     NubladoTimeoutError,
     NubladoWebError,
     NubladoWebSocketError,
@@ -98,7 +101,11 @@ class JupyterLabSession:
         self._logger = logger
 
     async def run_python(
-        self, code: str, context: CodeContext | None = None
+        self,
+        code: str,
+        context: CodeContext | None = None,
+        *,
+        timeout: timedelta | None = None,
     ) -> str:
         """Run a block of Python code in a Jupyter lab kernel.
 
@@ -106,6 +113,13 @@ class JupyterLabSession:
         ----------
         code
             Code to run.
+        context
+            Code context for error reporting.
+        timeout
+            Timeout to enforce on gathering the results of the execution. This
+            only applies to waiting for results, not to sending the message to
+            start code execution (which is governed by the lower-level
+            WebSocket protocol timeouts).
 
         Returns
         -------
@@ -116,6 +130,9 @@ class JupyterLabSession:
         ------
         NubladoExecutionError
             Raised if an error was reported by the Jupyter lab kernel.
+        NubladoExecutionTimeoutError
+            Raised if the code execution timed out. After this happens, it is
+            not safe to continue to use the session and it should be closed.
         NubladoWebSocketError
             Raised if there was a WebSocket protocol error while running code
             or waiting for the response.
@@ -160,38 +177,24 @@ class JupyterLabSession:
         }
 
         # Send the message and consume messages waiting for the response.
-        result = ""
-        complete = False
-        idle = False
         try:
             await self._socket.send(encode_websocket_message(request))
             async with aclosing_iter(aiter(self._socket)) as messages:
-                async for message in messages:
-                    try:
-                        output = self._parse_message(message, message_id)
-                    except NubladoExecutionError:
-                        raise
-                    except Exception as e:
-                        error = f"{type(e).__name__}: {e!s}"
-                        msg = "Ignoring unparsable web socket message"
-                        self._logger.warning(msg, error=error, message=message)
-                        continue
-
-                    # Accumulate the output, and repeat until we receive both
-                    # an execution complete message and a kernel idle message.
-                    if not output:
-                        continue
-                    result += output.content
-                    complete = complete or output.done
-                    idle = idle or output.idle
-                    if complete and idle:
-                        break
+                if timeout:
+                    async with asyncio.timeout(timeout.total_seconds()):
+                        result = await self._read_result(messages, message_id)
+                else:
+                    result = await self._read_result(messages, message_id)
         except NubladoExecutionError as e:
             e.code = code
             e.started_at = start
             if context:
                 e.context = context
             raise
+        except TimeoutError as e:
+            raise NubladoExecutionTimeoutError(
+                self._username, code=code, context=context, started_at=start
+            ) from e
         except WebSocketException as e:
             exc = NubladoWebSocketError.from_exception(e, self._username)
             exc.started_at = start
@@ -199,7 +202,7 @@ class JupyterLabSession:
                 exc.context = context
             raise exc from e
 
-        # Return the accumulated output.
+        # Return the code output.
         return result
 
     def _parse_message(
@@ -266,6 +269,56 @@ class JupyterLabSession:
                 msg = "Ignoring unrecognized WebSocket message"
                 self._logger.warning(msg, message_type=msg_type, message=data)
                 return None
+
+    async def _read_result(
+        self, messages: AsyncIterator[str | bytes], message_id: str
+    ) -> str:
+        """Wait for the result of code execution and return the output.
+
+        Parameters
+        ----------
+        messages
+            Asynchronous iterator over the WebSocket messages.
+        message_id
+            Message ID of the previously-sent ``execute_request`` message,
+            used to find relevant responses.
+
+        Returns
+        -------
+        str
+            Accumulated cell output on success.
+
+        Raises
+        ------
+        NubladoExecutionError
+            Raised if an error was reported by the Jupyter lab kernel.
+        """
+        result = ""
+        complete = False
+        idle = False
+        async for message in messages:
+            try:
+                output = self._parse_message(message, message_id)
+            except NubladoExecutionError:
+                raise
+            except Exception as e:
+                error = f"{type(e).__name__}: {e!s}"
+                msg = "Ignoring unparsable web socket message"
+                self._logger.warning(msg, error=error, message=message)
+                continue
+
+            # Accumulate the output, and repeat until we receive both
+            # an execution complete message and a kernel idle message.
+            if not output:
+                continue
+            result += output.content
+            complete = complete or output.done
+            idle = idle or output.idle
+            if complete and idle:
+                break
+
+        # Return the results.
+        return result
 
 
 class JupyterLabSessionManager:

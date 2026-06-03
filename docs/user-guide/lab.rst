@@ -19,12 +19,15 @@ A typical interaction with the client usually looks like this:
 Running code in JupyterLab
 ==========================
 
-`NubladoClient` provides three methods of interacting with a spawned lab.
+`NubladoClient` provides two methods of interacting with a spawned lab.
 They are:
 
 - `JupyterLabSession.run_python`: Runs a string representing arbitrary Python code and returns standard output from each cell.
   This code will run in the kernel specified by the session (``lsst`` by default).
   This must be done inside a lab session context manager.
+
+  If the ``timeout`` parameter is provided, `NubladoExecutionTimeoutError` will be raised if the cell takes too long to execute.
+  If this exception is raised, the session was left in an inconsistent state and should be closed (by exiting the lab session context manager) without running any further code.
 
 - `NubladoClient.run_notebook`: Executes a notebook via the ``/rubin/execution`` endpoint of the  `RSP Jupyter Extensions <https://github.com/lsst-sqre/rsp-jupyter-extensions>`__.
   `Times Square <https://times-square.lsst.io>`__ and `Noteburst <https://noteburst.lsst.io>`__ use this method.
@@ -78,6 +81,7 @@ Using the above method, run FizzBuzz for ``n`` from 1 to 15:
 .. code-block:: python
 
     import asyncio
+    from datetime import timedelta
 
     from rubin.nublado.client import NubladoClient
 
@@ -101,8 +105,9 @@ Using the above method, run FizzBuzz for ``n`` from 1 to 15:
     async def run_fizzbuzz(client: NubladoClient) -> str:
         await ensure_lab(client)
         await client.auth_to_lab()
+        timeout = timedelta(seconds=5)
         async with client.lab_session() as lab_session:
-            output = await lab_session.run_python(FIZZBUZZ)
+            output = await lab_session.run_python(FIZZBUZZ, timeout=timeout)
         return output
 
 
