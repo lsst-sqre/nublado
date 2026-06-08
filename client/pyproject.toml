@@ -25,7 +25,7 @@ dependencies = [
     "httpx-sse>=0.4.1,<1",
     "pydantic>2.11,<3",
     "rubin-gafaelfawr",
-    "rubin-repertoire<1",
+    "rubin-repertoire<2",
     "safir<16",
     "structlog",
     "websockets>=14,<17",
