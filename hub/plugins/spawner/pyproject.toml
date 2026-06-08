@@ -24,7 +24,7 @@ dependencies = [
     "httpx<1",
     "httpx-sse<1",
     "jupyterhub<6",
-    "rubin-repertoire>=0.6,<1",
+    "rubin-repertoire>=0.6,<2",
     "traitlets<6",
 ]
 dynamic = ["version"]
