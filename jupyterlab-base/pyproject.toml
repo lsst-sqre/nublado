@@ -65,7 +65,6 @@ lab = [
     "jupyterlab-execute-time",
     "jupyterlab-iframe",
     "jupyterlab-widgets",
-    "lckr-jupyterlab-variableinspector",
     "nbconvert",
     "nbdime",
     "notebook",
