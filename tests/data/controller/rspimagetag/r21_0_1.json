@@ -1,13 +1,13 @@
 {
   "architecture": null,
   "base": null,
+  "build": null,
   "cycle": null,
   "cycle_build": null,
   "date": null,
   "display_name": "Release r21.0.1",
   "extra": null,
   "image_type": "Release",
-  "build": null,
   "semantic": true,
   "tag": "r21_0_1",
   "version": {
