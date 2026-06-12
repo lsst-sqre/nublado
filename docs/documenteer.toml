@@ -51,7 +51,7 @@ python_api_dir = "dev/api/contents"
 
 [sphinx.intersphinx.projects]
 jupyerhub = "https://jupyterhub.readthedocs.io/en/stable"
-python = "https://docs.python.org/3.14"
+python = "https://docs.python.org/3"
 rubin-gafaelfawr = "https://gafaelfawr.lsst.io"
 rubin-repertoire = "https://repertoire.lsst.io"
 safir = "https://safir.lsst.io"

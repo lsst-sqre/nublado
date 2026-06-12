@@ -1,13 +1,13 @@
 {
   "architecture": null,
   "base": "recommended",
+  "build": null,
   "cycle": null,
   "cycle_build": null,
   "date": null,
   "display_name": "recommended",
   "extra": null,
   "image_type": "Unknown",
-  "build": null,
   "semantic": false,
   "tag": "recommended",
   "version": null

@@ -1,13 +1,13 @@
 {
   "architecture": "amd64",
   "base": "latest",
+  "build": null,
   "cycle": null,
   "cycle_build": null,
   "date": null,
   "display_name": "latest [amd64]",
   "extra": null,
   "image_type": "Unknown",
-  "build": null,
   "semantic": false,
   "tag": "latest-amd64",
   "version": null

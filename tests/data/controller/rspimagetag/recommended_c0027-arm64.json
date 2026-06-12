@@ -1,13 +1,13 @@
 {
   "architecture": "arm64",
   "base": "recommended",
+  "build": null,
   "cycle": 27,
   "cycle_build": null,
   "date": null,
   "display_name": "recommended (SAL Cycle 0027) [arm64]",
   "extra": null,
   "image_type": "Unknown",
-  "build": null,
   "semantic": false,
   "tag": "recommended_c0027-arm64",
   "version": null

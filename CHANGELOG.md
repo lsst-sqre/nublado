@@ -6,6 +6,13 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-15.1.0'></a>
+## 15.1.0 (2026-06-11)
+
+### New features
+
+- Add internal services to the service discovery information mounted in Nublado lab containers. Users should not use this portion of service discovery, but making it available to notebooks aids in writing test notebooks for internal services such as [Semaphore](https://semaphore.lsst.io/) and [Gafaelfawr](https://gafaelfawr.lsst.io/).
+
 <a id='changelog-15.0.0'></a>
 ## 15.0.0 (2026-06-03)
 

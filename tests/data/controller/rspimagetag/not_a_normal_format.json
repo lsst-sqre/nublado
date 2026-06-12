@@ -1,13 +1,13 @@
 {
   "architecture": null,
   "base": "not_a_normal_format",
+  "build": null,
   "cycle": null,
   "cycle_build": null,
   "date": null,
   "display_name": "not_a_normal_format",
   "extra": null,
   "image_type": "Unknown",
-  "build": null,
   "semantic": false,
   "tag": "not_a_normal_format",
   "version": null

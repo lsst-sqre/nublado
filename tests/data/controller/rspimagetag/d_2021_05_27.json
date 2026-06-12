@@ -1,13 +1,13 @@
 {
   "architecture": null,
   "base": null,
+  "build": null,
   "cycle": null,
   "cycle_build": null,
   "date": "2021-05-27 00:00:00",
   "display_name": "Daily 2021_05_27",
   "extra": null,
   "image_type": "Daily",
-  "build": null,
   "semantic": false,
   "tag": "d_2021_05_27",
   "version": {
