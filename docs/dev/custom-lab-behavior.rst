@@ -56,17 +56,23 @@ Where to install?
 The question of whether your changes need to be in the UI Python environment, or the DM Stack Python environment, or both, is tricky and you will need to think about it.
 If your extension is purely about controlling the Lab's behavior, and doesn't need to refer to anything inside a running notebook (which is usually the case) then it only needs to run in the UI environment.  If it presents Python functionality to the user or relies on data coming from inside the DM stack, it will need to run in the payload environment.
 
-To install a package into the UI environment, go down to the bottom of the ``install-rsp-user`` script.
-You will see the line that activates the UI virtual environment: ``source /usr/local/share/jupyterlab/venv/bin/activate``.
-Below there, do a ``uv pip install`` of your updated package or packages from the GitHub branch.
-This will look something like::
+To install a package into the UI environment, you will need to add it to pyproject.toml.
+The process is not particularly well-documented.
+Assuming that you need to update ``rsp-jupyter-extensions`` to run from a branch (probably the most common task), you will need to tell the jupyterlab-base ``pyproject.toml`` to fetch the package from GitHub, and which branch to use.
 
-  source /usr/local/share/jupyterlab/venv/bin/activate
+After the ``lab`` dependency group, add (customized for your own repository an d branch):
 
-  # Install updated rje; no-build-isolation doesn't work in UI venv
-  uv pip install \
-     'git+https://github.com/lsst-sqre/rsp-jupyter-extensions@tickets/DM-49959'
+..code-block:: toml
 
+    [tool.uv.sources]
+    rsp-jupyter-extensions = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions", branch = "tickets/DM-55155" }
+
+Once you've done that, run ``make update-deps`` from the top-level directory to regenerate all dependencies, or ``uv lock --upgrade-package rsp-jupyter-extensions`` (with your own package name) to regenerate just the upgraded dependency.
+
+Commit the updated ``uv.lock`` and the updated ``pyproject.toml``.
+
+Open a PR against your branch; a ``jupyterlab-base`` image will be generated, with a tag that is your branch name with slashes transformed to hyphens (e.g. branch ``tickets/DM-55155`` becomes Docker tag ``tickets-DM-55155``).
+Mark this PR as a draft; you will never merge it, but you do want to generate the alternative base container.
 
 If your changes need to be visible from inside the payload Python (in our case, the DM stack), you will also need to add those packages inside the ``uv pip install`` a few lines above (where ``jupyter_firefly_extensions`` is installed).
 Try to maintain the ``--no-build-isolation`` flag if you do this here, because otherwise you risk wildly changing the stack environment and your tests may not be representative of what a production container would look like.
@@ -93,7 +99,13 @@ In the drop-down form that appears:
 #. Add a supplementary tag briefly describing what your changes do, like ``landingpage``.
 #. Edit the URI.
    You're probably going to test at IDF, so remove the GHCR and Docker Hub URIs from the comma-separated list.
-#. You should leave the last two fields at their default values.
+#. You should leave ``push`` enabled.
+#. If you built an updated ``jupyterlab-base`` container (above), put the tag name in place of ``latest`` in the input image name in the last field.
+
+Note that if your only changes are in the ``jupyterlab-base`` layer, you can simply build against the ``main`` branch of sciplat-lab, as long as you remember to add a supplementary tag.
+
+If you run from ``main`` and do not add a supplementary tag, you will overwrite the actual corresponding daily or weekly image, so don't do that.
+(If you are building a release version, it will have a unique build number, so there is no danger of overwriting a published container.)
 
 Press the green "Run workflow" button at the bottom.
 It will take a little more than twenty minutes to run; the part you're interested in typically happens about twelve minutes in.
