@@ -1718,15 +1718,15 @@ grpc = [
 
 [[package]]
 name = "google-auth"
-version = "2.55.0"
+version = "2.55.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
     { name = "pyasn1-modules" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/81/1c/70b23fc52b2bb3c70b379f3bd05c4a60ab3a873e30c6bd21c57e0154848a/google_auth-2.55.0.tar.gz", hash = "sha256:fcd3a130f575fa36403d38774af1c64a4fbfbca09215f0589d2372b5119697cb", size = 349379, upload-time = "2026-06-15T22:33:16.466Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a3/6f/f3f4ac177c67bbee8fe8e88f2ab4f36af88c44a096e165c5217accf6e5d3/google_auth-2.55.1.tar.gz", hash = "sha256:fb2d9b730f2c9b8d326ec8d7222f21aef2ead15bf0513793d6442485d87af0a1", size = 349527, upload-time = "2026-06-25T23:39:27.182Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/44/71/c0321dc6d63d99946da45f7c06299b934e4f7f7da5c4f14d101bcb39adf1/google_auth-2.55.0-py3-none-any.whl", hash = "sha256:a17cef9dedf98c4ebae2fb0c48c8f75952c877cbc2efe09f329ef16c2783d88a", size = 252400, upload-time = "2026-06-15T22:33:14.992Z" },
+    { url = "https://files.pythonhosted.org/packages/e8/1d/f6d3ca1ad0725f2e08a1c6915640748a52de2e66596160a4d53b010cccf0/google_auth-2.55.1-py3-none-any.whl", hash = "sha256:eada68dfd52b3b81191827601e2a0c3fa12540c818534b630ddc5355769c3995", size = 252349, upload-time = "2026-06-25T23:38:52.946Z" },
 ]
 
 [[package]]
@@ -2779,6 +2779,19 @@ wheels = [
 ]
 
 [[package]]
+name = "jupyter-builder"
+version = "1.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jupyter-core" },
+    { name = "traitlets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fb/45/d0df8b43c10a61529c0f4a8af5e19ebe108f0c3af8f57e0fc358969907af/jupyter_builder-1.0.2.tar.gz", hash = "sha256:6155d78a5325010532a6419ffcba89eac643fd1aa56ea83115e661924d6f6aab", size = 968638, upload-time = "2026-06-12T02:33:25.767Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/28/b6/c418e0b3256f67c04933566b80bfce947350682db92c4b786a8653db32d6/jupyter_builder-1.0.2-py3-none-any.whl", hash = "sha256:b024f65d36e1d530542db597b00dd513261aa59842e0d0fbbb1015a9f1935e9c", size = 910789, upload-time = "2026-06-12T02:33:23.317Z" },
+]
+
+[[package]]
 name = "jupyter-cache"
 version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2816,7 +2829,7 @@ wheels = [
 
 [[package]]
 name = "jupyter-collaboration"
-version = "4.4.0"
+version = "4.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jupyter-collaboration-ui" },
@@ -2824,9 +2837,9 @@ dependencies = [
     { name = "jupyter-server-ydoc" },
     { name = "jupyterlab" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f0/4a/1f8ba60881f3ed86112e7d77a4098ee859dea729e854140a862f2b52df95/jupyter_collaboration-4.4.0.tar.gz", hash = "sha256:d492a2f69bd91d6f472991051b2df83dc2cdfaeecbfa2d75dabee5fc3178814d", size = 3727, upload-time = "2026-05-11T11:05:17.778Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7b/b7/86b8f2aca6a554668c55c88401ba9ba6e355fdcc7d71cb3dd0bec85c330e/jupyter_collaboration-4.3.0.tar.gz", hash = "sha256:6ef03664fdda0fddf47d2904db29a659c8ef4d2f307080b89cdef72e7e7b24c9", size = 3734, upload-time = "2026-03-31T10:08:36.166Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5e/70/9d44957eef95c0e8ce80fbf90cacaa3dabd579fd811278dc517148e7b777/jupyter_collaboration-4.4.0-py3-none-any.whl", hash = "sha256:c10828d3e83e73448051dfceadb89bf61bcdd97c3000eaac878b39be5aa8358f", size = 4751, upload-time = "2026-05-11T11:05:15.924Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/1b/b518e55344a2bb787a8025d6cb51353b91d7af07e3756cc06b2ecb88098d/jupyter_collaboration-4.3.0-py3-none-any.whl", hash = "sha256:6dd3d7129e95a04e11f1fd22915f167023bebd4badc4cf1b71f73fb2690f5648", size = 4751, upload-time = "2026-03-31T10:08:34.383Z" },
 ]
 
 [[package]]
@@ -2972,11 +2985,11 @@ name = "jupyter-server-documents"
 version = "0.2.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "jupyter-collaboration-ui", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-server-fileid", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-ydoc", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pycrdt", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-collaboration-ui" },
+    { name = "jupyter-server" },
+    { name = "jupyter-server-fileid" },
+    { name = "jupyter-ydoc" },
+    { name = "pycrdt" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/95/78/adb497b60766b158f144f84c578df4e1d78811974873da2989116a80652a/jupyter_server_documents-0.2.5.tar.gz", hash = "sha256:3cdbc23ebcf4938cf174aa6402a3c1f922eb9c7a52e0fa8177bb7f268bc78115", size = 472746, upload-time = "2026-06-17T20:25:13.503Z" }
 wheels = [
@@ -3098,26 +3111,26 @@ wheels = [
 
 [[package]]
 name = "jupyterlab"
-version = "4.5.9"
+version = "4.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-lru" },
     { name = "httpx" },
     { name = "ipykernel" },
     { name = "jinja2" },
+    { name = "jupyter-builder" },
     { name = "jupyter-core" },
     { name = "jupyter-lsp" },
     { name = "jupyter-server" },
     { name = "jupyterlab-server" },
     { name = "notebook-shim" },
     { name = "packaging" },
-    { name = "setuptools" },
     { name = "tornado" },
     { name = "traitlets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e8/52/a8d4895bef501ffeb6af448e8bf7079541c7772978211963aa653518c2d9/jupyterlab-4.5.9.tar.gz", hash = "sha256:dd79a073fecae7a39066ea99e4627ed6c76269ac926e95a810e1e1df6358d865", size = 23994445, upload-time = "2026-06-17T15:42:16.406Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f8/3c/1ebd737b860cdbe61eed71536d06aab4e1781fbdcf07ecd5a1afe05b8adf/jupyterlab-4.6.0.tar.gz", hash = "sha256:6a8b88f2aae7ed4d012c634fc957c1a27f3aa217c32f0ced0175fac9ee17f9e5", size = 28181861, upload-time = "2026-06-18T13:52:56.039Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c6/bb/2f9b425062416fba58f580c9b89c3b07277ccdf0a292501fedbca8ea00ea/jupyterlab-4.5.9-py3-none-any.whl", hash = "sha256:5ff0f908e8ac0afbed32b106fdef360f101c0a6654d1bf4a81e98a293ae1b336", size = 12449803, upload-time = "2026-06-17T15:42:12.18Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/eb/aa48075d0aa3d0188db34ba2704f53791757743c0bb02e18c4eef989b6de/jupyterlab-4.6.0-py3-none-any.whl", hash = "sha256:b6938cb8a1ef3d43860ff4745a680c62cc0a9385f9672295bb56cd2e7cfeebe2", size = 17143447, upload-time = "2026-06-18T13:52:51.42Z" },
 ]
 
 [[package]]
@@ -4144,18 +4157,19 @@ wheels = [
 
 [[package]]
 name = "notebook"
-version = "7.5.7"
+version = "7.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "jupyter-builder" },
     { name = "jupyter-server" },
     { name = "jupyterlab" },
     { name = "jupyterlab-server" },
     { name = "notebook-shim" },
     { name = "tornado" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3e/c4/f71f8716f2903e9e817a47f534b9fd84831e155e2acb32c26691c8e06243/notebook-7.5.7.tar.gz", hash = "sha256:d6d59288a25303b25e1dcb71e9b017ec3a785f7d92f38b9bc288ca1970d5b0a8", size = 14171612, upload-time = "2026-06-04T18:33:45.224Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0d/44/d5c65783f490298473bb1c05722e05ee2256231389559c2c5ae0a3e5d975/notebook-7.6.0.tar.gz", hash = "sha256:ea13e79e601bf273074895fdfb17dd3f2da916d3c045e0b9c47d18b16ab62481", size = 5497344, upload-time = "2026-06-18T16:18:55.202Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e1/4d/b3347f7073a377273531efe4ffc738fc910e93718fd2838c7ebf6736c6af/notebook-7.5.7-py3-none-any.whl", hash = "sha256:1f95f79d117e47d20b5555b5c85a397d2cfecf136978aaab767cf0314b09165b", size = 14583767, upload-time = "2026-06-04T18:33:40.987Z" },
+    { url = "https://files.pythonhosted.org/packages/93/d1/e617c40db57ff40e75f43a7d4d1c305e3a54c053ab5cb0534a6c314664f9/notebook-7.6.0-py3-none-any.whl", hash = "sha256:98aa2811b54ac191321d5dfce12ca700f8a511a33a26e4de2fa106a357c43d6a", size = 5544575, upload-time = "2026-06-18T16:18:52.551Z" },
 ]
 
 [[package]]
@@ -5725,11 +5739,14 @@ wheels = [
 [[package]]
 name = "rsp-jupyter-extensions"
 version = "0.26.0"
-source = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?branch=tickets%2FDM-55155#5541e520a7b984a8ea7acdc81451de1593a5aabd" }
+source = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?branch=tickets%2FDM-55155-cheap#6e8e0973f225b4e1a992a177cd8c9809c398a80c" }
 dependencies = [
     { name = "httpx" },
+    { name = "jinja2" },
     { name = "jupyter-collaboration" },
     { name = "jupyter-server" },
+    { name = "jupyter-server-documents" },
+    { name = "jupyterlab" },
     { name = "pydantic" },
     { name = "requests" },
     { name = "rubin-repertoire" },
@@ -5907,7 +5924,7 @@ lab = [
     { name = "jupyter-resource-usage" },
     { name = "jupyter-server-proxy" },
     { name = "jupyterhub" },
-    { name = "jupyterlab", specifier = ">=4,<4.6" },
+    { name = "jupyterlab", specifier = ">=4,<5" },
     { name = "jupyterlab-execute-time" },
     { name = "jupyterlab-iframe" },
     { name = "jupyterlab-widgets" },
@@ -5918,7 +5935,7 @@ lab = [
     { name = "panel" },
     { name = "plotly" },
     { name = "pythreejs" },
-    { name = "rsp-jupyter-extensions", git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?branch=tickets%2FDM-55155" },
+    { name = "rsp-jupyter-extensions", git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?branch=tickets%2FDM-55155-cheap" },
     { name = "sidecar" },
 ]
 
@@ -6102,15 +6119,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ba/c8/b3c970a5b186722d276cd40a05b3254e03bccc0208560aff20f612e018e8/sentry_sdk-2.63.0.tar.gz", hash = "sha256:2a1502bf864769275dbc8c2c9fc7a0f7f5e18358180b615d262d13a31ffba216", size = 912449, upload-time = "2026-06-16T12:45:57.553Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7b/57/cb205f7d93373120f666b9c5736dc0815524d96a9b278e7a728f018dc22a/sentry_sdk-2.63.0-py3-none-any.whl", hash = "sha256:3a9b5ddd403f79eb73bd670f75f04485819db53d28f76ced7bc09041cb0dfd6a", size = 495950, upload-time = "2026-06-16T12:45:55.819Z" },
-]
-
-[[package]]
-name = "setuptools"
-version = "82.0.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/4f/db/cfac1baf10650ab4d1c111714410d2fbb77ac5a616db26775db562c8fab2/setuptools-82.0.1.tar.gz", hash = "sha256:7d872682c5d01cfde07da7bccc7b65469d3dca203318515ada1de5eda35efbf9", size = 1152316, upload-time = "2026-03-09T12:47:17.221Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9d/76/f789f7a86709c6b087c5a2f52f911838cad707cc613162401badc665acfe/setuptools-82.0.1-py3-none-any.whl", hash = "sha256:a59e362652f08dcd477c78bb6e7bd9d80a7995bc73ce773050228a348ce2e5bb", size = 1006223, upload-time = "2026-03-09T12:47:15.026Z" },
 ]
 
 [[package]]
