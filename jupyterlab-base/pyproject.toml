@@ -61,7 +61,7 @@ lab = [
     "jupyter-resource-usage",
     "jupyter-server-proxy",
     "jupyterhub",
-    "jupyterlab>=4,<4.6",
+    "jupyterlab>=4,<5",
     "jupyterlab-execute-time",
     "jupyterlab-iframe",
     "jupyterlab-widgets",
@@ -77,7 +77,7 @@ lab = [
 ]
 
 [tool.uv.sources]
-rsp-jupyter-extensions = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions", branch = "tickets/DM-55155" }
+rsp-jupyter-extensions = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions", branch = "tickets/DM-55155-cheap" }
 
 [tool.setuptools_scm]
 root = ".."
