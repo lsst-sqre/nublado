@@ -57,7 +57,7 @@ The question of whether your changes need to be in the UI Python environment, or
 If your extension is purely about controlling the Lab's behavior, and doesn't need to refer to anything inside a running notebook (which is usually the case) then it only needs to run in the UI environment.  If it presents Python functionality to the user or relies on data coming from inside the DM stack, it will need to run in the payload environment.
 
 To install a package into the UI environment, you will need to add it to pyproject.toml.
-The process is not particularly well-documented.
+Accurate documentation for this process is surprisingly difficult to find on the Internet; thus, we spell it out here.
 Assuming that you need to update ``rsp-jupyter-extensions`` to run from a branch (probably the most common task), you will need to tell the jupyterlab-base ``pyproject.toml`` to fetch the package from GitHub, and which branch to use.
 
 After the ``lab`` dependency group, add (customized for your own repository and branch):
