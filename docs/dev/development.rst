@@ -132,7 +132,7 @@ If you see errors in building the Python API documentation or have problems with
 
 .. prompt:: bash
 
-   uvn run nox -s docs-clean
+   uv run nox -s docs-clean
 
 This will be slower, but it will ensure that the documentation build doesn't rely on any cached data.
 
