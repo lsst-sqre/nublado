@@ -55,26 +55,29 @@ lab = [
     "jupyter-ai-litellm",
     "jupyter-ai-magic-commands",
     "jupyter-bokeh",
+    "jupyter-collaboration",
     "jupyter-console",
     "jupyter-firefly-extensions",
     "jupyter-resource-usage",
-    "jupyter-server-documents>=0.2.2",
     "jupyter-server-proxy",
     "jupyterhub",
-    "jupyterlab",
+    "jupyterlab>=4,<4.5",
     "jupyterlab-execute-time",
     "jupyterlab-iframe",
     "jupyterlab-widgets",
-    "lckr-jupyterlab-variableinspector",
     "nbconvert",
     "nbdime",
     "notebook",
+    "numba>=0.65",
     "panel",
     "plotly",
     "pythreejs",
     "rsp-jupyter-extensions>=0.25.0",
     "sidecar",
 ]
+
+[tool.uv.sources]
+rsp-jupyter-extensions = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions", branch = "tickets/DM-55155-trail" }
 
 [tool.setuptools_scm]
 root = ".."

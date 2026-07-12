@@ -26,12 +26,19 @@ apt-get update
 # curl: CLI http client is useful
 # nano ... ed: enough editors to cover most people's habits
 #  (I gave up on emacs in the base container, alas)
-# Nodejs is needed for Gemini and Codex agents, and LLM Chat doesn't work
-# right for Codex and Claude without npm installed at runtime;
-# I think this is something to do with entrypoint magic.
 apt-get -y install --no-install-recommends \
     git git-lfs pandoc \
     jq gh hub unzip xz-utils ack screen tmux tree file less \
     man curl \
-    nano vim ed \
-    nodejs npm
+    nano vim ed
+# Nodejs is needed for Gemini and Codex agents, and LLM Chat doesn't work
+# right for Codex and Claude without npm installed at runtime;
+# I think this is something to do with entrypoint magic.
+#
+# Current Claude agents require Node >= 22, and the one with Debian Trixie
+# is Node 20, which was EOL in April 2026.  Use the nodesource package
+# instead.
+
+curl -fsSL https://deb.nodesource.com/setup_24.x | bash
+
+apt-get -y install nodejs
