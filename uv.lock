@@ -41,7 +41,7 @@ name = "agent-client-protocol"
 version = "0.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pydantic" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/13/3b893421369767e7043cc115d6ef0df417c298b84563be3a12df0416158d/agent_client_protocol-0.9.0.tar.gz", hash = "sha256:f744c48ab9af0f0b4452e5ab5498d61bcab97c26dbe7d6feec5fd36de49be30b", size = 71853, upload-time = "2026-03-26T01:21:00.379Z" }
 wheels = [
@@ -73,7 +73,7 @@ name = "aiofile"
 version = "3.11.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "caio", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "caio" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/48/41/2fea7e193e061ce54eacc3b7bc0e6a99e4fcff43c78cf0a76dd781ed8334/aiofile-3.11.1.tar.gz", hash = "sha256:1f91912c6643d2a4e49ca4ae3514f0bf3867ce948a36d99a6411b8f4755f4cf9", size = 19342, upload-time = "2026-05-16T08:18:33.538Z" }
 wheels = [
@@ -493,8 +493,8 @@ name = "authlib"
 version = "1.7.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "joserfc", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "cryptography" },
+    { name = "joserfc" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/36/98/7d93f30d029643c0275dbc0bd6d5a6f670661ee6c9a94d93af7ab4887600/authlib-1.7.2.tar.gz", hash = "sha256:2cea25fefcd4e7173bdf1372c0afc265c8034b23a8cd5dcb6a9164b826c64231", size = 176511, upload-time = "2026-05-06T08:10:23.116Z" }
 wheels = [
@@ -1038,10 +1038,10 @@ name = "cyclopts"
 version = "4.21.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "attrs", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "docstring-parser", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "rich", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "rich-rst", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "attrs" },
+    { name = "docstring-parser" },
+    { name = "rich" },
+    { name = "rich-rst" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d9/53/977540be379b0c82550df872912446def343ab0dfa138b8726120427f83d/cyclopts-4.21.0.tar.gz", hash = "sha256:477c18c791c924cca4836f79fce000a7bae45f551e340d9e1654e102c6d9ab9d", size = 190914, upload-time = "2026-07-09T19:07:07.154Z" }
 wheels = [
@@ -1062,13 +1062,13 @@ name = "dask"
 version = "2026.7.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "click", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "cloudpickle", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "fsspec", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "packaging", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "partd", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pyyaml", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "toolz", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "click" },
+    { name = "cloudpickle" },
+    { name = "fsspec" },
+    { name = "packaging" },
+    { name = "partd" },
+    { name = "pyyaml" },
+    { name = "toolz" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d6/39/cbd21c9133d02b4e60899ed466ad5e876553ea68ebffee6209e7dcafc8d4/dask-2026.7.1.tar.gz", hash = "sha256:5727484427665f051e86bf87d021a64d6411141cdc8a20bfe3c1ad2968cc06b7", size = 11548794, upload-time = "2026-07-14T01:06:22.46Z" }
 wheels = [
@@ -1077,7 +1077,7 @@ wheels = [
 
 [package.optional-dependencies]
 distributed = [
-    { name = "distributed", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "distributed" },
 ]
 
 [[package]]
@@ -1102,8 +1102,8 @@ name = "dataclasses-json"
 version = "0.6.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "marshmallow", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "typing-inspect", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "marshmallow" },
+    { name = "typing-inspect" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/64/a4/f71d9cf3a5ac257c993b5ca3f93df5f7fb395c725e7f1e6479d2514173c3/dataclasses_json-0.6.7.tar.gz", hash = "sha256:b6b3e528266ea45b9535223bc53ca645f5208833c29229e847b3f26a1cc55fc0", size = 32227, upload-time = "2024-06-09T16:20:19.103Z" }
 wheels = [
@@ -1213,20 +1213,20 @@ name = "distributed"
 version = "2026.7.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "click", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "cloudpickle", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "dask", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jinja2", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "locket", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "msgpack", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "packaging", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "psutil", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pyyaml", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "sortedcontainers", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "tblib", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "toolz", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "tornado", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "zict", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "click" },
+    { name = "cloudpickle" },
+    { name = "dask" },
+    { name = "jinja2" },
+    { name = "locket" },
+    { name = "msgpack" },
+    { name = "packaging" },
+    { name = "psutil" },
+    { name = "pyyaml" },
+    { name = "sortedcontainers" },
+    { name = "tblib" },
+    { name = "toolz" },
+    { name = "tornado" },
+    { name = "zict" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a9/e4/567125e6f2f504a6b1e37e3aecd936cf61b662c09e6e79270bd37c93f703/distributed-2026.7.1.tar.gz", hash = "sha256:f7c48ab6961734874521574d75898466703bce93f22f0cff5872c7e4ac6425d4", size = 2461209, upload-time = "2026-07-14T01:20:55.349Z" }
 wheels = [
@@ -1319,8 +1319,8 @@ name = "email-validator"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "dnspython", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "idna", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "dnspython" },
+    { name = "idna" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f5/22/900cb125c76b7aaa450ce02fd727f452243f2e91a61af068b40adba60ea9/email_validator-2.3.0.tar.gz", hash = "sha256:9fc05c37f2f6cf439ff414f8fc46d917929974a82244c20eb10231ba60c54426", size = 51238, upload-time = "2025-08-26T13:09:06.831Z" }
 wheels = [
@@ -1350,8 +1350,8 @@ name = "faiss-cpu"
 version = "1.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "numpy", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "packaging", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "numpy" },
+    { name = "packaging" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7d/80/bb75a7ed6e824dea452a24d3434a72ed799324a688b10b047d441d270185/faiss_cpu-1.12.0.tar.gz", hash = "sha256:2f87cbcd603f3ed464ebceb857971fdebc318de938566c9ae2b82beda8e953c0", size = 69292, upload-time = "2025-08-13T06:07:26.553Z" }
 
@@ -1423,7 +1423,7 @@ name = "fastmcp"
 version = "3.4.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "fastmcp-slim", extra = ["client", "server"], marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "fastmcp-slim", extra = ["client", "server"] },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9c/f7/5188565d1b93ad611cbd80bf473e7ad669d1f3b689c4bedcd304e1ec3472/fastmcp-3.4.4.tar.gz", hash = "sha256:378202e26ec15b23819d9a1c0d1b0ebda096bc712720532010a0b82a45c2b1df", size = 28796458, upload-time = "2026-07-09T00:32:41.352Z" }
 wheels = [
@@ -1435,12 +1435,12 @@ name = "fastmcp-slim"
 version = "3.4.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "platformdirs", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pydantic", extra = ["email"], marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pydantic-settings", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "python-dotenv", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "rich", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "platformdirs" },
+    { name = "pydantic", extra = ["email"] },
+    { name = "pydantic-settings" },
+    { name = "python-dotenv" },
+    { name = "rich" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/45/79/f35661c6a1d76dfbe17a079f912d96fffcfdd40fad5a9144bb9e7dfb1fdf/fastmcp_slim-3.4.4.tar.gz", hash = "sha256:dcaa3e0be2127d7eacdce592c2ef0039204923dc0ec396454615cb4a3275b078", size = 590203, upload-time = "2026-07-09T00:32:20.531Z" }
 wheels = [
@@ -1449,36 +1449,36 @@ wheels = [
 
 [package.optional-dependencies]
 client = [
-    { name = "authlib", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "exceptiongroup", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "httpx", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "mcp", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "opentelemetry-api", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "py-key-value-aio", extra = ["filetree", "keyring", "memory"], marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "starlette", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "authlib" },
+    { name = "exceptiongroup" },
+    { name = "httpx" },
+    { name = "mcp" },
+    { name = "opentelemetry-api" },
+    { name = "py-key-value-aio", extra = ["filetree", "keyring", "memory"] },
+    { name = "starlette" },
 ]
 server = [
-    { name = "authlib", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "cyclopts", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "exceptiongroup", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "griffelib", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "httpx", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "joserfc", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jsonref", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jsonschema-path", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "mcp", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "openapi-pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "opentelemetry-api", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "packaging", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "py-key-value-aio", extra = ["filetree", "keyring", "memory"], marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pyperclip", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "python-multipart", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pyyaml", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "starlette", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "uncalled-for", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "uvicorn", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "watchfiles", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "websockets", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "authlib" },
+    { name = "cyclopts" },
+    { name = "exceptiongroup" },
+    { name = "griffelib" },
+    { name = "httpx" },
+    { name = "joserfc" },
+    { name = "jsonref" },
+    { name = "jsonschema-path" },
+    { name = "mcp" },
+    { name = "openapi-pydantic" },
+    { name = "opentelemetry-api" },
+    { name = "packaging" },
+    { name = "py-key-value-aio", extra = ["filetree", "keyring", "memory"] },
+    { name = "pyperclip" },
+    { name = "python-multipart" },
+    { name = "pyyaml" },
+    { name = "starlette" },
+    { name = "uncalled-for" },
+    { name = "uvicorn" },
+    { name = "watchfiles" },
+    { name = "websockets" },
 ]
 
 [[package]]
@@ -2259,7 +2259,7 @@ name = "jaraco-classes"
 version = "3.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "more-itertools", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "more-itertools" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/06/c0/ed4a27bc5571b99e3cff68f8a9fa5b56ff7df1c2251cc715a652ddd26402/jaraco.classes-3.4.0.tar.gz", hash = "sha256:47a024b51d0239c0dd8c8540c6c7f484be3b8fcf0b2d85c13825780d3b3f3acd", size = 11780, upload-time = "2024-03-31T07:27:36.643Z" }
 wheels = [
@@ -2280,7 +2280,7 @@ name = "jaraco-functools"
 version = "4.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "more-itertools", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "more-itertools" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6c/1f/c23395957d41ccf27c4e535c3d334c4051e5395b3752057ba4cbaec35c56/jaraco_functools-4.6.0.tar.gz", hash = "sha256:880c577ec9720b3a052d5bc611fb9f2269b3d87902ef42440df443b88e443280", size = 20837, upload-time = "2026-07-14T01:28:02.544Z" }
 wheels = [
@@ -2361,7 +2361,7 @@ name = "joserfc"
 version = "1.7.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "cryptography" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d4/c6/b1cac0280f8efc57626ea8804866b37099f23cae11b1485a42b213245e31/joserfc-1.7.3.tar.gz", hash = "sha256:116955c2587139dba20621fd0bd7fc9255fa960c9fe7f43c43ebef2e801dcfcf", size = 233821, upload-time = "2026-07-08T12:41:42.66Z" }
 wheels = [
@@ -2449,10 +2449,10 @@ name = "jsonschema-path"
 version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "attrs", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pathable", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pyyaml", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "referencing", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "attrs" },
+    { name = "pathable" },
+    { name = "pyyaml" },
+    { name = "referencing" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/39/79/cd02a4df6d9270efdc7d3feefe6edd730b0820c39eeaa107a2faee8322d5/jsonschema_path-0.5.0.tar.gz", hash = "sha256:493b156ba895c97602655b620a8456caa2ce08c1aa389f5a7addec065e6e855c", size = 19597, upload-time = "2026-05-19T20:45:00.971Z" }
 wheels = [
@@ -2482,14 +2482,14 @@ resolution-markers = [
     "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
 ]
 dependencies = [
-    { name = "dask", extra = ["distributed"], marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "deepmerge", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "faiss-cpu", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "importlib-metadata", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyter-ai-magics", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyter-server", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pydantic", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "traitlets", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "dask", extra = ["distributed"] },
+    { name = "deepmerge" },
+    { name = "faiss-cpu" },
+    { name = "importlib-metadata" },
+    { name = "jupyter-ai-magics" },
+    { name = "jupyter-server" },
+    { name = "pydantic" },
+    { name = "traitlets" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9c/7c/30117568ac7412f6d5b97fb9d0fbab9b7b0b4101030f8e26b2b36ea32afb/jupyter_ai-2.31.7.tar.gz", hash = "sha256:88289ee0fabdfa9e1883a0089c9afa36a0cc916c81e81b6f4e2655f000437159", size = 387345, upload-time = "2025-11-25T22:42:15.461Z" }
 wheels = [
@@ -2509,16 +2509,16 @@ resolution-markers = [
     "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
 ]
 dependencies = [
-    { name = "jupyter-ai-acp-client", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-ai-chat-commands", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-ai-persona-manager", version = "0.0.12", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-ai-router", version = "0.0.5", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-ai-tools", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-server-documents", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-server-mcp", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyterlab-chat", version = "0.22.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyterlab-commands-toolkit", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyterlab-notebook-awareness", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ai-acp-client" },
+    { name = "jupyter-ai-chat-commands" },
+    { name = "jupyter-ai-persona-manager", version = "0.0.12", source = { registry = "https://pypi.org/simple" } },
+    { name = "jupyter-ai-router", version = "0.0.5", source = { registry = "https://pypi.org/simple" } },
+    { name = "jupyter-ai-tools" },
+    { name = "jupyter-server-documents" },
+    { name = "jupyter-server-mcp" },
+    { name = "jupyterlab-chat", version = "0.22.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "jupyterlab-commands-toolkit" },
+    { name = "jupyterlab-notebook-awareness" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cf/d5/89a304844ab3f3072adec19e9f542f0d76c4bddee922b3eda2373f13113d/jupyter_ai-3.0.1.tar.gz", hash = "sha256:7bb2bdc0068a2188e41d90813e53f81b7117a5c7f844a917ba7cb75ec8e886c7", size = 26772038, upload-time = "2026-06-30T23:41:14.27Z" }
 wheels = [
@@ -2530,11 +2530,11 @@ name = "jupyter-ai-acp-client"
 version = "0.1.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "agent-client-protocol", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-ai-persona-manager", version = "0.0.12", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyterlab-chat", version = "0.22.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "agent-client-protocol" },
+    { name = "jupyter-ai-persona-manager", version = "0.0.12", source = { registry = "https://pypi.org/simple" } },
+    { name = "jupyter-server" },
+    { name = "jupyterlab-chat", version = "0.22.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "pydantic" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c4/48/d0eeb2ff470edb8225269f171d51d7663e1ad02031d9758bc01a2c26e75c/jupyter_ai_acp_client-0.1.5.tar.gz", hash = "sha256:79f48aa5c9bb3fe8fb380e6e28b705a7db46a3889203c82b13c239202376ec27", size = 272353, upload-time = "2026-05-20T19:40:17.513Z" }
 wheels = [
@@ -2546,10 +2546,10 @@ name = "jupyter-ai-chat-commands"
 version = "0.0.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "jupyter-ai-persona-manager", version = "0.0.12", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-ai-router", version = "0.0.5", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyterlab-chat", version = "0.22.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-ai-persona-manager", version = "0.0.12", source = { registry = "https://pypi.org/simple" } },
+    { name = "jupyter-ai-router", version = "0.0.5", source = { registry = "https://pypi.org/simple" } },
+    { name = "jupyter-server" },
+    { name = "jupyterlab-chat", version = "0.22.1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/de/99/57c42641c8a2dd46f658e5ec474f4863b444175895162c8f137ebf55e624/jupyter_ai_chat_commands-0.0.4.tar.gz", hash = "sha256:0c9722d139376e1bff87a730fbb6cc14019b010282fbce9d62001223d3d3c6b0", size = 170997, upload-time = "2025-11-04T00:51:13.365Z" }
 wheels = [
@@ -2567,15 +2567,15 @@ resolution-markers = [
     "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
 ]
 dependencies = [
-    { name = "deepmerge", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jinja2", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyter-ai-litellm", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyter-ai-persona-manager", version = "0.0.4", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyter-server", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyterlab-chat", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pydantic", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "python-dotenv", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "traitlets", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "deepmerge" },
+    { name = "jinja2" },
+    { name = "jupyter-ai-litellm" },
+    { name = "jupyter-ai-persona-manager", version = "0.0.4", source = { registry = "https://pypi.org/simple" } },
+    { name = "jupyter-server" },
+    { name = "jupyterlab-chat", version = "0.17.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "traitlets" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/29/a7/545d59f48570d7102a46b5e0d031bc404e056c22e866f8bb742ddfed3400/jupyter_ai_jupyternaut-0.0.2.tar.gz", hash = "sha256:f9e8356a62b2888b1256606a72db7d67621a84c49443ac5e8329d53dfb798809", size = 404087, upload-time = "2025-10-14T00:10:01.319Z" }
 wheels = [
@@ -2595,21 +2595,21 @@ resolution-markers = [
     "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
 ]
 dependencies = [
-    { name = "aiosqlite", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "deepmerge", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jinja2", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-ai-litellm", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-ai-persona-manager", version = "0.0.12", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-server-documents", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyterlab-chat", version = "0.22.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyterlab-commands-toolkit", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyterlab-notebook-awareness", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "langchain", version = "1.3.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "langgraph-checkpoint-sqlite", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "python-dotenv", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "traitlets", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "aiosqlite" },
+    { name = "deepmerge" },
+    { name = "jinja2" },
+    { name = "jupyter-ai-litellm" },
+    { name = "jupyter-ai-persona-manager", version = "0.0.12", source = { registry = "https://pypi.org/simple" } },
+    { name = "jupyter-server" },
+    { name = "jupyter-server-documents" },
+    { name = "jupyterlab-chat", version = "0.22.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "jupyterlab-commands-toolkit" },
+    { name = "jupyterlab-notebook-awareness" },
+    { name = "langchain", version = "1.3.2", source = { registry = "https://pypi.org/simple" } },
+    { name = "langgraph-checkpoint-sqlite" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "traitlets" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/39/3e/e3cd27dd38c7dd53adf375450b803644fe94b04ee573481f0f5dae7f26b5/jupyter_ai_jupyternaut-0.0.11.tar.gz", hash = "sha256:d152b615d0870c5603ab446bbcb432f8be65eab50e3e135a10cc4036173d327a", size = 412908, upload-time = "2026-03-24T20:35:30.549Z" }
 wheels = [
@@ -2649,13 +2649,13 @@ name = "jupyter-ai-magics"
 version = "2.31.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "click", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "importlib-metadata", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "ipython", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jsonpath-ng", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "langchain", version = "0.3.28", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "langchain-community", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pydantic", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "click" },
+    { name = "importlib-metadata" },
+    { name = "ipython" },
+    { name = "jsonpath-ng" },
+    { name = "langchain", version = "0.3.28", source = { registry = "https://pypi.org/simple" } },
+    { name = "langchain-community" },
+    { name = "pydantic" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f0/ec/8dd617ccc1e523f7b2023140934d1118e545eb70eec8a169b4484264ec5a/jupyter_ai_magics-2.31.7.tar.gz", hash = "sha256:c6d77a29b19e520ff1113fb92c4830df4154e322c917a4c356739440450721e4", size = 32080, upload-time = "2025-11-25T22:42:21.23Z" }
 wheels = [
@@ -2673,13 +2673,13 @@ resolution-markers = [
     "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
 ]
 dependencies = [
-    { name = "importlib-metadata", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyter-ai-router", version = "0.0.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyter-server", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyter-server-fileid", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyterlab-chat", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pycrdt", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pydantic", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "importlib-metadata" },
+    { name = "jupyter-ai-router", version = "0.0.2", source = { registry = "https://pypi.org/simple" } },
+    { name = "jupyter-server" },
+    { name = "jupyter-server-fileid" },
+    { name = "jupyterlab-chat", version = "0.17.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "pycrdt" },
+    { name = "pydantic" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/1f/4cdfe89f277e3c9b66f53587f0ae801bb6ba172e76b7f36627bb0a0d5f6f/jupyter_ai_persona_manager-0.0.4.tar.gz", hash = "sha256:0d1ccdb88b8196307a4f80aa05ff794d084b10caf590497e75352f7137b0cf7f", size = 152561, upload-time = "2025-10-24T16:12:22.365Z" }
 wheels = [
@@ -2699,13 +2699,13 @@ resolution-markers = [
     "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
 ]
 dependencies = [
-    { name = "importlib-metadata", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-ai-router", version = "0.0.5", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-server-fileid", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyterlab-chat", version = "0.22.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pycrdt", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "importlib-metadata" },
+    { name = "jupyter-ai-router", version = "0.0.5", source = { registry = "https://pypi.org/simple" } },
+    { name = "jupyter-server" },
+    { name = "jupyter-server-fileid" },
+    { name = "jupyterlab-chat", version = "0.22.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "pycrdt" },
+    { name = "pydantic" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4c/78/e5e2260e4bde555c6c0a21afd924440fadb9337dc75a34899e6e507fe0b3/jupyter_ai_persona_manager-0.0.12.tar.gz", hash = "sha256:def563d49ddd3cdef0aa54f530d4a76d3bbcfd898822d6e415c16db704e38a89", size = 161085, upload-time = "2026-07-01T22:00:40.709Z" }
 wheels = [
@@ -2723,9 +2723,9 @@ resolution-markers = [
     "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
 ]
 dependencies = [
-    { name = "jupyter-collaboration", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyter-server", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyterlab-chat", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-collaboration" },
+    { name = "jupyter-server" },
+    { name = "jupyterlab-chat", version = "0.17.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c2/69/49d02cde0ce2b9dd3b9141903b329614e1062e2bdcbeef657d5dd6e990b2/jupyter_ai_router-0.0.2.tar.gz", hash = "sha256:4a152a10ebf25dc335a2877c2572d597f5f7bc11410beb1e12465b62cd74d977", size = 140782, upload-time = "2025-10-30T16:52:12.456Z" }
 wheels = [
@@ -2745,8 +2745,8 @@ resolution-markers = [
     "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
 ]
 dependencies = [
-    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyterlab-chat", version = "0.22.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-server" },
+    { name = "jupyterlab-chat", version = "0.22.1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/68/30/0e20a6e3a0c4153fb9cb45920b748980ea06eb0fd532c50cde538c05181c/jupyter_ai_router-0.0.5.tar.gz", hash = "sha256:6f2d199a61f7440db8d9bbd32e3f2be313622fc8e3dc5a7c54820a3f680aeec1", size = 142582, upload-time = "2026-04-29T08:03:26.967Z" }
 wheels = [
@@ -2758,9 +2758,9 @@ name = "jupyter-ai-tools"
 version = "0.5.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-ydoc", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pycrdt", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-server" },
+    { name = "jupyter-ydoc" },
+    { name = "pycrdt" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/31/82/7114c6e207c003f56557af85438807617ecaa82cfc54dd29f08df1eb7f33/jupyter_ai_tools-0.5.2.tar.gz", hash = "sha256:a4f020bb3f6078d2c2a32d73ab229223719dbff8a4ed963c737257d0006893b4", size = 39121, upload-time = "2026-06-04T14:32:09.21Z" }
 wheels = [
@@ -3016,8 +3016,8 @@ name = "jupyter-server-mcp"
 version = "0.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "fastmcp", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "fastmcp" },
+    { name = "jupyter-server" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/11/7e/1bc12a0e5d840e6d896d83402b992dcb897e9fdeb875a49f0ba03a98527f/jupyter_server_mcp-0.2.1.tar.gz", hash = "sha256:41392496ced1d8de441fbcfff7c31b3fc2767abaa350e25660bbcc8aa5c8a9ae", size = 24615, upload-time = "2026-04-23T05:22:07.901Z" }
 wheels = [
@@ -3146,10 +3146,10 @@ resolution-markers = [
     "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
 ]
 dependencies = [
-    { name = "jupyter-collaboration", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyter-server", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "jupyter-ydoc", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pycrdt", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jupyter-collaboration" },
+    { name = "jupyter-server" },
+    { name = "jupyter-ydoc" },
+    { name = "pycrdt" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ff/7b/d629a169dc3740cbc5ba49f48f2610024ad8f848e221a7a954173e9198df/jupyterlab_chat-0.17.0.tar.gz", hash = "sha256:9c8716cfb96bb60c47374d04fa270ec43e5b61361c7e8772e06682aff504d6cc", size = 311286, upload-time = "2025-07-29T01:59:12.735Z" }
 wheels = [
@@ -3169,10 +3169,10 @@ resolution-markers = [
     "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
 ]
 dependencies = [
-    { name = "jupyter-collaboration", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyter-ydoc", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pycrdt", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-collaboration" },
+    { name = "jupyter-server" },
+    { name = "jupyter-ydoc" },
+    { name = "pycrdt" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/bc/07/3709aa28a582f486947c86d307be2ff0251999051123a91a73709da2b9a0/jupyterlab_chat-0.22.1.tar.gz", hash = "sha256:7c48deab4a83c9667feb266244ffae54a30023272963953290005ed9950df029", size = 326961, upload-time = "2026-06-05T12:39:50.346Z" }
 wheels = [
@@ -3184,8 +3184,8 @@ name = "jupyterlab-commands-toolkit"
 version = "0.1.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "jupyter-server", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jupyterlab-eventlistener", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jupyter-server" },
+    { name = "jupyterlab-eventlistener" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d8/29/fb873568c258a385cfcc763ca5f9bf703e60e0ded05d3dee28e71565ba4e/jupyterlab_commands_toolkit-0.1.6.tar.gz", hash = "sha256:e6f81a815e7247841ec875f9fa8c876a45fb13d38401589dd9dc3743e39beaea", size = 82477, upload-time = "2026-04-29T12:29:06.102Z" }
 wheels = [
@@ -3277,9 +3277,9 @@ name = "keyring"
 version = "25.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "jaraco-classes", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jaraco-context", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jaraco-functools", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jaraco-classes" },
+    { name = "jaraco-context" },
+    { name = "jaraco-functools" },
     { name = "jeepney", marker = "sys_platform == 'linux'" },
     { name = "pywin32-ctypes", marker = "sys_platform == 'win32'" },
     { name = "secretstorage", marker = "sys_platform == 'linux'" },
@@ -3355,13 +3355,13 @@ resolution-markers = [
     "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
 ]
 dependencies = [
-    { name = "langchain-core", version = "0.3.76", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "langchain-text-splitters", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "langsmith", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pydantic", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pyyaml", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "requests", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "sqlalchemy", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "langchain-core", version = "0.3.76", source = { registry = "https://pypi.org/simple" } },
+    { name = "langchain-text-splitters" },
+    { name = "langsmith" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "sqlalchemy" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/87/bb/a65e29c8e4aaf0348c2617962e427c8e760d82a67adbd197019e49c7769d/langchain-0.3.28.tar.gz", hash = "sha256:30a32f44cc6690bcc6a6fb7c14d61a15406d5eda1a0e7eab60b3660944888741", size = 10242473, upload-time = "2026-03-06T22:45:17.911Z" }
 wheels = [
@@ -3381,9 +3381,9 @@ resolution-markers = [
     "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
 ]
 dependencies = [
-    { name = "langchain-core", version = "1.4.9", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "langgraph", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langchain-core", version = "1.4.9", source = { registry = "https://pypi.org/simple" } },
+    { name = "langgraph" },
+    { name = "pydantic" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d5/d0/c7f9d3d26c0e3f8bb146c6d707ee0fc1d30d8da65a59626e8a580085e929/langchain-1.3.2.tar.gz", hash = "sha256:ffd5f204a46b5fa1a38bf89ba3b45ca0902c02d18fa7d2a2eaeaeb1f5bf19d0a", size = 600598, upload-time = "2026-05-26T18:17:57.715Z" }
 wheels = [
@@ -3395,18 +3395,18 @@ name = "langchain-community"
 version = "0.3.30"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "aiohttp", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "dataclasses-json", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "httpx-sse", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "langchain", version = "0.3.28", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "langchain-core", version = "0.3.76", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "langsmith", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "numpy", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pydantic-settings", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pyyaml", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "requests", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "sqlalchemy", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "tenacity", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "aiohttp" },
+    { name = "dataclasses-json" },
+    { name = "httpx-sse" },
+    { name = "langchain", version = "0.3.28", source = { registry = "https://pypi.org/simple" } },
+    { name = "langchain-core", version = "0.3.76", source = { registry = "https://pypi.org/simple" } },
+    { name = "langsmith" },
+    { name = "numpy" },
+    { name = "pydantic-settings" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "sqlalchemy" },
+    { name = "tenacity" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d7/32/852facdba14140bbfc9b02e6dcb00fe2e0c5f50901d512a473351cf013e2/langchain_community-0.3.30.tar.gz", hash = "sha256:df68fbde7f7fa5142ab93b0cbc104916b12ab4163e200edd933ee93e67956ee9", size = 33240417, upload-time = "2025-09-26T05:52:49.588Z" }
 wheels = [
@@ -3424,13 +3424,13 @@ resolution-markers = [
     "python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'manylinux'",
 ]
 dependencies = [
-    { name = "jsonpatch", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "langsmith", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "packaging", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pydantic", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "pyyaml", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "tenacity", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "typing-extensions", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "jsonpatch" },
+    { name = "langsmith" },
+    { name = "packaging" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "tenacity" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4f/4d/5e2ea7754ee0a1f524c412801c6ba9ad49318ecb58b0d524903c3d9efe0a/langchain_core-0.3.76.tar.gz", hash = "sha256:71136a122dd1abae2c289c5809d035cf12b5f2bb682d8a4c1078cd94feae7419", size = 573568, upload-time = "2025-09-10T14:49:39.863Z" }
 wheels = [
@@ -3450,15 +3450,15 @@ resolution-markers = [
     "(python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')",
 ]
 dependencies = [
-    { name = "jsonpatch", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "langchain-protocol", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "langsmith", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "packaging", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pyyaml", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "tenacity", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "uuid-utils", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "jsonpatch" },
+    { name = "langchain-protocol" },
+    { name = "langsmith" },
+    { name = "packaging" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "tenacity" },
+    { name = "typing-extensions" },
+    { name = "uuid-utils" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2a/b9/e937d0a90b26540bff07e7a7c64349f3b29c2dcc36257cd1cd3fdce17f2a/langchain_core-1.4.9.tar.gz", hash = "sha256:f8078901145bed0466755277500a5a22822a7b628808c4c0a28d4fc88895fcf2", size = 967294, upload-time = "2026-07-08T20:06:54.191Z" }
 wheels = [
@@ -3470,7 +3470,7 @@ name = "langchain-protocol"
 version = "0.0.18"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d2/59/b5959aea96faa9146e2e49a7a22882b3528c62efafe9a6a95beab30c2305/langchain_protocol-0.0.18.tar.gz", hash = "sha256:ec3e11782f1ed0c9db38e5a9ed01b0e7a0d3fba406faa8aef6594b73c56a63e6", size = 6150, upload-time = "2026-06-18T17:08:26.959Z" }
 wheels = [
@@ -3482,7 +3482,7 @@ name = "langchain-text-splitters"
 version = "0.3.11"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "langchain-core", version = "0.3.76", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "langchain-core", version = "0.3.76", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/11/43/dcda8fd25f0b19cb2835f2f6bb67f26ad58634f04ac2d8eae00526b0fa55/langchain_text_splitters-0.3.11.tar.gz", hash = "sha256:7a50a04ada9a133bbabb80731df7f6ddac51bc9f1b9cab7fa09304d71d38a6cc", size = 46458, upload-time = "2025-08-31T23:02:58.316Z" }
 wheels = [
@@ -3494,12 +3494,12 @@ name = "langgraph"
 version = "1.2.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "langchain-core", version = "1.4.9", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "langgraph-checkpoint", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "langgraph-prebuilt", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "langgraph-sdk", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "xxhash", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langchain-core", version = "1.4.9", source = { registry = "https://pypi.org/simple" } },
+    { name = "langgraph-checkpoint" },
+    { name = "langgraph-prebuilt" },
+    { name = "langgraph-sdk" },
+    { name = "pydantic" },
+    { name = "xxhash" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e6/5a/ffc12434ee8aecab830d58b4d204ddea45073eae7639c963310f671a5bf5/langgraph-1.2.2.tar.gz", hash = "sha256:f54a98458976b3ff0774683867df125fb52d8dbedeb2441d0b0656a51331cee5", size = 695730, upload-time = "2026-05-26T18:07:28.49Z" }
 wheels = [
@@ -3511,8 +3511,8 @@ name = "langgraph-checkpoint"
 version = "4.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "langchain-core", version = "1.4.9", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "ormsgpack", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langchain-core", version = "1.4.9", source = { registry = "https://pypi.org/simple" } },
+    { name = "ormsgpack" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/83/47/886af6f886f0bff2273164a45f008694e48a96ff3cd25ff0228f2aa9480e/langgraph_checkpoint-4.1.1.tar.gz", hash = "sha256:6c2bdb530c91f91d7d9c1bd100925d0fc4f498d418c17f3587d1526279482a25", size = 184020, upload-time = "2026-05-22T16:57:38.503Z" }
 wheels = [
@@ -3524,9 +3524,9 @@ name = "langgraph-checkpoint-sqlite"
 version = "3.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "aiosqlite", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "langgraph-checkpoint", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "sqlite-vec", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "aiosqlite" },
+    { name = "langgraph-checkpoint" },
+    { name = "sqlite-vec" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e3/ea/83917c2369acf8a10a894d4247655fd063c07924ba5bc4e83c85d2eaeded/langgraph_checkpoint_sqlite-3.1.0.tar.gz", hash = "sha256:f926916ebc1b985d802cc9c820026036e84db9d910d62c97b57e4ba64f67d5ae", size = 147902, upload-time = "2026-05-12T03:34:52.503Z" }
 wheels = [
@@ -3538,8 +3538,8 @@ name = "langgraph-prebuilt"
 version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "langchain-core", version = "1.4.9", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "langgraph-checkpoint", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "langchain-core", version = "1.4.9", source = { registry = "https://pypi.org/simple" } },
+    { name = "langgraph-checkpoint" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/29/66/ed9b93f56bc17ef22d551892f0ac2b225a97fe0fcf23a511b857f70d590b/langgraph_prebuilt-1.1.0.tar.gz", hash = "sha256:3c579cf6eed2d17f9c157c2d0fcaddcd8688524e7022d3b22b37a3bf4589d528", size = 178833, upload-time = "2026-05-12T03:37:49.332Z" }
 wheels = [
@@ -3551,8 +3551,8 @@ name = "langgraph-sdk"
 version = "0.3.15"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "httpx", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "orjson", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "httpx" },
+    { name = "orjson" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/66/af/cdd4d6f3c05b3c1112ed3f12ef830faf15951b21d22cbc622a4becbbe25c/langgraph_sdk-0.3.15.tar.gz", hash = "sha256:29e805003d2c6e296823dd71992610976fd0428cefaa8b3304fd91f2247037de", size = 201924, upload-time = "2026-05-22T16:54:27.678Z" }
 wheels = [
@@ -3561,7 +3561,7 @@ wheels = [
 
 [[package]]
 name = "langsmith"
-version = "0.10.3"
+version = "0.10.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -3579,9 +3579,9 @@ dependencies = [
     { name = "xxhash" },
     { name = "zstandard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c3/69/f78ad97dbe852b53a933275d364615bff01187c6accd9f637a8b8c235310/langsmith-0.10.3.tar.gz", hash = "sha256:fe08af97277cd512c5dea17910453e35dd80bb3d63aa993665001e877b05f886", size = 4712149, upload-time = "2026-07-14T09:12:26.538Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/17/e8a73c6595fb58f12107a7c609034b32b24d7b2956e9dd079999344792be/langsmith-0.10.4.tar.gz", hash = "sha256:c13c750a044347b3b5eeb54572f1d85ed891d6055fc1c05397d1a3c0aa25a0ab", size = 4719993, upload-time = "2026-07-14T20:58:40.508Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/62/6339eae6b8c9ec941b06dc09fe05e97f586e91d2af4378a428070bab8d5d/langsmith-0.10.3-py3-none-any.whl", hash = "sha256:40fe55aab588ba5eddd462c9710ac10754ed0530366f1605969e054cbe03f8ca", size = 654001, upload-time = "2026-07-14T09:12:24.671Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/82/c6bae8dfea5ca79293a98293df0a8c84064a1850fc46ae69c49c6f97f14c/langsmith-0.10.4-py3-none-any.whl", hash = "sha256:73025846a1a4246e06b8bb513726aa88473b678163dbdf9c290273e431b07526", size = 657371, upload-time = "2026-07-14T20:58:38.174Z" },
 ]
 
 [[package]]
@@ -3600,15 +3600,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/27/dd/4270b2c5e2ee49316c3859e62293bd2ea8e382339d63ab7bbe9f39c0ec3b/latexcodec-3.0.1.tar.gz", hash = "sha256:e78a6911cd72f9dec35031c6ec23584de6842bfbc4610a9678868d14cdfb0357", size = 31222, upload-time = "2025-06-17T18:47:34.051Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b5/40/23569737873cc9637fd488606347e9dd92b9fa37ba4fcda1f98ee5219a97/latexcodec-3.0.1-py3-none-any.whl", hash = "sha256:a9eb8200bff693f0437a69581f7579eb6bca25c4193515c09900ce76451e452e", size = 18532, upload-time = "2025-06-17T18:47:30.726Z" },
-]
-
-[[package]]
-name = "lckr-jupyterlab-variableinspector"
-version = "3.2.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/50/1d/4f0ee3ee9cfafdedf94ea8ac9b67081e708806ef420531a80c5e7143534d/lckr_jupyterlab_variableinspector-3.2.4.tar.gz", hash = "sha256:9bad61401ef24cbdd4bc000d882038bbdd9d79550f624bd1930978dd56dddf7b", size = 1438538, upload-time = "2024-09-05T09:46:41.793Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/48/71/6bdb50567c5255ae9f641bee00d2f9573cca9b195a3ef856a472411d1b89/lckr_jupyterlab_variableinspector-3.2.4-py3-none-any.whl", hash = "sha256:36c529dc07f258f66ebcbb4fb4551e410ccc039a6ecc7ad693bbedc79f4e4b12", size = 140378, upload-time = "2024-09-05T09:46:39.767Z" },
 ]
 
 [[package]]
@@ -3769,7 +3760,7 @@ name = "marshmallow"
 version = "3.26.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "packaging", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "packaging" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/55/79/de6c16cc902f4fc372236926b0ce2ab7845268dcc30fb2fbb7f71b418631/marshmallow-3.26.2.tar.gz", hash = "sha256:bbe2adb5a03e6e3571b573f42527c6fe926e17467833660bebd11593ab8dfd57", size = 222095, upload-time = "2025-12-22T06:53:53.309Z" }
 wheels = [
@@ -3826,20 +3817,20 @@ name = "mcp"
 version = "1.28.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "httpx", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "httpx-sse", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "jsonschema", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pydantic-settings", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pyjwt", extra = ["crypto"], marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "python-multipart", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "anyio" },
+    { name = "httpx" },
+    { name = "httpx-sse" },
+    { name = "jsonschema" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "python-multipart" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
-    { name = "sse-starlette", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "starlette", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "typing-inspection", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "uvicorn", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (sys_platform != 'emscripten' and sys_platform != 'manylinux')" },
+    { name = "sse-starlette" },
+    { name = "starlette" },
+    { name = "typing-extensions" },
+    { name = "typing-inspection" },
+    { name = "uvicorn", marker = "sys_platform != 'emscripten'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6e/77/9450b8f251a13affb6281997d0523c4615f8a8b35d0b21ff30db3a5aac9d/mcp-1.28.1.tar.gz", hash = "sha256:d51e36a5f5644faea4f85ea649bfffa6bc6c26770d42798ad6a3de3d2ba69683", size = 638501, upload-time = "2026-06-26T12:57:29.093Z" }
 wheels = [
@@ -4416,7 +4407,7 @@ name = "openapi-pydantic"
 version = "0.5.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pydantic", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pydantic" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/02/2e/58d83848dd1a79cb92ed8e63f6ba901ca282c5f09d04af9423ec26c56fd7/openapi_pydantic-0.5.1.tar.gz", hash = "sha256:ff6835af6bde7a459fb93eb93bb92b8749b754fc6e51b2f1590a19dc3005ee0d", size = 60892, upload-time = "2025-01-08T19:29:27.083Z" }
 wheels = [
@@ -4428,7 +4419,7 @@ name = "opentelemetry-api"
 version = "1.43.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ae/cc/e4c9584181f86494df0f6bdec1a4f3280c50db44704dc2a407e994fc87bb/opentelemetry_api-1.43.0.tar.gz", hash = "sha256:107d0d03857ea8fc7c5fcbbbd83f800c281f0d560553d61c1d675fccfd1761c1", size = 73476, upload-time = "2026-06-24T15:19:55.323Z" }
 wheels = [
@@ -4598,8 +4589,8 @@ name = "partd"
 version = "1.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "locket", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "toolz", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "locket" },
+    { name = "toolz" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b2/3a/3f06f34820a31257ddcabdfafc2672c5816be79c7e353b02c1f318daa7d4/partd-1.4.2.tar.gz", hash = "sha256:d022c33afbdc8405c226621b015e8067888173d85f7f5ecebb3cafed9a20f02c", size = 21029, upload-time = "2024-05-06T19:51:41.945Z" }
 wheels = [
@@ -4629,7 +4620,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "ptyprocess" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -4902,8 +4893,8 @@ name = "py-key-value-aio"
 version = "0.4.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "beartype", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "beartype" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fb/e2/d689d922894a7ecde73b6daeaf9b13dab5aae06fe6aaaf7514722644d382/py_key_value_aio-0.4.5.tar.gz", hash = "sha256:c6563a2c6abe5da5e20f4f9e875c2a9b425a2244a54fadbf46cf140a9eea45d7", size = 107547, upload-time = "2026-05-27T16:37:08.107Z" }
 wheels = [
@@ -4912,14 +4903,14 @@ wheels = [
 
 [package.optional-dependencies]
 filetree = [
-    { name = "aiofile", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "anyio", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "aiofile" },
+    { name = "anyio" },
 ]
 keyring = [
-    { name = "keyring", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "keyring" },
 ]
 memory = [
-    { name = "cachetools", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "cachetools" },
 ]
 
 [[package]]
@@ -5059,7 +5050,7 @@ wheels = [
 
 [package.optional-dependencies]
 email = [
-    { name = "email-validator", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "email-validator" },
 ]
 
 [[package]]
@@ -5660,8 +5651,8 @@ name = "rich"
 version = "15.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "markdown-it-py", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "pygments", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "markdown-it-py" },
+    { name = "pygments" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c0/8f/0722ca900cc807c13a6a0c696dacf35430f72e0ec571c4275d2371fca3e9/rich-15.0.0.tar.gz", hash = "sha256:edd07a4824c6b40189fb7ac9bc4c52536e9780fbbfbddf6f1e2502c31b068c36", size = 230680, upload-time = "2026-04-12T08:24:00.75Z" }
 wheels = [
@@ -5673,8 +5664,8 @@ name = "rich-rst"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pygments", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
-    { name = "rich", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'manylinux'" },
+    { name = "pygments" },
+    { name = "rich" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e2/d6/d0b9fafc73b65767200da027acab1db1bdb1048f4fea5ebf659df01c700e/rich_rst-2.1.0.tar.gz", hash = "sha256:f4d117b49697f338769759fa5cacf5197da4888b347b9fda2e50aef5cd8d93bd", size = 302732, upload-time = "2026-07-05T02:59:44.308Z" }
 wheels = [
@@ -5900,7 +5891,6 @@ lab = [
     { name = "jupyterlab-execute-time" },
     { name = "jupyterlab-iframe" },
     { name = "jupyterlab-widgets" },
-    { name = "lckr-jupyterlab-variableinspector" },
     { name = "nbconvert" },
     { name = "nbdime" },
     { name = "notebook" },
@@ -5944,7 +5934,6 @@ lab = [
     { name = "jupyterlab-execute-time" },
     { name = "jupyterlab-iframe" },
     { name = "jupyterlab-widgets" },
-    { name = "lckr-jupyterlab-variableinspector" },
     { name = "nbconvert" },
     { name = "nbdime" },
     { name = "notebook" },
@@ -6099,8 +6088,8 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')" },
-    { name = "jeepney", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'manylinux') or (sys_platform != 'emscripten' and sys_platform != 'manylinux' and sys_platform != 'win32')" },
+    { name = "cryptography" },
+    { name = "jeepney" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
@@ -6902,8 +6891,8 @@ name = "typing-inspect"
 version = "0.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "mypy-extensions", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
-    { name = "typing-extensions", marker = "(platform_machine == 'aarch64' and sys_platform == 'manylinux') or (platform_machine == 'x86_64' and sys_platform == 'manylinux')" },
+    { name = "mypy-extensions" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/dc/74/1789779d91f1961fa9438e9a8710cdae6bd138c80d7303996933d117264a/typing_inspect-0.9.0.tar.gz", hash = "sha256:b23fc42ff6f6ef6954e4852c1fb512cdd18dbea03134f91f856a95ccc9461f78", size = 13825, upload-time = "2023-05-24T20:25:47.612Z" }
 wheels = [
