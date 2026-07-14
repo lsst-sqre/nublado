@@ -74,6 +74,7 @@ lab = [
     "pythreejs",
     "rsp-jupyter-extensions>=0.25.0",
     "sidecar",
+    "typst"
 ]
 
 [tool.setuptools_scm]
