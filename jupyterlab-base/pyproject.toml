@@ -68,7 +68,6 @@ lab = [
     "nbconvert",
     "nbdime",
     "notebook",
-    "numba>=0.65.0",
     "panel",
     "plotly",
     "pythreejs",
