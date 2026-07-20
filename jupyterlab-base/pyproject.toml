@@ -73,6 +73,7 @@ lab = [
     "plotly",
     "pythreejs",
     "rsp-jupyter-extensions>=0.27.1",
+    "rsp-jupyter-extensions>=0.25.0",
     "sidecar",
 ]
 
