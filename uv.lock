@@ -3561,7 +3561,7 @@ wheels = [
 
 [[package]]
 name = "langsmith"
-version = "0.10.8"
+version = "0.10.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -3579,9 +3579,9 @@ dependencies = [
     { name = "xxhash" },
     { name = "zstandard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/df/09/82dea3222e8b80fb585ccd8a6b7e3a518c1e3eafd7696cbba1ce9338558a/langsmith-0.10.8.tar.gz", hash = "sha256:e5ffa0a925e9a21608fc54bf348d6a5eb8bd8f703132d77143098b8bfe9d1f29", size = 4734966, upload-time = "2026-07-20T18:14:37.839Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ed/6d/9ad4427662ef131878f0f928d5a9e9913e0dda4b6511bb03e8722f1dee8a/langsmith-0.10.9.tar.gz", hash = "sha256:195bc67c964a6370cb91742ce9fa07ce69bfae47977f0fb3f41d125b3435d03a", size = 4736750, upload-time = "2026-07-20T21:27:13.738Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bc/78/309b5246f0340b3d7e88ff44ca3076ced5e8af24d45bfa2df9a943750250/langsmith-0.10.8-py3-none-any.whl", hash = "sha256:01a9fb81f241f894e1e50b0dcaa1ac77bf3c7121d6dd8e417677aaf98212963e", size = 672788, upload-time = "2026-07-20T18:14:35.828Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/54/509a1eb6b9e5572a4f3f4b087779d240c6b69f3d5247ffa21314f66155d9/langsmith-0.10.9-py3-none-any.whl", hash = "sha256:5e0e8ab0f8df05710809919184495e33c2a7c9a9a5e8861d63dd12c1226d9c79", size = 673326, upload-time = "2026-07-20T21:27:11.889Z" },
 ]
 
 [[package]]
@@ -5768,17 +5768,20 @@ wheels = [
 
 [[package]]
 name = "rsp-jupyter-extensions"
-version = "0.26.0"
-source = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?branch=tickets%2FDM-55555#56778b7969e83feb7854065c437e83233eb656b9" }
+version = "0.22.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "jinja2" },
     { name = "jupyter-server" },
-    { name = "jupyterlab" },
     { name = "pydantic" },
     { name = "requests" },
     { name = "rubin-repertoire" },
     { name = "xmltodict" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/13/12/e0eaba8ff32708e0a541e6ca3b37a6e7698c37010da7b95101895e73d85b/rsp_jupyter_extensions-0.22.0.tar.gz", hash = "sha256:1d928316beb447b76ee2de44fab38f57a157b6493409b6ce3a117d6664f2df98", size = 377584, upload-time = "2026-04-23T00:50:18.037Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/84/2f6207af996d9b39529edda4160dcbd328deff8a72949265cada8baf735e/rsp_jupyter_extensions-0.22.0-py3-none-any.whl", hash = "sha256:30461432bfab6196cd83b13d446c3f2968f0df5dcc2d35be276d1e39812ebd79", size = 130809, upload-time = "2026-04-23T00:50:16.647Z" },
 ]
 
 [[package]]
@@ -5963,7 +5966,7 @@ lab = [
     { name = "panel" },
     { name = "plotly" },
     { name = "pythreejs" },
-    { name = "rsp-jupyter-extensions", git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?branch=tickets%2FDM-55555" },
+    { name = "rsp-jupyter-extensions", specifier = "==0.22.0" },
     { name = "sidecar" },
 ]
 

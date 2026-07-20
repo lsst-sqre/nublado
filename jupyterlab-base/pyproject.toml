@@ -72,12 +72,9 @@ lab = [
     "panel",
     "plotly",
     "pythreejs",
-    "rsp-jupyter-extensions>=0.25.0",
+    "rsp-jupyter-extensions==0.22.0",  # Pin to pre-server-documents
     "sidecar",
 ]
 
 [tool.setuptools_scm]
 root = ".."
-
-[tool.uv.sources]
-rsp-jupyter-extensions = { git="https://github.com/lsst-sqre/rsp-jupyter-extensions", branch="tickets/DM-55555" }
