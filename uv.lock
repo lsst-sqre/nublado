@@ -5783,8 +5783,8 @@ wheels = [
 
 [[package]]
 name = "rsp-jupyter-extensions"
-version = "0.28.0"
-source = { registry = "https://pypi.org/simple" }
+version = "0.27.1"
+source = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?branch=main#0c7e87087791b3832cc8f5b44df879ef5199ee35" }
 dependencies = [
     { name = "httpx" },
     { name = "jinja2" },
@@ -5795,10 +5795,6 @@ dependencies = [
     { name = "requests" },
     { name = "rubin-repertoire" },
     { name = "xmltodict" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c0/19/32d47e5b85ca8063fb13bb64d86a3d17949397de15b68c517f55af296c7f/rsp_jupyter_extensions-0.28.0.tar.gz", hash = "sha256:76513c459244ae260669f22534690a1a60514d8403ecc5bb13353c9ebc3e0380", size = 512924, upload-time = "2026-09-16T19:26:58.592Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/1b/a9/c7673501a1afc804cf56afd62af663d2e4c47365ea7944819c818b474de8/rsp_jupyter_extensions-0.28.0-py3-none-any.whl", hash = "sha256:ba0ef4487d7ae965aeb64cd16a9f95847bc8a31e08597b087bb62b2511b03deb", size = 331965, upload-time = "2026-09-16T19:26:57.129Z" },
 ]
 
 [[package]]
@@ -5981,7 +5977,7 @@ lab = [
     { name = "panel" },
     { name = "plotly" },
     { name = "pythreejs" },
-    { name = "rsp-jupyter-extensions", specifier = ">=0.27.2" },
+    { name = "rsp-jupyter-extensions", git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?branch=main" },
     { name = "sidecar" },
 ]
 
