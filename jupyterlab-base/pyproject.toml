@@ -51,9 +51,6 @@ lab = [
     "ipywebrtc",
     "ipywidgets",
     "jupyter-ai",
-    "jupyter-ai-jupyternaut",
-    "jupyter-ai-litellm",
-    "jupyter-ai-magic-commands",
     "jupyter-bokeh",
     "jupyter-console",
     "jupyter-firefly-extensions",
@@ -64,7 +61,6 @@ lab = [
     "jupyterlab-execute-time",
     "jupyterlab-iframe",
     "jupyterlab-widgets",
-    "lckr-jupyterlab-variableinspector",
     "nbconvert",
     "nbdime",
     "notebook",
@@ -72,9 +68,12 @@ lab = [
     "panel",
     "plotly",
     "pythreejs",
-    "rsp-jupyter-extensions==0.22.0",  # Pin to pre-server-documents
+    "rsp-jupyter-extensions>=0.25.0",
     "sidecar",
 ]
 
 [tool.setuptools_scm]
 root = ".."
+
+[tool.uv.sources]
+rsp-jupyter-extensions = { git="https://github.com/lsst-sqre/rsp-jupyter-extensions", branch="tickets/DM-55555" }
