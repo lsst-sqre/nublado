@@ -50,7 +50,6 @@ lab = [
     "ipyvuetify",
     "ipywebrtc",
     "ipywidgets",
-    "jupyter-ai",
     "jupyter-bokeh",
     "jupyter-console",
     "jupyter-firefly-extensions",
