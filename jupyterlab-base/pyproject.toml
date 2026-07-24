@@ -52,6 +52,7 @@ lab = [
     "ipywidgets",
     "jupyter-bokeh",
     "jupyter-console",
+    "jupyter-collaboration>=5.0.0a0",
     "jupyter-firefly-extensions",
     "jupyter-resource-usage",
     "jupyter-server-proxy",
