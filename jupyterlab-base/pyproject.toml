@@ -64,7 +64,6 @@ lab = [
     "jupyterlab-execute-time",
     "jupyterlab-iframe",
     "jupyterlab-widgets",
-    "nb-cli",
     "nbconvert",
     "nbdime",
     "notebook",
