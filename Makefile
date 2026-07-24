@@ -15,7 +15,7 @@ update: update-deps init
 
 .PHONY: update-deps
 update-deps:
-	uv lock --upgrade
+	uv lock --upgrade --prerelease=allow
 	uv lock --upgrade --directory client
 	uv lock --upgrade --directory hub
 	uv run --only-group=lint prek autoupdate
