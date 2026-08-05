@@ -9,3 +9,9 @@ npm install --global @agentclientprotocol/claude-agent-acp
 npm install --global @zed-industries/codex-acp
 npm install --global @openai/codex
 npm install --global @google/gemini-cli
+npm install --global skills
+
+# Not sure this works globally, but let's find out.
+
+npx skills add vercel-labs/agent-skills
+npx skills install jupyter-ai-contrib/nb-cli
