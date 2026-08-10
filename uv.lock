@@ -2896,7 +2896,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "jupyter-builder"
 version = "1.2.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2910,8 +2909,6 @@ wheels = [
 ]
 
 [[package]]
-=======
->>>>>>> acd1842d (Remove jupyter-ai too)
 name = "jupyter-cache"
 version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -3232,28 +3229,23 @@ wheels = [
 
 [[package]]
 name = "jupyterlab"
-<<<<<<< HEAD
 version = "4.7.0a1"
-=======
-version = "4.5.10"
->>>>>>> acd1842d (Remove jupyter-ai too)
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-lru" },
     { name = "httpx" },
     { name = "ipykernel" },
     { name = "jinja2" },
+    { name = "jupyter-builder" },
     { name = "jupyter-core" },
     { name = "jupyter-lsp" },
     { name = "jupyter-server" },
     { name = "jupyterlab-server" },
     { name = "notebook-shim" },
     { name = "packaging" },
-    { name = "setuptools" },
     { name = "tornado" },
     { name = "traitlets" },
 ]
-<<<<<<< HEAD
 sdist = { url = "https://files.pythonhosted.org/packages/d5/c4/162383f6ca29df45f443f1e821e3455868ef915b529f3f85277e7eb017bb/jupyterlab-4.7.0a1.tar.gz", hash = "sha256:04f5835786330aaee011ae0fe933805588a26c6cd841ff7a0f223850a8b5aec7", size = 28330077, upload-time = "2026-07-21T13:14:02.738Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d3/f8/d3e3345be04f2abdabc41389560dae44bd44f727e5f60e10a347456ee2a8/jupyterlab-4.7.0a1-py3-none-any.whl", hash = "sha256:19613a4944a60fb27fcfec94f66cb51e2166f413a2906295b16a9b528116c5f7", size = 17319609, upload-time = "2026-07-21T13:13:58.543Z" },
@@ -3294,11 +3286,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/0e/6a/b6af21fdf86eca5b8a24a9d2e051c5336435978a5d098b68f1d4fc5f916e/jupyterlab_eventlistener-0.4.0.tar.gz", hash = "sha256:2f7a28add00db89d4f2c86485181c1d0e187a03e80573babcfb06bfb35cfbdf9", size = 179389, upload-time = "2024-12-19T19:05:21.802Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/63/3f/b134971e57cd67fe42343ffa8d84d3c5efaed89367740028ec4db7f81f00/jupyterlab_eventlistener-0.4.0-py3-none-any.whl", hash = "sha256:7b4a1dbd602d148791692dc40a35b902734557021fce5c3d274424039f4d9620", size = 18123, upload-time = "2024-12-19T19:05:19.94Z" },
-=======
-sdist = { url = "https://files.pythonhosted.org/packages/74/24/621aa20ec0d2fe72f52095bda0fc1be7738ac21aabe4129ff623140d5cdf/jupyterlab-4.5.10.tar.gz", hash = "sha256:77e8d80b78be59b2eaba2154562e21caa6e79c2f1281d6f486584f7144ee2f47", size = 23998879, upload-time = "2026-07-21T12:43:27.324Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9f/c9/940f95f17ee4e413ad252bf8d4f2ee9a341f18cfeda87775fef3d7847321/jupyterlab-4.5.10-py3-none-any.whl", hash = "sha256:5967ca61e692e67a2f30b5a2b901c941dc6ce56c0b0e357bc6d34fed5ec095f6", size = 12452502, upload-time = "2026-07-21T12:43:23.542Z" },
->>>>>>> acd1842d (Remove jupyter-ai too)
 ]
 
 [[package]]
@@ -4274,28 +4261,19 @@ wheels = [
 
 [[package]]
 name = "notebook"
-<<<<<<< HEAD
 version = "7.7.0a1"
-=======
-version = "7.5.7"
->>>>>>> acd1842d (Remove jupyter-ai too)
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "jupyter-builder" },
     { name = "jupyter-server" },
     { name = "jupyterlab" },
     { name = "jupyterlab-server" },
     { name = "notebook-shim" },
     { name = "tornado" },
 ]
-<<<<<<< HEAD
 sdist = { url = "https://files.pythonhosted.org/packages/df/19/ea987c7e1cf36ecb0e9f88da9ff13d966edd81e4f39d9d3c25c42d7bbb1a/notebook-7.7.0a1.tar.gz", hash = "sha256:9b8a15b2de0be8e58df5a58aa23da98f5515d03d2d40a5a4126652a5e697e544", size = 5584256, upload-time = "2026-07-22T11:30:29.043Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fe/2f/88a1800ee29bc83f7910d9142a881072807efd28a336faf3f862338e1f17/notebook-7.7.0a1-py3-none-any.whl", hash = "sha256:b98fc86140ee9b2ba2a48e4b8e1bef83a0fdd386854c598948632e5282d86016", size = 5624786, upload-time = "2026-07-22T11:30:26.174Z" },
-=======
-sdist = { url = "https://files.pythonhosted.org/packages/3e/c4/f71f8716f2903e9e817a47f534b9fd84831e155e2acb32c26691c8e06243/notebook-7.5.7.tar.gz", hash = "sha256:d6d59288a25303b25e1dcb71e9b017ec3a785f7d92f38b9bc288ca1970d5b0a8", size = 14171612, upload-time = "2026-06-04T18:33:45.224Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e1/4d/b3347f7073a377273531efe4ffc738fc910e93718fd2838c7ebf6736c6af/notebook-7.5.7-py3-none-any.whl", hash = "sha256:1f95f79d117e47d20b5555b5c85a397d2cfecf136978aaab767cf0314b09165b", size = 14583767, upload-time = "2026-06-04T18:33:40.987Z" },
->>>>>>> acd1842d (Remove jupyter-ai too)
 ]
 
 [[package]]
@@ -5985,13 +5963,8 @@ wheels = [
 
 [[package]]
 name = "rsp-jupyter-extensions"
-<<<<<<< HEAD
 version = "0.27.1"
 source = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?branch=main#0c7e87087791b3832cc8f5b44df879ef5199ee35" }
-=======
-version = "0.27.0"
-source = { registry = "https://pypi.org/simple" }
->>>>>>> acd1842d (Remove jupyter-ai too)
 dependencies = [
     { name = "httpx" },
     { name = "jinja2" },
@@ -6002,10 +5975,6 @@ dependencies = [
     { name = "requests" },
     { name = "rubin-repertoire" },
     { name = "xmltodict" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1b/c3/0550b4ff1bce4e094aa91114a6b69be5bfac6f54d7dfc71e13f1061d615d/rsp_jupyter_extensions-0.27.0.tar.gz", hash = "sha256:427e3d574d57ec9667f2854bf532460b209c134fe2ef36859711f9bea430faa2", size = 375536, upload-time = "2026-07-23T20:40:23.596Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9b/da/63b7773b33fe1ba734fc324175049d907245ad155799c179b6765b225b86/rsp_jupyter_extensions-0.27.0-py3-none-any.whl", hash = "sha256:d74b8e91c9f6cb0b65767f9976c641ad2e4d36f85619c3dc397a7b602783f6e0", size = 198629, upload-time = "2026-07-23T20:40:22.001Z" },
 ]
 
 [[package]]
@@ -6176,7 +6145,7 @@ lab = [
     { name = "jupyter-resource-usage" },
     { name = "jupyter-server-proxy" },
     { name = "jupyterhub" },
-    { name = "jupyterlab", specifier = "<4.6.0" },
+    { name = "jupyterlab" },
     { name = "jupyterlab-execute-time" },
     { name = "jupyterlab-iframe" },
     { name = "jupyterlab-widgets" },
@@ -6188,11 +6157,7 @@ lab = [
     { name = "panel" },
     { name = "plotly" },
     { name = "pythreejs" },
-<<<<<<< HEAD
     { name = "rsp-jupyter-extensions", git = "https://github.com/lsst-sqre/rsp-jupyter-extensions?branch=main" },
-=======
-    { name = "rsp-jupyter-extensions", specifier = ">=0.27.0" },
->>>>>>> acd1842d (Remove jupyter-ai too)
     { name = "sidecar" },
 ]
 
@@ -6407,15 +6372,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/26/c1/d2bbb2b03bdc2ef14b35e02b647b8489156c50b6e0b8bacc5fa303902e23/sentry_sdk-2.72.0.tar.gz", hash = "sha256:0d2ffbc28ee2e63cbaf3d015e93b448cffcc3ef3be03a44704ad36ade72faa95", size = 1069699, upload-time = "2026-10-12T13:08:11.195Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d0/0b/0dd9686842d9dc49c3ee84cced31c54bceb0fb52a826be7d3d4fe30d882a/sentry_sdk-2.72.0-py3-none-any.whl", hash = "sha256:3e13ace4ffd0b3cc78288236edfc4e4bd90eb12a396cc5845fa10a58ff289f50", size = 544754, upload-time = "2026-10-12T13:08:01.619Z" },
-]
-
-[[package]]
-name = "setuptools"
-version = "83.0.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/34/26/f5d29e25ffdb535afef2d35cdb55b325298f96debd670da4c325e08d70f4/setuptools-83.0.0.tar.gz", hash = "sha256:025bccbbf0fa05b6192bc64ae1e7b16e001fd6d6d4d5de03c97b1c1ade523bef", size = 1154254, upload-time = "2026-07-04T15:31:22.699Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5d/40/e1e72872c6354b306daef1703549e8e83b4d43cfea356311bf722a043752/setuptools-83.0.0-py3-none-any.whl", hash = "sha256:29b23c360f22f414dc7336bb39178cc7bcbf6021ed2733cde173f09dba19abb3", size = 1008090, upload-time = "2026-07-04T15:31:20.885Z" },
 ]
 
 [[package]]
