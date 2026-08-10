@@ -56,7 +56,7 @@ lab = [
     "jupyter-resource-usage",
     "jupyter-server-proxy",
     "jupyterhub",
-    "jupyterlab<4.6.0",
+    "jupyterlab",
     "jupyterlab-execute-time",
     "jupyterlab-iframe",
     "jupyterlab-widgets",
