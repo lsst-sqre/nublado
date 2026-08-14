@@ -6,6 +6,17 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-16.0.0'></a>
+## 16.0.0 (2026-08-14)
+
+### Backwards-incompatible changes
+
+- Jupyter AI and RTC features removed from jupyterlab-base due to stability issues.
+
+### Other changes
+
+- PDF export no longer depends on Pandoc.
+
 <a id='changelog-15.1.0'></a>
 ## 15.1.0 (2026-06-11)
 
