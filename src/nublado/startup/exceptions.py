@@ -4,7 +4,7 @@ import errno
 import os
 import subprocess
 from collections.abc import Iterable
-from enum import Enum
+from enum import IntEnum
 from shlex import join
 from typing import Any, Self
 
@@ -77,7 +77,7 @@ class CommandTimedOutError(Exception):
 # start at 200 to give that some expansion room.
 
 
-class RSPErrorCode(Enum):
+class RSPErrorCode(IntEnum):
     """New Error codes for RSP Startup."""
 
     EBADENV = 200

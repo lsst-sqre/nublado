@@ -54,16 +54,15 @@ class Preparer:
             self._home = Path("/tmp")
         else:
             self._home = Path(os.environ["NUBLADO_HOME"])
+            # Keep the real homedir for error reporting; HOME will be reset
+            # to temporary space (scratch or /tmp) on abnormal startup.
+            self._env["NB_HOME"] = str(self._home)
+
         self._env["HOME"] = str(self._home)
 
         # Force HOME in our own environment to be the discovered value since
         # git-lfs setup uses HOME.
         os.environ["HOME"] = self._env["HOME"]
-
-        # Force NB_HOME to be HOME, and never change it, so that we will
-        # have the real home directory to report if there's a failure
-        # that forces us into abnormal startup mode
-        self._env["NB_HOME"] = self._env["HOME"]
 
     def prepare(self) -> None:
         """Make necessary modifications to start the user lab."""

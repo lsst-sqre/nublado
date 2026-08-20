@@ -75,5 +75,4 @@ lab = [
 root = ".."
 
 [tool.uv.sources]
-rsp-jupyter-extensions = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions", branch="tickets/DM-55890" }
-
+rsp-jupyter-extensions = { git = "https://github.com/lsst-sqre/rsp-jupyter-extensions", branch = "tickets/DM-55890" }
