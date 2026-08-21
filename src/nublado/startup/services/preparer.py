@@ -54,6 +54,10 @@ class Preparer:
             self._home = Path("/tmp")
         else:
             self._home = Path(os.environ["NUBLADO_HOME"])
+            # Keep the real homedir for error reporting; HOME will be reset
+            # to temporary space (scratch or /tmp) on abnormal startup.
+            self._env["NB_HOME"] = str(self._home)
+
         self._env["HOME"] = str(self._home)
 
         # Force HOME in our own environment to be the discovered value since

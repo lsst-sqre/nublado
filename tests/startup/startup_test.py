@@ -205,6 +205,8 @@ def test_busted_homedir(
     pr.prepare()
     assert pr._broken
     assert pr._env["ABNORMAL_STARTUP"] == "TRUE"
+    assert pr._env["NB_HOME"] == "/home/hambone"
+    assert pr._env["HOME"] != pr._env["NB_HOME"]
     assert pr._env["ABNORMAL_STARTUP_ERRNO"] in (
         str(errno.EDQUOT),
         str(errno.ENOSPC),

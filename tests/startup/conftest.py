@@ -33,9 +33,14 @@ def rsp_fs(
     fs.create_dir("/etc/nublado/startup")
     fs.create_dir("/scratch")
 
+    # If you're testing from inside an RSP instance, you want to clear these.
+    monkeypatch.delenv("AWS_SHARED_CREDENTIALS_FILE", raising=False)
     monkeypatch.delenv("DAF_BUTLER_CACHE_DIRECTORY", raising=False)
+    monkeypatch.delenv("IMAGE_DESCRIPTION", raising=False)
+    monkeypatch.delenv("JUPYTER_IMAGE_SPEC", raising=False)
     monkeypatch.delenv("TMPDIR", raising=False)
 
+    monkeypatch.setenv("HOMEDIR_SCHEMA", "username")
     monkeypatch.setenv("NUBLADO_HOME", "/home/hambone")
     monkeypatch.setenv("NUBLADO_RUNTIME_MOUNTS_DIR", "/etc/nublado")
     monkeypatch.setenv("SCRATCH_PATH", "/scratch")
