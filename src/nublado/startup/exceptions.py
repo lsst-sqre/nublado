@@ -81,7 +81,8 @@ class RSPErrorCode(IntEnum):
     """New Error codes for RSP Startup."""
 
     EBADENV = 200
-    EUNKNOWN = 201
+    ENOWRITEABLESERVERROOT = 201
+    EUNKNOWN = 202
 
 
 # Used internally to populate our RSPStartupErrors
@@ -89,6 +90,10 @@ _rsp_errors: dict[int, dict[str, str | int]] = {
     RSPErrorCode.EBADENV.value: {
         "errorcode": "EBADENV",  # Bad environment variable
         "strerror": "Missing environment variable",
+    },
+    RSPErrorCode.ENOWRITEABLESERVERROOT: {
+        "errorcode": "ENOWRITEABLESERVERROOT",  # Nowhere to start server
+        "strerror": "No writeable $JUPYTER_SERVER_ROOT",
     },
     RSPErrorCode.EUNKNOWN.value: {
         "errorcode": "EUNKNOWN",  # Unknown error

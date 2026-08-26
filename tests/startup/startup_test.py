@@ -69,6 +69,17 @@ def test_set_tmpdir(
     em.configure_env()
     assert "TMPDIR" not in em._env
 
+    # Can't write to scratch dir; temp home ends up in /tmp
+    monkeypatch.setenv("SCRATCH_PATH", "/unwriteable/scratch")
+    pr = Preparer()
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    em.configure_env()
+    monkeypatch.setenv("SCRATCH_DIR", "/nonexistent/scratch/hambone")
+    pr._broken = True  # Break it
+    assert pr._env["HOME"] == "/home/hambone"
+    pr._make_abnormal_startup_environment()
+    assert pr._env["HOME"] == "/tmp"
+
 
 def test_set_butler_cache(
     rsp_fs: FakeFilesystem, monkeypatch: pytest.MonkeyPatch

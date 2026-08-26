@@ -194,6 +194,7 @@ skip-magic-trailing-comma = true
 ]
 "src/nublado/startup/services/preparer.py" = [
     "S108",    # constructing /tmp paths for Kubernetes Pods
+    "TRY300",  # the statement does not belong in an else block
 ]
 "tests/models/images/image_test.py" = [
     "PLW0127", # self-assignment clears mypy type narrowing

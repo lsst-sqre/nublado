@@ -32,6 +32,8 @@ def rsp_fs(
     fs.add_real_directory(Path(__file__).parent.parent / "data")
     fs.create_dir("/etc/nublado/startup")
     fs.create_dir("/scratch")
+    fs.create_dir("/unwriteable")
+    fs.chmod("/unwriteable", 0o000)
 
     # If you're testing from inside an RSP instance, you want to clear these.
     monkeypatch.delenv("AWS_SHARED_CREDENTIALS_FILE", raising=False)

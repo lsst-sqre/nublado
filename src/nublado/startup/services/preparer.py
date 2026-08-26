@@ -182,30 +182,55 @@ class Preparer:
         if not self._broken:
             return
 
+        temphome = self._write_error_report()
+        if temphome is None:
+            self._logger.error(
+                "Writing files to report abnormal startup failed."
+            )  # We cannot proceed: nothing is writeable.
+            raise RSPStartupError(
+                errno=RSPErrorCode.ENOWRITEABLESERVERROOT.value
+            )
+        if temphome != self._home:
+            # Might have changed: if we tried SCRATCH_DIR and it failed,
+            # we will have fallen back to literal /tmp.
+            self._home = temphome
+            self._env["HOME"] = str(temphome)
+
+    def _write_error_report(self) -> Path | None:
         txt = self._make_abnormal_landing_markdown()
         s_obj = {"defaultViewers": {"markdown": "Markdown Preview"}}
         s_txt = json.dumps(s_obj)
 
-        try:
-            temphome = os.getenv("SCRATCH_DIR", "/tmp")
-            welcome = Path(temphome) / "notebooks" / "tutorials" / "welcome.md"
-            welcome.parent.mkdir(exist_ok=True, parents=True)
-            welcome.write_text(txt)
-            settings = (
-                Path(temphome)
-                / ".jupyter"
-                / "lab"
-                / "user-settings"
-                / "@jupyterlab"
-                / "docmanager-extension"
-                / "plugin.jupyterlab-settings"
-            )
-            settings.parent.mkdir(exist_ok=True, parents=True)
-            settings.write_text(s_txt)
-        except Exception:
-            self._logger.exception(
-                "Writing files to report abnormal startup failed"
-            )
+        th = os.getenv("SCRATCH_DIR", "/tmp")
+        ths = [Path(x) for x in {th, "/tmp"}]
+        # Try SCRATCH_DIR first; if it is not writeable (perhaps because it's
+        # really on the same volume as /home (e.g. IDF-dev and -int), fall
+        # back to /tmp.  If that's not writeable, give up and return None,
+        # which will cause startup to fail because it will trigger an uncaught
+        # exception.
+        for temphome in ths:
+            welcome = temphome / "notebooks" / "tutorials" / "welcome.md"
+            try:
+                welcome.parent.mkdir(exist_ok=True, parents=True)
+                welcome.write_text(txt)
+                settings = (
+                    temphome
+                    / ".jupyter"
+                    / "lab"
+                    / "user-settings"
+                    / "@jupyterlab"
+                    / "docmanager-extension"
+                    / "plugin.jupyterlab-settings"
+                )
+                settings.parent.mkdir(exist_ok=True, parents=True)
+                settings.write_text(s_txt)
+                return temphome
+            except Exception:
+                self._logger.exception(
+                    "Writing files to report abnormal startup failed"
+                )
+        # If we got here, we couldn't write.
+        return None
 
     def _make_abnormal_landing_markdown(self) -> str:
         errmsg = self._env.get("ABNORMAL_STARTUP_MESSAGE", "<no message>")
