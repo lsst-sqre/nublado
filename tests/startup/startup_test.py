@@ -74,10 +74,19 @@ def test_set_tmpdir(
     pr = Preparer()
     em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
     em.configure_env()
-    monkeypatch.setenv("SCRATCH_DIR", "/nonexistent/scratch/hambone")
+    monkeypatch.setenv("SCRATCH_DIR", "/unwriteable/scratch/hambone")
     pr._broken = True  # Break it
     assert pr._env["HOME"] == "/home/hambone"
+    really_root = False
+    if os.geteuid() == 0:
+        really_root = True
+        # Probably at GitHub; change EUID/EGID out so we can't write.
+        os.setreuid(0, 1000)
+        os.setregid(0, 1000)
     pr._make_abnormal_startup_environment()
+    if really_root:  # Reset EUID/EGID if we need to.
+        os.setreuid(0, 0)
+        os.setregid(0, 0)
     assert pr._env["HOME"] == "/tmp"
 
 
