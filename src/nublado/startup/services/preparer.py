@@ -188,6 +188,11 @@ class Preparer:
             self._logger.error(
                 "Writing files to report abnormal startup failed."
             )
+            # Try to persist env and args anyway; we might be able to get as
+            # far as displaying a dialog box to the user before exploding.
+            self._write_startup_files()
+
+            # The startup container is doomed (so is the Lab).
             raise RSPStartupError(RSPErrorCode.ENOWRITEABLESERVERROOT, None)
 
         # This is the authoritative choice of temporary home: it is the only
@@ -215,11 +220,11 @@ class Preparer:
         # it from there.  It will be a user-specific path on a scratch
         # filesystem, and is absent if we never found usable scratch space.
         #
-        # Try SCRATCH_DIR first; if it is not writeable -- perhaps because it
-        # is really on the same volume as /home, as on IDF-dev and -int -- fall
+        # Try SCRATCH_DIR first; if it is not writeable (perhaps because it
+        # is really on the same volume as /home, as on IDF-dev and -int), fall
         # back to /tmp.  Any reasonably-configured RSP running under K8s will
         # not have a shared /tmp.  If neither is writeable, give up and return
-        # None.  dict.fromkeys, rather than a set, so that the order is
+        # None.  Use dict.fromkeys(), rather than a set, so that the order is
         # deterministic when SCRATCH_DIR is set.
         th = self._env.get("SCRATCH_DIR", "/tmp")
         ths = [Path(x) for x in dict.fromkeys((th, "/tmp"))]
@@ -362,7 +367,9 @@ class Preparer:
 
         # Used by shell startup inside sciplat-lab (Rubin-specific).
         self._env["RUNNING_INSIDE_JUPYTERLAB"] = "TRUE"
+        self._write_startup_files()
 
+    def _write_startup_files(self) -> None:
         # If any of these fails, lsst.rsp.startup ought to react to the
         # lack of the appropriate files and start in degraded mode with
         # an explanation.

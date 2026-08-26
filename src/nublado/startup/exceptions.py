@@ -81,8 +81,9 @@ class RSPErrorCode(IntEnum):
     """New Error codes for RSP Startup."""
 
     # These values are written into env.json as ABNORMAL_STARTUP_ERRNO and
-    # read by rsp-jupyter-extensions, which ships in a separately-released
-    # image.  Only ever append: renumbering an existing code will make an
+    # read by rsp-jupyter-extensions, which is not part of this codebase and
+    # is loaded (and does error reporting) within JupyterLab startup.
+    # Only ever append: renumbering an existing code will make an
     # older Lab image report the wrong error.
     EBADENV = 200
     EUNKNOWN = 201
@@ -119,11 +120,8 @@ class RSPStartupError(OSError):
 
     Notes
     -----
-    Always pass at least two positional arguments, as in
-    ``RSPStartupError(RSPErrorCode.EBADENV, None)``.  `OSError` treats a lone
-    argument as the message rather than the error number, so a single-argument
-    call leaves ``errno`` unset and the error is reported as ``EUNKNOWN``.
-    Pass `None` for ``strerror`` to get the default text for the code.
+    If you pass a single argument, that will be treated as errno.errorcode,
+    and the message will be the default message for that error number.
     """
 
     # Additional errors we're defining, not present in
@@ -133,7 +131,19 @@ class RSPStartupError(OSError):
     # value of 106.  So we're going to start at 200 for our custom errors.
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+        if len(args) < 2:
+            # OSError takes just a single argument as the message.
+            # If we get a single argument, it should be the errorcode.
+            #
+            # Rearrange the arguments so we correctly construct the superclass.
+            #
+            # If we call this with no arguments at all, it's a bare EUNKNOWN.
+            errnoi = RSPErrorCode.EUNKNOWN.value if len(args) == 0 else args[0]
+            errdict = _rsp_errors.get(errnoi)
+            errstr = errdict.get("errstr") if errdict else None
+            super().__init__(errnoi, errstr)
+        else:
+            super().__init__(*args, **kwargs)
         errnum = self.errno
         # See if it's one of our custom errors or unknown.
         if errnum is None:  # Just to keep mypy happy; can't happen.
@@ -156,6 +166,7 @@ class RSPStartupError(OSError):
         rsp_e = _rsp_errors[errnum]
         # args[1] is optional: callers may raise with only an error code, in
         # which case we take the default strerror for that code.
+        # We should have already fixed this higher up.
         strerror = args[1] if len(args) > 1 else None
         self.strerror = strerror or str(rsp_e["strerror"])
         self.errorcode = str(rsp_e["errorcode"])
