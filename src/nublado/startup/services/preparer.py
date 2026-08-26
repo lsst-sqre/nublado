@@ -356,6 +356,11 @@ class Preparer:
         return result
 
     def _write_lab_startup_files(self) -> None:
+        # Used by shell startup inside sciplat-lab (Rubin-specific).  Set
+        # before the abnormal startup handling, because that may write the
+        # startup files itself and then bail out.
+        self._env["RUNNING_INSIDE_JUPYTERLAB"] = "TRUE"
+
         if self._broken:
             self._logger.warning(
                 f"Abnormal startup: {self._env['ABNORMAL_STARTUP_MESSAGE']}"
@@ -365,8 +370,6 @@ class Preparer:
             # the user can actually see the report in.
             self._make_abnormal_startup_environment()
 
-        # Used by shell startup inside sciplat-lab (Rubin-specific).
-        self._env["RUNNING_INSIDE_JUPYTERLAB"] = "TRUE"
         self._write_startup_files()
 
     def _write_startup_files(self) -> None:

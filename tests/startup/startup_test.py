@@ -143,6 +143,28 @@ def test_abnormal_startup_nothing_writeable(
     assert excinfo.value.strerror
 
 
+def test_abnormal_startup_doomed_still_writes_files(
+    rsp_fs: FakeFilesystem, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Even with nowhere to write the report, persist the startup files.
+
+    The Lab will probably not start, but if it does it needs enough to
+    explain itself, which includes RUNNING_INSIDE_JUPYTERLAB.
+    """
+    pr = Preparer()
+    pr._broken = True
+    pr._env["ABNORMAL_STARTUP_MESSAGE"] = "test breakage"
+    monkeypatch.setattr(Preparer, "_write_error_report", lambda self: None)
+
+    with pytest.raises(RSPStartupError):
+        pr._write_lab_startup_files()
+
+    env = json.loads(Path("/etc/nublado/startup/env.json").read_text())
+    assert env["RUNNING_INSIDE_JUPYTERLAB"] == "TRUE"
+    assert env["ABNORMAL_STARTUP_MESSAGE"] == "test breakage"
+    assert Path("/etc/nublado/startup/args.json").is_file()
+
+
 def test_set_butler_cache(
     rsp_fs: FakeFilesystem, monkeypatch: pytest.MonkeyPatch
 ) -> None:
