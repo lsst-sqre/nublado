@@ -182,30 +182,84 @@ class Preparer:
         if not self._broken:
             return
 
+        temphome = self._write_error_report()
+        if temphome is None:
+            # We cannot proceed: nothing is writeable.
+            self._logger.error(
+                "Writing files to report abnormal startup failed."
+            )
+            # Try to persist env and args anyway; we might be able to get as
+            # far as displaying a dialog box to the user before exploding.
+            self._write_startup_files()
+
+            # The startup container is doomed (so is the Lab).
+            raise RSPStartupError(RSPErrorCode.ENOWRITEABLESERVERROOT, None)
+
+        # This is the authoritative choice of temporary home: it is the only
+        # directory we know we could actually write the error report into.
+        # Do not override it later in startup.
+        self._logger.warning(f"Launching with homedir='{temphome}'")
+        self._home = temphome
+        self._env["HOME"] = str(temphome)
+
+    def _write_error_report(self) -> Path | None:
+        """Write the abnormal-startup landing page somewhere writeable.
+
+        Returns
+        -------
+        Path | None
+            The directory the report was written to, which becomes the
+            temporary home directory, or `None` if nowhere was writeable.
+        """
         txt = self._make_abnormal_landing_markdown()
         s_obj = {"defaultViewers": {"markdown": "Markdown Preview"}}
         s_txt = json.dumps(s_obj)
 
-        try:
-            temphome = os.getenv("SCRATCH_DIR", "/tmp")
-            welcome = Path(temphome) / "notebooks" / "tutorials" / "welcome.md"
-            welcome.parent.mkdir(exist_ok=True, parents=True)
-            welcome.write_text(txt)
-            settings = (
-                Path(temphome)
-                / ".jupyter"
-                / "lab"
-                / "user-settings"
-                / "@jupyterlab"
-                / "docmanager-extension"
-                / "plugin.jupyterlab-settings"
-            )
-            settings.parent.mkdir(exist_ok=True, parents=True)
-            settings.write_text(s_txt)
-        except Exception:
-            self._logger.exception(
-                "Writing files to report abnormal startup failed"
-            )
+        # SCRATCH_DIR is set by EnvironmentConfigurator into the Lab
+        # environment we are building, not into our own environment, so read
+        # it from there.  It will be a user-specific path on a scratch
+        # filesystem, and is absent if we never found usable scratch space.
+        #
+        # Try SCRATCH_DIR first; if it is not writeable (perhaps because it
+        # is really on the same volume as /home, as on IDF-dev and -int), fall
+        # back to /tmp.  Any reasonably-configured RSP running under K8s will
+        # not have a shared /tmp.  If neither is writeable, give up and return
+        # None.  Use dict.fromkeys(), rather than a set, so that the order is
+        # deterministic when SCRATCH_DIR is set.
+        th = self._env.get("SCRATCH_DIR", "/tmp")
+        ths = [Path(x) for x in dict.fromkeys((th, "/tmp"))]
+        for attempt, temphome in enumerate(ths, start=1):
+            welcome = temphome / "notebooks" / "tutorials" / "welcome.md"
+            try:
+                welcome.parent.mkdir(exist_ok=True, parents=True)
+                welcome.write_text(txt)
+                settings = (
+                    temphome
+                    / ".jupyter"
+                    / "lab"
+                    / "user-settings"
+                    / "@jupyterlab"
+                    / "docmanager-extension"
+                    / "plugin.jupyterlab-settings"
+                )
+                settings.parent.mkdir(exist_ok=True, parents=True)
+                settings.write_text(s_txt)
+                return temphome
+            except Exception as exc:
+                # Only the final failure is fatal; log the rest as warnings so
+                # a successful fallback does not look like an error.
+                if attempt < len(ths):
+                    self._logger.warning(
+                        f"Writing abnormal startup report to {temphome!s}"
+                        f" failed ({exc!s}); trying next candidate"
+                    )
+                else:
+                    self._logger.exception(
+                        f"Writing abnormal startup report to {temphome!s}"
+                        " failed"
+                    )
+        # If we got here, we couldn't write.
+        return None
 
     def _make_abnormal_landing_markdown(self) -> str:
         errmsg = self._env.get("ABNORMAL_STARTUP_MESSAGE", "<no message>")
@@ -302,25 +356,23 @@ class Preparer:
         return result
 
     def _write_lab_startup_files(self) -> None:
+        # Used by shell startup inside sciplat-lab (Rubin-specific).  Set
+        # before the abnormal startup handling, because that may write the
+        # startup files itself and then bail out.
+        self._env["RUNNING_INSIDE_JUPYTERLAB"] = "TRUE"
+
         if self._broken:
             self._logger.warning(
                 f"Abnormal startup: {self._env['ABNORMAL_STARTUP_MESSAGE']}"
             )
+            # This resets HOME and self._home to wherever it managed to write
+            # the error report, so that the Lab's notebook-dir is a directory
+            # the user can actually see the report in.
             self._make_abnormal_startup_environment()
 
-            # We will check to see if we got SCRATCH_DIR set before we broke,
-            # and if so, use that, which would be a user-specific path on a
-            # scratch filesystem.  If we didn't, we just use "/tmp" and hope
-            # for the best.  Any reasonably-configured RSP running under K8s
-            # will not have a shared "/tmp".
-            temphome = self._env.get("SCRATCH_DIR", "/tmp")
-            self._logger.warning(f"Launching with homedir='{temphome}'")
-            self._env["HOME"] = temphome
-            self._home = Path(temphome)
+        self._write_startup_files()
 
-        # Used by shell startup inside sciplat-lab (Rubin-specific).
-        self._env["RUNNING_INSIDE_JUPYTERLAB"] = "TRUE"
-
+    def _write_startup_files(self) -> None:
         # If any of these fails, lsst.rsp.startup ought to react to the
         # lack of the appropriate files and start in degraded mode with
         # an explanation.
