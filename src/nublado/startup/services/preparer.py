@@ -184,31 +184,46 @@ class Preparer:
 
         temphome = self._write_error_report()
         if temphome is None:
+            # We cannot proceed: nothing is writeable.
             self._logger.error(
                 "Writing files to report abnormal startup failed."
-            )  # We cannot proceed: nothing is writeable.
-            raise RSPStartupError(
-                errno=RSPErrorCode.ENOWRITEABLESERVERROOT.value
             )
-        if temphome != self._home:
-            # Might have changed: if we tried SCRATCH_DIR and it failed,
-            # we will have fallen back to literal /tmp.
-            self._home = temphome
-            self._env["HOME"] = str(temphome)
+            raise RSPStartupError(RSPErrorCode.ENOWRITEABLESERVERROOT, None)
+
+        # This is the authoritative choice of temporary home: it is the only
+        # directory we know we could actually write the error report into.
+        # Do not override it later in startup.
+        self._logger.warning(f"Launching with homedir='{temphome}'")
+        self._home = temphome
+        self._env["HOME"] = str(temphome)
 
     def _write_error_report(self) -> Path | None:
+        """Write the abnormal-startup landing page somewhere writeable.
+
+        Returns
+        -------
+        Path | None
+            The directory the report was written to, which becomes the
+            temporary home directory, or `None` if nowhere was writeable.
+        """
         txt = self._make_abnormal_landing_markdown()
         s_obj = {"defaultViewers": {"markdown": "Markdown Preview"}}
         s_txt = json.dumps(s_obj)
 
-        th = os.getenv("SCRATCH_DIR", "/tmp")
-        ths = [Path(x) for x in {th, "/tmp"}]
-        # Try SCRATCH_DIR first; if it is not writeable (perhaps because it's
-        # really on the same volume as /home (e.g. IDF-dev and -int), fall
-        # back to /tmp.  If that's not writeable, give up and return None,
-        # which will cause startup to fail because it will trigger an uncaught
-        # exception.
-        for temphome in ths:
+        # SCRATCH_DIR is set by EnvironmentConfigurator into the Lab
+        # environment we are building, not into our own environment, so read
+        # it from there.  It will be a user-specific path on a scratch
+        # filesystem, and is absent if we never found usable scratch space.
+        #
+        # Try SCRATCH_DIR first; if it is not writeable -- perhaps because it
+        # is really on the same volume as /home, as on IDF-dev and -int -- fall
+        # back to /tmp.  Any reasonably-configured RSP running under K8s will
+        # not have a shared /tmp.  If neither is writeable, give up and return
+        # None.  dict.fromkeys, rather than a set, so that the order is
+        # deterministic when SCRATCH_DIR is set.
+        th = self._env.get("SCRATCH_DIR", "/tmp")
+        ths = [Path(x) for x in dict.fromkeys((th, "/tmp"))]
+        for attempt, temphome in enumerate(ths, start=1):
             welcome = temphome / "notebooks" / "tutorials" / "welcome.md"
             try:
                 welcome.parent.mkdir(exist_ok=True, parents=True)
@@ -225,10 +240,19 @@ class Preparer:
                 settings.parent.mkdir(exist_ok=True, parents=True)
                 settings.write_text(s_txt)
                 return temphome
-            except Exception:
-                self._logger.exception(
-                    "Writing files to report abnormal startup failed"
-                )
+            except Exception as exc:
+                # Only the final failure is fatal; log the rest as warnings so
+                # a successful fallback does not look like an error.
+                if attempt < len(ths):
+                    self._logger.warning(
+                        f"Writing abnormal startup report to {temphome!s}"
+                        f" failed ({exc!s}); trying next candidate"
+                    )
+                else:
+                    self._logger.exception(
+                        f"Writing abnormal startup report to {temphome!s}"
+                        " failed"
+                    )
         # If we got here, we couldn't write.
         return None
 
@@ -331,17 +355,10 @@ class Preparer:
             self._logger.warning(
                 f"Abnormal startup: {self._env['ABNORMAL_STARTUP_MESSAGE']}"
             )
+            # This resets HOME and self._home to wherever it managed to write
+            # the error report, so that the Lab's notebook-dir is a directory
+            # the user can actually see the report in.
             self._make_abnormal_startup_environment()
-
-            # We will check to see if we got SCRATCH_DIR set before we broke,
-            # and if so, use that, which would be a user-specific path on a
-            # scratch filesystem.  If we didn't, we just use "/tmp" and hope
-            # for the best.  Any reasonably-configured RSP running under K8s
-            # will not have a shared "/tmp".
-            temphome = self._env.get("SCRATCH_DIR", "/tmp")
-            self._logger.warning(f"Launching with homedir='{temphome}'")
-            self._env["HOME"] = temphome
-            self._home = Path(temphome)
 
         # Used by shell startup inside sciplat-lab (Rubin-specific).
         self._env["RUNNING_INSIDE_JUPYTERLAB"] = "TRUE"

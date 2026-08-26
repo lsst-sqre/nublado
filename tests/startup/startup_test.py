@@ -14,6 +14,7 @@ import yaml
 from pyfakefs.fake_filesystem import FakeFilesystem
 from safir.testing.data import Data
 
+from nublado.startup.exceptions import RSPErrorCode, RSPStartupError
 from nublado.startup.services.credentials import CredentialManager
 from nublado.startup.services.dask import DaskConfigurator
 from nublado.startup.services.environment import EnvironmentConfigurator
@@ -69,25 +70,77 @@ def test_set_tmpdir(
     em.configure_env()
     assert "TMPDIR" not in em._env
 
-    # Can't write to scratch dir; temp home ends up in /tmp
-    monkeypatch.setenv("SCRATCH_PATH", "/unwriteable/scratch")
+
+def test_abnormal_startup_falls_back_to_tmp(rsp_fs: FakeFilesystem) -> None:
+    """SCRATCH_DIR is usable for TMPDIR, but the error report cannot be
+    written there, so we fall back to /tmp -- and that fallback has to survive
+    the rest of startup, because it is the only place the user can see the
+    report.
+    """
     pr = Preparer()
     em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
-    em.configure_env()
-    monkeypatch.setenv("SCRATCH_DIR", "/unwriteable/scratch/hambone")
-    pr._broken = True  # Break it
+    pr._env = em.configure_env()
+    assert pr._env["SCRATCH_DIR"] == "/scratch/hambone"
     assert pr._env["HOME"] == "/home/hambone"
-    really_root = False
-    if os.geteuid() == 0:
-        really_root = True
-        # Probably at GitHub; change EUID/EGID out so we can't write.
-        os.setreuid(0, 1000)
-        os.setregid(0, 1000)
-    pr._make_abnormal_startup_environment()
-    if really_root:  # Reset EUID/EGID if we need to.
-        os.setreuid(0, 0)
-        os.setregid(0, 0)
+
+    # Block the report directory in scratch: "notebooks" exists, but as a
+    # file, so creating notebooks/tutorials raises.  This does not depend on
+    # the uid the tests run as.
+    rsp_fs.create_file("/scratch/hambone/notebooks")
+
+    pr._broken = True  # Break it
+    pr._env["ABNORMAL_STARTUP_MESSAGE"] = "test breakage"
+    pr._write_lab_startup_files()
+
     assert pr._env["HOME"] == "/tmp"
+    assert pr._home == Path("/tmp")
+    welcome = Path("/tmp/notebooks/tutorials/welcome.md")
+    assert "Abnormal startup" in welcome.read_text()
+
+    # The Lab has to be pointed at the directory we actually wrote to.
+    args = json.loads(Path("/etc/nublado/startup/args.json").read_text())
+    assert "--notebook-dir=/tmp" in args
+    env = json.loads(Path("/etc/nublado/startup/env.json").read_text())
+    assert env["HOME"] == "/tmp"
+    # The real homedir is still reported, so the user knows where to tidy up.
+    assert env["NB_HOME"] == "/home/hambone"
+
+
+@pytest.mark.skipif(
+    os.getuid() == 0,
+    reason="pyfakefs skips permission checks when the real uid is 0",
+)
+def test_abnormal_startup_unwriteable_scratch(rsp_fs: FakeFilesystem) -> None:
+    """Same fallback, but triggered by scratch being unwriteable rather than
+    by a path collision.
+    """
+    pr = Preparer()
+    em = EnvironmentConfigurator(env=pr._env, logger=pr._logger)
+    pr._env = em.configure_env()
+    pr._env["SCRATCH_DIR"] = "/unwriteable/scratch"
+
+    pr._broken = True
+    pr._env["ABNORMAL_STARTUP_MESSAGE"] = "test breakage"
+    pr._make_abnormal_startup_environment()
+
+    assert pr._env["HOME"] == "/tmp"
+    assert Path("/tmp/notebooks/tutorials/welcome.md").is_file()
+
+
+def test_abnormal_startup_nothing_writeable(
+    rsp_fs: FakeFilesystem, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If nowhere is writeable we cannot tell the user anything, so fail."""
+    pr = Preparer()
+    pr._broken = True
+    pr._env["ABNORMAL_STARTUP_MESSAGE"] = "test breakage"
+    monkeypatch.setattr(Preparer, "_write_error_report", lambda self: None)
+
+    with pytest.raises(RSPStartupError) as excinfo:
+        pr._make_abnormal_startup_environment()
+    assert excinfo.value.errno == RSPErrorCode.ENOWRITEABLESERVERROOT.value
+    assert excinfo.value.errorcode == "ENOWRITEABLESERVERROOT"
+    assert excinfo.value.strerror
 
 
 def test_set_butler_cache(

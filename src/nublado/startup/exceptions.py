@@ -80,9 +80,13 @@ class CommandTimedOutError(Exception):
 class RSPErrorCode(IntEnum):
     """New Error codes for RSP Startup."""
 
+    # These values are written into env.json as ABNORMAL_STARTUP_ERRNO and
+    # read by rsp-jupyter-extensions, which ships in a separately-released
+    # image.  Only ever append: renumbering an existing code will make an
+    # older Lab image report the wrong error.
     EBADENV = 200
-    ENOWRITEABLESERVERROOT = 201
-    EUNKNOWN = 202
+    EUNKNOWN = 201
+    ENOWRITEABLESERVERROOT = 202
 
 
 # Used internally to populate our RSPStartupErrors
@@ -91,13 +95,13 @@ _rsp_errors: dict[int, dict[str, str | int]] = {
         "errorcode": "EBADENV",  # Bad environment variable
         "strerror": "Missing environment variable",
     },
-    RSPErrorCode.ENOWRITEABLESERVERROOT: {
-        "errorcode": "ENOWRITEABLESERVERROOT",  # Nowhere to start server
-        "strerror": "No writeable $JUPYTER_SERVER_ROOT",
-    },
     RSPErrorCode.EUNKNOWN.value: {
         "errorcode": "EUNKNOWN",  # Unknown error
         "strerror": f"Unknown error {RSPErrorCode.EUNKNOWN.value}",
+    },
+    RSPErrorCode.ENOWRITEABLESERVERROOT.value: {
+        "errorcode": "ENOWRITEABLESERVERROOT",  # Nowhere to start server
+        "strerror": "No writeable directory for the Lab server root",
     },
 }
 
@@ -112,6 +116,14 @@ class RSPStartupError(OSError):
 
     This also gives us the opportunity to set the ``filename`` parameter
     to, for instance, indicate a missing environment variable.
+
+    Notes
+    -----
+    Always pass at least two positional arguments, as in
+    ``RSPStartupError(RSPErrorCode.EBADENV, None)``.  `OSError` treats a lone
+    argument as the message rather than the error number, so a single-argument
+    call leaves ``errno`` unset and the error is reported as ``EUNKNOWN``.
+    Pass `None` for ``strerror`` to get the default text for the code.
     """
 
     # Additional errors we're defining, not present in
@@ -134,7 +146,7 @@ class RSPStartupError(OSError):
         if errnum not in vals:
             # It's not one of ours, and it's not standard.
             # That makes it unknown.
-            # We say 201 the fancy way, in case we ever need to renumber.
+            # We name the code rather than its value, in case we renumber.
             errnum = RSPErrorCode.EUNKNOWN.value
             self.errno = errnum
         errnum = self.errno  # Maybe we reset it to EUNKNOWN
@@ -142,8 +154,9 @@ class RSPStartupError(OSError):
             errnum = RSPErrorCode.EUNKNOWN.value
         # We know this won't be a KeyError
         rsp_e = _rsp_errors[errnum]
-        if len(args) > 1:
-            strerror = args[1]
+        # args[1] is optional: callers may raise with only an error code, in
+        # which case we take the default strerror for that code.
+        strerror = args[1] if len(args) > 1 else None
         self.strerror = strerror or str(rsp_e["strerror"])
         self.errorcode = str(rsp_e["errorcode"])
         if len(args) > 2:
