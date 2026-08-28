@@ -50,7 +50,7 @@ lab = [
     "ipyvuetify",
     "ipywebrtc",
     "ipywidgets",
-    "jupyter-ai",
+    "jupyter-ai[rtc]",
     "jupyter-ai-litellm",
     "jupyter-ai-magic-commands",
     "jupyter-bokeh",
