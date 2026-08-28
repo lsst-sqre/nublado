@@ -2569,7 +2569,7 @@ wheels = [
 
 [[package]]
 name = "jupyter-ai"
-version = "3.2.0rc0"
+version = "3.2.0a0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jupyter-ai-acp-client" },
@@ -2577,14 +2577,15 @@ dependencies = [
     { name = "jupyter-ai-persona-manager" },
     { name = "jupyter-ai-router" },
     { name = "jupyter-ai-tools" },
-    { name = "jupyter-live-content" },
+    { name = "jupyter-server-documents" },
     { name = "jupyter-server-mcp" },
     { name = "jupyterlab-chat" },
     { name = "jupyterlab-commands-toolkit" },
+    { name = "jupyterlab-notebook-awareness" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fb/2e/ade3e8b5d474e17f97df3ea2065de86d2642e48f02f5ea405c456e2bbec2/jupyter_ai-3.2.0rc0.tar.gz", hash = "sha256:e2b634e4c7e2eebc7ef0b6a979a02c3404c4d0ccb6a324f2ceecc3043c1528db", size = 30815660, upload-time = "2026-08-28T02:43:14.136Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/44/f9/c28a618c94b0eced6a86930b47bf645fcc74b88ebbc01cb73768c2b6de44/jupyter_ai-3.2.0a0.tar.gz", hash = "sha256:c0fcd598b01138b0b8f93d911f9cdb47d639fe883555bd7cc249ddc970cf54ea", size = 30756035, upload-time = "2026-08-24T20:15:11.718Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/69/00/b5326b7638a0a13bf191d64fa0f3937dcd3a3842ab291e9dce62248bfe3d/jupyter_ai-3.2.0rc0-py3-none-any.whl", hash = "sha256:7a4d14507504a7a634b56bce161b6572c0a4df53698230ddbd3ee629af12c06d", size = 5026, upload-time = "2026-08-28T02:43:10.916Z" },
+    { url = "https://files.pythonhosted.org/packages/29/49/57f654147303b10f531c309c49629e6dd0e978b907fdec9cec295438eb2b/jupyter_ai-3.2.0a0-py3-none-any.whl", hash = "sha256:9dbecf560106cd0df602b6aa128ea9ac0461e40ed803471d79ad9e1ebc8a0c32", size = 4980, upload-time = "2026-08-24T20:15:07.767Z" },
 ]
 
 [[package]]
@@ -2851,19 +2852,6 @@ wheels = [
 ]
 
 [[package]]
-name = "jupyter-live-content"
-version = "0.1.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "jupyter-server" },
-    { name = "watchfiles" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1f/04/048295f00a16af1c3351b4677bdd1fe065ad8841ebeddbd8a672ebc0ed32/jupyter_live_content-0.1.1.tar.gz", hash = "sha256:0acc3dd881bf9ffd765fc321c21cda06414bca3733af9780612a134ce3db96e0", size = 211199, upload-time = "2026-08-27T05:12:52.422Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/86/f1/6e4a809a0d11df5e964ca18999eb0f0c20d8ab88901060e01379d96430bb/jupyter_live_content-0.1.1-py3-none-any.whl", hash = "sha256:f35f366dd040e9303de6c03a992e35d531726c151bf1cbfb645dd89d8ee0f283", size = 30798, upload-time = "2026-08-27T05:12:50.375Z" },
-]
-
-[[package]]
 name = "jupyter-lsp"
 version = "2.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2917,6 +2905,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/cf/e0/63b481d5b21f81fe23173dfc9eb25629fa1bc174fdc4a2c19d09c1ff8124/jupyter_server-2.21.0.tar.gz", hash = "sha256:70d9a1883f57d3576ea17f4ce061ec1a7aad7ef388d00428cfb7f5e4f0022271", size = 760357, upload-time = "2026-08-27T16:06:34.049Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/8a/cb97c2b353cb46cced413be8f742fa8fcd3cb1659524f27314494aa94968/jupyter_server-2.21.0-py3-none-any.whl", hash = "sha256:2ae2e5ce5e97268553e25aebe040197455673d925b5fc7995477153318160cf7", size = 393961, upload-time = "2026-08-27T16:06:31.814Z" },
+]
+
+[[package]]
+name = "jupyter-server-documents"
+version = "0.3.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jupyter-collaboration-ui" },
+    { name = "jupyter-docprovider" },
+    { name = "jupyter-server" },
+    { name = "jupyter-server-fileid" },
+    { name = "jupyter-ydoc" },
+    { name = "pycrdt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0a/5b/1d42bdb71b6a5b96f404722f2b9e8659ce4d024bf02b1a8e41da9bba9b9e/jupyter_server_documents-0.3.3.tar.gz", hash = "sha256:be51e5c5e8421032272bd9a3ca95413cd83b2a8219512910baad4975d83de17b", size = 502570, upload-time = "2026-08-07T15:26:32.198Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/26/6b/bbdf93a5f1b0f4067a42799dd88eda7ad55ff799a20b2590a6ba75ee16e8/jupyter_server_documents-0.3.3-py3-none-any.whl", hash = "sha256:af4d0068fe7b29fc90f6e8dc53d4b861b99fa7f310bf4535c63a5a6a08407930", size = 300814, upload-time = "2026-08-07T15:26:30.334Z" },
 ]
 
 [[package]]
@@ -3097,15 +3102,15 @@ wheels = [
 
 [[package]]
 name = "jupyterlab-commands-toolkit"
-version = "0.2.0rc0"
+version = "0.1.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jupyter-server" },
     { name = "jupyterlab-eventlistener" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d6/3a/8b560d97fd11160d2738dc29d0fea0b35114f75fc8de24d2b7e512f34ab6/jupyterlab_commands_toolkit-0.2.0rc0.tar.gz", hash = "sha256:39722066bbe545274183e06af8c08615d21d78f30fb101fdb23a52da6a234712", size = 330196, upload-time = "2026-08-27T22:37:31.508Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/29/fb873568c258a385cfcc763ca5f9bf703e60e0ded05d3dee28e71565ba4e/jupyterlab_commands_toolkit-0.1.6.tar.gz", hash = "sha256:e6f81a815e7247841ec875f9fa8c876a45fb13d38401589dd9dc3743e39beaea", size = 82477, upload-time = "2026-04-29T12:29:06.102Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0d/ad/1f887b7fa75ddc3ffc96ed381566c0333ebabd28080a8eb27f3193c1dabf/jupyterlab_commands_toolkit-0.2.0rc0-py3-none-any.whl", hash = "sha256:9087554939009e05b345b3c539ddf82e3a42bfc4009b76ad7362a2b8eb7120c0", size = 170609, upload-time = "2026-08-27T22:37:29.413Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/a4/8020b94a839ead57e2f82eaf29003b826ece4b3847380b159ac8ea083c1b/jupyterlab_commands_toolkit-0.1.6-py3-none-any.whl", hash = "sha256:2a4a917d3dd352d21df16692346c19166ed4bd42e95ac3d2e028377308033b71", size = 23033, upload-time = "2026-04-29T12:29:04.434Z" },
 ]
 
 [[package]]
@@ -3153,6 +3158,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/5e/11/9b7d53fd636bca114092854199d19cbea8ebdd66cd8729e2d2ab32f0496c/jupyterlab_iframe-0.5.0.tar.gz", hash = "sha256:01d729a12470aa9d1878f337a712d6f12065d5cefbd134b6d4e8e80c429eefa7", size = 163777, upload-time = "2023-07-16T16:14:05.801Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/91/f3/fc82c9f22c851e68f17d26a8f3dd603f0bdfdc2005ab7e65961f9c870d2b/jupyterlab_iframe-0.5.0-py3-none-any.whl", hash = "sha256:b14b8adf42f78168d5f776a3d5d77ad340f5873b8c473345f888f6dbc9db6e74", size = 47333, upload-time = "2023-07-16T16:14:04.298Z" },
+]
+
+[[package]]
+name = "jupyterlab-notebook-awareness"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a1/5d/8f3d0d9f40441b147f89247136b32c3dc7765996a5bd40d81a379f9d1c84/jupyterlab_notebook_awareness-0.2.0.tar.gz", hash = "sha256:98ef9e61088bec54cd826a793091b74ea557e69b8b7f9cdc8d8387e0ba60c1be", size = 130697, upload-time = "2025-10-16T23:22:51.143Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3d/b9/f54616ace9225c7688e2076f9f7c64bddd8e221405e581dd44c798573327/jupyterlab_notebook_awareness-0.2.0-py3-none-any.whl", hash = "sha256:c761718b21648bc31ea5b7c38585d0a3ad0f4a5bde9d7feadaaaba301bc276a3", size = 17658, upload-time = "2025-10-16T23:22:52.429Z" },
 ]
 
 [[package]]
@@ -5776,7 +5790,7 @@ lab = [
     { name = "ipyvuetify" },
     { name = "ipywebrtc" },
     { name = "ipywidgets" },
-    { name = "jupyter-ai" },
+    { name = "jupyter-ai", extras = ["rtc"] },
     { name = "jupyter-ai-litellm" },
     { name = "jupyter-ai-magic-commands" },
     { name = "jupyter-bokeh" },
