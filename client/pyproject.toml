@@ -28,7 +28,7 @@ dependencies = [
     "rubin-repertoire<3",
     "safir<16",
     "structlog",
-    "websockets>=14,<17",
+    "websockets>=14,<18",
 ]
 
 dynamic = ["version"]
