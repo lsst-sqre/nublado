@@ -5,7 +5,13 @@ set -euo pipefail
 # Install the various node-based protocol servers and CLIs.
 # These are required both for the CLI and for JupyterLab LLM chat.
 
-npm install --global @agentclientprotocol/claude-agent-acp
-npm install --global @zed-industries/codex-acp
-npm install --global @openai/codex
-npm install --global @google/gemini-cli
+npm install --global -y @agentclientprotocol/claude-agent-acp
+npm install --global -y @zed-industries/codex-acp
+npm install --global -y @openai/codex
+npm install --global -y @google/gemini-cli
+npm install --global -y skills
+
+# Not sure this works globally, but let's find out.
+
+npx skills add vercel-labs/agent-skills --agent '*' -y
+npx skills install -y jupyter-ai-contrib/nb-cli
