@@ -2,7 +2,7 @@
 
 import re
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 from kubernetes_asyncio.client import (
     V1Capabilities,
@@ -180,7 +180,7 @@ class FileserverBuilder:
 
     def _build_ingress(self, username: str) -> dict[str, Any]:
         """Construct ``GafaelfawrIngress`` object for the fileserver."""
-        host = urlparse(self._base_url).hostname
+        host = urlsplit(self._base_url).hostname
         metadata = self._build_metadata(username).to_dict(serialize=True)
         path = {
             "path": f"{self._config.path_prefix}/{username}",
