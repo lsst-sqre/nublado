@@ -90,6 +90,13 @@ COPY jupyterlab-base/runtime/runlab \
 COPY jupyterlab-base/scripts/generate-versions /tmp/build
 RUN cd /tmp/build && ./generate-versions
 
+# Add tini for proper zombie reaping and signal forwarding.
+ENV TINI_VERSION=v0.19.0
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini \
+    /tini
+RUN chmod +x /tini
+ENTRYPOINT ["/tini", "--"]
+
 # This needs to be numeric, since we will remove /etc/passwd and friends
 # while we're running.
 USER 0:0
