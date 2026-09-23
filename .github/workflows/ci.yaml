@@ -31,7 +31,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -57,7 +57,7 @@ jobs:
           - "3.13"
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -82,7 +82,7 @@ jobs:
           - "3.13"
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -107,7 +107,7 @@ jobs:
       jupyterlab-base: ${{ steps.filter.outputs.jupyterlab-base }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: dorny/paths-filter@v4
         id: filter
@@ -141,7 +141,7 @@ jobs:
       || (github.event_name == 'release' && github.event.action == 'published')
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
@@ -188,7 +188,7 @@ jobs:
       || (github.event_name == 'release' && github.event.action == 'published')
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # Ensure the documentation gets the right version.
           fetch-depth: 0
@@ -278,7 +278,7 @@ jobs:
     needs: [test, test-client, docs]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history for setuptools_scm
 
@@ -305,7 +305,7 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history for setuptools_scm
 
