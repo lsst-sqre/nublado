@@ -1028,7 +1028,7 @@ wheels = [
 
 [[package]]
 name = "rubin-gafaelfawr"
-version = "15.4.1"
+version = "16.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
@@ -1040,9 +1040,9 @@ dependencies = [
     { name = "safir" },
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/75/86/a13aa84e7d0f4bce232a52dd8df5ed0ef014b6788b5842b92c32acf4b071/rubin_gafaelfawr-15.4.1.tar.gz", hash = "sha256:3270921b70c1c40d089fa747e744ca3a635f29d41977d89b3bdfe51f866dc1d9", size = 68561, upload-time = "2026-06-12T15:05:10.539Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7e/7b/e8836b6e70c92432bbb1407a9fb11410a1871ea1d52081cdc045962b1541/rubin_gafaelfawr-16.0.2.tar.gz", hash = "sha256:eb794d8662079507204b5307d8897bf522ce8736cbc0d8cf2205b689d2a7e0dc", size = 80148, upload-time = "2026-09-22T22:27:49.071Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2d/5d/934fa592f898d2fd8636c9b731a4e1e47a7b910b1d1225863379c3ce117b/rubin_gafaelfawr-15.4.1-py3-none-any.whl", hash = "sha256:7850834ccee9ab1289c0db4a72c6905164b1829f2ea9cc13fb4e230a908432ac", size = 14468, upload-time = "2026-06-12T15:05:11.419Z" },
+    { url = "https://files.pythonhosted.org/packages/08/23/a23ab064e9a4165051c172f7fa2a75d494ece9fa3106a74ddb46d793c46d/rubin_gafaelfawr-16.0.2-py3-none-any.whl", hash = "sha256:7fd689b80d20362b310d886a3aa951f9698b3f199de4b7f158fc84c99de40698", size = 14508, upload-time = "2026-09-22T22:27:47.82Z" },
 ]
 
 [[package]]
@@ -1081,7 +1081,7 @@ requires-dist = [
     { name = "httpx", specifier = "<1" },
     { name = "httpx-sse", specifier = ">=0.4.1,<1" },
     { name = "pydantic", specifier = ">2.11,<3" },
-    { name = "rubin-gafaelfawr", specifier = "<16" },
+    { name = "rubin-gafaelfawr", specifier = "<17" },
     { name = "rubin-repertoire", specifier = "<4" },
     { name = "safir", specifier = "<16" },
     { name = "structlog" },
@@ -1105,7 +1105,7 @@ typing = [{ name = "mypy", specifier = ">=1.15" }]
 
 [[package]]
 name = "rubin-repertoire"
-version = "2.1.0"
+version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastapi" },
@@ -1117,9 +1117,9 @@ dependencies = [
     { name = "safir" },
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/9f/b29bdfda3ce68d1b5b26b693452c8570d115b23eaa66534bc97fc620af78/rubin_repertoire-2.1.0.tar.gz", hash = "sha256:69b6da3d7789c15c296145ee5e77e92eb5272f1f72db029619f11f95e13d5b0b", size = 20248, upload-time = "2026-07-17T23:17:11.138Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/fe/ac4535bcc8dc3aa2a0a530fb01daed68b8097bc2788a0a145ca9873aa81c/rubin_repertoire-3.0.0.tar.gz", hash = "sha256:254a8f26d09429cd0c8b5df6d5aae4866762a30bfd49524a55c542598271b0a7", size = 22879, upload-time = "2026-09-22T20:32:28.933Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/20/11/7958c72c03a648c1b3b7f3b252bb118e2c98934d082310b2008bc56c29e8/rubin_repertoire-2.1.0-py3-none-any.whl", hash = "sha256:c5eb537b08ec8031323d434a5abbc78b832bd127bc64e3986194979c9074f75c", size = 23782, upload-time = "2026-07-17T23:17:10.161Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/e0/b0d7ac6cbc3f45bcc276b81af06fc0b0a9301347563e0fa8d5ef57903f05/rubin_repertoire-3.0.0-py3-none-any.whl", hash = "sha256:9c50d8cf3a62ccccc97cdb58252e5e10b4916f982d7ac44882ceae25220dcaf1", size = 25695, upload-time = "2026-09-22T20:32:27.945Z" },
 ]
 
 [[package]]
