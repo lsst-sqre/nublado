@@ -70,7 +70,7 @@ jobs:
     permissions:
       packages: write
     concurrency:
-      group: docker-jupyterhub
+      group: docker-jupyterlab
       queue: max
 
     steps:

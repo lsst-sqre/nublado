@@ -259,7 +259,7 @@ jobs:
     uses: lsst-sqre/multiplatform-build-and-push/.github/workflows/build.yaml@v4
     secrets: inherit
     concurrency:
-      group: docker-jupyterhub
+      group: docker-jupyterlab
       queue: max
 
     # Only do Docker builds of tagged releases and pull requests from ticket
