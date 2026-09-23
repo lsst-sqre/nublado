@@ -25,10 +25,10 @@ dependencies = [
     "httpx-sse>=0.4.1,<1",
     "pydantic>2.11,<3",
     "rubin-gafaelfawr<16",
-    "rubin-repertoire<3",
+    "rubin-repertoire<4",
     "safir<16",
     "structlog",
-    "websockets>=14,<17",
+    "websockets>=14,<18",
 ]
 
 dynamic = ["version"]
