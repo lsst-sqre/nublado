@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from pydantic import (
+    AliasGenerator,
     BaseModel,
     BeforeValidator,
     ConfigDict,
@@ -40,9 +41,9 @@ class ImageFilter(BaseModel):
     """
 
     model_config = ConfigDict(
-        alias_generator=to_camel,
+        alias_generator=AliasGenerator(validation_alias=to_camel),
         extra="forbid",
-        populate_by_name=True,
+        validate_by_name=True,
         arbitrary_types_allowed=True,
     )
 
@@ -111,7 +112,9 @@ class ImageFilterPolicy(BaseModel):
     """
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     release: ImageFilter = Field(

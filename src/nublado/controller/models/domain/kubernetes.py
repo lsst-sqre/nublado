@@ -22,7 +22,13 @@ from kubernetes_asyncio.client import (
     V1Toleration,
     V1WeightedPodAffinityTerm,
 )
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AliasGenerator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    model_validator,
+)
 from pydantic.alias_generators import to_camel
 
 from .docker import DockerReference
@@ -138,7 +144,9 @@ class NodeSelectorRequirement(BaseModel):
     """Individual match rule for nodes."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     key: Annotated[str, Field(title="Key", description="Label key to match")]
@@ -192,7 +200,9 @@ class NodeSelectorTerm(BaseModel):
     """Term to match nodes."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     match_expressions: Annotated[
@@ -224,7 +234,9 @@ class PreferredSchedulingTerm(BaseModel):
     """Scheduling term with a weight, used to find preferred nodes."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     preference: Annotated[
@@ -251,7 +263,9 @@ class NodeSelector(BaseModel):
     """Matching terms for nodes."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     node_selector_terms: Annotated[
@@ -271,7 +285,11 @@ class NodeSelector(BaseModel):
 class NodeAffinity(BaseModel):
     """Node affinity rules."""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
+    )
 
     preferred: Annotated[
         list[PreferredSchedulingTerm],
@@ -318,7 +336,9 @@ class LabelSelectorRequirement(BaseModel):
     """Single rule for label matching."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     key: Annotated[str, Field(title="Key", description="Label key to match")]
@@ -368,7 +388,9 @@ class LabelSelector(BaseModel):
     """
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     match_expressions: Annotated[
@@ -400,7 +422,9 @@ class PodAffinityTerm(BaseModel):
     """Pod matching term for pod affinity."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     label_selector: Annotated[
@@ -464,7 +488,9 @@ class WeightedPodAffinityTerm(BaseModel):
     """Pod matching term for pod affinity with an associated weight."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     pod_affinity_term: Annotated[
@@ -493,7 +519,11 @@ class WeightedPodAffinityTerm(BaseModel):
 class PodAffinityAttrs(BaseModel):
     """Base class for pod affinity rules."""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
+    )
 
     preferred: Annotated[
         list[WeightedPodAffinityTerm],
@@ -560,7 +590,9 @@ class Affinity(BaseModel):
     """Pod affinity rules."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     node_affinity: Annotated[
@@ -669,7 +701,9 @@ class Toleration(BaseModel):
     """
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     effect: Annotated[
