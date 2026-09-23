@@ -12,6 +12,7 @@ from kubernetes_asyncio.client import (
 )
 from pydantic import (
     AfterValidator,
+    AliasGenerator,
     BaseModel,
     BeforeValidator,
     ConfigDict,
@@ -95,7 +96,9 @@ class ContainerImage(BaseModel):
     """
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     repository: Annotated[
@@ -137,7 +140,9 @@ class BaseVolumeSource(BaseModel):
     """
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     type: Annotated[
@@ -233,7 +238,9 @@ class PVCVolumeResources(BaseModel):
     """Resources for a persistent volume claim."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     requests: Annotated[dict[str, str], Field(title="Resource requests")]
@@ -283,7 +290,9 @@ class VolumeConfig(BaseModel):
     """A volume that may be mounted inside a container."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     name: Annotated[
@@ -308,7 +317,9 @@ class VolumeMountConfig(BaseModel):
     """The mount of a volume inside a container."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     container_path: Annotated[
@@ -359,7 +370,10 @@ class FileserverConfig(BaseModel):
     `EnabledFileserverConfig`.
     """
 
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        validate_by_name=True,
+    )
 
     enabled: Annotated[
         bool,
@@ -391,7 +405,9 @@ class EnabledFileserverConfig(FileserverConfig):
     """Configuration for enabled user file servers."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     enabled: Literal[True]
@@ -522,7 +538,10 @@ class EnabledFileserverConfig(FileserverConfig):
 class FSAdminConfig(BaseModel):
     """Configuration for filesystem administration environment."""
 
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        validate_by_name=True,
+    )
 
     affinity: Annotated[
         Affinity | None,
@@ -635,7 +654,9 @@ class PrepullerConfig(PrepullerOptions):
     """
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     docker_credentials_path: Annotated[
@@ -666,7 +687,9 @@ class LabSizeDefinition(BaseModel):
     """
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     size: Annotated[
@@ -708,7 +731,9 @@ class LabInitContainer(BaseModel):
     """A container to run as an init container before the user's lab."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     name: Annotated[
@@ -760,7 +785,9 @@ class LabSecret(BaseModel):
     """A secret to make available to lab containers."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     secret_name: Annotated[
@@ -819,7 +846,9 @@ class LabNSSFiles(BaseModel):
     """Rules for :file:`/etc/passwd` and :file:`/etc/group` inside the lab."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     base_passwd: Annotated[
@@ -853,7 +882,9 @@ class LabConfig(BaseModel):
     """Configuration for spawning user labs."""
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     activity_interval: Annotated[
@@ -1297,7 +1328,9 @@ class Config(BaseSettings):
     """Nublado controller configuration."""
 
     model_config = SettingsConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
     base_url: Annotated[

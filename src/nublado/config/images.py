@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Annotated, Self
 
 import yaml
-from pydantic import ConfigDict, Field
+from pydantic import AliasGenerator, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from safir.logging import LogLevel, Profile, configure_logging
 
@@ -29,7 +29,9 @@ class DockerSourceConfig(DockerSource):
     """
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
 
@@ -42,7 +44,9 @@ class GARSourceConfig(GARSource):
     """
 
     model_config = ConfigDict(
-        alias_generator=to_camel, extra="forbid", populate_by_name=True
+        alias_generator=AliasGenerator(validation_alias=to_camel),
+        extra="forbid",
+        validate_by_name=True,
     )
 
 
