@@ -6,7 +6,7 @@ from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime, timedelta
 from functools import wraps
 from typing import Any, Concatenate, Literal
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlsplit
 
 import websockets
 from httpx import AsyncClient, Cookies, HTTPError, Response, Timeout
@@ -471,9 +471,9 @@ class JupyterAsyncClient:
             # username, update _lab_base_url accordingly. This is not always
             # the first redirect because a JupyterHub authentication may be
             # required first.
-            new = urlparse(location)
+            new = urlsplit(location)
             if new.hostname and new.hostname.startswith(host_prefix):
-                current = urlparse(base_url)
+                current = urlsplit(base_url)
                 if current.netloc != new.netloc:
                     base_url = current._replace(netloc=new.netloc).geturl()
                     msg = "Found JupyterLab base URL"
@@ -657,4 +657,4 @@ class JupyterAsyncClient:
         str
             URL converted to the ``wss`` scheme.
         """
-        return urlparse(url)._replace(scheme="wss").geturl()
+        return urlsplit(url)._replace(scheme="wss").geturl()

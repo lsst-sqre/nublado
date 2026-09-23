@@ -22,7 +22,7 @@ from re import Pattern
 from traceback import format_exc
 from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY, patch
-from urllib.parse import parse_qs, urljoin, urlparse
+from urllib.parse import parse_qs, urljoin, urlsplit
 from uuid import uuid4
 
 import websockets
@@ -1080,7 +1080,7 @@ async def register_mock_jupyter(
     mock.install_hub_routes(respx_mock, base_url)
     mock.install_lab_routes(respx_mock, re.escape(base_url))
     if use_subdomains:
-        parsed_base_url = urlparse(base_url)
+        parsed_base_url = urlsplit(base_url)
         host = parsed_base_url.hostname
         assert host, "Base URL for nublado service has no host component"
         path = parsed_base_url.path.rstrip("/")

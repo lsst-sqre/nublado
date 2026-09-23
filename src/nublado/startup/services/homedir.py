@@ -6,7 +6,7 @@ import shutil
 import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, urlparse
+from urllib.parse import parse_qsl, urlsplit
 
 from structlog.stdlib import BoundLogger
 
@@ -56,7 +56,7 @@ class HomedirManager:
             except Exception:
                 self._logger.exception(f"Could not read {urlfile!s}")
                 continue
-            qry = urlparse(url).query
+            qry = urlsplit(url).query
             if not qry:
                 continue
             for key, value in parse_qsl(qry):
