@@ -70,7 +70,10 @@ jobs:
         working-directory: client
 
   # Likewise, this test matrix should not include the Python version from
-  # .python-version, which will be tested by the test job.
+  # .python-version except in the occasional case where JupyterHub matches the
+  # current .python-version. In that case, retain this test and run a
+  # duplicate test, since this will generally be short-lived and JupyterHub
+  # will fall behind again.
   test-hub:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -78,8 +81,7 @@ jobs:
     strategy:
       matrix:
         python:
-          - "3.12"
-          - "3.13"
+          - "3.14"
 
     steps:
       - uses: actions/checkout@v7
