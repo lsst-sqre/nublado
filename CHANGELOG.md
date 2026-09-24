@@ -6,16 +6,33 @@ Find changes for the upcoming release in the project's [changelog.d directory](h
 
 <!-- scriv-insert-here -->
 
+<a id='changelog-16.1.0'></a>
+## 16.1.0 (2026-09-24)
+
+### New features
+
+- Set the environment variable `NB_HOME` in user labs to the normal user home directory, regardless of changes due to emergency startup after errors. This allows the user to find their actual home directory when the lab starts with a different home directory due to problems such as an exhausted quota.
+- Replaced the server-side typst PDF export in the JupyterLab base image with jupyterlite-pdf-exporter.
+
+### Bug fixes
+
+- Update JupyterHub to 5.5.2 (Zero to JupyterHub 4.4.2), fixing several security vulnerabilities.
+
+### Other changes
+
+- Relax the dependency on rubin-repertoire in rubin-nublado-client to allow rubin-repertoire 3.0.0.
+- Relax the dependency on rubin-gafaelfawr in rubin-nublado-client to allow rubin-gafaelfawr 16.0.0 and later.
+
 <a id='changelog-16.0.0'></a>
 ## 16.0.0 (2026-08-14)
 
 ### Backwards-incompatible changes
 
-- Jupyter AI and RTC features removed from jupyterlab-base due to stability issues.
+- Remove all Jupyter AI and real-time collaboration extensions from the JupyterLab base image due to stability issues.
 
 ### Other changes
 
-- PDF export no longer depends on Pandoc.
+- PDF export in the JupyterLab base image no longer depends on Pandoc.
 
 <a id='changelog-15.1.0'></a>
 ## 15.1.0 (2026-06-11)
