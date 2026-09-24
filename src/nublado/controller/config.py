@@ -981,6 +981,21 @@ class LabConfig(BaseModel):
         ),
     ] = {}
 
+    fs_group_primary: Annotated[
+        bool,
+        Field(
+            title="fsGroup for labs",
+            description=(
+                "Value of securityContext.fsGroup for all Nublado labs. This"
+                " setting will apply to every lab container, including init"
+                " containers, regardless of user, UID, or GID. It is not"
+                " possible to set a per-user fsGroup. READ THE DOCUMENTATION"
+                " BEFORE SETTING THIS OPTION; IT MAY CAUSE SERIOUS FILE SYSTEM"
+                " DAMAGE OR SECURITY ISSUES."
+            ),
+        ),
+    ] = False
+
     jupyterlab_config_dir: Annotated[
         str,
         Field(

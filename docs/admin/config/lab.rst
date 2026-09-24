@@ -94,6 +94,22 @@ This allows the list of volumes to be shared with init containers (see :ref:`con
 
 Nublado currently supports three types of volumes, each specified with the ``source`` key of an entry in ``controller.config.lab.volumes``.
 
+.. warning::
+
+   By default, ``securityContext.fsGroup`` is not set for lab pods.
+   Mounted volumes will therefore generally use whatever ownership already exists in the volumes, and may default to root ownership without group write.
+
+   Setting ``securityContext.fsGroup`` tells Kubernetes to perform a recursive chown of all mounted volumes of some volume types to this GID.
+   Each storage plugin decides separately whether to support this setting, and it is often difficult to know what the effect will be for a given storage backend.
+   This recursive ownership change may be **catastrophically incorrect** and introduce security vulnerabilities, possibly only after seemingly innocuous changes to the volume configuration years later.
+
+   If you absolutely must change the ownership of mounted volumes on mount, you can set ``controller.config.lab.fsGroupPrimary`` to true.
+   If this is set, ``securityContext.fsGroup`` is set to the primary GID of the user.
+   This will cause Kubernetes to recursively chown all mounted volumes that support ``fsGroup`` to the user's primary GID.
+
+   **THIS OPTION IS NOT SUPPORTED; USE AT YOUR OWN RISK.**
+   If you enable it, you are responsible for ensuring, for as long as it is enabled, that every volume you configure to be accessible to Nublado pods is safe to use with this setting.
+
 .. _config-lab-volume-empty-dir:
 
 EmptyDir volumes
@@ -192,6 +208,10 @@ PVC volumes have the following settings in their ``source`` key.
 ``readOnly``
     If set to true, forces all mounts of this volume to be read-only.
     This is a lower-level setting than the ``readOnly`` setting on the volume mount and effectively overrides it, although the error message for attempted writes may be different.
+
+For a writable per-user ``PersistentVolumeClaim``, you may need to set ``controller.config.lab.fsGroupPrimary`` to true.
+This affects **all** mounted volumes and is therefore extremely dangerous and unsupported.
+See :ref:`config-lab-volumes`.
 
 Environment variables
 =====================
