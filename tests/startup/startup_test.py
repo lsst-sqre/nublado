@@ -452,7 +452,7 @@ def test_increase_log_limit(monkeypatch: pytest.MonkeyPatch) -> None:
         / "user-settings"
         / "@jupyterlab"
         / "notebook-extension"
-        / "tracker.jupyterlab.settings"
+        / "tracker.jupyterlab-settings"
     )
     assert not settings.exists()
     hm = HomedirManager(env=pr._env, home=pr._home, logger=pr._logger)
