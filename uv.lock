@@ -14,6 +14,9 @@ required-markers = [
     "platform_machine == 'aarch64' and sys_platform == 'manylinux'",
 ]
 
+[options]
+prerelease-mode = "allow"
+
 [manifest]
 members = [
     "nublado",
