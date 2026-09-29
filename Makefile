@@ -7,8 +7,8 @@ help:
 
 .PHONY: init
 init:
-	uv sync --frozen --all-groups
-	uv run prek install
+	uv sync --frozen --all-groups --prerelease=allow
+	uv run --prerelease=allow prek install
 
 .PHONY: update
 update: update-deps init
