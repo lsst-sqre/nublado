@@ -7,16 +7,16 @@ help:
 
 .PHONY: init
 init:
-	uv sync --frozen --all-groups --prerelease=allow
-	uv run --prerelease=allow prek install
+	uv sync --frozen --all-groups
+	uv run prek install
 
 .PHONY: update
 update: update-deps init
 
 .PHONY: update-deps
 update-deps:
-	uv lock --upgrade --prerelease=allow
+	uv lock --upgrade
 	uv lock --upgrade --directory client
 	uv lock --upgrade --directory hub
-	uv run --only-group=lint --prerelease=allow prek autoupdate
+	uv run --only-group=lint prek autoupdate
 	./scripts/update-uv-version.sh
