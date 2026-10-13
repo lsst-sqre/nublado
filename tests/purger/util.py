@@ -1,7 +1,7 @@
 """Tools for testing."""
 
-import datetime
 import os
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from safir.pydantic._types import _validate_human_timedelta
@@ -12,10 +12,10 @@ from nublado.purger.models.plan import FileReason
 def set_age(path: Path, whichtime: FileReason, h_age: str) -> None:
     v_age = _validate_human_timedelta(h_age)
     if isinstance(v_age, float):
-        age = datetime.timedelta(seconds=v_age)
-    elif isinstance(v_age, datetime.timedelta):
+        age = timedelta(seconds=v_age)
+    elif isinstance(v_age, timedelta):
         age = v_age
-    now = datetime.datetime.now(tz=datetime.UTC)
+    now = datetime.now(tz=UTC)
     then = int((now - age).timestamp())
     stat = path.stat()
     o_atime = stat.st_atime

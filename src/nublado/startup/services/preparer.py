@@ -1,9 +1,9 @@
 """RSP Lab preparer."""
 
-import datetime
 import json
 import os
 import shutil
+from datetime import UTC, datetime
 from pathlib import Path
 from textwrap import dedent
 
@@ -145,7 +145,7 @@ class Preparer:
         if not os.getenv("RESET_USER_ENV"):
             return
         self._logger.debug("User environment relocation requested")
-        now = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%S")
+        now = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
         reloc = self._home / f".user_env.{now}"
         for candidate in (
             "cache",
