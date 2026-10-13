@@ -1,7 +1,7 @@
 """Set up Dask proxy configuration, needed by lsdb."""
 
-import datetime
 import shutil
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -146,11 +146,7 @@ class DaskConfigurator:
             files = list(cfgdir.glob(f"*.{suffix}"))
             if files:
                 for fl in files:
-                    today = (
-                        datetime.datetime.now(tz=datetime.UTC)
-                        .date()
-                        .isoformat()
-                    )
+                    today = datetime.now(tz=UTC).date().isoformat()
                     bk = Path(f"{fl!s}.{today}")
                     newcfg = self._clean_empty_config(fl, bk)
                     if not newcfg:

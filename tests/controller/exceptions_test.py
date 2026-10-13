@@ -1,6 +1,6 @@
 """Tests for exceptions."""
 
-import datetime
+from datetime import UTC, datetime
 
 from anys import AnyContains
 from safir.datetime import format_datetime_for_logging
@@ -14,8 +14,8 @@ from nublado.controller.exceptions import (
 
 
 def test_controller_timeout_error_slack() -> None:
-    started_at = datetime.datetime(2001, 11, 30, tzinfo=datetime.UTC)
-    failed_at = datetime.datetime(2001, 12, 30, tzinfo=datetime.UTC)
+    started_at = datetime(2001, 11, 30, tzinfo=UTC)
+    failed_at = datetime(2001, 12, 30, tzinfo=UTC)
 
     error = ControllerTimeoutError(
         operation="whatever",
@@ -61,8 +61,8 @@ def test_controller_timeout_error_slack() -> None:
 
 
 def test_controller_timeout_error_sentry() -> None:
-    started_at = datetime.datetime(2001, 11, 30, tzinfo=datetime.UTC)
-    failed_at = datetime.datetime(2001, 12, 30, tzinfo=datetime.UTC)
+    started_at = datetime(2001, 11, 30, tzinfo=UTC)
+    failed_at = datetime(2001, 12, 30, tzinfo=UTC)
 
     error = ControllerTimeoutError(
         operation="whatever",

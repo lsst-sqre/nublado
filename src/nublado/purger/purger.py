@@ -3,8 +3,8 @@ planning actions according to its policy, reporting its plans, and
 executing its plans.
 """
 
-import datetime
 import errno
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -51,7 +51,7 @@ class Purger:
         visited: list[Path] = []
 
         # Set time at beginning of run
-        now = datetime.datetime.now(tz=datetime.UTC)
+        now = datetime.now(tz=UTC)
         then = now
         later = self._config.future_duration
         if later:
@@ -106,7 +106,7 @@ class Purger:
         return any(vis == root or vis in root.parents for vis in visited)
 
     def _check_file(
-        self, path: Path, policy: DirectoryPolicy, when: datetime.datetime
+        self, path: Path, policy: DirectoryPolicy, when: datetime
     ) -> FileRecord | None:
         # This is the actual meat of the purger.  We've found a file.
         # Determine if it is large or small, and then compare its three
@@ -142,9 +142,9 @@ class Purger:
         else:
             ivals = policy.intervals.small
             f_class = FileClass.SMALL
-        atime = datetime.datetime.fromtimestamp(st.st_atime, tz=datetime.UTC)
-        ctime = datetime.datetime.fromtimestamp(st.st_ctime, tz=datetime.UTC)
-        mtime = datetime.datetime.fromtimestamp(st.st_mtime, tz=datetime.UTC)
+        atime = datetime.fromtimestamp(st.st_atime, tz=UTC)
+        ctime = datetime.fromtimestamp(st.st_ctime, tz=UTC)
+        mtime = datetime.fromtimestamp(st.st_mtime, tz=UTC)
         a_max = ivals.access_interval
         c_max = ivals.creation_interval
         m_max = ivals.modification_interval
