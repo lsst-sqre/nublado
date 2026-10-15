@@ -1,6 +1,6 @@
 """Object representing files to be purged, and why."""
 
-import datetime
+from datetime import timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, override
@@ -49,12 +49,11 @@ class FileRecord(CamelCaseModel):
     ]
 
     file_interval: Annotated[
-        datetime.timedelta,
-        Field(..., title="Time since the appropriate timestamp."),
+        timedelta, Field(..., title="Time since the appropriate timestamp.")
     ]
 
     criterion_interval: Annotated[
-        datetime.timedelta,
+        timedelta,
         Field(..., title="Interval at which file is marked for deletion."),
     ]
 

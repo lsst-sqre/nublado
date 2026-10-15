@@ -181,7 +181,7 @@ PVC volumes have the following settings in their ``source`` key.
 
 ``accessModes``
     A list of Kubernetes access modes.
-    Because the same volumes are mounted for every user's lab pod, only the access modes ending in ``Many`` are supported, namely ``ReadOnlyMany`` and ``ReadWriteMany``.
+    Because the same volumes are mounted for every user's lab pod, storage backends that do not create a separate persistent volume for each claim can only use the access modes ending in ``Many`` are supported, namely ``ReadOnlyMany`` and ``ReadWriteMany``.
 
 ``storageClassName``
     Name of the storage class.
