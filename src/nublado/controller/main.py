@@ -79,7 +79,7 @@ def create_app(*, load_config: bool = True) -> FastAPI:
         title=config.name if load_config else "Nublado",
         description=metadata("nublado")["Summary"],
         version=version("nublado"),
-        tags_metadata=[
+        openapi_tags=[
             {
                 "name": "hub",
                 "description": "APIs that can only be used by JupyterHub.",
