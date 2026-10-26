@@ -22,7 +22,7 @@ The three most common ways to obtain those are:
 
 - Request a service token via a `Kubernetes custom resource <https://gafaelfawr.lsst.io/user-guide/service-tokens.html>`__ and inject that token and the corresponding username into the application.
 
-- Create a new token using the `Gafaelfawr API <https://gafaelfawr.lsst.io/api.html>`__.
+- Create a new token using the `Gafaelfawr API <https://gafaelfawr.lsst.io/api/index.html>`__.
   This will require an application token with ``admin:token`` scope and allows specification of the username (in this case, usually a bot user with a username starting with ``bot-``) and scopes.
 
 The application should request ``exec:notebook`` scope, along with any other scopes it may need for any Python code it wants to execute in a notebook.
