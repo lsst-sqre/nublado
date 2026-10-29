@@ -1,17 +1,13 @@
 """Source for architecture component diagram."""
 
-import os
-from pathlib import Path
-
-from diagrams import Cluster, Diagram, Edge
+from diagrams import Cluster, Edge
 from diagrams.gcp.compute import KubernetesEngine
 from diagrams.gcp.network import LoadBalancing
 from diagrams.gcp.storage import Filestore
 from diagrams.k8s.compute import ReplicaSet
 from diagrams.k8s.podconfig import Secret
 from diagrams.onprem.client import User
-
-os.chdir(Path(__file__).parent)
+from documenteer.ext.diagrams import SphinxDiagram
 
 graph_attr = {
     "label": "",
@@ -26,11 +22,8 @@ node_attr = {
     "fontsize": "12.0",
 }
 
-with Diagram(
-    "Nublado architecture",
-    show=False,
-    filename="architecture",
-    outformat="png",
+with SphinxDiagram(
+    title="Nublado architecture",
     graph_attr=graph_attr,
     node_attr=node_attr,
 ):

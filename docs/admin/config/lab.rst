@@ -369,7 +369,7 @@ See the `Kubernetes documentation <https://kubernetes.io/docs/concepts/configura
 
 ``controller.config.lab.sizes``
     The list of available lab sizes from which the user can choose.
-    If the user has a notebook quota set (see `quota settings in Gafaelfawr <https://gafaelfawr.lsst.io/user-guide/helm.html#quotas>`__), only sizes that fit within that quota will be shown.
+    If the user has a notebook quota set (see `quota settings in Gafaelfawr <https://gafaelfawr.lsst.io/user-guide/quotas.html>`__), only sizes that fit within that quota will be shown.
     The order in which the sizes are listed will be preserved in the menu.
 
     Each element of the list must contain the following keys:

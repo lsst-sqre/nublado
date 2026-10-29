@@ -1,15 +1,11 @@
 """Source for file server component diagram."""
 
-import os
-from pathlib import Path
-
-from diagrams import Cluster, Diagram, Edge
+from diagrams import Cluster, Edge
 from diagrams.gcp.storage import Filestore
 from diagrams.k8s.compute import Pod
 from diagrams.k8s.storage import PV, PVC
 from diagrams.onprem.client import User
-
-os.chdir(Path(__file__).parent)
+from documenteer.ext.diagrams import SphinxDiagram
 
 graph_attr = {
     "label": "",
@@ -24,11 +20,8 @@ node_attr = {
     "fontsize": "12.0",
 }
 
-with Diagram(
-    "Administrative file server detail",
-    show=False,
-    filename="fsadmin",
-    outformat="png",
+with SphinxDiagram(
+    title="Administrative file server detail",
     graph_attr=graph_attr,
     node_attr=node_attr,
 ):

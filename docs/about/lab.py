@@ -1,9 +1,6 @@
 """Source for lab component diagram."""
 
-import os
-from pathlib import Path
-
-from diagrams import Cluster, Diagram, Edge
+from diagrams import Cluster, Edge
 from diagrams.gcp.compute import KubernetesEngine
 from diagrams.gcp.network import LoadBalancing
 from diagrams.gcp.storage import Filestore
@@ -13,8 +10,7 @@ from diagrams.k8s.network import NetworkPolicy, Service
 from diagrams.k8s.podconfig import ConfigMap, Secret
 from diagrams.k8s.storage import PV, PVC
 from diagrams.onprem.client import User
-
-os.chdir(Path(__file__).parent)
+from documenteer.ext.diagrams import SphinxDiagram
 
 graph_attr = {
     "label": "",
@@ -29,11 +25,8 @@ node_attr = {
     "fontsize": "12.0",
 }
 
-with Diagram(
-    "Lab detail",
-    show=False,
-    filename="lab",
-    outformat="png",
+with SphinxDiagram(
+    title="Lab detail",
     graph_attr=graph_attr,
     node_attr=node_attr,
 ):

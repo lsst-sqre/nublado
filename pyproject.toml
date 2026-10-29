@@ -70,10 +70,10 @@ dev = [
     "types-requests",
 ]
 docs = [
-    "documenteer[guide]>=2.3",
+    "documenteer[guide]==2.5.0b4",
     "scriv[toml]>=1.5",
     "sphinx-click",
-    "sphinx-diagrams",
+    "diagrams",
     # Required to generate API documentation.
     "respx",
     "rubin-nublado-authenticator",
