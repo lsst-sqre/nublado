@@ -23,6 +23,8 @@ cd /tmp/agents
 curl -fsSL "https://claude.ai/install.sh" > claude-install.sh
 bash -x ./claude-install.sh
 # Claude does not make it easy to modify where it lands.
+# We may need to do some magic here to allow this to work at SLAC since
+# SLAC uses eMudhra revoked certificates somewhere in their API SSL chain.
 cd $HOME/.local/share
 mv claude /usr/local/share
 cd /usr/local/share/claude/versions
