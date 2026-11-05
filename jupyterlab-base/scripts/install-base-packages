@@ -18,6 +18,7 @@ apt-get update
 
 # Install various dependencies for runtime.
 
+# tini: we need signal handling in the container
 # git: required by setuptools_scm
 # git-lfs: required for new user setup in lsst-rsp
 # pandoc: get the dependencies the venv nbconvert/PDF export will need
@@ -30,6 +31,7 @@ apt-get update
 # right for Codex and Claude without npm installed at runtime;
 # I think this is something to do with entrypoint magic.
 apt-get -y install --no-install-recommends \
+    tini \
     git git-lfs pandoc \
     jq gh hub unzip xz-utils ack screen tmux tree file less \
     man curl \
