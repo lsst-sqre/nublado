@@ -54,6 +54,7 @@ lab = [
     "jupyter-ai-litellm",
     "jupyter-ai-magic-commands",
     "jupyter-bokeh",
+    "jupyter-collaboration",
     "jupyter-console",
     "jupyter-firefly-extensions",
     "jupyter-resource-usage",
