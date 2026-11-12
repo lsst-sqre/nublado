@@ -57,6 +57,7 @@ lab = [
     "jupyter-collaboration",
     "jupyter-console",
     "jupyter-firefly-extensions",
+    "jupyter-remote-desktop-proxy",
     "jupyter-resource-usage",
     "jupyter-server-proxy",
     "jupyterhub",
