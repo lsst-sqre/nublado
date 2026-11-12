@@ -91,7 +91,7 @@ COPY jupyterlab-base/scripts/generate-versions /tmp/build
 RUN cd /tmp/build && ./generate-versions
 
 # Add tini entrypoint for proper zombie reaping and signal forwarding.
-ENTRYPOINT ["/tini", "--"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # This needs to be numeric, since we will remove /etc/passwd and friends
 # while we're running.
