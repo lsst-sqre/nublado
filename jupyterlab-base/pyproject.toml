@@ -50,7 +50,11 @@ lab = [
     "ipyvuetify",
     "ipywebrtc",
     "ipywidgets",
+    "jupyter-ai",
+    "jupyter-ai-litellm",
+    "jupyter-ai-magic-commands",
     "jupyter-bokeh",
+    "jupyter-collaboration",
     "jupyter-console",
     "jupyter-firefly-extensions",
     "jupyter-resource-usage",
@@ -67,7 +71,7 @@ lab = [
     "panel",
     "plotly",
     "pythreejs",
-    "rsp-jupyter-extensions>=0.27.2",
+    "rsp-jupyter-extensions>=0.27.3",
     "sidecar",
 ]
 
