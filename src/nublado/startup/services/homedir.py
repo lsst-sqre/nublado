@@ -176,7 +176,7 @@ class HomedirManager:
             / "notebook-extension"
         )
         settings_dir.mkdir(parents=True, exist_ok=True)
-        settings_file = settings_dir / "tracker.jupyterlab.settings"
+        settings_file = settings_dir / "tracker.jupyterlab-settings"
         if settings_file.is_file():
             with settings_file.open() as f:
                 settings = json.load(f)
