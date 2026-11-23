@@ -27,12 +27,15 @@ apt-get update
 # curl: CLI http client is useful
 # nano ... ed: enough editors to cover most people's habits
 #  (I gave up on emacs in the base container, alas)
+# dbus-x11 ... tigervnc-standalone-server: trying out jupyter-desktop-proxy
+
 apt-get -y install --no-install-recommends \
     tini \
     git git-lfs pandoc \
     jq gh hub unzip xz-utils ack screen tmux tree file less \
     man curl \
-    nano vim ed
+    nano vim ed \
+    dbus-x11 xfce4 xfce4-panel xfce4-settings xorg tigervnc-standalone-server
 
 # Install the nodesource PPA; the nodejs that ships with Trixie is 20.x.
 # It's July 2026 at the time of writing.
