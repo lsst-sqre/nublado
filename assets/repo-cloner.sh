@@ -43,7 +43,7 @@ if [ -d "${TARGET}" ]; then
     cd "${TARGET}" ;
     force_permissions
     git checkout "${BRANCH}"
-    git pull
+    git -c gc.autoDetach=false -c maintenance.autoDetach=false pull
     force_permissions
 else
     cd $(dirname "${TARGET}")
